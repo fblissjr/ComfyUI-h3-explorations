@@ -81,9 +81,10 @@ def main():
         # silently defaulted -- a silent default is what hid the DynamicCombo
         # rename for a day. This fixture's append node carries `size_policy`
         # alone, so all three are legitimately absent and the values beside
-        # them are the defaults, not readings.
+        # them are the defaults (`allow_upscale=False` since 2026-11-15),
+        # not readings.
         assert policies == {"ref_images.ref_image_0": {
-            "size_policy": "max", "allow_upscale": True, "short_edge": 2048,
+            "size_policy": "max", "allow_upscale": False, "short_edge": 2048,
             "qwen_short_edge": 512,
             "linked": [],
             # `qwen_view` joined the list on 2026-08-31 when the flat

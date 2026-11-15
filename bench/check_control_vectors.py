@@ -6137,8 +6137,200 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
                     if len(cap_guide_dm.seen_payloads[0].get("cond_video_latents") or ()) != 1:
                         errs.append("guide_end_percent unexpectedly dropped t=1 single-frame keyframe")
 
+    errs.extend(_check_nov15_steer_prose_and_ph3_family())
     return errs
 
+
+def _check_nov15_steer_prose_and_ph3_family() -> list[str]:
+    """Verify P-H3-Image family routing, sectionless prose field masks, and MiniMaxH3Steer.edit_pass."""
+    import comfy.ldm.minimax.model as mm_mod
+    import control_vector_nodes as cv_nodes
+    import h3_spans
+    import j_lens
+
+    errs: list[str] = []
+
+    # 1. P-H3-Image / un-LoRA'd fl2va routing never collides with "h3_image"
+    for alias, expected_fam in (
+        ("ph3_image", "fl2va_base"),
+        ("p_h3_image", "fl2va_base"),
+        ("fl2va_base", "fl2va_base"),
+        ("h3_image", "h3_image"),
+    ):
+        got = j_lens._canonical_synth_family(alias)
+        if got != expected_fam:
+            errs.append(f"j_lens._canonical_synth_family({alias!r}) returned {got!r}, expected {expected_fam!r}")
+
+    # 2. Sectionless prose (single-paragraph image/edit prompt): fields=['description'] must steer,
+    # while soundscape_only and fields=['overall_soundscape'] must remain all-False.
+    prose_txt = "A brass lantern glows on a rainy cobblestone street."
+    seq_len = 32
+    prose_spans = h3_spans.span_masks_from_prompt(prose_txt, seq_len)
+    prose_tags = torch.ones((1, seq_len), dtype=torch.long)
+    prose_tags_raw = [1] * seq_len
+    prose_payload = {"text_token_tags": prose_tags, "h3_span_masks": prose_spans}
+
+    def _prose_spec(mask_sel: str) -> cv_nodes._AppliedVectorSpec:
+        return cv_nodes._AppliedVectorSpec(
+            vector_name="prose_test",
+            vector=torch.ones((cv.POST_REFINER_DIM,), dtype=torch.float32),
+            strength=1.0,
+            mode="add",
+            mask=mask_sel,
+            start_percent=0.0,
+            end_percent=1.0,
+            metadata={"family": "fl2va", "measured_under": {"prefix": "none"}},
+            advisories=(),
+        )
+
+    m_desc = cv_nodes._resolve_custom_inference_mask(
+        _prose_spec(h3_spans.fields_mask(["description"])),
+        tags_raw=prose_tags_raw,
+        tags_2d=prose_tags,
+        payload=prose_payload,
+        L=seq_len,
+        device=torch.device("cpu"),
+    )
+    if m_desc is None or int(m_desc.sum().item()) <= 0:
+        errs.append(f"sectionless prose fields=['description'] mask expected non-empty, got {m_desc}")
+    for empty_label, empty_sel in (
+        ("soundscape_only", "soundscape_only"),
+        ("fields=['overall_soundscape']", h3_spans.fields_mask(["overall_soundscape"])),
+    ):
+        m_empty = cv_nodes._resolve_custom_inference_mask(
+            _prose_spec(empty_sel),
+            tags_raw=prose_tags_raw,
+            tags_2d=prose_tags,
+            payload=prose_payload,
+            L=seq_len,
+            device=torch.device("cpu"),
+        )
+        if m_empty is None or int(m_empty.sum().item()) != 0:
+            errs.append(
+                f"sectionless prose {empty_label} expected all-False mask, got "
+                f"sum={None if m_empty is None else int(m_empty.sum().item())}"
+            )
+
+    # 3. MiniMaxH3Steer.edit_pass filtering in _make_control_vector_wrapper and MiniMaxH3Steer.execute
+    v_both = torch.ones((cv.POST_REFINER_DIM,), dtype=torch.float32) * 1.0
+    v_orig = torch.ones((cv.POST_REFINER_DIM,), dtype=torch.float32) * 2.0
+    v_edit = torch.ones((cv.POST_REFINER_DIM,), dtype=torch.float32) * 4.0
+    base_meta = {"family": "fl2va", "measured_under": {"prefix": "none"}}
+    specs_ep = tuple(
+        cv_nodes._AppliedVectorSpec(
+            vector_name=f"ep_{ep}",
+            vector=vec,
+            strength=1.0,
+            mode="add",
+            mask="non_vision",
+            start_percent=0.0,
+            end_percent=1.0,
+            metadata=base_meta,
+            advisories=(),
+            edit_pass=ep,
+        )
+        for ep, vec in (("both", v_both), ("original_only", v_orig), ("edited_only", v_edit))
+    )
+    wrap_ep = cv_nodes._make_control_vector_wrapper(specs_ep)
+    ctx_zero = torch.zeros((1, seq_len, cv.POST_REFINER_DIM), dtype=torch.float32)
+    for pass_label, payload_in, expected_val in (
+        ("original", {"text_token_tags": prose_tags, "h3_edit_pass": "original"}, 3.0),
+        ("edited", {"text_token_tags": prose_tags, "h3_edit_pass": "edited"}, 5.0),
+        ("absent (1-pass BasicGuider)", {"text_token_tags": prose_tags}, 1.0),
+    ):
+        ctx_out = wrap_ep(
+            lambda x, ts, ctx, topts, **kw: ctx,
+            None,
+            torch.tensor([0.9]),
+            ctx_zero,
+            {},
+            minimax_payload=payload_in,
+        )
+        expected_ctx = torch.full_like(ctx_zero, expected_val)
+        if not torch.allclose(ctx_out, expected_ctx, atol=1e-6):
+            errs.append(
+                f"_make_control_vector_wrapper edit_pass={pass_label}: expected {expected_val}, "
+                f"got {float(ctx_out[0, 0, 0].item())}"
+            )
+
+    class _MiniDM(mm_mod.MiniMaxH3Model):
+        def __init__(self):
+            torch.nn.Module.__init__(self)
+            gen_ep = torch.Generator().manual_seed(17)
+            self.condition_proj = SimpleNamespace(
+                weight=torch.randn((cv.POST_REFINER_DIM, cv.ENCODER_DIM), generator=gen_ep, dtype=torch.bfloat16),
+                bias=torch.randn((cv.POST_REFINER_DIM,), generator=gen_ep, dtype=torch.bfloat16),
+            )
+            self.token_refiner = SimpleNamespace(
+                final_norm=SimpleNamespace(
+                    weight=torch.randn((cv.POST_REFINER_DIM,), generator=gen_ep, dtype=torch.bfloat16)
+                )
+            )
+
+    class _MiniPatcher:
+        def __init__(self, dm=None):
+            self.model = SimpleNamespace(diffusion_model=dm or _MiniDM())
+            self.cached_patcher_init = None
+            self.backup = {}
+            self.model_options = {"transformer_options": {}}
+            self.wrappers = {}
+
+        def clone(self):
+            c = _MiniPatcher(self.model.diffusion_model)
+            c.model_options = {"transformer_options": dict(self.model_options["transformer_options"])}
+            c.wrappers = {k: {wk: list(wv) for wk, wv in v.items()} for k, v in self.wrappers.items()}
+            return c
+
+        def get_model_object(self, name: str):
+            if name == "diffusion_model":
+                return self.model.diffusion_model
+            raise KeyError(name)
+
+    with tempfile.TemporaryDirectory() as ep_tmp:
+        mini_patcher = _MiniPatcher()
+        ep_path = Path(ep_tmp) / "ep_test__fl2va__diff_span.safetensors"
+        ep_meta = {
+            "format": cv.FORMAT_VERSION,
+            "name": "ep_test",
+            "quality": "edit_pass test",
+            "pairs": {"path": "test.toml", "sha256": "0", "n_pairs": 1, "n_holds": 0},
+            "recipe": {"checkpoint": {"file": "mock.safetensors", "sha256": "0"}, "loras": [], "encoder": {"file": "mock.safetensors", "sha256": "0"}},
+            "family": cv.detect_family(mini_patcher),
+            "measured_under": {"mode": "t2va", "frame": "scene", "prefix": "none", "pooling": "scene_text"},
+            "points": {"post_refiner": {"unit": "mean_pair_difference", "raw_norm": float(torch.linalg.vector_norm(v_both).item()), "median_row_norm": 42.0}},
+            "quality_report": {"mean_pairwise_cosine": 0.6, "split_half_cosine": 0.8, "per_pair_cosine": [0.6]},
+            "provenance": {"core_revision": "0", "pack_commit": "0", "created_utc": "2026-11-15T00:00:00Z", "made_by": "check_control_vectors"},
+        }
+        cv.save_vector(ep_path, {"vector.post_refiner": v_both}, ep_meta)
+        (loaded_ep,) = cv_nodes.MiniMaxH3LoadControlVector.execute(vector=str(ep_path))
+        (p_ep,) = cv_nodes.MiniMaxH3Steer.execute(
+            model=mini_patcher,
+            vector="none",
+            strength=1.0,
+            mode="add",
+            target="non_vision",
+            allow_recipe_mismatch=True,
+            custom_vector=loaded_ep,
+            edit_pass="edited_only",
+        )
+        attached = p_ep.model_options.get("transformer_options", {}).get(cv_nodes.WRAPPER_KEY, ())
+        if len(attached) != 1 or getattr(attached[0], "edit_pass", None) != "edited_only":
+            errs.append(f"MiniMaxH3Steer.execute(edit_pass='edited_only') attached unexpected specs: {attached}")
+        errs.extend(
+            _expect_refusal(
+                lambda: cv_nodes.MiniMaxH3Steer.execute(
+                    model=mini_patcher,
+                    vector="none",
+                    allow_recipe_mismatch=True,
+                    custom_vector=loaded_ep,
+                    edit_pass="bogus",
+                ),
+                "edit_pass must be one of",
+                "MiniMaxH3Steer refusal on unknown edit_pass",
+            )
+        )
+
+    return errs
 
 
 def main() -> int:

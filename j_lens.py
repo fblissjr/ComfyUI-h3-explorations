@@ -192,10 +192,18 @@ def default_bundle_path() -> Path:
     return (COMFY_ROOT / DEFAULT_BUNDLE_REL).resolve()
 
 
+def _chmod_group_readable(path: Path) -> None:
+    """Best-effort 0664 chmod so shared ComfyUI and CLI accounts can read outputs."""
+    try:
+        os.chmod(path, 0o664)
+    except PermissionError:
+        pass
+
+
 def bundle_available(bundle_path: str | os.PathLike | None = None) -> bool:
-    """Return True when the precomputed `j_lens_h3.safetensors` bundle exists on disk."""
+    """Return True when the precomputed `j_lens_h3.safetensors` bundle exists and is readable."""
     path = Path(bundle_path).resolve() if bundle_path is not None else default_bundle_path()
-    return path.is_file()
+    return path.is_file() and os.access(path, os.R_OK)
 
 
 def load_j_lens_bundle(bundle_path: str | os.PathLike | None = None) -> dict[str, Any]:
@@ -206,6 +214,10 @@ def load_j_lens_bundle(bundle_path: str | os.PathLike | None = None) -> dict[str
     if not path.is_file():
         raise FileNotFoundError(
             f"J-Lens operator bundle not found at {path.name} (expected under models/j_lens/j_lens_h3.safetensors)"
+        )
+    if not os.access(path, os.R_OK):
+        raise PermissionError(
+            f"J-Lens operator bundle at {path.name} is not readable; run chmod 0664 on models/j_lens/j_lens_h3.safetensors"
         )
     with safe_open(str(path), framework="pt", device="cpu") as f:
         meta = f.metadata() or {}
@@ -253,12 +265,18 @@ def load_j_lens_bundle(bundle_path: str | os.PathLike | None = None) -> dict[str
             bundle["J_ref_h3_image"] = f.get_tensor("J_ref_h3_image").to(dtype=torch.float32)
         if "J_wiener_h3_image" in bundle_keys:
             bundle["J_wiener_h3_image"] = f.get_tensor("J_wiener_h3_image").to(dtype=torch.float32)
+        if "J_ref_fl2va_base" in bundle_keys:
+            bundle["J_ref_fl2va_base"] = f.get_tensor("J_ref_fl2va_base").to(dtype=torch.float32)
+        if "J_wiener_fl2va_base" in bundle_keys:
+            bundle["J_wiener_fl2va_base"] = f.get_tensor("J_wiener_fl2va_base").to(dtype=torch.float32)
     _BUNDLE_CACHE[path] = bundle
     return bundle
 
 
 def _canonical_synth_family(family: str) -> str:
-    fam_l = str(family or "").lower()
+    fam_l = str(family or "").lower().replace("-", "_")
+    if "ph3_image" in fam_l or "p_h3_image" in fam_l or "fl2va_base" in fam_l:
+        return "fl2va_base"
     if "h3_image" in fam_l:
         return "h3_image"
     if "ref2va" in fam_l:
@@ -267,23 +285,31 @@ def _canonical_synth_family(family: str) -> str:
 
 
 def _select_j_ref(bundle: Mapping[str, Any], family: str) -> torch.Tensor:
-    fam_l = str(family or "").lower()
-    if "h3_image" in fam_l:
+    canon = _canonical_synth_family(family)
+    if canon == "fl2va_base":
+        if "J_ref_fl2va_base" in bundle:
+            return bundle["J_ref_fl2va_base"]
+        return bundle["J_ref_fl2va"]
+    if canon == "h3_image":
         if "J_ref_h3_image" in bundle:
             return bundle["J_ref_h3_image"]
         return bundle["J_ref_ref2va"]
-    if "ref2va" in fam_l:
+    if canon == "ref2va":
         return bundle["J_ref_ref2va"]
     return bundle["J_ref_fl2va"]
 
 
 def _select_j_wiener(bundle: Mapping[str, Any], family: str) -> torch.Tensor:
-    fam_l = str(family or "").lower()
-    if "h3_image" in fam_l:
+    canon = _canonical_synth_family(family)
+    if canon == "fl2va_base":
+        if "J_wiener_fl2va_base" in bundle:
+            return bundle["J_wiener_fl2va_base"]
+        return bundle["J_wiener_fl2va"]
+    if canon == "h3_image":
         if "J_wiener_h3_image" in bundle:
             return bundle["J_wiener_h3_image"]
         return bundle["J_wiener_ref2va"]
-    if "ref2va" in fam_l:
+    if canon == "ref2va":
         return bundle["J_wiener_ref2va"]
     return bundle["J_wiener_fl2va"]
 
@@ -2154,6 +2180,7 @@ def save_synthesized_vector(
             metadata=encoded_meta,
         )
     )
+    _chmod_group_readable(path)
     if write_sidecar_md:
         import control_vectors as _cv_mod
 
@@ -2162,6 +2189,7 @@ def save_synthesized_vector(
             _cv_mod.format_vector_sidecar_md(path.name, tensors_dict, meta_dict),
             encoding="utf-8",
         )
+        _chmod_group_readable(sidecar_path)
     return path
 
 
@@ -2279,6 +2307,7 @@ def save_composed_recipe_vector(
             metadata=encoded_meta,
         )
     )
+    _chmod_group_readable(path)
     if write_sidecar_md:
         import control_vectors as _cv_mod
 
@@ -2287,6 +2316,7 @@ def save_composed_recipe_vector(
             _cv_mod.format_vector_sidecar_md(path.name, tensors_dict, meta_dict),
             encoding="utf-8",
         )
+        _chmod_group_readable(sidecar_path)
     return {
         "path": path,
         "recipe_report": rec,

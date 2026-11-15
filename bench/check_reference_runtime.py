@@ -717,7 +717,7 @@ def append_node_defaults_are_the_serving_defaults():
     assert size_policy.options[0].key == "max", (
         [option.key for option in size_policy.options])
     nested = {spec.id: spec.default for spec in size_policy.options[0].inputs}
-    assert nested == {"dit_short_edge": 2048, "allow_upscale": True}, nested
+    assert nested == {"dit_short_edge": 2048, "allow_upscale": False}, nested
     assert R.REF_IMAGE_SHORT_EDGE == 2048, (
         "the schema default is the release constant; if the constant moved, "
         "this case and the node's tooltip both need to say so")
@@ -736,7 +736,7 @@ def append_node_defaults_are_the_serving_defaults():
     record = R.MiniMaxH3AppendRefImage.execute(
         _frames(1, 64, 64), "max", "separate").args[0][-1]
     assert (record.size_policy, record.short_edge, record.allow_upscale,
-            record.qwen_short_edge) == ("max", 2048, True, h3_rules.REF_QWEN_SHORT_EDGE), record
+            record.qwen_short_edge) == ("max", 2048, False, h3_rules.REF_QWEN_SHORT_EDGE), record
     shared = R.MiniMaxH3AppendRefImage.execute(
         _frames(1, 64, 64), "max", "shared").args[0][-1]
     assert shared.qwen_short_edge == 0, shared

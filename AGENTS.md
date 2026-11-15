@@ -38,6 +38,18 @@ Before picking a `length`, canvas size, mask node, keyframe/sound-cue frame inde
 - **Single-frame (`length = 1`) image exception (`h3_rules.py::SINGLE_FRAME`)**: `length = 1` bypasses `17n + 5` and video duration bounds (`MiniMax-H3-Image`, `P-H3-Image`, Pika `single_frame=True`). `MiniMax-H3-Image` generates at `16 MP` and delivers `4 MP` by default (`MiniMaxH3ImageSize` `generate_megapixels` / `megapixels`, shrunk by `MiniMaxH3ImageDownscale`), with a `4.0 MP` generation floor and uses `PH3_IMAGE_VAE` by default; `P-H3-Image` clamps canvas and `image_1` to `[4 MP, 8 MP]`.
 - **Spatial canvas & `int32` QKV threshold**: Trained family uses `768` short edge, `1344x768` (`7:4`, not `16:9`) area cap, `32`-px multiples (`MiniMaxH3Resolution`). Sequences past **`99,864` packed tokens** (`>= 328` frames at `1344x768`, fewer with refs) overflow signed 32-bit fused-QKV strides and require `int64`-safe / rotated attention (`comfy kitchen attention`, `MiniMaxH3SageAttention` fork, or `MiniMaxH3Sol`; KJNodes' `MiniMaxH3TokenCounter` misreports this threshold by `3x` at `299,593`).
 
+### 2b. H3 Video vs H3 Image (`MiniMax-H3-Image` / `P-H3-Image`) Contract Split
+
+Never conflate the joint AV Video (`fl2va` / `ref2va`) pipeline with single-frame `MiniMax-H3-Image` or `P-H3-Image`:
+
+| Contract Axis | H3 Joint AV Video (`MiniMax-H3` / Pika `t=1`) | `MiniMax-H3-Image` (`h3_image`) | `P-H3-Image` (`fl2va_base` / `ph3_image`) |
+| :--- | :--- | :--- | :--- |
+| **Latent & VAE** | `NestedTensor(video [B,24,T_lat,H/16,W/16], audio [B,32,T_a])`; Video VAE | Unpacked 5D `[B,24,1,H/16,W/16]` (`SINGLE_FRAME`); `PH3_IMAGE_VAE` (default) | `NestedTensor(video [B,24,1,H/16,W/16], audio=[])`; `PH3_IMAGE_VAE` |
+| **Canvas & Ref Sizing** | `768` short edge / `1344x768` video canvas; **`allow_upscale=False`** shrink-only default on native `ref2va` stills (`sglang#47907`) | `4.0 MP` floor (`16 -> 4 MP` default); edit refs upscaled to `>= 1024 px` short edge + top-left `crop_32` | Canvas & `image_1` clamped to `[4 MP, 8 MP]` (`8 -> 4 MP` default); `image_2..8` to `[1 MP, 8 MP]` |
+| **Sigma Shift & Sampler** | `MiniMaxH3SigmaShift(shift=12.0, audio_shift=3.0)` + Sol / Dense (`>99,864` tok int64) | `shift_video=1.0, shift_audio=1.0` + `ManualSigmas(H3_IMAGE_MANUAL_SIGMAS)` + Dense | `shift_video=1.0, shift_audio=1.0` + `ManualSigmas(PH3_IMAGE_MANUAL_SIGMAS)` + Dense |
+| **Masks & Guides** | `MiniMaxH3EditGuider.mask` `[T,H,W]`/`[H,W]`/`[T,1,1]`; `MiniMaxH3GuideLatent` supported | `MiniMaxH3EditGuider.mask` (unpacked 5D); `GuideLatent` incompatible (`NestedTensor` only) | `MiniMaxH3EditGuider.mask` (`packed_split`); `MiniMaxH3GuideLatent(single_frame=True)` works |
+| **Prompts & J-Lens Operator** | Structured 6-section / 3-field (`has_sections=True`); `J_ref_fl2va` / `J_ref_ref2va` (Pika SVD995) | Sectionless visual prose (`has_sections=False`, zero soundscape rows); `J_ref_h3_image` (`5376`) | Sectionless visual prose (`has_sections=False`, zero soundscape rows); `J_ref_fl2va_base` (un-LoRA'd) |
+
 ---
 
 ## 3. Pack Node Map: What We Built & Which Stock/Core Nodes They Replace

@@ -202,11 +202,14 @@ def _load_encoded_references(
 _FL2VA_FAMILY_ALIASES: frozenset[str] = frozenset(
     {
         "fl2va",
+        "fl2va_base",
         "t2va",
         "i2va",
         "image",
         "p-h3-image",
         "p_h3_image",
+        "ph3-image",
+        "ph3_image",
         "t2i",
         "image_t2i",
         "image-t2i",

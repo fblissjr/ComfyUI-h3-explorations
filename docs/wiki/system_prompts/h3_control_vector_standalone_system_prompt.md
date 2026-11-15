@@ -148,3 +148,16 @@ soundscape: exact text copied from the soundscape section -> replacement text
 - Use a `soundscape:` line only when the quality is also heard. Never edit `non_diegetic_music:`.
 - Keep each replacement about as long as the text it replaces.
 - Write one edit per line. Do not join edits with semicolons.
+
+---
+
+### Masked Regional Edits & Control-Vector `edit_pass` Selection
+
+When the user pairs Edit Guidance with a spatial `[H, W]` / `[F, H, W]` or temporal `[F, 1, 1]` mask (`MiniMaxH3EditGuider.mask`) and one or more control vectors (`MiniMaxH3Steer`), also specify:
+
+- **Mask polarity**: `mask = 1.0` receives the **edited** prediction; `mask = 0.0` holds the **original** prediction. Apply `GrowMask` then `ImageBlur` *before* `InvertMask` whenever protecting a painted subject.
+- **`MiniMaxH3Steer.edit_pass`**:
+  - `"both"`: steers both `original` and `edited` passes identically (global concept shift).
+  - `"edited_only"`: steers only `edited` so the vector (or `mode = "project_out"` scrub) affects only `mask = 1`, even with zero `old -> new` prompt edits (`original == edited`).
+  - `"original_only"`: steers only `original` (`mask = 0`); chain one `"original_only"` vector and one `"edited_only"` vector with `first_step >= 1` for a 2-pass Split-World dual look.
+- **Fields on single-paragraph image prompts**: `fields = ["description"]` targets sectionless image prose cleanly; avoid `soundscape_only` / `fields = ["overall_soundscape"]` on sectionless image prompts. Keep `MiniMaxH3Steer.streams = "both"` inside `MiniMaxH3EditGuider` so streams never nest to `4x` passes.

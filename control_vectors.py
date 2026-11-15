@@ -17,6 +17,7 @@ import difflib
 import hashlib
 import json
 import math
+import os
 import re
 import struct
 import tomllib
@@ -2295,6 +2296,14 @@ def format_vector_sidecar_md(
     return "\n".join(lines) + "\n"
 
 
+def _chmod_group_readable(path: Path) -> None:
+    """Best-effort 0664 chmod so shared ComfyUI and CLI accounts can read saved vectors."""
+    try:
+        os.chmod(path, 0o664)
+    except PermissionError:
+        pass
+
+
 def save_vector(
     path: str | Path,
     tensors: Mapping[str, torch.Tensor],
@@ -2328,10 +2337,12 @@ def save_vector(
         )
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_bytes(save_safetensors_bytes(clean_tensors, metadata=encoded_meta))
+    _chmod_group_readable(out_path)
     if write_sidecar_md:
         sidecar_path = out_path.with_suffix(".md")
         sidecar_md = format_vector_sidecar_md(out_path.name, clean_tensors, metadata)
         sidecar_path.write_text(sidecar_md, encoding="utf-8")
+        _chmod_group_readable(sidecar_path)
     return out_path
 
 

@@ -54,6 +54,8 @@ from __future__ import annotations
 import argparse
 import inspect
 import json
+import os
+import stat
 import time
 from pathlib import Path
 from typing import Any
@@ -88,7 +90,89 @@ REQUIRED_BUNDLE_TENSORS: dict[str, tuple[tuple[int, ...], torch.dtype]] = {
 OPTIONAL_BUNDLE_TENSORS: dict[str, tuple[tuple[int, ...], torch.dtype]] = {
     "J_ref_h3_image": ((5376, 5120), torch.float32),
     "J_wiener_h3_image": ((5120, 5376), torch.float32),
+    "J_ref_fl2va_base": ((5376, 5120), torch.float32),
+    "J_wiener_fl2va_base": ((5120, 5376), torch.float32),
 }
+
+
+def _find_model_file(kinds: tuple[str, ...], filename: str | None) -> Path | None:
+    if not filename:
+        return None
+    for kind in kinds:
+        try:
+            full = _h.folder_paths.get_full_path(kind, filename)
+        except Exception:
+            full = None
+        if full and Path(full).is_file():
+            return Path(full)
+    return None
+
+
+def compute_expected_recipe_hashes(
+    *,
+    encoder_name: str | None = None,
+    fl2va_name: str | None = None,
+    ref2va_name: str | None = None,
+    h3_image_name: str | None = None,
+    fl2va_loras: list[dict[str, Any]] | None = None,
+    ref2va_loras: list[dict[str, Any]] | None = None,
+    no_lora: bool = False,
+) -> dict[str, Any]:
+    """Compute lightweight header/recipe digests for every operator stored in `j_lens_h3.safetensors`."""
+    enc_name = encoder_name or h3_config.MODELS["clip"]
+    fl_name = fl2va_name or h3_config.MODELS["unet_fl2va"]
+    ref_name = ref2va_name or h3_config.MODELS["unet_ref2va"]
+    img_name = h3_image_name or h3_config.H3_IMAGE_UNET
+
+    enc_path = _find_model_file(("text_encoders", "clip"), enc_name)
+    fl_path = _find_model_file(("diffusion_models",), fl_name)
+    ref_path = _find_model_file(("diffusion_models",), ref_name)
+    img_path = _find_model_file(("diffusion_models",), img_name)
+
+    if fl2va_loras is None and not no_lora:
+        try:
+            fl2va_loras = _parse_lora_specs([f"{h3_config.PIKA_FL2VA_SVD995_LORA}:1.0"])
+        except Exception:
+            fl2va_loras = []
+    if ref2va_loras is None and not no_lora:
+        try:
+            ref2va_loras = _parse_lora_specs([f"{h3_config.PIKA_REF2VA_SVD995_LORA}:1.0"])
+        except Exception:
+            ref2va_loras = []
+
+    def _lora_entries(specs: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
+        out: list[dict[str, Any]] = []
+        for sp in specs or ():
+            out.append(
+                {
+                    "file": str(sp.get("file", "")),
+                    "sha256": str(sp.get("sha256", "")),
+                    "strength": round(float(sp.get("strength", 1.0)), 6),
+                }
+            )
+        return out
+
+    def _dit_entry(name: str, path: Path | None, loras: list[dict[str, Any]] | None) -> dict[str, Any] | None:
+        if path is None or not path.is_file():
+            return None
+        return {
+            "dit": path.name,
+            "dit_digest": cv.safetensors_recipe_digest(path),
+            "loras": _lora_entries(loras),
+        }
+
+    return {
+        "schema": 1,
+        "encoder": (
+            {"file": enc_path.name, "digest": cv.safetensors_recipe_digest(enc_path)}
+            if enc_path is not None
+            else {"file": str(enc_name), "digest": None}
+        ),
+        "fl2va": _dit_entry(fl_name, fl_path, fl2va_loras),
+        "fl2va_base": _dit_entry(fl_name, fl_path, []),
+        "ref2va": _dit_entry(ref_name, ref_path, ref2va_loras),
+        "h3_image": _dit_entry(img_name, img_path, []),
+    }
 
 
 def verify_j_lens_bundle(bundle_path: str | Path | None = None) -> dict[str, Any]:
@@ -98,6 +182,11 @@ def verify_j_lens_bundle(bundle_path: str | Path | None = None) -> dict[str, Any
     path = Path(bundle_path).resolve() if bundle_path is not None else j_lens.default_bundle_path()
     if not path.is_file():
         raise FileNotFoundError(f"J-Lens operator bundle not found at {path}")
+    if not os.access(path, os.R_OK):
+        raise PermissionError(
+            f"J-Lens operator bundle at {path.name} is not readable; run chmod 0664"
+        )
+    perm_mode = stat.S_IMODE(path.stat().st_mode)
 
     with safe_open(str(path), framework="pt", device="cpu") as f:
         meta = dict(f.metadata() or {})
@@ -146,10 +235,22 @@ def verify_j_lens_bundle(bundle_path: str | Path | None = None) -> dict[str, Any
         synth_img = j_lens.synthesize_from_words("blizzard, snowdrift, freezing", family="h3_image", bundle=loaded_bundle)
         if tuple(synth_img["vector.post_refiner"].shape) != (cv.POST_REFINER_DIM,):
             raise ValueError(f"synthesize_from_words(family='h3_image') returned unexpected shape {tuple(synth_img['vector.post_refiner'].shape)}")
+    if "J_ref_fl2va_base" in loaded_bundle:
+        synth_base = j_lens.synthesize_from_words("blizzard, snowdrift, freezing", family="fl2va_base", bundle=loaded_bundle)
+        if tuple(synth_base["vector.post_refiner"].shape) != (cv.POST_REFINER_DIM,):
+            raise ValueError(f"synthesize_from_words(family='fl2va_base') returned unexpected shape {tuple(synth_base['vector.post_refiner'].shape)}")
+
+    recipe_hashes: dict[str, Any] | None = None
+    if "recipe_hashes_json" in meta:
+        recipe_hashes = json.loads(meta["recipe_hashes_json"])
 
     return {
         "path": str(path),
         "format": meta["format"],
+        "mode": oct(perm_mode),
+        "group_readable": bool(perm_mode & stat.S_IRGRP),
+        "has_recipe_hashes": recipe_hashes is not None,
+        "recipe_hashes": recipe_hashes,
         "vocab_words_count": len(words),
         "tensors": tensor_summary,
         "probe_readout_pos": synth["readout"].get("pos_summary", ""),
@@ -467,6 +568,13 @@ def cmd_build_j_lens(args: argparse.Namespace) -> int:
     j_ref_fl2va, j_wiener_fl2va = compute_refiner_jacobian_and_wiener(
         h49_sequences, sigma_49, dit_path=fl2va_dit, loras=fl2va_loras, device=ref_dev
     )
+    if fl2va_loras:
+        j_ref_fl2va_base, j_wiener_fl2va_base = compute_refiner_jacobian_and_wiener(
+            h49_sequences, sigma_49, dit_path=fl2va_dit, loras=[], device=ref_dev
+        )
+    else:
+        j_ref_fl2va_base = j_ref_fl2va.clone()
+        j_wiener_fl2va_base = j_wiener_fl2va.clone()
     j_ref_ref2va, j_wiener_ref2va = compute_refiner_jacobian_and_wiener(
         h49_sequences, sigma_49, dit_path=ref2va_dit, loras=ref2va_loras, device=ref_dev
     )
@@ -475,8 +583,10 @@ def cmd_build_j_lens(args: argparse.Namespace) -> int:
         **preserved_tensors,
         "Sigma_49_p030": sigma_p030.contiguous(),
         "J_ref_fl2va": j_ref_fl2va.contiguous(),
+        "J_ref_fl2va_base": j_ref_fl2va_base.contiguous(),
         "J_ref_ref2va": j_ref_ref2va.contiguous(),
         "J_wiener_fl2va": j_wiener_fl2va.contiguous(),
+        "J_wiener_fl2va_base": j_wiener_fl2va_base.contiguous(),
         "J_wiener_ref2va": j_wiener_ref2va.contiguous(),
     }
     h3_img_name = getattr(args, "h3_image_dit", None) or h3_config.H3_IMAGE_UNET
@@ -491,6 +601,15 @@ def cmd_build_j_lens(args: argparse.Namespace) -> int:
         raise FileNotFoundError(
             f"MiniMax-H3-Image DiT checkpoint {h3_img_name!r} not found under diffusion_models/"
         )
+    recipe_hashes = compute_expected_recipe_hashes(
+        encoder_name=encoder_name,
+        fl2va_name=getattr(args, "fl2va_dit", None) or h3_config.MODELS["unet_fl2va"],
+        ref2va_name=getattr(args, "ref2va_dit", None) or h3_config.MODELS["unet_ref2va"],
+        h3_image_name=h3_img_name,
+        fl2va_loras=fl2va_loras,
+        ref2va_loras=ref2va_loras,
+        no_lora=bool(getattr(args, "no_lora", False)),
+    )
     out_meta = {
         "format": "h3_j_lens_v1",
         "description": base_meta.get(
@@ -498,9 +617,11 @@ def cmd_build_j_lens(args: argparse.Namespace) -> int:
             "Precomputed H3 Jacobian Lens (J_49_to_63, TokenRefiner J_ref/J_wiener, 7-prefix cloze baseline logits, and BPE word map)",
         ),
         "vocab_words_json": base_meta["vocab_words_json"],
+        "recipe_hashes_json": json.dumps(recipe_hashes, sort_keys=True),
     }
     out_path.parent.mkdir(parents=True, exist_ok=True)
     save_file(out_tensors, str(out_path), metadata=out_meta)
+    j_lens._chmod_group_readable(out_path)
     j_lens._BUNDLE_CACHE.pop(out_path, None)
     info = verify_j_lens_bundle(out_path)
     elapsed = time.perf_counter() - t0

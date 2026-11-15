@@ -8,5 +8,5 @@ Loaded when a session opens a file here; the root `AGENTS.md` still governs.
   or reasoned). `h3_rules.py` (at the repo root) holds what the model allows.
 - **Every walker goes through `h3_config.graph_paths`.**
 - **A default here serves every use of the pack.** A change made for the masked lane goes behind the lane's own input
-  or plan data unless it is right for every graph (root `AGENTS.md`, "The repo is broader than the current project";
-  "A tinkering repo" for adopting upstream defaults).
+  or plan data unless it is right for every graph ([`docs/wiki/decisions.md`](../docs/wiki/decisions.md) and
+  [`docs/wiki/upstream/index.md`](../docs/wiki/upstream/index.md) govern adopting upstream defaults).

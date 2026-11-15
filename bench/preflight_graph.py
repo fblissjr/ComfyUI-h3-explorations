@@ -475,16 +475,16 @@ def _reference_media(inputs: dict, graph: dict):
                 absent.append(name)
                 return default
 
-            # The defaults are the node's own since 2026-09-13 (`max`, the
-            # release short edge, upscale on, one shared view); a reader
-            # that defaulted to core's shrink-only sizing priced an omitted
-            # input at a quarter of the rows it gets.
+            # The defaults are the node's own since 2026-11-15 (`max`, the
+            # release short edge, upscale OFF per sglang #47907, separate 512
+            # Qwen view); `allow_upscale` had been True from 2026-09-13 until
+            # 2026-11-15.
             size_policy = _value("size_policy", "max")
             if size_policy in ("match", "tiered") and "size_policy" not in absent:
                 allow_upscale = size_policy == "tiered"
                 short_edge = 2048
             else:
-                allow_upscale = _value("allow_upscale", True, group="size_policy")
+                allow_upscale = _value("allow_upscale", False, group="size_policy")
                 # Renamed on the node 2026-08-28; the internal dict key below
                 # stays `short_edge` because it is preflight's own.
                 short_edge = _value("dit_short_edge", 2048, group="size_policy")

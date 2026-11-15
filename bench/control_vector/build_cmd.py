@@ -6,10 +6,13 @@ import argparse
 from datetime import datetime, timezone
 import hashlib
 import json
+import os
 from pathlib import Path
+import stat
 import time
 from typing import Any
 
+from safetensors import safe_open
 import torch
 
 import control_vector_nodes as cv_nodes
@@ -1032,6 +1035,194 @@ def cmd_rebuild(args: argparse.Namespace) -> int:
     print(
         f"\n=== Folder Rebuild Complete: {len(all_rows)} vector file(s) across {len(all_stems)} stem(s) updated in {elapsed:.2f}s ==="
     )
+    return 0
+
+
+def _is_group_readable(path: Path) -> bool:
+    try:
+        mode = stat.S_IMODE(path.stat().st_mode)
+    except OSError:
+        return False
+    return bool(mode & stat.S_IRGRP) and os.access(path, os.R_OK)
+
+
+def _inspect_bundle_status(bundle_path: Path) -> tuple[list[str], list[str], dict[str, Any]]:
+    from . import j_lens_builder
+
+    issues: list[str] = []
+    perm_issues: list[str] = []
+    details: dict[str, Any] = {"path": str(bundle_path)}
+    if not bundle_path.is_file():
+        issues.append("missing_bundle")
+        return issues, perm_issues, details
+    if not os.access(bundle_path, os.R_OK):
+        issues.append("unreadable_bundle")
+        perm_issues.append(str(bundle_path))
+        return issues, perm_issues, details
+    if not _is_group_readable(bundle_path):
+        perm_issues.append(str(bundle_path))
+        issues.append("permissions_not_0664")
+
+    with safe_open(str(bundle_path), framework="pt", device="cpu") as f:
+        keys = set(f.keys())
+        meta = dict(f.metadata() or {})
+    if meta.get("format") != "h3_j_lens_v1":
+        issues.append(f"bad_format:{meta.get('format')!r}")
+    if "J_ref_fl2va_base" not in keys or "J_wiener_fl2va_base" not in keys:
+        issues.append("missing_fl2va_base")
+    if "J_ref_h3_image" not in keys or "J_wiener_h3_image" not in keys:
+        issues.append("missing_h3_image")
+
+    raw_rh = meta.get("recipe_hashes_json")
+    if not raw_rh:
+        issues.append("missing_recipe_hashes_json")
+    else:
+        try:
+            stored = json.loads(raw_rh)
+            expected = j_lens_builder.compute_expected_recipe_hashes()
+            details["recipe_hashes"] = stored
+            for op_key in ("encoder", "fl2va", "fl2va_base", "ref2va", "h3_image"):
+                exp_val = expected.get(op_key)
+                if exp_val is not None and stored.get(op_key) != exp_val:
+                    issues.append(f"recipe_mismatch:{op_key}")
+        except Exception as exc:
+            issues.append(f"invalid_recipe_hashes_json:{exc}")
+    details["keys_count"] = len(keys)
+    details["has_fl2va_base"] = "J_ref_fl2va_base" in keys and "J_wiener_fl2va_base" in keys
+    details["has_h3_image"] = "J_ref_h3_image" in keys and "J_wiener_h3_image" in keys
+    return issues, perm_issues, details
+
+
+def _inspect_vectors_status(
+    toml_dir: Path,
+    vec_dir: Path,
+    req_fams_set: set[str],
+) -> tuple[list[str], list[Path]]:
+    stale_stems: list[str] = []
+    perm_paths: list[Path] = []
+    toml_by_stem = {tp.stem: tp for tp in sorted(toml_dir.glob("*.toml"))} if toml_dir.is_dir() else {}
+
+    vecs_by_stem: dict[str, list[tuple[Path, dict[str, torch.Tensor], dict[str, Any]]]] = {}
+    if vec_dir.is_dir():
+        for sp in sorted(vec_dir.glob("*.safetensors")):
+            if not _is_group_readable(sp):
+                perm_paths.append(sp)
+            md_p = sp.with_suffix(".md")
+            if md_p.is_file() and not _is_group_readable(md_p):
+                perm_paths.append(md_p)
+            try:
+                t, m = cv.load_vector(sp)
+            except Exception:
+                stale_stems.append(f"{sp.stem} (load_error)")
+                continue
+            stem = str(m.get("name", sp.stem.split("__")[0])).strip()
+            vecs_by_stem.setdefault(stem, []).append((sp, t, m))
+
+    for stem, tp in sorted(toml_by_stem.items()):
+        items = vecs_by_stem.get(stem, [])
+        if not items:
+            stale_stems.append(f"{stem} (missing)")
+            continue
+        try:
+            ps = cv.load_pairs(tp, bank_dir=cv_nodes.PROMPT_BANK_DIR)
+        except Exception as exc:
+            stale_stems.append(f"{stem} (toml_error: {exc})")
+            continue
+        existing_fams = {str(m.get("family", "")) for _, _, m in items}
+        missing_fams = sorted(req_fams_set - existing_fams)
+        if missing_fams:
+            stale_stems.append(f"{stem} (missing_families={','.join(missing_fams)})")
+            continue
+        reasons = []
+        for sp, t, m in items:
+            if (m.get("pairs") or {}).get("sha256") != ps.sha256:
+                reasons.append(f"{sp.name}:sha256_mismatch")
+            if "vector.encoder" not in t:
+                reasons.append(f"{sp.name}:missing_vector.encoder")
+            if "j_lens_readout" not in (m.get("quality_report") or {}):
+                reasons.append(f"{sp.name}:missing_j_lens_readout")
+        if reasons:
+            stale_stems.append(f"{stem} ({'; '.join(reasons)})")
+    return stale_stems, perm_paths
+
+
+def cmd_status(args: argparse.Namespace) -> int:
+    """Inspect J-Lens bundle & control vector freshness and group permissions; optionally `--rebuild-stale`."""
+    from . import j_lens_builder
+
+    bundle_path = (
+        Path(args.bundle).resolve()
+        if getattr(args, "bundle", None)
+        else j_lens.default_bundle_path()
+    )
+    vec_dir = Path(args.vec_dir).resolve() if getattr(args, "vec_dir", None) else cv_nodes.DEFAULT_VECTOR_DIR
+    toml_dir = Path(args.toml_dir).resolve() if getattr(args, "toml_dir", None) else cv_nodes.PAIR_BANK_DIR
+    req_fams_str = getattr(args, "families", "both")
+    req_fams_set = set(_resolve_requested_families(req_fams_str))
+
+    bundle_issues, bundle_perms, bundle_info = _inspect_bundle_status(bundle_path)
+    stale_stems, vec_perms = _inspect_vectors_status(toml_dir, vec_dir, req_fams_set)
+
+    if getattr(args, "rebuild_stale", False):
+        for p_str in bundle_perms:
+            j_lens._chmod_group_readable(Path(p_str))
+        for vp in vec_perms:
+            j_lens._chmod_group_readable(vp)
+        needs_jlens_rebuild = any(
+            not issue.startswith("permissions_not_0664") for issue in bundle_issues
+        )
+        if needs_jlens_rebuild:
+            print("=== Status --rebuild-stale: rebuilding J-Lens operator bundle ===")
+            jl_args = argparse.Namespace(
+                out=str(bundle_path),
+                base_bundle=str(bundle_path) if bundle_path.is_file() else None,
+                overwrite=bundle_path.is_file(),
+                num_prompts=24,
+                max_tokens=64,
+                encoder=None,
+                fl2va_dit=None,
+                ref2va_dit=None,
+                h3_image_dit=None,
+                no_lora=False,
+                device="default",
+                refiner_device="cpu",
+            )
+            j_lens_builder.cmd_build_j_lens(jl_args)
+        if stale_stems:
+            print(f"=== Status --rebuild-stale: rebuilding {len(stale_stems)} stale control vector stem(s) ===")
+            reb_args = argparse.Namespace(
+                target=None,
+                vec_dir=str(vec_dir),
+                toml_dir=str(toml_dir),
+                vector_target=None,
+                families=req_fams_str,
+                pooling="diff_span",
+                unit_mean=False,
+                dit=None,
+                encoder=None,
+                lora=None,
+                no_lora=False,
+                no_holds=False,
+                include_encoder=True,
+                force=False,
+                seed=0,
+                device="default",
+                refiner_device="cpu",
+            )
+            cmd_rebuild(reb_args)
+        bundle_issues, bundle_perms, bundle_info = _inspect_bundle_status(bundle_path)
+        stale_stems, vec_perms = _inspect_vectors_status(toml_dir, vec_dir, req_fams_set)
+
+    print("=== H3 Control Vector & J-Lens Status ===")
+    print(f"J-Lens bundle ({bundle_path.name}): {'OK' if not bundle_issues else ', '.join(bundle_issues)}")
+    print(f"  fl2va_base={bundle_info.get('has_fl2va_base', False)}, h3_image={bundle_info.get('has_h3_image', False)}, recipe_hashes={'recipe_hashes' in bundle_info}")
+    print(f"Control vectors ({_display_path(toml_dir)}): {len(stale_stems)} stale/missing, {len(vec_perms)} permission warning(s)")
+    for item in stale_stems:
+        print(f"  - stale: {item}")
+    for vp in vec_perms[:10]:
+        print(f"  - perms (<0664): {vp.name}")
+    if len(vec_perms) > 10:
+        print(f"  - ... and {len(vec_perms) - 10} more file(s) with <0664 perms")
     return 0
 
 

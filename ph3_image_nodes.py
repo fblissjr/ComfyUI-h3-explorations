@@ -82,9 +82,9 @@ CANVAS_MIN_PIXELS = 4 * 1024 ** 2
 CANVAS_MODES: tuple[str, ...] = ("auto", "explicit")
 T2I_MAX_NEW_TOKENS = PH3_IMAGE_T2I_MAX_NEW_TOKENS
 EDIT_MAX_NEW_TOKENS = PH3_IMAGE_EDIT_MAX_NEW_TOKENS
-# Inherited from Qwen35Tokenizer.eos_token_id (`<|im_end|>`, comfy/text_encoders/qwen35.py:1299).
+# Inherited from Qwen35Tokenizer `stop_tokens` (`<|im_end|>`, comfy/text_encoders/qwen35.py:240).
 QWEN35_IM_END_ID = 248046
-# Matches `PH3_IMAGE_EDIT_VERBATIM` in `comfy_extras/nodes_minimax_h3.py:28`.
+# Matches `PH3_IMAGE_EDIT_VERBATIM` in `comfy_extras/nodes_minimax_h3.py:47`.
 _EDIT_VERBATIM_RE = re.compile(r"^\s*(Edit <Picture \d+>|subject_definitions:)")
 
 EDIT_SECTIONS: tuple[str, ...] = (
@@ -287,7 +287,7 @@ def build_upsampler_chat(
     """Render the exact ChatML prompt `prompt_upsampler_processor/chat_template.jinja` produces.
 
     Starts with `<|im_start|>user\\n` so `Qwen35ImageTokenizer.tokenize_with_weights`
-    (`comfy/text_encoders/qwen35.py:1250`) sets `skip_template = True` and replaces
+    (`comfy/text_encoders/qwen35.py:1260`) sets `skip_template = True` and replaces
     each `<|image_pad|>` token (248056) with the corresponding tensor in `images`.
     """
     cleaned = request.strip()
@@ -341,7 +341,7 @@ def _encode_ph3_image_condition(vae, image_tensor):
     and `MiniMax-H3` (`coderef/MiniMax-H3/Ref2VA/video_vae/klvae.py:910`) round the
     unnormalized seeded posterior sample (`seed=42`) to `torch.float16` before
     normalizing `(latents - latents_mean) / latents_std`. ComfyUI core's
-    `PH3ImageVAE.encode` (`comfy/ldm/minimax/vae.py:1022-1029`) omits `.to(torch.float16)`.
+    `H3ImageVAE.encode` (`PH3ImageVAE` inherits it; `comfy/ldm/minimax/vae.py:1022-1037`) omits `.to(torch.float16)`.
     Never mutate `fsm.latents_mean` or `fsm.latents_std` around `vae.encode`:
     `ModelPatcherDynamic.load` (`comfy/model_patcher.py:2114-2120`) snapshots
     `named_buffers()` into `backup_buffers` on first load and `restore_loaded_backups`

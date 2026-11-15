@@ -1952,8 +1952,8 @@ IMAGE_EDIT_CANVAS = dict(width=768, height=1152)
 
 # What every single-frame image graph spends, in one place.
 #
-# **`ref_upscale=False`, and it is the opposite of the video default.** The fit
-# node's upscaling takes a reference's short edge to 2048; on this path that is
+# **`ref_upscale=False` on image graphs (since 2026-08-16), and on video graphs
+# since 2026-11-15 (`sglang` #47907).** Upscaling takes a small still's short edge to 2048; on this path that is
 # the single largest cost.
 #
 # **Confirmed here 2026-08-16 rather than inherited.** `h3_image_style`, the
@@ -1975,10 +1975,12 @@ IMAGE_EDIT_CANVAS = dict(width=768, height=1152)
 # still a small n -- two subjects, two seeds -- but the renders are seconds, so
 # the cost of being wrong is a re-render rather than an afternoon.
 #
-# **The video graphs keep `ref_upscale=True`.** Nothing here transfers to them:
-# a 124-frame render is minutes, identity has to survive motion as well as a
-# still, and REF_VIDEO_BUDGET turns it off for an unrelated reason (fitting a
-# long reference in 24 GB).
+# **History:** video graphs kept `ref_upscale=True` from 2026-09-13 through
+# 2026-11-14 for parity with `sglang`'s old `diffusers` default; on
+# 2026-11-15 `ref_upscale` flipped to `False` on video too after `sglang` #47907
+# (`92a6910ef2`) made `max` (shrink-only) default (`docs/wiki/upstream/topics/reference_sizing.md`).
+# `REF_VIDEO_BUDGET` keeps `ref_upscale=False` explicitly to bound VRAM on
+# video-reference renders.
 #
 # **`steps` stays at 16 on this path, and that was tested, not assumed.** The
 # obvious companion optimisation is fewer steps, and on the easy scenes it
@@ -2146,9 +2148,10 @@ ASPECTS = {
 # 4:3 rather than the 1344x768 the rest of the repo defaults to -- a real
 # change in what these arms look like, taken deliberately so the reference
 # stays full length. `ref_upscale=False` leaves reference images at their
-# native size instead of taking them to 2048 on the short edge; it is an
-# ARM setting here, against the node default (upscale on since 2026-09-13),
-# because these arms exist to carry a long reference video on a 24 GB card.
+# native size instead of taking them to 2048 on the short edge (`build_api`
+# kept `ref_upscale=True` from 2026-09-13 to 2026-11-15 before flipping `False`
+# alongside `sglang` #47907; keeping it explicit here prevents regression on a
+# 24 GB card with long reference videos).
 #
 # Spread into every video-bearing reference arm so the three numbers have one
 # home. Editing them here moves all eight arms together, which is the point.

@@ -248,13 +248,8 @@ both to condition the way sglang serves a request that leaves
 core's default exactly. *Corrected 2026-11-04: this paragraph used to call
 `match` "off-vendor" and sglang's 2048 short edge its only rule; since
 `5727f08932` (#35839) that is sglang's default mode, beside a `match` and a
-`max` equal to core's.* **Since
-2026-09-13 a freshly dragged `MiniMaxH3AppendRefImage` does both**: its
-defaults are `size_policy=max`, `dit_short_edge=2048`, `allow_upscale=True`
-and `qwen_view=shared`, one prepared still for both the video VAE and
-Qwen3-VL, which is what sglang, diffusers and DiffSynth do
-([`research/sglang_h3_pipeline.md`](../research/sglang_h3_pipeline.md)
-"Reference stills"). *2026-10-03: `qwen_view` moved again. The owner made `separate` at a 512 short edge the default (node, constant and generated graphs) on two clips of the finish graph at one seed; `size_policy`, the 2048 short edge and `allow_upscale` stay at vendor parity (sglang's default mode; see above for its other two). `docs/wiki/decisions.md` has the evidence and what it does not cover.* Read the values from the node's `define_schema`;
+`max` equal to core's.* **Since 2026-11-15 a freshly dragged `MiniMaxH3AppendRefImage` defaults to shrink-only**: `size_policy=max`, `dit_short_edge=2048`, `allow_upscale=False`, and `qwen_view=separate` at `h3_rules.REF_QWEN_SHORT_EDGE` (`512`).
+*(History: on 2026-09-13 `allow_upscale=True` and `qwen_view=shared` matched sglang's old `diffusers` default; on 2026-10-03 `qwen_view` moved back to `separate` at 512; and on 2026-11-15 the owner flipped `allow_upscale` to `False` after sglang PR #47907 / `92a6910ef2` made `max` default, aligning sglang, vllm-omni, and core ComfyUI. Turn `allow_upscale=True` on when enlarging small stills is desired, or check `bench/refview2_arms.json` / `docs/wiki/upstream/topics/reference_sizing.md`.)* Read the values directly from the node's `define_schema`;
 `bench/refview2_arms.json` is the ablation that would move them.
 
 **On the typed path both live on `MiniMaxH3AppendRefImage`** and that is the
@@ -1503,9 +1498,9 @@ rather than the typed chain, and one loads `fl2va`.
   core's own behaviour is unchanged, so this stays a native limitation.
 - **`ref_image_size='max'` does not upscale.** Neither mode does. It picks
   which ceiling sizes a reference down; `MiniMaxH3AppendRefImage` with
-  `allow_upscale=True` (its default since 2026-09-13; the deprecated
-  `MiniMaxH3ReferenceFit` did the same on the native path) is the only thing
-  that raises a small one to it.
+  `allow_upscale=True` (opt-in since 2026-11-15; it was the default from
+  2026-09-13 to 2026-11-15, and the deprecated `MiniMaxH3ReferenceFit` did
+  the same on the native path) is the only thing that raises a small one to it.
 - **Reference video is truncated to the generated frame count**, so a short
   render cannot be conditioned on a long reference.
 - **12-total and audio-never-alone are unenforced** by ComfyUI — and by

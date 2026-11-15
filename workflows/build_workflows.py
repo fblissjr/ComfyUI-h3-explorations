@@ -1497,14 +1497,15 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
               # dense_backend: ComfyUI core's ModelAttentionBackend value, put
               # where the Sage node would sit (dense_attn="ck").
               dense_backend: str | None = None,
-              # Owner decision 2026-09-13: True, the node's own default and
-              # what sglang, diffusers and DiffSynth do (every still to the
-              # 2048 short edge, one copy for both towers). It was flipped
-              # False on 2026-08-28 for cost; the cost is now shown by
-              # the conditioner's preview before a render rather than
-              # avoided by default. `REF_VIDEO_BUDGET` still turns it off on
-              # the video-bearing arms, for memory.
-              ref_upscale: bool = True,
+              # Owner decision 2026-11-15: False, matching the node's own
+              # default (`MiniMaxH3AppendRefImage.allow_upscale`), sglang's
+              # `max` default since #47907 (2026-11-05), vllm-omni, and core
+              # ComfyUI (`docs/wiki/upstream/topics/reference_sizing.md`).
+              # Historical byte-pinned instruments (`_savelat`, `_x0`,
+              # `_stamped`), `h3_probe_refview2_*`, `h3_probe_reference_upscale`,
+              # Pika motion-transfer parity arms, and masked-song head-crop
+              # graphs explicitly pass `ref_upscale=True`.
+              ref_upscale: bool = False,
               manual_sigmas: str | None = None,
               ref_video_policy: str = "comfy",
               ref_image_policy: str = "comfy",
@@ -3030,6 +3031,7 @@ def build_ph3_image_api(
     height: int | None = None,
     seed: int = SEED,
     control_vector: tuple[str, float] | dict | list | None = None,
+    edit_guidance: dict | None = None,
     out_prefix: str | None = None,
     single_frame: bool = True,
 ) -> dict:
@@ -3165,6 +3167,8 @@ def build_ph3_image_api(
     if control_vector is not None:
         model_src = _wire_control_vectors(g, model_src, control_vector)
     g["9"]["inputs"]["model"] = model_src
+    if edit_guidance is not None:
+        _wire_edit_guidance(g, resolved_prompt, edit_guidance)
     return g
 
 
@@ -4903,6 +4907,7 @@ def main():
          dict(sampler_name="euler", unet=MODELS["unet_ref2va"], steps=MASKED_MOTION_STEPS,
               freeze_song=True, freeze_song_seconds=30.0,
               freeze_song_refs=(PLACEHOLDER_IMAGE_A,), freeze_song_source=True,
+              ref_upscale=True,
               masked_prompt=MASKED_PROMPT, masked_review=True,
               freeze_mask=0.0, freeze_context=39, length=LONG_WINDOW,
               out_prefix="Video/h3_v2v_masked_review"),
@@ -4926,6 +4931,7 @@ def main():
          dict(sampler_name="euler", unet=MODELS["unet_ref2va"], steps=MASKED_MOTION_STEPS,
               freeze_song=True, freeze_song_seconds=30.0,
               freeze_song_refs=(PLACEHOLDER_IMAGE_A,), freeze_song_source=True,
+              ref_upscale=True,
               masked_source=MASKED_MOTION_SOURCE, masked_prompt=MASKED_PROMPT,
               freeze_mask=0.0, freeze_context=39, length=LONG_WINDOW,
               out_prefix="Video/h3_v2v_masked_song_ref2va_motion"),
@@ -4942,6 +4948,7 @@ def main():
          dict(sampler_name="euler", unet=MODELS["unet_ref2va"], steps=MASKED_MOTION_STEPS,
               freeze_song=True, freeze_song_seconds=30.0,
               freeze_song_refs=(PLACEHOLDER_IMAGE_A,), freeze_song_source=True,
+              ref_upscale=True,
               masked_source=MASKED_UPPER_SOURCE, masked_parts=MASKED_UPPER_PARTS,
               masked_prompt=MASKED_UPPER_PROMPT,
               freeze_mask=0.0, freeze_context=39, length=LONG_WINDOW,
@@ -4960,6 +4967,7 @@ def main():
          dict(sampler_name="euler", unet=MODELS["unet_ref2va"], steps=MASKED_MOTION_STEPS,
               freeze_song=True, freeze_song_seconds=30.0,
               freeze_song_refs=(PLACEHOLDER_IMAGE_A,), freeze_song_source=True,
+              ref_upscale=True,
               masked_source=MASKED_MOTION_SOURCE, masked_prompt=MASKED_PROMPT, masked_cache=True,
               freeze_mask=0.0, freeze_context=39, length=LONG_WINDOW,
               out_prefix="Video/h3_probe_v2v_masked_song_ref2va_motion_cache"),
@@ -4972,6 +4980,7 @@ def main():
          dict(sampler_name="euler", unet=MODELS["unet_ref2va"], steps=MASKED_MOTION_STEPS,
               freeze_song=True, freeze_song_seconds=30.0,
               freeze_song_refs=(PLACEHOLDER_IMAGE_A,), freeze_song_source=True,
+              ref_upscale=True,
               masked_source=MASKED_UPPER_SOURCE, masked_parts=MASKED_UPPER_PARTS,
               masked_prompt=MASKED_UPPER_PROMPT, masked_cache=True,
               freeze_mask=0.0, freeze_context=39, length=LONG_WINDOW,
@@ -5178,6 +5187,7 @@ def main():
                   # Pinned: "as built" is the manifest's `parity` arm, and it
                   # means the 2026-09-13 values, not whatever the node
                   # default is now.
+                  ref_upscale=True,
                   ref_qwen_short_edge=0,
                   out_prefix=f"Video/h3_probe_refview2_{tag}"),
              f"reference-view ablation scene: {prompt_id}")
@@ -5465,15 +5475,15 @@ def main():
         # The PDD graphs were retired with the PDD lane on 2026-11-04 and
         # 2026-11-06 (`docs/wiki/ops/roadmap.md`, "Closed lanes").
 
-        # INVERTED TWICE with the default. 2026-08-28 the default went off
+        # INVERTED THREE TIMES with the default. 2026-08-28 the default went off
         # and this arm turned upscaling on; 2026-09-13 the default went back
-        # on (vendor parity) and this arm is the one that turns it OFF.
-        # Re-pointed rather than deleted, because the question is still open
-        # and this is the graph that asks it; `bench/refview2_arms.json` is
-        # the ablation that answers it across scenes.
+        # on (vendor parity) and this arm turned it OFF; 2026-11-15 the
+        # default went off (`sglang` #47907 / `92a6910ef2`) and this arm turns
+        # upscaling BACK ON so it continues to probe the non-default choice.
+        # `bench/refview2_arms.json` is the ablation that answers it across scenes.
         ("h3_probe_reference_upscale.json", "r2v-upscale", "r2v", _ref_prompt(images=True),
-         dict(ref_upscale=False, out_prefix="Video/h3_probe_ref_upscale"),
-         "same references, WITHOUT the reference pipeline's upscale"),
+         dict(ref_upscale=True, out_prefix="Video/h3_probe_ref_upscale"),
+         "same references, WITH the reference pipeline's 2048 short-edge upscale"),
 
         ("h3_probe_square_canvas.json", "t2v-1to1", "t2v", LONG_T2V_PROMPT,
          dict(width=768, height=768,
@@ -6198,10 +6208,11 @@ def main():
         sage_on, sol_on, _dense_mode = _attention_plan(extra)
         api_extra = {k: v for k, v in extra.items()
                      if k not in ("sol_on", "dense_attn", "sol_overrides", "distill_experiment", "daily")}
-        # The instrumented twins keep one shared copy of a still: their
-        # renders are compared byte for byte with earlier ones
-        # (h3_config.REF_QWEN_SHORT_EDGE).
+        # The instrumented twins keep the historical shared 2048-upscale still
+        # inputs: their renders are compared byte for byte with earlier ones
+        # (`h3_config.REF_QWEN_SHORT_EDGE`).
         if fname.removesuffix(".json").endswith(("_savelat", "_x0")):
+            api_extra.setdefault("ref_upscale", True)
             api_extra.setdefault("ref_qwen_short_edge", 0)
         if task in ("ph3_t2i", "ph3_edit"):
             wf = build_ph3_image_api(task, prompt=prompt, **api_extra)
@@ -6266,8 +6277,9 @@ def main():
     ):
         wf = build_api(task, sage=sage, length=LONG_LENGTH,
                        sol=None, prompt=prompt, stamp=True,
-                       # A bench graph is an instrument: one shared copy, as
-                       # every record taken on it was.
+                       # A bench graph is an instrument: historical 2048-upscale
+                       # shared copy, as every record taken on it was.
+                       ref_upscale=True,
                        ref_qwen_short_edge=0)
         p = bench / fname
         written.append((f"{task}-stamped", p, wf))

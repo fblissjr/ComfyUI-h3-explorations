@@ -902,20 +902,20 @@ class MiniMaxH3AppendRefImage(io.ComfyNode):
                                 ),
                             ),
                             io.Boolean.Input(
-                                # On is what diffusers, DiffSynth and
-                                # sglang's default `diffusers` resize mode
-                                # do; off is core ComfyUI's behaviour and
-                                # sglang's `max` mode. Whether
-                                # upscaling helps identity is the
-                                # reference-view ablation's question
-                                # (docs/wiki/core/h3_references.md).
-                                "allow_upscale", default=True,
+                                # Off since 2026-11-15 (owner decision,
+                                # following sglang #47907 / `92a6910ef2` on
+                                # 2026-11-05): ranked #1 sglang (`max` mode),
+                                # #2 vllm-omni, and ComfyUI core all leave
+                                # small stills at native size rounded to 32;
+                                # diffusers, DiffSynth, LightX2V, and FastH3
+                                # Omni still enlarge (`docs/wiki/upstream/topics/reference_sizing.md`).
+                                "allow_upscale", default=False,
                                 tooltip=(
-                                    "On (default): a still smaller than "
-                                    "dit_short_edge is enlarged to reach it.\n\n"
-                                    "Off: stills are only ever shrunk. A small "
+                                    "Off (default): stills are only ever shrunk. A small "
                                     "still stays small and costs less render "
                                     "time.\n\n"
+                                    "On: a still smaller than "
+                                    "dit_short_edge is enlarged to reach it.\n\n"
                                     "Enlarging adds render time, not detail "
                                     "the still did not have."
                                 ),
@@ -1028,7 +1028,7 @@ class MiniMaxH3AppendRefImage(io.ComfyNode):
             allow_upscale = bool(size_policy["allow_upscale"])
         elif policy == "max":
             # The bare selection: the schema's own defaults.
-            short_edge, allow_upscale = REF_IMAGE_SHORT_EDGE, True
+            short_edge, allow_upscale = REF_IMAGE_SHORT_EDGE, False
         elif policy == "tiered":
             # `tiered` computes 1024 (<= 544) or 2048 (> 544) from the canvas at conditioning time.
             short_edge, allow_upscale = REF_IMAGE_SHORT_EDGE, True

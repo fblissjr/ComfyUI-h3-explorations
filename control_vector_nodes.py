@@ -89,6 +89,7 @@ STEER_TARGETS: tuple[str, ...] = (
     "non_vision",
 )
 STEER_STREAMS: tuple[str, ...] = ("both", "video_only", "audio_only")
+STEER_EDIT_PASSES: tuple[str, ...] = ("both", "edited_only", "original_only")
 H3ControlVector = io.Custom("MINIMAX_H3_CONTROL_VECTOR")
 _APPLY_DEFAULTS = {
     **_rules.CONTROL_VECTOR_DEFAULTS,
@@ -626,9 +627,11 @@ def build_refiner_runner(
 
     inner = getattr(source, "model", source)
     dm = getattr(inner, "diffusion_model", inner)
-    if not hasattr(dm, "preprocess_text_embeds"):
+    has_preprocess = hasattr(dm, "preprocess_text_embeds")
+    has_direct_refiner = hasattr(dm, "token_refiner") and hasattr(dm, "condition_proj")
+    if not has_preprocess and not has_direct_refiner:
         raise ValueError(
-            f"model ({type(source).__name__}) does not expose diffusion_model.preprocess_text_embeds"
+            f"model ({type(source).__name__}) does not expose diffusion_model.preprocess_text_embeds or token_refiner"
         )
     infer_dtype = getattr(inner, "get_dtype_inference", lambda: dtype)()
     has_unapplied_patches = bool(getattr(source, "patches", None)) or has_dm_obj_patches
@@ -647,9 +650,16 @@ def build_refiner_runner(
                         pass
             param = next(dm.condition_proj.parameters(), None)
             dev = param.device if param is not None else torch.device(device)
-            x_3d = x_2d.detach().unsqueeze(0).to(device=dev, dtype=infer_dtype)
-            out_3d = dm.preprocess_text_embeds(x_3d)
-            return out_3d[0].detach().to(device="cpu", dtype=torch.float32)
+            if has_preprocess:
+                x_3d = x_2d.detach().unsqueeze(0).to(device=dev, dtype=infer_dtype)
+                out_3d = dm.preprocess_text_embeds(x_3d)
+                return out_3d[0].detach().to(device="cpu", dtype=torch.float32)
+            hidden_size = int(getattr(dm, "hidden_size", _cv.POST_REFINER_DIM))
+            if int(x_2d.shape[-1]) == hidden_size:
+                return x_2d.detach().to(device="cpu", dtype=torch.float32)
+            x_in = x_2d.detach().to(device=dev, dtype=infer_dtype)
+            out_2d = dm.token_refiner(dm.condition_proj(x_in))
+            return out_2d.detach().to(device="cpu", dtype=torch.float32)
 
     return _run_from_model
 
@@ -1147,6 +1157,7 @@ class _AppliedVectorSpec:
     audio_cond_aug: float = 1.0
     video_ref_end_percent: float = 1.0
     guide_cond_end_percent: float = 1.0
+    edit_pass: str = "both"
 
 
 def _step_in_window(
@@ -1292,6 +1303,22 @@ def _resolve_custom_inference_mask(
             f"control vector {sp.vector_name!r} uses mask={sp.mask!r}, which requires "
             "conditioning from an H3 conditioning node (h3_span_masks / _h3_span_masks) or prompt=..."
         )
+    if isinstance(span_masks, Mapping) and "scene" in span_masks:
+        scene_t = span_masks["scene"]
+        if isinstance(scene_t, torch.Tensor) and not bool(getattr(scene_t, "_h3_has_sections", False)):
+            vis_t = span_masks.get("vision")
+            prose_rows = (
+                (scene_t & (~vis_t)).to(device=device)
+                if isinstance(vis_t, torch.Tensor) and vis_t.shape == scene_t.shape
+                else (scene_t & (tags_2d[0] != 0)).to(device=device)
+            )
+            sel = _spans.split_fields_mask(sp.mask)
+            if sel is not None:
+                if any(f in ("description", "summary", "subject_definitions") for f in sel):
+                    return prose_rows
+                return torch.zeros((L,), dtype=torch.bool, device=device)
+            if sp.mask == "soundscape_only":
+                return torch.zeros((L,), dtype=torch.bool, device=device)
     return _spans.inference_mask(span_masks, sp.mask).to(device=device)
 
 
@@ -1921,16 +1948,48 @@ def _make_control_vector_wrapper(
             call_kwargs["minimax_payload"] = new_payload
             payload = new_payload
 
+        edit_pass = payload.get("h3_edit_pass")
+
+        def _spec_matches_edit_pass(sp: _AppliedVectorSpec) -> bool:
+            ep = getattr(sp, "edit_pass", "both")
+            if ep == "edited_only":
+                return edit_pass == "edited"
+            if ep == "original_only":
+                return edit_pass == "original"
+            return True
+
         active_specs = [
             sp
             for sp in specs
             if sp.strength != 0.0
+            and _spec_matches_edit_pass(sp)
             and _step_in_window(
                 transformer_options, timestep, sp.start_percent, sp.end_percent
             )
         ]
         if not active_specs:
             return executor(x, timestep, context, transformer_options, **call_kwargs)
+
+        if context.ndim == 3 and context.shape[-1] != _cv.POST_REFINER_DIM:
+            dm_exec = getattr(getattr(executor, "__self__", None), "diffusion_model", None)
+            if dm_exec is None or not (
+                hasattr(dm_exec, "token_refiner") and hasattr(dm_exec, "condition_proj")
+            ):
+                raise ValueError(
+                    f"control vector received context with hidden_size={context.shape[-1]} "
+                    f"(expected {_cv.POST_REFINER_DIM}) and could not access diffusion_model.token_refiner"
+                )
+            with torch.no_grad():
+                context = torch.stack(
+                    [
+                        dm_exec.token_refiner(
+                            dm_exec.condition_proj(context[b_idx]),
+                            transformer_options=transformer_options,
+                        )
+                        for b_idx in range(int(context.shape[0]))
+                    ],
+                    dim=0,
+                )
 
         tags_raw = payload.get("text_token_tags")
         B, L, _D = context.shape
@@ -1954,7 +2013,6 @@ def _make_control_vector_wrapper(
             span_masks_top = payload.get("h3_span_masks")
         if span_masks_top is None and tags_raw is not None:
             span_masks_top = getattr(tags_raw, "_h3_span_masks", None)
-        edit_pass = payload.get("h3_edit_pass")
         cond_or_uncond = transformer_options.get("cond_or_uncond")
         is_pure_uncond = (
             edit_pass not in ("original", "edited")
@@ -1962,12 +2020,14 @@ def _make_control_vector_wrapper(
             and 0 not in cond_or_uncond
         )
         if edit_pass in ("original", "edited"):
-            ep_key = (",".join(sp.vector_name for sp in active_specs), str(edit_pass))
+            ep_key = (
+                ",".join(f"{sp.vector_name}[{getattr(sp, 'edit_pass', 'both')}]" for sp in active_specs),
+                str(edit_pass),
+            )
             if ep_key not in logged_prefix_notes:
                 logged_prefix_notes.add(ep_key)
                 logger.info(
-                    "[h3] control vector (%s) running alongside MiniMaxH3EditGuider (%s pass): "
-                    "applying 1x post-refiner shift on both passes so edit_scale amplifies only the prompt edit",
+                    "[h3] control vector (%s) running alongside MiniMaxH3EditGuider (%s pass)",
                     ep_key[0],
                     edit_pass,
                 )
@@ -2034,7 +2094,7 @@ def _make_control_vector_wrapper(
                                 vec_out,
                                 eff_prompt,
                                 pos_words=seed_w or None,
-                                family=str(sp.metadata.get("family", "fl2va")),
+                                family=str(sp.metadata.get("synth_family") or sp.metadata.get("family", "fl2va")),
                                 already_contrasted=bool(sp.metadata.get("deferred_against_prompt")),
                             )
                             logger.info(
@@ -2403,6 +2463,7 @@ def attach_control_vector(
     against_words: str = "",
     hold_words: str = "",
     hold_alpha: float = 1.0,
+    edit_pass: str = "both",
 ) -> Any:
     """Clone `model` with `vector_name` and/or inline J-Lens `words` attached on
     `WrappersMP.DIFFUSION_MODEL`.
@@ -2416,6 +2477,8 @@ def attach_control_vector(
         raise ValueError(f"mode must be one of {_cv.APPLY_MODES}, got {mode!r}")
     if scale_mode not in _cv.SCALE_MODES:
         raise ValueError(f"scale_mode must be one of {_cv.SCALE_MODES}, got {scale_mode!r}")
+    if edit_pass not in STEER_EDIT_PASSES:
+        raise ValueError(f"edit_pass must be one of {STEER_EDIT_PASSES}, got {edit_pass!r}")
     if not _spans.is_inference_mask(mask):
         raise ValueError(
             f"mask must be one of {MASK_MODES} or prompt fields joined by '+' ({_spans.PROMPT_FIELDS}), got {mask!r}"
@@ -2516,6 +2579,12 @@ def attach_control_vector(
         return m
 
     loaded_family = _cv.detect_family(model)
+    loaded_recipe = extract_model_recipe(model)
+    synth_family_arg = (
+        "fl2va_base"
+        if (str(loaded_family) == "fl2va" and not loaded_recipe.get("loras"))
+        else str(loaded_family)
+    )
     t_opts = m.model_options.setdefault("transformer_options", {})
     updated: tuple[_AppliedVectorSpec, ...] = tuple(t_opts.get(WRAPPER_KEY, ()))
 
@@ -2528,7 +2597,6 @@ def attach_control_vector(
         )
 
     if raw_name and raw_name != "none":
-        loaded_recipe = extract_model_recipe(model)
         vec_path = resolve_vector_file_path(
             vector_name,
             preferred_family=loaded_family,
@@ -2585,7 +2653,7 @@ def attach_control_vector(
             vec_pr = tensors["vector.post_refiner"]
 
         if hold_clean and ha_f > 0.0:
-            synth_fam = _j_lens._canonical_synth_family(str(loaded_family))
+            synth_fam = _j_lens._canonical_synth_family(synth_family_arg)
             hold_synth = _j_lens.synthesize_from_words(
                 hold_clean,
                 family=synth_fam,
@@ -2622,10 +2690,11 @@ def attach_control_vector(
             audio_cond_aug=aca_f,
             video_ref_end_percent=vrep_f,
             guide_cond_end_percent=gcep_f,
+            edit_pass=edit_pass,
         )
         updated = updated + (new_spec,)
         logger.info(
-            "[h3] control vector %s attached (family=%s, strength=%g, mode=%s, scale_mode=%s, mask=%s, window=[%.2f, %.2f), video_scale=%g, audio_scale=%g, ref_vae_end=%.2f)",
+            "[h3] control vector %s attached (family=%s, strength=%g, mode=%s, scale_mode=%s, mask=%s, window=[%.2f, %.2f), video_scale=%g, audio_scale=%g, ref_vae_end=%.2f, edit_pass=%s)",
             vec_path.name,
             loaded_family,
             float(strength),
@@ -2637,10 +2706,11 @@ def attach_control_vector(
             vs_f,
             as_f,
             rvep_f,
+            edit_pass,
         )
 
     if words_clean:
-        synth_fam = _j_lens._canonical_synth_family(str(loaded_family))
+        synth_fam = _j_lens._canonical_synth_family(synth_family_arg)
         prompt_str = str(prompt or "").strip()
         is_prompt_against = against_clean.lower().lstrip("@") in ("prompt", "prompt_subject")
         synth = _j_lens.synthesize_from_words(
@@ -2685,6 +2755,7 @@ def attach_control_vector(
             audio_cond_aug=aca_f,
             video_ref_end_percent=vrep_f,
             guide_cond_end_percent=gcep_f,
+            edit_pass=edit_pass,
         )
         updated = updated + (w_spec,)
         rd_summary = (synth.get("readiness") or {}).get("summary", "")
@@ -3891,6 +3962,7 @@ def _attach_h3_vector_spec(
     audio_scale: float,
     hold_words_override: str | None = None,
     hold_alpha_override: float | None = None,
+    edit_pass: str = "both",
 ) -> Any:
     eff_hold_words = spec.hold_words if hold_words_override is None else hold_words_override
     eff_hold_alpha = spec.hold_alpha if hold_alpha_override is None else hold_alpha_override
@@ -3909,6 +3981,7 @@ def _attach_h3_vector_spec(
             split_end_percent=1.0,
             hold_words=str(eff_hold_words or ""),
             hold_alpha=float(eff_hold_alpha),
+            edit_pass=edit_pass,
         )
     if spec.kind == "words":
         return attach_control_vector(
@@ -3927,6 +4000,7 @@ def _attach_h3_vector_spec(
             against_words=str(spec.against_words or ""),
             hold_words=str(eff_hold_words or ""),
             hold_alpha=float(eff_hold_alpha),
+            edit_pass=edit_pass,
         )
     raise ValueError(f"unsupported H3VectorSpec.kind={spec.kind!r}")
 
@@ -4362,6 +4436,18 @@ class MiniMaxH3Steer(io.ComfyNode):
                         "prompt untouched)."
                     ),
                 ),
+                io.Combo.Input(
+                    "edit_pass",
+                    options=list(STEER_EDIT_PASSES),
+                    default="both",
+                    optional=True,
+                    tooltip=(
+                        "When paired with MiniMaxH3EditGuider: 'both' (default, steers both passes so only "
+                        "prompt diffs scale), 'edited_only' (steers only the edited pass so painted mask=1 "
+                        "gets this vector with zero global bleed), or 'original_only' (steers only the "
+                        "original anchor pass so mask=0 keeps this look in a split-world render)."
+                    ),
+                ),
             ],
             outputs=[io.Model.Output(display_name="model")],
         )
@@ -4376,9 +4462,12 @@ class MiniMaxH3Steer(io.ComfyNode):
     ):
         vec_fp = _vector_file_fingerprint(str(vector or ""))
         h_str = str(hold_words or "").strip()
-        if not h_str:
+        ep_str = str(kwargs.get("edit_pass", "both") or "both").strip()
+        if not h_str and ep_str == "both":
             return vec_fp
-        return (vec_fp, h_str, float(hold_alpha))
+        if ep_str == "both":
+            return (vec_fp, h_str, float(hold_alpha))
+        return (vec_fp, h_str, float(hold_alpha), ep_str)
 
     @classmethod
     def validate_inputs(
@@ -4393,6 +4482,7 @@ class MiniMaxH3Steer(io.ComfyNode):
         streams="both",
         hold_words="",
         hold_alpha=1.0,
+        edit_pass="both",
         **kwargs,
     ) -> bool | str:
         raw = str(vector or "").strip()
@@ -4405,6 +4495,8 @@ class MiniMaxH3Steer(io.ComfyNode):
             return f"mode must be one of {STEER_MODES}, got {mode!r}"
         if streams not in STEER_STREAMS:
             return f"streams must be one of {STEER_STREAMS}, got {streams!r}"
+        if edit_pass not in STEER_EDIT_PASSES:
+            return f"edit_pass must be one of {STEER_EDIT_PASSES}, got {edit_pass!r}"
         if fields:
             try:
                 _spans.fields_mask(fields if isinstance(fields, (list, tuple)) else [fields])
@@ -4448,6 +4540,7 @@ class MiniMaxH3Steer(io.ComfyNode):
         allow_recipe_mismatch=False,
         custom_vector=None,
         hold_vector=None,
+        edit_pass="both",
     ) -> io.NodeOutput:
         dm = model.get_model_object("diffusion_model")
         if not _is_minimax_h3(dm):
@@ -4456,6 +4549,8 @@ class MiniMaxH3Steer(io.ComfyNode):
             raise ValueError(f"mode must be one of {STEER_MODES}, got {mode!r}")
         if streams not in STEER_STREAMS:
             raise ValueError(f"streams must be one of {STEER_STREAMS}, got {streams!r}")
+        if edit_pass not in STEER_EDIT_PASSES:
+            raise ValueError(f"edit_pass must be one of {STEER_EDIT_PASSES}, got {edit_pass!r}")
         if fields:
             eff_mask = _spans.fields_mask(fields if isinstance(fields, (list, tuple)) else [fields])
             logger.info(
@@ -4548,6 +4643,7 @@ class MiniMaxH3Steer(io.ComfyNode):
             audio_scale=a_scale,
             hold_words_override=eff_hold_words,
             hold_alpha_override=eff_hold_alpha,
+            edit_pass=edit_pass,
         )
         for h_spec, h_alpha in wired_holds:
             eff_h_strength = 0.0 if s_val == 0.0 else float(h_alpha)
@@ -4562,6 +4658,7 @@ class MiniMaxH3Steer(io.ComfyNode):
                 allow_recipe_mismatch=bool(allow_recipe_mismatch),
                 video_scale=v_scale,
                 audio_scale=a_scale,
+                edit_pass=edit_pass,
             )
         return io.NodeOutput(m)
 

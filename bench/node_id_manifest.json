@@ -909,7 +909,8 @@
       "hold_alpha",
       "allow_recipe_mismatch",
       "custom_vector",
-      "hold_vector"
+      "hold_vector",
+      "edit_pass"
     ],
     "node_id": "MiniMaxH3Steer",
     "outputs": [

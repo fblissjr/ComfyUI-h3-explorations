@@ -182,7 +182,7 @@ def reference_fit(wf: dict, load_id: str, img_path: Path, canvas: dict) -> tuple
         policy = str(inputs.get("size_policy", "max"))
         settings = {"size_policy": policy,
                     "short_edge": int(inputs.get("size_policy.dit_short_edge", REF_IMAGE_SHORT_EDGE)),
-                    "allow_upscale": bool(inputs.get("size_policy.allow_upscale", policy == "max")),
+                    "allow_upscale": bool(inputs.get("size_policy.allow_upscale", False)),
                     "source": "graph"}
     canvas_w, canvas_h = canvas.get("width"), canvas.get("height")
     if settings["size_policy"] == "match" and not (isinstance(canvas_w, int) and isinstance(canvas_h, int)):

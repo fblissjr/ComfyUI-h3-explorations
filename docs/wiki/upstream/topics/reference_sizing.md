@@ -1,14 +1,16 @@
 # Reference stills: how each implementation sizes them (H3 video ref2va)
 
-last updated: 2026-11-15 (page created from the 2026-11-15 sweep and the owner's question that day)
+last updated: 2026-11-15 (owner decided to flip `MiniMaxH3AppendRefImage.allow_upscale` default to `False` following sglang #47907)
 
 **Scope: H3 video ref2va reference stills**, the `<Picture N>` images that ride beside the target rows on every
 step. It does not cover MiniMax-H3-Image edit references (their own bounds:
 [`../../image/h3_image.md`](../../image/h3_image.md)), reference videos, or keyframes.
 
-**Status: open, the owner's call. Nothing was changed (owner, 2026-11-15: "Dont make any changes but please
-document all this").** The case for changing our default is below. So is what the change would involve, so it can
-be picked up without re-deriving any of it.
+**Status: decided 2026-11-15 (flipped to `allow_upscale=False`).** After reviewing sglang PR #47907 (`92a6910ef2`)
+alongside vllm-omni and ComfyUI core, the owner aligned `MiniMaxH3AppendRefImage` and default video `ref2va` graphs
+on `allow_upscale=False`, while keeping `ref_upscale=True` on byte-pinned instruments (`_savelat`, `_x0`, `_stamped`),
+`h3_probe_refview2_*`, `h3_probe_r2v_pika_motion_transfer_6step*`, and masked-song head-crop graphs, and inverting
+`workflows/h3_probe_reference_upscale_api.json` back to `True` as the non-default upscale probe.
 
 ---
 
@@ -29,7 +31,7 @@ Every mode keeps the aspect ratio and rounds each axis to 32.
 | ComfyUI core | trusted least | **not enlarged** in either `ref_image_size` mode (`match` default, `max`) | `comfy_extras/nodes_minimax_h3.py`, the reference-to-video node's `ref_image_size` and `ref_image` tooltips |
 | DiffSynth | periphery | **enlarged**: `scale = short_edge / min(w, h)`, unclamped, short edge 2048 | `coderef/DiffSynth-Studio/diffsynth/pipelines/minimax_h3_audio_video.py::_resolve_reference_image_shape` |
 | LightX2V | periphery | **enlarged** (`diffusers` mode) | `coderef/LightX2V/lightx2v/models/networks/minimax_h3/packing_ref2av.py::DEFAULT_REFERENCE_IMAGE_RESIZE_MODE` |
-| **this pack** | | **enlarged**: `MiniMaxH3AppendRefImage` `size_policy=max`, `dit_short_edge=2048`, `allow_upscale=True` | `reference_conditioning.py` (the `allow_upscale` input); the geometry is `reference_geometry.py` |
+| **this pack** | | **not enlarged** (`size_policy=max`, `dit_short_edge=2048`, `allow_upscale=False` default since 2026-11-15; `True` kept opt-in and pinned on historical instruments & masked head crops) | `reference_conditioning.py` (`allow_upscale` input); `reference_geometry.py` |
 
 By the owner's ranking ([`../index.md`](../index.md), "When upstreams disagree"), the top two engines and core now
 agree on not enlarging, and only the third engine and the periphery still enlarge.
@@ -57,10 +59,11 @@ agree on not enlarging, and only the third engine and the periphery still enlarg
 
 - **The parity it was set for no longer exists.** The top two engines and core all leave small stills at their own
   size.
-- **The cost is paid on every step.** Enlarging one 1024² still added tokens to both the reference rows and the text
-  segment, since Qwen3-VL reads the resized still too. The cost scales with the number of references (measured
-  2026-08-13 and 2026-08-15, [`../../core/h3_references.md`](../../core/h3_references.md)). It also brings long or
-  multi-reference renders closer to the `int32` QKV threshold.
+- **The cost is paid on every step.** Under our `qwen_view="separate"` (`512`) default (since 2026-10-03), enlarging
+  one `1024x1024` still bloated DiT `ref_img` tokens `1,024 -> 4,096` (`+3,072` rows attended every step); under
+  `qwen_view="shared"`, it doubled again in Qwen3-VL's text segment (`+3,072` more tokens, measured 2026-08-13 and
+  2026-08-15, [`../../core/h3_references.md`](../../core/h3_references.md)). It also brings long or multi-reference
+  renders closer to the `int32` QKV threshold.
 - **The evidence on quality is small and points one way.** Our image-path A/B found no identity loss. sglang's table
   shows small drops it does not call significant.
 
@@ -79,15 +82,11 @@ agree on not enlarging, and only the third engine and the periphery still enlarg
 off (`workflows/build_workflows.py`, the `r2v-upscale` arm). The cross-scene ablation is `bench/refview2_arms.json`.
 A stacked pair at one seed on a masked-lane head-crop load would decide it, judged by the owner on playback.
 
-## What the change would involve (not done)
+## What the change touched (implemented 2026-11-15)
 
-- `reference_conditioning.py`: `allow_upscale` default `True` to `False`, and the comment that says `True` is
-  "sglang's default `diffusers` resize mode", which is stale since 2026-11-05.
-- `workflows/h3_config.py` / `workflows/build_workflows.py`: the video reference graphs' `ref_upscale`, then a
-  rebuild of the generated graphs.
-- Check fixtures that expect `True` (`bench/check_typed_reference_consumers.py`).
-- `../../core/h3_references.md`: the defaults paragraph.
-- A node-default change, so it is built in a worktree outside `custom_nodes`, landed when no renders are in flight,
-  and picked up after the owner restarts ComfyUI.
-- The FastH3 Omni and Pika notes: sglang's Pika inherits `max`, while Pika's own `buckets.yaml` enlarges
-  (`../../references.md`, "Pika H3 Flex"). Pika graphs here use the same append node.
+- [`reference_conditioning.py`](../../../../reference_conditioning.py): `allow_upscale` schema default and bare `"max"` execution fallback flipped `True -> False`, with updated comment/tooltip citing sglang #47907 (`92a6910ef2`).
+- [`workflows/build_workflows.py`](../../../../workflows/build_workflows.py) and `workflows/`: `build_api(..., ref_upscale=False)` default; `h3_probe_reference_upscale` inverted to `True`; byte-pinned instruments (`_savelat`, `_x0`, `_stamped`), `h3_probe_refview2_*`, Pika motion-transfer parity arms, and masked-song head-crop templates pinned to `ref_upscale=True`; all API graphs regenerated.
+- [`bench/preflight_graph.py`](../../../../bench/preflight_graph.py), [`bench/generate_capture_manifest.py`](../../../../bench/generate_capture_manifest.py), [`bench/check_reference_runtime.py`](../../../../bench/check_reference_runtime.py), [`bench/check_typed_reference_consumers.py`](../../../../bench/check_typed_reference_consumers.py), [`bench/check_widget_deviations.py`](../../../../bench/check_widget_deviations.py): updated omitted/default `allow_upscale` expectations to `False`.
+- [`../../core/h3_references.md`](../../core/h3_references.md) & [`../../research/sglang_comparison.md`](../../research/sglang_comparison.md): updated node defaults & Gap 6.
+- ComfyUI `:8188` requires a service reload when convenient to pick up the `MiniMaxH3AppendRefImage` default change for UI drags; regenerated `*_api.json` graphs send `"size_policy.allow_upscale"` explicitly on every step.
+- The FastH3 Omni and Pika notes: sglang's Pika inherits `max`, while Pika's own `buckets.yaml` enlarges (`../../references.md`, "Pika H3 Flex"). Pika showcase parity graphs here keep `ref_upscale=True`.

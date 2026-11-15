@@ -238,11 +238,12 @@ DECLARED: dict[tuple[str, str], tuple] = {
         ("ARM", "1536x672 on the ultrawide canvas probe, at the same "
                 "1008 tok/frame budget as the trained canvas."),
     ("MiniMaxH3AppendRefImage", "size_policy.allow_upscale"):
-        ("ARM", "False on h3_probe_reference_upscale, the probe that exists "
-                "to price the vendor's upscale by turning it off, and on the "
-                "video-bearing reference arms through h3_config.REF_VIDEO_BUDGET, "
-                "which keep a long reference video inside 24 GB. The node "
-                "default is True since 2026-09-13 (vendor parity)."),
+        ("ARM", "True on h3_probe_reference_upscale (the probe that tests the "
+                "non-default upscale behavior), on h3_probe_refview2_* ('parity' "
+                "arm), Pika motion-transfer showcases, masked-song head-crop "
+                "graphs, and byte-pinned _savelat/_x0/_stamped instruments. "
+                "The node default is False since 2026-11-15 (owner decision "
+                "following sglang #47907)."),
     ("ManualSigmas", "sigmas"):
         ("RESOLVED", "h3_config.PIKA_MANUAL_SIGMAS on the Pika H3 Flex graphs, its "
                      "six shift-12 sigmas; bench/check_distill_settings.py's Pika "

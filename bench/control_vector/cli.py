@@ -82,7 +82,7 @@ import h3_rules
 import h3_spans
 from workflows import h3_config
 
-from .build_cmd import cmd_build, cmd_rebuild, cmd_words
+from .build_cmd import cmd_build, cmd_rebuild, cmd_status, cmd_words
 from .grading import cmd_grade, cmd_inspect
 from .helpers import _resolve_requested_families
 from .j_lens_builder import cmd_build_j_lens
@@ -100,6 +100,7 @@ CLI_EPILOG = """Four Control Vector Creation Methods:
 
 J-Lens Operator Bundle:
   build-j-lens                 Verify (--verify-only) or rebuild models/j_lens/j_lens_h3.safetensors (h3_j_lens_v1)
+  status                       Check J-Lens bundle & control vector staleness/permissions (--rebuild-stale to fix)
 
 H3 Model Families (--families):
   MiniMax H3 has 2 DiT text-path (condition_proj + token_refiner) families:
@@ -783,6 +784,27 @@ def build_parser() -> argparse.ArgumentParser:
     preb.add_argument("--device", default="default")
     preb.add_argument("--refiner-device", default="cpu")
 
+    pstat = sub.add_parser(
+        "status",
+        help="Check J-Lens bundle and control vector staleness, family coverage, and 0664 group permissions",
+    )
+    pstat.add_argument(
+        "--rebuild-stale",
+        dest="rebuild_stale",
+        action="store_true",
+        help="Fix group-readable permissions and rebuild stale J-Lens operators or .toml control vectors",
+    )
+    pstat.add_argument("--bundle", default=None, help="Optional j_lens_h3.safetensors path")
+    pstat.add_argument("--dir", dest="vec_dir", default=None, help="Control vector directory")
+    pstat.add_argument("--toml-dir", dest="toml_dir", default=None, help="Pair .toml bank directory")
+    pstat.add_argument(
+        "--families",
+        type=_validate_families_arg,
+        metavar=_FAMILIES_METAVAR,
+        default="both",
+        help=_FAMILIES_HELP,
+    )
+
     return p
 
 
@@ -806,6 +828,8 @@ def dispatch(args: argparse.Namespace) -> int:
         return cmd_build_j_lens(args)
     if args.cmd == "rebuild":
         return cmd_rebuild(args)
+    if args.cmd == "status":
+        return cmd_status(args)
     if args.cmd in ("from-md", "import-md"):
         return cmd_from_md(args)
     if args.cmd == "make":
