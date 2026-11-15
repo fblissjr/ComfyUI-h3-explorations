@@ -15,6 +15,7 @@ on.
 | **topics** | one question at a time, answered across every implementation, with what is open and what would settle it |
 | | [`topics/reference_sizing.md`](topics/reference_sizing.md) (ref2va stills: enlarge or not; **open, the owner's call**), [`topics/h3_image_sampling_step.md`](topics/h3_image_sampling_step.md) (H3-Image Euler form, sigmas, noise draws), [`topics/qwen3vl_encoder.md`](topics/qwen3vl_encoder.md) (the shared encoder), [`topics/pika_parity.md`](topics/pika_parity.md) (Pika numerics across engines) |
 | [`horizon.md`](horizon.md) | the open PRs, issues and announced work we are waiting on, each with what it would change for this pack. Rows carry over from sweep to sweep until they land or close |
+| [`../research/2026-11-15_upstream_synthesis.md`](../research/2026-11-15_upstream_synthesis.md) | the 2026-11-15 findings grouped by area of focus, with what each could do for the pack and how deep each was read; a dated snapshot |
 | `sweeps/<date>.md` | one dated record per sweep: the ranges read, what was found, what was checked by hand and what was not. First: [`sweeps/2026-11-15.md`](sweeps/2026-11-15.md) |
 | [`watchlist.json`](watchlist.json) | every watched upstream: its GitHub repo, local clone, the paths and keywords that matter for H3, and the revision and date it was last read. **The revisions live only there**; no page repeats them |
 

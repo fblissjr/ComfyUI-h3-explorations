@@ -134,3 +134,4 @@ For the active MiniMax-H3-Image and P-H3-Image setup, start at [`../image/h3_ima
 | [`sglang_h3_pipeline.md`](sglang_h3_pipeline.md) | sglang's MiniMax-H3 pipeline end to end |
 | [`smoothquant_for_attention_qk.md`](smoothquant_for_attention_qk.md) | SmoothQuant applied to attention Q and K (`MiniMaxH3ChannelBalance`) |
 | [`technique_transfer.md`](technique_transfer.md) | What transfers from LLM/ViT serving to H3 and what does not |
+| [`2026-11-15_upstream_synthesis.md`](2026-11-15_upstream_synthesis.md) | Everything the 2026-11-15 upstream sweep found (sglang, vllm-omni, diffusers, core, periphery), grouped by area with what each could do for the pack and a depth tag per item (hand-checked, agent-read code, body only, title only); standing pages in [`../upstream/`](../upstream/index.md) |
