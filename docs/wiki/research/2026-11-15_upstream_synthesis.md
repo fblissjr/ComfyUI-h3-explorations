@@ -344,8 +344,8 @@ All are on [`../upstream/engines/comfyui_core.md`](../upstream/engines/comfyui_c
 **Ways of using SAM 3.1 that the pack does not have** (MAINodes, community research; module headers and commit
 messages read H, code not run; their figures are their claims):
 *Corrected the same day after a Gemini review that read the code in full, checked by hand against the files cited
-(`coderef/ComfyUI-MAINodes/snap_faces.py:1-12,156-162`; `coderef/ComfyUI-MAINodes/web/snap/edits.js:420-450`; `coderef/ComfyUI-MAINodes/snap_iris.py:62-71`; `bench/draw_face_points.py:1186-1192`):
-items 1–3 below first got the face model, the edit's mask source and the eye tool wrong.*
+(`coderef/ComfyUI-MAINodes/web/snap/edits.js:420-450`; `coderef/ComfyUI-MAINodes/snap_iris.py:62-71`; `bench/draw_face_points.py:1186-1192`):
+items 1 and 2 below first got the edit's mask source and the eye tool wrong.*
 
 1. **An edit kept only where SAM finds the named thing** (`1bf88d9`, 2026-11-07). SAM 3.1 runs with the words on
    Picture 1's crop, the image *before* the edit. The mask is grown and softened, then multiplied into the
@@ -366,16 +366,9 @@ items 1–3 below first got the face model, the edit's mask source and the eye t
    - *For us:* the pack has no post-render eye-colour tool. `--iris contrast` draws irises on the grey body model
      before generation. If eye-colour drift shows on a swap, borrow the lightness weight and halo guard, but take the
      region from the subject mask and face points rather than full-frame runs.
-3. **Identity notes** (`coderef/ComfyUI-MAINodes/snap_faces.py`).
-   - **The face score is ArcFace** (IResNet-101, CVLface WebFace4M) on a square crop round each SAM 3.1 face mask.
-   - DINOv3 ViT-H is an optional "character" score on a 1.5x unmasked box, added because ArcFace fails on anime
-     profiles.
-   - Duplicate face boxes are dropped, keeping the first. The separation figures are the author's, on their fixtures.
-   - *For us:* ArcFace is the natural first identity metric for live-action casts (`docs/wiki/masked_v2v/who_is_who.md`,
-     post-swap scoring). DINOv3 on an unmasked box mixes in hair, collar and lighting.
-4. **A hair-lightness check**: the lightness of the lit part of SAM 3.1's hair mask, used to grade grey and silver
+3. **A hair-lightness check**: the lightness of the lit part of SAM 3.1's hair mask, used to grade grey and silver
    edits (`coderef/ComfyUI-MAINodes/snap_faces.py`).
-5. **Multi-person chains**: section 1 (`TheBeast-Spec/minimax-h3-multi-swap-comfyui`, **B**).
+4. **Multi-person chains**: section 1 (`TheBeast-Spec/minimax-h3-multi-swap-comfyui`, **B**).
 
 ## 16. MAINodes and this pack: what came from where (a provenance ledger)
 
@@ -499,9 +492,6 @@ These practices serve every outcome above, ours and theirs.
 ### 17.2 The pack's outcomes, and what in their world moves each
 
 - **(a) Masked pieces with identity on playback.**
-  - *Identity as data before the owner looks.* ArcFace notes per face (section 15, corrected) could list the frames
-    worth looking at per subject. That is a list, never a verdict, under the owner's rule; their thresholds were set on
-    anime fixtures and need re-measuring on live action.
   - *Remake a few frames, not a whole load.* Their Repair Plan/Splice snaps a bad range outward to whole tokens, ends
     at a shot cut, asserts the rest unchanged and reports the seam against the clip's own frame delta.
   - *Their mask lesson:* "The mechanisms were fine; the mask author wasn't."
@@ -572,7 +562,7 @@ These practices serve every outcome above, ours and theirs.
     - Voice QA: speaker timbre, median F0 and transcribed words with timestamps (`coderef/ComfyUI-MAINodes/snap_voice.py`).
       It catches voice drift and unscripted speech, and partners with `bench/voice_spans.py` and `audio_end_percent`.
     - A copy check: a DINOv3 whole-frame score that flags a take tracing `<Picture 1>` instead of moving.
-    - Face and hair notes per face (section 15).
+    - Hair-lightness notes (section 15).
 
     This matches the owner's rule that a reading lists what to look at and holds nothing.
   - Their Video Compare loops a bracket over a seam, flickers A against B, and carries a starred winner into the next
@@ -648,10 +638,9 @@ These practices serve every outcome above, ours and theirs.
 
 **For us, in order:**
 1. A gate column and the seed ladder in the pack's research plans.
-2. A critic or reader floor fed by the owner's catches, with triage notes (voice, copy, face) feeding it.
+2. A critic or reader floor fed by the owner's catches, with triage notes (voice, copy) feeding it.
 3. Their masked-prefix seam result, read against the song-loop handoff.
-4. ArcFace identity notes as a frames-to-look-at list.
-5. RelayVSR as a candidate final upscale.
+4. RelayVSR as a candidate final upscale.
 
 ### 17.5 Not read
 
@@ -680,8 +669,6 @@ These practices serve every outcome above, ours and theirs.
   - `H3_IMAGE_MANUAL_SIGMAS` against the ulp-shifted sigmas;
   - which H3-Image reference noise order the release uses;
   - the Hub-hosted H3-Image-PE blocks;
-  - whether ArcFace face embeddings separate the masked lane's live-action cast (MAINodes' SAM and identity code
-    was read in full by the Gemini review, section 15);
   - MAINodes' T-series beyond what section 17.2 (d) records.
 - **Searched, nothing found:** H3 issues in kijai's WanVideoWrapper since 11-01; arXiv for Qwen3-VL as a diffusion text
   encoder since 10-15. Hugging Face search caps at 100 results per term, so small uploads may be missing.
@@ -697,5 +684,5 @@ These practices serve every outcome above, ours and theirs.
 Added from sections 15 and 16, for whoever picks up steering or the masked lane next:
 - **Steering.** A step-scheduled first-frame release for image-to-video steering (section 17.2 (d)). The T6 check
   is done (Gemini's run).
-- **The masked lane and image edits.** The SAM word-gated paste (core nodes only, for removals and recolours), and
-  ArcFace identity notes as a frames-to-look-at list. Section 17.4 has the fuller order.
+- **The masked lane and image edits.** The SAM word-gated paste (core nodes only, for removals and recolours). Section
+  17.4 has the fuller order.
