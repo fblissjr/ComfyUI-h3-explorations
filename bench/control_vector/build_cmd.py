@@ -1155,7 +1155,11 @@ def cmd_status(args: argparse.Namespace) -> int:
         if getattr(args, "bundle", None)
         else j_lens.default_bundle_path()
     )
-    vec_dir = Path(args.vec_dir).resolve() if getattr(args, "vec_dir", None) else cv_nodes.DEFAULT_VECTOR_DIR
+    vec_dir = (
+        Path(args.vec_dir).resolve()
+        if getattr(args, "vec_dir", None)
+        else Path(_h.folder_paths.get_folder_paths(cv_nodes.CONTROL_VECTORS_FOLDER)[0]).resolve()
+    )
     toml_dir = Path(args.toml_dir).resolve() if getattr(args, "toml_dir", None) else cv_nodes.PAIR_BANK_DIR
     req_fams_str = getattr(args, "families", "both")
     req_fams_set = set(_resolve_requested_families(req_fams_str))
