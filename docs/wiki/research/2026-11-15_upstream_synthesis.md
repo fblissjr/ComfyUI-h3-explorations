@@ -515,7 +515,11 @@ These practices serve every outcome above, ours and theirs.
     same author's `h3-long-video-research`). This is a check to run on the pack's longest chains.
   - *Choosing the context window.* A 90-frame handle overlapped better than 39, which bears on the pack's context-39
     or context-90 choice.
-  - Their colour carry likely does not apply, since the pack's context never makes a VAE round trip (reasoned).
+  - Their colour carry does not answer VAE round-trip darkening here, since the pack's context never makes a VAE round
+    trip (`audio_freeze.py`, the latent prefix copy; reasoned). *Nuance from the second Gemini review:* if long chains
+    drift in exposure or saturation from the DiT alone, `coderef/ComfyUI-MAINodes/h3_color_carry.py`'s
+    `z + E(corrected) - E(original)` is the way to pull a latent prefix back toward a pixel-space colour target while
+    cancelling the encoder's own bias.
 - **(c) Phone-studio image edits.**
   - Snap's model-choice table and its new-view traps give edit-route defaults: region crop with paste-back, crop past
     thin crossing objects, a new picture for a new look, and showing now and after side by side.
@@ -556,8 +560,21 @@ These practices serve every outcome above, ours and theirs.
   - Their gate keeps a fixtures manifest with a sha256 per file and a stale-result guard, so a crashed suite prints
     FAIL, never the last PASS.
   - Nothing for Sol.
+  - *Delivery:* RelayVSR (`coderef/ComfyUI-MAINodes/relayvsr/README.md`) reports that its X4 model downscaled to 2x
+    beats its own X2 on H3 clips, that a back-projection preset cuts flicker without redrawing faces, and that it fits
+    a card of the 4090's size. All their figures, on five short clips. It is a candidate final upscale for 1344x768
+    renders.
 - **(f) Less owner review time.**
   - The critic loop and the reroll stop rule (17.1).
+  - *Triage notes, never verdicts.* Snap keeps approval with the person and adds cheap measurements as notes, so the
+    person looks only where a note points (`coderef/ComfyUI-MAINodes/snap_critiques.py`,
+    `coderef/ComfyUI-MAINodes/snap_cards/critic.json`):
+    - Voice QA: speaker timbre, median F0 and transcribed words with timestamps (`coderef/ComfyUI-MAINodes/snap_voice.py`).
+      It catches voice drift and unscripted speech, and partners with `bench/voice_spans.py` and `audio_end_percent`.
+    - A copy check: a DINOv3 whole-frame score that flags a take tracing `<Picture 1>` instead of moving.
+    - Face and hair notes per face (section 15).
+
+    This matches the owner's rule that a reading lists what to look at and holds nothing.
   - Their Video Compare loops a bracket over a seam, flickers A against B, and carries a starred winner into the next
     queue.
   - One caveat: Snap's one-question-at-a-time Room runs against the owner's rule to batch reviews.
@@ -565,20 +582,37 @@ These practices serve every outcome above, ours and theirs.
 ### 17.3 Their outcomes, and what in the pack moves each
 
 - **Seams you cannot hear.** Their ambience "still steps at the cut", only a 65-tick audio prefix is carried, and they
-  write that "only a pinned master track GUARANTEES the structure". The pack's whole-slice frozen audio
-  (`MiniMaxH3AudioFreezeSong`) is that pinned track.
+  write that "only a pinned master track GUARANTEES the structure". *Refined after the second Gemini review:* two cases.
+  - **Fixed-speed extension** (`coderef/ComfyUI-MAINodes/h3_extend.py`). The pack's whole-slice frozen audio
+    (`MiniMaxH3FreezeAudio`, `MiniMaxH3AudioFreezeSong`) is the pinned track. Its run-phase check
+    (`(latent_t - context_steps) % 5 == 0`, `audio_freeze.py:378`, **H**) keeps the copied video prefix on a
+    clip-start step.
+  - **Motion Lab's dilated passes.** Freezing the *baseline* audio would break sync, because the second pass runs on a
+    dilated clock. What transfers is freezing their already smeared track (their H3 Audio Smear, which today only
+    seeds the audio) with the same `NestedTensor` mask across the rolling windows. Reasoned, not tested.
   - *Corrected the same day:* they do know the dual-clock rule (`coderef/ComfyUI-MAINodes/h3_extend.py:112,183`; `coderef/ComfyUI-MAINodes/capsule_types.py:86`; **H**).
     Their extension tool notes an off-grid length, and `coderef/ComfyUI-MAINodes/motion.py` pads to any 17k+5. The pack refuses off-grid chains
     (`h3_rules.on_both_clocks`).
 - **Beats that don't multiply.** Their planned fix is sparse pose anchors.
-  - `MiniMaxH3GuideLatent` gives mid-clip keyframes with `guide_end_percent` release.
+  - Core's `MiniMaxH3AddGuide` already gives them mid-clip frames (their ROADMAP §4). What the pack adds is releasing
+    them partway through denoising, through `MiniMaxH3ReleaseReferences` `guide_end_percent`
+    (`control_vector_nodes.py:4763`, **H**). *Corrected the same day: this line put `guide_end_percent` on
+    `MiniMaxH3GuideLatent`.*
   - `MiniMaxH3SoundCues` anchors impacts on the exact audio grid.
   - `MiniMaxH3BodyMeshVideo` could supply the pose ladder.
   - Their oracle's inability to abstain has nothing on our side.
 - **Dials that keep working.**
-  - Core PR #17715 would move the refiner into every step, under the seam their dials hook. Their wrappers rely on
-    `extra_conds` refining once (`coderef/ComfyUI-MAINodes/dials/core.py:43`, **H**). It is on `../upstream/horizon.md`.
-  - The pack's `safe_open` refiner runner builds vectors without loading the DiT.
+  - **Image dials and the image refiner.** Their `MiniMaxH3ImageModel` dials reuse the video text path, and they
+    needed several times the video strength. Gemini's run on the pack's refiner Jacobians found the image refiner
+    rotated well away from the video ones. That plausibly explains the strength gap; the vector norms differ too.
+    The pack's `safe_open` refiner runner and J-lens re-projection (`j_lens.py`) carry one encoder-space vector into
+    the image family without loading the DiT.
+  - **Core PR #17715 is a compute heads-up, not a breakage.** *Corrected the same day, after the second Gemini
+    review, checked by hand.* Their `ContextShift` calls `preprocess_text_embeds` itself
+    (`coderef/ComfyUI-MAINodes/dials/core.py:110`). Core skips the refiner when the input is already the model's width
+    (`comfy/ldm/minimax/model.py`, the `text_states.shape[-1] != self.hidden_size` branch). Their `PostShift` hook on
+    `token_refiner` is the fallback. Under #17715 the refiner would run on every step. It is on
+    `../upstream/horizon.md`.
 - **Snap's consistency.**
   - Their checks run stock SAM 3.1 (`SAM3_Detect`, and `SAM3_VideoTrack` with one object; **H**, `coderef/ComfyUI-MAINodes/web/snap/checks.js:91`).
     `MiniMaxH3SAM31Corrections` targets that path, though their thresholds would need re-measuring after it.
@@ -597,24 +631,35 @@ These practices serve every outcome above, ours and theirs.
 
 ### 17.4 If any of this is passed along
 
-**To them, in order** (through the owner; nothing has been sent):
-1. Core #17715.
-2. Whole-slice frozen audio and the refusal of off-grid chains, for their seams.
-3. The SAM 3.1 corrections, after reading what the other session's SAM 3.1 worktree changes.
-4. Last frame and temporal masks, for Snap.
+**To them, in order** (through the owner; nothing has been sent; reordered after the second Gemini review):
+1. The image refiner's divergence from the video ones, which bears on their image-dial strength. With it, the pack's
+   refiner runner and J-lens re-projection.
+2. The SAM 3.1 corrections, after reading what the other session's SAM 3.1 worktree changes.
+3. Frozen audio with the run-phase check, for their extension seams. For their dilated passes, freezing the smeared
+   track instead.
+4. `MiniMaxH3LoRABranch` for their merged int8 LoRAs, and the `int32` QKV line for their long dilated runs. The pack's
+   `MiniMaxH3SageAttention` fork has `int64`-safe indexing, relevant because their stack lists sage. The owner no
+   longer uses sage.
+5. Smaller items:
+   - the #17715 compute heads-up;
+   - `MiniMaxH3ReleaseReferences` (`guide_end_percent`, `audio_end_percent`);
+   - `MiniMaxH3EncodeReferences` for Snap's prompt revisions;
+   - `MiniMaxH3MaskedSource` and `MiniMaxH3Conditioning`'s lone last frame, for Transform Footage.
 
 **For us, in order:**
 1. A gate column and the seed ladder in the pack's research plans.
-2. A critic or reader floor fed by the owner's catches.
+2. A critic or reader floor fed by the owner's catches, with triage notes (voice, copy, face) feeding it.
 3. Their masked-prefix seam result, read against the song-loop handoff.
 4. ArcFace identity notes as a frames-to-look-at list.
+5. RelayVSR as a candidate final upscale.
 
 ### 17.5 Not read
 
 - In Snap: most of `SNAP_RULES.md`, the director code, the suite code and most dogfood reports. The `docs/snap/`
   DECISIONS, LESSONS and PLAN files their `AGENTS.md` points to are not in the clone.
 - Outside Snap: `flow/`, `DEROPE_ANY_MODEL.md`, `docs/WINDOW_MODE.md`, the RelayVSR and concept-lab docs beyond their
-  READMEs, and most of `coderef/ComfyUI-MAINodes/motion.py`, `h3_drift.py`, `h3_measure.py` and `video_compare.py` beyond headers.
+  READMEs (the second Gemini review read the RelayVSR README, `snap_voice.py`, `snap_critiques.py` and
+  `h3_color_carry.py`), and most of `coderef/ComfyUI-MAINodes/motion.py`, `h3_drift.py`, `h3_measure.py` and `video_compare.py` beyond headers.
 
 ---
 
