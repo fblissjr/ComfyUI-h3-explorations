@@ -173,9 +173,9 @@ layers above core's `comfy/text_encoders/sam3_clip.py`,
 
 `MiniMaxH3SAM31Corrections` (`sam31_corrections.py:1345-1407`) sits between
 `CheckpointLoaderSimple` and every SAM consumer. It clones the incoming
-`MODEL` and `CLIP` `ModelPatcher`s (`sam31_corrections.py:766-816`), registers
+`MODEL` and `CLIP` `ModelPatcher`s (`sam31_corrections.py:1228-1258, 1322-1342`), registers
 its patches via `add_object_patch`, and registers a `CallbacksMP.ON_CLONE`
-callback (`sam31_corrections.py:806-812`) because `SAM3_Detect.execute`
+callback (`sam31_corrections.py:1244-1252`) because `SAM3_Detect.execute`
 (`comfy_extras/nodes_sam3.py:121`), `_refine_mask`
 (`comfy_extras/nodes_sam3.py:74`), and `SAM3_VideoTrack.execute`
 (`comfy_extras/nodes_sam3.py:293`) each clone the incoming `ModelPatcher` and
@@ -203,11 +203,11 @@ on clone.
     to `[-1, 1]`. *(Quirk in Meta's own code: the `cv2` MP4 video loader at
     `coderef/sam3/sam3/model/io_utils.py:348-365` converts uint8 to float
     `0..255` without dividing by 255 before `(x - 0.5)/0.5`, feeding `[-1, 509]`
-    into the trunk; see `sam31_corrections.py:35-43` and
+    into the trunk; see
     [`2026-10-07_mryolk.md`](../research/masking/2026-10-07_mryolk.md), finding 7.)*
-- **How our patch works (`sam31_corrections.py::CorrectedRange`, `sam31_corrections.py:93-131`)**:
+- **How our patch works (`sam31_corrections.py::CorrectedRange`, `sam31_corrections.py:100-138`)**:
   - Wraps `diffusion_model.detector.backbone.vision_backbone.trunk.patch_embed.forward`.
-  - Checks `x.amin() < ALREADY_MAPPED_BELOW` (`-0.5`, `sam31_corrections.py:90, 121-125`):
+  - Checks `x.amin() < ALREADY_MAPPED_BELOW` (`-0.5`, `sam31_corrections.py:83, 115-122`):
     if a future ComfyUI update already maps inputs to `[-1, 1]`, it leaves
     `x` untouched; otherwise it runs `x.clamp(0.0, 1.0).mul(2.0).sub(1.0)`
     (clamping bicubic overshoot first, then mapping `[0, 1]` to `[-1, 1]`).
@@ -245,12 +245,12 @@ on clone.
   - `VETextEncoder` (`coderef/sam3/sam3/model/text_encoder_ve.py:130, 198`)
     constructs `ResidualAttentionBlock` with default `act_layer=nn.GELU`
     (`F.gelu`, exact Gaussian error function).
-- **How our patch works (`sam31_corrections.py::text_mlps`, `sam31_corrections.py:747-778`)**:
+- **How our patch works (`sam31_corrections.py::text_mlps`, `sam31_corrections.py:1214-1225, 1253-1258`)**:
   - Iterates over the 24 `layer.mlp` modules of
     `clip.patcher.model.sam3_clip.transformer.text_model.encoder.layers` and
     attaches `clip_patcher.add_object_patch(f"...layers.{i}.mlp.activation", F.gelu)`.
   - Reads `clip_patcher.object_patches_backup` before checking `mlp.activation`
-    (`sam31_corrections.py:772-774`) so that when the text encoder is already
+    (`sam31_corrections.py:1223-1225`) so that when the text encoder is already
     loaded on the GPU from an earlier corrected run, a second run still
     registers the patch on its fresh `ModelPatcher` clone instead of being
     fooled by the in-place attribute on the shared `nn.Module`.
