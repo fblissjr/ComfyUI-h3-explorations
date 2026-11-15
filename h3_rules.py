@@ -44,6 +44,7 @@ whether a graph also runs in diffusers, and do not call the answer legality.
 
 from __future__ import annotations
 
+import json
 import math
 
 # The aspect range the released checkpoint was trained over.
@@ -371,6 +372,96 @@ SPRITE_TRAJECTORY_DEFAULTS = dict(
     canvas_height=224,
     sprite_scale=0.31,
     use_vae=True,
+)
+
+#: Canonical JSON choreography payload and defaults for `MiniMaxH3SpatialDirector`
+#: and `MiniMaxH3DirectorHUD` (`spatial_director.py`), kept here as one copy so the
+#: nodes, `workflows/h3_config.py`, and `workflows/build_workflows.py` stay aligned.
+DEFAULT_DIRECTOR_EVENTS_JSON = json.dumps(
+    {
+        "portal": [
+            {
+                "frame": 0,
+                "x": 0.18,
+                "y": 0.52,
+                "rx": 0.24,
+                "ry": 0.30,
+                "shape": "circle",
+                "label": "REALITY LENS",
+            },
+            {
+                "frame": 70,
+                "x": 0.50,
+                "y": 0.50,
+                "rx": 0.26,
+                "ry": 0.32,
+                "shape": "circle",
+                "label": "REALITY LENS",
+            },
+            {
+                "frame": 140,
+                "x": 0.82,
+                "y": 0.52,
+                "rx": 0.24,
+                "ry": 0.30,
+                "shape": "circle",
+                "label": "REALITY LENS",
+            },
+        ],
+        "targets": [
+            {
+                "id": 1,
+                "label": "TARGET A",
+                "start": 24,
+                "end": 66,
+                "ramp": 5,
+                "x": 0.24,
+                "y": 0.54,
+                "radius": 0.19,
+                "cue": "slam",
+                "gain": 1.20,
+            },
+            {
+                "id": 2,
+                "label": "TARGET B",
+                "start": 78,
+                "end": 126,
+                "ramp": 5,
+                "x": 0.76,
+                "y": 0.54,
+                "radius": 0.19,
+                "cue": "hop",
+                "gain": 1.20,
+            },
+        ],
+        "dpad": {
+            "waypoints": [
+                {"frame": 0, "x": 0.24, "y": 0.76, "face": "right", "scale": 1.0},
+                {"frame": 54, "x": 0.50, "y": 0.76, "face": "right", "scale": 1.0},
+                {"frame": 96, "x": 0.68, "y": 0.76, "face": "right", "scale": 1.0},
+                {"frame": 140, "x": 0.54, "y": 0.76, "face": "right", "scale": 1.0},
+            ],
+            "hops": [{"start": 63, "end": 78, "lift": 0.25}],
+        },
+    },
+    indent=2,
+)
+
+SPATIAL_DIRECTOR_DEFAULTS = dict(
+    mode="portal_path",
+    width=1344,
+    height=768,
+    length=141,
+    feather=0.08,
+    invert_mask=False,
+    events_json=DEFAULT_DIRECTOR_EVENTS_JSON,
+)
+
+DIRECTOR_HUD_DEFAULTS = dict(
+    hud_layout="director_card",
+    title="SPATIAL WORLD DIRECTOR \u00b7 2D VELOCITY STEERING",
+    subtitle="",
+    ring_opacity=0.85,
 )
 
 

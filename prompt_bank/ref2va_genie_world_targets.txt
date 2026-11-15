@@ -1,0 +1,20 @@
+subject_definitions:
+<Subject 1> is the small grey tortoise from <Picture 1>, carrying a single upright white birthday candle with a steady warm glowing flame on top of its patterned shell, whose texture, proportion, and candle flame are retained as it moves.
+<Subject 2> is the 2D locomotion path supplied by <Video 1>, driving <Subject 1>'s left-to-right walk, sharp mid-clip hop, and final return across the foreground pavement.
+<Video 1> is the synthetic sprite-trajectory reference providing <Subject 1>'s spatial coordinates, facing direction, and hop timing across frames.
+
+summary:
+[reference generation] The target video places <Subject 1> crossing a calm cobblestone twilight plaza along the exact locomotion timing of <Video 1> over a continuous 5.875-second shot.
+
+retention_analysis:
+<Subject 1> (appears in [Shot 1]): fully_preserved - grey shell scutes, legs, head, and lit white birthday candle flame from <Picture 1> stay intact throughout every step and hop.
+<Subject 2> (appears in [Shot 1]): attribute_transfer - the left-to-right walk, upward jump apex, and lateral return timing from <Video 1> drive the tortoise's traversal path cleanly.
+<Video 1> (spatial trajectory): weak_reference - only the timing and screen coordinates of the sprite path transfer into <Subject 1>'s locomotion; no flat cutout styling or dark test card background enters the scene.
+
+detailed_description:
+The target video is in a cinematic live-action miniature-world style with sharp practical textures, crisp depth of field, and atmospheric twilight rim lighting.
+[Shot 1] A wide eye-level shot frames an ancient wet basalt cobblestone plaza stretching evenly across a quiet brick alley for the entire 5.875-second real-time take. Deep slate-blue dusk light bathes tall weathered brick facades, arched wooden cellar doors, iron window shutters, overhead utility wires, and vintage wrought-iron streetlamps glowing dimly along the quiet rear curb, while the broad lower apron shows wide courses of hand-cut basalt blocks bordered by damp mossy gutters and bronze drainage grates on both sides. Subtle twilight mist settles gently over the doorway steps while damp specular reflections shimmer softly across worn curb stones in the upper alley. The camera holds a static shot with zero cuts, zero pans, and zero zoom drift across all one hundred and forty-one frames, keeping the foreground flagstones rock steady in screen space so every movement reads cleanly against the crisp stone masonry joints. Starting near the lower-left foreground, <Subject 1> from <Picture 1>, the small grey tortoise carrying its single white birthday candle with a steadily glowing golden flame atop its patterned domed shell, walks briskly rightward along the weathered stone apron following the exact forward traversal of <Subject 2> from <Video 1>. Its four wrinkled grey legs alternate with deliberate clawed steps across the damp masonry while warm orange candlelight trembles softly across nearby stone edges. Near the middle of the crossing around three seconds, <Subject 1> bends its limbs and springs cleanly upward into an energetic airborne hop with all four feet lifted well clear of the pavement, balancing its upright white birthday candle and bright golden flame smoothly throughout the arched jump apex of <Video 1>. Descending softly back onto its clawed feet along the right foreground stones, the tortoise pauses briefly and steps back leftward toward center-right while keeping its snout and glowing candle oriented toward the viewer until the final frame of the take. Across both left and right foreground pavement zones beside its path, flat quiet grey stone pavement slabs remain calm, dry, and unobstructed under the twilight sky. No human speaker enters the shot, and zero vocal dialogue is spoken anywhere.
+
+overall_soundscape: Small reptilian claws click lightly against damp basalt flagstones, a crisp soft thud marks the tortoise landing from its mid-clip hop, and gentle evening wind hums quietly down the silent brick alley.
+
+non_diegetic_music: N/A

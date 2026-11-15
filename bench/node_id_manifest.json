@@ -238,6 +238,21 @@
       "model"
     ]
   },
+  "MiniMaxH3DirectorHUD": {
+    "inputs": [
+      "images",
+      "director_plan",
+      "hud_layout",
+      "title",
+      "subtitle",
+      "ring_opacity",
+      "baseline_images"
+    ],
+    "node_id": "MiniMaxH3DirectorHUD",
+    "outputs": [
+      "images"
+    ]
+  },
   "MiniMaxH3EditGuider": {
     "inputs": [
       "model",
@@ -892,6 +907,25 @@
       "positive",
       "latent",
       "edited_positive"
+    ]
+  },
+  "MiniMaxH3SpatialDirector": {
+    "inputs": [
+      "mode",
+      "width",
+      "height",
+      "length",
+      "feather",
+      "invert_mask",
+      "events_json",
+      "backdrop"
+    ],
+    "node_id": "MiniMaxH3SpatialDirector",
+    "outputs": [
+      "mask",
+      "sound_cues",
+      "sprite_keyframes",
+      "director_plan"
     ]
   },
   "MiniMaxH3Steer": {

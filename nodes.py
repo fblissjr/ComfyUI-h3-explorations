@@ -96,6 +96,7 @@ from .h3_image_nodes import (
 )
 from .sound_cues import MiniMaxH3SoundCues
 from .sprite_trajectory import MiniMaxH3AppendSpriteTrajectory
+from .spatial_director import MiniMaxH3SpatialDirector, MiniMaxH3DirectorHUD
 from . import h3_capture
 
 from .attention import (
@@ -447,7 +448,11 @@ class H3ExplorationsExtension(ComfyExtension):
                 # appended 2026-11-12, zero-file procedural sound-island cues and 2D sprite
                 # kinematic D-pad trajectory references (sound_cues.py, sprite_trajectory.py)
                 MiniMaxH3SoundCues,
-                MiniMaxH3AppendSpriteTrajectory]
+                MiniMaxH3AppendSpriteTrajectory,
+                # appended 2026-11-15, interactive spatial reality portals, point-and-click
+                # world targets, and high-contrast director HUD export (spatial_director.py)
+                MiniMaxH3SpatialDirector,
+                MiniMaxH3DirectorHUD]
 
 
 async def comfy_entrypoint() -> H3ExplorationsExtension:

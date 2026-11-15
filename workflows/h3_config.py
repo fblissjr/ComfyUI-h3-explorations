@@ -1857,6 +1857,26 @@ SPRITE_TRAJECTORY_DEFAULTS = dict(_h3_rules().SPRITE_TRAJECTORY_DEFAULTS)
 DPAD_SOUND_REF_IMAGES = ("ref_signal/tortoise_pic1.png",)
 DPAD_SOUND_CUES = "54: hop"
 DPAD_VIDEO_RELEASE_END = 0.33
+SPATIAL_DIRECTOR_NODE = "MiniMaxH3SpatialDirector"
+SPATIAL_DIRECTOR_DEFAULTS = dict(_h3_rules().SPATIAL_DIRECTOR_DEFAULTS)
+DIRECTOR_HUD_NODE = "MiniMaxH3DirectorHUD"
+DIRECTOR_HUD_DEFAULTS = dict(_h3_rules().DIRECTOR_HUD_DEFAULTS)
+SPATIAL_PORTAL_EDIT_GUIDANCE = dict(
+    scale=2.0,
+    first_step=0,
+    last_step=1000,
+    streams="independent",
+    audio_scale=1.0,
+    spatial_mask=True,
+)
+WORLD_TARGETS_EDIT_GUIDANCE = dict(
+    scale=2.0,
+    first_step=0,
+    last_step=1000,
+    streams="video_only",
+    audio_scale=1.0,
+    spatial_mask=True,
+)
 GUIDE_VFX_EDIT_FFP_LORA = "h3/alissonerdx/minimax_h3_vfx_edit_v1.0_r128_ffp.safetensors"
 GUIDE_VFX_EDIT_LORA = "h3/alissonerdx/minimax_h3_vfx_edit_v1.0_r128.safetensors"
 GUIDE_CHARACTER_SWAP_LORA = "h3/alissonerdx/minimax_h3_character_swap_v1.1_ref2va_fro.safetensors"

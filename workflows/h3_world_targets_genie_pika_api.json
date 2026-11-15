@@ -1,0 +1,428 @@
+{
+  "1": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "minimax_h3_ref2va_pruned_int8_convrot.safetensors",
+      "weight_dtype": "default"
+    }
+  },
+  "2": {
+    "class_type": "MiniMaxH3EncoderLoader",
+    "inputs": {
+      "encoder_name": "qwen3vl_32b_minimax_h3_bf16_pruned.safetensors",
+      "device": "default"
+    }
+  },
+  "3": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "minimax_h3_video_vae_int8_convrot.safetensors"
+    }
+  },
+  "4": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "minimax_h3_audio_vae_fp32.safetensors"
+    }
+  },
+  "6": {
+    "class_type": "RandomNoise",
+    "inputs": {
+      "noise_seed": 730451892
+    }
+  },
+  "7": {
+    "class_type": "KSamplerSelect",
+    "inputs": {
+      "sampler_name": "lcm"
+    }
+  },
+  "9": {
+    "class_type": "MiniMaxH3EditGuider",
+    "inputs": {
+      "model": [
+        "135",
+        0
+      ],
+      "original": [
+        "26",
+        0
+      ],
+      "edited": [
+        "70",
+        2
+      ],
+      "scale": 2.0,
+      "first_step": 0,
+      "align_positions": false,
+      "last_step": 1000,
+      "streams": "video_only",
+      "audio_scale": 1.0,
+      "mask": [
+        "160",
+        0
+      ]
+    }
+  },
+  "10": {
+    "class_type": "SamplerCustomAdvanced",
+    "inputs": {
+      "noise": [
+        "6",
+        0
+      ],
+      "guider": [
+        "9",
+        0
+      ],
+      "sampler": [
+        "7",
+        0
+      ],
+      "sigmas": [
+        "60",
+        0
+      ],
+      "latent_image": [
+        "26",
+        1
+      ]
+    }
+  },
+  "11": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": [
+        "10",
+        0
+      ],
+      "vae": [
+        "3",
+        0
+      ]
+    }
+  },
+  "12": {
+    "class_type": "VAEDecodeAudio",
+    "inputs": {
+      "samples": [
+        "10",
+        0
+      ],
+      "vae": [
+        "4",
+        0
+      ]
+    }
+  },
+  "13": {
+    "class_type": "VHS_VideoCombine",
+    "inputs": {
+      "images": [
+        "161",
+        0
+      ],
+      "audio": [
+        "12",
+        0
+      ],
+      "frame_rate": 24.0,
+      "loop_count": 0,
+      "filename_prefix": "Video/h3_world_targets_genie_pika",
+      "format": "video/h264-mp4",
+      "pix_fmt": "yuv420p",
+      "crf": 19,
+      "save_metadata": true,
+      "trim_to_audio": false,
+      "pingpong": false,
+      "save_output": true
+    }
+  },
+  "27": {
+    "class_type": "MiniMaxH3Resolution",
+    "inputs": {
+      "shape": "wide",
+      "shape.wide_resolution": "1344x768  7/4  1008 tok/frame  1.00x",
+      "length": 141
+    }
+  },
+  "5": {
+    "class_type": "MiniMaxH3PromptOnReferences",
+    "inputs": {
+      "encoded_references": [
+        "132",
+        0
+      ],
+      "prompt": [
+        "133",
+        0
+      ]
+    }
+  },
+  "15": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "ref_signal/tortoise_pic1.png"
+    }
+  },
+  "50": {
+    "class_type": "MiniMaxH3AppendRefImage",
+    "inputs": {
+      "image": [
+        "15",
+        0
+      ],
+      "size_policy": "max",
+      "size_policy.dit_short_edge": 2048,
+      "size_policy.allow_upscale": false,
+      "qwen_view": "separate",
+      "qwen_view.qwen_short_edge": 512
+    }
+  },
+  "51": {
+    "class_type": "MiniMaxH3AppendSpriteTrajectory",
+    "inputs": {
+      "image": [
+        "15",
+        0
+      ],
+      "length": [
+        "27",
+        2
+      ],
+      "keyframes": [
+        "160",
+        2
+      ],
+      "canvas_width": 384,
+      "canvas_height": 224,
+      "sprite_scale": 0.31,
+      "use_vae": true,
+      "references": [
+        "50",
+        0
+      ]
+    }
+  },
+  "18": {
+    "class_type": "MiniMaxH3LoRABranch",
+    "inputs": {
+      "model": [
+        "1",
+        0
+      ],
+      "lora_name": "h3/pika_h3_flex_ref2va_svd995_bf16.safetensors",
+      "strength": 1.0,
+      "modules": "all",
+      "blocks": "all",
+      "start_percent": 0.0,
+      "end_percent": 1.0
+    }
+  },
+  "19": {
+    "class_type": "MiniMaxH3SigmaShift",
+    "inputs": {
+      "model": [
+        "18",
+        0
+      ],
+      "shift_video": 12.0,
+      "shift_audio": 3.0
+    }
+  },
+  "58": {
+    "class_type": "ModelAttentionBackend",
+    "inputs": {
+      "model": [
+        "19",
+        0
+      ],
+      "attention": "comfy kitchen attention"
+    }
+  },
+  "21": {
+    "class_type": "MiniMaxH3Sol",
+    "inputs": {
+      "model": [
+        "58",
+        0
+      ],
+      "tau": 1.0,
+      "start_percent": 0.2,
+      "end_percent": 1.0,
+      "min_tokens": 12288,
+      "sink_conditioning": "exact_kv_and_all_rows",
+      "verbose": true,
+      "dense_blocks": "49",
+      "quantizer": "rotated",
+      "token_routing": "off"
+    }
+  },
+  "135": {
+    "class_type": "MiniMaxH3ReleaseReferences",
+    "inputs": {
+      "model": [
+        "21",
+        0
+      ],
+      "end_percent": 1.0,
+      "clean_level": 0.999,
+      "audio_end_percent": 0.6,
+      "audio_clean_level": 1.0,
+      "video_end_percent": 0.33
+    }
+  },
+  "26": {
+    "class_type": "MiniMaxH3Preflight",
+    "inputs": {
+      "conditioning": [
+        "70",
+        0
+      ],
+      "samples": [
+        "70",
+        1
+      ],
+      "edited_conditioning": [
+        "70",
+        2
+      ]
+    }
+  },
+  "60": {
+    "class_type": "ManualSigmas",
+    "inputs": {
+      "sigmas": "1.0, 0.972973, 0.923077, 0.8, 0.571429, 0.333333, 0.0"
+    }
+  },
+  "70": {
+    "class_type": "MiniMaxH3SoundCues",
+    "inputs": {
+      "positive": [
+        "5",
+        0
+      ],
+      "latent": [
+        "132",
+        1
+      ],
+      "audio_vae": [
+        "4",
+        0
+      ],
+      "cues": [
+        "160",
+        1
+      ],
+      "snap_to_3f": true,
+      "floor_dbfs": -28.0,
+      "seed": 20261112,
+      "edited_positive": [
+        "131",
+        0
+      ]
+    }
+  },
+  "160": {
+    "class_type": "MiniMaxH3SpatialDirector",
+    "inputs": {
+      "mode": "point_targets",
+      "width": [
+        "27",
+        0
+      ],
+      "height": [
+        "27",
+        1
+      ],
+      "length": [
+        "27",
+        2
+      ],
+      "feather": 0.08,
+      "invert_mask": false,
+      "events_json": "{\n  \"portal\": [\n    {\n      \"frame\": 0,\n      \"x\": 0.18,\n      \"y\": 0.52,\n      \"rx\": 0.24,\n      \"ry\": 0.3,\n      \"shape\": \"circle\",\n      \"label\": \"REALITY LENS\"\n    },\n    {\n      \"frame\": 70,\n      \"x\": 0.5,\n      \"y\": 0.5,\n      \"rx\": 0.26,\n      \"ry\": 0.32,\n      \"shape\": \"circle\",\n      \"label\": \"REALITY LENS\"\n    },\n    {\n      \"frame\": 140,\n      \"x\": 0.82,\n      \"y\": 0.52,\n      \"rx\": 0.24,\n      \"ry\": 0.3,\n      \"shape\": \"circle\",\n      \"label\": \"REALITY LENS\"\n    }\n  ],\n  \"targets\": [\n    {\n      \"id\": 1,\n      \"label\": \"TARGET A\",\n      \"start\": 24,\n      \"end\": 66,\n      \"ramp\": 5,\n      \"x\": 0.24,\n      \"y\": 0.54,\n      \"radius\": 0.19,\n      \"cue\": \"slam\",\n      \"gain\": 1.2\n    },\n    {\n      \"id\": 2,\n      \"label\": \"TARGET B\",\n      \"start\": 78,\n      \"end\": 126,\n      \"ramp\": 5,\n      \"x\": 0.76,\n      \"y\": 0.54,\n      \"radius\": 0.19,\n      \"cue\": \"hop\",\n      \"gain\": 1.2\n    }\n  ],\n  \"dpad\": {\n    \"waypoints\": [\n      {\n        \"frame\": 0,\n        \"x\": 0.24,\n        \"y\": 0.76,\n        \"face\": \"right\",\n        \"scale\": 1.0\n      },\n      {\n        \"frame\": 54,\n        \"x\": 0.5,\n        \"y\": 0.76,\n        \"face\": \"right\",\n        \"scale\": 1.0\n      },\n      {\n        \"frame\": 96,\n        \"x\": 0.68,\n        \"y\": 0.76,\n        \"face\": \"right\",\n        \"scale\": 1.0\n      },\n      {\n        \"frame\": 140,\n        \"x\": 0.54,\n        \"y\": 0.76,\n        \"face\": \"right\",\n        \"scale\": 1.0\n      }\n    ],\n    \"hops\": [\n      {\n        \"start\": 63,\n        \"end\": 78,\n        \"lift\": 0.25\n      }\n    ]\n  }\n}"
+    }
+  },
+  "161": {
+    "class_type": "MiniMaxH3DirectorHUD",
+    "inputs": {
+      "images": [
+        "11",
+        0
+      ],
+      "director_plan": [
+        "160",
+        3
+      ],
+      "hud_layout": "director_card",
+      "title": "GENIE D-PAD + POINT-AND-CLICK WORLD TARGETS",
+      "subtitle": "Clicked (x, y, t) targets trigger 3f SoundCues + localized crystal eruptions",
+      "ring_opacity": 0.85
+    }
+  },
+  "133": {
+    "class_type": "PrimitiveStringMultiline",
+    "inputs": {
+      "value": "subject_definitions:\n<Subject 1> is the small grey tortoise from <Picture 1>, carrying a single upright white birthday candle with a steady warm glowing flame on top of its patterned shell, whose texture, proportion, and candle flame are retained as it moves.\n<Subject 2> is the 2D locomotion path supplied by <Video 1>, driving <Subject 1>'s left-to-right walk, sharp mid-clip hop, and final return across the foreground pavement.\n<Video 1> is the synthetic sprite-trajectory reference providing <Subject 1>'s spatial coordinates, facing direction, and hop timing across frames.\n\nsummary:\n[reference generation] The target video places <Subject 1> crossing a calm cobblestone twilight plaza along the exact locomotion timing of <Video 1> over a continuous 5.875-second shot.\n\nretention_analysis:\n<Subject 1> (appears in [Shot 1]): fully_preserved - grey shell scutes, legs, head, and lit white birthday candle flame from <Picture 1> stay intact throughout every step and hop.\n<Subject 2> (appears in [Shot 1]): attribute_transfer - the left-to-right walk, upward jump apex, and lateral return timing from <Video 1> drive the tortoise's traversal path cleanly.\n<Video 1> (spatial trajectory): weak_reference - only the timing and screen coordinates of the sprite path transfer into <Subject 1>'s locomotion; no flat cutout styling or dark test card background enters the scene.\n\ndetailed_description:\nThe target video is in a cinematic live-action miniature-world style with sharp practical textures, crisp depth of field, and atmospheric twilight rim lighting.\n[Shot 1] A wide eye-level shot frames an ancient wet basalt cobblestone plaza stretching evenly across a quiet brick alley for the entire 5.875-second real-time take. Deep slate-blue dusk light bathes tall weathered brick facades, arched wooden cellar doors, iron window shutters, overhead utility wires, and vintage wrought-iron streetlamps glowing dimly along the quiet rear curb, while the broad lower apron shows wide courses of hand-cut basalt blocks bordered by damp mossy gutters and bronze drainage grates on both sides. Subtle twilight mist settles gently over the doorway steps while damp specular reflections shimmer softly across worn curb stones in the upper alley. The camera holds a static shot with zero cuts, zero pans, and zero zoom drift across all one hundred and forty-one frames, keeping the foreground flagstones rock steady in screen space so every movement reads cleanly against the crisp stone masonry joints. Starting near the lower-left foreground, <Subject 1> from <Picture 1>, the small grey tortoise carrying its single white birthday candle with a steadily glowing golden flame atop its patterned domed shell, walks briskly rightward along the weathered stone apron following the exact forward traversal of <Subject 2> from <Video 1>. Its four wrinkled grey legs alternate with deliberate clawed steps across the damp masonry while warm orange candlelight trembles softly across nearby stone edges. Near the middle of the crossing around three seconds, <Subject 1> bends its limbs and springs cleanly upward into an energetic airborne hop with all four feet lifted well clear of the pavement, balancing its upright white birthday candle and bright golden flame smoothly throughout the arched jump apex of <Video 1>. Descending softly back onto its clawed feet along the right foreground stones, the tortoise pauses briefly and steps back leftward toward center-right while keeping its snout and glowing candle oriented toward the viewer until the final frame of the take. Across both left and right foreground pavement zones beside its path, flat quiet grey stone pavement slabs remain calm, dry, and unobstructed under the twilight sky. No human speaker enters the shot, and zero vocal dialogue is spoken anywhere.\n\noverall_soundscape: Small reptilian claws click lightly against damp basalt flagstones, a crisp soft thud marks the tortoise landing from its mid-clip hop, and gentle evening wind hums quietly down the silent brick alley.\n\nnon_diegetic_music: N/A"
+    }
+  },
+  "130": {
+    "class_type": "MiniMaxH3PromptEdit",
+    "inputs": {
+      "original": [
+        "133",
+        0
+      ],
+      "edits": "flat quiet grey stone pavement slabs -> blazing neon cyan crystal pillars and swirling golden arcane embers erupting upward out of the cracked basalt floor"
+    }
+  },
+  "132": {
+    "class_type": "MiniMaxH3EncodeReferences",
+    "inputs": {
+      "clip": [
+        "2",
+        0
+      ],
+      "vae": [
+        "3",
+        0
+      ],
+      "audio_vae": [
+        "4",
+        0
+      ],
+      "references": [
+        "51",
+        0
+      ],
+      "width": [
+        "27",
+        0
+      ],
+      "height": [
+        "27",
+        1
+      ],
+      "length": [
+        "27",
+        2
+      ],
+      "video_policy": "comfy",
+      "image_policy": "comfy"
+    }
+  },
+  "131": {
+    "class_type": "MiniMaxH3PromptOnReferences",
+    "inputs": {
+      "encoded_references": [
+        "132",
+        0
+      ],
+      "prompt": [
+        "130",
+        0
+      ]
+    }
+  }
+}

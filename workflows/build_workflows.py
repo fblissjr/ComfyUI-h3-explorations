@@ -85,6 +85,7 @@ _OUR_NODES = {
     "MiniMaxH3SoundCues", "MiniMaxH3AppendSpriteTrajectory",
     "MiniMaxH3ImageSize", "MiniMaxH3ImageDownscale", "MiniMaxH3ImagePromptExpander",
     "MiniMaxH3EncodeImageReferences", "MiniMaxH3PromptOnImageReferences",
+    "MiniMaxH3SpatialDirector", "MiniMaxH3DirectorHUD",
 }
 
 # Model names, sampler settings, canvas geometry and the SolAttn knobs all
@@ -125,6 +126,9 @@ from h3_config import (  # noqa: E402
     SOUND_GUIDE_ISLANDS, SOUND_GUIDE_AUDIO_RELEASE_END, SOUND_GUIDE_EDIT_GUIDANCE,
     SOUND_CUES_NODE, SOUND_CUES_DEFAULTS, SPRITE_TRAJECTORY_NODE, SPRITE_TRAJECTORY_DEFAULTS,
     DPAD_SOUND_REF_IMAGES, DPAD_SOUND_CUES, DPAD_VIDEO_RELEASE_END,
+    SPATIAL_DIRECTOR_NODE, SPATIAL_DIRECTOR_DEFAULTS,
+    DIRECTOR_HUD_NODE, DIRECTOR_HUD_DEFAULTS,
+    SPATIAL_PORTAL_EDIT_GUIDANCE, WORLD_TARGETS_EDIT_GUIDANCE,
     CONTROL_VECTOR_NODE, CONTROL_VECTOR_DEFAULTS, CONTROL_VECTOR_OPTIONAL_DEFAULTS, LAYER_NORM_MATCH_NODE,
     STEER_NODE, STEER_DEFAULTS, RELEASE_REFERENCES_NODE, RELEASE_REFERENCES_DEFAULTS,
     WORD_VECTOR_NODE, WORD_VECTOR_DEFAULTS, LOAD_CONTROL_VECTOR_NODE,
@@ -296,6 +300,8 @@ def sol_api_inputs(sol):
 LONG_T2V_PROMPT = _bank_prompt("t2va_covered_market")
 SOUND_GUIDE_T2V_PROMPT = _bank_prompt("t2va_offpath_tortoise_sound_guide")
 DPAD_SOUND_REF2V_PROMPT = _bank_prompt("ref2va_dpad_tortoise_sound_cues")
+SPATIAL_PORTAL_T2V_PROMPT = _bank_prompt("t2va_spatial_reality_portal")
+WORLD_TARGETS_REF2V_PROMPT = _bank_prompt("ref2va_genie_world_targets")
 # The bench pair's scene (see the bench block near the end of main).
 BENCH_T2V_PROMPT = _bank_prompt("t2va_frontier_standoff")
 
@@ -1692,6 +1698,8 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
               guide_audio: tuple[tuple[int, str], ...] | None = None,
               sound_cues: str | dict | None = None,
               sprite_trajectory: bool | str | dict | None = None,
+              spatial_director: bool | dict | None = None,
+              director_hud: bool | dict | None = None,
               release_references: bool | dict | None = None,
               task_lora: tuple[str, float] | None = None,
               out_prefix: str | None = None, **canvas) -> dict:
@@ -1974,7 +1982,10 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
             if not slots:
                 raise SystemExit("sprite_trajectory requires at least one reference image slot (<Picture 1>)")
             sprite_cfg = dict(SPRITE_TRAJECTORY_DEFAULTS)
-            if isinstance(sprite_trajectory, str):
+            if sprite_trajectory == "from_director":
+                if not spatial_director:
+                    raise SystemExit("sprite_trajectory='from_director' requires spatial_director=True or dict")
+            elif isinstance(sprite_trajectory, str):
                 sprite_cfg["keyframes"] = sprite_trajectory
             elif isinstance(sprite_trajectory, dict):
                 bad_sp = sorted(set(sprite_trajectory) - set(SPRITE_TRAJECTORY_DEFAULTS))
@@ -1992,7 +2003,11 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
             sprite_inputs: dict[str, Any] = {
                 "image": [slots[0][0], 0],
                 "length": ["27", 2],
-                "keyframes": str(sprite_cfg["keyframes"]),
+                "keyframes": (
+                    ["160", 2]
+                    if sprite_trajectory == "from_director"
+                    else str(sprite_cfg["keyframes"])
+                ),
                 "canvas_width": int(sprite_cfg["canvas_width"]),
                 "canvas_height": int(sprite_cfg["canvas_height"]),
                 "sprite_scale": float(sprite_cfg["sprite_scale"]),
@@ -2425,7 +2440,10 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
             if single_frame:
                 raise SystemExit("sound_cues requires single_frame=False")
             sc_cfg = dict(SOUND_CUES_DEFAULTS)
-            if isinstance(sound_cues, str):
+            if sound_cues == "from_director":
+                if not spatial_director:
+                    raise SystemExit("sound_cues='from_director' requires spatial_director=True or dict")
+            elif isinstance(sound_cues, str):
                 sc_cfg["cues"] = sound_cues
             elif isinstance(sound_cues, dict):
                 bad_sc = sorted(set(sound_cues) - set(SOUND_CUES_DEFAULTS))
@@ -2443,7 +2461,11 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
                     "positive": ["5", 0],
                     "latent": ["5", 1],
                     "audio_vae": ["4", 0],
-                    "cues": str(sc_cfg["cues"]),
+                    "cues": (
+                        ["160", 1]
+                        if sound_cues == "from_director"
+                        else str(sc_cfg["cues"])
+                    ),
                     "snap_to_3f": bool(sc_cfg["snap_to_3f"]),
                     "floor_dbfs": float(sc_cfg["floor_dbfs"]),
                     "seed": int(sc_cfg["seed"]),
@@ -2784,6 +2806,57 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
         # Checked here, once every node that could read it has been built.
         del g["4"]
 
+    if spatial_director is not None and spatial_director is not False:
+        if single_frame or "27" not in g:
+            raise SystemExit("spatial_director requires a non-single-frame graph with MiniMaxH3Resolution ('27')")
+        sd_allowed = ("mode", "feather", "invert_mask", "events_json")
+        sd_cfg = {k: SPATIAL_DIRECTOR_DEFAULTS[k] for k in sd_allowed}
+        if isinstance(spatial_director, dict):
+            bad_sd = sorted(set(spatial_director) - set(sd_allowed))
+            if bad_sd:
+                raise SystemExit(f"spatial_director dict has unknown keys {bad_sd}; expected {sorted(sd_allowed)}")
+            sd_cfg.update(spatial_director)
+        elif spatial_director is not True:
+            raise SystemExit(f"spatial_director must be bool or dict; got {spatial_director!r}")
+        g["160"] = {
+            "class_type": SPATIAL_DIRECTOR_NODE,
+            "inputs": {
+                "mode": str(sd_cfg["mode"]),
+                "width": ["27", 0],
+                "height": ["27", 1],
+                "length": ["27", 2],
+                "feather": float(sd_cfg["feather"]),
+                "invert_mask": bool(sd_cfg["invert_mask"]),
+                "events_json": str(sd_cfg["events_json"]),
+            },
+        }
+    elif director_hud is not None and director_hud is not False:
+        raise SystemExit("director_hud requires spatial_director=True or dict")
+
+    if director_hud is not None and director_hud is not False:
+        hud_cfg = dict(DIRECTOR_HUD_DEFAULTS)
+        if isinstance(director_hud, dict):
+            bad_hud = sorted(set(director_hud) - set(hud_cfg))
+            if bad_hud:
+                raise SystemExit(f"director_hud dict has unknown keys {bad_hud}; expected {sorted(hud_cfg)}")
+            hud_cfg.update(director_hud)
+        elif director_hud is not True:
+            raise SystemExit(f"director_hud must be bool or dict; got {director_hud!r}")
+        if single_frame or "13" not in g or "160" not in g:
+            raise SystemExit("director_hud requires non-single-frame video output ('13') and spatial_director ('160')")
+        g["161"] = {
+            "class_type": DIRECTOR_HUD_NODE,
+            "inputs": {
+                "images": g["13"]["inputs"]["images"],
+                "director_plan": ["160", 3],
+                "hud_layout": str(hud_cfg["hud_layout"]),
+                "title": str(hud_cfg["title"]),
+                "subtitle": str(hud_cfg["subtitle"]),
+                "ring_opacity": float(hud_cfg["ring_opacity"]),
+            },
+        }
+        g["13"]["inputs"]["images"] = ["161", 0]
+
     if edit_guidance is not None:
         _wire_edit_guidance(g, prompt, edit_guidance)
 
@@ -2867,7 +2940,16 @@ def _wire_edit_guidance(g: dict, prompt: str, spec: dict) -> None:
     """
     unknown = sorted(
         set(spec)
-        - {"edits", "scale", "first_step", "last_step", "streams", "audio_scale", "keyframe_differential"}
+        - {
+            "edits",
+            "scale",
+            "first_step",
+            "last_step",
+            "streams",
+            "audio_scale",
+            "keyframe_differential",
+            "spatial_mask",
+        }
     )
     kf_diff = bool(spec.get("keyframe_differential", False))
     if unknown or (not kf_diff and "edits" not in spec) or (kf_diff and "edits" in spec):
@@ -2881,6 +2963,9 @@ def _wire_edit_guidance(g: dict, prompt: str, spec: dict) -> None:
     guider = g["9"]
     if guider["class_type"] != "BasicGuider":
         raise SystemExit(f"edit_guidance replaces BasicGuider at node 9; this graph has {guider['class_type']}")
+    spatial_mask_on = bool(spec.get("spatial_mask", False))
+    if spatial_mask_on and "160" not in g:
+        raise SystemExit("spatial_mask=True in edit_guidance requires spatial_director ('160')")
     if kf_diff:
         if "70" not in g or g["70"]["class_type"] not in (GUIDE_LATENT_NODE, SOUND_CUES_NODE) or "26" not in g:
             raise SystemExit("keyframe_differential edit_guidance requires a MiniMaxH3GuideLatent or MiniMaxH3SoundCues chain")
@@ -2889,20 +2974,20 @@ def _wire_edit_guidance(g: dict, prompt: str, spec: dict) -> None:
             raise SystemExit("keyframe_differential edit_guidance expected node 26 conditioning to carry guides")
         g["26"]["inputs"]["conditioning"] = ["5", 0]
         g["26"]["inputs"]["edited_conditioning"] = edited_src
-        g["9"] = {
-            "class_type": "MiniMaxH3EditGuider",
-            "inputs": {
-                "model": guider["inputs"]["model"],
-                "original": ["26", 0],
-                "edited": edited_src,
-                "scale": float(spec.get("scale", EDIT_GUIDANCE_DEFAULTS["scale"])),
-                "first_step": int(spec.get("first_step", EDIT_GUIDANCE_DEFAULTS["first_step"])),
-                "align_positions": EDIT_GUIDANCE_DEFAULTS["align_positions"],
-                "last_step": int(spec.get("last_step", EDIT_GUIDANCE_DEFAULTS["last_step"])),
-                "streams": streams,
-                "audio_scale": float(spec.get("audio_scale", EDIT_GUIDANCE_DEFAULTS["audio_scale"])),
-            },
+        kf_inputs = {
+            "model": guider["inputs"]["model"],
+            "original": ["26", 0],
+            "edited": edited_src,
+            "scale": float(spec.get("scale", EDIT_GUIDANCE_DEFAULTS["scale"])),
+            "first_step": int(spec.get("first_step", EDIT_GUIDANCE_DEFAULTS["first_step"])),
+            "align_positions": EDIT_GUIDANCE_DEFAULTS["align_positions"],
+            "last_step": int(spec.get("last_step", EDIT_GUIDANCE_DEFAULTS["last_step"])),
+            "streams": streams,
+            "audio_scale": float(spec.get("audio_scale", EDIT_GUIDANCE_DEFAULTS["audio_scale"])),
         }
+        if spatial_mask_on:
+            kf_inputs["mask"] = ["160", 0]
+        g["9"] = {"class_type": "MiniMaxH3EditGuider", "inputs": kf_inputs}
         return
     cond = g["5"]
     if isinstance(cond["inputs"].get("prompt"), list):
@@ -2953,19 +3038,22 @@ def _wire_edit_guidance(g: dict, prompt: str, spec: dict) -> None:
         edited_src = ["134", 0]
     if "26" in g and g["26"]["class_type"] == "MiniMaxH3Preflight":
         g["26"]["inputs"]["edited_conditioning"] = edited_src
+    guider_inputs = {
+        "model": guider["inputs"]["model"],
+        "original": guider["inputs"]["conditioning"],
+        "edited": edited_src,
+        "scale": float(spec.get("scale", EDIT_GUIDANCE_DEFAULTS["scale"])),
+        "first_step": int(spec.get("first_step", EDIT_GUIDANCE_DEFAULTS["first_step"])),
+        "align_positions": EDIT_GUIDANCE_DEFAULTS["align_positions"],
+        "last_step": int(spec.get("last_step", EDIT_GUIDANCE_DEFAULTS["last_step"])),
+        "streams": streams,
+        "audio_scale": float(spec.get("audio_scale", EDIT_GUIDANCE_DEFAULTS["audio_scale"])),
+    }
+    if spatial_mask_on:
+        guider_inputs["mask"] = ["160", 0]
     g["9"] = {
         "class_type": "MiniMaxH3EditGuider",
-        "inputs": {
-            "model": guider["inputs"]["model"],
-            "original": guider["inputs"]["conditioning"],
-            "edited": edited_src,
-            "scale": float(spec.get("scale", EDIT_GUIDANCE_DEFAULTS["scale"])),
-            "first_step": int(spec.get("first_step", EDIT_GUIDANCE_DEFAULTS["first_step"])),
-            "align_positions": EDIT_GUIDANCE_DEFAULTS["align_positions"],
-            "last_step": int(spec.get("last_step", EDIT_GUIDANCE_DEFAULTS["last_step"])),
-            "streams": streams,
-            "audio_scale": float(spec.get("audio_scale", EDIT_GUIDANCE_DEFAULTS["audio_scale"])),
-        },
+        "inputs": guider_inputs,
     }
 
 
@@ -5942,6 +6030,47 @@ def main():
               edit_guidance=SOUND_GUIDE_EDIT_GUIDANCE,
               out_prefix="Video/h3_r2v_dpad_sound_pika"),
          "reference image + zero-file 2D sprite kinematic D-pad + touchdown sound cue -> video + native foley on Pika H3 Flex 6-step LCM (SVD995 branch): <Picture 1> held at end_percent=1.0, <Video 1> from MiniMaxH3AppendSpriteTrajectory released at video_end_percent=0.33 (b=0.50 flow midpoint) to unlock articulated backward leg strides, and MiniMaxH3SoundCues('54: hop') + MiniMaxH3EditGuider(streams=video_only, scale=1.6, last_step=3)"),
+        ("h3_spatial_portal_pika.json", "t2v-pika-spatial-portal", "t2v",
+         SPATIAL_PORTAL_T2V_PROMPT,
+         dict(length=141,
+              lora=(PIKA_FL2VA_SVD995_LORA, PIKA_STRENGTH), lora_branch=True,
+              steps=PIKA_STEPS, sampler_name=PIKA_SAMPLER,
+              manual_sigmas=PIKA_MANUAL_SIGMAS,
+              spatial_director=True,
+              director_hud=dict(
+                  title="DRAGGABLE REALITY PORTAL · [F, H, W] VELOCITY MASK",
+                  subtitle="Inside lens: frozen bioluminescent cavern | Outside: sunlit courtyard (0.0 Step-0 leak)",
+              ),
+              edit_guidance=dict(
+                  **SPATIAL_PORTAL_EDIT_GUIDANCE,
+                  edits=_edit_guidance_text("t2va_spatial_reality_portal"),
+              ),
+              out_prefix="Video/h3_spatial_portal_pika"),
+         "interactive draggable 2D+time Reality Portal (`MiniMaxH3SpatialDirector`) -> `[F, H, W]` velocity mask on `MiniMaxH3EditGuider(first_step=0, streams='independent', scale=2.0, audio_scale=1.0)` + `MiniMaxH3DirectorHUD` export on Pika H3 Flex 6-step LCM"),
+        ("h3_world_targets_genie_pika.json", "r2v-pika-world-targets-genie", "r2v",
+         WORLD_TARGETS_REF2V_PROMPT,
+         dict(length=141,
+              ref_images=DPAD_SOUND_REF_IMAGES, ref_image_count=1,
+              sprite_trajectory="from_director",
+              sound_cues="from_director",
+              lora=(PIKA_REF2VA_SVD995_LORA, PIKA_STRENGTH), lora_branch=True,
+              steps=PIKA_STEPS, sampler_name=PIKA_SAMPLER,
+              manual_sigmas=PIKA_MANUAL_SIGMAS,
+              release_references=dict(
+                  video_end_percent=DPAD_VIDEO_RELEASE_END,
+                  audio_end_percent=SOUND_GUIDE_AUDIO_RELEASE_END,
+              ),
+              spatial_director=dict(mode="point_targets"),
+              director_hud=dict(
+                  title="GENIE D-PAD + POINT-AND-CLICK WORLD TARGETS",
+                  subtitle="Clicked (x, y, t) targets trigger 3f SoundCues + localized crystal eruptions",
+              ),
+              edit_guidance=dict(
+                  **WORLD_TARGETS_EDIT_GUIDANCE,
+                  edits=_edit_guidance_text("ref2va_genie_world_targets"),
+              ),
+              out_prefix="Video/h3_world_targets_genie_pika"),
+         "Genie D-Pad sprite + clicked `(x, y, t)` world target discs (`MiniMaxH3SpatialDirector mode='point_targets'`) driving `MiniMaxH3AppendSpriteTrajectory`, `3f`-snapped `MiniMaxH3SoundCues`, `MiniMaxH3EditGuider(mask, first_step=0, streams='video_only', scale=2.0)`, and `MiniMaxH3DirectorHUD` on Pika H3 Flex 6-step LCM"),
         # Plain H3 prompting at one frame on Pika (owner, 2026-11-10): a Pika
         # still is prompted as the video is, with no guide node and no
         # third-party LoRA. The one frame is the conditioning node's own

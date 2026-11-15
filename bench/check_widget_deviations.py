@@ -478,12 +478,29 @@ DECLARED: dict[tuple[str, str], tuple] = {
                 "instead of 12), against the node default 1000 on the prompt-edit graphs (2026-11-12)."),
     ("MiniMaxH3EditGuider", "streams"):
         ("ARM", "'video_only' (h3_config.SOUND_GUIDE_EDIT_GUIDANCE['streams']) on "
-                "h3_text_to_video_pika_sound_guide and h3_image_ref_dpad_sound_pika, "
-                "against the node default 'both': extrapolates the cond_audio timing delta "
-                "into x_video while pinning x_audio strictly to the unguided [original] "
-                "prediction, eliminating synthetic .wav bleed and -94 dBFS inter-island "
-                "silence while H3 synthesizes native foley via x_video -> x_audio "
-                "(2026-11-12, docs/wiki/edit_guidance.md)."),
+                "h3_text_to_video_pika_sound_guide and h3_image_ref_dpad_sound_pika "
+                "(and h3_world_targets_genie_pika), plus 'independent' on "
+                "h3_spatial_portal_pika, against the node default 'both': 'video_only' "
+                "extrapolates the cond_audio timing delta into x_video while pinning "
+                "x_audio strictly to the unguided [original] prediction, eliminating "
+                "synthetic .wav bleed and -94 dBFS inter-island silence while H3 "
+                "synthesizes native foley via x_video -> x_audio (2026-11-12, "
+                "docs/wiki/edit_guidance.md); 'independent' pairs with audio_scale=1.0 "
+                "to keep edited audio clean without CFG > 0 dBFS clipping when "
+                "visual scale=2.0."),
+    ("MiniMaxH3SpatialDirector", "mode"):
+        ("ARM", "'point_targets' on h3_world_targets_genie_pika, against the node "
+                "default 'portal_path': switches the Spatial World Director from "
+                "interpolated Reality Lens sweeps to clicked (x, y, t) target zones "
+                "synchronized with 3f SoundCues and Genie D-Pad sprites (2026-11-15)."),
+    ("MiniMaxH3DirectorHUD", "title"):
+        ("ARM", "Scene-specific HUD header title on h3_spatial_portal_pika and "
+                "h3_world_targets_genie_pika, against the node default "
+                "'SPATIAL WORLD DIRECTOR · 2D VELOCITY STEERING' (2026-11-15)."),
+    ("MiniMaxH3DirectorHUD", "subtitle"):
+        ("ARM", "Scene-specific HUD subtitle pill explaining inside-vs-outside "
+                "mask behavior on h3_spatial_portal_pika and "
+                "h3_world_targets_genie_pika, against the empty default (2026-11-15)."),
 }
 
 #: **There is deliberately no exception table here.** One was written on

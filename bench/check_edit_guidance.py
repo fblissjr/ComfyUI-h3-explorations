@@ -573,6 +573,18 @@ def check_guider_mask() -> None:
                bool(torch.allclose(v_kf[:, :, expected_t_lat], torch.full_like(v_kf[:, :, expected_t_lat], 4.6)))
                and bool((v_kf[:, :, other_steps] == 1.0).all()))
 
+        m_aud_gate = torch.zeros((22, 4, 4), dtype=torch.float32)
+        m_aud_gate[10:13, 1:3, 1:3] = 1.0
+        g_aud_gate = _guider(1.8, mask=m_aud_gate)
+        g_aud_gate.inner_model = _PackedAVModel()
+        v_ag, a_ag = comfy.utils.unpack_latents(g_aud_gate.predict_noise(x_p, sig[0:1], opts), lshapes)
+        ok("[22, 4, 4] spatio-temporal mask gates audio onto active window while keeping quiet ends at original (10.0)",
+           approx(float(a_ag[0, 0, 0, 0]), 10.0)
+           and approx(float(a_ag[0, 0, 0, -1]), 10.0)
+           and approx(float(a_ag.max()), 28.0)
+           and bool((v_ag[:, :, :3] == 1.0).all())
+           and bool((v_ag[:, :, 4:] == 1.0).all()))
+
         # 4. [22, 1, 1] temporal envelope modulates both video and audio
         env = torch.full((22, 1, 1), 0.25, dtype=torch.float32)
         env[5:] = 1.0

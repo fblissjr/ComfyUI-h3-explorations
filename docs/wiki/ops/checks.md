@@ -291,6 +291,7 @@ Full per-check history, 2026-08-23 amendments, and `"claims block"` notes are sh
 | `check_lane_db.py` | that bench/lane_db/, the lane's record in SQLite, keeps its schema's rules, refuses a field no mapping line covers, and gives back the files it was built from... ([detail](checks/index_15.md)) | no CUDA | no |
 | `check_sound_and_sprite_nodes.py` | that MiniMaxH3SoundCues merges close cues onto non-overlapping 40 Hz RoPE spans over a -28 dBFS floor and MiniMaxH3AppendSpriteTrajectory decouples (x, y) from facing polarity without upscaling 384x224... ([detail](checks/index_15.md)) | no CUDA | yes |
 | `check_image_studio.py` | that the standalone H3-Image Studio (`app/test_app.py`) passes all 24 offline Tier 1 contract, security, workflow-parity, and `execution.validate_prompt` checks against live pack schemas ([detail](checks/index_15.md)) | `app/test_app.py`, no CUDA | yes |
+| `check_spatial_director.py` | that `MiniMaxH3SpatialDirector` compiles `portal_path` / `point_targets` `[F, H, W]` masks, `3f` SoundCues, D-pad sprite trajectories, and refusals, `MiniMaxH3DirectorHUD` renders even-clamped overlays/PiP/split-A/B deltas, and both shipped spatial director workflows stay wired | no CUDA | yes |
 | `replay_cranium_references.py` | 3-way replay of all cranium references ([detail](checks/index_15.md)) | no CUDA | no |
 | `preflight_graph.py` | not a gate ([detail](checks/index_15.md)) | no CUDA | no |
 | `smoke_h3.py` | the H3 chain composes and runs... ([detail](checks/index_15.md)) | live ComfyUI... | no |

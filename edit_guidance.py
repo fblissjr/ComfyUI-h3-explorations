@@ -314,9 +314,9 @@ class EditGuider(comfy.samplers.CFGGuider):
                     a_1d = F.interpolate(raw.reshape(1, 1, t_in), size=t_aud, mode="linear", align_corners=False)
                     a_m = a_1d.reshape((1,) * (len(a_key) - 1) + (t_aud,)).to(device=device, dtype=dtype)
         else:
-            a_m = None
             pooled = _pool_spatial_continuous(raw, h_lat, w_lat)
             if t_in == 1:
+                a_m = None
                 v_m = (
                     pooled.reshape(1, 1, 1, h_lat, w_lat)
                     .expand(1, 1, t_lat, h_lat, w_lat)
@@ -325,6 +325,13 @@ class EditGuider(comfy.samplers.CFGGuider):
                 )
             else:
                 v_m = _pool_causal_temporal(pooled, runs).reshape(1, 1, t_lat, h_lat, w_lat).to(device=device, dtype=dtype)
+                if a_key is None:
+                    a_m = None
+                else:
+                    t_aud = int(a_key[-1])
+                    t_env = raw.amax(dim=(1, 2)).reshape(1, 1, t_in)
+                    a_1d = F.interpolate(t_env, size=t_aud, mode="linear", align_corners=False)
+                    a_m = a_1d.reshape((1,) * (len(a_key) - 1) + (t_aud,)).to(device=device, dtype=dtype)
         result = (v_m, a_m)
         if cache is None:
             cache = {}
