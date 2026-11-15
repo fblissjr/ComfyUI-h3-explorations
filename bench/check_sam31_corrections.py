@@ -36,10 +36,10 @@ range nobody meant:
                                   stock pair still reads stock, and a clone of a patch that has seen mapped frames knows it.
   switches_and_report             each correction alone, neither, and both: `corrections` reads exactly what was
                                   attached, and the report says so in words, naming what is never corrected.
-  memory_paths_are_cores          the tracker path and the two attributes memory selection hangs on are spelled the way
-                                  ComfyUI's SAM 3 classes spell them today, and SAM 3.1's tracker keeps the
-                                  `num_maskmem = 7` (six past frames) the report and the tooltip name.
-  memory_on_and_off               on a stand-in SAM 3.1 tracker: switched on, both memory patches are attached, installed
+  memory_paths_are_cores          the tracker/detector paths and attributes patched by memory selection,
+                                  multimask pointer, and detector presence are spelled the way ComfyUI's SAM 3 classes
+                                  spell them today, and `SAM31Tracker.num_maskmem = 7` (six past frames).
+  memory_on_and_off               on a stand-in SAM 3.1 tracker: switched on, memory patches are attached, installed
                                   by `patch_model` and gone after `unpatch_model`, and the report says on; switched off,
                                   neither is there and the report says ComfyUI's six frames. THE CONTROL: a stock model
                                   reads off.
@@ -48,10 +48,10 @@ range nobody meant:
   memory_clone_binds_its_own      a clone handed a second instance of the model has a memory patch bound to THAT
                                   instance's tracker and decoder, with a state of its own. THE CONTROL: with the clone
                                   callback removed the clone's patch is the first instance's.
-  memory_scored_per_object        three objects in one SAM 3.1 call (the bench tool's attach; the node keeps core's memory
-                                  there), the first hidden on frames 3-12, the others seen throughout: through the patch
-                                  ComfyUI applied, the hidden one keeps only the frames it was seen on while the two seen
-                                  ones keep every frame.
+  memory_scored_per_object        three objects in one SAM 3.1 call (the bench tool's attach; explicit focus), the first
+                                  hidden on frames 3-12, the others seen throughout: through the patch ComfyUI applied,
+                                  the hidden one keeps only the frames it was seen on while the two seen ones keep every
+                                  frame.
   memory_left_off_on_sam3         a SAM 3 (`SAM3Tracker`) stand-in with the switch on carries no memory patch, and the
                                   report says it is not applied there and why.
   memory_survives_an_object_added two objects, a third added after frame 4 as core's `_add_detected_objects` adds a
@@ -62,12 +62,23 @@ range nobody meant:
                                   every kept score is on the CPU, and what is kept is the same size every time.
   memory_pointers_as_meta         what core's method is handed: pointers from every kept frame but the oldest (Meta's
                                   rule), and none when only the frame before is kept.
-  memory_one_object_only          the node selects on a call tracking one object only: three objects in one call are
-                                  handed core's own memory every frame, THE CONTROL being the multi-object remap handing
-                                  objects 1 and 2 the hidden object 0's frames; one object joined by a detection after
-                                  frame 4 is selected on 1-4 and handed core's memory from 5; the report says so.
+  memory_multiplex_dms_multi_object  Decoupled Multiplex Memory Selection on multi-object calls (`focus_obj_idx=None`):
+                                  visible companions keep recent spatial memory when object 0 is hidden (contrasted
+                                  with the `focus_obj_idx=0` control), `MemoryEncodeFilter` suppresses unreliable
+                                  slots (`-1024.0` mask / `-10.0` score) for `N_obj >= 2` while exempting conditioning,
+                                  newborn, and Call #2 reconditioned slots and leaving `N_obj == 1` untouched,
+                                  explicit `one_object_only=True` still falls back to core's memory, and 2-bucket
+                                  `17`-object `combined_ptr` keeps bucket 1 slot 0 intact.
   memory_a_later_track_scores     two tracks with no reset between, the second on the same output_dict object from a
                                   later frame: it scores and keeps its own frames.
+  multimask_pointer_matches_best_iou  `correct_multimask_ptr`: `SAM31Tracker._forward_propagation` projects the
+                                  winning `argmax(iou_obj)` mask token instead of hardcoded branch 0 (both standalone
+                                  and alongside `memory_selection`), leaves `last_hs` None, rebinds on `.clone()`, and
+                                  is undone by `unpatch_model`.
+  detector_presence_gates_scores  `correct_detector_presence`: `SAM3Detector._detect` multiplies `sigmoid(presence)`
+                                  into prompt logits in `fp32` (safe in `fp16` with no `Inf`/`NaN`), leaves unprompted
+                                  calls at zero, rebinds on `.clone()`, is undone by `unpatch_model`, and is optional
+                                  default-off on `MiniMaxH3SAM31Corrections`.
 
 What it cannot check: the server's dynamic patcher class (this builds the plain `ModelPatcher`), the real model, and
 that ComfyUI's own SAM nodes reach the patched layer. That is a real-model run as a graph on the server's queue. For
@@ -413,16 +424,30 @@ def memory_paths_are_cores():
     import comfy.ldm.sam3.detector as detector
     import comfy.ldm.sam3.tracker as tracker
     assert L.TRACKER.split(".") == ["diffusion_model", "tracker"], f"TRACKER is {L.TRACKER}"
+    assert L.DETECTOR.split(".") == ["diffusion_model", "detector"], f"DETECTOR is {L.DETECTOR}"
     assert "self.tracker =" in inspect.getsource(detector), "core's SAM 3 model no longer builds `self.tracker`"
+    assert "self.detector =" in inspect.getsource(detector.SAM3Model), "core's SAM 3 model no longer builds `self.detector`"
     for cls in (tracker.SAM3Tracker, tracker.SAM31Tracker):
         assert "_prepare_memory_conditioned_features" in vars(cls), f"{cls.__name__} has no `_prepare_memory_conditioned_features`"
+        assert "_encode_new_memory" in vars(cls), f"{cls.__name__} has no `_encode_new_memory`"
         assert "self.sam_mask_decoder =" in inspect.getsource(cls), f"{cls.__name__} no longer builds `self.sam_mask_decoder`"
+    assert "_forward_propagation" in vars(tracker.SAM31Tracker), "SAM31Tracker has no `_forward_propagation`"
+    assert "track_video_with_detection" in vars(tracker.SAM31Tracker), "SAM31Tracker has no `track_video_with_detection`"
+    assert hasattr(tracker.MultiplexMaskDecoder, "transformer") or "self.transformer =" in inspect.getsource(tracker.MultiplexMaskDecoder)
+    assert "_detect" in vars(detector.SAM3Detector), "SAM3Detector has no `_detect`"
     assert L.MEMORY_PATCH == L.TRACKER + "._prepare_memory_conditioned_features"
     assert L.DECODER_PATCH == L.TRACKER + ".sam_mask_decoder.forward"
+    assert L.ENCODE_MEM_PATCH == L.TRACKER + "._encode_new_memory"
+    assert L.TRACK_LOOP_PATCH == L.TRACKER + ".track_video_with_detection"
+    assert L.MULTIMASK_TAP_PATCH == L.TRACKER + ".sam_mask_decoder.transformer.forward"
+    assert L.PROPAGATION_PATCH == L.TRACKER + "._forward_propagation"
+    assert L.PRESENCE_PATCH == L.DETECTOR + "._detect"
+    assert L.NO_OBJ_SCORE == tracker.NO_OBJ_SCORE
     assert L.MEMORY_SELECTION_TRACKERS == (tracker.SAM31Tracker.__name__,)
+    assert L.MULTIMASK_PTR_TRACKERS == (tracker.SAM31Tracker.__name__,)
     kept = inspect.signature(tracker.SAM31Tracker.__init__).parameters["num_maskmem"].default
     assert kept == 7, f"SAM 3.1's tracker remembers num_maskmem={kept}: the report and the tooltip say six past frames"
-    return "tracker, decoder and memory method read from core's source; SAM31Tracker num_maskmem=7 (six past frames)"
+    return "tracker, decoder, encode, propagation and detector paths read from core's source; SAM31Tracker num_maskmem=7"
 
 
 def memory_on_and_off():
@@ -434,27 +459,37 @@ def memory_on_and_off():
     on = _patcher(model)
     L.attach(on, None, image_range=False, text_activation=False)            # the switch's default is on
     step, tap = _memory(on)
+    enc = on.object_patches.get(L.ENCODE_MEM_PATCH)
+    loop = on.object_patches.get(L.TRACK_LOOP_PATCH)
     assert isinstance(step, L.MemorySelectionStep) and isinstance(tap, L.IoUTap), f"switched on, the patches are {step!r}, {tap!r}"
+    assert isinstance(enc, L.MemoryEncodeFilter) and isinstance(loop, L.MemoryTrackLoopGuard), (enc, loop)
     assert step.tracker is tracker and step.iou_tap is tap and step.mf_threshold == L.MF_THRESHOLD
+    assert step.encode_filter is enc and enc.iou_tap is tap and step.focus_obj_idx is None and not step.one_object_only
     got = L.corrections(on, None)
-    assert got["memory_selection"] and L.tracker_kind(on) == "SAM31Tracker", got
+    assert got["memory_selection"] and not got["multimask_ptr"] and not got["detector_presence"], got
+    assert L.tracker_kind(on) == "SAM31Tracker", got
     assert "memory selection: on" in L.report(on, None), L.report(on, None)
     assert "_prepare_memory_conditioned_features" not in vars(tracker), "attached before ComfyUI applied it"
     on.patch_model(load_weights=False)
     try:
         assert vars(tracker).get("_prepare_memory_conditioned_features") is step, "patch_model did not install the memory patch"
+        assert vars(tracker).get("_encode_new_memory") is enc, "patch_model did not install the encode filter"
+        assert vars(tracker).get("track_video_with_detection") is loop, "patch_model did not install the loop guard"
         assert vars(tracker.sam_mask_decoder).get("forward") is tap, "patch_model did not install the decoder tap"
     finally:
         on.unpatch_model(unpatch_weights=False)
     assert not isinstance(tracker._prepare_memory_conditioned_features, L.MemorySelectionStep), "unpatch_model left the memory patch on"
+    assert not isinstance(tracker._encode_new_memory, L.MemoryEncodeFilter), "unpatch_model left the encode filter on"
+    assert not isinstance(tracker.track_video_with_detection, L.MemoryTrackLoopGuard), "unpatch_model left the loop guard on"
     assert not isinstance(tracker.sam_mask_decoder.forward, L.IoUTap), "unpatch_model left the decoder tap on"
     off = _patcher(_tracked())
     L.attach(off, None, image_range=False, text_activation=False, memory_selection=False)
     assert _memory(off) == (None, None), "switched off, a memory patch is attached"
+    assert L.ENCODE_MEM_PATCH not in off.object_patches and L.TRACK_LOOP_PATCH not in off.object_patches
     assert not L.corrections(off, None)["memory_selection"]
     text = L.report(off, None)
     assert "memory selection: off" in text and "last six frames" in text, text
-    return "on: both patches attached, applied and undone by ComfyUI, reported on; off: none, reported as ComfyUI's six frames"
+    return "on: memory, encode filter, loop guard and decoder tap applied and undone by ComfyUI; off: stock last six frames"
 
 
 def memory_never_twice():
@@ -659,42 +694,171 @@ def _handed(p, model, **group) -> tuple[dict, dict, L.MemorySelectionStep]:
     return seen, out, step
 
 
-def memory_one_object_only():
-    """The node selects memory on a call tracking ONE object; a call tracking several keeps core's memory, unfiltered."""
+def memory_multiplex_dms_multi_object():
+    """Decoupled Multiplex Memory Selection (`focus_obj_idx=None`): any-visible spatial union + write-time slot gate."""
     hidden = set(range(3, 13))
-    # THE CONTROL: the multi-object remap takes every object's spatial memory from the focus object, object 0, hidden on
-    # 3-12: at frame 12 objects 1 and 2 are handed frame 2's memory two places back, where core hands them frame 10's
-    model = _tracked()
-    p = _patcher(model)
-    L.attach_memory_selection(p)
-    seen, out, _ = _handed(p, model, n_frames=16, hidden=hidden, n_obj=3)
-    two_back = seen[12]["non_cond_frame_outputs"][10]["maskmem_features"]
-    assert two_back is out["non_cond_frame_outputs"][2]["maskmem_features"], "the control did not show the fault: no focus-object memory at frame 12"
-    # the node: three objects, so core's own output_dict on every frame
+    # 1. LEGACY CONTROL (`focus_obj_idx=0`): object 0 hidden on 3-12 strips companions 1 and 2's spatial memory.
+    model_ctrl = _tracked()
+    p_ctrl = _patcher(model_ctrl)
+    L.attach_memory_selection(p_ctrl, focus_obj_idx=0)
+    seen_ctrl, out_ctrl, _ = _handed(p_ctrl, model_ctrl, n_frames=16, hidden=hidden, n_obj=3)
+    two_back_ctrl = seen_ctrl[12]["non_cond_frame_outputs"][10]["maskmem_features"]
+    assert two_back_ctrl is out_ctrl["non_cond_frame_outputs"][2]["maskmem_features"], (
+        "legacy focus_obj_idx=0 control did not strip companions' spatial memory"
+    )
+
+    # 2. NODE DEFAULT (`focus_obj_idx=None, one_object_only=False`): visible companions keep recent spatial memory
+    # while hidden object 0 keeps filtering its own pointer history (`[1, 2, 13, 14]` at frame 15).
     model = _tracked()
     p = _patcher(model)
     L.attach(p, None, image_range=False, text_activation=False)
     seen, out, step = _handed(p, model, n_frames=16, hidden=hidden, n_obj=3)
-    assert all(d is out for d in seen.values()), f"a three-object call was handed a remapped memory on {[f for f, d in seen.items() if d is not out]}"
-    assert step.several_from == 1 and not step.selected_history, (step.several_from, step.selected_history)
-    # the next track on the same patcher, of one object, with no reset between: selected again
+    assert step.focus_obj_idx is None and not step.one_object_only
+    two_back_dms = seen[12]["non_cond_frame_outputs"][10]["maskmem_features"]
+    assert two_back_dms is out["non_cond_frame_outputs"][10]["maskmem_features"], (
+        "DMS spatial union failed to keep recent seen frame 10 for visible companions"
+    )
+    assert step.selected_history[15][0] == [1, 2, 13, 14], f"object 0 history wrong: {step.selected_history[15][0]}"
+    assert step.selected_history[15][1] == step.selected_history[15][2] == list(range(1, 15))
+    assert seen[15]["non_cond_frame_outputs"][14]["maskmem_features"] is out["non_cond_frame_outputs"][14]["maskmem_features"]
+    # When object 0 has no frame at rank -k (kept length 4 vs union length 14), its obj_ptr slot 0 is zeroed
+    # while seen objects 1 and 2 keep their own pointers at rank -5 (frame 10).
+    rank5_ptr = seen[15]["non_cond_frame_outputs"][10]["obj_ptr"]
+    assert torch.equal(rank5_ptr[0, 0], torch.zeros_like(rank5_ptr[0, 0]))
+    assert torch.all(rank5_ptr[0, 1] == 10.0) and torch.all(rank5_ptr[0, 2] == 10.0)
+
+    # Next track of one object on the same patcher runs normally
     p.patch_model(load_weights=False)
     try:
         _group(model.diffusion_model.tracker, n_frames=10, hidden={3}, n_obj=1)
     finally:
         p.unpatch_model(unpatch_weights=False)
-    assert step.several_from is None and 3 not in step.selected_history[9][0], ("a one-object track after a three-object one was not selected",
-                                                                               step.several_from, step.selected_history.get(9))
-    # one object, and a detection adds a second after frame 4: selected up to 4, core's memory from frame 5 to the end
-    model = _tracked()
-    p = _patcher(model)
-    L.attach(p, None, image_range=False, text_activation=False)
-    seen, out, step = _handed(p, model, n_frames=12, hidden={3}, n_obj=1, add_at=4, add_n=1)
-    assert step.several_from == 5 and sorted(step.selected_history) == [1, 2, 3, 4], (step.several_from, sorted(step.selected_history))
-    assert all((d is out) == (f >= 5) for f, d in seen.items()), {f: d is out for f, d in seen.items()}
+    assert 3 not in step.selected_history[9][0], step.selected_history.get(9)
+
+    # 3. WRITE-TIME `MemoryEncodeFilter`: suppress unreliable slots in N_obj >= 2, exempt conditioning / Call #2 / Call #3 / N_obj == 1
+    m_enc = _tracked()
+    tracker_e = m_enc.diffusion_model.tracker
+    p_enc = _patcher(m_enc)
+    L.attach(p_enc, None, image_range=False, text_activation=False)
+    enc_calls: list[tuple[torch.Tensor, torch.Tensor, bool]] = []
+    enc_filter = p_enc.object_patches[L.ENCODE_MEM_PATCH]
+    assert isinstance(enc_filter, L.MemoryEncodeFilter)
+
+    def rec_encode(pix_feat, pred_masks_high_res, object_score_logits, is_mask_from_pts=False,
+                   multiplex_state=None, is_conditioning=False, cond_obj_mask=None):
+        enc_calls.append((pred_masks_high_res.clone(), object_score_logits.clone(), bool(is_conditioning)))
+        return (
+            torch.zeros(multiplex_state.num_buckets, tracker_e.d_model, 8, 8),
+            [torch.zeros(multiplex_state.num_buckets, tracker_e.d_model, 8, 8)],
+        )
+
+    enc_filter.orig_fn = rec_encode
+    step_e = L.get_memory_selection_state(p_enc)
+    tap_e = step_e.iou_tap
+    pix = torch.zeros(1, tracker_e.d_model, 8, 8)
+    p_enc.patch_model(load_weights=False)
+    try:
+        mux2 = MultiplexState(2, tracker_e.num_multiplex, CPU, torch.float32)
+        logits2 = torch.full((1, tracker_e.num_multiplex, 1), -5.0)
+        logits2[0, 1, 0] = 6.0  # obj 0 hidden, obj 1 visible
+        tap_e.record(torch.full((1, tracker_e.num_multiplex, 3), 0.9), logits2)
+        raw_masks = torch.ones(2, 1, 16, 16)
+        raw_scores = torch.full((2, 1), 10.0)
+
+        # Call #1: obj 0 suppressed to NO_OBJ_SCORE (-1024) and -10.0; obj 1 untouched
+        tracker_e._encode_new_memory(pix, raw_masks, raw_scores, multiplex_state=mux2)
+        m1, s1, _ = enc_calls[-1]
+        assert enc_filter.suppressed_last_call == [0], enc_filter.suppressed_last_call
+        assert torch.all(m1[0] == L.NO_OBJ_SCORE) and torch.all(m1[1] == 1.0)
+        assert float(s1[0, 0]) == -10.0 and float(s1[1, 0]) == 10.0
+
+        # Conditioning call: never suppressed
+        tracker_e._encode_new_memory(pix, raw_masks, raw_scores, multiplex_state=mux2, is_conditioning=True)
+        m_cond, s_cond, _ = enc_calls[-1]
+        assert enc_filter.suppressed_last_call == [] and torch.all(m_cond == 1.0) and torch.all(s_cond == 10.0)
+
+        # Call #2 reconditioning (cond_obj_mask=None, same decode_seq, changed slot 0 mask mean) -> obj 0 exempt!
+        recond_masks = raw_masks.clone()
+        recond_masks[0] = 2.0
+        tracker_e._encode_new_memory(pix, recond_masks, raw_scores, multiplex_state=mux2, cond_obj_mask=None)
+        m2, s2, _ = enc_calls[-1]
+        assert enc_filter.suppressed_last_call == [] and torch.all(m2[0] == 2.0) and float(s2[0, 0]) == 10.0
+        assert 0 in enc_filter._reconditioned_slots
+
+        # _score_previous_frame sees reconditioning: boosts score[0] > 0.01 and adds frame to cond_frames
+        prev_out_dummy = {
+            "pred_masks": torch.zeros(2, 1, 8, 8),
+            "object_score_logits": torch.tensor([[-5.0], [6.0]]),
+            "ious": torch.full((2, 3), 0.9),
+        }
+        sc_prev = step_e._score_previous_frame(4, prev_out_dummy, mux2)
+        assert sc_prev is not None and float(sc_prev[0]) >= 1.0 and 4 in step_e.cond_frames, (sc_prev, step_e.cond_frames)
+        step_e.encode_filter.begin_frame(2)
+
+        # Call #3 birth (_add_detected_objects): slot 0 hidden -> suppressed; slot 2 (newborn & cond_obj_mask=True) -> exempt!
+        tap_e.record(torch.full((1, tracker_e.num_multiplex, 3), 0.9), logits2)
+        tracker_e._encode_new_memory(pix, raw_masks, raw_scores, multiplex_state=mux2)
+        mux3 = MultiplexState(3, tracker_e.num_multiplex, CPU, torch.float32)
+        raw_masks3 = torch.ones(3, 1, 16, 16)
+        raw_scores3 = torch.full((3, 1), 10.0)
+        cond3 = torch.tensor([False, False, True])
+        tracker_e._encode_new_memory(pix, raw_masks3, raw_scores3, multiplex_state=mux3, cond_obj_mask=cond3)
+        m3, s3, _ = enc_calls[-1]
+        assert enc_filter.suppressed_last_call == [0], enc_filter.suppressed_last_call
+        assert torch.all(m3[0] == L.NO_OBJ_SCORE) and torch.all(m3[2] == 1.0) and float(s3[2, 0]) == 10.0
+        assert enc_filter._had_birth
+
+        # N_obj == 1: NEVER suppressed even when score is -5.0
+        mux1 = MultiplexState(1, tracker_e.num_multiplex, CPU, torch.float32)
+        logits1 = torch.full((1, tracker_e.num_multiplex, 1), -5.0)
+        tap_e.record(torch.full((1, tracker_e.num_multiplex, 3), 0.9), logits1)
+        tracker_e._encode_new_memory(pix, raw_masks[:1], raw_scores[:1], multiplex_state=mux1)
+        m_single, s_single, _ = enc_calls[-1]
+        assert enc_filter.suppressed_last_call == [] and torch.all(m_single == 1.0) and float(s_single[0, 0]) == 10.0
+    finally:
+        p_enc.unpatch_model(unpatch_weights=False)
+
+    # 4. EXPLICIT `one_object_only=True`: still keeps core's unfiltered memory when N_obj >= 2
+    model_ooo = _tracked()
+    p_ooo = _patcher(model_ooo)
+    L.attach_memory_selection(p_ooo, focus_obj_idx=None, one_object_only=True)
+    seen_ooo, out_ooo, step_ooo = _handed(p_ooo, model_ooo, n_frames=12, hidden={3}, n_obj=1, add_at=4, add_n=1)
+    assert step_ooo.several_from == 5 and all((d is out_ooo) == (f >= 5) for f, d in seen_ooo.items())
+
+    # 5. MULTI-BUCKET `combined_ptr` (17 objects across 2 buckets, template ptr only 1 bucket): bucket 1 slot 0 preserved
+    m17 = _tracked()
+    tr17 = m17.diffusion_model.tracker
+    step17 = L.MemorySelectionStep(tr17, orig_fn=lambda *a, **k: None, iou_tap=L.IoUTap(lambda *a, **k: None),
+                                   focus_obj_idx=None)
+    mux17 = MultiplexState(17, tr17.num_multiplex, CPU, torch.float32)
+    C17, M17 = tr17.d_model, tr17.num_multiplex
+    ptr_f1 = torch.ones(1, M17, C17) * 1.0
+    ptr_f2 = torch.ones(2, M17, C17) * 2.0
+    ptr_f3 = torch.ones(2, M17, C17) * 3.0
+    nco = {
+        0: {"maskmem_features": torch.randn(1, C17, 8, 8), "maskmem_pos_enc": [torch.zeros(1, C17, 8, 8)],
+            "image_features": torch.randn(1, 64, C17), "image_pos_enc": torch.zeros(1, 64, C17), "obj_ptr": ptr_f1},
+        1: {"maskmem_features": torch.randn(1, C17, 8, 8), "maskmem_pos_enc": [torch.zeros(1, C17, 8, 8)],
+            "image_features": torch.randn(1, 64, C17), "image_pos_enc": torch.zeros(1, 64, C17), "obj_ptr": ptr_f1},
+        2: {"maskmem_features": torch.randn(2, C17, 8, 8), "maskmem_pos_enc": [torch.zeros(2, C17, 8, 8)],
+            "image_features": torch.randn(1, 64, C17), "image_pos_enc": torch.zeros(1, 64, C17), "obj_ptr": ptr_f2},
+        3: {"maskmem_features": torch.randn(2, C17, 8, 8), "maskmem_pos_enc": [torch.zeros(2, C17, 8, 8)],
+            "image_features": torch.randn(1, 64, C17), "image_pos_enc": torch.zeros(1, 64, C17), "obj_ptr": ptr_f3},
+    }
+    # At rank k=2 -> target_key=2: obj 0 reads f1 (1 bucket) while obj 16 reads f2 (2 buckets).
+    valid17_g = [[0, 1, 3]] + [[3]] * 15 + [[1, 2, 3]]
+    remapped17 = step17._build_remapped_non_cond(
+        frame_idx=4, max_obj_ptrs=10, valid_per_obj=valid17_g, non_cond_outputs=nco,
+        multiplex_state=mux17, spatial_valid=[1, 2, 3],
+    )
+    rank2_ptr = remapped17[2]["obj_ptr"]
+    assert rank2_ptr.shape[0] == 2, f"multi-bucket pointer truncated to shape {rank2_ptr.shape}"
+    assert torch.all(rank2_ptr[0, 0] == 1.0) and torch.all(rank2_ptr[1, 0] == 2.0), (
+        f"bucket 1 slot 0 lost in combined_ptr: b0={rank2_ptr[0, 0, 0].item()}, b1={rank2_ptr[1, 0, 0].item()}"
+    )
     text = L.report(p, None)
-    assert "on for one-object tracks" in text and "several objects keeps ComfyUI's memory" in text, text
-    return "three objects: core's memory on every frame (the control's focus remap shown); one object then a detection: selected on 1-4, core's from 5"
+    assert "Decoupled Multiplex Memory Selection" in text, text
+    return "DMS union preserves companions, suppresses bad N>=2 slots, leaves N=1 untouched, and preserves 2-bucket pointers"
 
 
 def memory_a_later_track_scores():
@@ -717,30 +881,192 @@ def memory_a_later_track_scores():
 
 def memory_left_off_on_sam3():
     p = _patcher(_tracked(SAM3Tracker))
-    L.attach(p, None, image_range=False, text_activation=False, memory_selection=True)
+    L.attach(p, None, image_range=False, text_activation=False, memory_selection=True, multimask_ptr=True)
     assert _memory(p) == (None, None), "memory selection was attached to SAM 3's tracker"
+    assert L.PROPAGATION_PATCH not in p.object_patches, "multimask_ptr was attached to SAM3Tracker"
     got = L.corrections(p, None)
-    assert not got["memory_selection"] and L.tracker_kind(p) == "SAM3Tracker", got
+    assert not got["memory_selection"] and not got["multimask_ptr"] and L.tracker_kind(p) == "SAM3Tracker", got
     text = L.report(p, None)
     assert "memory selection: NOT applied to SAM3Tracker" in text and "SAM 3.1 only" in text, text
+    assert "propagation pointer token: NOT applied to SAM3Tracker" in text, text
     assert "memory selection: NOT applied (the model has no video tracker)" in L.report(_patcher(_model()), None)
-    return "SAM 3 carries no memory patch with the switch on, and the report says it is not applied there and why"
+    return "SAM 3 carries neither memory_selection nor multimask_ptr, and the report says why"
 
 
 def memory_optional_for_old_graphs():
     # the server refused every graph without the input while it was required (the queue test, 2026-10-18)
     inputs = {i.id: i for i in L.MiniMaxH3SAM31Corrections.define_schema().inputs}
+    assert list(inputs.keys())[-2:] == ["correct_multimask_ptr", "correct_detector_presence"], list(inputs.keys())
     mem = inputs["memory_selection"]
     assert mem.optional and mem.default is True, f"memory_selection: optional={mem.optional}, default={mem.default}"
+    assert inputs["correct_multimask_ptr"].optional and inputs["correct_multimask_ptr"].default is False
+    assert inputs["correct_detector_presence"].optional and inputs["correct_detector_presence"].default is False
+
     def clip():      # the node clones the pair it is handed; the stand-in CLIP gets a clone like core's
         c = _clip()
         c.clone = lambda: types.SimpleNamespace(patcher=c.patcher.clone(), cond_stage_model=c.cond_stage_model)
         return c
+
     absent = L.MiniMaxH3SAM31Corrections.execute(_patcher(_tracked()), clip())
     assert isinstance(_memory(absent.result[0])[0], L.MemorySelectionStep), "a graph without the input did not get the default, on"
+    got_absent = L.corrections(absent.result[0], absent.result[1])
+    assert not got_absent["multimask_ptr"] and not got_absent["detector_presence"], got_absent
     given = L.MiniMaxH3SAM31Corrections.execute(_patcher(_tracked()), clip(), memory_selection=True)
     assert isinstance(_memory(given.result[0])[0], L.MemorySelectionStep), "a graph that sets it on did not get it"
-    return "optional, on by default in the UI and the API alike; a graph without it validates and gets it on"
+    return "optional inputs at end of schema; memory defaults on, multimask_ptr and detector_presence default off"
+
+
+def multimask_pointer_matches_best_iou():
+    """SAM31Tracker._forward_propagation projects the winning argmax(iou_obj) branch token, not branch 0."""
+    def _force_branch(tracker, branch: int, obj_score_bias: float = 5.0):
+        iou_lin = [m for m in tracker.sam_mask_decoder.iou_prediction_head.modules() if isinstance(m, torch.nn.Linear)][-1]
+        obj_lin = [m for m in tracker.sam_mask_decoder.pred_obj_score_head.modules() if isinstance(m, torch.nn.Linear)][-1]
+        with torch.no_grad():
+            iou_lin.bias.fill_(-5.0)
+            iou_lin.bias[branch] = 10.0
+            obj_lin.bias.fill_(obj_score_bias)
+            # `_tracked` scales all params by 0.05; amplify mask_tokens & ptr MLPs so branches stay numerically distinct
+            tracker.sam_mask_decoder.mask_tokens.weight.mul_(20.0)
+            for mod in (tracker.obj_ptr_proj, tracker.no_obj_ptr_linear):
+                for p in mod.parameters():
+                    p.mul_(20.0)
+
+    for mem_on, score_bias in ((False, 5.0), (True, 5.0), (False, -5.0)):
+        model = _tracked(SAM31Tracker, seed=7)
+        tracker = model.diffusion_model.tracker
+        _force_branch(tracker, branch=2, obj_score_bias=score_bias)
+        mux = MultiplexState(2, tracker.num_multiplex, CPU, torch.float32)
+        torch.manual_seed(19)
+        feat = torch.randn(1, tracker.d_model, 8, 8)
+
+        captured_hs: list[torch.Tensor] = []
+        hook = tracker.sam_mask_decoder.transformer.register_forward_hook(lambda m, i, o: captured_hs.append(o[0].detach()))
+        try:
+            with torch.no_grad():
+                _, _, stock_ptr, score_obj = tracker._forward_propagation(feat, high_res_features=None, multiplex_state=mux)
+        finally:
+            hook.remove()
+        hs_ref = captured_hs[-1]
+        M = tracker.sam_mask_decoder.num_multiplex
+        T = tracker.sam_mask_decoder.num_mask_output_per_object
+        mask_tokens_2d = hs_ref[:, 2 * M : 2 * M + M * T].reshape(hs_ref.shape[0], M, T, -1)
+        tokens_obj = mux.demux(mask_tokens_2d)
+
+        def _expected_ptr(branch_idx: int) -> torch.Tensor:
+            with torch.no_grad():
+                tok = tokens_obj[:, branch_idx]
+                p = tracker.obj_ptr_proj(tok)
+                if score_bias <= 0:
+                    is_obj = (score_obj > 0).float()
+                    p = is_obj * p + (1.0 - is_obj) * tracker.no_obj_ptr_linear(p)
+                return mux.mux(p)
+
+        exp_0 = _expected_ptr(0)
+        exp_2 = _expected_ptr(2)
+        assert torch.allclose(stock_ptr, exp_0, atol=1e-5), "stock pointer was not branch 0"
+        assert not torch.allclose(exp_0, exp_2, atol=1e-4), "branch 0 and branch 2 pointers coincided"
+
+        p = _patcher(model)
+        L.attach(p, None, image_range=False, text_activation=False, memory_selection=mem_on, multimask_ptr=True)
+        assert L.corrections(p, None)["multimask_ptr"]
+        assert "propagation pointer token: corrected" in L.report(p, None)
+        p.patch_model(load_weights=False)
+        try:
+            with torch.no_grad():
+                _, _, fixed_ptr, _ = tracker._forward_propagation(feat, high_res_features=None, multiplex_state=mux)
+            tap = p.object_patches[L.MULTIMASK_TAP_PATCH]
+            assert tap.last_hs is None and not tap.armed, "MultimaskTokenTap held activation after propagation"
+        finally:
+            p.unpatch_model(unpatch_weights=False)
+        assert torch.allclose(fixed_ptr, exp_2, atol=1e-5), "corrected propagation did not project winning branch 2 token"
+        with torch.no_grad():
+            _, _, restored_ptr, _ = tracker._forward_propagation(feat, high_res_features=None, multiplex_state=mux)
+        assert torch.allclose(restored_ptr, exp_0, atol=1e-5), "unpatch_model did not restore branch 0 pointer"
+
+    # Clone rebinds both tap and propagation wrapper to the clone's own tracker instance
+    first, second = _tracked(SAM31Tracker, seed=1), _tracked(SAM31Tracker, seed=2)
+    _force_branch(second.diffusion_model.tracker, branch=2, obj_score_bias=5.0)
+    p1 = _patcher(first)
+    L.attach(p1, None, image_range=False, text_activation=False, memory_selection=False, multimask_ptr=True)
+    clone = p1.clone(model_override=(second, ({}, {}, {}, set())))
+    prop_c = clone.object_patches[L.PROPAGATION_PATCH]
+    tap_c = clone.object_patches[L.MULTIMASK_TAP_PATCH]
+    assert prop_c.tracker is second.diffusion_model.tracker and prop_c.orig_fn.__self__ is second.diffusion_model.tracker
+    assert tap_c.orig_forward.__self__ is second.diffusion_model.tracker.sam_mask_decoder.transformer
+    return "projects winning branch 2 token (with/without memory_selection, positive & negative obj scores), clears last_hs, rebinds clone, undoes cleanly"
+
+
+def detector_presence_gates_scores():
+    """SAM3Detector._detect multiplies sigmoid(presence) into prompt logits in fp32 without fp16 Inf/NaN."""
+    class _StubDetector(torch.nn.Module):
+        def __init__(self, score_val: float = 3.0, pres_val: float = -5.0):
+            super().__init__()
+            self.score_val = score_val
+            self.pres_val = pres_val
+
+        def _detect(self, features, positions, text_embeddings=None, text_mask=None, points=None, boxes=None):
+            B = features[0].shape[0]
+            dtype = features[0].dtype
+            has_prompts = text_embeddings is not None or points is not None or boxes is not None
+            boxes_xyxy = torch.zeros(B, 4, 4, dtype=dtype)
+            masks = torch.zeros(B, 4, 8, 8, dtype=dtype)
+            scores = torch.full((B, 4), self.score_val, dtype=dtype) if has_prompts else torch.zeros(B, 4, dtype=dtype)
+            presence = torch.full((B, 1), self.pres_val, dtype=dtype)
+            return boxes_xyxy, scores, masks, {"presence": presence}
+
+    def _det_model(score_val: float = 3.0, pres_val: float = -5.0) -> torch.nn.Module:
+        m = _model()
+        m.diffusion_model.detector = _StubDetector(score_val=score_val, pres_val=pres_val)
+        return m
+
+    for dt in (torch.float32, torch.float16):
+        m_absent = _det_model(score_val=10.0, pres_val=-20.0)
+        p_absent = _patcher(m_absent)
+        L.attach(p_absent, None, image_range=False, text_activation=False, memory_selection=False, detector_presence=True)
+        assert L.corrections(p_absent, None)["detector_presence"]
+        assert "detector presence head: corrected" in L.report(p_absent, None)
+        feats = [torch.zeros(1, 8, 4, 4, dtype=dt)]
+        pos = [torch.zeros(1, 8, 4, 4, dtype=dt)]
+        prompt = torch.ones(1, 2, 8, dtype=dt)
+
+        _, s_stock, _, _ = m_absent.diffusion_model.detector._detect(feats, pos, text_embeddings=prompt)
+        assert float(s_stock.max()) == 10.0
+
+        p_absent.patch_model(load_weights=False)
+        try:
+            _, s_gated, _, _ = m_absent.diffusion_model.detector._detect(feats, pos, text_embeddings=prompt)
+            _, s_unprompted, _, _ = m_absent.diffusion_model.detector._detect(feats, pos)
+        finally:
+            p_absent.unpatch_model(unpatch_weights=False)
+
+        assert s_gated.dtype == dt and not torch.isnan(s_gated).any() and not torch.isinf(s_gated).any(), s_gated
+        expected_p = float(torch.sigmoid(torch.tensor(10.0)) * torch.sigmoid(torch.tensor(-20.0)))
+        assert float(s_gated.float().sigmoid().max()) < 1e-4 and abs(float(s_gated.float().sigmoid().mean()) - expected_p) < 2e-3
+        assert torch.equal(s_unprompted, torch.zeros_like(s_unprompted)), f"unprompted call altered: {s_unprompted}"
+
+        # Unpatch restores stock scores
+        _, s_restored, _, _ = m_absent.diffusion_model.detector._detect(feats, pos, text_embeddings=prompt)
+        assert float(s_restored.max()) == 10.0
+
+    # Present concept stays high
+    m_present = _det_model(score_val=3.0, pres_val=6.0)
+    p_present = _patcher(m_present)
+    L.attach(p_present, None, image_range=False, text_activation=False, memory_selection=False, detector_presence=True)
+    p_present.patch_model(load_weights=False)
+    try:
+        _, s_pres, _, _ = m_present.diffusion_model.detector._detect(
+            [torch.zeros(1, 8, 4, 4)], [torch.zeros(1, 8, 4, 4)], text_embeddings=torch.ones(1, 2, 8)
+        )
+        assert float(s_pres.sigmoid().min()) > 0.94, s_pres.sigmoid()
+    finally:
+        p_present.unpatch_model(unpatch_weights=False)
+
+    # Clone rebinds detector instance cleanly
+    second = _det_model(score_val=4.0, pres_val=-6.0)
+    clone = p_present.clone(model_override=(second, ({}, {}, {}, set())))
+    patch_c = clone.object_patches[L.PRESENCE_PATCH]
+    assert patch_c.orig_fn.__self__ is second.diffusion_model.detector
+    return "absent presence gates logits strongly in fp32 & fp16 without Inf/NaN, present preserved, unprompted zero, clone & undo verified"
 
 
 def main() -> int:
@@ -749,7 +1075,8 @@ def main() -> int:
                the_input_pair_stays_stock, a_loaded_sibling_changes_nothing, memory_paths_are_cores, memory_on_and_off,
                memory_never_twice, memory_clone_binds_its_own, memory_scored_per_object, memory_left_off_on_sam3,
                memory_survives_an_object_added, memory_holds_nothing_after_a_run, memory_pointers_as_meta,
-               memory_optional_for_old_graphs, memory_one_object_only, memory_a_later_track_scores):
+               memory_optional_for_old_graphs, memory_multiplex_dms_multi_object, memory_a_later_track_scores,
+               multimask_pointer_matches_best_iou, detector_presence_gates_scores):
         case(fn.__name__, fn)
     return finish()
 

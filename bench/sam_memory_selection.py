@@ -339,13 +339,15 @@ def _resolve_input_dir() -> Path:
 
 
 def _resolve_data_dir() -> Path:
-    local_data = REPO_ROOT / "data"
-    if (local_data / "2026-10-17_lead_fp_0613g").is_dir():
-        return local_data
+    for root in (REPO_ROOT / "data", COMFY_ROOT / "custom_nodes" / "ComfyUI-h3-explorations" / "data"):
+        if (root / "2026-10-17_lead_fp_0613g").is_dir():
+            return root
+        if (root / "fun" / "2026-10-17_lead_fp_0613g").is_dir():
+            return root / "fun"
     shared_data = COMFY_ROOT / "custom_nodes" / "ComfyUI-h3-explorations" / "data"
     if shared_data.is_dir():
         return shared_data
-    return local_data
+    return REPO_ROOT / "data"
 
 
 FORBIDDEN_CAPTURE_MARKERS: tuple[str, ...] = ("blocked", "superseded")

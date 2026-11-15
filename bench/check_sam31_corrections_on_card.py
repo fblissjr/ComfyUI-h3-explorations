@@ -25,9 +25,16 @@ convolution with a hook on that layer, and which activation the text encoder run
                                   stock pair's run calls it not at all and leaves the stock method there; after every
                                   track the patch holds no tensor on the card and no earlier track's record, and each
                                   corrected track scores its frames with no reset between tracks (2026-10-17).
-  survives_an_offload             each pair read, everything unloaded (`unload_all_models`), the stock forward seen
-                                  back on the model, then each pair read again: still its own range. A full unload
-                                  in one process; not the partial eviction a long H3 render provokes on the server.
+  multimask_ptr_in_turn           `SAM3_VideoTrack` alternating stock vs `multimask_ptr=True`: transformer tap and
+                                  `_forward_propagation` wrapper swap on/off with the active patcher and `last_hs`
+                                  and `armed` clear immediately after each run.
+  detector_presence_in_turn       `SAM3_Detect` alternating stock vs `detector_presence=True` on `"person:4"` /
+                                  `"astronaut:4"`: `SAM3Detector._detect` swaps on/off in turn, and isolates presence
+                                  gating by comparing `FIXED` vs `FIXED_ALL`.
+  survives_an_offload             each pair read, everything unloaded (`unload_all_models`), all live model patches
+                                  seen unpatched on the underlying model, then each pair read again: still its own range
+                                  and patches. A full unload in one process; not the partial eviction a long H3 render
+                                  provokes on the server.
 
 The frames are made here (a ramp with a block of exact black and one of exact white): nothing depends on what a picture
 shows, only on what range reaches the model.
@@ -72,8 +79,10 @@ needs(f"the segmenter `{SEGMENTER}` under models/checkpoints", PATH is not None)
 
 STOCK, STOCK_CLIP, _ = load_model(torch, comfy, PATH, None, keep_text_projection=True)
 FIXED, FIXED_CLIP = L.corrected(STOCK, STOCK_CLIP)
+FIXED_ALL, FIXED_ALL_CLIP = L.corrected(STOCK, STOCK_CLIP, multimask_ptr=True, detector_presence=True)
 ORDER = ("stock", "corrected", "stock", "corrected", "corrected", "stock")
 PAIRS = {"stock": (STOCK, STOCK_CLIP), "corrected": (FIXED, FIXED_CLIP)}
+PAIRS_ALL = {"stock": (STOCK, STOCK_CLIP), "corrected": (FIXED_ALL, FIXED_ALL_CLIP)}
 
 # A smooth ramp with one block of exact black and one of exact white, so "0..1" and "-1..1" are exact at the first layer
 # whatever the resize does between samples; four frames, each shifted a little so the tracker has something to follow.
@@ -190,30 +199,128 @@ def memory_in_turn():
     return "; ".join(got)
 
 
+def multimask_ptr_in_turn():
+    """`multimask_ptr=True` dynamically patches `_forward_propagation` + decoder transformer and releases refs cleanly."""
+    prop_patch = FIXED_ALL.object_patches.get(L.PROPAGATION_PATCH)
+    tap_patch = FIXED_ALL.object_patches.get(L.MULTIMASK_TAP_PATCH)
+    assert isinstance(prop_patch, L.CorrectedPropagationPtr) and isinstance(tap_patch, L.MultimaskTokenTap), "FIXED_ALL missing multimask ptr patches"
+    assert L.PROPAGATION_PATCH not in STOCK.object_patches and L.MULTIMASK_TAP_PATCH not in STOCK.object_patches, "STOCK polluted"
+    assert L.PROPAGATION_PATCH not in FIXED.object_patches and L.MULTIMASK_TAP_PATCH not in FIXED.object_patches, "default FIXED enabled optional multimask_ptr"
+    tracker = STOCK.model.diffusion_model.tracker
+    decoder_xfmr = tracker.sam_mask_decoder.transformer
+    got = []
+    for name in ORDER:
+        model, _ = PAIRS_ALL[name]
+        seen = []
+        hook = decoder_xfmr.register_forward_pre_hook(
+            lambda m, i: seen.append((
+                isinstance(vars(tracker).get("_forward_propagation"), L.CorrectedPropagationPtr),
+                isinstance(vars(decoder_xfmr).get("forward"), L.MultimaskTokenTap),
+                tap_patch.armed,
+            ))
+        )
+        try:
+            with torch.inference_mode():
+                SAM3_VideoTrack.execute(FRAMES, model, initial_mask=SEED, conditioning=None, detection_threshold=0.5, max_objects=0, detect_interval=1)
+        finally:
+            hook.remove()
+        assert seen, "decoder transformer never ran during track"
+        assert all(p == t == (name == "corrected") for p, t, _ in seen), f"{name}: hook saw mismatched patch state {seen}"
+        assert any(a for _, _, a in seen) == (name == "corrected"), f"{name}: armed state wrong across track ({seen})"
+        assert tap_patch.last_hs is None and not tap_patch.armed, f"{name}: multimask tap retained state after run"
+        live_prop = isinstance(vars(tracker).get("_forward_propagation"), L.CorrectedPropagationPtr)
+        live_tap = isinstance(vars(decoder_xfmr).get("forward"), L.MultimaskTokenTap)
+        assert live_prop == live_tap == (name == "corrected"), f"{name}: live patch state {live_prop}/{live_tap}"
+        got.append(f"{name} {'ptr' if live_prop else 'stock'}")
+    return "; ".join(got)
+
+
+def detector_presence_in_turn():
+    """`detector_presence=True` swaps `SAM3Detector._detect` in turn and multiplies `sigmoid(presence)` into logits."""
+    pres_patch = FIXED_ALL.object_patches.get(L.PRESENCE_PATCH)
+    assert isinstance(pres_patch, L.CorrectedDetectorPresence), "FIXED_ALL missing presence patch"
+    assert L.PRESENCE_PATCH not in STOCK.object_patches and L.PRESENCE_PATCH not in FIXED.object_patches, "STOCK/FIXED polluted"
+    detector = STOCK.model.diffusion_model.detector
+    got = []
+    for name in ORDER:
+        model, clip = PAIRS_ALL[name]
+        for prompt in ("person:4", "astronaut:4"):
+            cond = clip.encode_from_tokens_scheduled(clip.tokenize(prompt))
+            with torch.inference_mode():
+                SAM3_Detect.execute(model, FRAMES[:1], conditioning=cond, threshold=0.0, individual_masks=True)
+            live = isinstance(vars(detector).get("_detect"), L.CorrectedDetectorPresence)
+            assert live == (name == "corrected"), f"{name}/{prompt}: _detect live patched={live}"
+        got.append(f"{name} {'presence' if live else 'stock'}")
+
+    diffs = []
+    for prompt in ("astronaut:4", "person:4"):
+        scores_base = []
+        scores_pres = []
+        for model, clip, bucket in ((FIXED, FIXED_CLIP, scores_base), (FIXED_ALL, FIXED_ALL_CLIP, scores_pres)):
+            cond = clip.encode_from_tokens_scheduled(clip.tokenize(prompt))
+            with torch.inference_mode():
+                _, bbox_dicts = SAM3_Detect.execute(model, FRAMES[:1], conditioning=cond, threshold=0.0, individual_masks=True)
+            bucket.extend(d["score"] for d in bbox_dicts[0])
+        assert scores_base and scores_pres, f"no scores returned at threshold=0.0 for {prompt}"
+        max_b, max_p = max(scores_base), max(scores_pres)
+        assert max_p <= max_b + 1e-6, f"{prompt}: presence gating increased max score {max_b:.5f} -> {max_p:.5f}"
+        diffs.append((prompt, max_b, max_p))
+    assert any(b - p > 1e-5 for _, b, p in diffs), f"presence gating produced zero score delta across prompts: {diffs}"
+    summary = ", ".join(f"{p}:{b:.4f}->{g:.4f}" for p, b, g in diffs)
+    return "; ".join(got) + f" ({summary})"
+
+
 def survives_an_offload():
-    """Each pair read, everything unloaded from the card, each pair read again: the patch is on the patcher, not the model."""
-    def run(model, clip):
+    """Each pair read, everything unloaded, all model patches gone cleanly, then reloaded intact."""
+    def run_detect(model, clip):
         cond = clip.encode_from_tokens_scheduled(clip.tokenize("person:4"))
         SAM3_Detect.execute(model, FRAMES[:1], conditioning=cond, threshold=0.5, individual_masks=True)
+
+    tracker = STOCK.model.diffusion_model.tracker
+    decoder_xfmr = tracker.sam_mask_decoder.transformer
+    detector = STOCK.model.diffusion_model.detector
 
     got = []
     for name in ("corrected", "stock", "corrected"):
         model, clip = PAIRS[name]
-        _judge(name, _watch(model, lambda: run(model, clip)), 0.02)
+        _judge(name, _watch(model, lambda: run_detect(model, clip)), 0.02)
         mm.unload_all_models()
         mm.soft_empty_cache()
         layer = comfy.utils.get_attr(STOCK.model, L.PATCH_EMBED)
         assert not isinstance(getattr(layer, "forward"), L.CorrectedRange), "the patch was still on the model after everything was unloaded"
-        seen = _watch(model, lambda: run(model, clip))
+        assert not isinstance(vars(tracker).get("_prepare_memory_conditioned_features"), L.MemorySelectionStep), "memory patch left after unload"
+        assert not isinstance(vars(tracker).get("_forward_propagation"), L.CorrectedPropagationPtr), "prop patch left after unload"
+        assert not isinstance(vars(decoder_xfmr).get("forward"), L.MultimaskTokenTap), "multimask tap left after unload"
+        assert not isinstance(vars(detector).get("_detect"), L.CorrectedDetectorPresence), "presence patch left after unload"
+        seen = _watch(model, lambda: run_detect(model, clip))
         _judge(name, seen, 0.02)
         got.append(f"{name} after a reload {seen[0]:.2f}..{seen[1]:.2f}")
-    return "; ".join(got)
+
+    # Full-stack FIXED_ALL offload + track + detect + unload unpatch check.
+    with torch.inference_mode():
+        cond = FIXED_ALL_CLIP.encode_from_tokens_scheduled(FIXED_ALL_CLIP.tokenize("person:4"))
+        SAM3_Detect.execute(FIXED_ALL, FRAMES[:1], conditioning=cond, threshold=0.0, individual_masks=True)
+        SAM3_VideoTrack.execute(FRAMES, FIXED_ALL, initial_mask=SEED, conditioning=None, detection_threshold=0.5, max_objects=0, detect_interval=1)
+    assert isinstance(vars(tracker).get("_prepare_memory_conditioned_features"), L.MemorySelectionStep)
+    assert isinstance(vars(tracker).get("_forward_propagation"), L.CorrectedPropagationPtr)
+    assert isinstance(vars(decoder_xfmr).get("forward"), L.MultimaskTokenTap)
+    assert isinstance(vars(detector).get("_detect"), L.CorrectedDetectorPresence)
+    mm.unload_all_models()
+    mm.soft_empty_cache()
+    assert not isinstance(vars(tracker).get("_prepare_memory_conditioned_features"), L.MemorySelectionStep), "FIXED_ALL memory leaked after unload"
+    assert not isinstance(vars(tracker).get("_forward_propagation"), L.CorrectedPropagationPtr), "FIXED_ALL prop leaked after unload"
+    assert not isinstance(vars(decoder_xfmr).get("forward"), L.MultimaskTokenTap), "FIXED_ALL tap leaked after unload"
+    assert not isinstance(vars(detector).get("_detect"), L.CorrectedDetectorPresence), "FIXED_ALL presence leaked after unload"
+    with torch.inference_mode():
+        SAM3_VideoTrack.execute(FRAMES, FIXED_ALL, initial_mask=SEED, conditioning=None, detection_threshold=0.5, max_objects=0, detect_interval=1)
+    assert isinstance(vars(tracker).get("_forward_propagation"), L.CorrectedPropagationPtr), "FIXED_ALL prop did not reattach after reload"
+    return "; ".join(got) + "; FIXED_ALL clean unpatch+reload ok"
 
 
 def main() -> int:
     print(f"ComfyUI at {COMFY.name}, dynamic VRAM {'on' if DYNAMIC else 'OFF'}, patcher {type(STOCK).__name__}")
     for fn in (the_patcher_is_the_servers, detect_in_turn, track_in_turn, trunk_call_in_turn, text_in_turn, memory_in_turn,
-               survives_an_offload):
+               multimask_ptr_in_turn, detector_presence_in_turn, survives_an_offload):
         case(fn.__name__, fn)
     return finish()
 

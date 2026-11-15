@@ -820,7 +820,9 @@
       "segmenter_clip",
       "correct_image_range",
       "correct_text_activation",
-      "memory_selection"
+      "memory_selection",
+      "correct_multimask_ptr",
+      "correct_detector_presence"
     ],
     "node_id": "MiniMaxH3SAM31Corrections",
     "outputs": [

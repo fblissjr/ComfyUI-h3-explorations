@@ -9,7 +9,7 @@ this file is only a way to find a script by what it says it does.
 | group | scripts |
 |---|---|
 | [`check_*`](#check) | 172 |
-| [`measure_*`](#measure) | 38 |
+| [`measure_*`](#measure) | 39 |
 | [`analyze_*`](#analyze) | 18 |
 | [`grade_*`](#grade) | 19 |
 | [`compare_*`](#compare) | 15 |
@@ -230,6 +230,7 @@ this file is only a way to find a script by what it says it does.
 | [`measure_qk_balance_gate_on_capture.py`](measure_qk_balance_gate_on_capture.py) | Which heads open the kitchen Sol kernel's qk_balance gate, per captured block. |
 | [`measure_qwen_bounds_bite.py`](measure_qwen_bounds_bite.py) | Where does ComfyUI's Qwen pixel ceiling actually shrink an H3 input? |
 | [`measure_reference_split.py`](measure_reference_split.py) | The two-node reference path against core's one pass, on the real encoder. |
+| [`measure_sam31_dms_and_fixes.py`](measure_sam31_dms_and_fixes.py) | GPU benchmark suite for SAM 3.1 Decoupled Multiplex Memory Selection (`SAM3-DMS`) and perception fixes. |
 | [`measure_sol_container_protocol.py`](measure_sol_container_protocol.py) | What the Sol override's container entry changes, on captured q/k/v. |
 | [`measure_sol_exact_variants.py`](measure_sol_exact_variants.py) | Measure the INSTALLED Sol kernel's exact branch, so two builds can be compared. |
 | [`measure_step_yaw.py`](measure_step_yaw.py) | At which sampling step a render's facing is decided: the turn metric on each step's clean prediction. |
@@ -737,7 +738,7 @@ Arm manifests and the like; a manifest's line is its own `what`.
 
 ### results
 
-236 tracked files: [`results/INDEX.md`](results/INDEX.md).
+237 tracked files: [`results/INDEX.md`](results/INDEX.md).
 
 ### rubrics
 

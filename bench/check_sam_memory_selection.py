@@ -24,7 +24,12 @@ ComfyUI's real `ModelPatcher`:
      object 0 is occluded across 18 frames while companion object 1 stays visible with
      high score, object 0's filtered history drops the occluded frames and keeps only
      its own pre-occlusion valid frames plus `must_include`.
-  6. `default_scenes_name_exact_unblocked_captures`: `build_default_scenes` names the
+  6. `sam31_dms_union_and_multi_bucket`: on `SAM31Tracker` with `focus_obj_idx=None`
+     (Decoupled Multiplex Memory Selection), spatial memory uses the any-visible union so
+     visible companions keep recent frames while occluded object 0 reads its own pointer,
+     mid-video birth frames stay in `retained_bank`, and 2-bucket (`17`-object) `combined_ptr`
+     keeps bucket 1 slot 0 intact.
+  7. `default_scenes_name_exact_unblocked_captures`: `build_default_scenes` names the
      exact expected capture folders (`2026-10-17_lead_fp_0613g`, `2026-10-13_lead_fp_1306s`
      + `2026-10-13_third_fp_1310c`, `2026-10-15_lead_fp_1419d`) and `subjects/<subj>/masks__*.npz`
      paths; `validate_scene_capture` refuses any `blocked` or `superseded` folder or
@@ -787,6 +792,141 @@ def default_scenes_name_exact_unblocked_captures() -> str:
     )
 
 
+def sam31_dms_union_and_multi_bucket() -> str:
+    """Verify `focus_obj_idx=None` any-visible spatial union, birth frame retention, and 2-bucket `combined_ptr`."""
+    device = torch.device("cpu")
+    tracker = SAM31Tracker(
+        d_model=32,
+        mem_dim=32,
+        num_maskmem=7,
+        num_multiplex=16,
+        device=device,
+        dtype=torch.float32,
+        operations=comfy.ops.disable_weight_init,
+    )
+    tracker.eval()
+    base_model = _DummyBaseModel(tracker)
+    base_patcher = comfy.model_patcher.ModelPatcher(base_model, load_device=device, offload_device=device)
+
+    patched = apply_memory_selection(base_patcher, mf_threshold=MF_THRESHOLD, focus_obj_idx=None).clone()
+    step = get_memory_selection_state(patched)
+    assert isinstance(step, MemorySelectionStep) and step.focus_obj_idx is None
+
+    N, C, H, W = 26, tracker.d_model, 8, 8
+    M = tracker.num_multiplex
+    feat_sizes = [(H * 4, W * 4), (H * 2, W * 2), (H, W)]
+    cur_feats = [torch.randn(1, H * W, C)]
+    cur_pos = [torch.zeros(1, H * W, C)]
+
+    mux = MultiplexState(2, M, device, torch.float32)
+    output_dict: dict[str, dict[int, dict[str, object]]] = {
+        "cond_frame_outputs": {
+            0: {
+                "maskmem_features": torch.randn(1, C, H, W),
+                "maskmem_pos_enc": [torch.zeros(1, C, H, W)],
+                "image_features": torch.randn(1, H * W, C),
+                "image_pos_enc": torch.zeros(1, H * W, C),
+                "obj_ptr": torch.zeros(1, M, C),
+                "object_score_logits": torch.full((2, 1), 5.0),
+            }
+        },
+        "non_cond_frame_outputs": {},
+    }
+
+    saw_birth_at_24 = False
+    patched.patch_model(load_weights=False)
+    try:
+        for f_idx in range(1, N):
+            if f_idx == 7:
+                # Frame 6 had newborn obj 2 added after obj 0 & 1 were scored with low logits
+                mux.add_objects(1)
+            tracker._prepare_memory_conditioned_features(
+                frame_idx=f_idx,
+                is_init_cond_frame=False,
+                current_vision_feats=cur_feats,
+                current_vision_pos_embeds=cur_pos,
+                feat_sizes=feat_sizes,
+                output_dict=output_dict,
+                num_frames=N,
+                multiplex_state=mux,
+            )
+            if f_idx == 24:
+                kept_24 = step.selected_history[24]
+                assert kept_24[0] == [1, 2, 3, 4, 23], f"occluded object 0 kept {kept_24[0]}"
+                assert 6 in kept_24[2] and 6 in step.cond_frames, (kept_24[2], step.cond_frames)
+                assert 6 in step.retained_bank and 6 not in output_dict["non_cond_frame_outputs"], (
+                    "birth frame 6 not retained past 16-frame prune"
+                )
+                spatial_24 = step._spatial_union_frames(
+                    24,
+                    min(N, int(tracker.max_obj_ptrs_in_encoder)),
+                    3,
+                    set(output_dict["non_cond_frame_outputs"].keys()) | set(step.retained_bank.keys()),
+                )
+                assert spatial_24 == [6] + list(range(10, 24)), f"unexpected spatial union at 24: {spatial_24}"
+                saw_birth_at_24 = True
+
+            n_cur = mux.total_valid_entries
+            logits = torch.full((mux.num_buckets, M, 1), -5.0)
+            logits.view(-1)[:n_cur] = 5.0
+            if 5 <= f_idx <= 23:
+                logits[0, 0, 0] = -4.0  # object 0 occluded on frames 5..23
+            if f_idx in (6, 7, 8, 9):
+                logits[0, 1, 0] = -4.0  # on frames 6..9, object 1 is occluded
+            if n_cur > 2 and f_idx in (7, 8, 9):
+                logits[0, 2, 0] = -4.0  # frames 7..9 have all objects occluded so obj 2 needs birth frame 6
+            ious = torch.full((mux.num_buckets, M, 3), 0.9)
+            step.iou_tap.record(ious, logits)
+            ptr = torch.zeros(mux.num_buckets, M, C)
+            ptr[0, :n_cur, :] = float(f_idx)
+            s_rows = [
+                [-4.0 if 5 <= f_idx <= 23 else 5.0],
+                [-4.0 if f_idx in (6, 7, 8, 9) else 5.0],
+            ]
+            if n_cur > 2:
+                s_rows.append([-4.0 if f_idx in (7, 8, 9) else 5.0])
+            out_entry = {
+                "maskmem_features": torch.randn(mux.num_buckets, C, H, W),
+                "maskmem_pos_enc": [torch.zeros(mux.num_buckets, C, H, W)],
+                "image_features": torch.randn(1, H * W, C),
+                "image_pos_enc": torch.zeros(1, H * W, C),
+                "obj_ptr": ptr,
+                "object_score_logits": torch.tensor(s_rows),
+            }
+            if f_idx == 6:
+                # Simulate _add_detected_objects writing frame 6 before mux grows for frame 7
+                out_entry["pred_masks"] = torch.zeros(3, 1, H, W)
+                out_entry["object_score_logits"] = out_entry["object_score_logits"][:2]
+            output_dict["non_cond_frame_outputs"][f_idx] = out_entry
+            if f_idx >= 17:
+                output_dict["non_cond_frame_outputs"].pop(f_idx - 17, None)
+
+        assert saw_birth_at_24
+        assert not step.cond_frames and not step.retained_bank, "end_of_pass did not clear card/cond state"
+    finally:
+        patched.unpatch_model(unpatch_weights=False)
+
+    # 2-bucket (17 objects) combined_ptr preserves bucket 1 slot 0 when rank -k sources differ across objects
+    mux17 = MultiplexState(17, M, device, torch.float32)
+    step17 = MemorySelectionStep(tracker, orig_fn=lambda *a, **k: None, iou_tap=step.iou_tap, focus_obj_idx=None)
+    nco = {
+        f: {
+            "maskmem_features": torch.randn(1 if f < 2 else 2, C, H, W),
+            "maskmem_pos_enc": [torch.zeros(1 if f < 2 else 2, C, H, W)],
+            "image_features": torch.randn(1, H * W, C),
+            "image_pos_enc": torch.zeros(1, H * W, C),
+            "obj_ptr": torch.full((1 if f < 2 else 2, M, C), float(f)),
+        }
+        for f in (0, 1, 2, 3)
+    }
+    valid17 = [[0, 1, 3]] + [[3]] * 15 + [[1, 2, 3]]
+    remapped17 = step17._build_remapped_non_cond(4, 10, valid17, nco, mux17, spatial_valid=[1, 2, 3])
+    ptr_rank2 = remapped17[2]["obj_ptr"]
+    assert ptr_rank2.shape == (2, M, C) and torch.all(ptr_rank2[0, 0] == 1.0) and torch.all(ptr_rank2[1, 0] == 2.0)
+
+    return "focus_obj_idx=None spatial union kept recent companions + occluded birth frame 6 + 2-bucket 17-object obj_ptr"
+
+
 def main() -> int:
     for fn in (
         the_paths_are_cores,
@@ -794,6 +934,7 @@ def main() -> int:
         frame_filter_drops_bad_and_keeps_tail,
         sam3_tracker_runtime_patch_and_clone,
         sam31_tracker_group_isolation,
+        sam31_dms_union_and_multi_bucket,
         default_scenes_name_exact_unblocked_captures,
     ):
         case(fn.__name__, fn)

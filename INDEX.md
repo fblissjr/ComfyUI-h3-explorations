@@ -119,7 +119,7 @@ with none is a helper the others import.
 | [`prompt_lists.py`](prompt_lists.py) | `MiniMaxH3PromptList`, `MiniMaxH3FillPromptLists` | Prompt lists: fill `__name__` placeholders, one value per use, no repeat before a list is used up. |
 | [`provenance.py`](provenance.py) | `MiniMaxH3ProvenanceStamp` | Bench-only: stamp what a render's settings actually RESOLVED to. |
 | [`resolution.py`](resolution.py) | `MiniMaxH3Resolution` | Pick a MiniMax H3 resolution by shape, and see what it costs before you render. |
-| [`sam31_corrections.py`](sam31_corrections.py) | `MiniMaxH3SAM31Corrections` | Three of ComfyUI's departures from Meta's SAM 3.1 code, corrected as ComfyUI patches on a loaded model and text encoder. |
+| [`sam31_corrections.py`](sam31_corrections.py) | `MiniMaxH3SAM31Corrections` | Corrections for ComfyUI's departures from Meta's SAM 3.1 code, attached as ComfyUI object patches. |
 | [`sam3d_body_vith.py`](sam3d_body_vith.py) | `MiniMaxH3SAM3DBodyViTHLoader` | SAM 3D Body's ViT-H release behind core's heads, predictor and renderers. |
 | [`sapiens2_parts.py`](sapiens2_parts.py) | `MiniMaxH3Sapiens2Loader`, `MiniMaxH3SubjectParts` | Body parts and a soft matte on one tracked person, from Sapiens2. |
 | [`shot_table.py`](shot_table.py) | `MiniMaxH3SaveShotTable` | A clip's shots as a table a person can review once: who was found in each, who was taken, and why. |
@@ -157,11 +157,11 @@ with none is a helper the others import.
 | `.gemini/` | 8 | [below](#gemini) |
 | `archive/` | 31 | (none) |
 | `assets/` | 1 | [below](#assets) |
-| `bench/` | 866 | [`bench/INDEX.md`](bench/INDEX.md) and [`bench/results/INDEX.md`](bench/results/INDEX.md) for the records |
+| `bench/` | 870 | [`bench/INDEX.md`](bench/INDEX.md) and [`bench/results/INDEX.md`](bench/results/INDEX.md) for the records |
 | `changelog.d/` | | [`changelog.d/README.md`](changelog.d/README.md), one file per changelog entry; not listed and not counted |
 | `contact_sheets/` | 2 | [below](#contact_sheets) |
 | `data/` | 2 | [below](#data) |
-| `docs/` | 314 | [`docs/wiki/index.md`](docs/wiki/index.md), the hand-written router |
+| `docs/` | 316 | [`docs/wiki/index.md`](docs/wiki/index.md), the hand-written router |
 | `prompt_bank/` | 228 | [`docs/wiki/prompting/prompt_bank.md`](docs/wiki/prompting/prompt_bank.md), the prompt catalogue |
 | `sparse_tables/` | 1 | [below](#sparse_tables) |
 | `standalone/` | 6 | [below](#standalone) |
