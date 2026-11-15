@@ -1,6 +1,6 @@
 # H3 LLM Wiki (`docs/wiki/`)
 
-Master router for `ComfyUI-h3-explorations`. Root [`../../AGENTS.md`](../../AGENTS.md) holds the operative rules, pre-render H3 invariants, and the 65-node pack replacement map. Where any wiki page disagrees with the code on disk, the code wins — fix the page and record the correction in [`decisions.md`](decisions.md).
+Master router for `ComfyUI-h3-explorations`. Root [`../../AGENTS.md`](../../AGENTS.md) holds the operative rules, pre-render H3 invariants, and the 66-node pack replacement map. Where any wiki page disagrees with the code on disk, the code wins — fix the page and record the correction in [`decisions.md`](decisions.md).
 
 ---
 
@@ -8,7 +8,7 @@ Master router for `ComfyUI-h3-explorations`. Root [`../../AGENTS.md`](../../AGEN
 
 | Page | Role |
 | :--- | :--- |
-| [`../../AGENTS.md`](../../AGENTS.md) | Mandatory session rules, H3 clock/frame/mask invariants, 65-node map |
+| [`../../AGENTS.md`](../../AGENTS.md) | Mandatory session rules, H3 clock/frame/mask invariants, 66-node map |
 | [`projects/2026-11-13_repo_audit_and_atlas/index.md`](projects/2026-11-13_repo_audit_and_atlas/index.md) | **Repo Atlas (`2026-11-13`)**: 8-track status, Top 14 unfinished/forgotten ideas, code-vs-prose ledger, Nov 10–12 renders, offline HTML + `ledger.json` |
 | [`research/2026-11-14_cross_pillar_api_workflows_and_sam31_decoupling.md`](research/2026-11-14_cross_pillar_api_workflows_and_sam31_decoupling.md) | **Cross-Pillar API Unlocks & SAM 3.1 Decoupling (`2026-11-14`)**: Two-phase `:8188` perception+generation recipes, Phase 1 + `EditGuider` + `SoundCues` + `SpriteTrajectory` compound workflows, and clean extraction off `MiniMaxH3AudioFreezeSong` |
 | [`projects/index.md`](projects/index.md) | Project directory index & structured dossier standard ([`projects/AGENTS.md`](projects/AGENTS.md)) |
@@ -61,6 +61,7 @@ Start at [`control_vectors.md`](control_vectors.md) and [`edit_guidance.md`](edi
 | :--- | :--- |
 | [`control_vectors.md`](control_vectors.md) | Unified steering hub: Control Vectors vs. Edit Guidance vs. J-Lens readout, shipped workflows, `exp5` tool-choice update |
 | [`edit_guidance.md`](edit_guidance.md) | `MiniMaxH3EditGuider` + `MiniMaxH3PromptEdit` (`streams`, `audio_scale`, `first_step`, `last_step`, 3D `[B, 1, C_flat]` AV split) |
+| [`research/2026-11-15_spatial_world_director_and_3d_edit_guidance.md`](research/2026-11-15_spatial_world_director_and_3d_edit_guidance.md) | **3D Semantic Velocity Steering & Spatial World Director (`2026-11-15`)**: Native ComfyUI core comparison, `[F, H, W]` causal pooling + `40 Hz` audio gating, `MiniMaxH3SpatialDirector` / `MiniMaxH3DirectorHUD`, and `141`-frame showcase benchmarks |
 | [`control_vectors/which_tool_and_what_to_call_it.md`](control_vectors/which_tool_and_what_to_call_it.md) | Plain-English guide comparing Prompt Edit, Control Vectors, Edit Guidance, and Word Readout (`J-Lens`) |
 | [`control_vectors/sound_cues_and_timed_masks.md`](control_vectors/sound_cues_and_timed_masks.md) | Plain-English explainer: Sound Cues (`MiniMaxH3SoundCues`), timed animated mask "blooms" (`MiniMaxH3EditGuider.mask`), and what the tortoise & forge experiments proved |
 | [`control_vectors/how_the_word_readout_works.md`](control_vectors/how_the_word_readout_works.md) | Step-by-step explainer of J-Lens cloze log-odds lexical readouts |

@@ -36,13 +36,14 @@ For active nodes and recipes, start at [`../control_vectors.md`](../control_vect
 | [`control_vectors/exl3_qwen3vl/h3_control_vector_report.md`](control_vectors/exl3_qwen3vl/h3_control_vector_report.md) | H3 control-vector batch-labelling & `layers.49` readout report |
 | [`control_vectors/exl3_qwen3vl/control_vector_viewer.html`](control_vectors/exl3_qwen3vl/control_vector_viewer.html) | Interactive standalone HTML viewer for EXL3 `Qwen3-VL` control-vector labels and activations |
 
-## Timeline Signal & Guide Studies (`2026-11-12`) & Eval Flywheel
+## Timeline Signal & Guide Studies (`2026-11-12`–`2026-11-15`) & Eval Flywheel
 
 | Document | Topic |
 |---|---|
 | [`2026-11-10_the_eval_flywheel.md`](2026-11-10_the_eval_flywheel.md) | How a month of masked-V2V visual inspection turned into automated rules and checks, and which survived |
 | [`2026-11-12_guide_signal_full_length_bars.md`](2026-11-12_guide_signal_full_length_bars.md) | Full-length bar signal given as a guide video on text-to-video: visual bleed vs. audio-window locking across five arms |
 | [`2026-11-12_guide_sound_islands_and_kinematic_dpad.md`](2026-11-12_guide_sound_islands_and_kinematic_dpad.md) | Timeline `cond_audio` islands (`d19ba65c`, `e0a5bb35`) vs. 2D kinematic D-pad sprite trajectories and `0.33` selective release |
+| [`2026-11-15_spatial_world_director_and_3d_edit_guidance.md`](2026-11-15_spatial_world_director_and_3d_edit_guidance.md) | Native ComfyUI core (`BasicGuider` / `CFGGuider`, `SetLatentNoiseMask`, `MiniMaxH3AddGuide`) vs. 3D `[F, H, W]` velocity steering, `40 Hz` temporal audio gating, `MiniMaxH3SpatialDirector`, `MiniMaxH3DirectorHUD`, and measured `141`-frame showcase benchmarks |
 
 ## Masked V2V Research (`docs/wiki/research/masking/`) & Postmortems (`postmortems/`)
 

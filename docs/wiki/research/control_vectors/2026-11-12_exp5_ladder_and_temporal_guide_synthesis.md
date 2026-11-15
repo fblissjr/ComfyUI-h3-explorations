@@ -3,7 +3,7 @@
 This memo synthesizes two threads investigated on `2026-11-12` that converge on the same underlying mechanism—how conditioning and velocity guidance act across time, tokens, and streams inside MiniMax H3:
 
 1. **The `exp2`–`exp5` Control Vector vs. Plain Rewrite vs. Edit Guidance Ladder** (`$H3_OUTPUT_DIR/Video/cv_word_share_2026-11-12/`): judging the unjudged `exp2`, `exp3`, and `exp4` runs from [`2026-11-12_new_vectors_three_ways.md`](2026-11-12_new_vectors_three_ways.md) and [`../../../bench/results/2026-11-12_control_vector_word_share.md`](../../../../bench/results/2026-11-12_control_vector_word_share.md), isolating the four confounds in `exp3`/`exp4`, and running the 13-clip controlled **`exp5` 1:1 ladder** on `prompt_bank/t2va_offpath_tortoise.txt` (`seed = 730451892`, `1344x768`, `124` frames, `6` Pika H3 Flex steps).
-2. **Temporal & Audio Event Guides (`NKD_v153` & `NKD_v173`) -> `masked_v2v` & Multimodal `EditGuider`**: forensic frame-and-audio analysis of community guide-driven H3 clips (`141` frames, `17k + 5` grid), why co-located `cond` / `cond_audio` keyframes (`comfy/ldm/minimax/model.py::PackedLayout`) drive frame-exact inverse physics, and how event-gated envelopes plus multimodal differential velocity subtraction resolve long-standing `masked_v2v` face/mouth/gaze failure modes.
+2. **Temporal & Audio Event Guides (`Clip A` & `Clip B`) -> `masked_v2v` & Multimodal `EditGuider`**: forensic frame-and-audio analysis of guide-driven H3 clips (`141` frames, `17k + 5` grid), why co-located `cond` / `cond_audio` keyframes (`comfy/ldm/minimax/model.py::PackedLayout`) drive frame-exact inverse physics, and how event-gated envelopes plus multimodal differential velocity subtraction resolve long-standing `masked_v2v` face/mouth/gaze failure modes.
 
 For day-to-day recipes and parameter selection, see [`../../wiki/edit_guidance.md`](../../edit_guidance.md), [`../../wiki/control_vectors/examples_and_recipes.md`](../../control_vectors/examples_and_recipes.md), and [`../../wiki/control_vectors/which_tool_and_what_to_call_it.md`](../../control_vectors/which_tool_and_what_to_call_it.md).
 
@@ -17,9 +17,9 @@ Earlier on `2026-11-12`, two separate questions arose:
   - `exp2` (`$H3_OUTPUT_DIR/Video/cv_word_share_2026-11-12/exp2/`) decomposed `film_16mm_1974` and `head_swell` into orthogonal parts `v = m (shared) + n (named 16 J-Lens words orth shared) + r (rest)`.
   - `exp3` built eight new single-phrase control vectors via `control_vector_nodes.py::MiniMaxH3MakeControlVector` with empty `target_prompt` and rendered all eight at node defaults (`mode = add_norm_matched`, `strength = 1.15`, `target = scene_only`, `start_percent = 0.0`, `end_percent = 1.0`).
   - `exp4` rendered the same eight phrases as plain prompt prepends (`exp4_<concept>_rewrite`) and through `edit_guidance.py::MiniMaxH3EditGuider` at `scale = 1.5, first_step = 0, last_step = 1000` (`exp4_<concept>_node_s1.5`), leaving the clips unjudged at handoff.
-- **How do external temporal/audio guides (`NKD_v153`, `NKD_v173`) achieve frame-exact physical choreography (dribbling crossovers, mid-air tortoise jumps with landing thuds) without destroying continuous scene foley, and how does that translate to `masked_v2v` (mesh/eyes/gaze/mouth) and `MiniMaxH3EditGuider`?**
+- **How do external temporal/audio guides (`Clip A`, `Clip B`) achieve frame-exact physical choreography (dribbling crossovers, mid-air tortoise jumps with landing thuds) without destroying continuous scene foley, and how does that translate to `masked_v2v` (mesh/eyes/gaze/mouth) and `MiniMaxH3EditGuider`?**
 
-Inspecting both the video frames and the decoded audio waveforms across `exp2`–`exp4` alongside `NKD_v153`/`NKD_v173` revealed that **conditioning timing (which step, which token span, and which frame interval gets pushed)** governs almost every win and failure across both problems.
+Inspecting both the video frames and the decoded audio waveforms across `exp2`–`exp4` alongside temporal-guide clips `Clip A`/`Clip B` revealed that **conditioning timing (which step, which token span, and which frame interval gets pushed)** governs almost every win and failure across both problems.
 
 ---
 
@@ -148,17 +148,17 @@ This ladder directly tests—and confirms—the owner's reading recorded in [`20
 
 ---
 
-## 5. Temporal & Audio Event Guides (`NKD_v153` & `NKD_v173`): How They Work and Why
+## 5. Temporal & Audio Event Guides (`Clip A` & `Clip B`): How They Work and Why
 
-We inspected two `141`-frame (`5.875s` @ `24 fps`, `17 * 8 + 5` H3 temporal grid) clips shared in Discord (`NKD_v153.mp4` and `NKD_v173.mp4`), each rendered with a bottom telemetry HUD plotting frame index `0..141` and a temporal guide envelope:
+We inspected two `141`-frame (`5.875s` @ `24 fps`, `17 * 8 + 5` H3 temporal grid) reference clips (`Clip A`: basketball-dribble pulse clip, and `Clip B`: London-tortoise impulse clip), each rendered with a bottom telemetry HUD plotting frame index `0..141` and a temporal guide envelope:
 
 ### 5.1 Observable frame-and-audio telemetry
 
-1. **`NKD_v153.mp4` (`1216x704` canvas + `196px` post-render telemetry HUD, `141` frames):**
+1. **`Clip A` — basketball-dribble pulse clip (`1216x704` canvas + `196px` post-render telemetry HUD, `141` frames):**
    - **Envelope:** 12 narrow square-wave pulses at `f5–6, 17–18, 29, 40–41, 52–53, 64–65, 76, 87–88, 99–100, 111–112, 123, 135` (period = `11–12` frames ≈ `0.48s` ≈ `125 BPM`), zero everywhere else.
    - **Audio waveform:** Literal digital silence (`RMS = 0.0000`) on inter-pulse frames (`f10..15`, `f25..26`, `f35`, etc.) and sharp `0.15–0.36` RMS basketball-bounce transients at `[5, 17, 29, 41, 64, 76, 88, 100, 111, 123, 135]`.
    - **Generated video:** A player on an **outdoor painted asphalt court** (chain-link fence, trees, neighborhood houses) dribbles left-to-right crossovers and between-the-legs switches such that **the ball strikes the ground on the exact pulse frames**. Between pulses, H3's DiT solves the inverse kinematics (hand switch, knee bend, ball apex mid-way between pulses) needed to satisfy the boundary conditions.
-2. **`NKD_v173.mp4` (`1216x704` canvas + `196px` post-render telemetry HUD, `141` frames, London tortoise-on-leash scene — static camera, harness strap with no birthday candle):**
+2. **`Clip B` — London-tortoise impulse clip (`1216x704` canvas + `196px` post-render telemetry HUD, `141` frames, London tortoise-on-leash scene — static camera, harness strap with no birthday candle):**
    - **Envelope:** Three shaped, fast-attack / exponential-decay impulse curves (`~9–11` frames wide) starting at **`f20..29`**, **`f70..80`**, and **`f105..113`**, flat zero elsewhere.
    - **Generated video & audio:** On `f0–17`, `f30–68`, `f81–103`, and `f114–140`, the tortoise walks normally along the London street with **continuous street ambience (`min RMS = 0.0181`, `median = 0.0361` at `24 kHz` 1-frame windows, never zeroed)**. At **`f18–26`**, **`f69–76`**, and **`f104–110`**—lifting off **1–2 frames *before* each HUD curve onset** because `f20`, `f70`, `f105` sit inside 4-frame `(1, 4, 4, 4, 4)` latent buckets (`f18..21`, `f69..72`, `f103..106`) and bidirectional self-attention anticipates the pinned event—the tortoise launches **1.5–2 feet into the air** while the red leash goes slack mid-air and pulls taut on landing (`24 kHz` 1-frame RMS bumps to `0.0558` at `f27`, `0.0529` at `f76`, and `0.0632` at `f108` / `0.0605` at `f111` vs. `0.0361` median).
 
@@ -170,15 +170,15 @@ In `comfy/ldm/minimax/model.py:400-472`, H3 has two distinct conditioning mechan
 - **`minimax_keyframes` (`cond` and `cond_audio`, `comfy_extras/nodes_minimax_h3.py::MiniMaxH3AddGuide` and `guide_latent.py::MiniMaxH3GuideLatent`):** Placed at **`cond_t = cursor + FRAME_RESCALE * kf["resolved_frame_index"]`** (`comfy/ldm/minimax/model.py:408-426`) on the **exact same `(t, h, w)` 3D RoPE coordinates** as the noisy target tokens, while pinned at clean timestep `max(t_v, VISUAL_COND_TIMESTEP)` / `max(t_a, AUDIO_COND_TIMESTEP)` (`comfy/ldm/minimax/model.py:748-750`) with `img_update = False` / `audio_update = False`. Crucially, on stock H3 without a specialized Control LoRA, `cond_video_latents` pass through the exact same `video_patch_proj` (`comfy/ldm/minimax/model.py:608`) as `first_frame`/`last_frame` in `fl2va`—so feeding drawn HUD bars as a full-clip visual guide paints literal bars unless released early in the step schedule or replaced by localized audio/image event keyframes.
 - Furthermore, when `audio_denoise_mask` or `denoise_mask` is supplied (`comfy/ldm/minimax/model.py:758-774`), per-frame mask values $m(t) \in [0, 1]$ continuously modulate each token's effective noise label `1.0 - m(t) * sigma`.
 
-### 5.3 Community Cross-Check: Scheduled Attention Bias vs. `until`-Released Guides vs. Velocity Curves
+### 5.3 Core & Sister-Checkout Cross-Check: Scheduled Attention Bias vs. Early-Released Guides vs. Velocity Curves
 
-Auditing ComfyUI core, sister checkouts (`coderef/ComfyUI-MAINodes`, `coderef/ComfyUI-UtilsCollection`, `coderef/MaskVidExperiments`), and Nekodificador's public repos clarifies how existing "scheduled attention bias" and guide tools map onto H3:
+Auditing ComfyUI core and sister checkouts (`coderef/ComfyUI-MAINodes`, `coderef/ComfyUI-UtilsCollection`, `coderef/MaskVidExperiments`) clarifies how existing "scheduled attention bias" and guide tools map onto H3:
 
-1. **Logit-space attention bias in ComfyUI (`LTXV`, `MOSS-Image`, `NKD-Klein-Tools`) — and why dense 2D bias fails on H3:**
-   - Core LTX-Video (`comfy/ldm/lightricks/model.py:371-424`, `GuideAttentionMask`) and MOSS-Image (`comfy/ldm/moss_image/model.py:246-250`, `context_attention_bias`) add $\ln w_g$ to attention logits before softmax; Nekodificador built a step-scheduled 2D `[canvas_Q × ref_K]` regional attention bias for Flux Klein (`ComfyUI-NKD-Klein-Tools`, `S ≈ 4k`).
+1. **Logit-space attention bias in ComfyUI (`LTXV`, `MOSS-Image`) — and why dense 2D bias fails on H3:**
+   - Core LTX-Video (`comfy/ldm/lightricks/model.py:371-424`, `GuideAttentionMask`) and MOSS-Image (`comfy/ldm/moss_image/model.py:246-250`, `context_attention_bias`) add $\ln w_g$ to attention logits before softmax (comparing step-scheduled 2D `[canvas_Q × ref_K]` regional attention biases at small image sequence lengths `S ≈ 4k`).
    - On H3 (`comfy/ldm/minimax/model.py:207` hardcodes `mask=None`, `S ≈ 30,000`, `56` heads), passing a frame-varying 2D `[1, 1, S, S]` mask into `optimized_attention` forces `MiniMaxH3Sol` (`comfy/ldm/modules/attention.py:700-701`) and `attention.py::make_sage_override` (`attention.py:366-367`) off their fast paths, allocates `1.8–3.6 GB` (`100.8 GB` OOM if head-expanded), and streams `~100.8 GB` of mask reads per block (`5 TB/step`). Moreover, softmax reweighting stays strictly inside the convex hull $\text{conv}(V)$ and cannot subtract a ground-bound base trajectory. *(If 1-pass per-frame attention bias onto small key segments is ever needed on H3, the right implementation is an exact `return_lse=True` online-softmax merge against `coderef/sage-fork/sageattention/core.py:282`, keeping the `~30,000`-token main self-attention 100% unmasked.)*
-2. **What Nekodificador actually built for H3 (`ComfyUI-NKD-Basic-Tools`, `nkd_minimax_guides.py`):**
-   - Multi-slot `MiniMaxH3AddGuide` (`cond` + `cond_audio` keyframes) paired with a per-slot **`until` step-cutoff widget** (`ConditioningSetTimestepRange` over `[0.0, until]`). Because `comfy/model_base.py:2292-2300` builds a separate `PackedLayout` per timestep-ranged conditioning entry, dropping sparse event guides after early steps (`until ≈ 0.50–0.80`) locks exact frame timing on steps `0..3` and then lets H3's unguided joint AV prior synthesize clean leg push, leash slack, and continuous street ambience on the final steps with zero attention mask.
+2. **Early-released `MiniMaxH3AddGuide` + `ConditioningSetTimestepRange` on core H3:**
+   - Multi-slot `MiniMaxH3AddGuide` (`cond` + `cond_audio` keyframes) paired with a per-slot early step cutoff (`ConditioningSetTimestepRange` over `[0.0, until]` in `ComfyUI/nodes.py:305`). Because `comfy/model_base.py:2292-2300` builds a separate `PackedLayout` per timestep-ranged conditioning entry, dropping sparse event guides after early steps (`until ≈ 0.50–0.80`) locks exact frame timing on steps `0..3` and then lets H3's unguided joint AV prior synthesize clean leg push, leash slack, and continuous street ambience on the final steps with zero attention mask.
 3. **2-pass velocity-curve limit on text dials (`coderef/ComfyUI-MAINodes/dials/timecurve.py:137-177`, `coderef/ComfyUI-MAINodes/dials/LESSONS.md:137-140`):**
    - Blending a **prompt-side control vector** per latent frame (`v0 + M(t)*(v_dial - v0)`) showed `~20%` bleed onto `M(t) = 0` frames and `1.5–2 s` transition ramps (missing `0.33 s` beats) because text dials lack RoPE frame coordinates and step $s+1$ attends bidirectionally across the shared latent. Combining **time-invariant state edits + `[T, H, W]` spatial/temporal velocity masks in `MiniMaxH3EditGuider`** (kept active through `last_step = 4` on `sample_lcm` so step `3–4` noise re-injection does not erase the impulse) with **`until`-released `MiniMaxH3GuideLatent` / `MiniMaxH3AddGuide` keyframes** gives us both sharp sub-second triggers and artifact-free semantic/spatial control.
 
@@ -186,7 +186,7 @@ Auditing ComfyUI core, sister checkouts (`coderef/ComfyUI-MAINodes`, `coderef/Co
 
 ## 6. Actionable Recommendations & Prioritized Roadmap
 
-Combining the `exp5` ladder findings with the `NKD` temporal-guide mechanics points to **four concrete, high-leverage engineering steps**, ordered by return on effort:
+Combining the `exp5` ladder findings with these temporal-guide mechanics points to **four concrete, high-leverage engineering steps**, ordered by return on effort:
 
 ### Priority 1 — Spatiotemporal Curve & Mask Modulation in `MiniMaxH3EditGuider` (`~40` lines in `edit_guidance.py`)
 
@@ -213,7 +213,7 @@ Currently, `check_same_but_text` (`edit_guidance.py:75-82`) only checks that `or
 
 ### Priority 3 — Event-Gated Facial Envelopes + Co-Located Guide Latents in `masked_v2v`
 
-Even before running 2-pass differential guidance, `NKD_v173` directly diagnoses a classic `masked_v2v` failure mode: drawing static lip or brow lines on **every** frame (`0..T`) continuously tugs H3 away from `<Picture 1>` during neutral/closed-mouth stretches, causing steady-state parted-lip drift or chin/neck artifacts when keypoints slip off-mesh.
+Even before running 2-pass differential guidance, `Clip B` directly diagnoses a classic `masked_v2v` failure mode: drawing static lip or brow lines on **every** frame (`0..T`) continuously tugs H3 away from `<Picture 1>` during neutral/closed-mouth stretches, causing steady-state parted-lip drift or chin/neck artifacts when keypoints slip off-mesh.
 
 - **What to build in `bench/draw_face_points.py` / `bench/head_reference.py`:**
   - Compute a 1D per-frame facial-activity envelope from `SHOT_points.npz`—specifically **mouth-opening velocity / inner-lip gap** and **eyelid-closure blink transients**—and fade or gate drawn mouth features to `0` on closed-mouth resting intervals so `<Picture 1>` governs neutral expression undisturbed, firing the drawn guide only during actual syllable/smile/blink events.

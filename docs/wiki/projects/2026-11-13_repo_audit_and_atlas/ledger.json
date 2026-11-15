@@ -659,7 +659,7 @@
         "3b57a539-ea15-49ad-9a6b-0937b55f7201",
         "a9f31858-98e5-48c2-9c9b-7fc45d2b83f2"
       ],
-      "why_it_dropped": "Identified while connecting `NKD` temporal keyframes to `masked_v2v`: `v_edit(drawn_cut) - v_orig(plain_cut)` cancels shared grey-clay head mesh artifacts while isolating pure gaze/blink/lip velocity, and 1D lip-gap envelopes stop resting-frame chin drift.",
+      "why_it_dropped": "Identified while connecting timeline keyframes (`MiniMaxH3GuideLatent`) to `masked_v2v`: `v_edit(drawn_cut) - v_orig(plain_cut)` cancels shared grey-clay head mesh artifacts while isolating pure gaze/blink/lip velocity, and 1D lip-gap envelopes stop resting-frame chin drift.",
       "next_action": "Test segment-aware RoPE shift (`layout.segments`) in `edit_guidance.py` + `bench/head_reference.py` plain-vs-drawn cut differential render on a single test clip (without reopening `'fun'` shot backlog)."
     },
     {
@@ -807,7 +807,7 @@
       "status": "open_memo_nuance",
       "area": "Temporal Visual Guides",
       "claim_in_prose": "`docs/wiki/research/control_vectors/2026-11-12_exp5_ladder_and_temporal_guide_synthesis.md:170` writes that feeding drawn HUD bars as a full-clip `cond` visual guide paints literal bars *'unless released early in the step schedule'*.",
-      "ground_truth_in_code": "`docs/wiki/research/2026-11-12_guide_signal_full_length_bars.md:5-8` actually tested both held AND early-released full-length bar guides (`bars_a_rel`, `bars_b_rel`) and verified the picture STILL comes back as literal bars — because `comfy/ldm/minimax/model.py:34,608,754` pins `minimax_keyframes` `cond` via `video_patch_proj` at `VISUAL_COND_TIMESTEP = 0.999`. `NKD_v153`/`NKD_v173` overlaid HUD strips post-render and used short `until`-released localized keyframes (`cond_audio` / image).",
+      "ground_truth_in_code": "`docs/wiki/research/2026-11-12_guide_signal_full_length_bars.md:5-8` actually tested both held AND early-released full-length bar guides (`bars_a_rel`, `bars_b_rel`) and verified the picture STILL comes back as literal bars — because `comfy/ldm/minimax/model.py:34,608,754` pins `minimax_keyframes` `cond` via `video_patch_proj` at `VISUAL_COND_TIMESTEP = 0.999`. Timeline-guide clips overlaid HUD strips post-render and used short early-released localized keyframes (`cond_audio` / image).",
       "resolution": "Recorded in truth ledger; prefer localized `MiniMaxH3SoundCues` (`cond_audio`) or short cutout `<Video 1>` + `0.33` release over full-frame visual `cond` bars."
     },
     {
@@ -992,7 +992,7 @@
       {
         "id": "96cfdfe1-4681-4286-9025-4363d217257c",
         "last_mod": "2026-11-12 16:13",
-        "topic": "Sibling `MiniMax-H3-Image` & NKD mechanism deep dive + cross-session technical handoff"
+        "topic": "Sibling `MiniMax-H3-Image` & temporal-guide mechanism deep dive + cross-session technical handoff"
       },
       {
         "id": "a8949cba-635c-4638-bdb9-e9e0053e49a6",
