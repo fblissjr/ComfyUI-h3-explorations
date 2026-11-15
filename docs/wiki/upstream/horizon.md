@@ -1,6 +1,6 @@
 # Upstream horizon: open work we are waiting on
 
-last updated: 2026-11-15 (page created from [`sweeps/2026-11-15.md`](sweeps/2026-11-15.md))
+last updated: 2026-11-15 (page created from [`sweeps/2026-11-15.md`](sweeps/2026-11-15.md); a second pass over sglang's and vllm-omni's open H3 PRs added the same day)
 
 Open PRs, issues and announced work upstream, each with what it would change for this pack. A row stays until it
 lands or closes. Then it moves to "Landed or closed" with the commit and the sweep that saw it. The status column is
@@ -36,6 +36,19 @@ as of the sweep in the row's "seen" column; re-check before acting. Ranking and 
 | Pika | [#9](https://github.com/Pika-Labs/Pika-H3-Flex/issues/9) | how the distill was trained (LoRA or full, training shift, what the adapter holds) | the Pika contract's unknowns | 2026-11-15 |
 | release | [MiniMax-H3 #91](https://github.com/MiniMax-AI/MiniMax-H3/pull/91) (draft) | Level-of-Token mixed-resolution DiT; research checkpoints below dense quality by its author | attention cost | 2026-11-15 |
 | release | [MiniMax-H3 #85](https://github.com/MiniMax-AI/MiniMax-H3/issues/85) | 17-frame brightness dips on unpruned checkpoints from the time-embedder cast | `H3_IMAGE_UNET_BF16` and any unpruned video file (not the shipped graphs) | 2026-11-15 |
+| vllm-omni | [#5899](https://github.com/vllm-project/vllm-omni/pull/5899) (draft) | runs the token refiner once per request instead of every step (no timestep dependency), claimed bit-identical; the opposite direction from core #17715 | the pack's once-before-step-0 refiner assumption (`lora_branch.py`, `nodes.py` `patch_token_refiner`) has an engine on its side | 2026-11-15 |
+| vllm-omni | [#6779](https://github.com/vllm-project/vllm-omni/pull/6779) | sliding windows past 15 s: each continuation is a first-frame request from the decoded handoff frame, with the previous window's tail audio as a frozen audio reference | chained song loops; a decode-and-re-encode handoff, which community notes link to colour creep (`periphery.md`) | 2026-11-15 |
+| vllm-omni | [#5952](https://github.com/vllm-project/vllm-omni/pull/5952) (draft) | calibrated TeaCache for ref2va at 50 steps (full compute, then a few cache hits) | base ref2va speed | 2026-11-15 |
+| vllm-omni | [#9222](https://github.com/vllm-project/vllm-omni/pull/9222) | AlignCache: predict selected forwards from cached history, for H3 t2va | base speed | 2026-11-15 |
+| vllm-omni | [#9728](https://github.com/vllm-project/vllm-omni/pull/9728) (draft) | reference-K/V refresh scheduled around cache hits, with a maximum staleness | `MiniMaxH3FrozenVideoCache`-style reuse | 2026-11-15 |
+| vllm-omni | [#9959](https://github.com/vllm-project/vllm-omni/pull/9959) (draft, tracking only) | a ref2va latency ceiling (device-resident reference K/V, graded sparsity in the dense head/tail window); its author says it fails the quality bar | what the speed-quality frontier looks like when pushed | 2026-11-15 |
+| vllm-omni | [#8813](https://github.com/vllm-project/vllm-omni/pull/8813) (draft) | audio VAE's transposed convolutions rewritten as phase-decomposed conv1d (Ascend motive) | audio decode, if it is ever slow here | 2026-11-15 |
+| vllm-omni | [#10366](https://github.com/vllm-project/vllm-omni/pull/10366) (draft) | Duo 1.0, a full-duplex audio-visual world model whose Realization module is the H3 DiT | periphery: H3 as a world-model backbone | 2026-11-15 |
+| vllm-omni | [#9420](https://github.com/vllm-project/vllm-omni/pull/9420), [#7507](https://github.com/vllm-project/vllm-omni/pull/7507) (draft) | multiframe reference workflow; Fun ControlNet Union workflow (titles only) | masked lane, control | 2026-11-15 |
+| sglang | [#49080](https://github.com/sgl-project/sglang/pull/49080) | NVENC encode of the output MP4 (opt-in), audio muxed after | save time after decode | 2026-11-15 |
+| sglang | [#37998](https://github.com/sgl-project/sglang/pull/37998) | optional `taeh3` tiny decoder for low-latency previews | live preview while sampling | 2026-11-15 |
+| sglang | [#35803](https://github.com/sgl-project/sglang/pull/35803) | makes the ref2va still short edge configurable; its table shows the token cost of 2048 against smaller edges | `topics/reference_sizing.md` | 2026-11-15 |
+| sglang | [#33552](https://github.com/sgl-project/sglang/pull/33552) | sigma schedule off-by-one; probably overtaken by the merged `32f34e898b` (#38671, `linspace(1, 0, N + 1)`), not checked | | 2026-11-15 |
 
 ## Landed or closed
 
