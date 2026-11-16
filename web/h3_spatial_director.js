@@ -15,17 +15,15 @@ import { app } from "../../scripts/app.js";
 const NODE_NAME = "MiniMaxH3SpatialDirector";
 const VIDEO_FPS = 24.0;
 const SOUND_PRESETS = [
-  "slam",
-  "hop",
-  "thud",
-  "crash",
-  "pop",
-  "snap",
-  "whoosh",
-  "bell",
-  "gong",
   "click",
-  "tone",
+  "hop",
+  "impact",
+  "slam",
+  "snap",
+  "step",
+  "thud",
+  "yank",
+  "yank_slam",
   "none",
 ];
 
@@ -63,7 +61,7 @@ const PRESET_PORTAL_SPLIT = {
 const PRESET_GENIE_TARGETS = {
   portal: PRESET_PORTAL_CIRCLE.portal,
   targets: [
-    { id: 1, label: "TARGET A · CRYSTAL", start: 24, end: 66, ramp: 5, x: 0.72, y: 0.48, radius: 0.19, cue: "bell", gain: 1.25 },
+    { id: 1, label: "TARGET A · CRYSTAL", start: 24, end: 66, ramp: 5, x: 0.72, y: 0.48, radius: 0.19, cue: "click", gain: 1.25 },
     { id: 2, label: "TARGET B · GEYSER", start: 78, end: 126, ramp: 5, x: 0.30, y: 0.56, radius: 0.19, cue: "slam", gain: 1.20 },
   ],
   dpad: {
@@ -1200,7 +1198,7 @@ function buildSpatialDirectorUI(node) {
       x: Number(clamp(0.25 + ((nextId * 0.23) % 0.5), 0.15, 0.85).toFixed(3)),
       y: Number(clamp(0.35 + ((nextId * 0.17) % 0.35), 0.2, 0.8).toFixed(3)),
       radius: 0.18,
-      cue: "pop",
+      cue: "click",
       gain: 1.15,
     });
     state.selected = { kind: "target", index: state.doc.targets.length - 1 };

@@ -1,0 +1,18 @@
+subject_definitions:
+<Subject 1> is the small grey tortoise from <Picture 1>, carrying a single upright white birthday candle with a steady warm glowing flame on top of its patterned domed shell, whose shell scutes, wrinkled limbs, proportion, and candle flame are retained across the shot.
+
+summary:
+[reference generation] The target video places <Subject 1> in a sunlit Mediterranean stone courtyard for a single continuous 5.875-second shot.
+
+retention_analysis:
+<Subject 1> (appears in [Shot 1]): fully_preserved - grey shell scutes, clawed legs, head, and lit white birthday candle flame from <Picture 1> are retained throughout.
+
+detailed_description:
+The target video is in a cinematic live-action style with natural daylight textures, crisp stone relief, and deep focus across the entire courtyard floor.
+[Shot 1] A wide eye-level shot frames a tranquil Mediterranean limestone courtyard at golden hour across the full 5.875-second real-time take. Tall carved archways of pale cream sandstone line the left and right edges around a broad open checkerboard plaza of warm sunlit limestone flagstones with bright emerald moss along the recessed joints, anchored in the mid-background by a low circular marble fountain basin rimmed with trailing ivy and crimson geranium blossoms. Rich amber afternoon sunlight angles down from the upper left, casting long crisp shadows across the dry stone paving as golden maple leaves drift lazily past weathered terracotta urns in a bright sunlit limestone courtyard warmed by golden-hour afternoon sunlight and drifting emerald leaves. Near the center foreground on the warm flagstones stands <Subject 1> from <Picture 1>, the small grey tortoise carrying its single upright white birthday candle with a steadily glowing warm amber flame balanced squarely atop its patterned domed shell. <Subject 1> walks slowly forward and slightly rightward across two broad limestone flagstones, placing each wrinkled clawed grey foot deliberately onto the warm sunlit grain while its dark eyes scan the bright plaza ahead and subtle candlelight glints lightly against its top shell scutes. Halfway through the crossing, the tortoise pauses beside a drifting fallen leaf, extends its neck gently to inspect a mossy stone joint, and continues a calm, unhurried pace across the sunlit stone surface with zero sudden jerks or distortions. Across the foreground and middle ground, crisp flagstones, sandstone columns, and terracotta planters stay grounded in consistent natural afternoon light, while tiny specular highlights dance across the trembling candle flame and clear water in the rear marble basin. No human figure enters the courtyard, zero vocal dialogue is spoken anywhere, and zero text or signage appears on screen. The camera holds a static shot with zero pans, tilts, cuts, or zoom changes so every architectural joint and paving stone stays rock steady from the opening frame to the closing frame.
+
+overall_soundscape:
+Gentle clear water trickles softly in the limestone fountain basin beneath the faint rustle of warm sunlit leaves, tiny clawed footsteps on dry flagstones, and distant afternoon birdsong.
+
+non_diegetic_music:
+N/A
