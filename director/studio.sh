@@ -12,6 +12,7 @@ COMFY_DIR="${H3_COMFY_DIR:-$(cd "$REPO_DIR/../.." && pwd)}"
 HOST="${DIRECTOR_HOST:-127.0.0.1}"
 PORT="${DIRECTOR_PORT:-8195}"
 HTTPS_PORT="${DIRECTOR_HTTPS_PORT:-8194}"
+MODE="${DIRECTOR_MODE:-https}"
 COMFY_URL="${H3_COMFY_URL:-http://127.0.0.1:8188}"
 STATE_DIR="${DIRECTOR_STATE_DIR:-$REPO_DIR/data/spatial_director_app}"
 
@@ -36,14 +37,15 @@ fi
 
 PID_FILE="$STATE_DIR/director.pid"
 LOG_FILE="$STATE_DIR/director.log"
+MODE_FILE="$STATE_DIR/director.mode"
 
 usage() {
     cat <<EOF
-Usage: $(basename "$0") {start|stop|restart|status|logs} [--host H] [--port P] [--https-port P] [--comfy-url URL] [--state-dir DIR]
+Usage: $(basename "$0") {start|stop|restart|status|url|logs|help} [--host H] [--port P] [--https-port P] [--http] [--comfy-url URL] [--state-dir DIR]
 EOF
 }
 
-cmd="${1:-start}"
+cmd="${1:-status}"
 if [[ "$cmd" != -* ]]; then
     shift || true
 else
@@ -55,8 +57,9 @@ while [ "$#" -gt 0 ]; do
         --host) HOST="$2"; shift 2 ;;
         --port) PORT="$2"; shift 2 ;;
         --https-port) HTTPS_PORT="$2"; shift 2 ;;
+        --http) MODE="http"; shift ;;
         --comfy-url|--comfy) COMFY_URL="$2"; shift 2 ;;
-        --state-dir) STATE_DIR="$2"; PID_FILE="$STATE_DIR/director.pid"; LOG_FILE="$STATE_DIR/director.log"; shift 2 ;;
+        --state-dir) STATE_DIR="$2"; PID_FILE="$STATE_DIR/director.pid"; LOG_FILE="$STATE_DIR/director.log"; MODE_FILE="$STATE_DIR/director.mode"; shift 2 ;;
         -h|--help) usage; exit 0 ;;
         *) echo "Unknown option: $1" >&2; usage >&2; exit 2 ;;
     esac
@@ -101,6 +104,7 @@ do_start() {
         >"$LOG_FILE" 2>&1 &
     local pid=$!
     echo "$pid" >"$PID_FILE"
+    printf '%s %s %s\n' "$MODE" "$PORT" "$HTTPS_PORT" >"$MODE_FILE"
 
     local i
     for i in $(seq 1 40); do
@@ -122,20 +126,31 @@ do_start() {
     fi
 
     echo "Interactive Spatial Director listening on http://$HOST:$PORT/ (pid $pid, comfy=$COMFY_URL)"
-    if command -v tailscale >/dev/null 2>&1; then
+    if [ "$MODE" = "https" ] && command -v tailscale >/dev/null 2>&1; then
         local ts_dns
         ts_dns="$(tailscale_dns)"
         if [ -n "$ts_dns" ]; then
-            if tailscale serve --bg --https="$HTTPS_PORT" "http://$HOST:$PORT" >/dev/null 2>&1; then
+            if tailscale serve --bg --https="$HTTPS_PORT" "http://$HOST:$PORT" >/dev/null 2>&1 \
+                || sudo -n tailscale serve --bg --https="$HTTPS_PORT" "http://$HOST:$PORT" >/dev/null 2>&1; then
                 echo "Tailscale HTTPS active at https://$ts_dns:$HTTPS_PORT/"
+            else
+                echo "Note: To enable Tailscale HTTPS on :$HTTPS_PORT, run once in your terminal:" >&2
+                echo "  sudo tailscale serve --bg --https=$HTTPS_PORT http://$HOST:$PORT" >&2
             fi
         fi
     fi
 }
 
 do_stop() {
-    if command -v tailscale >/dev/null 2>&1; then
-        tailscale serve --https="$HTTPS_PORT" off >/dev/null 2>&1 || true
+    local active_mode="$MODE"
+    local active_https_port="$HTTPS_PORT"
+    if [ -f "$MODE_FILE" ]; then
+        read -r active_mode _ active_https_port <"$MODE_FILE" || true
+    fi
+    if [ "${active_mode:-$MODE}" = "https" ] && command -v tailscale >/dev/null 2>&1; then
+        tailscale serve --https="${active_https_port:-$HTTPS_PORT}" off >/dev/null 2>&1 \
+            || sudo -n tailscale serve --https="${active_https_port:-$HTTPS_PORT}" off >/dev/null 2>&1 \
+            || true
     fi
     if is_running; then
         local pid
@@ -146,21 +161,50 @@ do_stop() {
             sleep 0.2
         done
         kill -9 "$pid" 2>/dev/null || true
-        rm -f "$PID_FILE"
+        rm -f "$PID_FILE" "$MODE_FILE"
         echo "Stopped Interactive Spatial Director (pid $pid)"
     else
-        rm -f "$PID_FILE"
+        rm -f "$PID_FILE" "$MODE_FILE"
         echo "Interactive Spatial Director is not running"
     fi
 }
 
 do_status() {
     if is_running; then
-        echo "running pid=$(cat "$PID_FILE") url=http://$HOST:$PORT/ comfy=$COMFY_URL state=$STATE_DIR"
+        local active_mode="$MODE" active_port="$PORT" active_https="$HTTPS_PORT"
+        if [ -f "$MODE_FILE" ]; then
+            read -r active_mode active_port active_https <"$MODE_FILE" || true
+        fi
+        echo "Interactive Spatial Director: RUNNING (pid $(cat "$PID_FILE"), http://$HOST:$active_port/ comfy=$COMFY_URL state=$STATE_DIR)"
+        if [ "${active_mode:-$MODE}" = "https" ] && command -v tailscale >/dev/null 2>&1; then
+            local ts_dns
+            ts_dns="$(tailscale_dns)"
+            [ -n "$ts_dns" ] && echo "  Tailscale HTTPS: https://$ts_dns:${active_https:-$HTTPS_PORT}/"
+        fi
     else
-        echo "stopped"
+        echo "Interactive Spatial Director: STOPPED"
         return 1
     fi
+}
+
+do_url() {
+    if ! is_running; then
+        echo "Interactive Spatial Director is not running. Start it with: comfy app spatial-director start" >&2
+        return 1
+    fi
+    local active_mode="$MODE" active_port="$PORT" active_https="$HTTPS_PORT"
+    if [ -f "$MODE_FILE" ]; then
+        read -r active_mode active_port active_https <"$MODE_FILE" || true
+    fi
+    if [ "${active_mode:-$MODE}" = "https" ] && command -v tailscale >/dev/null 2>&1; then
+        local ts_dns
+        ts_dns="$(tailscale_dns)"
+        if [ -n "$ts_dns" ]; then
+            echo "https://$ts_dns:${active_https:-$HTTPS_PORT}"
+            return 0
+        fi
+    fi
+    echo "http://$HOST:${active_port:-$PORT}"
 }
 
 do_logs() {
@@ -174,6 +218,8 @@ case "$cmd" in
     stop) do_stop ;;
     restart) do_stop; do_start ;;
     status) do_status ;;
+    url) do_url ;;
     logs) do_logs ;;
+    help) usage ;;
     *) echo "Unknown command: $cmd" >&2; usage >&2; exit 2 ;;
 esac
