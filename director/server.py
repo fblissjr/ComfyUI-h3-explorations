@@ -1,0 +1,1628 @@
+"""Standalone backend HTTP + WebSocket server for Spatial World Director.
+
+Default ports: `:8195` HTTP locally (behind `:8194` Tailscale HTTPS when launched via
+`director/studio.sh`). Proxies ComfyUI (`/object_info`, `/system_stats`, `/prompt`,
+`/upload/image`, `/view`, `/history`, `/interrupt`, `/ws`, `/h3_spatial_director/forget`)
+and persists local take metadata in `--state-dir` (`data/spatial_director_app/`).
+"""
+
+from __future__ import annotations
+
+import argparse
+import asyncio
+import copy
+import hashlib
+import io
+import json
+import logging
+import mimetypes
+import os
+import re
+import secrets
+import shutil
+import subprocess
+import sys
+import tempfile
+import threading
+import time
+from pathlib import Path
+from typing import Any
+from urllib.parse import quote, urlencode, urlsplit
+
+from aiohttp import ClientSession, ClientTimeout, FormData, WSMsgType, web
+
+_THIS_DIR = Path(__file__).resolve().parent
+_REPO_ROOT = _THIS_DIR.parent
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+
+from workflows.h3_env import load as load_h3_env  # noqa: E402
+
+load_h3_env()
+
+from director import compiler  # noqa: E402
+
+log = logging.getLogger("h3.director")
+
+DEFAULT_HOST = "127.0.0.1"
+DEFAULT_PORT = 8195
+DEFAULT_HTTPS_PORT = 8194
+DEFAULT_STATE_DIR = _REPO_ROOT / "data" / "spatial_director_app"
+STATIC_DIR = _THIS_DIR / "static"
+APP_MARK = "h3_spatial_director"
+UPLOADS_SUBFOLDER = "h3_spatial_director"
+COOKIE_NAME = "h3_director_sid"
+MAX_UPLOAD_BYTES = 256 * 1024 * 1024
+
+CSP_POLICY = (
+    "default-src 'self'; "
+    "img-src 'self' blob: data:; "
+    "media-src 'self' blob: data:; "
+    "style-src 'self'; "
+    "script-src 'self'; "
+    "connect-src 'self' ws: wss:; "
+    "frame-ancestors 'none'; "
+    "base-uri 'none'; "
+    "form-action 'self'"
+)
+
+_SAFE_SID_RE = re.compile(r"^[A-Za-z0-9_-]{12,128}$")
+_SAFE_FILENAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,180}$")
+_SAFE_RANGE_RE = re.compile(r"^bytes=(\d*)-(\d*)$")
+
+
+def _strip_host_port(host_header: str) -> str:
+    val = (host_header or "").strip().lower()
+    if not val:
+        return ""
+    if val.startswith("["):
+        end = val.find("]")
+        return val[1:end] if end != -1 else val
+    return val.rsplit(":", 1)[0] if ":" in val else val
+
+
+def _discover_tailscale_host() -> str | None:
+    try:
+        proc = subprocess.run(
+            ["tailscale", "status", "--json"],
+            capture_output=True,
+            text=True,
+            timeout=1.5,
+            check=False,
+        )
+        if proc.returncode != 0 or not proc.stdout:
+            return None
+        doc = json.loads(proc.stdout)
+        dns = ((doc.get("Self") or {}).get("DNSName") or "").strip().rstrip(".").lower()
+        return dns or None
+    except Exception:
+        return None
+
+
+def _default_allowed_hosts(listen_host: str, extra_hosts: list[str] | None = None) -> set[str]:
+    allowed = {"127.0.0.1", "localhost", "::1"}
+    lh = _strip_host_port(listen_host)
+    if lh and lh not in ("0.0.0.0", "::"):
+        allowed.add(lh)
+    env_hosts = (os.environ.get("DIRECTOR_ALLOWED_HOSTS") or "").strip()
+    for token in env_hosts.split(","):
+        cleaned = _strip_host_port(token)
+        if cleaned:
+            allowed.add(cleaned)
+    for token in extra_hosts or ():
+        cleaned = _strip_host_port(token)
+        if cleaned:
+            allowed.add(cleaned)
+    ts_dns = _discover_tailscale_host()
+    if ts_dns:
+        allowed.add(ts_dns)
+    return allowed
+
+
+def _is_https_request(request: web.Request) -> bool:
+    if request.secure:
+        return True
+    proto = (request.headers.get("X-Forwarded-Proto") or "").strip().lower()
+    return proto == "https"
+
+
+def _apply_security_headers(
+    response: web.StreamResponse,
+    *,
+    sid_to_set: str | None = None,
+    secure_cookie: bool = False,
+) -> web.StreamResponse:
+    response.headers["Content-Security-Policy"] = CSP_POLICY
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    response.headers.setdefault("Cache-Control", "no-store")
+    if sid_to_set:
+        response.set_cookie(
+            COOKIE_NAME,
+            sid_to_set,
+            httponly=True,
+            samesite="Strict",
+            secure=secure_cookie,
+            path="/",
+        )
+    return response
+
+
+def _sanitize_filename(name: str, *, default_ext: str = ".png") -> str:
+    raw = Path(name or "upload").name
+    stem = re.sub(r"[^A-Za-z0-9._-]+", "_", Path(raw).stem).strip("._-") or "upload"
+    ext = Path(raw).suffix.lower()
+    if not ext or not re.fullmatch(r"\.[a-z0-9]{1,8}", ext):
+        ext = default_ext
+    digest = hashlib.sha256(f"{time.time_ns()}:{raw}".encode("utf-8")).hexdigest()[:8]
+    return f"{stem[:64]}_{digest}{ext}"
+
+
+def _resolve_output_dir() -> Path:
+    env_out = (os.environ.get("H3_OUTPUT_DIR") or "").strip()
+    if env_out:
+        return Path(env_out)
+    from workflows.h3_config import output_dir as cfg_output_dir
+
+    return Path(cfg_output_dir())
+
+
+def _safe_rel_name(name: str) -> str:
+    clean = Path(name or "").name
+    if not clean or not _SAFE_FILENAME_RE.match(clean):
+        raise ValueError(f"Unsafe filename {name!r}")
+    return clean
+
+
+def _parse_view_descriptor(spec: Any, *, default_type: str = "temp") -> dict[str, str]:
+    if isinstance(spec, str):
+        s = spec.strip()
+        if s.startswith("/api/view?"):
+            qs = urlsplit(s).query
+            from urllib.parse import parse_qs
+
+            q = parse_qs(qs)
+            return {
+                "filename": _safe_rel_name((q.get("filename") or [""])[0]),
+                "subfolder": str((q.get("subfolder") or [""])[0]).strip("/\\"),
+                "type": str((q.get("type") or [default_type])[0]),
+            }
+        if "/" in s:
+            sub, fn = s.rsplit("/", 1)
+            return {"filename": _safe_rel_name(fn), "subfolder": sub.strip("/\\"), "type": default_type}
+        return {"filename": _safe_rel_name(s), "subfolder": "", "type": default_type}
+    if isinstance(spec, dict):
+        fn = _safe_rel_name(str(spec.get("filename") or ""))
+        sub = str(spec.get("subfolder") or "").strip("/\\")
+        ftype = str(spec.get("type") or default_type).strip() or default_type
+        if ".." in Path(sub).parts:
+            raise ValueError(f"Invalid subfolder {sub!r}")
+        if ftype not in ("temp", "input", "output"):
+            raise ValueError(f"Invalid media type {ftype!r}")
+        return {"filename": fn, "subfolder": sub, "type": ftype}
+    raise ValueError("Media descriptor must be a filename string or {filename, subfolder, type} object")
+
+
+def _view_url(filename: str, subfolder: str = "", media_type: str = "temp") -> str:
+    params = {"filename": filename, "subfolder": subfolder, "type": media_type}
+    return f"/api/view?{urlencode(params)}"
+
+
+class SessionStore:
+    """Thread-safe persistent store for Spatial World Director takes, prompts, and uploads."""
+
+    def __init__(self, state_dir: Path) -> None:
+        self.state_dir = Path(state_dir)
+        self.state_dir.mkdir(parents=True, exist_ok=True)
+        self.state_file = self.state_dir / "takes.json"
+        self._lock = threading.RLock()
+        self._takes: dict[str, dict[str, Any]] = {}
+        self._take_order: list[str] = []
+        self._prompt_to_client: dict[str, str] = {}
+        self._prompt_to_take: dict[str, tuple[str, str]] = {}
+        self._open_sessions: dict[str, set[str]] = {}
+        self._uploads: dict[str, str] = {}  # ref -> session_id
+        self._load()
+
+    def _load(self) -> None:
+        if not self.state_file.is_file():
+            return
+        try:
+            doc = json.loads(self.state_file.read_text(encoding="utf-8"))
+        except Exception as exc:
+            log.warning("[h3_director] ignoring corrupt state file %s: %s", self.state_file, exc)
+            return
+        for t in doc.get("takes") or ():
+            tid = str(t.get("take_id") or "")
+            if tid:
+                self._takes[tid] = t
+                self._take_order.append(tid)
+                cid = str(t.get("client_id") or "")
+                for key, role in (("prompt_id", "edited"), ("baseline_prompt_id", "baseline")):
+                    pid = str(t.get(key) or "")
+                    if pid:
+                        if cid:
+                            self._prompt_to_client[pid] = cid
+                        self._prompt_to_take[pid] = (tid, role)
+        self._uploads.update({str(k): str(v) for k, v in (doc.get("uploads") or {}).items()})
+
+    def _save(self) -> None:
+        payload = {
+            "version": 1,
+            "takes": [self._takes[tid] for tid in self._take_order if tid in self._takes],
+            "uploads": dict(self._uploads),
+        }
+        tmp = self.state_dir / f".takes.{secrets.token_hex(6)}.tmp"
+        tmp.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        tmp.replace(self.state_file)
+
+    def record_upload(self, ref: str, session_id: str) -> None:
+        with self._lock:
+            self._uploads[ref] = session_id
+            self._save()
+
+    def record_take(self, take: dict[str, Any]) -> dict[str, Any]:
+        with self._lock:
+            tid = str(take["take_id"])
+            self._takes[tid] = copy.deepcopy(take)
+            if tid in self._take_order:
+                self._take_order.remove(tid)
+            self._take_order.insert(0, tid)
+            cid = str(take.get("client_id") or "")
+            sid = str(take.get("session_id") or "")
+            for key, role in (("prompt_id", "edited"), ("baseline_prompt_id", "baseline")):
+                pid = str(take.get(key) or "")
+                if pid:
+                    if cid:
+                        self._prompt_to_client[pid] = cid
+                    self._prompt_to_take[pid] = (tid, role)
+                    if sid:
+                        self._open_sessions.setdefault(sid, set()).add(pid)
+            self._save()
+            return copy.deepcopy(self._takes[tid])
+
+    def list_takes(self) -> list[dict[str, Any]]:
+        with self._lock:
+            return [copy.deepcopy(self._takes[tid]) for tid in self._take_order if tid in self._takes]
+
+    def get_take(self, take_id: str) -> dict[str, Any] | None:
+        with self._lock:
+            t = self._takes.get(take_id)
+            return copy.deepcopy(t) if t is not None else None
+
+    def client_for_prompt(self, prompt_id: str) -> str | None:
+        with self._lock:
+            return self._prompt_to_client.get(str(prompt_id))
+
+    def update_from_history(self, history_map: dict[str, Any]) -> None:
+        with self._lock:
+            changed = False
+            for pid, entry in (history_map or {}).items():
+                info = self._prompt_to_take.get(str(pid))
+                if not info or not isinstance(entry, dict):
+                    continue
+                tid, role = info
+                take = self._takes.get(tid)
+                if take is None:
+                    continue
+                outputs = entry.get("outputs") or {}
+                if not isinstance(outputs, dict):
+                    continue
+                if role == "baseline":
+                    vid = _first_video_from_outputs(outputs, preferred_nodes=("162", "13"))
+                    if vid and take.get("baseline_video") != vid:
+                        take["baseline_video"] = vid
+                        take["updated_at"] = time.time()
+                        changed = True
+                else:
+                    hud = _first_video_from_outputs(outputs, preferred_nodes=("13",))
+                    clean = _first_video_from_outputs(outputs, preferred_nodes=("162",))
+                    still = _first_image_from_outputs(outputs, preferred_nodes=("13",))
+                    if hud and take.get("hud_video") != hud:
+                        take["hud_video"] = hud
+                        take["status"] = "completed"
+                        take["updated_at"] = time.time()
+                        changed = True
+                    if clean and take.get("clean_video") != clean:
+                        take["clean_video"] = clean
+                        take["status"] = "completed"
+                        take["updated_at"] = time.time()
+                        changed = True
+                    if still and take.get("still_image") != still:
+                        take["still_image"] = still
+                        take["status"] = "completed"
+                        take["updated_at"] = time.time()
+                        changed = True
+            if changed:
+                self._save()
+
+    def mark_executed(self, prompt_id: str, node_id: str, output_dict: dict[str, Any]) -> None:
+        if not prompt_id or not isinstance(output_dict, dict):
+            return
+        with self._lock:
+            info = self._prompt_to_take.get(str(prompt_id))
+            if not info:
+                return
+            tid, role = info
+            take = self._takes.get(tid)
+            if take is None:
+                return
+            vid = _first_video_from_node_output(output_dict)
+            img = _first_image_from_node_output(output_dict)
+            changed = False
+            if role == "baseline" and vid:
+                take["baseline_video"] = vid
+                changed = True
+            elif role == "edited":
+                if str(node_id) == "162" and vid:
+                    take["clean_video"] = vid
+                    take["status"] = "completed"
+                    changed = True
+                elif str(node_id) == "13" and vid:
+                    take["hud_video"] = vid
+                    take["status"] = "completed"
+                    changed = True
+                elif str(node_id) == "13" and img:
+                    take["still_image"] = img
+                    take["status"] = "completed"
+                    changed = True
+            if changed:
+                take["updated_at"] = time.time()
+                self._save()
+
+    def clear_forgotten(self, *, keep_uploads: set[str] | None = None) -> list[str]:
+        keep = set(keep_uploads or ())
+        with self._lock:
+            kept_takes: dict[str, dict[str, Any]] = {}
+            kept_order: list[str] = []
+            removed_pids: list[str] = []
+            for tid in self._take_order:
+                t = self._takes.get(tid)
+                if not t:
+                    continue
+                if t.get("status") == "queued" or t.get("pinned"):
+                    kept_takes[tid] = t
+                    kept_order.append(tid)
+                else:
+                    for key in ("prompt_id", "baseline_prompt_id"):
+                        pid = str(t.get(key) or "")
+                        if pid:
+                            removed_pids.append(pid)
+                            self._prompt_to_client.pop(pid, None)
+                            self._prompt_to_take.pop(pid, None)
+            self._takes = kept_takes
+            self._take_order = kept_order
+            self._uploads = {u: s for u, s in self._uploads.items() if u in keep}
+            self._save()
+            return removed_pids
+
+
+def _normalize_media_entry(entry: dict[str, Any]) -> dict[str, Any]:
+    fn = str(entry.get("filename") or "")
+    sub = str(entry.get("subfolder") or "")
+    ftype = str(entry.get("type") or "temp")
+    out: dict[str, Any] = {
+        "filename": fn,
+        "subfolder": sub,
+        "type": ftype,
+        "view_url": _view_url(fn, sub, ftype) if fn else "",
+    }
+    if entry.get("format"):
+        out["format"] = str(entry["format"])
+    return out
+
+
+def _first_video_from_node_output(node_out: dict[str, Any]) -> dict[str, Any] | None:
+    for key in ("gifs", "videos"):
+        items = node_out.get(key)
+        if isinstance(items, list) and items and isinstance(items[0], dict) and items[0].get("filename"):
+            return _normalize_media_entry(items[0])
+    return None
+
+
+def _first_image_from_node_output(node_out: dict[str, Any]) -> dict[str, Any] | None:
+    items = node_out.get("images")
+    if isinstance(items, list) and items and isinstance(items[0], dict) and items[0].get("filename"):
+        return _normalize_media_entry(items[0])
+    return None
+
+
+def _first_video_from_outputs(outputs: dict[str, Any], *, preferred_nodes: tuple[str, ...]) -> dict[str, Any] | None:
+    for nid in preferred_nodes:
+        node_out = outputs.get(nid)
+        if isinstance(node_out, dict):
+            vid = _first_video_from_node_output(node_out)
+            if vid:
+                return vid
+    return None
+
+
+def _first_image_from_outputs(outputs: dict[str, Any], *, preferred_nodes: tuple[str, ...]) -> dict[str, Any] | None:
+    for nid in preferred_nodes:
+        node_out = outputs.get(nid)
+        if isinstance(node_out, dict):
+            img = _first_image_from_node_output(node_out)
+            if img:
+                return img
+    return None
+
+
+async def _comfy_get_json(app: web.Application, path: str, *, timeout: float = 3.0) -> Any | None:
+    session: ClientSession = app["http_client"]
+    base: str = app["comfy_url"]
+    try:
+        async with session.get(f"{base}{path}", timeout=ClientTimeout(total=timeout)) as resp:
+            if resp.status != 200:
+                return None
+            return await resp.json()
+    except Exception:
+        return None
+
+
+async def _comfy_post_json(app: web.Application, path: str, payload: dict[str, Any], *, timeout: float = 15.0) -> tuple[int, Any]:
+    session: ClientSession = app["http_client"]
+    base: str = app["comfy_url"]
+    async with session.post(
+        f"{base}{path}",
+        json=payload,
+        timeout=ClientTimeout(total=timeout),
+    ) as resp:
+        text = await resp.text()
+        try:
+            data = json.loads(text) if text else {}
+        except Exception:
+            data = {"raw": text}
+        return resp.status, data
+
+
+async def _comfy_upload_bytes(
+    app: web.Application,
+    raw_bytes: bytes,
+    filename: str,
+    *,
+    subfolder: str = UPLOADS_SUBFOLDER,
+    content_type: str = "image/png",
+) -> dict[str, Any]:
+    session: ClientSession = app["http_client"]
+    base: str = app["comfy_url"]
+    form = FormData()
+    form.add_field("image", raw_bytes, filename=filename, content_type=content_type)
+    form.add_field("subfolder", subfolder)
+    form.add_field("type", "input")
+    form.add_field("overwrite", "true")
+    async with session.post(f"{base}/upload/image", data=form, timeout=ClientTimeout(total=30.0)) as resp:
+        body = await resp.text()
+        if resp.status != 200:
+            raise RuntimeError(f"ComfyUI /upload/image failed ({resp.status}): {body[:300]}")
+        return json.loads(body)
+
+
+async def _comfy_fetch_view(app: web.Application, desc: dict[str, str]) -> tuple[int, bytes, str]:
+    session: ClientSession = app["http_client"]
+    base: str = app["comfy_url"]
+    qs = urlencode(desc)
+    async with session.get(f"{base}/view?{qs}", timeout=ClientTimeout(total=60.0)) as resp:
+        data = await resp.read()
+        ctype = resp.headers.get("Content-Type") or mimetypes.guess_type(desc["filename"])[0] or "application/octet-stream"
+        return resp.status, data, ctype
+
+
+def _decode_frame0_or_image(raw_bytes: bytes, filename: str) -> tuple[bytes, int, int, str, str]:
+    """Return ``(png_bytes, width, height, target_filename, source_kind)``."""
+    from PIL import Image
+
+    ext = Path(filename).suffix.lower()
+    if ext in (".mp4", ".mov", ".webm", ".mkv", ".avi"):
+        suffix = ext or ".mp4"
+        with tempfile.NamedTemporaryFile(suffix=suffix) as tmp:
+            tmp.write(raw_bytes)
+            tmp.flush()
+            frame_rgb = None
+            try:
+                import cv2  # type: ignore
+
+                cap = cv2.VideoCapture(tmp.name)
+                ok, frame_bgr = cap.read()
+                cap.release()
+                if ok and frame_bgr is not None:
+                    frame_rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
+            except Exception:
+                frame_rgb = None
+            if frame_rgb is None:
+                try:
+                    import av  # type: ignore
+
+                    with av.open(tmp.name) as container:
+                        for fr in container.decode(video=0):
+                            frame_rgb = fr.to_ndarray(format="rgb24")
+                            break
+                except Exception as exc:
+                    raise ValueError(f"Unable to decode Frame 0 from {filename!r}: {exc}") from exc
+            if frame_rgb is None:
+                raise ValueError(f"Video {filename!r} contains no readable video frames")
+            img = Image.fromarray(frame_rgb, mode="RGB")
+            buf = io.BytesIO()
+            img.save(buf, format="PNG")
+            out_name = _sanitize_filename(f"{Path(filename).stem}_frame0.png", default_ext=".png")
+            return buf.getvalue(), int(img.width), int(img.height), out_name, "video_frame0"
+
+    try:
+        with Image.open(io.BytesIO(raw_bytes)) as img:
+            img.load()
+            w, h = int(img.width), int(img.height)
+            out_name = _sanitize_filename(filename, default_ext=".png")
+            if Path(out_name).suffix.lower() not in (".png", ".jpg", ".jpeg", ".webp"):
+                out_name = f"{Path(out_name).stem}.png"
+                buf = io.BytesIO()
+                img.convert("RGB").save(buf, format="PNG")
+                return buf.getvalue(), w, h, out_name, "image"
+            return raw_bytes, w, h, out_name, "image"
+    except Exception as exc:
+        raise ValueError(f"Invalid image upload {filename!r}: {exc}") from exc
+
+
+async def _probe_heylook_url(app: web.Application) -> str | None:
+    raw_url = (os.environ.get("H3_HEYLOOK_URL") or "").strip().rstrip("/")
+    if not raw_url:
+        return None
+    session: ClientSession = app["http_client"]
+    try:
+        async with session.get(f"{raw_url}/v1/models", timeout=ClientTimeout(total=0.8)) as resp:
+            return raw_url if resp.status == 200 else None
+    except Exception:
+        return None
+
+
+def _get_session_id(request: web.Request) -> tuple[str, bool]:
+    existing = (request.cookies.get(COOKIE_NAME) or "").strip()
+    if _SAFE_SID_RE.match(existing):
+        return existing, False
+    return secrets.token_urlsafe(24), True
+
+
+async def handle_index(request: web.Request) -> web.StreamResponse:
+    index_path = STATIC_DIR / "index.html"
+    if not index_path.is_file():
+        return web.Response(
+            text="Spatial World Director static frontend is not installed yet.",
+            status=503,
+            content_type="text/plain",
+        )
+    return web.FileResponse(index_path)
+
+
+async def handle_static(request: web.Request) -> web.StreamResponse:
+    tail = request.match_info.get("tail", "")
+    if not tail or "\x00" in tail:
+        raise web.HTTPNotFound()
+    static_root = STATIC_DIR.resolve()
+    if not static_root.is_dir():
+        raise web.HTTPNotFound()
+    candidate = (static_root / tail).resolve()
+    if candidate == static_root or not candidate.is_relative_to(static_root) or not candidate.is_file():
+        raise web.HTTPNotFound()
+    return web.FileResponse(candidate)
+
+
+async def handle_schema(request: web.Request) -> web.Response:
+    app = request.app
+    obj_info = await _comfy_get_json(app, f"/object_info/{compiler.PREVIEW_NODE_CLASS}", timeout=2.0)
+    if obj_info is None:
+        obj_info = await _comfy_get_json(app, "/object_info", timeout=3.0)
+    heylook_url = await _probe_heylook_url(app)
+    data = compiler.get_schema_data(obj_info, heylook_suggestions=bool(heylook_url))
+    return web.json_response(data)
+
+
+async def handle_system_stats(request: web.Request) -> web.Response:
+    app = request.app
+    stats = await _comfy_get_json(app, "/system_stats", timeout=2.5)
+    reachable = isinstance(stats, dict)
+    try:
+        out_dir = _resolve_output_dir()
+        out_label = f"{out_dir.name}/Video"
+    except Exception:
+        out_label = "Video"
+    store: SessionStore = app["store"]
+    try:
+        state_label = str(store.state_dir.relative_to(_REPO_ROOT))
+    except ValueError:
+        state_label = store.state_dir.name
+    return web.json_response(
+        {
+            "ok": True,
+            "comfy_reachable": reachable,
+            "comfy_url": app["comfy_url"],
+            "system": (stats or {}).get("system") or {},
+            "devices": (stats or {}).get("devices") or [],
+            "output_dir": out_label,
+            "state_dir": state_label,
+        }
+    )
+
+
+async def handle_upload(request: web.Request) -> web.Response:
+    sid: str = request["director_sid"]
+    reader = await request.multipart()
+    file_bytes: bytes | None = None
+    filename = "upload.png"
+    while True:
+        part = await reader.next()
+        if part is None:
+            break
+        if part.name in ("file", "image"):
+            filename = part.filename or filename
+            chunks: list[bytes] = []
+            total = 0
+            while True:
+                chunk = await part.read_chunk(65536)
+                if not chunk:
+                    break
+                total += len(chunk)
+                if total > MAX_UPLOAD_BYTES:
+                    return web.json_response({"ok": False, "error": "upload_too_large"}, status=413)
+                chunks.append(chunk)
+            file_bytes = b"".join(chunks)
+            break
+    if not file_bytes:
+        return web.json_response({"ok": False, "error": "missing_file"}, status=400)
+
+    try:
+        out_bytes, w, h, out_name, source_kind = _decode_frame0_or_image(file_bytes, filename)
+    except ValueError as exc:
+        return web.json_response({"ok": False, "error": str(exc)}, status=400)
+
+    ctype = mimetypes.guess_type(out_name)[0] or "image/png"
+    try:
+        res = await _comfy_upload_bytes(request.app, out_bytes, out_name, subfolder=UPLOADS_SUBFOLDER, content_type=ctype)
+    except Exception as exc:
+        return web.json_response({"ok": False, "error": str(exc)}, status=502)
+
+    saved_name = str(res.get("name") or out_name)
+    saved_sub = str(res.get("subfolder") or UPLOADS_SUBFOLDER)
+    saved_type = str(res.get("type") or "input")
+    ref = f"{saved_sub}/{saved_name}" if saved_sub else saved_name
+    store: SessionStore = request.app["store"]
+    store.record_upload(ref, sid)
+
+    return web.json_response(
+        {
+            "ok": True,
+            "filename": saved_name,
+            "subfolder": saved_sub,
+            "type": saved_type,
+            "ref": ref,
+            "width": w,
+            "height": h,
+            "view_url": _view_url(saved_name, saved_sub, saved_type),
+            "source_kind": source_kind,
+            "original_filename": Path(filename).name,
+        }
+    )
+
+
+async def _read_json_body(request: web.Request) -> dict[str, Any]:
+    raw = await request.text()
+    if not raw or not raw.strip():
+        return {}
+    doc = json.loads(raw)
+    if not isinstance(doc, dict):
+        raise ValueError("Request body must be a JSON object")
+    return doc
+
+
+async def _fetch_object_info(app: web.Application) -> dict[str, Any] | None:
+    info = await _comfy_get_json(app, f"/object_info/{compiler.PREVIEW_NODE_CLASS}", timeout=2.0)
+    if info is None:
+        info = await _comfy_get_json(app, "/object_info", timeout=3.0)
+    return info
+
+
+async def _submit_comfy_prompt(
+    app: web.Application,
+    graph: dict[str, Any],
+    *,
+    client_id: str,
+    extra_meta: dict[str, Any] | None = None,
+) -> str:
+    extra = {APP_MARK: True, **(extra_meta or {})}
+    payload = {"prompt": graph, "client_id": client_id, "extra_data": extra}
+    status, data = await _comfy_post_json(app, "/prompt", payload, timeout=15.0)
+    if status != 200 or not isinstance(data, dict) or not data.get("prompt_id"):
+        raise RuntimeError(f"ComfyUI /prompt rejected graph ({status}): {data}")
+    return str(data["prompt_id"])
+
+
+async def handle_anchor(request: web.Request) -> web.Response:
+    try:
+        body = await _read_json_body(request)
+    except Exception as exc:
+        return web.json_response({"ok": False, "error": str(exc)}, status=400)
+
+    sid: str = request["director_sid"]
+    client_id = str(body.get("client_id") or secrets.token_hex(8))
+    obj_info = await _fetch_object_info(request.app)
+    try:
+        compiled = compiler.compile_still(body, object_info=obj_info)
+        prompt_id = await _submit_comfy_prompt(
+            request.app,
+            compiled["graph"],
+            client_id=client_id,
+            extra_meta={"kind": "anchor"},
+        )
+    except ValueError as exc:
+        return web.json_response({"ok": False, "error": str(exc)}, status=400)
+    except Exception as exc:
+        return web.json_response({"ok": False, "error": str(exc)}, status=502)
+
+    take_id = f"anchor_{secrets.token_hex(6)}"
+    request.app["store"].record_take(
+        {
+            "take_id": take_id,
+            "kind": "anchor",
+            "prompt_id": prompt_id,
+            "baseline_prompt_id": None,
+            "client_id": client_id,
+            "session_id": sid,
+            "status": "queued",
+            "mode": compiled["workflow"],
+            "seed": compiled["seed"],
+            "params": body,
+            "still_image": None,
+            "created_at": time.time(),
+            "updated_at": time.time(),
+        }
+    )
+    return web.json_response(
+        {
+            "ok": True,
+            "take_id": take_id,
+            "kind": "anchor",
+            "prompt_id": prompt_id,
+            "client_id": client_id,
+            "workflow": compiled["workflow"],
+            "seed": compiled["seed"],
+            "preview_override_injected": compiled["preview_override_injected"],
+            "graph": compiled["graph"],
+        }
+    )
+
+
+def _extract_rgba_cutout_bytes(raw_bytes: bytes, mask_b64: str | None = None) -> tuple[bytes, int, int, float]:
+    import base64
+    import numpy as np
+    import torch
+    from PIL import Image
+
+    sprite_mod = compiler.import_pack_module("sprite_trajectory")
+    extract_sprite_rgba = sprite_mod.extract_sprite_rgba
+
+    with Image.open(io.BytesIO(raw_bytes)) as src:
+        src.load()
+        rgba_src = src.convert("RGBA")
+        arr = np.asarray(rgba_src, dtype=np.float32) / 255.0
+
+    rgb_t = torch.from_numpy(arr[:, :, :3])[None, ...].contiguous()
+    mask_t = None
+    if mask_b64:
+        raw_mask = base64.b64decode(mask_b64.split(",", 1)[-1])
+        with Image.open(io.BytesIO(raw_mask)) as m_img:
+            m_arr = np.asarray(m_img.convert("L"), dtype=np.float32) / 255.0
+        mask_t = torch.from_numpy(m_arr)[None, ...].contiguous()
+    elif float(arr[:, :, 3].min()) < 0.98 and float(arr[:, :, 3].max()) > 0.05:
+        mask_t = torch.from_numpy(arr[:, :, 3])[None, ...].contiguous()
+
+    rgb_u8, alpha_f32 = extract_sprite_rgba(rgb_t, mask=mask_t)
+    alpha_u8 = np.clip(np.round(alpha_f32 * 255.0), 0, 255).astype(np.uint8)
+    out_rgba = np.dstack([rgb_u8, alpha_u8])
+    out_img = Image.fromarray(out_rgba, mode="RGBA")
+    buf = io.BytesIO()
+    out_img.save(buf, format="PNG")
+    coverage = float((alpha_f32 > 0.1).mean())
+    return buf.getvalue(), int(out_img.width), int(out_img.height), coverage
+
+
+async def handle_stamp_cutout(request: web.Request) -> web.Response:
+    try:
+        body = await _read_json_body(request)
+    except Exception as exc:
+        return web.json_response({"ok": False, "error": str(exc)}, status=400)
+
+    sid: str = request["director_sid"]
+    source_spec = body.get("source_ref") or body.get("source_image") or body.get("image_output")
+    if source_spec:
+        try:
+            desc = _parse_view_descriptor(source_spec, default_type="input")
+            status, raw_bytes, _ = await _comfy_fetch_view(request.app, desc)
+            if status != 200 or not raw_bytes:
+                return web.json_response({"ok": False, "error": f"source image unavailable ({status})"}, status=404)
+            png_bytes, w, h, coverage = _extract_rgba_cutout_bytes(raw_bytes, body.get("mask"))
+            out_name = _sanitize_filename(f"stamp_{Path(desc['filename']).stem}.png", default_ext=".png")
+            res = await _comfy_upload_bytes(
+                request.app, png_bytes, out_name, subfolder=UPLOADS_SUBFOLDER, content_type="image/png"
+            )
+        except ValueError as exc:
+            return web.json_response({"ok": False, "error": str(exc)}, status=400)
+        except Exception as exc:
+            return web.json_response({"ok": False, "error": str(exc)}, status=502)
+
+        saved_name = str(res.get("name") or out_name)
+        saved_sub = str(res.get("subfolder") or UPLOADS_SUBFOLDER)
+        saved_type = str(res.get("type") or "input")
+        ref = f"{saved_sub}/{saved_name}" if saved_sub else saved_name
+        request.app["store"].record_upload(ref, sid)
+        return web.json_response(
+            {
+                "ok": True,
+                "kind": "cutout",
+                "cutout_ref": ref,
+                "filename": saved_name,
+                "subfolder": saved_sub,
+                "type": saved_type,
+                "width": w,
+                "height": h,
+                "alpha_coverage": round(coverage, 4),
+                "view_url": _view_url(saved_name, saved_sub, saved_type),
+            }
+        )
+
+    client_id = str(body.get("client_id") or secrets.token_hex(8))
+    obj_info = await _fetch_object_info(request.app)
+    try:
+        compiled = compiler.compile_still(body, object_info=obj_info)
+        prompt_id = await _submit_comfy_prompt(
+            request.app,
+            compiled["graph"],
+            client_id=client_id,
+            extra_meta={"kind": "stamp"},
+        )
+    except ValueError as exc:
+        return web.json_response({"ok": False, "error": str(exc)}, status=400)
+    except Exception as exc:
+        return web.json_response({"ok": False, "error": str(exc)}, status=502)
+
+    take_id = f"stamp_{secrets.token_hex(6)}"
+    request.app["store"].record_take(
+        {
+            "take_id": take_id,
+            "kind": "stamp",
+            "prompt_id": prompt_id,
+            "baseline_prompt_id": None,
+            "client_id": client_id,
+            "session_id": sid,
+            "status": "queued",
+            "mode": compiled["workflow"],
+            "seed": compiled["seed"],
+            "params": body,
+            "still_image": None,
+            "created_at": time.time(),
+            "updated_at": time.time(),
+        }
+    )
+    return web.json_response(
+        {
+            "ok": True,
+            "take_id": take_id,
+            "kind": "stamp",
+            "prompt_id": prompt_id,
+            "client_id": client_id,
+            "workflow": compiled["workflow"],
+            "seed": compiled["seed"],
+            "preview_override_injected": compiled["preview_override_injected"],
+            "graph": compiled["graph"],
+        }
+    )
+
+
+async def handle_preflight(request: web.Request) -> web.Response:
+    try:
+        body = await _read_json_body(request)
+        summary = compiler.compute_preflight_summary(body)
+        return web.json_response(summary)
+    except Exception as exc:
+        return web.json_response({"ok": False, "error": str(exc)}, status=400)
+
+
+async def handle_compile(request: web.Request) -> web.Response:
+    try:
+        body = await _read_json_body(request)
+        obj_info = body.get("object_info")
+        if obj_info is None:
+            obj_info = await _fetch_object_info(request.app)
+        compiled = compiler.compile_spatial_take(body, object_info=obj_info)
+        preflight = compiler.compute_preflight_summary(body)
+        return web.json_response(
+            {
+                "ok": True,
+                "mode": compiled["mode"],
+                "director_mode": compiled["director_mode"],
+                "seed": compiled["seed"],
+                "length": compiled["length"],
+                "width": compiled["width"],
+                "height": compiled["height"],
+                "queue_baseline": compiled["queue_baseline"],
+                "preview_override_injected": compiled["preview_override_injected"],
+                "nodes_summary": compiled["nodes_summary"],
+                "preflight": preflight,
+                "graph": compiled["graph"],
+                "baseline_graph": compiled["baseline_graph"],
+            }
+        )
+    except ValueError as exc:
+        return web.json_response({"ok": False, "error": str(exc)}, status=400)
+    except Exception as exc:
+        return web.json_response({"ok": False, "error": str(exc)}, status=500)
+
+
+async def handle_render(request: web.Request) -> web.Response:
+    try:
+        body = await _read_json_body(request)
+    except Exception as exc:
+        return web.json_response({"ok": False, "error": str(exc)}, status=400)
+
+    sid: str = request["director_sid"]
+    client_id = str(body.get("client_id") or secrets.token_hex(8))
+    obj_info = await _fetch_object_info(request.app)
+    try:
+        compiled = compiler.compile_spatial_take(body, object_info=obj_info)
+        preflight = compiler.compute_preflight_summary(body)
+        if not preflight["can_render"]:
+            return web.json_response({"ok": False, "error": "; ".join(preflight["warnings"]), "preflight": preflight}, status=400)
+
+        take_id = f"take_{secrets.token_hex(6)}"
+        prompt_id = await _submit_comfy_prompt(
+            request.app,
+            compiled["graph"],
+            client_id=client_id,
+            extra_meta={"kind": "spatial", "role": "edited", "take_id": take_id},
+        )
+        baseline_prompt_id = None
+        if compiled["baseline_graph"] is not None:
+            baseline_prompt_id = await _submit_comfy_prompt(
+                request.app,
+                compiled["baseline_graph"],
+                client_id=client_id,
+                extra_meta={"kind": "spatial", "role": "baseline", "take_id": take_id},
+            )
+    except ValueError as exc:
+        return web.json_response({"ok": False, "error": str(exc)}, status=400)
+    except Exception as exc:
+        return web.json_response({"ok": False, "error": str(exc)}, status=502)
+
+    request.app["store"].record_take(
+        {
+            "take_id": take_id,
+            "kind": "spatial",
+            "prompt_id": prompt_id,
+            "baseline_prompt_id": baseline_prompt_id,
+            "client_id": client_id,
+            "session_id": sid,
+            "status": "queued",
+            "mode": compiled["mode"],
+            "director_mode": compiled["director_mode"],
+            "length": compiled["length"],
+            "width": compiled["width"],
+            "height": compiled["height"],
+            "seed": compiled["seed"],
+            "params": body,
+            "clean_video": None,
+            "hud_video": None,
+            "baseline_video": None,
+            "created_at": time.time(),
+            "updated_at": time.time(),
+        }
+    )
+    return web.json_response(
+        {
+            "ok": True,
+            "take_id": take_id,
+            "prompt_id": prompt_id,
+            "baseline_prompt_id": baseline_prompt_id,
+            "client_id": client_id,
+            "mode": compiled["mode"],
+            "length": compiled["length"],
+            "width": compiled["width"],
+            "height": compiled["height"],
+            "seed": compiled["seed"],
+            "queue_baseline": compiled["queue_baseline"],
+            "preview_override_injected": compiled["preview_override_injected"],
+            "preflight": preflight,
+        }
+    )
+
+
+async def handle_escalate(request: web.Request) -> web.Response:
+    try:
+        body = await _read_json_body(request)
+        res = compiler.escalate_plan(body)
+        return web.json_response(res)
+    except Exception as exc:
+        return web.json_response({"ok": False, "error": str(exc)}, status=400)
+
+
+async def handle_context_suggest(request: web.Request) -> web.Response:
+    try:
+        body = await _read_json_body(request)
+    except Exception as exc:
+        return web.json_response({"ok": False, "error": str(exc)}, status=400)
+
+    heylook_url = await _probe_heylook_url(request.app)
+    if not heylook_url:
+        return web.json_response({"ok": True, "enabled": False, "suggestions": []})
+
+    session: ClientSession = request.app["http_client"]
+    try:
+        async with session.get(f"{heylook_url}/v1/models", timeout=ClientTimeout(total=1.5)) as resp:
+            models_doc = await resp.json()
+        model_list = models_doc.get("data") or []
+        model_id = str(model_list[0]["id"]) if model_list else ""
+        if not model_id:
+            return web.json_response({"ok": True, "enabled": False, "suggestions": []})
+
+        prompt_ctx = str(body.get("original_prompt") or body.get("scene_prompt") or "").strip()[:800]
+        user_msg = (
+            f"Scene context:\n{prompt_ctx}\n\n"
+            "Return ONLY a JSON array of up to 3 concise portal/target edit ideas: "
+            '[{"title":"short label","target_prompt":"short replacement","preset":"sparkle_burst"}].'
+        )
+        payload = {
+            "model": model_id,
+            "messages": [
+                {"role": "system", "content": "Return compact JSON only."},
+                {"role": "user", "content": user_msg},
+            ],
+            "temperature": 0.6,
+            "max_tokens": 300,
+        }
+        async with session.post(
+            f"{heylook_url}/v1/chat/completions",
+            json=payload,
+            timeout=ClientTimeout(total=8.0),
+        ) as resp:
+            if resp.status != 200:
+                return web.json_response({"ok": True, "enabled": False, "suggestions": []})
+            comp = await resp.json()
+        raw_content = str((((comp.get("choices") or [{}])[0].get("message") or {}).get("content")) or "")
+        match = re.search(r"\[.*\]", raw_content, re.S)
+        parsed = json.loads(match.group(0)) if match else json.loads(raw_content)
+        suggestions = [s for s in parsed if isinstance(s, dict) and (s.get("target_prompt") or s.get("title"))][:4]
+        return web.json_response({"ok": True, "enabled": True, "suggestions": suggestions})
+    except Exception:
+        return web.json_response({"ok": True, "enabled": False, "suggestions": []})
+
+
+async def _sync_store_history(app: web.Application) -> dict[str, Any]:
+    hist = await _comfy_get_json(app, "/history", timeout=3.0)
+    if isinstance(hist, dict):
+        app["store"].update_from_history(hist)
+        return hist
+    return {}
+
+
+async def handle_takes(request: web.Request) -> web.Response:
+    await _sync_store_history(request.app)
+    return web.json_response({"ok": True, "takes": request.app["store"].list_takes()})
+
+
+async def handle_history(request: web.Request) -> web.Response:
+    hist = await _sync_store_history(request.app)
+    takes = request.app["store"].list_takes()
+    known_pids = {
+        pid
+        for t in takes
+        for pid in (t.get("prompt_id"), t.get("baseline_prompt_id"))
+        if pid
+    }
+    filtered = {pid: entry for pid, entry in hist.items() if pid in known_pids}
+    return web.json_response({"ok": True, "history": filtered, "takes": takes})
+
+
+async def handle_view(request: web.Request) -> web.StreamResponse:
+    q = request.rel_url.query
+    try:
+        desc = _parse_view_descriptor(
+            {
+                "filename": q.get("filename", ""),
+                "subfolder": q.get("subfolder", ""),
+                "type": q.get("type", "temp"),
+            },
+            default_type="temp",
+        )
+    except ValueError as exc:
+        return web.json_response({"ok": False, "error": str(exc)}, status=400)
+
+    session: ClientSession = request.app["http_client"]
+    base: str = request.app["comfy_url"]
+    qs = urlencode(desc)
+    range_header = (request.headers.get("Range") or "").strip()
+    upstream_headers = {"Range": range_header} if range_header else {}
+
+    try:
+        async with session.get(
+            f"{base}/view?{qs}",
+            headers=upstream_headers,
+            timeout=ClientTimeout(total=60.0),
+        ) as resp:
+            if resp.status == 404:
+                return web.Response(status=404, text="not found")
+            if resp.status not in (200, 206):
+                return web.Response(status=resp.status, text=await resp.text())
+            data = await resp.read()
+            ctype = resp.headers.get("Content-Type") or mimetypes.guess_type(desc["filename"])[0] or "application/octet-stream"
+            upstream_status = resp.status
+            upstream_cr = resp.headers.get("Content-Range")
+    except Exception as exc:
+        return web.json_response({"ok": False, "error": str(exc)}, status=502)
+
+    if range_header and upstream_status == 200:
+        m = _SAFE_RANGE_RE.match(range_header)
+        if not m:
+            return web.Response(status=416, headers={"Content-Range": f"bytes */{len(data)}"})
+        total = len(data)
+        start_s, end_s = m.group(1), m.group(2)
+        if not start_s and not end_s:
+            return web.Response(status=416, headers={"Content-Range": f"bytes */{total}"})
+        if start_s:
+            start = int(start_s)
+            end = int(end_s) if end_s else total - 1
+        else:
+            suffix_len = int(end_s)
+            start = max(0, total - suffix_len)
+            end = total - 1
+        if start >= total or end < start:
+            return web.Response(status=416, headers={"Content-Range": f"bytes */{total}"})
+        end = min(end, total - 1)
+        chunk = data[start : end + 1]
+        return web.Response(
+            body=chunk,
+            status=206,
+            headers={
+                "Content-Type": ctype,
+                "Content-Range": f"bytes {start}-{end}/{total}",
+                "Accept-Ranges": "bytes",
+                "Cache-Control": "no-store",
+            },
+        )
+
+    headers = {"Accept-Ranges": "bytes", "Cache-Control": "no-store"}
+    if upstream_cr:
+        headers["Content-Range"] = upstream_cr
+    return web.Response(body=data, status=upstream_status, content_type=ctype, headers=headers)
+
+
+def _decode_media_frames(raw_bytes: bytes, filename: str) -> Any:
+    import numpy as np
+
+    ext = Path(filename).suffix.lower()
+    if ext in (".png", ".jpg", ".jpeg", ".webp"):
+        from PIL import Image
+
+        with Image.open(io.BytesIO(raw_bytes)) as img:
+            arr = np.asarray(img.convert("RGB"), dtype=np.float32) / 255.0
+        return arr[None, ...]
+
+    with tempfile.NamedTemporaryFile(suffix=ext or ".mp4") as tmp:
+        tmp.write(raw_bytes)
+        tmp.flush()
+        frames: list[Any] = []
+        try:
+            import cv2  # type: ignore
+
+            cap = cv2.VideoCapture(tmp.name)
+            while True:
+                ok, frame_bgr = cap.read()
+                if not ok or frame_bgr is None:
+                    break
+                frames.append(cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB).astype(np.float32) / 255.0)
+            cap.release()
+        except Exception:
+            frames = []
+        if not frames:
+            import av  # type: ignore
+
+            with av.open(tmp.name) as container:
+                for fr in container.decode(video=0):
+                    frames.append(fr.to_ndarray(format="rgb24").astype(np.float32) / 255.0)
+        if not frames:
+            raise ValueError(f"No frames decoded from {filename!r}")
+        return np.stack(frames, axis=0)
+
+
+async def handle_ab_metrics(request: web.Request) -> web.Response:
+    try:
+        body = await _read_json_body(request)
+        edited_desc = _parse_view_descriptor(body.get("edited_video") or body.get("edited"), default_type="temp")
+        base_desc = _parse_view_descriptor(body.get("baseline_video") or body.get("baseline"), default_type="temp")
+    except Exception as exc:
+        return web.json_response({"ok": False, "available": False, "error": str(exc)}, status=400)
+
+    s1, b1, _ = await _comfy_fetch_view(request.app, edited_desc)
+    s2, b2, _ = await _comfy_fetch_view(request.app, base_desc)
+    if s1 != 200 or s2 != 200 or not b1 or not b2:
+        return web.json_response(
+            {"ok": False, "available": False, "error": "both edited_video and baseline_video are required"}
+        )
+
+    try:
+        import numpy as np
+
+        spatial_director = compiler.import_pack_module("spatial_director")
+
+        f_edit = _decode_media_frames(b1, edited_desc["filename"])
+        f_base = _decode_media_frames(b2, base_desc["filename"])
+        t = min(f_edit.shape[0], f_base.shape[0])
+        h = min(f_edit.shape[1], f_base.shape[1])
+        w = min(f_edit.shape[2], f_base.shape[2])
+        if t <= 0 or h <= 0 or w <= 0:
+            return web.json_response({"ok": False, "available": False, "error": "empty video dimensions"})
+        diff = np.abs(f_edit[:t, :h, :w] - f_base[:t, :h, :w]).mean(axis=3)  # [T, H, W]
+
+        raw_events = body.get("events_json")
+        events_str = json.dumps(raw_events) if isinstance(raw_events, dict) else str(raw_events or "")
+        director_mode = str(body.get("director_mode") or "portal_path")
+        feather = float(body.get("feather", 0.08))
+
+        if events_str.strip():
+            rules_mod = compiler.import_pack_module("h3_rules")
+            mask_len = rules_mod.snap_length(max(5, t))
+            node_out = spatial_director.MiniMaxH3SpatialDirector.execute(
+                mode=director_mode,
+                width=w,
+                height=h,
+                length=mask_len,
+                feather=feather,
+                invert_mask=False,
+                events_json=events_str,
+            )
+            mask = node_out[0].detach().cpu().numpy()[:t, :h, :w]
+        else:
+            mask = np.ones((t, h, w), dtype=np.float32)
+
+        in_w = mask
+        out_w = np.clip(1.0 - mask, 0.0, 1.0)
+        in_mae = float((diff * in_w).sum() / max(1e-6, float(in_w.sum())))
+        out_mae = float((diff * out_w).sum() / max(1e-6, float(out_w.sum())))
+        ratio = float(in_mae / max(1e-6, out_mae))
+        return web.json_response(
+            {
+                "ok": True,
+                "available": True,
+                "in_mask_mae": round(in_mae, 6),
+                "out_mask_mae": round(out_mae, 6),
+                "focus_ratio": round(ratio, 3),
+                "frames_compared": int(t),
+            }
+        )
+    except Exception as exc:
+        return web.json_response({"ok": False, "available": False, "error": str(exc)}, status=400)
+
+
+async def handle_export(request: web.Request) -> web.Response:
+    try:
+        body = await _read_json_body(request)
+        src_desc = _parse_view_descriptor(body.get("video") or body, default_type="temp")
+    except Exception as exc:
+        return web.json_response({"ok": False, "error": str(exc)}, status=400)
+
+    if src_desc["type"] != "temp":
+        return web.json_response({"ok": False, "error": "export source must reside in temp"}, status=400)
+
+    status, raw_bytes, _ = await _comfy_fetch_view(request.app, src_desc)
+    if status != 200 or not raw_bytes:
+        return web.json_response({"ok": False, "error": f"temp artifact not found ({status})"}, status=404)
+
+    out_root = _resolve_output_dir()
+    video_dir = out_root / "Video"
+    video_dir.mkdir(parents=True, exist_ok=True)
+    export_base = str(body.get("export_name") or src_desc["filename"])
+    safe_name = _sanitize_filename(export_base, default_ext=".mp4")
+    if not safe_name.lower().endswith(".mp4"):
+        safe_name = f"{Path(safe_name).stem}.mp4"
+    dest = (video_dir / safe_name).resolve()
+    if not dest.is_relative_to(video_dir.resolve()):
+        return web.json_response({"ok": False, "error": "invalid export path"}, status=400)
+
+    tmp_file = video_dir / f".{safe_name}.{secrets.token_hex(4)}.tmp"
+    tmp_file.write_bytes(raw_bytes)
+    tmp_file.replace(dest)
+
+    return web.json_response(
+        {
+            "ok": True,
+            "filename": safe_name,
+            "subfolder": "Video",
+            "type": "output",
+            "output_rel": f"Video/{safe_name}",
+            "view_url": _view_url(safe_name, "Video", "output"),
+            "bytes": len(raw_bytes),
+        }
+    )
+
+
+async def handle_interrupt(request: web.Request) -> web.Response:
+    status, data = await _comfy_post_json(request.app, "/interrupt", {}, timeout=5.0)
+    if status != 200:
+        return web.json_response({"ok": False, "error": data}, status=502)
+    return web.json_response({"ok": True})
+
+
+async def handle_forget(request: web.Request) -> web.Response:
+    try:
+        body = await _read_json_body(request)
+    except Exception as exc:
+        return web.json_response({"ok": False, "error": str(exc)}, status=400)
+
+    store: SessionStore = request.app["store"]
+    keep_uploads = set(str(x) for x in (body.get("keep_uploads") or ()))
+    open_pids = [
+        pid
+        for t in store.list_takes()
+        if t.get("status") == "queued" or t.get("pinned")
+        for pid in (t.get("prompt_id"), t.get("baseline_prompt_id"))
+        if pid
+    ]
+    payload = {
+        "prompt_ids": body.get("prompt_ids"),
+        "open_prompt_ids": open_pids,
+        "keep_uploads": sorted(keep_uploads),
+    }
+    status, data = await _comfy_post_json(request.app, "/h3_spatial_director/forget", payload, timeout=15.0)
+    if status != 200 or not isinstance(data, dict):
+        return web.json_response({"ok": False, "error": data}, status=502)
+    store.clear_forgotten(keep_uploads=keep_uploads)
+    data.setdefault("protected_output_dir", "Video")
+    return web.json_response(data)
+
+
+def should_forward_ws_message(msg_obj: Any, *, client_id: str, store: SessionStore) -> bool:
+    """Strictly scope WS JSON payloads per ``client_id``."""
+    if not isinstance(msg_obj, dict):
+        return True
+    data = msg_obj.get("data")
+    if isinstance(data, dict):
+        msg_cid = data.get("client_id")
+        if msg_cid is not None and str(msg_cid) != client_id:
+            return False
+        msg_pid = data.get("prompt_id")
+        if msg_pid is not None:
+            owner_cid = store.client_for_prompt(str(msg_pid))
+            if owner_cid is not None and owner_cid != client_id:
+                return False
+    return True
+
+
+async def push_ws_event(
+    app: web.Application,
+    payload: dict[str, Any],
+    *,
+    target_client_id: str | None = None,
+) -> int:
+    """Broadcast a JSON WS event only to matching ``clientId`` sockets."""
+    store: SessionStore = app["store"]
+    clients_map: dict[str, set[web.WebSocketResponse]] = app["ws_clients"]
+    encoded = json.dumps(payload)
+    sent = 0
+    for cid, sockets in list(clients_map.items()):
+        if target_client_id is not None and cid != target_client_id:
+            continue
+        if not should_forward_ws_message(payload, client_id=cid, store=store):
+            continue
+        for ws in list(sockets):
+            try:
+                await ws.send_str(encoded)
+                sent += 1
+            except Exception:
+                sockets.discard(ws)
+    return sent
+
+
+async def handle_ws(request: web.Request) -> web.StreamResponse:
+    client_id = (request.rel_url.query.get("clientId") or "").strip() or secrets.token_hex(8)
+    ws_down = web.WebSocketResponse(heartbeat=25.0)
+    await ws_down.prepare(request)
+
+    app = request.app
+    store: SessionStore = app["store"]
+    clients_map: dict[str, set[web.WebSocketResponse]] = app["ws_clients"]
+    clients_map.setdefault(client_id, set()).add(ws_down)
+
+    comfy_ws_url = app["comfy_url"].replace("http://", "ws://", 1).replace("https://", "wss://", 1)
+    target = f"{comfy_ws_url}/ws?clientId={quote(client_id)}"
+    session: ClientSession = app["http_client"]
+
+    try:
+        async with session.ws_connect(target, heartbeat=25.0) as ws_up:
+            async def up_to_down() -> None:
+                async for msg in ws_up:
+                    if msg.type == WSMsgType.TEXT:
+                        try:
+                            obj = json.loads(msg.data)
+                        except Exception:
+                            obj = None
+                        if obj is not None:
+                            if not should_forward_ws_message(obj, client_id=client_id, store=store):
+                                continue
+                            if obj.get("type") == "executed" and isinstance(obj.get("data"), dict):
+                                d = obj["data"]
+                                store.mark_executed(
+                                    str(d.get("prompt_id") or ""),
+                                    str(d.get("node") or ""),
+                                    d.get("output") or {},
+                                )
+                        await ws_down.send_str(msg.data)
+                    elif msg.type == WSMsgType.BINARY:
+                        await ws_down.send_bytes(msg.data)
+                    elif msg.type in (WSMsgType.CLOSE, WSMsgType.ERROR):
+                        break
+
+            async def down_to_up() -> None:
+                async for msg in ws_down:
+                    if msg.type == WSMsgType.TEXT:
+                        await ws_up.send_str(msg.data)
+                    elif msg.type == WSMsgType.BINARY:
+                        await ws_up.send_bytes(msg.data)
+                    elif msg.type in (WSMsgType.CLOSE, WSMsgType.ERROR):
+                        break
+
+            t1 = asyncio.create_task(up_to_down())
+            t2 = asyncio.create_task(down_to_up())
+            done, pending = await asyncio.wait({t1, t2}, return_when=asyncio.FIRST_COMPLETED)
+            for task in pending:
+                task.cancel()
+            for task in done:
+                task.exception()
+    except Exception:
+        # Keep downstream socket usable even if upstream ComfyUI restarts or isn't listening yet.
+        async for msg in ws_down:
+            if msg.type in (WSMsgType.CLOSE, WSMsgType.ERROR):
+                break
+    finally:
+        bucket = clients_map.get(client_id)
+        if bucket is not None:
+            bucket.discard(ws_down)
+            if not bucket:
+                clients_map.pop(client_id, None)
+
+    return ws_down
+
+
+def make_security_middleware(allowed_hosts: set[str]):
+    """Enforce Host/Origin allowlist, Sec-Fetch-Site guard, CSP headers, and HttpOnly SameSite=Strict cookie."""
+
+    @web.middleware
+    async def security_middleware(request: web.Request, handler: Any) -> web.StreamResponse:
+        host_hdr = _strip_host_port(request.headers.get("Host") or "")
+        if host_hdr and host_hdr not in allowed_hosts:
+            resp = web.json_response({"ok": False, "error": "forbidden_host"}, status=403)
+            return _apply_security_headers(resp)
+
+        origin = (request.headers.get("Origin") or "").strip()
+        if origin and origin != "null":
+            orig_host = (urlsplit(origin).hostname or "").strip().lower()
+            if orig_host not in allowed_hosts:
+                resp = web.json_response({"ok": False, "error": "forbidden_origin"}, status=403)
+                return _apply_security_headers(resp)
+        elif origin == "null":
+            resp = web.json_response({"ok": False, "error": "forbidden_origin"}, status=403)
+            return _apply_security_headers(resp)
+
+        fetch_site = (request.headers.get("Sec-Fetch-Site") or "").strip().lower()
+        if fetch_site == "cross-site":
+            resp = web.json_response({"ok": False, "error": "forbidden_cross_site"}, status=403)
+            return _apply_security_headers(resp)
+
+        sid, is_new = _get_session_id(request)
+        request["director_sid"] = sid
+        secure_cookie = _is_https_request(request)
+
+        try:
+            resp = await handler(request)
+        except web.HTTPException as exc:
+            _apply_security_headers(
+                exc,
+                sid_to_set=sid if is_new else None,
+                secure_cookie=secure_cookie,
+            )
+            raise
+
+        # Note: WebSocketResponse prepares headers during `await ws.prepare(request)` before returning.
+        if not isinstance(resp, web.WebSocketResponse):
+            _apply_security_headers(
+                resp,
+                sid_to_set=sid if is_new else None,
+                secure_cookie=secure_cookie,
+            )
+        return resp
+
+    return security_middleware
+
+
+def create_app(
+    *,
+    comfy_url: str = "http://127.0.0.1:8188",
+    state_dir: Path | str = DEFAULT_STATE_DIR,
+    listen_host: str = DEFAULT_HOST,
+    extra_allowed_hosts: list[str] | None = None,
+) -> web.Application:
+    """Construct the configured aiohttp Application."""
+    allowed_hosts = _default_allowed_hosts(listen_host, extra_allowed_hosts)
+    app = web.Application(
+        client_max_size=MAX_UPLOAD_BYTES,
+        middlewares=[make_security_middleware(allowed_hosts)],
+    )
+    app["comfy_url"] = comfy_url.rstrip("/")
+    app["allowed_hosts"] = allowed_hosts
+    app["store"] = SessionStore(Path(state_dir))
+    app["ws_clients"] = {}
+
+    async def _on_startup(a: web.Application) -> None:
+        a["http_client"] = ClientSession()
+
+    async def _on_cleanup(a: web.Application) -> None:
+        cli = a.get("http_client")
+        if cli is not None:
+            await cli.close()
+
+    app.on_startup.append(_on_startup)
+    app.on_cleanup.append(_on_cleanup)
+
+    app.router.add_get("/", handle_index)
+    app.router.add_get("/static/{tail:.*}", handle_static)
+    app.router.add_get("/api/schema", handle_schema)
+    app.router.add_get("/api/system_stats", handle_system_stats)
+    app.router.add_post("/api/upload", handle_upload)
+    app.router.add_post("/api/stamp_cutout", handle_stamp_cutout)
+    app.router.add_post("/api/anchor", handle_anchor)
+    app.router.add_post("/api/preflight", handle_preflight)
+    app.router.add_post("/api/compile", handle_compile)
+    app.router.add_post("/api/render", handle_render)
+    app.router.add_post("/api/escalate", handle_escalate)
+    app.router.add_post("/api/context_suggest", handle_context_suggest)
+    app.router.add_get("/api/takes", handle_takes)
+    app.router.add_get("/api/history", handle_history)
+    app.router.add_get("/api/view", handle_view)
+    app.router.add_post("/api/ab_metrics", handle_ab_metrics)
+    app.router.add_post("/api/export", handle_export)
+    app.router.add_post("/api/interrupt", handle_interrupt)
+    app.router.add_post("/api/forget", handle_forget)
+    app.router.add_get("/api/ws", handle_ws)
+    return app
+
+
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    ap = argparse.ArgumentParser(description="Spatial World Director standalone backend server")
+    ap.add_argument("--host", default=os.environ.get("DIRECTOR_HOST", DEFAULT_HOST))
+    ap.add_argument("--port", type=int, default=int(os.environ.get("DIRECTOR_PORT", DEFAULT_PORT)))
+    ap.add_argument(
+        "--comfy-url",
+        "--comfy",
+        dest="comfy_url",
+        default=os.environ.get("H3_COMFY_URL", "http://127.0.0.1:8188"),
+    )
+    ap.add_argument(
+        "--state-dir",
+        default=os.environ.get("DIRECTOR_STATE_DIR", str(DEFAULT_STATE_DIR)),
+    )
+    ap.add_argument("--allow-host", action="append", default=[])
+    ap.add_argument("--quiet", action="store_true")
+    return ap.parse_args(argv)
+
+
+def main(argv: list[str] | None = None) -> None:
+    args = parse_args(argv)
+    logging.basicConfig(
+        level=logging.WARNING if args.quiet else logging.INFO,
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+    )
+    app = create_app(
+        comfy_url=args.comfy_url,
+        state_dir=Path(args.state_dir),
+        listen_host=args.host,
+        extra_allowed_hosts=list(args.allow_host),
+    )
+    web.run_app(app, host=args.host, port=int(args.port), print=None if args.quiet else log.info)
+
+
+if __name__ == "__main__":
+    main()
