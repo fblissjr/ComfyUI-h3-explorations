@@ -357,9 +357,9 @@ body.light-studio {
 .stage-container {
   position: relative;
   width: 100%;
-  max-width: min(1344px, calc((100vh - 112px) * 7 / 4));
+  max-width: calc((100dvh - 108px) * 7 / 4);
   aspect-ratio: 7 / 4;
-  max-height: calc(100vh - 112px);
+  max-height: calc(100dvh - 108px);
   border-radius: 12px;
   border: 1px solid var(--border-card);
   background: var(--surface);
