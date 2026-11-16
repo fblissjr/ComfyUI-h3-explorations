@@ -1143,6 +1143,216 @@ def check_step_grid(problems):
             break
 
 
+def check_seam_taper_and_gain_guard(problems):
+    """Bucket 2 unit checks: `seam_taper` schedule, `AudioFreezeSong` seam lock + clean carry,
+    and `apply_audio_gain` idempotency across `sol_take_forward -> make_sage_override`.
+    """
+    import importlib
+    import importlib.util
+    import os
+    import tempfile
+    import types
+    import folder_paths
+    import loop_resume as lr
+
+    # 1. `context_noise_schedule` & `MiniMaxH3FreezeAudioWindow`
+    for steps in (12, 27, 42):
+        flat = af.context_noise_schedule(steps, 0.6, "flat")
+        if not torch.allclose(flat, torch.full((steps,), 0.6)):
+            _fail(problems, f"seam_taper: flat schedule at c={steps} was not uniform 0.6")
+        zero_tap = af.context_noise_schedule(steps, 0.0, "seam_taper")
+        if not torch.equal(zero_tap, af.context_noise_schedule(steps, 0.0, "flat")):
+            _fail(problems, f"seam_taper: 0.0 noise schedule at c={steps} must equal flat 0.0")
+        taper = af.context_noise_schedule(steps, 0.6, "seam_taper")
+        if tuple(taper.shape) != (steps,) or abs(float(taper[0]) - 0.6) > 1e-6:
+            _fail(problems, f"seam_taper: c={steps} head value {float(taper[0]):.4f}, expected 0.6")
+        if any(float(taper[i]) <= float(taper[i + 1]) for i in range(steps - 2)):
+            _fail(problems, f"seam_taper: c={steps} ramp is not strictly decreasing up to c-2: {taper.tolist()}")
+        if float(taper[steps - 2]) != 0.0 or float(taper[steps - 1]) != 0.0:
+            _fail(problems, f"seam_taper: c={steps} final overlap steps not pinned to 0.0: {taper[-2:].tolist()}")
+
+    if not _raises(af.context_noise_schedule, 12, 0.5, "unknown_profile"):
+        _fail(problems, "seam_taper: unknown context_profile accepted by context_noise_schedule")
+
+    video = torch.randn(1, 24, 102, 48, 84)
+    audio = torch.randn(1, 32, 2, 575)
+    fresh = {"samples": comfy.nested_tensor.NestedTensor((torch.zeros_like(video), torch.zeros_like(audio)))}
+    prev = {"samples": comfy.nested_tensor.NestedTensor((video, audio))}
+    song_audio = {"waveform": torch.randn(1, 2, 44100 * 40), "sample_rate": 44100}
+    win_tap = getattr(af.MiniMaxH3FreezeAudioWindow.execute(
+        fresh, FakeAudioVAE(), song_audio, 306 / 24, 39, previous=prev,
+        context_noise=0.6, context_profile="seam_taper"), "args", None)
+    tvm = win_tap[0]["noise_mask"].unbind()[0]
+    want12 = af.context_noise_schedule(12, 0.6, "seam_taper").view(1, 1, 12, 1, 1)
+    if not torch.allclose(tvm[:, :, :12], want12) or tvm[:, :, 12:].min() != 1.0:
+        _fail(problems, "seam_taper: FreezeAudioWindow did not write the tapered schedule onto :12")
+    if "tapered from noise 0.6 to 0 with the last 2 context steps locked clean at the seam" not in win_tap[5]:
+        _fail(problems, f"seam_taper: report missing taper summary: {win_tap[5]!r}")
+    if not _raises(lambda: af.MiniMaxH3FreezeAudioWindow.execute(
+        fresh, FakeAudioVAE(), song_audio, 0.0, 39, previous=None, context_profile="bogus")):
+        _fail(problems, "seam_taper: unknown context_profile accepted on window 0")
+
+    # 2. `MiniMaxH3AudioFreezeSong` zero_ctx_mask pin + short-window clean `prev` carry
+    song_mod = importlib.import_module("_h3pack.audio_freeze_song")
+
+    class StubGuider:
+        incoming_heads: list = []
+
+        def __init__(self, model):
+            pass
+
+        def set_conds(self, conds):
+            pass
+
+        def sample(self, noise, latent_image, sampler, sigmas, denoise_mask=None, callback=None, disable_pbar=False, seed=None):
+            v, a = latent_image.unbind()
+            v = v.clone()
+            StubGuider.incoming_heads.append(v.clone())
+            vm = denoise_mask.unbind()[0].expand_as(v)
+            # Perturb mask > 0 rows strongly (+5.0) and add tiny 1e-3 float drift on mask == 0 rows
+            v = torch.where(vm > 0.0, v + 5.0, v + 1e-3)
+            return comfy.nested_tensor.NestedTensor((v, a))
+
+    class StubCond:
+        @staticmethod
+        def execute(*args, **kwargs):
+            return ([["stub", {}]],)
+
+    class StubVideoVAE:
+        def decode(self, z):
+            n_frames = af.pixel_frames(int(z.shape[2]))
+            return torch.full((n_frames, 64, 64, 3), 0.5)
+
+    track = {"waveform": torch.zeros(1, 2, int(round(10.125 * 32000))), "sample_rate": 32000}
+    with tempfile.TemporaryDirectory() as tmp:
+        real = (song_mod.Guider_Basic, song_mod.MiniMaxH3Conditioning, folder_paths.get_output_directory,
+                song_mod.comfy.sample.fix_empty_latent_channels, song_mod.latent_preview.prepare_callback)
+        song_mod.Guider_Basic = StubGuider
+        song_mod.MiniMaxH3Conditioning = StubCond
+        folder_paths.get_output_directory = lambda: tmp
+        song_mod.comfy.sample.fix_empty_latent_channels = lambda model, latent, *a, **k: latent
+        song_mod.latent_preview.prepare_callback = lambda *a, **k: None
+        StubGuider.incoming_heads.clear()
+        try:
+            # 141f windows with 90f context (27 steps out of 42): Window 2 tail [15:42] overlaps its own context [15:27]
+            got = getattr(song_mod.MiniMaxH3AudioFreezeSong.execute(
+                object(), object(), StubVideoVAE(), FakeAudioVAE(), track, object(),
+                torch.linspace(1.0, 0.0, 5), "a prompt", "", False, 64, 64, 141, 90,
+                "whole", 11, 0.0, "clip_guard", "t/seam", 19,
+                save_metadata_png=False, keep_windows=True, context_noise=0.6, context_profile="seam_taper"), "args", None)
+        finally:
+            (song_mod.Guider_Basic, song_mod.MiniMaxH3Conditioning, folder_paths.get_output_directory,
+             song_mod.comfy.sample.fix_empty_latent_channels, song_mod.latent_preview.prepare_callback) = real
+
+        win_dir = Path(tmp) / "t" / "seam_windows"
+        w1 = lr.load_window_latent(str(win_dir / "seam_window_1.safetensors"))["samples"].unbind()[0]
+        w2 = lr.load_window_latent(str(win_dir / "seam_window_2.safetensors"))["samples"].unbind()[0]
+        # Window 2's steps 25, 26 (c-2, c-1) were mask==0 -> pinned back to Window 1's clean tail w1[:, :, 40:42] with ZERO 1e-3 drift
+        if not torch.equal(w2[:, :, 25:27], w1[:, :, 40:42]):
+            _fail(problems, "AudioFreezeSong: zero_ctx_mask did not pin Window 2 c-2..c-1 back to Window 1's clean tail")
+        # Window 3's incoming head [:12] comes from Window 2's tail [15:27], which is Window 1's [30:42]:
+        # clean_ctx carry must hand Window 1's exact un-redrawn latents (+0), NOT Window 2's redrawn (+5.0) or drift (+1e-3)
+        if len(StubGuider.incoming_heads) != 3:
+            _fail(problems, f"AudioFreezeSong: expected 3 windows for 243f@141/90, got {len(StubGuider.incoming_heads)}")
+        elif not torch.equal(StubGuider.incoming_heads[2][:, :, :12], w1[:, :, 30:42]):
+            _fail(problems, "AudioFreezeSong: Window 3 received redrawn/drifted context on [15:27] instead of Window 1's clean carry")
+        if got is None or "tapered from noise 0.6 to 0" not in got[1]:
+            _fail(problems, "AudioFreezeSong: report did not record seam_taper schedule")
+
+    # 3. `apply_audio_gain` idempotency guard (`sol_take_forward` -> `make_sage_override` Block 49 fallback)
+    spec = importlib.util.spec_from_file_location("_h3pack.attention", REPO / "attention.py")
+    att = importlib.util.module_from_spec(spec)
+    sys.modules["_h3pack.attention"] = att
+    spec.loader.exec_module(att)
+
+    layout = types.SimpleNamespace(segments=[(0, 4, "video"), (4, 8, "audio")])
+    opts = {
+        "minimax_h3_layout": layout,
+        "minimax_h3_audio_gain": {
+            "key_gain": 2.0, "value_gain": 1.5,
+            "sigma_start": 1.0, "sigma_end": 0.0,
+            "blocks": None, "include_reference_rows": False,
+        },
+        "sigmas": torch.tensor([0.5]),
+        "block_index": 49,
+    }
+    k0 = torch.ones((1, 8, 2, 4), dtype=torch.bfloat16)
+    v0 = torch.ones((1, 8, 2, 4), dtype=torch.bfloat16)
+    att.apply_audio_gain(k0, v0, opts, 1)
+    if float(k0[0, 4, 0, 0]) != 2.0 or float(v0[0, 4, 0, 0]) != 1.5 or float(k0[0, 0, 0, 0]) != 1.0:
+        _fail(problems, "apply_audio_gain: direct call did not scale audio K/V by 2.0/1.5")
+
+    opts_guard = dict(opts, _h3_audio_gain_applied=True)
+    att.apply_audio_gain(k0, v0, opts_guard, 1)
+    if float(k0[0, 4, 0, 0]) != 2.0 or float(v0[0, 4, 0, 0]) != 1.5:
+        _fail(problems, "apply_audio_gain: re-scaled K/V despite _h3_audio_gain_applied guard")
+
+    import comfy.ldm.modules.attention as comfy_attn
+    seen_override = {}
+    sage_override = att.make_sage_override(
+        lambda qkv, **kw: (seen_override.__setitem__("v_scale", float(qkv[2][0, 0, 4, 0])), qkv[2].new_zeros(1, 2, 8, 4))[1],
+        {},
+    )
+    fwd = att.make_minimax_attn_forward(
+        lambda qkv, **kw: qkv[2], {}, via_optimized_attention=True,
+    )
+
+    class DummyAttn:
+        heads = 2
+        head_dim = 4
+        q_norm = staticmethod(lambda t: t)
+        k_norm = staticmethod(lambda t: t)
+        out_proj = staticmethod(lambda t: t)
+
+        @staticmethod
+        def qkv_proj(x):
+            return torch.ones((x.shape[0], 3 * 2 * 4), dtype=x.dtype)
+
+    real_opt = comfy_attn.optimized_attention
+    opts_chain = dict(opts)
+    try:
+        def stub_opt(q, k, v, heads, mask=None, skip_reshape=False, transformer_options=None, **kw):
+            seen_override["flag_inside"] = bool((transformer_options or {}).get("_h3_audio_gain_applied"))
+            return sage_override(lambda *a, **kwa: v, q, k, v, heads, mask=mask,
+                                 skip_reshape=skip_reshape, transformer_options=transformer_options, **kw)
+
+        comfy_attn.optimized_attention = stub_opt
+        fwd(DummyAttn(), torch.ones((8, 8), dtype=torch.bfloat16), None, transformer_options=opts_chain)
+        if not seen_override.get("flag_inside") or seen_override.get("v_scale") != 1.5:
+            _fail(problems, f"apply_audio_gain: sol_take_forward -> sage_override scaled V as {seen_override.get('v_scale')} instead of 1.5")
+        if "_h3_audio_gain_applied" in opts_chain:
+            _fail(problems, "apply_audio_gain: _h3_audio_gain_applied leaked out of transformer_options")
+
+        # Standalone make_sage_override (no sol_take_forward caller): must scale audio V once to 1.5
+        seen_standalone = {}
+        sage_standalone = att.make_sage_override(
+            lambda qkv, **kw: (seen_standalone.__setitem__("v_scale", float(qkv[2][0, 0, 4, 0])), qkv[2].new_zeros(1, 2, 8, 4))[1],
+            {},
+        )
+        sage_standalone(
+            lambda *a, **kwa: v0,
+            torch.ones((1, 2, 8, 4), dtype=torch.bfloat16),
+            torch.ones((1, 2, 8, 4), dtype=torch.bfloat16),
+            torch.ones((1, 2, 8, 4), dtype=torch.bfloat16),
+            2, skip_reshape=True, transformer_options=dict(opts),
+        )
+        if seen_standalone.get("v_scale") != 1.5:
+            _fail(problems, f"apply_audio_gain: standalone sage_override scaled V as {seen_standalone.get('v_scale')} instead of 1.5")
+
+        def fail_opt(*a, **kw):
+            raise RuntimeError("boom")
+
+        comfy_attn.optimized_attention = fail_opt
+        try:
+            fwd(DummyAttn(), torch.ones((8, 8), dtype=torch.bfloat16), None, transformer_options=opts_chain)
+        except RuntimeError:
+            pass
+        if "_h3_audio_gain_applied" in opts_chain:
+            _fail(problems, "apply_audio_gain: _h3_audio_gain_applied not popped on exception")
+    finally:
+        comfy_attn.optimized_attention = real_opt
+
+
 def _raises(call, *args) -> bool:
     try:
         call(*args)
@@ -1157,6 +1367,7 @@ def main() -> int:
     check_masks(problems)
     check_execute(problems)
     check_window_geometry(problems)
+    check_seam_taper_and_gain_guard(problems)
     check_resume(problems)
     check_song_plan(problems)
     check_step_grid(problems)

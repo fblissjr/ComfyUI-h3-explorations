@@ -124,7 +124,8 @@
       "save_mask_review",
       "continue_from",
       "context_noise",
-      "save_kept"
+      "save_kept",
+      "context_profile"
     ],
     "node_id": "MiniMaxH3AudioFreezeSong",
     "outputs": [
@@ -382,7 +383,8 @@
       "audio_mask",
       "level",
       "track_latent",
-      "context_noise"
+      "context_noise",
+      "context_profile"
     ],
     "node_id": "MiniMaxH3FreezeAudioWindow",
     "outputs": [

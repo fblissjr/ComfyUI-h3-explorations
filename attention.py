@@ -286,6 +286,8 @@ def apply_audio_gain(k, v, transformer_options, seq_axis):
     """
     if not isinstance(transformer_options, dict):
         return k, v
+    if transformer_options.get("_h3_audio_gain_applied"):
+        return k, v
     cfg = transformer_options.get("minimax_h3_audio_gain")
     if not cfg:
         return k, v
@@ -603,9 +605,14 @@ def make_minimax_attn_forward(kernel_fn, kernel_kwargs, head_chunks=1,
                 # read as this one's. An override that publishes nothing then
                 # shows as `unknown` rather than as whatever ran last.
                 transformer_options.pop("h3_attn_route", None)
-            out = optimized_attention(qh, kh, vh, self.heads, mask=None,
-                                      skip_reshape=True,
-                                      transformer_options=transformer_options)
+                transformer_options["_h3_audio_gain_applied"] = True
+            try:
+                out = optimized_attention(qh, kh, vh, self.heads, mask=None,
+                                          skip_reshape=True,
+                                          transformer_options=transformer_options)
+            finally:
+                if isinstance(transformer_options, dict):
+                    transformer_options.pop("_h3_audio_gain_applied", None)
             del q, k, v
             _trace.route(s, "sol_delegate")
             return self.out_proj(out.squeeze(0))

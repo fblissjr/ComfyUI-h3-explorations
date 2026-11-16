@@ -136,7 +136,16 @@ import latent_preview
 from comfy_extras.nodes_custom_sampler import Guider_Basic
 from comfy_extras.nodes_minimax_h3 import FPS, _empty_av_latent
 
-from .audio_freeze import CONTEXT_NOISE, MiniMaxH3EncodeTrack, MiniMaxH3FreezeAudioWindow, _ffmpeg, _stereo
+from .audio_freeze import (
+    CONTEXT_NOISE,
+    CONTEXT_PROFILES,
+    CONTEXT_PROFILE_DEFAULT,
+    MiniMaxH3EncodeTrack,
+    MiniMaxH3FreezeAudioWindow,
+    _ffmpeg,
+    _stereo,
+    video_latent_t,
+)
 from .conditioning import MiniMaxH3Conditioning
 from . import loop_plan, loop_resume, part_coverage, shot_table
 from .h3_rules import MAX_LENGTH
@@ -631,6 +640,20 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
                                           "each window's region file beside its latent (the white outline of the "
                                           "mask review, as a mask a tool can read). Off saves nothing more. Needs "
                                           "a Masked Source on `source`.")),
+                # appended 2026-11-16: causal-overlap taper profile for context_noise (`audio_freeze.CONTEXT_PROFILES`)
+                io.Combo.Input(
+                    "context_profile",
+                    options=list(CONTEXT_PROFILES),
+                    default=CONTEXT_PROFILE_DEFAULT,
+                    optional=True,
+                    tooltip=(
+                        "How context_noise is distributed across each window's kept context steps. "
+                        "'flat' applies context_noise uniformly (default). 'seam_taper' ramps from "
+                        "context_noise at step 0 down to 0.0 while locking the final 2 context steps "
+                        "(c-2, c-1) clean across the causal Video VAE's token_overlap=2 seam "
+                        "(clean-room adaptation crediting Lumifel & geiru_context_suite)."
+                    ),
+                ),
             ],
             outputs=[
                 io.String.Output(display_name="path"),
@@ -654,8 +677,11 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
                 width, height, window_frames, context_frames, extent, seed, audio_mask, level,
                 filename_prefix, crf, save_metadata_png=True, keep_windows=True, references=None,
                 lists=None, source=None, save_mask_review=True,
-                continue_from="", context_noise=CONTEXT_NOISE, save_kept=False) -> io.NodeOutput:
+                continue_from="", context_noise=CONTEXT_NOISE, save_kept=False,
+                context_profile=CONTEXT_PROFILE_DEFAULT) -> io.NodeOutput:
         import folder_paths
+        if context_profile not in CONTEXT_PROFILES:
+            raise ValueError(f"unknown context_profile {context_profile!r}; expected one of {CONTEXT_PROFILES}")
         # A DynamicCombo arrives as one nested dict (the selection under its own
         # id, the option's inputs beside it) or, from an API prompt that sets
         # only the selection, as a bare string.
@@ -920,7 +946,7 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
             win = MiniMaxH3FreezeAudioWindow.execute(
                 latent, audio_vae, audio, w.start, context_frames,
                 previous=prev, audio_mask=audio_mask, level=level, track_latent=track_latent,
-                context_noise=context_noise)
+                context_profile=context_profile, context_noise=context_noise)
             win = getattr(win, "args", win)
             wlatent, _clip_audio, _span, trim, next_start, wreport, _new_audio = win
             if i == 0 and not continue_from and (pad_before or pad_after):
@@ -937,6 +963,17 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
                                   f"({source['grow_by']})" if torch.is_tensor(margin) else ""))
 
             mark("window setup")
+            c_steps = video_latent_t(context_frames) if prev is not None else 0
+            clean_ctx = (
+                wlatent["samples"].unbind()[0][:, :, :c_steps].clone()
+                if c_steps > 0
+                else None
+            )
+            zero_ctx_mask = (
+                (wlatent["noise_mask"].unbind()[0][:, :, :c_steps] == 0.0)
+                if (c_steps > 0 and wlatent.get("noise_mask") is not None)
+                else None
+            )
             untouched = src_tokens is not None and not bool(src_tokens.any())
             if untouched:
                 # nothing is masked in this window (the subject is off screen): every
@@ -961,8 +998,31 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
                                         denoise_mask=wlatent.get("noise_mask"),
                                         callback=callback, disable_pbar=False, seed=int(seed) + i)
                 samples = samples.to(comfy.model_management.intermediate_device())
+                # Pin exact clean context latents on every zero-mask cell (including c-2, c-1 seam lock)
+                # before decode and window persistence so decode and stored latent match bit-for-bit.
+                if (
+                    clean_ctx is not None
+                    and zero_ctx_mask is not None
+                    and getattr(samples, "is_nested", False)
+                    and bool(zero_ctx_mask.any())
+                ):
+                    sv, sa = samples.unbind()
+                    sv = sv.clone()
+                    sv[:, :, :c_steps] = torch.where(
+                        zero_ctx_mask.to(device=sv.device),
+                        clean_ctx.to(device=sv.device, dtype=sv.dtype),
+                        sv[:, :, :c_steps],
+                    )
+                    samples = comfy.nested_tensor.NestedTensor((sv, sa))
+                comfy.model_management.soft_empty_cache()
                 mark("sampling")
-            prev = {"samples": samples}
+            if clean_ctx is not None and getattr(samples, "is_nested", False):
+                psv, psa = samples.unbind()
+                psv = psv.clone()
+                psv[:, :, :c_steps] = clean_ctx.to(device=psv.device, dtype=psv.dtype)
+                prev = {"samples": comfy.nested_tensor.NestedTensor((psv, psa))}
+            else:
+                prev = {"samples": samples}
 
             zoomed_images = None
             if untouched and src_pixels is not None:
