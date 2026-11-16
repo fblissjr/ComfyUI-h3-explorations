@@ -12,9 +12,9 @@ Master router for `ComfyUI-h3-explorations`. Root [`../../AGENTS.md`](../../AGEN
 | [`projects/2026-11-13_repo_audit_and_atlas/index.md`](projects/2026-11-13_repo_audit_and_atlas/index.md) | **Repo Atlas (`2026-11-13`)**: 8-track status, Top 14 unfinished/forgotten ideas, code-vs-prose ledger, Nov 10–12 renders, offline HTML + `ledger.json` |
 | [`research/2026-11-14_cross_pillar_api_workflows_and_sam31_decoupling.md`](research/2026-11-14_cross_pillar_api_workflows_and_sam31_decoupling.md) | **Cross-Pillar API Unlocks & SAM 3.1 Decoupling (`2026-11-14`)**: Two-phase `:8188` perception+generation recipes, Phase 1 + `EditGuider` + `SoundCues` + `SpriteTrajectory` compound workflows, and clean extraction off `MiniMaxH3AudioFreezeSong` |
 | [`projects/index.md`](projects/index.md) | Project directory index & structured dossier standard ([`projects/AGENTS.md`](projects/AGENTS.md)) |
-| [`handover.md`](handover.md) | Current cross-track handover state (`2026-11-15`: `SAM3-DMS`, `MiniMaxH3Steer.edit_pass`, `MiniMaxH3SpatialDirector`/`DirectorHUD`, `S1`, `allow_upscale=False`, `'fun'` parked) |
+| [`handover.md`](handover.md) | Current cross-track handover state (`2026-11-16`: Spatial Director `director/`, `SAM3-DMS`, `MiniMaxH3Steer.edit_pass`, `MiniMaxH3SpatialDirector`/`DirectorHUD`, `S1`, `allow_upscale=False`, `'fun'` parked) |
 | [`next_steps.md`](next_steps.md) | Active queues by track, ordered next experiments, and pending checks |
-| [`decisions.md`](decisions.md) | Dated decisions & reversals (`2026-11-11`..`2026-11-15` active + shards `decisions/*.md`) |
+| [`decisions.md`](decisions.md) | Dated decisions & reversals (`2026-11-11`..`2026-11-16` active + shards `decisions/*.md`) |
 | [`h3_uses.md`](h3_uses.md) | End-to-end modes (`t2va`, `fl2va`, `ref2va`, `P-H3-Image`, `MiniMax-H3-Image`, audio freeze, masked V2V) |
 | [`stages.md`](stages.md) | Stage-by-stage code -> owner -> guard map across conditioning, sampling, attention, and decode |
 | [`known_before_a_render.md`](known_before_a_render.md) | Facts resolved in code/weights without spending card time |
@@ -60,7 +60,7 @@ Start at [`control_vectors.md`](control_vectors.md) and [`edit_guidance.md`](edi
 | Page | Topic |
 | :--- | :--- |
 | [`control_vectors.md`](control_vectors.md) | Unified steering hub: Control Vectors vs. Edit Guidance vs. J-Lens readout, shipped workflows, `exp5` tool-choice update |
-| [`edit_guidance.md`](edit_guidance.md) | `MiniMaxH3EditGuider`, `MiniMaxH3PromptEdit`, `MiniMaxH3SpatialDirector`, `MiniMaxH3DirectorHUD` (`streams`, `audio_scale`, `.mask` `[F, H, W]` + 40 Hz audio gating, `edit_pass`) |
+| [`edit_guidance.md`](edit_guidance.md) | `MiniMaxH3EditGuider`, `MiniMaxH3PromptEdit`, `MiniMaxH3SpatialDirector`, `MiniMaxH3DirectorHUD`, Spatial Director Studio (`director/`): `combined`, SAM 3.1 `/api/segment`, `streams`, `audio_scale`, `.mask` `[F, H, W]` + 40 Hz audio gating, `edit_pass`, `/api/redub` |
 | [`research/2026-11-15_spatial_world_director_and_3d_edit_guidance.md`](research/2026-11-15_spatial_world_director_and_3d_edit_guidance.md) | **3D Semantic Velocity Steering & Spatial World Director (`2026-11-15`)**: Native ComfyUI core comparison, `[F, H, W]` causal pooling + `40 Hz` audio gating, `MiniMaxH3SpatialDirector` / `MiniMaxH3DirectorHUD`, and `141`-frame showcase benchmarks |
 | [`control_vectors/which_tool_and_what_to_call_it.md`](control_vectors/which_tool_and_what_to_call_it.md) | Plain-English guide comparing Prompt Edit, Control Vectors, Edit Guidance, and Word Readout (`J-Lens`) |
 | [`control_vectors/sound_cues_and_timed_masks.md`](control_vectors/sound_cues_and_timed_masks.md) | Plain-English explainer: Sound Cues (`MiniMaxH3SoundCues`), timed animated mask "blooms" (`MiniMaxH3EditGuider.mask`), and what the tortoise & forge experiments proved |

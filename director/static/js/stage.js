@@ -907,11 +907,13 @@ export class StageController {
     let baseMedia = st.anchorMedia || null;
     if (st.activeVideoEl && st.activeVideoEl.readyState >= 2) {
       if (Number.isFinite(st.activeVideoEl.duration) && st.activeVideoEl.duration > 0) {
-        const wantT = (st.frame / Math.max(1, st.length - 1)) * st.activeVideoEl.duration;
-        if (Math.abs(st.activeVideoEl.currentTime - wantT) > 0.03) {
-          try {
-            st.activeVideoEl.currentTime = wantT;
-          } catch {}
+        if (!st.playing || st.activeVideoEl.paused) {
+          const wantT = (st.frame / Math.max(1, st.length - 1)) * st.activeVideoEl.duration;
+          if (Math.abs(st.activeVideoEl.currentTime - wantT) > 0.025) {
+            try {
+              st.activeVideoEl.currentTime = wantT;
+            } catch {}
+          }
         }
       }
       baseMedia = st.activeVideoEl;
@@ -920,7 +922,9 @@ export class StageController {
     if (this.abCompare?.active) {
       const mA = this.abCompare.getMediaA(st.anchorMedia);
       const mB = this.abCompare.getMediaB(st.livePreview?.media || baseMedia);
-      this.abCompare.syncTime(st.frame, st.length);
+      if (!st.playing) {
+        this.abCompare.syncTime(st.frame, st.length);
+      }
       this.abCompare.drawSplitOverlay(ctx, w, h, mA, mB);
       return;
     }
@@ -952,6 +956,7 @@ export class StageController {
     if (excTint) {
       this._drawContainOrCover(ctx, excTint, w, h);
     }
+    this._drawSamPointsOverlay(ctx, st, w, h, dpr);
 
     const sp = (st.spriteMode || st.spriteCutout?.img || (st.couplings || []).length > 0)
       ? evalSpriteAtFrame(st.doc, st.frame, st.length)
@@ -1392,6 +1397,33 @@ export class StageController {
       fg: "#047857",
       dot: "#047857",
     });
+    ctx.restore();
+  }
+
+  _drawSamPointsOverlay(ctx, st, w, h, dpr) {
+    const pos = Array.isArray(st.samPosPoints) ? st.samPosPoints : [];
+    const neg = Array.isArray(st.samNegPoints) ? st.samNegPoints : [];
+    if (!pos.length && !neg.length) return;
+    ctx.save();
+    const drawDot = (pt, fill, glyph) => {
+      const px = clamp(Number(pt.nx ?? 0.5), 0, 1) * w;
+      const py = clamp(Number(pt.ny ?? 0.5), 0, 1) * h;
+      const r = 7 * dpr;
+      ctx.fillStyle = fill;
+      ctx.strokeStyle = "#FFFFFF";
+      ctx.lineWidth = 2 * dpr;
+      ctx.beginPath();
+      ctx.arc(px, py, r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = "#FFFFFF";
+      ctx.font = `700 ${Math.round(10 * dpr)}px ui-monospace, SFMono-Regular, Menlo, monospace`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(glyph, px, py + 0.5 * dpr);
+    };
+    for (const pt of pos) drawDot(pt, "#059669", "+");
+    for (const pt of neg) drawDot(pt, "#DC2626", "−");
     ctx.restore();
   }
 }

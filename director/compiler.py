@@ -1743,7 +1743,23 @@ def compile_audio_redub(
     }
     graph["93"] = {"class_type": "VAEEncode", "inputs": {"pixels": ["92", 0], "vae": ["3", 0]}}
 
-    denoise = max(0.05, min(1.0, float(cfg.get("denoise", 1.0))))
+    denoise_raw = cfg.get("denoise")
+    redub_mode = str(cfg.get("redub_mode") or "").strip().lower()
+    if denoise_raw is not None and str(denoise_raw).strip() != "":
+        denoise = max(0.05, min(1.0, float(denoise_raw)))
+    elif redub_mode == "polish":
+        denoise = 0.5
+    else:
+        denoise = 1.0
+    resolved_redub_mode = "fresh" if denoise >= 0.999 else "polish"
+
+    if cfg.get("use_distill") is not None:
+        use_distill = bool(cfg["use_distill"])
+    else:
+        use_distill = bool(denoise >= 0.999)
+
+    for aux_nid in ("94a", "94b"):
+        graph.pop(aux_nid, None)
     if denoise >= 0.999:
         graph["94"] = {"class_type": "LTXVSeparateAVLatent", "inputs": {"av_latent": ["5", 1]}}
         graph["95"] = {
@@ -1751,13 +1767,18 @@ def compile_audio_redub(
             "inputs": {"video_latent": ["93", 0], "audio_latent": ["94", 1]},
         }
     else:
+        graph["94a"] = {"class_type": "LTXVSeparateAVLatent", "inputs": {"av_latent": ["5", 1]}}
+        graph["94b"] = {
+            "class_type": "LTXVConcatAVLatent",
+            "inputs": {"video_latent": ["93", 0], "audio_latent": ["94a", 1]},
+        }
         graph["94"] = {
             "class_type": "MiniMaxH3EncodeTrack",
             "inputs": {"audio_vae": ["4", 0], "audio": ["91", 1], "level": "clip_guard"},
         }
         graph["95"] = {
             "class_type": "LTXVConcatAVLatent",
-            "inputs": {"video_latent": ["93", 0], "audio_latent": ["94", 0]},
+            "inputs": {"video_latent": ["94b", 0], "audio_latent": ["94", 0]},
         }
 
     cues_str = str(cfg.get("cues_text") or "").strip()
@@ -1820,6 +1841,7 @@ def compile_audio_redub(
 
     has_cues = bool(cues_str)
     if has_cues:
+        _sound_cues().parse_sound_cues(cues_str, length, snap_to_3f=True)
         graph["70"] = {
             "class_type": "MiniMaxH3SoundCues",
             "inputs": {
@@ -1848,7 +1870,6 @@ def compile_audio_redub(
         "inputs": {"latent": ["26", 1], "video_mask": 0.0, "audio_mask": 1.0},
     }
 
-    use_distill = bool(cfg.get("use_distill", False))
     if not use_distill:
         graph.pop("18", None)
         rsrc: list[Any] = ["1", 0]
@@ -1877,10 +1898,25 @@ def compile_audio_redub(
         "inputs": {"model": ["82", 0], "precision": "int4", "refresh": False, "refresh_every": 2, "verify": False, "halo": 0},
     }
     steps = max(1, min(30, int(cfg.get("steps", 6))))
-    graph["84"] = {
-        "class_type": "BasicScheduler",
-        "inputs": {"model": ["88", 0], "scheduler": "simple", "steps": steps, "denoise": denoise},
-    }
+    custom_sigmas = str(cfg.get("sigmas") or "").strip()
+    if use_distill and denoise >= 0.999 and (steps == 6 or custom_sigmas):
+        graph.pop("84", None)
+        graph["60"] = {
+            "class_type": "ManualSigmas",
+            "inputs": {
+                "sigmas": custom_sigmas or "1.0, 0.972973, 0.923077, 0.8, 0.571429, 0.333333, 0.0"
+            },
+        }
+        sigmas_ref: list[Any] = ["60", 0]
+        schedule_kind = "ManualSigmas"
+    else:
+        graph.pop("60", None)
+        graph["84"] = {
+            "class_type": "BasicScheduler",
+            "inputs": {"model": ["88", 0], "scheduler": "simple", "steps": steps, "denoise": denoise},
+        }
+        sigmas_ref = ["84", 0]
+        schedule_kind = "BasicScheduler"
     graph["85"] = {"class_type": "KSamplerSelect", "inputs": {"sampler_name": "lcm" if use_distill else "euler"}}
     graph["86"] = {"class_type": "BasicGuider", "inputs": {"model": ["88", 0], "conditioning": ["26", 0]}}
     graph["87"] = {
@@ -1889,7 +1925,7 @@ def compile_audio_redub(
             "noise": ["6", 0],
             "guider": ["86", 0],
             "sampler": ["85", 0],
-            "sigmas": ["84", 0],
+            "sigmas": sigmas_ref,
             "latent_image": ["83", 0],
         },
     }
@@ -1916,6 +1952,7 @@ def compile_audio_redub(
 
     return {
         "mode": "audio_redub",
+        "redub_mode": resolved_redub_mode,
         "video_ref": video_ref,
         "seed": seed,
         "length": length,
@@ -1928,6 +1965,8 @@ def compile_audio_redub(
         "nodes_summary": {
             "has_sound_cues": has_cues,
             "has_audio_refine": True,
+            "redub_mode": resolved_redub_mode,
+            "schedule": schedule_kind,
             "use_distill": use_distill,
             "denoise": round(denoise, 3),
             "steps": steps,

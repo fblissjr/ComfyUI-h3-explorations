@@ -85,12 +85,15 @@
         </div>
       </div>
 
-      <!-- TAE Status & Mask Toggle -->
+      <!-- TAE Status, Shot Bridge & Mask Toggle -->
       <div class="stage-top-right">
         <div id="stage-tae-badge" class="stage-pill stage-pill-emerald">
           <span id="stage-tae-dot" class="status-dot"></span>
           <span id="stage-tae-text">Live Latents Ready</span>
         </div>
+        <button id="btn-shot-bridge" type="button" class="stage-pill-btn hidden" title="Clear pinned Last Frame or return to previous shot">
+          Shot 1
+        </button>
         <button id="btn-fullframe-tae" type="button" class="stage-pill-btn" title="Toggle Masked Portal Preview vs Full-Frame Preview">
           Masked Preview
         </button>
@@ -236,6 +239,10 @@
             </div>
             <button id="btn-sam-clear" type="button" class="sam-clear-btn hidden" title="Clear subject segmentation masks" aria-label="Clear subject segmentation masks">×</button>
           </div>
+          <div id="sam-refine-bar" class="sam-refine-bar hidden">
+            <input id="sam-prompt-input" type="text" class="field-input field-input-xs" placeholder="SAM text or Click+ / Alt-Click−" aria-label="SAM text prompt">
+            <button id="btn-sam-run" type="button" class="sam-pick-btn" title="Segment using text prompt and/or clicked points">Segment</button>
+          </div>
 
           <div class="card-cue-row">
             <select id="card-cue-select" class="field-select field-select-sm" aria-label="3-frame SoundCue preset"></select>
@@ -262,6 +269,7 @@
       <div id="ab-bar" class="ab-bar hidden">
         <span id="ab-metrics-text" class="ab-metrics-text">Split A|B · Drag divider across stage</span>
         <div class="ab-actions">
+          <button id="btn-ab-audio-toggle" type="button" class="btn-outline-sm" title="Cycle A|B comparison audio track">Audio: B (Directed)</button>
           <button id="btn-ab-hud-toggle" type="button" class="btn-outline-sm">B: Clean (Node 162)</button>
           <button id="btn-export-clean" type="button" class="btn-outline-sm">Export Clean MP4</button>
           <button id="btn-export-hud" type="button" class="btn-outline-sm">Export HUD MP4</button>
@@ -316,6 +324,9 @@
           </button>
           <button id="btn-audio-guard" type="button" class="micro-pill-btn" title="Cycle EditGuider audio stream routing (independent / video_only / both)">
             Audio: Indep
+          </button>
+          <button id="btn-stage-mute" type="button" class="micro-pill-btn active" aria-pressed="false" title="Toggle rendered video audio playback vs mute (M)">
+            Sound: On
           </button>
           <button id="btn-chain-frame" type="button" class="micro-pill-btn hidden" title="Extract current video frame as next shot anchor (Shot N -> Shot N+1)">
             Chain f→Shot
@@ -473,6 +484,13 @@
           <div class="takes-head">
             <span class="hint-text">Draft takes live in temp/ until exported.</span>
             <button id="btn-refresh-takes" type="button" class="btn-outline-sm">Refresh</button>
+          </div>
+          <div class="redub-bar">
+            <select id="redub-mode-select" class="field-select field-select-sm" aria-label="Audio Re-Dub recipe">
+              <option value="polish">Re-Dub: Polish (0.5x Base)</option>
+              <option value="fresh">Re-Dub: Fresh (1.0x Pika)</option>
+            </select>
+            <input id="redub-prompt-input" type="text" class="field-input field-input-xs" placeholder="Optional foley prompt override" aria-label="Optional audio re-dub prompt override">
           </div>
           <div id="takes-list" class="takes-list">
             <div class="empty-takes">No takes rendered yet.</div>

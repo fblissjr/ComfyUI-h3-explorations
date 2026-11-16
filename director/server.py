@@ -305,6 +305,29 @@ class SessionStore:
                 take = self._takes.get(tid)
                 if take is None:
                     continue
+                st_doc = entry.get("status") or {}
+                if (
+                    role != "baseline"
+                    and isinstance(st_doc, dict)
+                    and str(st_doc.get("status_str") or "") == "error"
+                    and take.get("status") != "completed"
+                ):
+                    err_msg = "ComfyUI execution error"
+                    for msg_item in st_doc.get("messages") or ():
+                        if (
+                            isinstance(msg_item, (list, tuple))
+                            and len(msg_item) >= 2
+                            and msg_item[0] == "execution_error"
+                            and isinstance(msg_item[1], dict)
+                        ):
+                            err_msg = str(msg_item[1].get("exception_message") or err_msg)
+                            break
+                    if take.get("status") != "error" or take.get("error") != err_msg:
+                        take["status"] = "error"
+                        take["error"] = err_msg
+                        take["updated_at"] = time.time()
+                        changed = True
+                    continue
                 outputs = entry.get("outputs") or {}
                 if not isinstance(outputs, dict):
                     continue
@@ -597,6 +620,21 @@ def _decode_video_frame_rgb(raw_bytes: bytes, filename: str, frame_index: int = 
     raise ValueError(f"Video {filename!r} contains no readable video frames")
 
 
+def _video_bytes_has_audio(raw_bytes: bytes, filename: str = "clip.mp4") -> bool:
+    """Return False when a video container provably has zero audio streams (True on probe error)."""
+    ext = Path(filename).suffix.lower() or ".mp4"
+    try:
+        import av  # type: ignore
+
+        with tempfile.NamedTemporaryFile(suffix=ext) as tmp:
+            tmp.write(raw_bytes)
+            tmp.flush()
+            with av.open(tmp.name) as container:
+                return bool(container.streams.audio)
+    except Exception:
+        return True
+
+
 def _extract_video_frame_png(raw_bytes: bytes, filename: str, frame_index: int = -1) -> tuple[bytes, int, int, int, int]:
     """Extract frame ``frame_index`` as lossless PNG ``(png_bytes, resolved_idx, total_frames, w, h)``."""
     from PIL import Image
@@ -763,20 +801,86 @@ async def handle_upload(request: web.Request) -> web.Response:
     store: SessionStore = request.app["store"]
     store.record_upload(ref, sid)
 
-    return web.json_response(
-        {
-            "ok": True,
-            "filename": saved_name,
-            "subfolder": saved_sub,
-            "type": saved_type,
-            "ref": ref,
-            "width": w,
-            "height": h,
-            "view_url": _view_url(saved_name, saved_sub, saved_type),
-            "source_kind": source_kind,
-            "original_filename": Path(filename).name,
-        }
-    )
+    resp_data: dict[str, Any] = {
+        "ok": True,
+        "filename": saved_name,
+        "subfolder": saved_sub,
+        "type": saved_type,
+        "ref": ref,
+        "width": w,
+        "height": h,
+        "view_url": _view_url(saved_name, saved_sub, saved_type),
+        "source_kind": source_kind,
+        "original_filename": Path(filename).name,
+    }
+
+    if source_kind == "video_frame0":
+        vid_ext = Path(filename).suffix.lower() or ".mp4"
+        vid_out_name = _sanitize_filename(Path(filename).stem, default_ext=vid_ext)
+        vid_ctype = mimetypes.guess_type(vid_out_name)[0] or "video/mp4"
+        try:
+            _, _, total_frames = _decode_video_frame_rgb(file_bytes, filename, frame_index=-1)
+        except Exception:
+            total_frames = 39
+        has_audio = _video_bytes_has_audio(file_bytes, filename)
+        snapped_len = compiler.snap_to_on_both_clocks(max(39, int(total_frames)))
+        try:
+            v_res = await _comfy_upload_bytes(
+                request.app,
+                file_bytes,
+                vid_out_name,
+                subfolder=UPLOADS_SUBFOLDER,
+                content_type=vid_ctype,
+            )
+            v_saved_name = str(v_res.get("name") or vid_out_name)
+            v_saved_sub = str(v_res.get("subfolder") if "subfolder" in v_res else UPLOADS_SUBFOLDER).strip("/")
+            v_saved_type = str(v_res.get("type") or "input")
+            vid_ref = f"{v_saved_sub}/{v_saved_name}" if v_saved_sub else v_saved_name
+            store.record_upload(vid_ref, sid)
+            take_id = f"import_{secrets.token_hex(6)}"
+            vid_desc = {"filename": v_saved_name, "subfolder": v_saved_sub, "type": v_saved_type}
+            store.record_take(
+                {
+                    "take_id": take_id,
+                    "kind": "imported",
+                    "prompt_id": f"import_{secrets.token_hex(6)}",
+                    "baseline_prompt_id": None,
+                    "client_id": "",
+                    "session_id": sid,
+                    "status": "completed",
+                    "mode": "imported_video",
+                    "director_mode": "portal_path",
+                    "length": snapped_len,
+                    "source_frames": int(total_frames),
+                    "has_audio": bool(has_audio),
+                    "width": w,
+                    "height": h,
+                    "seed": 0,
+                    "params": {"video_ref": vid_ref, "first_frame": ref, "length": snapped_len, "width": w, "height": h},
+                    "clean_video": vid_desc,
+                    "hud_video": None,
+                    "baseline_video": None,
+                    "created_at": time.time(),
+                    "updated_at": time.time(),
+                }
+            )
+            resp_data.update(
+                {
+                    "video_ref": vid_ref,
+                    "video_filename": v_saved_name,
+                    "video_subfolder": v_saved_sub,
+                    "video_type": v_saved_type,
+                    "video_view_url": _view_url(v_saved_name, v_saved_sub, v_saved_type),
+                    "imported_take_id": take_id,
+                    "total_frames": int(total_frames),
+                    "snapped_length": snapped_len,
+                    "has_audio": bool(has_audio),
+                }
+            )
+        except Exception as exc:
+            log.warning("Could not register uploaded MP4 as imported take (%s): %s", filename, exc)
+
+    return web.json_response(resp_data)
 
 
 async def _read_json_body(request: web.Request) -> dict[str, Any]:
@@ -1562,6 +1666,7 @@ async def handle_redub(request: web.Request) -> web.Response:
     sid: str = request["director_sid"]
     store: SessionStore = request.app["store"]
     take: dict[str, Any] | None = None
+    src_has_audio: bool | None = None
     video_ref = str(body.get("video_ref") or "").strip()
 
     if not video_ref or body.get("video") or body.get("take_id"):
@@ -1571,6 +1676,9 @@ async def handle_redub(request: web.Request) -> web.Response:
             return web.json_response({"ok": False, "error": str(exc)}, status=404)
         except ValueError as exc:
             return web.json_response({"ok": False, "error": str(exc)}, status=400)
+
+        if take and "has_audio" in take:
+            src_has_audio = bool(take["has_audio"])
 
         if src_desc["type"] == "input":
             video_ref = f"{src_desc['subfolder']}/{src_desc['filename']}" if src_desc["subfolder"] else src_desc["filename"]
@@ -1582,6 +1690,7 @@ async def handle_redub(request: web.Request) -> web.Response:
                     {"ok": False, "error": f"Unable to fetch source video ({status})"},
                     status=err_status,
                 )
+            src_has_audio = _video_bytes_has_audio(raw_bytes, src_desc["filename"])
             up_name = _sanitize_filename(src_desc["filename"], default_ext=".mp4")
             try:
                 up = await _comfy_upload_bytes(
@@ -1604,10 +1713,20 @@ async def handle_redub(request: web.Request) -> web.Response:
         "length": body.get("length") or (take or {}).get("length") or take_params.get("length") or 90,
         "width": body.get("width") or (take or {}).get("width") or take_params.get("width") or 1344,
         "height": body.get("height") or (take or {}).get("height") or take_params.get("height") or 768,
-        "denoise": body.get("denoise", 1.0),
         "steps": body.get("steps", 6),
-        "use_distill": bool(body.get("use_distill", False)),
     }
+    if body.get("redub_mode"):
+        compile_params["redub_mode"] = str(body["redub_mode"])
+    if "denoise" in body and body["denoise"] is not None:
+        compile_params["denoise"] = body["denoise"]
+    if "use_distill" in body and body["use_distill"] is not None:
+        compile_params["use_distill"] = bool(body["use_distill"])
+    if body.get("sigmas"):
+        compile_params["sigmas"] = str(body["sigmas"])
+    if src_has_audio is False:
+        compile_params["redub_mode"] = "fresh"
+        compile_params["denoise"] = 1.0
+        compile_params.pop("use_distill", None)
     if "seed" in body:
         compile_params["seed"] = body["seed"]
     elif take and take.get("seed") is not None:
@@ -1693,6 +1812,7 @@ async def handle_redub(request: web.Request) -> web.Response:
             "prompt_id": prompt_id,
             "client_id": client_id,
             "mode": compiled["mode"],
+            "redub_mode": compiled["redub_mode"],
             "video_ref": compiled["video_ref"],
             "length": compiled["length"],
             "width": compiled["width"],

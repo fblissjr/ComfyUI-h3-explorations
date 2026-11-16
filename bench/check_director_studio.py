@@ -639,12 +639,13 @@ def check_compiler_contracts() -> str:
         {
             "video_ref": "h3_spatial_director/shot1.mp4",
             "length": 90,
-            "denoise": 1.0,
+            "redub_mode": "fresh",
             "portal_cues": [{"frame": 14, "preset": "slam", "gain": 1.0}],
         },
         object_info=MOCK_OBJECT_INFO_WITH_KJ,
     )
     g_rd1 = res_rd1["graph"]
+    assert res_rd1["redub_mode"] == "fresh" and res_rd1["use_distill"] is True
     assert g_rd1["90"]["class_type"] == "LoadVideo" and g_rd1["90"]["inputs"]["file"] == "h3_spatial_director/shot1.mp4"
     assert g_rd1["93"]["class_type"] == "VAEEncode"
     assert g_rd1["94"]["class_type"] == "LTXVSeparateAVLatent"
@@ -652,6 +653,9 @@ def check_compiler_contracts() -> str:
     assert g_rd1["70"]["class_type"] == "MiniMaxH3SoundCues" and "15: slam" in g_rd1["70"]["inputs"]["cues"]
     assert g_rd1["88"]["class_type"] == "MiniMaxH3FrozenVideoCache"
     assert g_rd1["83"]["class_type"] == "MiniMaxH3AudioRefineMask"
+    assert g_rd1["60"]["class_type"] == "ManualSigmas" and "84" not in g_rd1
+    assert g_rd1["87"]["inputs"]["sigmas"] == ["60", 0]
+    assert g_rd1["85"]["inputs"]["sampler_name"] == "lcm" and "18" in g_rd1
     assert g_rd1["162"]["inputs"]["images"] == ["92", 0] and g_rd1["162"]["inputs"]["save_output"] is False
     assert g_rd1["13"]["inputs"]["images"] == ["92", 0] and g_rd1["13"]["inputs"]["save_output"] is False
 
@@ -660,16 +664,29 @@ def check_compiler_contracts() -> str:
             "video_ref": "h3_spatial_director/shot1.mp4",
             "length": 141,
             "source_length": 90,
-            "denoise": 0.55,
-            "use_distill": True,
+            "redub_mode": "polish",
             "events_json": base_events,
         },
         object_info=MOCK_OBJECT_INFO_WITH_KJ,
     )
     g_rd2 = res_rd2["graph"]
+    assert res_rd2["redub_mode"] == "polish" and res_rd2["use_distill"] is False
+    assert g_rd2["94a"]["class_type"] == "LTXVSeparateAVLatent"
+    assert g_rd2["94b"]["class_type"] == "LTXVConcatAVLatent"
     assert g_rd2["94"]["class_type"] == "MiniMaxH3EncodeTrack"
-    assert "18" in g_rd2 and g_rd2["85"]["inputs"]["sampler_name"] == "lcm"
-    assert float(g_rd2["84"]["inputs"]["denoise"]) < 0.6
+    assert g_rd2["95"]["inputs"]["video_latent"] == ["94b", 0]
+    assert "18" not in g_rd2 and "60" not in g_rd2
+    assert g_rd2["84"]["class_type"] == "BasicScheduler" and g_rd2["87"]["inputs"]["sigmas"] == ["84", 0]
+    assert g_rd2["85"]["inputs"]["sampler_name"] == "euler"
+    assert abs(float(g_rd2["84"]["inputs"]["denoise"]) - 0.5) < 1e-6
+
+    res_lf = compiler_mod.compile_spatial_take(
+        {**common_base, "mode": "i2v_portal", "last_frame": "h3_spatial_director/shot_end.png"},
+        object_info=MOCK_OBJECT_INFO_WITH_KJ,
+    )
+    g_lf = res_lf["graph"]
+    assert g_lf["16"]["class_type"] == "LoadImage" and g_lf["16"]["inputs"]["image"] == "h3_spatial_director/shot_end.png"
+    assert g_lf["5"]["inputs"]["last_frame"] == ["16", 0] and g_lf["131"]["inputs"]["last_frame"] == ["16", 0]
 
     return "all 4 spatial modes, dual VHS save_output=False, dynamic '165' preview_fps=7/omission, '51'/'70' omission, audio_refine + redub, baseline opt-in, and pika_t2i still verified"
 
@@ -1020,35 +1037,51 @@ def check_server_routes_and_escalate() -> str:
                         json={
                             "video_ref": "h3_spatial_director/shot_src.mp4",
                             "length": 90,
-                            "denoise": 1.0,
+                            "redub_mode": "polish",
                             "dry_run": True,
                         },
                     )
                     assert r_rd_dry.status == 200, await r_rd_dry.text()
                     rd_dry = await r_rd_dry.json()
-                    assert rd_dry["ok"] is True and rd_dry["dry_run"] is True
+                    assert rd_dry["ok"] is True and rd_dry["dry_run"] is True and rd_dry["redub_mode"] == "polish"
                     assert rd_dry["graph"]["88"]["class_type"] == "MiniMaxH3FrozenVideoCache"
+                    assert rd_dry["graph"]["84"]["class_type"] == "BasicScheduler"
 
                     r_rd_live = await client.post(
                         "/api/redub",
                         json={
                             "video": {"filename": "shot_src.mp4", "subfolder": "", "type": "temp"},
                             "length": 90,
-                            "denoise": 1.0,
-                            "cues_text": "12:1.0:slam",
+                            "redub_mode": "polish",
+                            "cues_text": "12: slam @1.0",
                         },
                     )
                     assert r_rd_live.status == 200, await r_rd_live.text()
                     rd_live = await r_rd_live.json()
-                    assert rd_live["ok"] is True and rd_live["kind"] == "redub", rd_live
+                    # Silent shot_src.mp4 auto-promotes Polish -> Fresh (ManualSigmas + LTXVSeparateAVLatent)
+                    assert rd_live["ok"] is True and rd_live["kind"] == "redub" and rd_live["redub_mode"] == "fresh", rd_live
                     assert rd_live["prompt_id"] == "stub_redub_pid_1"
                     assert rd_live["video_ref"].startswith("h3_spatial_director/shot_src_") and rd_live["video_ref"].endswith(".mp4"), rd_live
                     assert rd_live["video_ref"] in stored_uploads, stored_uploads.keys()
                     assert len(submitted_prompts) == 1
 
+                    # 8. MP4 upload registers both Frame 0 anchor and playable "imported" take
+                    from aiohttp import FormData
+
+                    mp4_bytes = stored_uploads["shot_src.mp4"]
+                    fd = FormData()
+                    fd.add_field("file", mp4_bytes, filename="demo_drop.mp4", content_type="video/mp4")
+                    r_up_mp4 = await client.post("/api/upload", data=fd)
+                    assert r_up_mp4.status == 200, await r_up_mp4.text()
+                    up_mp4 = await r_up_mp4.json()
+                    assert up_mp4["ok"] is True and up_mp4["source_kind"] == "video_frame0"
+                    assert up_mp4.get("imported_take_id") and up_mp4.get("video_ref") in stored_uploads, up_mp4
+                    assert up_mp4.get("total_frames") == 3 and up_mp4.get("has_audio") is False, up_mp4
+
                     r_takes = await client.get("/api/takes")
                     takes_doc = await r_takes.json()
                     assert any(t.get("take_id") == rd_live["take_id"] and t.get("kind") == "redub" for t in takes_doc["takes"])
+                    assert any(t.get("take_id") == up_mp4["imported_take_id"] and t.get("kind") == "imported" for t in takes_doc["takes"])
 
     asyncio.run(_run())
     return "server CSP/Host guard, schema capabilities, /api/segment, /api/extract_frame, /api/redub, /api/escalate on_both_clocks + 3f cues, and /api/compile verified"
@@ -1728,6 +1761,34 @@ async def _run_cdp_browser(director_url: str, anchor_png: Path) -> str:
                     await js("document.getElementById('chk-audio-refine')?.click()")
                     ar_req_off = await _capture_render_payload()
                     assert ar_req_off.get("audio_refine") is False, f"expected audio_refine=False after unchecking #chk-audio-refine, got {ar_req_off.get('audio_refine')}"
+
+                    # Verify #btn-stage-mute, #sam-refine-bar, and #redub-mode-select controls
+                    ui_controls = await js(
+                        """(() => {
+                          const muteBtn = document.getElementById('btn-stage-mute');
+                          const beforeMute = muteBtn ? muteBtn.textContent.trim() : '';
+                          muteBtn?.click();
+                          const afterMute = muteBtn ? muteBtn.textContent.trim() : '';
+                          muteBtn?.click();
+                          const samBar = document.getElementById('sam-refine-bar');
+                          const pick = document.getElementById('btn-sam-pick');
+                          pick?.click();
+                          const samBarVisible = Boolean(samBar && !samBar.classList.contains('hidden'));
+                          const cardRect = document.getElementById('portal-card')?.getBoundingClientRect();
+                          pick?.click();
+                          const rdSel = document.getElementById('redub-mode-select');
+                          return {
+                            beforeMute,
+                            afterMute,
+                            samBarVisible,
+                            cardInBounds: Boolean(cardRect && cardRect.right <= 1280 && cardRect.bottom <= 800),
+                            redubOpts: rdSel ? [...rdSel.options].map(o => o.value) : [],
+                          };
+                        })()"""
+                    )
+                    assert ui_controls["beforeMute"] != ui_controls["afterMute"], ui_controls
+                    assert ui_controls["samBarVisible"] is True and ui_controls["cardInBounds"] is True, ui_controls
+                    assert ui_controls["redubOpts"] == ["polish", "fresh"], ui_controls
 
                     # POST /api/compile from page using edited payload -> emits "165" ModelPreviewOverrideKJ
                     compile_res = await js(

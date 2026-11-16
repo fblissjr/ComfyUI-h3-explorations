@@ -28,6 +28,7 @@ export class ABCompareController {
     this.splitX = 0.5;
     this.dragging = false;
     this.hudMode = false; // false = Clean (Node 162), true = HUD (Node 13)
+    this.audioSource = "B"; // "B" | "A" | "mute"
     this.baselineTake = null;
     this.directedTake = null;
     this.metrics = null;
@@ -115,8 +116,85 @@ export class ABCompareController {
   toggle(forceState) {
     this.active = typeof forceState === "boolean" ? forceState : !this.active;
     this._syncSources();
+    if (!this.active) {
+      this.syncPlayback({ playing: false, stageMuted: true, loop: true });
+    }
     this.onChange();
     return this.active;
+  }
+
+  cycleAudioSource() {
+    const order = ["B", "A", "mute"];
+    const idx = order.indexOf(this.audioSource);
+    this.audioSource = order[(idx + 1) % order.length];
+    this.onChange();
+    return this.audioSource;
+  }
+
+  getAudioLabel() {
+    if (this.audioSource === "A") return "Audio: A (Original)";
+    if (this.audioSource === "mute") return "Audio: Muted";
+    return "Audio: B (Directed)";
+  }
+
+  getMasterVideo() {
+    if (!this.active) return null;
+    if (this.audioSource === "A" && this._videoA && this._videoA.readyState >= 2) {
+      return this._videoA;
+    }
+    if (this._videoB && this._videoB.readyState >= 2) return this._videoB;
+    if (this._videoA && this._videoA.readyState >= 2) return this._videoA;
+    return null;
+  }
+
+  getMasterProgress() {
+    const v = this.getMasterVideo();
+    if (!v || !Number.isFinite(v.duration) || v.duration <= 0) return null;
+    return {
+      progress: Math.max(0, Math.min(1, v.currentTime / v.duration)),
+      ended: Boolean(v.ended),
+      paused: Boolean(v.paused),
+      audible: Boolean(!v.muted && !v.paused),
+    };
+  }
+
+  syncPlayback({ playing = false, stageMuted = false, loop = true } = {}) {
+    const va = this._videoA;
+    const vb = this._videoB;
+    const slot = !this.active || !playing || stageMuted ? "mute" : this.audioSource;
+    if (va) {
+      va.loop = Boolean(loop);
+      va.muted = slot !== "A";
+    }
+    if (vb) {
+      vb.loop = Boolean(loop);
+      vb.muted = slot !== "B";
+    }
+    if (!this.active || !playing) {
+      for (const v of [va, vb]) {
+        if (v && !v.paused) {
+          try { v.pause(); } catch {}
+        }
+      }
+      return;
+    }
+    const master = this.getMasterVideo();
+    const follower = master === vb ? va : vb;
+    if (master && follower && follower.readyState >= 2 && Number.isFinite(master.duration) && master.duration > 0 && Number.isFinite(follower.duration) && follower.duration > 0) {
+      const mFrac = master.currentTime / master.duration;
+      const target = mFrac * follower.duration;
+      if (Math.abs(follower.currentTime - target) > 0.08) {
+        try { follower.currentTime = target; } catch {}
+      }
+    }
+    for (const v of [va, vb]) {
+      if (v && v.readyState >= 2 && v.paused) {
+        v.play().catch(() => {
+          v.muted = true;
+          v.play().catch(() => {});
+        });
+      }
+    }
   }
 
   setHudMode(enabled) {

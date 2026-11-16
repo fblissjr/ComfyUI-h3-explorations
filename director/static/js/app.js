@@ -65,6 +65,12 @@ const state = {
   excludeMaskRef: "",
   includeMaskImg: null,
   excludeMaskImg: null,
+  samPosPoints: [],
+  samNegPoints: [],
+  stageMuted: false,
+  lastFrameRef: "",
+  lastFrameName: "",
+  shotHistory: [],
   lanesOpen: false,
   streamsManualOverride: false,
   unlinkPortalRy: false,
@@ -812,8 +818,11 @@ function syncContextualCard() {
     rBtn.classList.toggle("active", activeRole);
     rBtn.setAttribute("aria-pressed", activeRole ? "true" : "false");
   }
-  const hasAnySamMask = Boolean(state.spriteMaskRef || state.excludeMaskRef || state.includeMaskRef);
-  $("#btn-sam-clear")?.classList.toggle("hidden", !hasAnySamMask);
+  const hasAnySamMask = Boolean(
+    state.samPicking || state.samPosPoints.length || state.samNegPoints.length || state.spriteMaskRef || state.excludeMaskRef || state.includeMaskRef
+  );
+  $("#btn-sam-clear")?.classList.toggle("hidden", !Boolean(state.spriteMaskRef || state.excludeMaskRef || state.includeMaskRef || state.samPosPoints.length || state.samNegPoints.length));
+  $("#sam-refine-bar")?.classList.toggle("hidden", !hasAnySamMask);
 
   const coordBadge = $("#synth-latency-badge");
   if (coordBadge) {
@@ -972,6 +981,32 @@ function syncAudioGuardAndSequencer() {
     chainBtn.textContent = `Chain f${Math.max(0, Math.round(state.frame))}→Shot`;
   }
 
+  const muteBtn = $("#btn-stage-mute");
+  if (muteBtn) {
+    muteBtn.classList.toggle("active", !state.stageMuted);
+    muteBtn.setAttribute("aria-pressed", state.stageMuted ? "true" : "false");
+    muteBtn.textContent = state.stageMuted ? "Sound: Muted" : "Sound: On";
+  }
+
+  const abAudBtn = $("#btn-ab-audio-toggle");
+  if (abAudBtn && abCompare) {
+    abAudBtn.textContent = abCompare.getAudioLabel();
+  }
+
+  const bridgeBtn = $("#btn-shot-bridge");
+  if (bridgeBtn) {
+    const hasLast = Boolean(state.lastFrameRef);
+    const shotNum = state.shotHistory.length + 1;
+    const showBridge = hasLast || state.shotHistory.length > 0;
+    bridgeBtn.classList.toggle("hidden", !showBridge);
+    if (showBridge) {
+      bridgeBtn.classList.toggle("active", hasLast);
+      bridgeBtn.textContent = hasLast
+        ? `Last: ${state.lastFrameName || "frame"} ×`
+        : `Shot ${shotNum} · ↩ Shot ${shotNum - 1}`;
+    }
+  }
+
   const tray = $("#sequencer-tray");
   const stageEl = $("#stageContainer");
   const lanesBtn = $("#btn-lanes-toggle");
@@ -1022,7 +1057,21 @@ async function handleAnchorUpload(file) {
       width: data.width,
       height: data.height,
     });
-    showToast(`Anchored ${file.name}`, "ok");
+    if (data.imported_take_id) {
+      const snappedLen = Number(data.snapped_length || 0);
+      if (snappedLen > 0 && state.lengths.includes(snappedLen) && snappedLen !== state.length) {
+        state.length = snappedLen;
+        state.frame = clamp(state.frame, 0, state.length - 1);
+      }
+      await refreshTakes();
+      const impTake = state.takes.find((t) => t.take_id === data.imported_take_id);
+      if (impTake) {
+        loadTakeIntoStage(impTake);
+      }
+      showToast(`Imported video + Frame 0 (${data.total_frames || "?"}f)`, "ok");
+    } else {
+      showToast(`Anchored ${file.name}`, "ok");
+    }
   } catch (err) {
     showToast(`Upload failed: ${err.message}`, "err");
   }
@@ -1033,6 +1082,12 @@ function loadAnchorImageUrl(url, meta = {}) {
     const img = new Image();
     img.onload = () => {
       const prevRef = state.anchorRef;
+      if (state.activeVideoEl) {
+        try {
+          state.activeVideoEl.pause();
+          state.activeVideoEl.muted = true;
+        } catch {}
+      }
       state.anchorMedia = img;
       state.anchorRef = meta.ref || state.anchorRef;
       state.anchorName = meta.name || state.anchorName || "Anchor Still";
@@ -1045,6 +1100,10 @@ function loadAnchorImageUrl(url, meta = {}) {
         state.excludeMaskRef = "";
         state.includeMaskImg = null;
         state.excludeMaskImg = null;
+        state.samPosPoints = [];
+        state.samNegPoints = [];
+        const samIn = $("#sam-prompt-input");
+        if (samIn) samIn.value = "";
         state.samPicking = false;
       }
       $("#empty-anchor-card")?.classList.add("hidden");
@@ -1215,15 +1274,23 @@ function clearSamMasks() {
   state.excludeMaskRef = "";
   state.includeMaskImg = null;
   state.excludeMaskImg = null;
+  state.samPosPoints = [];
+  state.samNegPoints = [];
+  const samIn = $("#sam-prompt-input");
+  if (samIn) samIn.value = "";
   syncAllUI();
   schedulePreflight();
 }
 
-async function runSamSegmentAt(nx, ny, opts = {}) {
+async function executeSamSegmentation() {
   if (!state.anchorRef || state.samSegmenting) return;
+  const promptText = ($("#sam-prompt-input")?.value || "").trim();
+  if (!state.samPosPoints.length && !state.samNegPoints.length && !promptText) {
+    showToast("Click subject on stage or enter a SAM text prompt.", "info", 2000);
+    return;
+  }
   const role = state.samRole || "cutout";
   state.samSegmenting = true;
-  state.samPicking = false;
   syncAllUI();
   showToast(`Segmenting subject (${role})…`, "info");
   try {
@@ -1232,8 +1299,10 @@ async function runSamSegmentAt(nx, ny, opts = {}) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         source_ref: state.anchorRef,
-        positive_points: [{ nx, ny }],
-        negative_points: opts.negative ? [{ nx, ny }] : [],
+        positive_points: state.samPosPoints,
+        negative_points: state.samNegPoints,
+        prompt: promptText,
+        combine_text_and_points: Boolean(promptText && state.samPosPoints.length),
         role,
       }),
     });
@@ -1255,7 +1324,7 @@ async function runSamSegmentAt(nx, ny, opts = {}) {
       }
     }
     const pct = Math.round(Number(data.coverage || 0) * 100);
-    showToast(`Segmented ${data.role} via ${data.engine || "sam"} (${pct}%)`, "ok");
+    showToast(`Segmented ${data.role} via ${data.engine || "sam"} (${pct}%) · +${state.samPosPoints.length}/−${state.samNegPoints.length}`, "ok");
     syncAllUI();
     schedulePreflight();
   } catch (err) {
@@ -1264,6 +1333,18 @@ async function runSamSegmentAt(nx, ny, opts = {}) {
     state.samSegmenting = false;
     syncAllUI();
   }
+}
+
+async function runSamSegmentAt(nx, ny, opts = {}) {
+  if (!state.anchorRef || state.samSegmenting) return;
+  const pt = { nx: Number(nx.toFixed(4)), ny: Number(ny.toFixed(4)) };
+  if (opts.negative) {
+    state.samNegPoints = [...state.samNegPoints, pt].slice(-12);
+  } else {
+    state.samPosPoints = [...state.samPosPoints, pt].slice(-12);
+  }
+  stage?.render();
+  await executeSamSegmentation();
 }
 
 // ---------------------------------------------------------------------------
@@ -1310,6 +1391,7 @@ function buildCompilePayload() {
     length: state.length,
     seed: Number($("#seed-input")?.value || state.seed),
     source_ref: state.anchorRef,
+    last_frame: state.lastFrameRef || "",
     sprite_ref: state.spriteCutout?.ref || "",
     sprite_mask_ref: state.spriteMaskRef || "",
     include_mask_ref: state.includeMaskRef || "",
@@ -1472,6 +1554,14 @@ function renderTakesList() {
       chainBtn.addEventListener("click", () => chainTakeFrameToAnchor(take, -1, chainBtn));
       actions.appendChild(chainBtn);
 
+      const pinLastBtn = document.createElement("button");
+      pinLastBtn.type = "button";
+      pinLastBtn.className = "btn-outline-sm";
+      pinLastBtn.textContent = "Pin → Last";
+      pinLastBtn.title = "Extract last frame as destination last_frame bridge (i2v_portal node 16)";
+      pinLastBtn.addEventListener("click", () => chainTakeFrameToAnchor(take, -1, pinLastBtn, { asLastFrame: true }));
+      actions.appendChild(pinLastBtn);
+
       const redubBtn = document.createElement("button");
       redubBtn.type = "button";
       redubBtn.className = "btn-outline-sm";
@@ -1513,6 +1603,7 @@ function loadTakeIntoStage(take) {
     v.removeEventListener("loadeddata", onReady);
     state.livePreview = null;
     wsClient?.clearPreviewMedia();
+    syncMediaPlayback();
     syncAllUI();
   };
   v.addEventListener("loadeddata", onReady);
@@ -1520,6 +1611,7 @@ function loadTakeIntoStage(take) {
   state.activeVideoUrl = url;
   v.src = url;
   try { v.load(); } catch {}
+  syncMediaPlayback();
 
   abCompare?.setTakes({
     directedTake: take,
@@ -1527,8 +1619,9 @@ function loadTakeIntoStage(take) {
   });
 }
 
-async function chainTakeFrameToAnchor(take, frameIndex = -1, btn = null) {
+async function chainTakeFrameToAnchor(take, frameIndex = -1, btn = null, opts = {}) {
   if (!take?.take_id) return;
+  const asLastFrame = Boolean(opts.asLastFrame);
   if (btn) btn.disabled = true;
   try {
     const res = await apiJson("/api/extract_frame", {
@@ -1538,20 +1631,47 @@ async function chainTakeFrameToAnchor(take, frameIndex = -1, btn = null) {
     });
     const url = res.view_url || videoItemViewUrl(res);
     if (!url) throw new Error("Extracted frame returned no view URL");
-    await loadAnchorImageUrl(url, {
-      ref: res.ref,
-      name: res.filename || `shot_f${res.frame_index}.png`,
-    });
-    const hasI2V = state.workflows.some((w) => w.id === "i2v_portal" && w.available !== false);
-    if (hasI2V) {
-      state.workflowId = "i2v_portal";
-      const wfSel = $("#engine-workflow");
-      if (wfSel) wfSel.value = "i2v_portal";
+    if (asLastFrame) {
+      state.lastFrameRef = res.ref || "";
+      state.lastFrameName = res.filename || `shot_f${res.frame_index}.png`;
+      const hasI2V = state.workflows.some((w) => w.id === "i2v_portal" && w.available !== false);
+      if (hasI2V) {
+        state.workflowId = "i2v_portal";
+        const wfSel = $("#engine-workflow");
+        if (wfSel) wfSel.value = "i2v_portal";
+      }
+      syncAllUI();
+      schedulePreflight();
+      showToast(`Pinned f${res.frame_index} as destination Last Frame`, "ok");
+    } else {
+      if (state.anchorRef) {
+        state.shotHistory.push({
+          anchorRef: state.anchorRef,
+          anchorName: state.anchorName,
+          anchorUrl: state.anchorMedia?.src || "",
+          lastFrameRef: state.lastFrameRef,
+          lastFrameName: state.lastFrameName,
+          workflowId: state.workflowId,
+        });
+        if (state.shotHistory.length > 8) state.shotHistory.shift();
+      }
+      state.lastFrameRef = "";
+      state.lastFrameName = "";
+      await loadAnchorImageUrl(url, {
+        ref: res.ref,
+        name: res.filename || `shot_f${res.frame_index}.png`,
+      });
+      const hasI2V = state.workflows.some((w) => w.id === "i2v_portal" && w.available !== false);
+      if (hasI2V) {
+        state.workflowId = "i2v_portal";
+        const wfSel = $("#engine-workflow");
+        if (wfSel) wfSel.value = "i2v_portal";
+      }
+      syncAllUI();
+      schedulePreflight();
+      const maxIdx = Math.max(0, Number(res.total_frames || 1) - 1);
+      showToast(`Chained f${res.frame_index}/${maxIdx} → Shot ${state.shotHistory.length + 1} anchor`, "ok");
     }
-    syncAllUI();
-    schedulePreflight();
-    const maxIdx = Math.max(0, Number(res.total_frames || 1) - 1);
-    showToast(`Chained f${res.frame_index}/${maxIdx} → Shot N+1 anchor (${state.workflowId || "anchor"})`, "ok");
   } catch (err) {
     showToast(`Frame chain failed: ${err.message}`, "err");
   } finally {
@@ -1563,28 +1683,58 @@ async function redubTakeAudio(take, btn = null) {
   if (!take?.take_id) return;
   if (btn) btn.disabled = true;
   try {
+    const redubMode = $("#redub-mode-select")?.value || "polish";
+    const customAudioPrompt = ($("#redub-prompt-input")?.value || "").trim();
     const payload = {
       take_id: take.take_id,
-      denoise: 1.0,
+      redub_mode: redubMode,
       steps: 6,
       source_length: Number(state.length),
       events_json: JSON.stringify(state.doc),
       client_id: wsClient.clientId,
     };
     if (state.seedLocked) payload.seed = Number(state.seed);
-    if (state.targetPrompt) payload.audio_prompt = state.targetPrompt;
+    if (customAudioPrompt) payload.audio_prompt = customAudioPrompt;
+    else if (state.targetPrompt) payload.audio_prompt = state.targetPrompt;
     const res = await apiJson("/api/redub", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
     state.activeRenderPromptId = res.prompt_id || "";
-    showToast(`Queued 2nd-pass audio re-dub (${res.take_id || "queued"})`, "ok");
+    const modeTag = res.redub_mode === "fresh" ? "Fresh 1.0x" : "Polish 0.5x";
+    showToast(`Queued ${modeTag} audio re-dub (${res.take_id || "queued"})`, "ok");
     await refreshTakes();
   } catch (err) {
     showToast(`Audio re-dub failed: ${err.message}`, "err");
   } finally {
     if (btn) btn.disabled = false;
+  }
+}
+
+function syncMediaPlayback() {
+  foley.setMuted(Boolean(state.stageMuted));
+  if (abCompare?.active) {
+    if (state.activeVideoEl && !state.activeVideoEl.paused) {
+      try { state.activeVideoEl.pause(); } catch {}
+    }
+    if (state.activeVideoEl) state.activeVideoEl.muted = true;
+    abCompare.syncPlayback({ playing: state.playing, stageMuted: state.stageMuted, loop: state.loop });
+    return;
+  }
+  const v = state.activeVideoEl;
+  if (!v) return;
+  v.loop = Boolean(state.loop);
+  v.muted = Boolean(state.stageMuted || !state.playing);
+  if (state.playing && v.readyState >= 2) {
+    if (v.paused) {
+      v.play().catch(() => {
+        v.muted = true;
+        v.play().catch(() => {});
+      });
+    }
+  } else if (!v.paused) {
+    try { v.pause(); } catch {}
   }
 }
 
@@ -1599,6 +1749,7 @@ function openABCompareForTake(take = null) {
   const active = abCompare.toggle();
   $("#btn-compare-ab")?.classList.toggle("active", active);
   $("#ab-bar")?.classList.toggle("hidden", !active);
+  syncMediaPlayback();
   if (active && target) {
     abCompare.fetchMetrics({
       events_json: JSON.stringify(state.doc),
@@ -1608,6 +1759,7 @@ function openABCompareForTake(take = null) {
       height: state.doc.height,
     });
   }
+  syncAudioGuardAndSequencer();
   stage?.render();
 }
 
@@ -1620,6 +1772,54 @@ function stepPlayback(ts) {
     rafHandle = 0;
     return;
   }
+
+  const abMaster = abCompare?.active ? abCompare.getMasterProgress() : null;
+  const stageVideo = (!abCompare?.active && state.activeVideoEl && state.activeVideoEl.readyState >= 2 && Number.isFinite(state.activeVideoEl.duration) && state.activeVideoEl.duration > 0)
+    ? state.activeVideoEl
+    : null;
+
+  if (abMaster && !abMaster.paused) {
+    if (!state.loop && abMaster.ended) {
+      state.frame = Math.max(0, state.length - 1);
+      state.playing = false;
+      syncMediaPlayback();
+      syncAllUI();
+      rafHandle = 0;
+      return;
+    }
+    const nextFrame = clamp(Math.round(abMaster.progress * Math.max(1, state.length - 1)), 0, Math.max(0, state.length - 1));
+    if (nextFrame !== state.frame) {
+      state.frame = nextFrame;
+      syncAllUI();
+    } else {
+      stage?.render();
+    }
+    abCompare.syncPlayback({ playing: state.playing, stageMuted: state.stageMuted, loop: state.loop });
+    rafHandle = requestAnimationFrame(stepPlayback);
+    return;
+  }
+
+  if (stageVideo && !stageVideo.paused) {
+    if (!state.loop && stageVideo.ended) {
+      state.frame = Math.max(0, state.length - 1);
+      state.playing = false;
+      syncMediaPlayback();
+      syncAllUI();
+      rafHandle = 0;
+      return;
+    }
+    const frac = Math.max(0, Math.min(1, stageVideo.currentTime / stageVideo.duration));
+    const nextFrame = clamp(Math.round(frac * Math.max(1, state.length - 1)), 0, Math.max(0, state.length - 1));
+    if (nextFrame !== state.frame) {
+      state.frame = nextFrame;
+      syncAllUI();
+    } else {
+      stage?.render();
+    }
+    rafHandle = requestAnimationFrame(stepPlayback);
+    return;
+  }
+
   if (!lastRafTime) lastRafTime = ts;
   const dt = (ts - lastRafTime) / 1000;
   const frameStep = Math.floor(dt * FPS);
@@ -1633,17 +1833,21 @@ function stepPlayback(ts) {
       } else {
         nextFrame = state.length - 1;
         state.playing = false;
+        syncMediaPlayback();
       }
     }
     state.frame = nextFrame;
 
-    // Trigger 3f foley cues whose frame was reached
-    for (const c of allActiveCues()) {
-      const crossed = nextFrame >= prevFrame
-        ? (c.frame > prevFrame && c.frame <= nextFrame)
-        : (c.frame > prevFrame || c.frame <= nextFrame);
-      if (crossed) {
-        foley.playCue(c.preset, c.gain, state.soundPresetMap[c.preset] || 0.2);
+    // Trigger 3f foley cues only when not superseded by unmuted rendered video audio
+    const audibleVideoPlaying = Boolean((abCompare?.active && abMaster?.audible) || (stageVideo && !state.stageMuted && !stageVideo.paused));
+    if (!state.stageMuted && !audibleVideoPlaying) {
+      for (const c of allActiveCues()) {
+        const crossed = nextFrame >= prevFrame
+          ? (c.frame > prevFrame && c.frame <= nextFrame)
+          : (c.frame > prevFrame || c.frame <= nextFrame);
+        if (crossed) {
+          foley.playCue(c.preset, c.gain, state.soundPresetMap[c.preset] || 0.2);
+        }
       }
     }
     syncAllUI();
@@ -1654,6 +1858,7 @@ function stepPlayback(ts) {
 function togglePlayback() {
   foley.unlock();
   state.playing = !state.playing;
+  syncMediaPlayback();
   if (state.playing) {
     lastRafTime = 0;
     rafHandle = requestAnimationFrame(stepPlayback);
@@ -1973,6 +2178,40 @@ function init() {
     });
   }
   $("#btn-sam-clear")?.addEventListener("click", () => clearSamMasks());
+  $("#btn-sam-run")?.addEventListener("click", () => executeSamSegmentation());
+  $("#sam-prompt-input")?.addEventListener("keydown", (ev) => {
+    if (ev.key === "Enter") {
+      ev.preventDefault();
+      executeSamSegmentation();
+    }
+  });
+  $("#btn-shot-bridge")?.addEventListener("click", async () => {
+    if (state.lastFrameRef) {
+      state.lastFrameRef = "";
+      state.lastFrameName = "";
+      syncAllUI();
+      schedulePreflight();
+      showToast("Cleared pinned Last Frame", "info", 1500);
+      return;
+    }
+    const prev = state.shotHistory.pop();
+    if (!prev) return;
+    state.lastFrameRef = prev.lastFrameRef || "";
+    state.lastFrameName = prev.lastFrameName || "";
+    if (prev.workflowId) {
+      state.workflowId = prev.workflowId;
+      const wfSel = $("#engine-workflow");
+      if (wfSel) wfSel.value = prev.workflowId;
+    }
+    if (prev.anchorUrl) {
+      try {
+        await loadAnchorImageUrl(prev.anchorUrl, { ref: prev.anchorRef, name: prev.anchorName });
+      } catch {}
+    } else {
+      syncAllUI();
+    }
+    showToast(`Restored Shot ${state.shotHistory.length + 1}`, "ok", 1600);
+  });
   window.addEventListener("keydown", (ev) => {
     if (ev.key === "Escape" && state.samPicking) {
       state.samPicking = false;
@@ -2098,6 +2337,7 @@ function init() {
     state.loop = !state.loop;
     $("#btn-loop")?.classList.toggle("active", state.loop);
     $("#btn-loop")?.setAttribute("aria-pressed", state.loop ? "true" : "false");
+    syncMediaPlayback();
   });
   $("#btn-grid-toggle")?.addEventListener("click", () => {
     state.showPatchGrid = !state.showPatchGrid;
@@ -2112,6 +2352,11 @@ function init() {
     state.streamsManualOverride = true;
     syncAllUI();
     schedulePreflight();
+  });
+  $("#btn-stage-mute")?.addEventListener("click", () => {
+    state.stageMuted = !state.stageMuted;
+    syncMediaPlayback();
+    syncAudioGuardAndSequencer();
   });
   $("#btn-chain-frame")?.addEventListener("click", () => {
     if (state.activeStageTake) {
@@ -2374,6 +2619,11 @@ function init() {
   // A|B Compare & Export
   $("#btn-compare-ab")?.addEventListener("click", () => openABCompareForTake());
   $("#btn-ab-close")?.addEventListener("click", () => openABCompareForTake());
+  $("#btn-ab-audio-toggle")?.addEventListener("click", () => {
+    abCompare.cycleAudioSource();
+    syncMediaPlayback();
+    syncAudioGuardAndSequencer();
+  });
   $("#btn-ab-hud-toggle")?.addEventListener("click", () => abCompare.setHudMode(!abCompare.hudMode));
   $("#btn-export-clean")?.addEventListener("click", () => abCompare.exportTake("clean"));
   $("#btn-export-hud")?.addEventListener("click", () => abCompare.exportTake("hud"));
@@ -2404,6 +2654,12 @@ function init() {
     if (!ev.metaKey && !ev.ctrlKey && ev.key.toLowerCase() === "l") {
       ev.preventDefault();
       $("#btn-lanes-toggle")?.click();
+      return;
+    }
+
+    if (!ev.metaKey && !ev.ctrlKey && ev.key.toLowerCase() === "m") {
+      ev.preventDefault();
+      $("#btn-stage-mute")?.click();
       return;
     }
 

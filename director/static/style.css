@@ -1135,6 +1135,30 @@ body.light-studio {
   border-color: var(--ink-muted);
 }
 
+.sam-refine-bar {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.field-input-xs {
+  padding: 4px 7px;
+  font-size: 11px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.redub-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.redub-bar .field-select-sm {
+  flex: 0 0 auto;
+  width: auto;
+}
+
 .card-cta-row {
   display: flex;
   align-items: center;
