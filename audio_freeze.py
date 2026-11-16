@@ -428,6 +428,45 @@ def no_context_geometry(latent_t: int) -> dict:
 #: for a continuation that follows its context more than its motion reference; the reference-noise node
 #: cannot reach these rows, because masked rows read core's constant and not the payload it sets.
 CONTEXT_NOISE = 0.0
+CONTEXT_PROFILES = ("flat", "seam_taper")
+CONTEXT_PROFILE_DEFAULT = "flat"
+SEAM_LOCK_STEPS = 2
+
+
+def context_noise_schedule(
+    n_steps: int,
+    context_noise: float,
+    context_profile: str = CONTEXT_PROFILE_DEFAULT,
+) -> torch.Tensor:
+    """Return the per-step noise mask vector [n_steps] for copied context latent steps.
+
+    Supports ``"flat"`` (constant ``context_noise`` across all ``n_steps`` steps) and
+    clean-room ``"seam_taper"``, which ramps linearly from ``context_noise`` at step 0
+    down to ``0.0`` while locking the final ``SEAM_LOCK_STEPS = 2`` steps (``c-2``,
+    ``c-1``) at exact ``0.0`` to preserve H3's causal Video VAE chunk overlap
+    (``comfy/ldm/minimax/vae.py``, ``tokens_chunk_size=5``, ``token_overlap=2``, where
+    every dual-clock context ``39/90/141`` satisfies ``c % 5 == 2``). Clean-room
+    adaptation crediting ``ethanfel/ComfyUI-MiniMaxH3-Context-Loop`` (``Lumifel``
+    tapered ramp) and ``roycho87/geiru_context_suite``.
+    """
+    n_steps = int(n_steps)
+    if n_steps < 0:
+        raise ValueError(f"context steps n_steps must be >= 0, got {n_steps}")
+    noise_f = float(context_noise)
+    if not 0.0 <= noise_f <= 1.0:
+        raise ValueError(
+            f"context_noise {context_noise} is not between 0 (the context shown clean) and 1 (redrawn whole)"
+        )
+    if context_profile not in CONTEXT_PROFILES:
+        raise ValueError(
+            f"unknown context_profile {context_profile!r}; expected one of {CONTEXT_PROFILES}"
+        )
+    if context_profile == "flat":
+        return torch.full((n_steps,), noise_f, dtype=torch.float32)
+    if n_steps <= SEAM_LOCK_STEPS:
+        return torch.zeros((n_steps,), dtype=torch.float32)
+    ramp = torch.linspace(noise_f, 0.0, n_steps - SEAM_LOCK_STEPS + 1, dtype=torch.float32)
+    return torch.cat([ramp, torch.zeros(SEAM_LOCK_STEPS - 1, dtype=torch.float32)])
 
 
 class MiniMaxH3FreezeAudioWindow(io.ComfyNode):
@@ -480,6 +519,22 @@ class MiniMaxH3FreezeAudioWindow(io.ComfyNode):
                                         "higher this is, the more this window's first new frame can differ from "
                                         "the last frame written before it. Those frames are not written either "
                                         "way. With no source video the whole of them is redrawn by that share.")),
+                # appended 2026-11-16: tapered causal-overlap schedule (`context_profile`)
+                io.Combo.Input(
+                    "context_profile",
+                    options=list(CONTEXT_PROFILES),
+                    default=CONTEXT_PROFILE_DEFAULT,
+                    optional=True,
+                    tooltip=(
+                        "How context_noise is distributed across the copied context latent steps. "
+                        "'flat' applies context_noise uniformly to every context step (default, matching "
+                        "existing graphs). 'seam_taper' linearly ramps from context_noise at the oldest "
+                        "context step down to 0.0 while locking the final 2 context steps (c-2, c-1) to 0.0, "
+                        "matching the H3 causal Video VAE's token_overlap=2 chunk boundary (c % 5 == 2) so "
+                        "autoregressive drift breaks without disturbing the seam frame "
+                        "(clean-room adaptation crediting Lumifel & geiru_context_suite)."
+                    ),
+                ),
             ],
             outputs=[
                 io.Latent.Output(display_name="latent"),
@@ -494,10 +549,15 @@ class MiniMaxH3FreezeAudioWindow(io.ComfyNode):
 
     @classmethod
     def execute(cls, latent, audio_vae, audio, start_seconds, context_frames, previous=None,
-                audio_mask=0.0, level="clip_guard", track_latent=None, context_noise=CONTEXT_NOISE) -> io.NodeOutput:
+                audio_mask=0.0, level="clip_guard", track_latent=None,
+                context_noise=CONTEXT_NOISE, context_profile=CONTEXT_PROFILE_DEFAULT) -> io.NodeOutput:
         context_noise = float(context_noise)
         if not 0.0 <= context_noise <= 1.0:
             raise ValueError(f"context_noise {context_noise} is not between 0 (the context shown clean) and 1 (redrawn whole)")
+        if context_profile not in CONTEXT_PROFILES:
+            raise ValueError(
+                f"unknown context_profile {context_profile!r}; expected one of {CONTEXT_PROFILES}"
+            )
         video, target_audio = _av_streams(latent["samples"])
         latent_t = int(video.shape[2])
         audio_t = int(target_audio.shape[-1])
@@ -542,6 +602,7 @@ class MiniMaxH3FreezeAudioWindow(io.ComfyNode):
         video = video.clone()
         video_mask = torch.ones((1, 1) + tuple(video.shape[2:]), dtype=torch.float32)
         c = geo["context_steps"]
+        sched = context_noise_schedule(c, context_noise, context_profile)
         if has_context:
             prev_video, _prev_audio = _av_streams(previous["samples"])
             if tuple(prev_video.shape[1:2] + prev_video.shape[3:]) != tuple(video.shape[1:2] + video.shape[3:]):
@@ -552,7 +613,7 @@ class MiniMaxH3FreezeAudioWindow(io.ComfyNode):
             # the tail copied from the previous window must start on its run phase
             window_geometry(prev_t, int(context_frames))
             video[:, :, :c] = prev_video[:, :, prev_t - c:].to(device=video.device, dtype=video.dtype)
-            video_mask[:, :, :c] = context_noise
+            video_mask[:, :, :c] = sched.view(1, 1, c, 1, 1)
         out = latent.copy()
         out["samples"] = comfy.nested_tensor.NestedTensor((video, z))
         audio_part = torch.full((1, 1) + tuple(z.shape[2:]), float(audio_mask), dtype=torch.float32)
@@ -580,7 +641,16 @@ class MiniMaxH3FreezeAudioWindow(io.ComfyNode):
         report = (
             f"window from {start_seconds:.3f}s: {geo['frames']} frames, context {geo['context_frames']} frames "
             f"({c} latent steps{' copied from the previous window and frozen' if has_context else ''}"
-            f"{f', shown at noise {context_noise:g} and redrawn by that share: this window may not start where the last one ended' if has_context and context_noise > 0 else ''}), "
+            + (
+                f", tapered from noise {context_noise:g} to 0 with the last {SEAM_LOCK_STEPS} context steps locked clean at the seam"
+                if (has_context and context_noise > 0 and context_profile == "seam_taper")
+                else (
+                    f", shown at noise {context_noise:g} and redrawn by that share: this window may not start where the last one ended"
+                    if (has_context and context_noise > 0)
+                    else ""
+                )
+            )
+            + "), "
             f"{'no window can follow this one; it ends' if alone else 'next window starts'} at {next_start:.3f}s; track from step {start_step} ({start_seconds:.3f}s), "
             f"{audio_t} steps frozen at mask {float(audio_mask):g}"
             + (f", {padded_steps} trailing steps silent" if padded_steps else "")
@@ -692,7 +762,10 @@ class MiniMaxH3AudioAttentionGain(io.ComfyNode):
                 "the audio rows contribute to every row's attention output. Both 1.0 is inert. "
                 "Applies inside the sage forward, the sage override and, through them, Sol; a "
                 "call that falls back to ComfyUI's stock attention is not scaled. Sigma window and "
-                "block range as the Sol node spells them. Unmeasured: a knob to explore, not a default."
+                "block range as the Sol node spells them. On 6-step Pika (2026-11-16 Gate 1 probe, "
+                "aligning with roycho87/NerdNotes block-split findings), blocks='all' collapses "
+                "into dark static while scoping blocks='0-29' keeps early/mid structure-motion "
+                "blocks active and avoids late-block (30-49) visual exposure overwrite."
             ),
             inputs=[
                 io.Model.Input("model"),
@@ -700,7 +773,11 @@ class MiniMaxH3AudioAttentionGain(io.ComfyNode):
                 io.Float.Input("value_gain", default=1.0, min=0.1, max=8.0, step=0.05),
                 io.Float.Input("start_percent", default=0.0, min=0.0, max=1.0, step=0.01),
                 io.Float.Input("end_percent", default=1.0, min=0.0, max=1.0, step=0.01),
-                io.String.Input("blocks", default="all", tooltip="all, or ranges like 0-9,20,30-49"),
+                io.String.Input(
+                    "blocks",
+                    default="all",
+                    tooltip="all, or ranges like 0-29,30-49 (on 6-step Pika use '0-29' to avoid late-block visual collapse).",
+                ),
                 io.Boolean.Input("include_reference_rows", default=False,
                                  tooltip="Also scale reference and guide audio rows, not only the target audio rows."),
             ],
