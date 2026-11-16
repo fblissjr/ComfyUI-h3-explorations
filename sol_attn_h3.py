@@ -444,11 +444,20 @@ def sink_ranges(video, audio, tokens, mode):
 ROWS_FOLLOW = "as sink_conditioning"
 ROWS_PER_SEGMENT = "per segment"
 ROW_EXACT, ROW_ROUTED = "exact", "routed"
-#: The three classes of conditioning query rows a graph can set apart. Text is
-#: core's `text` segment, audio is the TARGET audio, and reference is every
-#: other segment ahead of the target video (cond, cond_audio, ref_img,
-#: ref_audio), so the three together are always the whole conditioning prefix.
-SEGMENT_CLASSES = ("text", "reference", "audio")
+#: `video_reference_rows`' default: the video reference rows take whatever
+#: `reference_rows` says, which is what they did before the input existed
+#: (2026-11-16), so a graph saved earlier runs the same.
+ROW_AS_REFERENCE = "as reference_rows"
+#: The classes of conditioning query rows a graph can set apart. Text is
+#: core's `text` segment, audio is the TARGET audio, video_reference is a
+#: `ref_img` segment holding a video reference (`h3_layout.video_reference_spans`),
+#: and reference is every other segment ahead of the target video (cond,
+#: cond_audio, picture `ref_img`, ref_audio), so together they are always the
+#: whole conditioning prefix. A reference clip's own audio is `ref_audio`, so
+#: it stays with reference. Video references are their own class because they
+#: hold most of the reference rows, which is where routing saves time, while
+#: reference audio is what routing is most likely to hurt.
+SEGMENT_CLASSES = ("text", "reference", "audio", "video_reference")
 #: The tau that makes a (head, query block) dense: the kernel routes a key
 #: block whose pooled score is at least tau spreads above the row mean, so a
 #: large negative tau routes them all. **Inherited** from the fork's own test
@@ -458,18 +467,33 @@ SEGMENT_CLASSES = ("text", "reference", "audio")
 DENSE_TAU = -1.0e30
 
 
-def segment_class(kind):
-    """The row class of one of core's segment kinds, or None for the target video."""
+def segment_class(kind, video_reference=False):
+    """The row class of one of core's segment kinds, or None for the target
+    video. `video_reference` says a `ref_img` segment holds a video reference
+    (core gives pictures and video references the same kind)."""
     if kind == "video":
         return None
     if kind in ("text", "audio"):
         return kind
+    if kind == "ref_img" and video_reference:
+        return "video_reference"
     return "reference"
 
 
-def exact_query_blocks(segments, tokens, exact):
+def _is_exact(exact, cls):
+    """One class's choice. A choice without `video_reference` (a record or
+    caller from before 2026-11-16) gives video references the reference
+    choice, as they had then."""
+    if cls == "video_reference" and cls not in exact:
+        cls = "reference"
+    return bool(exact.get(cls, False))
+
+
+def exact_query_blocks(segments, tokens, exact, video_refs=frozenset()):
     """Sorted indices of the 64-token query blocks to run exact, from core's
-    segment table and a `{class: bool}` choice. A block that any exact segment
+    segment table and a `{class: bool}` choice. `video_refs` holds the
+    `(start, stop)` of each `ref_img` segment that is a video reference
+    (`h3_layout.video_reference_spans`). A block that any exact segment
     overlaps is exact, which is `sink_ranges`' own rounding (floor of the
     start, ceiling of the stop). Same guards as `sink_ranges`: nothing without
     a target-video span, or on a call shorter than the layout."""
@@ -478,27 +502,28 @@ def exact_query_blocks(segments, tokens, exact):
         return ()
     blocks = set()
     for a, b, kind in segments:
-        if a >= video[0] or not exact.get(segment_class(kind), False):
+        if a >= video[0] or not _is_exact(exact, segment_class(kind, (a, b) in video_refs)):
             continue
         blocks.update(range(a // BLOCK_SIZE, (min(b, video[0]) + BLOCK_SIZE - 1) // BLOCK_SIZE))
     return tuple(sorted(blocks))
 
 
-def row_plan(segments, tokens, mode, row_segments):
+def row_plan(segments, tokens, mode, row_segments, video_refs=frozenset()):
     """(exact-KV blocks, `sink_q` range, dense columns) for one call.
 
     `row_segments` None is `ROWS_FOLLOW`: `sink_ranges` decides, as before.
     Otherwise the exact query blocks come from the three segment classes; when
     they form one run it goes to the kernel as `sink_q`, and only a broken run
-    (text and audio exact with references routed between them) needs the dense
-    columns of a tau map. The exact-KV side is `sink_conditioning`'s either way.
+    (text and audio exact with references, or video references, routed
+    between them) needs the dense columns of a tau map. `video_refs` is
+    `exact_query_blocks`'. The exact-KV side is `sink_conditioning`'s either way.
     Pure: graded on CPU by `bench/check_sol_node_equivalence.py`."""
     video = next(((a, b) for a, b, kind in segments or () if kind == "video"), None)
     audio = next(((a, b) for a, b, kind in segments or () if kind == "audio"), None)
     sink, sink_q = sink_ranges(video, audio, tokens, mode)
     if row_segments is None:
         return sink, sink_q, ()
-    blocks = exact_query_blocks(segments, tokens, row_segments)
+    blocks = exact_query_blocks(segments, tokens, row_segments, video_refs)
     if not blocks:
         return sink, (0, 0), ()
     if blocks[-1] - blocks[0] + 1 == len(blocks):
@@ -646,8 +671,9 @@ def make_override(tau=1.0, min_tokens=12288,
         # Absent from the profile means zero, which is the kernel's default and
         # the shipped state: token routing is opt-in per block, never global.
         block_aug = token_aug_profile.get(block, 0) if token_aug_profile else 0
-        sink, sink_q, dense_cols = row_plan(_h3layout.segments(options, tokens), tokens,
-                                            sink_conditioning, row_segments)
+        sink, sink_q, dense_cols = row_plan(
+            _h3layout.segments(options, tokens), tokens, sink_conditioning, row_segments,
+            _h3layout.video_reference_spans(options, tokens) if row_segments else frozenset())
         head_taus = table_blocks.get(block) if table_blocks else None
         counts = None
 
@@ -1171,6 +1197,9 @@ def _apply_sol(model, *, tau, quantizer, dense_blocks, sink_conditioning,
                                "blocks do not publish one (blocks[0].attn.heads)")
         _table.require_fits(table, int(heads), count)
     if row_segments is not None:
+        if "video_reference" not in row_segments and "reference" in row_segments:
+            # A caller from before 2026-11-16: video references follow references.
+            row_segments = {**row_segments, "video_reference": row_segments["reference"]}
         unknown = sorted(set(row_segments) - set(SEGMENT_CLASSES))
         if unknown or set(row_segments) != set(SEGMENT_CLASSES):
             raise ValueError(f"row_segments must set exactly {list(SEGMENT_CLASSES)}, got "
@@ -1377,19 +1406,32 @@ class MiniMaxH3Sol(io.ComfyNode):
                                        tooltip="The prompt's own rows, vision tokens included."),
                         io.Combo.Input("reference_rows", options=[ROW_EXACT, ROW_ROUTED],
                                        default=ROW_EXACT,
-                                       tooltip="Keyframe and reference rows (image, video, audio)."),
+                                       tooltip="Keyframe rows, picture references and reference "
+                                               "audio (a reference clip's own sound included). "
+                                               "Video references too, unless "
+                                               "video_reference_rows says otherwise."),
                         io.Combo.Input("audio_rows", options=[ROW_EXACT, ROW_ROUTED],
                                        default=ROW_EXACT,
                                        tooltip="The target audio rows."),
+                        io.Combo.Input("video_reference_rows",
+                                       options=[ROW_AS_REFERENCE, ROW_EXACT, ROW_ROUTED],
+                                       default=ROW_AS_REFERENCE,
+                                       tooltip="The picture rows of each video reference (<Video "
+                                               "N>), which are most of the reference rows on a "
+                                               "video-reference graph. 'routed' with everything "
+                                               "else exact makes only those rows sparse: the "
+                                               "speed of routing references without routing a "
+                                               "voice clip. 'as reference_rows' follows that "
+                                               "input."),
                     ]),
                 ], optional=True,
                     tooltip="Which conditioning query rows run exact. 'as sink_conditioning' "
                             "leaves it to that input, as before. 'per segment' sets text, "
-                            "reference and audio rows apart; all three exact is "
+                            "reference, audio and video reference rows apart; all exact is "
                             "exact_kv_and_all_rows, audio alone is exact_kv_and_rows. Which "
                             "keys every row attends exactly stays with sink_conditioning. "
-                            "Text and audio exact with references routed needs the owner's "
-                            "kitchen build."),
+                            "Routed rows between exact ones (references or video references "
+                            "routed, audio exact) need the owner's kitchen build."),
             ],
             outputs=[io.Model.Output()],
         )
@@ -1407,7 +1449,12 @@ class MiniMaxH3Sol(io.ComfyNode):
                 tau_table=_table.NONE, rows=None) -> io.NodeOutput:
         row_segments = None
         if rows is not None and rows["rows"] == ROWS_PER_SEGMENT:
-            row_segments = {c: rows[f"{c}_rows"] == ROW_EXACT for c in SEGMENT_CLASSES}
+            row_segments = {c: rows[f"{c}_rows"] == ROW_EXACT
+                            for c in SEGMENT_CLASSES if c != "video_reference"}
+            video_ref = rows.get("video_reference_rows", ROW_AS_REFERENCE)
+            row_segments["video_reference"] = (row_segments["reference"]
+                                               if video_ref == ROW_AS_REFERENCE
+                                               else video_ref == ROW_EXACT)
         return _apply_sol(
             model, tau=tau, quantizer=quantizer, dense_blocks=dense_blocks,
             sink_conditioning=sink_conditioning,

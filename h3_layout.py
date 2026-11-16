@@ -20,6 +20,8 @@ next step's refiner calls see the previous step's last block. Gating on
 block, which is what the old hooks produced too.
 """
 
+import weakref
+
 
 def layout_for(options, tokens=None):
     """The published `PackedLayout`, or None. With `tokens`, only when the call
@@ -60,3 +62,40 @@ def block_index(options, tokens):
         return None
     index = options.get("block_index")
     return None if index is None else int(index)
+
+
+#: Per layout, the `ref_img` spans that hold a video reference. Weak keys, so
+#: a layout core has dropped takes its entry with it.
+_VIDEO_REFS = weakref.WeakKeyDictionary()
+
+
+def video_reference_spans(options, tokens=None):
+    """frozenset of (start, stop) for the `ref_img` segments that are video
+    references, not pictures. Core labels both `ref_img`
+    (`comfy/ldm/minimax/model.py::PackedLayout`); what tells them apart is time:
+    a picture's rows all sit at one time position (`_ref_t_span` gives an image
+    1.0), a video reference's rows span its latent steps. Empty without a
+    layout, or on a layout that publishes no `position_ids`."""
+    layout = layout_for(options, tokens)
+    if layout is None:
+        return frozenset()
+    try:
+        cached = _VIDEO_REFS.get(layout)
+    except TypeError:                       # not weak-referenceable (a test stand-in)
+        cached = None
+    if cached is not None:
+        return cached
+    pos = getattr(layout, "position_ids", None)
+    spans = set()
+    if pos is not None:
+        for a, b, kind in segments(options, tokens) or ():
+            if kind == "ref_img" and b - a > 1:
+                t = pos[a:b, 0]
+                if bool((t != t[0]).any()):
+                    spans.add((a, b))
+    spans = frozenset(spans)
+    try:
+        _VIDEO_REFS[layout] = spans
+    except TypeError:
+        pass
+    return spans

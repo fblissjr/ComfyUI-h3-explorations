@@ -939,6 +939,18 @@ defaults from the node's `define_schema`.
   `sink_q`; text and audio exact with references routed between them is the
   one arrangement that needs the map. Which keys every row attends exactly
   stays with `sink_conditioning`.
+- **`video_reference_rows`** (appended 2026-11-16, last in `per segment`)
+  sets the picture rows of each video reference apart from the other
+  reference rows. Core labels pictures and video references both `ref_img`;
+  `h3_layout.video_reference_spans` tells them apart by time, since a
+  picture's rows sit at one time position and a clip's span its latent
+  steps. A clip's own sound is `ref_audio` and stays with `reference_rows`.
+  The default, `as reference_rows`, follows that input, so a graph saved
+  before the input existed runs the same. The arrangement it exists for is
+  every class exact but video references routed: most of a video-reference
+  graph's reference rows go sparse while reference audio stays exact.
+  `bench/check_sol_node_equivalence.py` holds it on core's own
+  `PackedLayout` and through the kernel.
 
 **With neither chosen the kernel call is the one the node made before**: no
 `tau_map` keyword is passed, which `bench/check_sol_node_equivalence.py` holds

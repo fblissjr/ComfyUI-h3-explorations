@@ -229,6 +229,75 @@ def sink_cases(node, check):
               f"{options}, default {default}")
 
 
+def video_reference_cases(node, check, plan, kv):
+    """The video reference row class (2026-11-16): which `ref_img` rows are a
+    video reference, and that routing only those leaves every other
+    conditioning row exact. The layout is core's own `PackedLayout`, so a
+    change in how core packs a picture or a clip shows here."""
+    import types
+    from comfy.ldm.minimax.model import PackedLayout
+    layout_mod = node._h3layout
+    B = node.BLOCK_SIZE
+    refs = [{"kind": "image", "latent_h": 32, "latent_w": 32},
+            {"kind": "video_audio", "latent_t": 7, "latent_h": 32, "latent_w": 32, "ref_audio_t": 40}]
+    lay = PackedLayout(300, 7, 48, 84, 40, refs=refs)
+    segs = [(int(a), int(b), str(k)) for a, b, k in lay.segments]
+    options = {"minimax_h3_layout": lay}
+    spans = layout_mod.video_reference_spans(options, lay.seq_len)
+    imgs = [(a, b) for a, b, k in segs if k == "ref_img"]
+    check("on core's layout, the clip's rows are a video reference and the picture's are not",
+          len(imgs) == 2 and spans == frozenset({imgs[1]}),
+          f"ref_img spans {imgs}, video references {sorted(spans)}")
+    check("a layout without position_ids, a call shorter than the layout, or no layout: none",
+          layout_mod.video_reference_spans(
+              {"minimax_h3_layout": types.SimpleNamespace(seq_len=lay.seq_len, segments=lay.segments)},
+              lay.seq_len) == frozenset()
+          and layout_mod.video_reference_spans(options, 300) == frozenset()
+          and layout_mod.video_reference_spans({}, lay.seq_len) == frozenset())
+
+    def seg4(text, reference, audio, video_reference):
+        return {"text": text, "reference": reference, "audio": audio,
+                "video_reference": video_reference}
+
+    tokens = lay.seq_len
+    video = next((a, b) for a, b, k in segs if k == "video")
+    full_kv = (0, (video[0] + B - 1) // B)
+    _, sink_q, cols = node.row_plan(segs, tokens, "exact_kv_and_all_rows",
+                                    seg4(True, True, True, False), spans)
+    clip = imgs[1]
+    routed = set(range(full_kv[1])) - set(cols)
+    inner = set(range((clip[0] + B - 1) // B, clip[1] // B))
+    check("only the video reference routed: its inner blocks are the only routed ones, "
+          "everything else exact as dense columns",
+          sink_q == (0, 0) and routed == inner and len(inner) > 0,
+          f"{len(routed)} routed query blocks, {len(inner)} wholly inside the clip")
+    check("video_reference exact with the rest == exact_kv_and_all_rows on the same layout",
+          node.row_plan(segs, tokens, "exact_kv_and_all_rows", seg4(True, True, True, True), spans)
+          == (full_kv, full_kv, ()))
+    check("a choice without video_reference gives video references the reference choice",
+          node.row_plan(segs, tokens, "exact_kv_and_all_rows",
+                        {"text": True, "reference": False, "audio": True}, spans)
+          == node.row_plan(segs, tokens, "exact_kv_and_all_rows", seg4(True, False, True, False), spans)
+          and node.row_plan(segs, tokens, "exact_kv_and_all_rows",
+                            {"text": True, "reference": True, "audio": True}, spans)
+          == (full_kv, full_kv, ()))
+    check("without the spans, a video reference is a reference (the class needs the layout)",
+          node.row_plan(segs, tokens, "exact_kv_and_all_rows", seg4(True, True, True, False))
+          == (full_kv, full_kv, ()))
+    try:
+        schema = node.MiniMaxH3Sol.define_schema()
+        rows = next(i for i in schema.inputs if i.id == "rows")
+        per = next(o for o in rows.options if o.key == node.ROWS_PER_SEGMENT)
+        ids = [i.id for i in per.inputs]
+        vr = per.inputs[-1]
+    except Exception as exc:                                  # noqa: BLE001
+        print(f"  SKIP the per-segment inputs   define_schema not readable here: {exc}")
+    else:
+        check("video_reference_rows is appended last, defaulting to follow reference_rows",
+              ids == ["text_rows", "reference_rows", "audio_rows", "video_reference_rows"]
+              and vr.default == node.ROW_AS_REFERENCE, f"{ids}, default {vr.default}")
+
+
 def policy_cases(node, check):
     """The per-segment row plan, the tau map it builds and the table loader, on CPU.
 
@@ -280,6 +349,7 @@ def policy_cases(node, check):
           == tuple(range(300 // B, (1400 + B - 1) // B))
           and all(node.segment_class(kind) == "reference"
                   for kind in ("cond", "cond_audio", "ref_img", "ref_audio")))
+    video_reference_cases(node, check, plan, kv)
 
     heads, nq = 4, 16
     flat = node._tau_map(None, 1.25, heads, nq, (), "cpu")
@@ -487,6 +557,7 @@ KERNEL_CASES = (
     "a table of equal taus == the scalar call",
     "a per-head table == each head in its own scalar call",
     "text and audio exact, references routed, through the override",
+    "video references routed, everything else exact, through the override",
     "tau reaches the kernel",
     "a transposed oracle is caught",
 )
@@ -597,14 +668,14 @@ def kernel_cases(node, ck, check, device="cuda", shape=(1, 8, 16384, 128)):
     ref_options = {"minimax_h3_layout": types.SimpleNamespace(seq_len=t, segments=ref_segments),
                    "block_index": 0}
 
-    def through(**kw):
+    def through(options=None, **kw):
         ov = node.make_override(tau=1.0, min_tokens=12288, qk_balance=False, rotate=False,
                                 sink_conditioning="exact_kv_and_all_rows", **kw)
         seen.clear()
         node._ck.sol_attn = spy
         try:
             return ov(declined, q, k, v, h, skip_reshape=True, skip_output_reshape=True,
-                      transformer_options=dict(ref_options))
+                      transformer_options=dict(options or ref_options))
         finally:
             node._ck.sol_attn = real
 
@@ -650,6 +721,33 @@ def kernel_cases(node, ck, check, device="cuda", shape=(1, 8, 16384, 128)):
           and int(cnt[0][:, list(ref_b)].max()) < n and not torch.equal(split, plain),
           f"text and audio query blocks route all {n} key blocks; reference query blocks at most "
           f"{int(cnt[0][:, list(ref_b)].max())}")
+
+    # The same layout with the reference marked as a clip: its rows span
+    # several time positions, which is how core packs a video reference.
+    pos = torch.zeros(t, 3, dtype=torch.float64)
+    pos[320:1920, 0] = torch.arange(1600, dtype=torch.float64) // 320
+    clip_options = {"minimax_h3_layout": types.SimpleNamespace(
+        seq_len=t, segments=ref_segments, position_ids=pos), "block_index": 0}
+    cnt.zero_()
+    node._run = counting
+    try:
+        only_clip = through(options=clip_options,
+                            row_segments={"text": True, "reference": True, "audio": True,
+                                          "video_reference": False})
+        cnt_clip = cnt.clone()
+        cnt.zero_()
+        clip_as_picture = through(row_segments={"text": True, "reference": True, "audio": True,
+                                                "video_reference": False})
+    finally:
+        node._run = real_run
+    check("video references routed, everything else exact, through the override",
+          torch.equal(only_clip, split)
+          and bool((cnt_clip[0][:, list(text_b)] == n).all())
+          and bool((cnt_clip[0][:, list(audio_b)] == n).all())
+          and int(cnt_clip[0][:, list(ref_b)].max()) < n
+          and torch.equal(clip_as_picture, plain),
+          "the clip's query blocks route as the references-routed split does; the same "
+          "segment without time spread is a picture and stays exact")
 
     print("\nred controls:")
     base = dispatch(tau=1.0)
