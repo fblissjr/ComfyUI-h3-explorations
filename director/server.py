@@ -1,8 +1,7 @@
 """Standalone backend HTTP + WebSocket server for Interactive Spatial Director.
 
-Default ports: `:8195` HTTP locally (behind `:8194` Tailscale HTTPS when launched via
-`director/studio.sh`). Proxies ComfyUI (`/object_info`, `/system_stats`, `/prompt`,
-`/upload/image`, `/view`, `/history`, `/interrupt`, `/ws`, `/h3_spatial_director/forget`)
+Proxies ComfyUI (`/object_info`, `/system_stats`, `/prompt`, `/upload/image`,
+`/view`, `/history`, `/interrupt`, `/ws`, `/h3_spatial_director/forget`)
 and persists local take metadata in `--state-dir` (`data/spatial_director_app/`).
 """
 

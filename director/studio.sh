@@ -1,1 +1,0 @@
-/home/fbliss/dotfiles/comfy/spatial-director-studio.sh
