@@ -1,0 +1,1924 @@
+/**
+ * Genie Direct Spatial Studio — Main Controller (`app.js`).
+ *
+ * Hydrates all options from GET /api/schema & GET /api/system_stats, manages Beat 1
+ * Anchor upload/generation, drives 24 fps loop + 3f FoleySynth playback, connects
+ * live taeh3 WS previews, runs accessible tablist navigation in the Engine drawer,
+ * and coordinates A|B wipe comparison & Clean/HUD MP4 exports.
+ *
+ * Zero external URLs, zero inline handlers, zero element.style.* mutations,
+ * zero hardcoded sound presets or scene suggestions.
+ */
+
+import { FoleySynth, snapFrameTo3f } from "./foley_synth.js";
+import { DirectorWSClient } from "./ws_client.js";
+import { ABCompareController, videoItemViewUrl } from "./ab_compare.js";
+import {
+  StageController,
+  clamp,
+  computeCouplingInfo,
+  evalPortalAtFrame,
+  evalSpriteAtFrame,
+  evalTargetTemporalWeight,
+} from "./stage.js";
+
+const $ = (sel, root = document) => root.querySelector(sel);
+const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+
+const FPS = 24;
+const INT32_TOKEN_LIMIT = 99864;
+
+const state = {
+  schema: null,
+  lengths: [],
+  soundPresetMap: {},
+  soundPresetsList: [],
+  canvases: [],
+  workflows: [],
+  anchorWorkflows: [],
+  controlVectors: [],
+  capabilities: {
+    kj_preview_override: false,
+    taeh3: false,
+    taeh3_image: false,
+    heylook_suggestions: false,
+  },
+
+  length: 141,
+  frame: 0,
+  playing: false,
+  loop: true,
+  showPatchGrid: false,
+  spriteMode: false,
+  selectedTargetIdx: 0,
+
+  workflowId: "",
+  anchorWorkflowId: "",
+  seed: 730451892,
+  seedLocked: true,
+
+  hasAnchor: false,
+  anchorRef: "",
+  anchorName: "",
+  anchorMedia: null,
+  activeVideoEl: null,
+  activeVideoUrl: "",
+
+  spriteCutout: null, // { ref, viewUrl, img }
+  livePreview: null,  // { kind, media, step, total, fullFrame, fps, avgStepMs }
+
+  targetPrompt: "",
+  samePrompt: false,
+  controlVector: "none",
+  controlVectorStrength: 1.0,
+  couplings: [],
+  activeOperator: "aperture",
+
+  editGuidance: {
+    scale: 2.0,
+    audio_scale: 1.0,
+    first_step: 0,
+    last_step: 1000,
+    streams: "independent",
+  },
+
+  doc: {
+    mode: "portal_path",
+    width: 1344,
+    height: 768,
+    feather: 0.08,
+    invert_mask: false,
+    portal_start: null,
+    portal_end: null,
+    portal_ramp: 0,
+    portal: [
+      { frame: 0, x: 0.44, y: 0.48, rx: 0.22, ry: 0.22, shape: "circle", label: "REALITY LENS", weight: 1.0, halo_radius: 0.10, halo_weight: 0.30 },
+    ],
+    targets: [],
+    portal_cues: [],
+    dpad: {
+      waypoints: [{ frame: 0, x: 0.36, y: 0.74, face: "right", scale: 1.0 }],
+      hops: [],
+    },
+  },
+
+  takes: [],
+  activeRenderPromptId: "",
+  activeBaselinePromptId: "",
+  activeAnchorPromptId: "",
+  activeStampPromptId: "",
+
+  undoStack: [],
+  redoStack: [],
+  defaultSoundPreset: "",
+};
+
+const foley = new FoleySynth();
+let stage = null;
+let abCompare = null;
+let wsClient = null;
+let rafHandle = 0;
+let lastRafTime = 0;
+let toastTimer = 0;
+let preflightTimer = 0;
+
+function showToast(msg, kind = "info", durationMs = 3600) {
+  const el = $("#stage-toast");
+  if (!el) return;
+  el.textContent = msg;
+  el.classList.remove("hidden", "err", "ok");
+  if (kind === "err") el.classList.add("err");
+  if (kind === "ok") el.classList.add("ok");
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => {
+    el.classList.add("hidden");
+  }, durationMs);
+}
+
+function formatTimecode(frameIdx) {
+  const sec = Math.max(0, Number(frameIdx || 0)) / FPS;
+  const mins = Math.floor(sec / 60);
+  const rem = (sec - mins * 60).toFixed(2).padStart(5, "0");
+  return `${String(mins).padStart(2, "0")}:${rem}`;
+}
+
+function snapshotDoc() {
+  return JSON.stringify({
+    doc: state.doc,
+    targetPrompt: state.targetPrompt,
+    editGuidance: state.editGuidance,
+  });
+}
+
+function pushUndo() {
+  const snap = snapshotDoc();
+  if (state.undoStack.length && state.undoStack[state.undoStack.length - 1] === snap) return;
+  state.undoStack.push(snap);
+  if (state.undoStack.length > 40) state.undoStack.shift();
+  state.redoStack = [];
+  syncUndoRedoButtons();
+}
+
+function restoreSnapshot(snap) {
+  try {
+    const parsed = JSON.parse(snap);
+    if (parsed.doc) state.doc = parsed.doc;
+    if (typeof parsed.targetPrompt === "string") state.targetPrompt = parsed.targetPrompt;
+    if (parsed.editGuidance) state.editGuidance = parsed.editGuidance;
+    syncAllUI();
+    schedulePreflight();
+  } catch {}
+}
+
+function syncUndoRedoButtons() {
+  const u = $("#btn-undo");
+  const r = $("#btn-redo");
+  if (u) u.disabled = state.undoStack.length === 0;
+  if (r) r.disabled = state.redoStack.length === 0;
+}
+
+async function apiJson(url, opts = {}) {
+  const resp = await fetch(url, opts);
+  const text = await resp.text();
+  let data = {};
+  try {
+    data = text ? JSON.parse(text) : {};
+  } catch {
+    data = { ok: false, error: text || `HTTP ${resp.status}` };
+  }
+  if (!resp.ok) {
+    throw new Error(data.error || `HTTP ${resp.status}`);
+  }
+  return data;
+}
+
+// ---------------------------------------------------------------------------
+// Schema & System Stats Hydration (Zero Hardcoded Options)
+// ---------------------------------------------------------------------------
+
+async function hydrateSchema() {
+  const data = await apiJson("/api/schema");
+  state.schema = data;
+  state.lengths = Array.isArray(data.lengths) ? data.lengths.map(Number).filter((n) => n > 0) : [];
+  state.canvases = Array.isArray(data.canvases) ? data.canvases : [];
+  state.workflows = Array.isArray(data.workflows) ? data.workflows : [];
+  state.anchorWorkflows = Array.isArray(data.anchor_workflows) ? data.anchor_workflows : [];
+  state.controlVectors = Array.isArray(data.control_vectors) ? data.control_vectors : [];
+  state.capabilities = { ...state.capabilities, ...(data.capabilities || {}) };
+
+  // Sound presets hydrated purely from backend schema
+  const rawPresets = data.sound_presets;
+  const presetMap = {};
+  if (Array.isArray(rawPresets)) {
+    for (const item of rawPresets) {
+      if (typeof item === "string") presetMap[item] = 0.2;
+      else if (item && item.name) presetMap[item.name] = Number(item.duration_sec || 0.2);
+    }
+  } else if (rawPresets && typeof rawPresets === "object") {
+    for (const [k, v] of Object.entries(rawPresets)) {
+      presetMap[k] = Number(v || 0.2);
+    }
+  }
+  state.soundPresetMap = presetMap;
+  state.soundPresetsList = Object.keys(presetMap);
+  state.defaultSoundPreset = state.soundPresetsList[0] || "none";
+
+  // Defaults from schema
+  const defs = data.defaults || {};
+  if (defs.length && state.lengths.includes(Number(defs.length))) {
+    state.length = Number(defs.length);
+  } else if (state.lengths.length) {
+    state.length = state.lengths[Math.min(2, state.lengths.length - 1)];
+  }
+  if (defs.width && defs.height) {
+    state.doc.width = Number(defs.width);
+    state.doc.height = Number(defs.height);
+  } else if (state.canvases.length) {
+    state.doc.width = Number(state.canvases[0].width || 1344);
+    state.doc.height = Number(state.canvases[0].height || 768);
+  }
+  if (defs.feather != null) state.doc.feather = Number(defs.feather);
+  if (defs.scale != null) state.editGuidance.scale = Number(defs.scale);
+  if (defs.audio_scale != null) state.editGuidance.audio_scale = Number(defs.audio_scale);
+  if (defs.streams) state.editGuidance.streams = String(defs.streams);
+  if (defs.anchor_workflow) state.anchorWorkflowId = String(defs.anchor_workflow);
+  if (defs.mode && state.workflows.some((w) => w.id === defs.mode)) {
+    state.workflowId = String(defs.mode);
+  }
+  if (defs.seed != null) state.seed = Number(defs.seed);
+  if (defs.events_json) {
+    try {
+      const parsedEv = typeof defs.events_json === "string" ? JSON.parse(defs.events_json) : defs.events_json;
+      if (parsedEv && typeof parsedEv === "object") {
+        state.doc = { ...state.doc, ...parsedEv };
+      }
+    } catch {}
+  }
+  const maxF = Math.max(0, state.length - 1);
+  for (const p of state.doc.portal || []) p.frame = clamp(Number(p.frame || 0), 0, maxF);
+  for (const w of state.doc.dpad?.waypoints || []) w.frame = clamp(Number(w.frame || 0), 0, maxF);
+
+  renderHydratedControls();
+  syncAllUI();
+  schedulePreflight();
+}
+
+function renderHydratedControls() {
+  // 1. Header Dual-Clock Pills from schema.lengths
+  const clockWrap = $("#clock-pills");
+  if (clockWrap) {
+    clockWrap.replaceChildren();
+    const quick = state.lengths.filter((n) => n > (state.lengths[0] || 0)).slice(0, 2);
+    const showList = quick.length ? quick : state.lengths.slice(0, 2);
+    for (const lenVal of showList) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "clock-btn";
+      btn.dataset.length = String(lenVal);
+      btn.textContent = `${lenVal}f`;
+      btn.title = `${lenVal} frames (${(lenVal / FPS).toFixed(2)}s on both clocks)`;
+      btn.addEventListener("click", () => switchLength(lenVal));
+      clockWrap.appendChild(btn);
+    }
+  }
+
+  // 2. Engine Length Select (all on_both_clocks)
+  const lenSel = $("#engine-length");
+  if (lenSel) {
+    lenSel.replaceChildren();
+    for (const lenVal of state.lengths) {
+      const opt = document.createElement("option");
+      opt.value = String(lenVal);
+      opt.textContent = `${lenVal}f (${(lenVal / FPS).toFixed(2)}s)`;
+      lenSel.appendChild(opt);
+    }
+    lenSel.value = String(state.length);
+  }
+
+  // 3. Canvases Select
+  const canvasSel = $("#engine-canvas");
+  if (canvasSel) {
+    canvasSel.replaceChildren();
+    for (const c of state.canvases) {
+      const opt = document.createElement("option");
+      const val = `${c.width}x${c.height}`;
+      opt.value = val;
+      opt.textContent = c.label || `${c.width}×${c.height} (${c.aspect || ""})`;
+      canvasSel.appendChild(opt);
+    }
+    const curVal = `${state.doc.width}x${state.doc.height}`;
+    if (Array.from(canvasSel.options).some((o) => o.value === curVal)) {
+      canvasSel.value = curVal;
+    }
+  }
+
+  // 4. Spatial Workflows Select
+  const wfSel = $("#engine-workflow");
+  if (wfSel) {
+    wfSel.replaceChildren();
+    for (const wf of state.workflows) {
+      const opt = document.createElement("option");
+      opt.value = wf.id;
+      opt.textContent = wf.available === false ? `${wf.label || wf.id} (unavailable)` : (wf.label || wf.id);
+      wfSel.appendChild(opt);
+    }
+    const preferred = state.workflows.find((w) => w.available !== false) || state.workflows[0];
+    if (preferred && !state.workflowId) {
+      state.workflowId = preferred.id;
+    }
+    if (state.workflowId) wfSel.value = state.workflowId;
+  }
+
+  // 5. Anchor Still Workflows Select
+  const anchorSel = $("#anchor-workflow-select");
+  if (anchorSel) {
+    anchorSel.replaceChildren();
+    for (const aw of state.anchorWorkflows) {
+      const opt = document.createElement("option");
+      opt.value = aw.id;
+      opt.textContent = aw.label || aw.id;
+      anchorSel.appendChild(opt);
+    }
+    if (state.anchorWorkflows.length && !state.anchorWorkflowId) {
+      state.anchorWorkflowId = state.anchorWorkflows[0].id;
+    }
+    if (state.anchorWorkflowId) anchorSel.value = state.anchorWorkflowId;
+  }
+
+  // 6. Sound Cue Presets (Card + Drawer)
+  for (const selId of ["#card-cue-select", "#engine-cue-preset"]) {
+    const sel = $(selId);
+    if (!sel) continue;
+    sel.replaceChildren();
+    if (selId === "#card-cue-select") {
+      const noneOpt = document.createElement("option");
+      noneOpt.value = "none";
+      noneOpt.textContent = "none (silent)";
+      sel.appendChild(noneOpt);
+    }
+    for (const name of state.soundPresetsList) {
+      const opt = document.createElement("option");
+      opt.value = name;
+      const ms = Math.round((state.soundPresetMap[name] || 0.2) * 1000);
+      opt.textContent = `${name} (${ms}ms)`;
+      sel.appendChild(opt);
+    }
+  }
+  const hint = $("#cue-hotkeys-hint");
+  if (hint) {
+    const pairs = state.soundPresetsList.slice(0, 9).map((name, i) => `${i + 1}:${name}`);
+    hint.textContent = pairs.length ? `Hotkeys: ${pairs.join(" · ")}` : "No cue presets reported by schema";
+  }
+
+  // 7. Control Vectors Select
+  const cvSel = $("#engine-cv-select");
+  if (cvSel) {
+    cvSel.replaceChildren();
+    const noneOpt = document.createElement("option");
+    noneOpt.value = "none";
+    noneOpt.textContent = "none";
+    cvSel.appendChild(noneOpt);
+    for (const cv of state.controlVectors) {
+      const opt = document.createElement("option");
+      opt.value = cv.name;
+      opt.textContent = cv.arch ? `${cv.name} (${cv.arch})` : cv.name;
+      cvSel.appendChild(opt);
+    }
+    cvSel.value = state.controlVector;
+  }
+
+  // 8. Capabilities Badges
+  const capWrap = $("#capabilities-list");
+  if (capWrap) {
+    capWrap.replaceChildren();
+    for (const [key, enabled] of Object.entries(state.capabilities)) {
+      const badge = document.createElement("span");
+      badge.className = enabled ? "cap-badge on" : "cap-badge";
+      badge.textContent = `${key}: ${enabled ? "on" : "off"}`;
+      capWrap.appendChild(badge);
+    }
+  }
+
+  syncLiveTaeBadges();
+}
+
+async function pollSystemStats() {
+  try {
+    const stats = await apiJson("/api/system_stats");
+    const dev = Array.isArray(stats.devices) && stats.devices[0] ? stats.devices[0] : null;
+    const vLabel = $("#vram-label");
+    const vFill = $("#vram-bar-fill");
+    if (dev && dev.vram_total > 0) {
+      const totalGb = dev.vram_total / (1024 ** 3);
+      const freeGb = (dev.vram_free || 0) / (1024 ** 3);
+      const usedGb = Math.max(0, totalGb - freeGb);
+      const pct = clamp((usedGb / totalGb) * 100, 0, 100);
+      if (vLabel) vLabel.textContent = `${usedGb.toFixed(1)} / ${totalGb.toFixed(1)} GB`;
+      if (vFill) {
+        vFill.setAttribute("width", pct.toFixed(1));
+        vFill.setAttribute("fill", pct > 88 ? "#B45309" : "#047857");
+      }
+    } else if (vLabel) {
+      vLabel.textContent = stats.comfy_reachable ? "CPU / Ready" : "ComfyUI offline";
+    }
+  } catch {}
+}
+
+function schedulePreflight() {
+  if (preflightTimer) clearTimeout(preflightTimer);
+  preflightTimer = setTimeout(() => {
+    runPreflight();
+  }, 180);
+}
+
+async function runPreflight() {
+  try {
+    const payload = buildCompilePayload();
+    const pf = await apiJson("/api/preflight", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const totalTok = Number(pf.total_tokens || 0);
+    const limit = Number(pf.int32_limit || INT32_TOKEN_LIMIT);
+    const pct = clamp((totalTok / limit) * 100, 0, 100);
+    const label = $("#token-label");
+    const fill = $("#token-bar-fill");
+    const detail = $("#preflight-detail");
+    if (label) {
+      label.textContent = `${totalTok.toLocaleString()} / ${limit.toLocaleString()}`;
+    }
+    if (fill) {
+      fill.setAttribute("width", pct.toFixed(1));
+      fill.setAttribute("fill", pf.exceeds_int32 ? "#DC2626" : (pct > 82 ? "#B45309" : "#2563EB"));
+    }
+    if (detail) {
+      const warnTxt = Array.isArray(pf.warnings) && pf.warnings.length ? ` · ${pf.warnings[0]}` : "";
+      detail.textContent = `Video steps: ${pf.latent_steps ?? "—"} · Audio tok: ${pf.audio_tokens ?? "—"}${warnTxt}`;
+    }
+  } catch {}
+}
+
+// ---------------------------------------------------------------------------
+// Sync UI & Scrubber SVG (Zero element.style.*)
+// ---------------------------------------------------------------------------
+
+function syncLiveTaeBadges(stepMeta = null) {
+  const hdrPill = $("#live-tae-pill");
+  const hdrText = $("#live-tae-text");
+  const stageText = $("#stage-tae-text");
+  const portalText = $("#portal-tae-text");
+
+  const pf = evalPortalAtFrame(state.doc, state.frame, state.length);
+  const radStr = state.doc.mode === "point_targets" && state.doc.targets?.[state.selectedTargetIdx]
+    ? Number(state.doc.targets[state.selectedTargetIdx].radius || 0.16).toFixed(2)
+    : Number(pf.rx || 0.22).toFixed(2);
+
+  if (stepMeta && stepMeta.total > 0) {
+    const fpsPart = stepMeta.fps ? ` · ${Number(stepMeta.fps).toFixed(1)}fps` : "";
+    const stepStr = `Step ${stepMeta.step}/${stepMeta.total}`;
+    if (hdrText) hdrText.textContent = `Live TAE: ${stepMeta.step}/${stepMeta.total}${fpsPart}`;
+    if (stageText) stageText.textContent = `tae-h3 Live Latents · ${stepStr}`;
+    if (portalText) portalText.textContent = `Live taeh3 · ${stepStr} · r=${radStr}`;
+    hdrPill?.classList.remove("warn");
+  } else if (state.capabilities.kj_preview_override && state.capabilities.taeh3) {
+    if (hdrText) hdrText.textContent = "Live TAE: taeh3 Ready · KV 1x";
+    if (stageText) stageText.textContent = "tae-h3 Live Latents Ready";
+    if (portalText) portalText.textContent = `Live taeh3 · Ready · r=${radStr}`;
+    hdrPill?.classList.remove("warn");
+  } else if (state.capabilities.kj_preview_override) {
+    if (hdrText) hdrText.textContent = "Live TAE: Latent2RGB";
+    if (stageText) stageText.textContent = "Latent2RGB Fallback";
+    if (portalText) portalText.textContent = `Live Preview · Ready · r=${radStr}`;
+    hdrPill?.classList.add("warn");
+  } else {
+    if (hdrText) hdrText.textContent = "Live TAE: Idle";
+    if (stageText) stageText.textContent = "Sampler Telemetry Ready";
+    if (portalText) portalText.textContent = `Portal · r=${radStr}`;
+    hdrPill?.classList.add("warn");
+  }
+}
+
+function syncScrubberSVG() {
+  const maxF = Math.max(1, state.length - 1);
+  $("#timecode-cur").textContent = formatTimecode(state.frame);
+  $("#timecode-total").textContent = formatTimecode(state.length);
+  $("#scrubber-frame-cur").textContent = String(state.frame);
+  $("#scrubber-frame-total").textContent = `${state.length} f`;
+
+  const canvas = $("#scrubber-canvas");
+  if (!canvas) return;
+  const rect = canvas.getBoundingClientRect();
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  const cw = Math.max(120, Math.round((rect.width || 600) * dpr));
+  const ch = Math.max(24, Math.round((rect.height || 32) * dpr));
+  if (canvas.width !== cw || canvas.height !== ch) {
+    canvas.width = cw;
+    canvas.height = ch;
+  }
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+
+  ctx.clearRect(0, 0, cw, ch);
+  const padX = 10 * dpr;
+  const trackW = Math.max(20, cw - padX * 2);
+  const trackH = 8 * dpr;
+  const trackY = (ch - trackH) * 0.5;
+  const frac = state.frame / maxF;
+  const thumbX = padX + frac * trackW;
+
+  const drawPillBar = (x, y, w, h, r, fill) => {
+    ctx.fillStyle = fill;
+    ctx.beginPath();
+    ctx.roundRect ? ctx.roundRect(x, y, w, h, r) : ctx.rect(x, y, w, h);
+    ctx.fill();
+  };
+
+  // Track base
+  drawPillBar(padX, trackY, trackW, trackH, trackH * 0.5, "#E2E8F0");
+
+  // Causal active span highlights
+  if (state.doc.mode === "portal_path") {
+    const pStart = state.doc.portal_start != null ? Number(state.doc.portal_start) : 0;
+    const pEnd = state.doc.portal_end != null ? Number(state.doc.portal_end) : maxF;
+    const x0 = padX + (pStart / maxF) * trackW;
+    const x1 = padX + (pEnd / maxF) * trackW;
+    drawPillBar(x0, trackY - 1 * dpr, Math.max(6 * dpr, x1 - x0), trackH + 2 * dpr, 4 * dpr, "rgba(37, 99, 235, 0.20)");
+  } else {
+    for (const t of state.doc.targets || []) {
+      const x0 = padX + (clamp(Number(t.start || 0), 0, maxF) / maxF) * trackW;
+      const x1 = padX + (clamp(Number(t.end || maxF), 0, maxF) / maxF) * trackW;
+      drawPillBar(x0, trackY - 1 * dpr, Math.max(8 * dpr, x1 - x0), trackH + 2 * dpr, 4 * dpr, "rgba(180, 83, 9, 0.28)");
+    }
+  }
+
+  // Played fill
+  drawPillBar(padX, trackY, Math.max(0, thumbX - padX), trackH, trackH * 0.5, "#93C5FD");
+
+  // Portal keyframe dots
+  if (state.doc.mode === "portal_path") {
+    for (const kf of state.doc.portal || []) {
+      const kx = padX + (clamp(Number(kf.frame || 0), 0, maxF) / maxF) * trackW;
+      ctx.fillStyle = "#2563EB";
+      ctx.beginPath();
+      ctx.arc(kx, ch * 0.5, 3.5 * dpr, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  // 3f foley cue pins
+  for (const c of allActiveCues()) {
+    const cx = padX + (clamp(c.frame, 0, maxF) / maxF) * trackW;
+    drawPillBar(cx - 1.5 * dpr, 6 * dpr, 3 * dpr, ch - 12 * dpr, 1.5 * dpr, "#047857");
+  }
+
+  // Playhead circle thumb (never clipped or stretched)
+  ctx.fillStyle = "#FFFFFF";
+  ctx.strokeStyle = "#2563EB";
+  ctx.lineWidth = 2.5 * dpr;
+  ctx.beginPath();
+  ctx.arc(thumbX, ch * 0.5, 7 * dpr, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+}
+
+function allActiveCues() {
+  const cues = [];
+  if (state.doc.mode === "point_targets") {
+    for (const t of state.doc.targets || []) {
+      if (t.cue && t.cue !== "none") {
+        cues.push({ frame: snapFrameTo3f(t.start, state.length), preset: t.cue, gain: t.gain || 1.15, source: "target" });
+      }
+    }
+  }
+  for (const c of state.doc.portal_cues || []) {
+    cues.push({ frame: snapFrameTo3f(c.frame, state.length), preset: c.preset, gain: c.gain || 1.0, source: "portal" });
+  }
+  cues.sort((a, b) => a.frame - b.frame);
+  return cues;
+}
+
+function renderSynthesizedOperators(pf, sp, coupling) {
+  const host = $("#synth-operators");
+  if (!host) return;
+  const ops = [
+    {
+      id: "aperture",
+      title: `Aperture Mask (${pf.shape} · rx=${Number(pf.rx).toFixed(2)})`,
+      sub: `EditGuider scale=${Number(state.editGuidance.scale).toFixed(1)}x · streams=${state.editGuidance.streams}`,
+    },
+    {
+      id: "halo",
+      title: `Halo Influence Field (r=${Number(pf.halo_radius || 0).toFixed(2)})`,
+      sub: `feather=${Number(state.doc.feather).toFixed(2)} · halo_weight=${Number(pf.halo_weight ?? 0.30).toFixed(2)}x`,
+    },
+    {
+      id: "coupling",
+      title: coupling.active
+        ? `Sprite Coupling (${Math.round(coupling.strength * 100)}% · ${coupling.mode})`
+        : "Link Sprite Coupling (Shift+Drag)",
+      sub: coupling.active
+        ? `AppendSpriteTrajectory Δ(${coupling.dx >= 0 ? "+" : ""}${coupling.dx.toFixed(2)}, ${coupling.dy >= 0 ? "+" : ""}${coupling.dy.toFixed(2)}) · Release 0.33`
+        : "Click to toggle radial push/pull on Subject Sprite",
+    },
+  ];
+  host.replaceChildren();
+  for (const op of ops) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = state.activeOperator === op.id ? "synth-op-btn active" : "synth-op-btn";
+    const t = document.createElement("span");
+    t.className = "synth-op-title";
+    t.textContent = op.title;
+    const s = document.createElement("span");
+    s.className = "synth-op-sub";
+    s.textContent = op.sub;
+    btn.append(t, s);
+    btn.addEventListener("click", () => {
+      state.activeOperator = op.id;
+      if (op.id === "coupling") {
+        pushUndo();
+        if (state.couplings.length) {
+          state.couplings[0].mode = state.couplings[0].mode === "push" ? "pull" : "push";
+        } else {
+          state.spriteMode = true;
+          state.couplings = [{
+            portal_index: 0,
+            target_kind: "sprite",
+            strength: 0.85,
+            mode: "push",
+            label: "Sprite Coupling",
+          }];
+        }
+        syncAllUI();
+      } else {
+        syncContextualCard();
+      }
+    });
+    host.appendChild(btn);
+  }
+}
+
+function syncContextualCard() {
+  const card = $("#portal-card");
+  if (!card) return;
+  if (!state.hasAnchor) {
+    card.classList.add("hidden");
+    return;
+  }
+  card.classList.remove("hidden");
+
+  const pf = evalPortalAtFrame(state.doc, state.frame, state.length);
+  const sp = (state.spriteMode || state.spriteCutout?.img || (state.couplings || []).length > 0)
+    ? evalSpriteAtFrame(state.doc, state.frame, state.length)
+    : null;
+  const coupling = computeCouplingInfo(state, pf, sp);
+  let anchorX = pf.x;
+
+  const px = Math.round(pf.x * Number(state.doc.width || 1344));
+  const py = Math.round(pf.y * Number(state.doc.height || 768));
+
+  if (state.doc.mode === "point_targets" && state.doc.targets?.length) {
+    const idx = clamp(state.selectedTargetIdx ?? 0, 0, state.doc.targets.length - 1);
+    const t = state.doc.targets[idx];
+    anchorX = t.x;
+    const tx = Math.round(t.x * Number(state.doc.width || 1344));
+    const ty = Math.round(t.y * Number(state.doc.height || 768));
+    $("#portal-card-heading").textContent = `Tool Synth (${tx},${ty})`;
+    const nearCue = t.cue && t.cue !== "none" ? t.cue : "none";
+    const cueSel = $("#card-cue-select");
+    if (cueSel) cueSel.value = nearCue;
+    $("#pill-cue-text").textContent = `3f @ f${snapFrameTo3f(t.start, state.length)}: ${nearCue}`;
+  } else {
+    $("#portal-card-heading").textContent = `Tool Synth (${px},${py})`;
+    const nearCue = (state.doc.portal_cues || [])[0];
+    const cueSel = $("#card-cue-select");
+    if (nearCue) {
+      if (cueSel) cueSel.value = nearCue.preset;
+      $("#pill-cue-text").textContent = `3f @ f${snapFrameTo3f(nearCue.frame, state.length)}: ${nearCue.preset}`;
+    } else {
+      if (cueSel) cueSel.value = "none";
+      $("#pill-cue-text").textContent = `3f @ f${snapFrameTo3f(state.frame, state.length)}: none`;
+    }
+  }
+
+  // Interactive progress-bar dials (SVG rects, zero element.style)
+  const rxVal = Number(pf.rx || 0.22);
+  const haloVal = Number(pf.halo_radius || 0);
+  const outerVal = rxVal + haloVal;
+  $("#dial-mask-val").textContent = `${rxVal.toFixed(2)} → ${outerVal.toFixed(2)}`;
+  $("#dial-mask-fill")?.setAttribute("width", clamp((rxVal / 0.45) * 60, 4, 65).toFixed(1));
+  $("#dial-halo-fill")?.setAttribute("width", clamp((outerVal / 0.80) * 100, 6, 100).toFixed(1));
+
+  const scaleVal = Number(state.editGuidance.scale || 1.5);
+  const cPct = Math.round(coupling.strength * 100);
+  $("#dial-coupling-val").textContent = `${scaleVal.toFixed(1)}x · ${cPct}%`;
+  const cFillPct = coupling.active ? cPct : ((scaleVal - 0.5) / 2.0) * 100;
+  $("#dial-coupling-fill")?.setAttribute("width", clamp(cFillPct, 6, 100).toFixed(1));
+
+  // Compiled H3 Nodes readout
+  const cuesCount = allActiveCues().length;
+  const spriteNote = sp
+    ? ` · AppendSpriteTrajectory(51, Release 0.33, Δx=${coupling.dx >= 0 ? "+" : ""}${coupling.dx.toFixed(2)})`
+    : "";
+  $("#compiled-nodes-readout").textContent =
+    `SpatialDirector(160) -> EditGuider(${scaleVal.toFixed(1)}x) · ${cuesCount}× 3f SoundCues${spriteNote}`;
+
+  const synthBadge = $("#synth-latency-badge");
+  if (synthBadge) {
+    synthBadge.textContent = state.capabilities.heylook_suggestions ? "heylook" : "0ms local";
+  }
+
+  renderSynthesizedOperators(pf, sp, coupling);
+
+  // Clamp card opposite the active portal/target so it stays inside stage bounds
+  card.classList.toggle("dock-left", anchorX > 0.56);
+  card.classList.toggle("dock-right", anchorX <= 0.56);
+
+  $("#card-time-badge").textContent = `f${String(state.frame).padStart(3, "0")} · ${(state.frame / FPS).toFixed(2)}s`;
+  const tp = $("#target-prompt");
+  if (tp && document.activeElement !== tp) {
+    tp.value = state.targetPrompt;
+  }
+}
+
+function syncCueChips() {
+  const wrap = $("#cue-chips");
+  if (!wrap) return;
+  wrap.replaceChildren();
+  for (let i = 0; i < (state.doc.portal_cues || []).length; i++) {
+    const c = state.doc.portal_cues[i];
+    const chip = document.createElement("span");
+    chip.className = "cue-chip";
+    chip.textContent = `f${c.frame}: ${c.preset}`;
+    const rm = document.createElement("button");
+    rm.type = "button";
+    rm.textContent = "×";
+    rm.title = "Remove cue";
+    rm.addEventListener("click", () => {
+      pushUndo();
+      state.doc.portal_cues.splice(i, 1);
+      syncAllUI();
+    });
+    chip.appendChild(rm);
+    wrap.appendChild(chip);
+  }
+}
+
+function syncAllUI() {
+  // Header clock pills
+  for (const btn of $$(".clock-btn")) {
+    btn.classList.toggle("active", Number(btn.dataset.length) === state.length);
+  }
+  const lenSel = $("#engine-length");
+  if (lenSel && lenSel.value !== String(state.length)) {
+    lenSel.value = String(state.length);
+  }
+
+  // Scene pill + footer anchor/layer pills
+  const anchorTitle = state.anchorName ? state.anchorName.replace(/\.[^/.]+$/, "") : "No Anchor";
+  $("#scene-pill-text").textContent = `${anchorTitle} (${state.doc.width}×${state.doc.height})`;
+  $("#footer-anchor-text").textContent = state.hasAnchor ? `Anchor: ${anchorTitle}` : "Anchor: None";
+
+  if (state.doc.mode === "point_targets") {
+    $("#footer-layer-text").textContent = `Targets (${(state.doc.targets || []).length})`;
+  } else {
+    const ps = state.doc.portal_start != null ? state.doc.portal_start : 0;
+    const pe = state.doc.portal_end != null ? state.doc.portal_end : state.length - 1;
+    $("#footer-layer-text").textContent = `Portal+Halo (f${ps}–f${pe})`;
+  }
+  const pfFoot = evalPortalAtFrame(state.doc, state.frame, state.length);
+  const spFoot = (state.spriteMode || state.spriteCutout?.img || (state.couplings || []).length > 0)
+    ? evalSpriteAtFrame(state.doc, state.frame, state.length)
+    : null;
+  const coupFoot = computeCouplingInfo(state, pfFoot, spFoot);
+  const cPill = $("#footer-coupling-pill");
+  if (cPill) {
+    cPill.classList.toggle("hidden", !coupFoot.active);
+    if (coupFoot.active) {
+      $("#footer-coupling-text").textContent = `Coupling ${Math.round(coupFoot.strength * 100)}%`;
+    }
+  }
+
+  // Mode buttons
+  $("#mode-btn-portal")?.classList.toggle("active", state.doc.mode === "portal_path" && !state.spriteMode);
+  $("#mode-btn-targets")?.classList.toggle("active", state.doc.mode === "point_targets" && !state.spriteMode);
+  $("#mode-btn-sprite")?.classList.toggle("active", state.spriteMode);
+
+  $("#stage-helper-text").textContent = state.spriteMode
+    ? "WASD steers cutout · Space hops · Drag repositions"
+    : (state.doc.mode === "point_targets"
+      ? "Click to move target · Shift+Click adds target"
+      : "Click/drag portal · Scroll size · Shift Halo · Alt Power");
+
+  // Play / Pause icon
+  $("#icon-play")?.classList.toggle("hidden", state.playing);
+  $("#icon-pause")?.classList.toggle("hidden", !state.playing);
+
+  // Sync drawer inputs without clobbering active typing
+  const setVal = (sel, val) => {
+    const el = $(sel);
+    if (el && document.activeElement !== el) el.value = String(val);
+  };
+  setVal("#seed-input", state.seed);
+  setVal("#engine-scale", state.editGuidance.scale);
+  setVal("#engine-audio-scale", state.editGuidance.audio_scale);
+  setVal("#engine-first-step", state.editGuidance.first_step);
+  setVal("#engine-streams", state.editGuidance.streams);
+  setVal("#engine-feather", state.doc.feather);
+  const pf = evalPortalAtFrame(state.doc, state.frame, state.length);
+  setVal("#engine-shape", pf.shape || "circle");
+  const invChk = $("#chk-invert-mask");
+  if (invChk) invChk.checked = Boolean(state.doc.invert_mask);
+  const spChk = $("#chk-same-prompt");
+  if (spChk) spChk.checked = Boolean(state.samePrompt);
+
+  syncLiveTaeBadges(state.livePreview ? { step: state.livePreview.step, total: state.livePreview.total, fps: state.livePreview.fps } : null);
+  syncScrubberSVG();
+  syncContextualCard();
+  syncCueChips();
+  syncUndoRedoButtons();
+  stage?.render();
+}
+
+// ---------------------------------------------------------------------------
+// Actions: Anchor Upload, Anchor Generate, Context Suggest, Stamp Cutout
+// ---------------------------------------------------------------------------
+
+async function handleAnchorUpload(file) {
+  if (!file) return;
+  const fd = new FormData();
+  fd.append("file", file);
+  showToast(`Uploading ${file.name}…`);
+  try {
+    const data = await apiJson("/api/upload", { method: "POST", body: fd });
+    const imgUrl = data.view_url || videoItemViewUrl(data);
+    await loadAnchorImageUrl(imgUrl, {
+      ref: data.ref || `${data.subfolder ? data.subfolder + "/" : ""}${data.filename}`,
+      name: file.name,
+      width: data.width,
+      height: data.height,
+    });
+    showToast(`Anchored ${file.name}`, "ok");
+  } catch (err) {
+    showToast(`Upload failed: ${err.message}`, "err");
+  }
+}
+
+function loadAnchorImageUrl(url, meta = {}) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      state.anchorMedia = img;
+      state.anchorRef = meta.ref || state.anchorRef;
+      state.anchorName = meta.name || state.anchorName || "Anchor Still";
+      state.hasAnchor = true;
+      state.activeVideoEl = null;
+      $("#empty-anchor-card")?.classList.add("hidden");
+      if (state.capabilities.heylook_suggestions) {
+        refreshContextSuggestions();
+      }
+      syncAllUI();
+      schedulePreflight();
+      resolve(img);
+    };
+    img.onerror = () => reject(new Error("Could not load anchor image"));
+    img.src = url;
+  });
+}
+
+async function generateAnchorStill() {
+  const prompt = ($("#anchor-prompt")?.value || "").trim();
+  if (!prompt) {
+    showToast("Enter a short anchor scene description first.", "err");
+    $("#anchor-prompt")?.focus();
+    return;
+  }
+  const btn = $("#btn-gen-anchor");
+  if (btn) btn.disabled = true;
+  try {
+    const data = await apiJson("/api/anchor", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        prompt,
+        workflow: $("#anchor-workflow-select")?.value || state.anchorWorkflowId,
+        width: state.doc.width,
+        height: state.doc.height,
+        seed: state.seed,
+        client_id: wsClient.clientId,
+      }),
+    });
+    state.activeAnchorPromptId = data.prompt_id || "";
+    showToast("Generating 1-frame anchor still…", "info");
+  } catch (err) {
+    showToast(`Anchor generation failed: ${err.message}`, "err");
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+async function refreshContextSuggestions() {
+  const wrap = $("#context-suggestions-wrap");
+  const listEl = $("#context-suggestions-list");
+  if (!wrap || !listEl) return;
+  try {
+    const pf = evalPortalAtFrame(state.doc, state.frame, state.length);
+    const data = await apiJson("/api/context_suggest", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        anchor_ref: state.anchorRef,
+        original_prompt: state.targetPrompt,
+        scene_prompt: state.targetPrompt,
+        prompt: state.targetPrompt,
+        mode: state.doc.mode,
+        x: pf.x,
+        y: pf.y,
+        rx: pf.rx,
+        ry: pf.ry,
+      }),
+    });
+    if (data.enabled && Array.isArray(data.suggestions) && data.suggestions.length > 0) {
+      listEl.replaceChildren();
+      for (const s of data.suggestions) {
+        const promptText = typeof s === "string" ? s : (s.target_prompt || s.prompt || s.title || s.label || "");
+        const titleText = typeof s === "object" && s.title ? s.title : promptText;
+        if (!promptText) continue;
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "suggestion-btn";
+        btn.textContent = titleText;
+        btn.addEventListener("click", () => {
+          pushUndo();
+          state.targetPrompt = promptText;
+          const tp = $("#target-prompt");
+          if (tp) tp.value = promptText;
+          if (typeof s === "object" && s.preset && state.soundPresetsList.includes(s.preset)) {
+            const f = snapFrameTo3f(state.frame, state.length);
+            state.doc.portal_cues = (state.doc.portal_cues || []).filter((c) => c.frame !== f);
+            state.doc.portal_cues.push({ frame: f, preset: s.preset, gain: 1.0 });
+          }
+          syncAllUI();
+        });
+        listEl.appendChild(btn);
+      }
+      wrap.classList.remove("hidden");
+    } else {
+      listEl.replaceChildren();
+      wrap.classList.add("hidden");
+    }
+  } catch {
+    listEl.replaceChildren();
+    wrap.classList.add("hidden");
+  }
+}
+
+async function generateOrExtractStamp() {
+  const prompt = ($("#stamp-prompt-input")?.value || "").trim();
+  if (!state.anchorRef && !prompt) {
+    showToast("Anchor a scene or enter a stamp prompt first.", "err");
+    return;
+  }
+  try {
+    const data = await apiJson("/api/stamp_cutout", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        source_ref: state.anchorRef || undefined,
+        prompt: prompt || undefined,
+        width: state.doc.width,
+        height: state.doc.height,
+        seed: state.seed,
+        client_id: wsClient.clientId,
+      }),
+    });
+    if (data.prompt_id) {
+      state.activeStampPromptId = data.prompt_id;
+      showToast("Generating RGBA stamp cutout…", "info");
+      return;
+    }
+    const url = data.view_url || videoItemViewUrl(data);
+    if (url) {
+      await loadCutoutUrl(url, data.cutout_ref || data.ref || "");
+      showToast("RGBA cutout stamp ready (use WASD to steer)", "ok");
+    }
+  } catch (err) {
+    showToast(`Stamp failed: ${err.message}`, "err");
+  }
+}
+
+function loadCutoutUrl(url, ref) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      state.spriteCutout = { ref, viewUrl: url, img };
+      state.spriteMode = true;
+      syncAllUI();
+      resolve(img);
+    };
+    img.onerror = () => resolve(null);
+    img.src = url;
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Compile, Render, Escalate, Takes, Forget
+// ---------------------------------------------------------------------------
+
+function buildCompilePayload() {
+  const cuesLines = allActiveCues()
+    .map((c) => `${c.frame}: ${c.preset} @${Number(c.gain || 1).toFixed(2)}`)
+    .join("\n");
+  const dpadLines = (state.doc.dpad?.waypoints || [])
+    .map((w) => `${w.frame}: x=${Number(w.x).toFixed(3)}, y=${Number(w.y).toFixed(3)}, face=${w.face || "right"}, scale=${Number(w.scale || 1).toFixed(2)}`)
+    .concat(
+      (state.doc.dpad?.hops || []).map((h) => `hop ${h.start}..${h.end}: lift=${Number(h.lift || 0.25).toFixed(2)}`)
+    )
+    .join("\n");
+
+  const wfMeta = state.workflows.find((w) => w.id === state.workflowId);
+  const mode = state.doc.mode === "point_targets"
+    ? "world_targets"
+    : (wfMeta?.id || (wfMeta?.has_first_frame ? "i2v_portal" : (state.anchorRef ? "r2v_portal" : "t2v_portal")));
+
+  const pf = evalPortalAtFrame(state.doc, state.frame, state.length);
+  const sp = (state.spriteMode || state.spriteCutout?.img || (state.couplings || []).length > 0)
+    ? evalSpriteAtFrame(state.doc, state.frame, state.length)
+    : null;
+  const coupling = computeCouplingInfo(state, pf, sp);
+  const activeCouplings = coupling.active
+    ? [{
+        portal_index: 0,
+        target_kind: "sprite",
+        strength: coupling.strength,
+        mode: coupling.mode,
+        label: "Sprite Coupling",
+      }]
+    : [];
+
+  return {
+    mode,
+    director_mode: state.doc.mode,
+    workflow: state.workflowId,
+    width: state.doc.width,
+    height: state.doc.height,
+    length: state.length,
+    seed: Number($("#seed-input")?.value || state.seed),
+    source_ref: state.anchorRef,
+    sprite_ref: state.spriteCutout?.ref || "",
+    sprite_pos: sp ? { x: sp.x, y: sp.y, face: sp.face } : null,
+    halo_radius: Number(pf.halo_radius || 0),
+    couplings: activeCouplings,
+    target_prompt: state.targetPrompt,
+    same_prompt: Boolean(state.samePrompt),
+    feather: Number(state.doc.feather),
+    invert_mask: Boolean(state.doc.invert_mask),
+    scale: Number(state.editGuidance.scale),
+    audio_scale: Number(state.editGuidance.audio_scale),
+    first_step: Number(state.editGuidance.first_step),
+    last_step: Number(state.editGuidance.last_step),
+    streams: state.editGuidance.streams,
+    control_vectors: state.controlVector && state.controlVector !== "none"
+      ? [{ vector: state.controlVector, strength: Number(state.controlVectorStrength), edit_pass: "edited_only" }]
+      : [],
+    queue_baseline: Boolean($("#chk-baseline")?.checked),
+    events_json: JSON.stringify(state.doc),
+    sound_cues: cuesLines,
+    dpad_keyframes: dpadLines,
+    client_id: wsClient.clientId,
+  };
+}
+
+async function renderPortalEdit() {
+  if (!state.targetPrompt.trim() && !state.samePrompt && state.controlVector === "none") {
+    showToast("Enter a Target Latent Prompt inside the Contextual Card first.", "err");
+    $("#target-prompt")?.focus();
+    return;
+  }
+  const btn = $("#btn-render");
+  if (btn) btn.disabled = true;
+  try {
+    const payload = buildCompilePayload();
+    const res = await apiJson("/api/render", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    state.activeRenderPromptId = res.prompt_id || "";
+    state.activeBaselinePromptId = res.baseline_prompt_id || "";
+    showToast(`Queued ${state.length}f render (${res.preview_override_injected ? "taeh3 live" : "standard"})`, "ok");
+    await refreshTakes();
+  } catch (err) {
+    showToast(`Render error: ${err.message}`, "err");
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+async function switchLength(nextLength) {
+  const targetLen = Number(nextLength);
+  if (!targetLen || targetLen === state.length) return;
+  try {
+    const res = await apiJson("/api/escalate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        length: state.length,
+        target_length: targetLen,
+        events_json: JSON.stringify(state.doc),
+        portal_cues: state.doc.portal_cues || [],
+      }),
+    });
+    pushUndo();
+    state.length = Number(res.target_length || targetLen);
+    if (res.events_json) {
+      const parsed = typeof res.events_json === "string" ? JSON.parse(res.events_json) : res.events_json;
+      if (parsed && typeof parsed === "object") {
+        state.doc = { ...state.doc, ...parsed };
+      }
+    }
+    if (Array.isArray(res.portal_cues)) {
+      state.doc.portal_cues = res.portal_cues;
+    }
+    state.frame = clamp(state.frame, 0, Math.max(0, state.length - 1));
+    syncAllUI();
+    schedulePreflight();
+    showToast(`Scaled choreography to ${state.length}f`, "ok");
+  } catch (err) {
+    showToast(`Scale failed: ${err.message}`, "err");
+  }
+}
+
+async function promoteSeedToHero() {
+  const larger = state.lengths.find((n) => n > state.length);
+  const heroTarget = larger || state.lengths[state.lengths.length - 1] || state.length;
+  state.seedLocked = true;
+  $("#btn-seed-lock")?.classList.add("active");
+  $("#btn-seed-lock")?.setAttribute("aria-pressed", "true");
+  await switchLength(heroTarget);
+}
+
+async function refreshTakes() {
+  try {
+    const data = await apiJson("/api/takes");
+    state.takes = Array.isArray(data.takes) ? data.takes : [];
+    renderTakesList();
+  } catch {}
+}
+
+function renderTakesList() {
+  const list = $("#takes-list");
+  if (!list) return;
+  if (!state.takes.length) {
+    list.replaceChildren();
+    const empty = document.createElement("div");
+    empty.className = "empty-takes";
+    empty.textContent = "No takes rendered yet.";
+    list.appendChild(empty);
+    return;
+  }
+  list.replaceChildren();
+  for (const take of state.takes) {
+    const card = document.createElement("div");
+    card.className = "take-card";
+
+    const top = document.createElement("div");
+    top.className = "take-card-top";
+    top.textContent = `${take.mode || "take"} · ${take.length || "?"}f · seed ${take.seed || "?"} · ${take.status || "done"}`;
+    card.appendChild(top);
+
+    const actions = document.createElement("div");
+    actions.className = "take-card-actions";
+
+    if (take.clean_video || take.hud_video) {
+      const playBtn = document.createElement("button");
+      playBtn.type = "button";
+      playBtn.className = "btn-outline-sm";
+      playBtn.textContent = "Load Stage";
+      playBtn.addEventListener("click", () => loadTakeIntoStage(take));
+      actions.appendChild(playBtn);
+
+      const abBtn = document.createElement("button");
+      abBtn.type = "button";
+      abBtn.className = "btn-outline-sm";
+      abBtn.textContent = "Open A|B";
+      abBtn.addEventListener("click", () => openABCompareForTake(take));
+      actions.appendChild(abBtn);
+
+      const expClean = document.createElement("button");
+      expClean.type = "button";
+      expClean.className = "btn-outline-sm";
+      expClean.textContent = "Export Clean";
+      expClean.addEventListener("click", () => {
+        abCompare.setTakes({ directedTake: take, baselineTake: findBaselineTake(take) });
+        abCompare.exportTake("clean");
+      });
+      actions.appendChild(expClean);
+    }
+
+    card.appendChild(actions);
+    list.appendChild(card);
+  }
+}
+
+function findBaselineTake(directedTake) {
+  if (!directedTake) return null;
+  if (directedTake.baseline_video) return directedTake;
+  if (directedTake.baseline_prompt_id) {
+    return state.takes.find((t) => t.prompt_id === directedTake.baseline_prompt_id) || null;
+  }
+  return state.takes.find((t) => t.seed === directedTake.seed && t.prompt_id !== directedTake.prompt_id) || null;
+}
+
+function loadTakeIntoStage(take) {
+  const url = videoItemViewUrl(take.clean_video || take.hud_video);
+  if (!url) return;
+  if (!state.activeVideoEl) {
+    const v = document.createElement("video");
+    v.muted = true;
+    v.playsInline = true;
+    v.loop = true;
+    v.preload = "auto";
+    v.className = "offscreen-media";
+    $("#offscreen-media-sink")?.appendChild(v);
+    state.activeVideoEl = v;
+  }
+  const v = state.activeVideoEl;
+  const onReady = () => {
+    v.removeEventListener("loadeddata", onReady);
+    state.livePreview = null;
+    wsClient?.clearPreviewMedia();
+    syncAllUI();
+  };
+  v.addEventListener("loadeddata", onReady);
+  state.activeVideoUrl = url;
+  v.src = url;
+  try { v.load(); } catch {}
+
+  abCompare?.setTakes({
+    directedTake: take,
+    baselineTake: findBaselineTake(take),
+  });
+}
+
+function openABCompareForTake(take = null) {
+  const target = take || state.takes.find((t) => t.clean_video || t.hud_video) || null;
+  if (target) {
+    abCompare.setTakes({
+      directedTake: target,
+      baselineTake: findBaselineTake(target),
+    });
+  }
+  const active = abCompare.toggle();
+  $("#btn-compare-ab")?.classList.toggle("active", active);
+  $("#ab-bar")?.classList.toggle("hidden", !active);
+  if (active && target) {
+    abCompare.fetchMetrics({
+      events_json: JSON.stringify(state.doc),
+      director_mode: state.doc.mode,
+      feather: state.doc.feather,
+      width: state.doc.width,
+      height: state.doc.height,
+    });
+  }
+  stage?.render();
+}
+
+// ---------------------------------------------------------------------------
+// Playback Loop (24 fps) & Scrubber Drag
+// ---------------------------------------------------------------------------
+
+function stepPlayback(ts) {
+  if (!state.playing) {
+    rafHandle = 0;
+    return;
+  }
+  if (!lastRafTime) lastRafTime = ts;
+  const dt = (ts - lastRafTime) / 1000;
+  const frameStep = Math.floor(dt * FPS);
+  if (frameStep >= 1) {
+    lastRafTime = ts - ((dt * FPS - frameStep) / FPS) * 1000;
+    const prevFrame = state.frame;
+    let nextFrame = prevFrame + frameStep;
+    if (nextFrame >= state.length) {
+      if (state.loop) {
+        nextFrame = nextFrame % state.length;
+      } else {
+        nextFrame = state.length - 1;
+        state.playing = false;
+      }
+    }
+    state.frame = nextFrame;
+
+    // Trigger 3f foley cues whose frame was reached
+    for (const c of allActiveCues()) {
+      const crossed = nextFrame >= prevFrame
+        ? (c.frame > prevFrame && c.frame <= nextFrame)
+        : (c.frame > prevFrame || c.frame <= nextFrame);
+      if (crossed) {
+        foley.playCue(c.preset, c.gain, state.soundPresetMap[c.preset] || 0.2);
+      }
+    }
+    syncAllUI();
+  }
+  rafHandle = requestAnimationFrame(stepPlayback);
+}
+
+function togglePlayback() {
+  foley.unlock();
+  state.playing = !state.playing;
+  if (state.playing) {
+    lastRafTime = 0;
+    rafHandle = requestAnimationFrame(stepPlayback);
+  } else if (rafHandle) {
+    cancelAnimationFrame(rafHandle);
+    rafHandle = 0;
+  }
+  syncAllUI();
+}
+
+function scrubToClientX(clientX) {
+  const wrap = $("#scrubber-track-wrap");
+  if (!wrap) return;
+  const rect = wrap.getBoundingClientRect();
+  const pad = 10;
+  const u = clamp((clientX - rect.left - pad) / Math.max(1, rect.width - pad * 2), 0, 1);
+  state.frame = clamp(Math.round(u * (state.length - 1)), 0, Math.max(0, state.length - 1));
+  syncAllUI();
+}
+
+// ---------------------------------------------------------------------------
+// Accessible Engine Drawer (`role="tablist"` with ArrowLeft/Right/Home/End)
+// ---------------------------------------------------------------------------
+
+function activateEngineTab(tabBtn) {
+  const tabs = $$("#engine-tabs [role='tab']");
+  const panels = $$("#engine-drawer [role='tabpanel']");
+  const targetPanelId = tabBtn.getAttribute("aria-controls");
+  for (const t of tabs) {
+    const active = t === tabBtn;
+    t.classList.toggle("active", active);
+    t.setAttribute("aria-selected", active ? "true" : "false");
+    t.setAttribute("tabindex", active ? "0" : "-1");
+  }
+  for (const p of panels) {
+    const show = p.id === targetPanelId;
+    p.classList.toggle("active", show);
+    p.classList.toggle("hidden", !show);
+  }
+}
+
+function toggleEngineDrawer(forceOpen) {
+  const drawer = $("#engine-drawer");
+  const btn = $("#btn-engine");
+  if (!drawer || !btn) return;
+  const open = typeof forceOpen === "boolean" ? forceOpen : drawer.classList.contains("hidden");
+  drawer.classList.toggle("hidden", !open);
+  btn.classList.toggle("active", open);
+  btn.setAttribute("aria-expanded", open ? "true" : "false");
+  if (open) {
+    pollSystemStats();
+    runPreflight();
+    refreshTakes();
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Initialization & Event Wiring
+// ---------------------------------------------------------------------------
+
+function init() {
+  const canvas = $("#stage-canvas");
+  const sink = $("#offscreen-media-sink");
+
+  abCompare = new ABCompareController({
+    onChange: () => {
+      const m = abCompare.metrics;
+      const mEl = $("#ab-metrics-text");
+      if (mEl) {
+        if (abCompare.metricsLoading) {
+          mEl.textContent = "Computing mask MAE localization…";
+        } else if (m && m.available) {
+          mEl.textContent = `In-Mask MAE: ${Number(m.in_mask_mae).toFixed(3)} · Out-Mask MAE: ${Number(m.out_mask_mae).toFixed(3)} · Focus: ${Number(m.focus_ratio).toFixed(2)}x`;
+        } else if (m && m.reason) {
+          mEl.textContent = `A|B Split · ${m.reason}`;
+        } else {
+          mEl.textContent = "Split A|B · Drag divider across stage";
+        }
+      }
+      const hudBtn = $("#btn-ab-hud-toggle");
+      if (hudBtn) {
+        hudBtn.textContent = abCompare.hudMode ? "B: HUD (Node 13)" : "B: Clean (Node 162)";
+      }
+      stage?.render();
+    },
+    onStatus: (msg, kind) => showToast(msg, kind),
+  });
+  abCompare.setVideoSink(sink);
+
+  stage = new StageController(canvas, {
+    getState: () => state,
+    abCompare,
+    onMutate: (_reason, opts = {}) => {
+      if (!opts.live) pushUndo();
+      syncAllUI();
+      if (!opts.live) schedulePreflight();
+    },
+    onCardInspect: () => {
+      syncContextualCard();
+    },
+    onInteractHud: () => {
+      syncAllUI();
+    },
+  });
+
+  wsClient = new DirectorWSClient({
+    onConnection: (status) => {
+      if (status === "disconnected") {
+        $("#live-tae-text").textContent = "Live TAE: Reconnecting…";
+      } else if (status === "connected") {
+        syncLiveTaeBadges();
+      }
+    },
+    onProgress: (d) => {
+      if (d && d.max > 0) {
+        syncLiveTaeBadges({ step: d.value, total: d.max, fps: null });
+      }
+    },
+    onPreviewTelemetry: (d) => {
+      if (d && d.total > 0) {
+        syncLiveTaeBadges({ step: d.step || 0, total: d.total, fps: d.fps });
+      }
+    },
+    onPreviewMedia: (item) => {
+      state.livePreview = {
+        ...item,
+        fullFrame: state.livePreview?.fullFrame || Boolean(state.activeAnchorPromptId || state.activeStampPromptId),
+      };
+      syncLiveTaeBadges({ step: item.step || 0, total: item.total || 0, fps: item.fps });
+      stage?.render();
+    },
+    onExecuted: async (d) => {
+      const pid = d?.prompt_id;
+      await refreshTakes();
+      if (pid && pid === state.activeAnchorPromptId) {
+        state.activeAnchorPromptId = "";
+        state.livePreview = null;
+        const take = state.takes.find((t) => t.prompt_id === pid);
+        const im = take?.still_image || d?.output?.images?.[0];
+        if (im) {
+          await loadAnchorImageUrl(videoItemViewUrl(im), {
+            ref: `${im.subfolder ? im.subfolder + "/" : ""}${im.filename}`,
+            name: im.filename,
+          });
+          showToast("Anchor still ready", "ok");
+        }
+      } else if (pid && pid === state.activeStampPromptId) {
+        state.activeStampPromptId = "";
+        state.livePreview = null;
+        const take = state.takes.find((t) => t.prompt_id === pid);
+        const im = take?.still_image || d?.output?.images?.[0];
+        if (im) {
+          try {
+            const cut = await apiJson("/api/stamp_cutout", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ source_ref: im }),
+            });
+            const url = cut.view_url || videoItemViewUrl(cut);
+            if (url) await loadCutoutUrl(url, cut.cutout_ref || cut.ref || "");
+            showToast("Stamp cutout ready", "ok");
+          } catch {
+            await loadCutoutUrl(videoItemViewUrl(im), `${im.subfolder ? im.subfolder + "/" : ""}${im.filename}`);
+          }
+        }
+      } else if (!pid || pid === state.activeRenderPromptId || pid === state.activeBaselinePromptId) {
+        const take = state.takes.find((t) => t.prompt_id === (pid || state.activeRenderPromptId))
+          || state.takes.find((t) => t.clean_video || t.hud_video);
+        if (take && (take.clean_video || take.hud_video)) {
+          loadTakeIntoStage(take);
+          showToast("Portal render complete", "ok");
+        }
+      }
+    },
+    onExecutionError: (type, d) => {
+      showToast(`${type}: ${d?.exception_message || "Execution stopped"}`, "err", 6000);
+    },
+  });
+  wsClient.setVideoSink(sink);
+  wsClient.connect();
+
+  // Header controls
+  $("#btn-undo")?.addEventListener("click", () => {
+    if (!state.undoStack.length) return;
+    state.redoStack.push(snapshotDoc());
+    restoreSnapshot(state.undoStack.pop());
+  });
+  $("#btn-redo")?.addEventListener("click", () => {
+    if (!state.redoStack.length) return;
+    state.undoStack.push(snapshotDoc());
+    restoreSnapshot(state.redoStack.pop());
+  });
+  $("#btn-engine")?.addEventListener("click", () => toggleEngineDrawer());
+  $("#btn-engine-close")?.addEventListener("click", () => toggleEngineDrawer(false));
+  $("#btn-render")?.addEventListener("click", () => renderPortalEdit());
+
+  // Accessible tablist switching (click + ArrowLeft/ArrowRight/Home/End)
+  const tabBtns = $$("#engine-tabs [role='tab']");
+  for (let i = 0; i < tabBtns.length; i++) {
+    const btn = tabBtns[i];
+    btn.addEventListener("click", () => activateEngineTab(btn));
+    btn.addEventListener("keydown", (ev) => {
+      let nextIdx = -1;
+      if (ev.key === "ArrowRight") nextIdx = (i + 1) % tabBtns.length;
+      else if (ev.key === "ArrowLeft") nextIdx = (i - 1 + tabBtns.length) % tabBtns.length;
+      else if (ev.key === "Home") nextIdx = 0;
+      else if (ev.key === "End") nextIdx = tabBtns.length - 1;
+      if (nextIdx >= 0) {
+        ev.preventDefault();
+        tabBtns[nextIdx].focus();
+        activateEngineTab(tabBtns[nextIdx]);
+      }
+    });
+  }
+
+  // Stage top controls
+  $("#mode-btn-portal")?.addEventListener("click", () => {
+    pushUndo();
+    state.spriteMode = false;
+    state.doc.mode = "portal_path";
+    syncAllUI();
+    schedulePreflight();
+  });
+  $("#mode-btn-targets")?.addEventListener("click", () => {
+    pushUndo();
+    state.spriteMode = false;
+    state.doc.mode = "point_targets";
+    if (!state.doc.targets?.length) {
+      state.doc.targets = [{
+        id: 1,
+        label: "TARGET 1",
+        start: snapFrameTo3f(Math.round(state.length * 0.2), state.length),
+        end: Math.min(state.length - 1, Math.round(state.length * 0.7)),
+        ramp: 4,
+        x: 0.45,
+        y: 0.52,
+        radius: 0.18,
+        cue: state.defaultSoundPreset,
+        gain: 1.15,
+        weight: 1.0,
+        halo_radius: 0.08,
+        halo_weight: 0.30,
+      }];
+    }
+    syncAllUI();
+    schedulePreflight();
+  });
+  $("#mode-btn-sprite")?.addEventListener("click", () => {
+    state.spriteMode = !state.spriteMode;
+    syncAllUI();
+  });
+  $("#btn-fullframe-tae")?.addEventListener("click", () => {
+    if (!state.livePreview) state.livePreview = { fullFrame: true };
+    else state.livePreview.fullFrame = !state.livePreview.fullFrame;
+    $("#btn-fullframe-tae")?.classList.toggle("active", Boolean(state.livePreview.fullFrame));
+    $("#btn-fullframe-tae").textContent = state.livePreview.fullFrame ? "Full-Frame TAE" : "Masked TAE";
+    stage?.render();
+  });
+
+  // Beat 1 Anchor Upload + Drag & Drop + Still Gen
+  const uploadInput = $("#upload-anchor-input");
+  uploadInput?.addEventListener("change", (ev) => {
+    const file = ev.target.files?.[0];
+    if (file) handleAnchorUpload(file);
+    uploadInput.value = "";
+  });
+  const dropzone = $("#anchor-dropzone");
+  if (dropzone) {
+    dropzone.addEventListener("dragover", (ev) => {
+      ev.preventDefault();
+      dropzone.classList.add("dragover");
+    });
+    dropzone.addEventListener("dragleave", () => dropzone.classList.remove("dragover"));
+    dropzone.addEventListener("drop", (ev) => {
+      ev.preventDefault();
+      dropzone.classList.remove("dragover");
+      const file = ev.dataTransfer?.files?.[0];
+      if (file) handleAnchorUpload(file);
+    });
+  }
+  $("#btn-gen-anchor")?.addEventListener("click", () => generateAnchorStill());
+  $("#anchor-workflow-select")?.addEventListener("change", (ev) => {
+    state.anchorWorkflowId = ev.target.value;
+  });
+
+  // Contextual Portal Card controls
+  $("#btn-collapse-card")?.addEventListener("click", () => {
+    $("#portal-card")?.classList.toggle("collapsed");
+  });
+  $("#target-prompt")?.addEventListener("input", (ev) => {
+    state.targetPrompt = ev.target.value;
+  });
+  $("#btn-refresh-suggest")?.addEventListener("click", () => refreshContextSuggestions());
+  $("#card-cue-select")?.addEventListener("change", (ev) => {
+    const preset = ev.target.value;
+    pushUndo();
+    if (state.doc.mode === "point_targets" && state.doc.targets?.[state.selectedTargetIdx]) {
+      state.doc.targets[state.selectedTargetIdx].cue = preset;
+    } else if (preset !== "none") {
+      const f = snapFrameTo3f(state.frame, state.length);
+      state.doc.portal_cues = (state.doc.portal_cues || []).filter((c) => c.frame !== f);
+      state.doc.portal_cues.push({ frame: f, preset, gain: 1.0 });
+    }
+    if (preset !== "none") {
+      foley.playCue(preset, 1.0, state.soundPresetMap[preset] || 0.2);
+    }
+    syncAllUI();
+  });
+  $("#pill-cue-audition")?.addEventListener("click", () => {
+    const sel = $("#card-cue-select")?.value;
+    if (sel && sel !== "none") {
+      foley.playCue(sel, 1.0, state.soundPresetMap[sel] || 0.2);
+    }
+  });
+  $("#btn-apply-event")?.addEventListener("click", () => {
+    pushUndo();
+    const pf = evalPortalAtFrame(state.doc, state.frame, state.length);
+    state.doc.portal = (state.doc.portal || []).filter((p) => p.frame !== state.frame);
+    state.doc.portal.push({
+      frame: state.frame,
+      x: Number(pf.x.toFixed(3)),
+      y: Number(pf.y.toFixed(3)),
+      rx: Number(pf.rx.toFixed(3)),
+      ry: Number(pf.ry.toFixed(3)),
+      shape: pf.shape,
+      label: pf.label,
+      weight: Number((pf.weight ?? 1.0).toFixed(2)),
+      halo_radius: Number((pf.halo_radius ?? 0.10).toFixed(3)),
+      halo_weight: Number((pf.halo_weight ?? 0.30).toFixed(2)),
+    });
+    state.doc.portal.sort((a, b) => a.frame - b.frame);
+    syncAllUI();
+    schedulePreflight();
+    showToast(`Applied choreography at f${state.frame} (0ms local)`, "ok", 1800);
+  });
+  $("#dial-mask-halo")?.addEventListener("pointerdown", (ev) => {
+    const el = $("#dial-mask-halo");
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const u = clamp((ev.clientX - rect.left) / Math.max(1, rect.width), 0.05, 1.0);
+    pushUndo();
+    stage?.setHaloRadius(u * 0.32);
+    syncAllUI();
+    schedulePreflight();
+  });
+  $("#dial-coupling")?.addEventListener("pointerdown", (ev) => {
+    const el = $("#dial-coupling");
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const u = clamp((ev.clientX - rect.left) / Math.max(1, rect.width), 0.0, 1.0);
+    pushUndo();
+    state.editGuidance.scale = Number(clamp(0.5 + u * 2.0, 0.5, 2.5).toFixed(1));
+    if (state.couplings.length) {
+      state.couplings[0].strength = Number(clamp(u, 0.1, 1.0).toFixed(2));
+    }
+    syncAllUI();
+    schedulePreflight();
+  });
+  $("#btn-gen-stamp")?.addEventListener("click", () => generateOrExtractStamp());
+  $("#footer-add-stamp-btn")?.addEventListener("click", () => generateOrExtractStamp());
+  $("#btn-drawer-stamp")?.addEventListener("click", () => generateOrExtractStamp());
+  $("#btn-hop-arc")?.addEventListener("click", () => stage?.triggerSpriteHop());
+
+  // Scrubber & Transport
+  $("#btn-play")?.addEventListener("click", () => togglePlayback());
+  $("#btn-loop")?.addEventListener("click", () => {
+    state.loop = !state.loop;
+    $("#btn-loop")?.classList.toggle("active", state.loop);
+    $("#btn-loop")?.setAttribute("aria-pressed", state.loop ? "true" : "false");
+  });
+  $("#btn-grid-toggle")?.addEventListener("click", () => {
+    state.showPatchGrid = !state.showPatchGrid;
+    $("#btn-grid-toggle")?.classList.toggle("active", state.showPatchGrid);
+    stage?.render();
+  });
+
+  const scrubWrap = $("#scrubber-track-wrap");
+  if (scrubWrap) {
+    let scrubbing = false;
+    scrubWrap.addEventListener("pointerdown", (ev) => {
+      scrubbing = true;
+      scrubWrap.setPointerCapture?.(ev.pointerId);
+      scrubToClientX(ev.clientX);
+    });
+    window.addEventListener("pointermove", (ev) => {
+      if (scrubbing) scrubToClientX(ev.clientX);
+    });
+    window.addEventListener("pointerup", () => {
+      scrubbing = false;
+    });
+  }
+
+  // Engine Drawer fields
+  $("#engine-workflow")?.addEventListener("change", (ev) => {
+    state.workflowId = ev.target.value;
+    schedulePreflight();
+  });
+  $("#engine-canvas")?.addEventListener("change", (ev) => {
+    const [w, h] = String(ev.target.value).split("x").map(Number);
+    if (w > 0 && h > 0) {
+      state.doc.width = w;
+      state.doc.height = h;
+      syncAllUI();
+      schedulePreflight();
+    }
+  });
+  $("#engine-length")?.addEventListener("change", (ev) => switchLength(Number(ev.target.value)));
+  $("#btn-promote-hero")?.addEventListener("click", () => promoteSeedToHero());
+  $("#seed-input")?.addEventListener("change", (ev) => {
+    state.seed = Number(ev.target.value || 0);
+  });
+  $("#btn-seed-lock")?.addEventListener("click", () => {
+    state.seedLocked = !state.seedLocked;
+    $("#btn-seed-lock")?.classList.toggle("active", state.seedLocked);
+    $("#btn-seed-lock")?.setAttribute("aria-pressed", state.seedLocked ? "true" : "false");
+    $("#btn-seed-lock").textContent = state.seedLocked ? "Locked" : "Unlocked";
+  });
+  $("#btn-seed-rand")?.addEventListener("click", () => {
+    state.seed = Math.floor(Math.random() * 2147483640) + 1;
+    syncAllUI();
+  });
+  $("#engine-shape")?.addEventListener("change", (ev) => {
+    pushUndo();
+    for (const p of state.doc.portal || []) p.shape = ev.target.value;
+    syncAllUI();
+  });
+  $("#engine-streams")?.addEventListener("change", (ev) => {
+    state.editGuidance.streams = ev.target.value;
+  });
+  $("#engine-scale")?.addEventListener("change", (ev) => {
+    state.editGuidance.scale = clamp(Number(ev.target.value || 1.5), 0.5, 2.5);
+    syncAllUI();
+  });
+  $("#engine-audio-scale")?.addEventListener("change", (ev) => {
+    state.editGuidance.audio_scale = clamp(Number(ev.target.value || 1.0), 0.0, 2.5);
+    syncAllUI();
+  });
+  $("#engine-first-step")?.addEventListener("change", (ev) => {
+    state.editGuidance.first_step = clamp(Math.round(Number(ev.target.value || 0)), 0, 5);
+  });
+  $("#engine-feather")?.addEventListener("change", (ev) => {
+    state.doc.feather = clamp(Number(ev.target.value || 0.08), 0.0, 0.5);
+    stage?.render();
+  });
+  $("#chk-invert-mask")?.addEventListener("change", (ev) => {
+    state.doc.invert_mask = Boolean(ev.target.checked);
+    stage?.render();
+  });
+  $("#chk-same-prompt")?.addEventListener("change", (ev) => {
+    state.samePrompt = Boolean(ev.target.checked);
+  });
+  $("#engine-cv-select")?.addEventListener("change", (ev) => {
+    state.controlVector = ev.target.value;
+    schedulePreflight();
+  });
+  $("#engine-cv-strength")?.addEventListener("change", (ev) => {
+    state.controlVectorStrength = Number(ev.target.value || 1.0);
+  });
+  $("#btn-drop-cue")?.addEventListener("click", () => {
+    const preset = $("#engine-cue-preset")?.value;
+    if (!preset) return;
+    pushUndo();
+    const f = snapFrameTo3f(state.frame, state.length);
+    state.doc.portal_cues = (state.doc.portal_cues || []).filter((c) => c.frame !== f);
+    state.doc.portal_cues.push({ frame: f, preset, gain: 1.0 });
+    foley.playCue(preset, 1.0, state.soundPresetMap[preset] || 0.2);
+    syncAllUI();
+  });
+
+  $("#btn-refresh-takes")?.addEventListener("click", () => refreshTakes());
+  $("#btn-compile-inspect")?.addEventListener("click", async () => {
+    try {
+      const res = await apiJson("/api/compile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(buildCompilePayload()),
+      });
+      const nodeCount = Object.keys(res.graph || {}).length;
+      showToast(`Compiled ${res.mode} (${nodeCount} nodes, TAEH3=${Boolean(res.preview_override_injected)})`, "ok");
+    } catch (err) {
+      showToast(`Compile check failed: ${err.message}`, "err");
+    }
+  });
+  $("#btn-interrupt")?.addEventListener("click", async () => {
+    await apiJson("/api/interrupt", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ client_id: wsClient.clientId }) }).catch(() => {});
+    showToast("Interrupted active job", "info");
+  });
+  $("#btn-forget")?.addEventListener("click", async () => {
+    try {
+      const res = await apiJson("/api/forget", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ client_id: wsClient.clientId }) });
+      state.takes = [];
+      renderTakesList();
+      showToast(`Cleared temp files (${res.deleted_temp ?? 0} outputs)`, "ok");
+    } catch (err) {
+      showToast(`Forget failed: ${err.message}`, "err");
+    }
+  });
+
+  // A|B Compare & Export
+  $("#btn-compare-ab")?.addEventListener("click", () => openABCompareForTake());
+  $("#btn-ab-close")?.addEventListener("click", () => openABCompareForTake());
+  $("#btn-ab-hud-toggle")?.addEventListener("click", () => abCompare.setHudMode(!abCompare.hudMode));
+  $("#btn-export-clean")?.addEventListener("click", () => abCompare.exportTake("clean"));
+  $("#btn-export-hud")?.addEventListener("click", () => abCompare.exportTake("hud"));
+
+  // Global keyboard shortcuts (ignored inside text inputs)
+  window.addEventListener("keydown", (ev) => {
+    const tag = (ev.target?.tagName || "").toUpperCase();
+    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+
+    if ((ev.metaKey || ev.ctrlKey) && ev.key.toLowerCase() === "z") {
+      ev.preventDefault();
+      if (ev.shiftKey) $("#btn-redo")?.click();
+      else $("#btn-undo")?.click();
+      return;
+    }
+    if ((ev.metaKey || ev.ctrlKey) && ev.key.toLowerCase() === "y") {
+      ev.preventDefault();
+      $("#btn-redo")?.click();
+      return;
+    }
+
+    if (ev.key === " ") {
+      ev.preventDefault();
+      if (state.spriteMode && state.playing) {
+        stage?.triggerSpriteHop();
+      } else {
+        togglePlayback();
+      }
+      return;
+    }
+
+    if (state.spriteMode) {
+      const k = ev.key.toLowerCase();
+      if (k === "w" || ev.key === "ArrowUp") { ev.preventDefault(); stage?.nudgeSprite(0, -0.035); return; }
+      if (k === "s" || ev.key === "ArrowDown") { ev.preventDefault(); stage?.nudgeSprite(0, 0.035); return; }
+      if (k === "a" || ev.key === "ArrowLeft") { ev.preventDefault(); stage?.nudgeSprite(-0.04, 0, ev.shiftKey ? null : "left"); return; }
+      if (k === "d" || ev.key === "ArrowRight") { ev.preventDefault(); stage?.nudgeSprite(0.04, 0, ev.shiftKey ? null : "right"); return; }
+    } else {
+      if (ev.key === "ArrowLeft" || ev.key === "[") {
+        ev.preventDefault();
+        state.frame = clamp(state.frame - (ev.shiftKey ? 3 : 1), 0, state.length - 1);
+        syncAllUI();
+        return;
+      }
+      if (ev.key === "ArrowRight" || ev.key === "]") {
+        ev.preventDefault();
+        state.frame = clamp(state.frame + (ev.shiftKey ? 3 : 1), 0, state.length - 1);
+        syncAllUI();
+        return;
+      }
+      if (ev.key === "ArrowUp" || ev.key === "ArrowDown") {
+        ev.preventDefault();
+        const dir = ev.key === "ArrowUp" ? 1 : -1;
+        state.editGuidance.scale = Number(clamp(state.editGuidance.scale + dir * 0.1, 0.5, 2.5).toFixed(1));
+        syncAllUI();
+        return;
+      }
+    }
+
+    // Keys 1..9 drop & audition hydrated 3f sound presets
+    if (/^[1-9]$/.test(ev.key) && state.soundPresetsList.length) {
+      const idx = Number(ev.key) - 1;
+      const preset = state.soundPresetsList[idx];
+      if (preset) {
+        ev.preventDefault();
+        pushUndo();
+        const f = snapFrameTo3f(state.frame, state.length);
+        state.doc.portal_cues = (state.doc.portal_cues || []).filter((c) => c.frame !== f);
+        state.doc.portal_cues.push({ frame: f, preset, gain: 1.0 });
+        foley.playCue(preset, 1.0, state.soundPresetMap[preset] || 0.2);
+        syncAllUI();
+        showToast(`Dropped 3f cue f${f}: ${preset}`, "ok", 1600);
+      }
+    }
+  });
+
+  window.addEventListener("resize", () => {
+    stage?.resize();
+    syncScrubberSVG();
+  });
+
+  // Initial hydrate
+  hydrateSchema()
+    .then(() => Promise.all([pollSystemStats(), refreshTakes()]))
+    .catch((err) => {
+      showToast(`Schema load failed: ${err.message}`, "err", 6000);
+    });
+
+  // Expose debug handle for inspection without touching DOM styles
+  window.__GENIE_DIRECTOR__ = { state, stage, abCompare, wsClient, foley, syncAllUI };
+}
+
+document.addEventListener("DOMContentLoaded", init);

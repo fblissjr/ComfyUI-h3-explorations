@@ -1,0 +1,497 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Genie Direct — Spatial Portal &amp; TAE Sampler</title>
+  <link rel="icon" type="image/svg+xml" href="/static/icon.svg">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="light-studio">
+  <!-- Offscreen video decode sink for blob: MP4 previews and A|B wipe comparison -->
+  <div id="offscreen-media-sink" class="offscreen-media-sink" aria-hidden="true"></div>
+
+  <!-- 1. TOP HEADER BAR (48px, strict light mode, 100% visible within 1280px) -->
+  <header id="studio-header" class="studio-header">
+    <div class="header-left">
+      <div class="brand-lockup">
+        <img src="/static/icon.svg" alt="" class="brand-icon" width="24" height="24">
+        <span class="brand-title">GENIE DIRECT</span>
+        <span class="brand-badge">SPATIAL PORTAL</span>
+      </div>
+      <div class="header-divider" aria-hidden="true"></div>
+      <div id="scene-pill" class="scene-pill" title="Active anchor scene and canvas">
+        <svg class="ui-svg ui-svg-blue" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M4 5h16a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1zm1 2v10h14V7H5zm3 2.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3zm-1 6l3.5-3.5 2.5 2.5 3-3.5 3 4.5H7z"/>
+        </svg>
+        <span id="scene-pill-text">Awaiting Anchor</span>
+      </div>
+      <!-- Dual-clock pills hydrated strictly from GET /api/schema -> lengths -->
+      <div id="clock-pills" class="clock-pills" role="group" aria-label="Dual-clock frame lengths"></div>
+    </div>
+
+    <div class="header-center">
+      <div id="live-tae-pill" class="live-tae-pill" role="status" aria-live="polite">
+        <span id="live-tae-dot" class="status-dot"></span>
+        <span id="live-tae-text">Live TAE: Connecting…</span>
+      </div>
+    </div>
+
+    <div class="header-right">
+      <div class="history-btns">
+        <button id="btn-undo" type="button" class="icon-btn" title="Undo choreography change" aria-label="Undo">
+          <svg class="ui-svg" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M9 7H5v4h2V9.83A7 7 0 1 1 6.34 17l1.42-1.42A5 5 0 1 0 8.5 8.5L9 7z"/>
+          </svg>
+        </button>
+        <button id="btn-redo" type="button" class="icon-btn" title="Redo choreography change" aria-label="Redo">
+          <svg class="ui-svg" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M15 7h4v4h-2V9.83a7 7 0 1 0 1.66 7.17l-1.42-1.42a5 5 0 1 1-.74-7.08L15 7z"/>
+          </svg>
+        </button>
+      </div>
+
+      <button id="btn-engine" type="button" class="btn-secondary" aria-expanded="false" aria-controls="engine-drawer">
+        <svg class="ui-svg" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M19.14 12.94a7.9 7.9 0 0 0 .05-.94 7.9 7.9 0 0 0-.05-.94l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.6-.22l-2.39.96a7.28 7.28 0 0 0-1.63-.94l-.36-2.54a.48.48 0 0 0-.48-.42h-3.84a.48.48 0 0 0-.48.42l-.36 2.54c-.58.23-1.12.54-1.63.94l-2.39-.96a.5.5 0 0 0-.6.22L2.71 8.84a.5.5 0 0 0 .12.64l2.03 1.58a7.9 7.9 0 0 0-.05.94 7.9 7.9 0 0 0 .05.94l-2.03 1.58a.5.5 0 0 0-.12.64l1.92 3.32a.5.5 0 0 0 .6.22l2.39-.96c.5.4 1.05.72 1.63.94l.36 2.54a.48.48 0 0 0 .48.42h3.84a.48.48 0 0 0 .48-.42l.36-2.54c.58-.23 1.12-.54 1.63-.94l2.39.96a.5.5 0 0 0 .6-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58zM12 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z"/>
+        </svg>
+        <span>Engine</span>
+      </button>
+
+      <button id="btn-render" type="button" class="btn-primary">
+        <svg class="ui-svg ui-svg-white" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M19 9l1.25-2.75L23 5l-2.75-1.25L19 1l-1.25 2.75L15 5l2.75 1.25L19 9zm-7.5.5L9 4 6.5 9.5 1 12l5.5 2.5L9 20l2.5-5.5L17 12l-5.5-2.5z"/>
+        </svg>
+        <span>Render Portal Edit</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- 2. HERO 7:4 INTERACTIVE SCENE STAGE (Studio Well #EEF2F6, ~88% height) -->
+  <main id="stage-well" class="stage-well">
+    <div id="stageContainer" class="stage-container">
+      <canvas id="stage-canvas" class="stage-canvas" width="1344" height="768"></canvas>
+
+      <!-- Top-Left Mode & Placement Helper Pill -->
+      <div class="stage-top-left">
+        <div id="stage-helper-pill" class="stage-pill">
+          <svg class="ui-svg ui-svg-blue" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 2a10 10 0 1 0 10 10h-2a8 8 0 1 1-8-8V2zm0 4a6 6 0 1 0 6 6h-2a4 4 0 1 1-4-4V6zm1 5V3h-2v8h8v-2h-6z"/>
+          </svg>
+          <span id="stage-helper-text">Click stage to place or steer portal</span>
+        </div>
+        <div class="mode-switch" role="group" aria-label="Director interaction mode">
+          <button id="mode-btn-portal" type="button" class="mode-btn active" data-mode="portal_path">Portal</button>
+          <button id="mode-btn-targets" type="button" class="mode-btn" data-mode="point_targets">Targets</button>
+          <button id="mode-btn-sprite" type="button" class="mode-btn" data-mode="sprite">WASD Sprite</button>
+        </div>
+      </div>
+
+      <!-- Top-Right TAE Status & Mask Toggle -->
+      <div class="stage-top-right">
+        <div id="stage-tae-badge" class="stage-pill stage-pill-emerald">
+          <span id="stage-tae-dot" class="status-dot"></span>
+          <span id="stage-tae-text">tae-h3 Ready</span>
+        </div>
+        <button id="btn-fullframe-tae" type="button" class="stage-pill-btn" title="Toggle Masked Portal TAE vs Full-Frame TAE">
+          Masked TAE
+        </button>
+      </div>
+
+      <!-- UNCLIPPED Live taeh3 Portal Readout Pill (NEVER inside circular clip) -->
+      <div id="portal-tae-pill" class="portal-tae-pill">
+        <span class="portal-tae-dot"></span>
+        <span id="portal-tae-text">Live taeh3 · Step 0/6 · r=0.22</span>
+      </div>
+
+      <!-- Beat 1 Anchor First Empty Stage Card -->
+      <section id="empty-anchor-card" class="empty-anchor-card" aria-label="Anchor Scene">
+        <div class="anchor-card-head">
+          <h2>Anchor Scene First</h2>
+          <span class="anchor-badge">Beat 1 · 1-Frame Still or Upload</span>
+        </div>
+        <p class="anchor-subtitle">
+          Drop an image or MP4 (Frame 0 auto-extracted), or generate a 1-frame H3 still to open the spatial stage.
+        </p>
+
+        <div id="anchor-dropzone" class="anchor-dropzone">
+          <label for="upload-anchor-input" class="upload-label">
+            <svg class="ui-svg ui-svg-blue" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M11 16V7.85l-2.6 2.6L7 9l5-5 5 5-1.4 1.45-2.6-2.6V16h-2zm-5 4a2 2 0 0 1-2-2v-3h2v3h12v-3h2v3a2 2 0 0 1-2 2H6z"/>
+            </svg>
+            <span>Upload or Drop Image / MP4</span>
+          </label>
+          <input id="upload-anchor-input" type="file" class="sr-only" accept="image/*,video/mp4,video/webm,video/quicktime">
+        </div>
+
+        <div class="anchor-divider"><span>or generate 1-frame anchor still</span></div>
+
+        <div class="anchor-form">
+          <textarea id="anchor-prompt" class="field-textarea" rows="3" placeholder="Describe the anchor scene still to generate..."></textarea>
+          <div class="anchor-actions">
+            <select id="anchor-workflow-select" class="field-select" aria-label="Anchor workflow"></select>
+            <button id="btn-gen-anchor" type="button" class="btn-primary">
+              <svg class="ui-svg ui-svg-white" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M19 9l1.25-2.75L23 5l-2.75-1.25L19 1l-1.25 2.75L15 5l2.75 1.25L19 9zm-7.5.5L9 4 6.5 9.5 1 12l5.5 2.5L9 20l2.5-5.5L17 12l-5.5-2.5z"/>
+              </svg>
+              <span>Generate Anchor Still</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Contextual Tool Synthesizer Card (clamped inside stage bounds via dock classes) -->
+      <aside id="portal-card" class="portal-card dock-right hidden" aria-label="Contextual Tool Synthesizer">
+        <div class="portal-card-head">
+          <div class="portal-card-title">
+            <svg class="ui-svg ui-svg-blue" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8zm0-12a4 4 0 1 0 4 4 4 4 0 0 0-4-4z"/>
+            </svg>
+            <span id="portal-card-heading">Tool Synth (0,0)</span>
+          </div>
+          <div class="portal-card-head-right">
+            <span id="synth-latency-badge" class="synth-badge">0ms local</span>
+            <span id="card-time-badge" class="time-badge">f000 · 0.00s</span>
+            <button id="btn-collapse-card" type="button" class="icon-btn-xs" title="Collapse card" aria-label="Collapse card">–</button>
+          </div>
+        </div>
+
+        <div id="portal-card-body" class="portal-card-body">
+          <!-- Dynamic H3 Operator Pills synthesized from live stage state -->
+          <div class="synth-ops-wrap">
+            <div class="suggestions-head">
+              <span class="field-label">Synthesized H3 Operators</span>
+              <span class="op-auto-tag">live geometry</span>
+            </div>
+            <div id="synth-operators" class="synth-operators"></div>
+          </div>
+
+          <div class="field-group">
+            <label for="target-prompt" class="field-label">Target Latent Prompt</label>
+            <textarea id="target-prompt" class="field-textarea" rows="2" placeholder="Describe the edit or world reaction inside the portal..."></textarea>
+          </div>
+
+          <!-- Dynamic Scene-Aware Suggestions: ONLY shown when POST /api/context_suggest returns enabled:true & suggestions.length > 0 -->
+          <div id="context-suggestions-wrap" class="suggestions-wrap hidden">
+            <div class="suggestions-head">
+              <span class="field-label">Context Suggestions (heylook)</span>
+              <button id="btn-refresh-suggest" type="button" class="link-btn">Refresh</button>
+            </div>
+            <div id="context-suggestions-list" class="suggestions-list"></div>
+          </div>
+
+          <!-- Interactive SVG Progress-Bar Dials (synced with Scroll / Shift+Scroll / Alt+Scroll) -->
+          <div class="dial-stack">
+            <div id="dial-mask-halo" class="dial-card" title="Click or drag to tune Inner Mask vs Outer Halo (Scroll / Shift+Scroll)">
+              <div class="dial-row">
+                <span class="dial-title">Inner Mask → Outer Halo</span>
+                <span id="dial-mask-val" class="dial-val">0.22 → 0.32</span>
+              </div>
+              <svg id="dial-mask-svg" class="meter-svg" viewBox="0 0 100 6" preserveAspectRatio="none" aria-hidden="true">
+                <rect x="0" y="0" width="100" height="6" rx="3" fill="#E2E8F0"></rect>
+                <rect id="dial-halo-fill" x="0" y="0" width="55" height="6" rx="3" fill="#93C5FD"></rect>
+                <rect id="dial-mask-fill" x="0" y="0" width="38" height="6" rx="3" fill="#2563EB"></rect>
+              </svg>
+            </div>
+
+            <div id="dial-coupling" class="dial-card" title="Click or drag to tune EditGuider Scale / Subject Coupling (Alt+Scroll / Shift+Drag)">
+              <div class="dial-row">
+                <span class="dial-title">EditGuider Scale · Coupling</span>
+                <span id="dial-coupling-val" class="dial-val dial-val-emerald">2.0x · 0%</span>
+              </div>
+              <svg id="dial-coupling-svg" class="meter-svg" viewBox="0 0 100 6" preserveAspectRatio="none" aria-hidden="true">
+                <rect x="0" y="0" width="100" height="6" rx="3" fill="#E2E8F0"></rect>
+                <rect id="dial-coupling-fill" x="0" y="0" width="60" height="6" rx="3" fill="#047857"></rect>
+              </svg>
+            </div>
+          </div>
+
+          <!-- Compiled H3 Nodes Readout Box -->
+          <div id="compiled-nodes-readout" class="compiled-readout">
+            SpatialDirector(160) · EditGuider(2.0x)
+          </div>
+
+          <div class="card-cue-row">
+            <select id="card-cue-select" class="field-select field-select-sm" aria-label="3-frame SoundCue preset"></select>
+            <button id="pill-cue-audition" type="button" class="micro-pill micro-pill-emerald" title="Audition 3f foley cue">
+              <span id="pill-cue-text">3f Cue</span>
+            </button>
+          </div>
+
+          <div class="card-cta-row">
+            <button id="btn-apply-event" type="button" class="btn-primary btn-flex">
+              <span>Apply to Timeline (0ms)</span>
+            </button>
+            <button id="btn-gen-stamp" type="button" class="btn-outline-blue btn-stamp-compact" title="Generate or extract RGBA cutout stamp">
+              <svg class="ui-svg ui-svg-blue" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M11 19v-6H5v-2h6V5h2v6h6v2h-6v6h-2z"/>
+              </svg>
+              <span>Stamp</span>
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      <!-- A|B Compare Telemetry & Export Overlay Bar -->
+      <div id="ab-bar" class="ab-bar hidden">
+        <span id="ab-metrics-text" class="ab-metrics-text">Split A|B · Drag divider across stage</span>
+        <div class="ab-actions">
+          <button id="btn-ab-hud-toggle" type="button" class="btn-outline-sm">B: Clean (Node 162)</button>
+          <button id="btn-export-clean" type="button" class="btn-outline-sm">Export Clean MP4</button>
+          <button id="btn-export-hud" type="button" class="btn-outline-sm">Export HUD MP4</button>
+          <button id="btn-ab-close" type="button" class="btn-secondary-sm">Exit A|B</button>
+        </div>
+      </div>
+
+      <!-- Toast Notification Banner inside Stage -->
+      <div id="stage-toast" class="stage-toast hidden" role="status" aria-live="polite"></div>
+
+      <!-- 3. FLOATING LOOP SCRUBBER PILL -->
+      <div id="scrubber-bar" class="scrubber-bar">
+        <button id="btn-play" type="button" class="play-btn" title="Play / Pause (Space)" aria-label="Play or Pause">
+          <svg id="icon-play" class="ui-svg ui-svg-white" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M8 5v14l11-7z"/>
+          </svg>
+          <svg id="icon-pause" class="ui-svg ui-svg-white hidden" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+          </svg>
+        </button>
+
+        <div class="timecode-group">
+          <span id="timecode-cur">00:00.00</span>
+          <span class="time-sep">/</span>
+          <span id="timecode-total" class="time-total">00:05.88</span>
+          <button id="btn-loop" type="button" class="micro-icon-btn active" title="Loop playback ON" aria-pressed="true">
+            <svg class="ui-svg" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/>
+            </svg>
+          </button>
+          <button id="btn-grid-toggle" type="button" class="micro-pill-btn" title="Toggle 32x32px DiT Patch Grid">
+            32px
+          </button>
+        </div>
+
+        <div id="scrubber-track-wrap" class="scrubber-track-wrap" title="Click or drag to scrub 24 fps">
+          <canvas id="scrubber-canvas" class="scrubber-canvas" width="800" height="32" aria-label="24fps timeline scrubber"></canvas>
+        </div>
+
+        <div class="frame-readout">
+          <span id="scrubber-frame-cur" class="frame-cur">0</span>
+          <span>/</span>
+          <span id="scrubber-frame-total">141 f</span>
+          <span class="fps-tag">(24fps)</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- TUCKED ENGINE DRAWER (Slide-over, hidden by default, accessible role="tablist") -->
+    <aside id="engine-drawer" class="engine-drawer hidden" aria-label="Engine and Preflight Settings">
+      <div class="drawer-head">
+        <h3>Engine &amp; Choreography</h3>
+        <button id="btn-engine-close" type="button" class="icon-btn" aria-label="Close Engine drawer">
+          <svg class="ui-svg" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M18.3 5.71L12 12l6.3 6.29-1.41 1.42L10.59 13.41 4.29 19.71 2.88 18.29 9.17 12 2.88 5.71 4.29 4.29 10.59 10.59 16.89 4.29z"/>
+          </svg>
+        </button>
+      </div>
+
+      <div id="engine-tabs" class="drawer-tabs" role="tablist" aria-label="Engine sections">
+        <button id="tab-btn-scene" type="button" role="tab" aria-selected="true" aria-controls="panel-scene" tabindex="0" class="tab-btn active">Scene</button>
+        <button id="tab-btn-steering" type="button" role="tab" aria-selected="false" aria-controls="panel-steering" tabindex="-1" class="tab-btn">Steering</button>
+        <button id="tab-btn-takes" type="button" role="tab" aria-selected="false" aria-controls="panel-takes" tabindex="-1" class="tab-btn">Takes</button>
+        <button id="tab-btn-system" type="button" role="tab" aria-selected="false" aria-controls="panel-system" tabindex="-1" class="tab-btn">System</button>
+      </div>
+
+      <div class="drawer-body">
+        <!-- Tab 1: Scene & Clock -->
+        <section id="panel-scene" role="tabpanel" aria-labelledby="tab-btn-scene" class="tab-panel active">
+          <div class="drawer-field">
+            <label for="engine-workflow">Workflow Template</label>
+            <select id="engine-workflow" class="field-select"></select>
+          </div>
+          <div class="drawer-field">
+            <label for="engine-canvas">Trained Canvas (32px)</label>
+            <select id="engine-canvas" class="field-select"></select>
+          </div>
+          <div class="drawer-field">
+            <label for="engine-length">Frame Length (on_both_clocks)</label>
+            <div class="inline-row">
+              <select id="engine-length" class="field-select"></select>
+              <button id="btn-promote-hero" type="button" class="btn-outline-sm" title="Scale choreography and locked seed onto Hero length">Promote Seed</button>
+            </div>
+          </div>
+          <div class="drawer-field">
+            <label for="seed-input">Seed</label>
+            <div class="inline-row">
+              <input id="seed-input" type="number" class="field-input" value="">
+              <button id="btn-seed-lock" type="button" class="btn-outline-sm active" aria-pressed="true">Locked</button>
+              <button id="btn-seed-rand" type="button" class="btn-outline-sm">Rand</button>
+            </div>
+          </div>
+          <label class="checkbox-row">
+            <input id="chk-baseline" type="checkbox">
+            <span>Queue Same-Seed Baseline (scale=0.0 A|B)</span>
+          </label>
+        </section>
+
+        <!-- Tab 2: Steering, Control Vectors & Foley -->
+        <section id="panel-steering" role="tabpanel" aria-labelledby="tab-btn-steering" class="tab-panel hidden">
+          <div class="drawer-grid-2">
+            <div class="drawer-field">
+              <label for="engine-shape">Portal Shape</label>
+              <select id="engine-shape" class="field-select">
+                <option value="circle">circle</option>
+                <option value="ellipse">ellipse</option>
+                <option value="vertical_split">vertical_split</option>
+              </select>
+            </div>
+            <div class="drawer-field">
+              <label for="engine-streams">EditGuider Streams</label>
+              <select id="engine-streams" class="field-select">
+                <option value="independent">independent</option>
+                <option value="video_only">video_only</option>
+                <option value="both">both</option>
+                <option value="audio_only">audio_only</option>
+              </select>
+            </div>
+            <div class="drawer-field">
+              <label for="engine-scale">Power Scale (0.5–2.5)</label>
+              <input id="engine-scale" type="number" step="0.1" min="0.5" max="2.5" class="field-input" value="2.0">
+            </div>
+            <div class="drawer-field">
+              <label for="engine-audio-scale">Audio Scale</label>
+              <input id="engine-audio-scale" type="number" step="0.1" min="0.0" max="2.5" class="field-input" value="1.0">
+            </div>
+            <div class="drawer-field">
+              <label for="engine-first-step">First Step (0–5)</label>
+              <input id="engine-first-step" type="number" min="0" max="5" class="field-input" value="0">
+            </div>
+            <div class="drawer-field">
+              <label for="engine-feather">Feather</label>
+              <input id="engine-feather" type="number" step="0.01" min="0.0" max="0.50" class="field-input" value="0.08">
+            </div>
+          </div>
+
+          <label class="checkbox-row">
+            <input id="chk-invert-mask" type="checkbox">
+            <span>Invert Spatial Mask</span>
+          </label>
+          <label class="checkbox-row">
+            <input id="chk-same-prompt" type="checkbox">
+            <span>Same-Prompt Vector Split-World</span>
+          </label>
+
+          <div class="drawer-field">
+            <label for="engine-cv-select">Control Vector (MiniMaxH3Steer)</label>
+            <div class="inline-row">
+              <select id="engine-cv-select" class="field-select"></select>
+              <input id="engine-cv-strength" type="number" step="0.1" min="-2.0" max="2.5" class="field-input input-w-sm" value="1.0" aria-label="Control vector strength">
+            </div>
+          </div>
+
+          <div class="drawer-field">
+            <label for="engine-cue-preset">Drop 3f Foley Cue at Current Frame</label>
+            <div class="inline-row">
+              <select id="engine-cue-preset" class="field-select"></select>
+              <button id="btn-drop-cue" type="button" class="btn-outline-sm">Drop Cue</button>
+            </div>
+            <div id="cue-hotkeys-hint" class="hint-text">Keys 1–9 audition &amp; drop 3f cues</div>
+            <div id="cue-chips" class="cue-chips"></div>
+          </div>
+
+          <div class="drawer-field">
+            <label for="stamp-prompt-input">Sprite Cutout Stamp (D-Pad)</label>
+            <div class="inline-row">
+              <input id="stamp-prompt-input" type="text" class="field-input" placeholder="Optional stamp prompt or blank = anchor cutout">
+              <button id="btn-drawer-stamp" type="button" class="btn-outline-sm">Cutout</button>
+              <button id="btn-hop-arc" type="button" class="btn-outline-sm">Hop</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- Tab 3: Take Queue -->
+        <section id="panel-takes" role="tabpanel" aria-labelledby="tab-btn-takes" class="tab-panel hidden">
+          <div class="takes-head">
+            <span class="hint-text">Draft takes live in temp/ until exported.</span>
+            <button id="btn-refresh-takes" type="button" class="btn-outline-sm">Refresh</button>
+          </div>
+          <div id="takes-list" class="takes-list">
+            <div class="empty-takes">No takes rendered yet.</div>
+          </div>
+        </section>
+
+        <!-- Tab 4: Preflight & System VRAM -->
+        <section id="panel-system" role="tabpanel" aria-labelledby="tab-btn-system" class="tab-panel hidden">
+          <div class="meter-card">
+            <div class="meter-head">
+              <span>GPU VRAM</span>
+              <span id="vram-label" class="mono-val">—</span>
+            </div>
+            <svg id="vram-bar-svg" class="meter-svg" viewBox="0 0 100 8" preserveAspectRatio="none" aria-label="VRAM utilization">
+              <rect x="0" y="0" width="100" height="8" rx="4" fill="#E2E8F0"></rect>
+              <rect id="vram-bar-fill" x="0" y="0" width="0" height="8" rx="4" fill="#047857"></rect>
+            </svg>
+          </div>
+
+          <div class="meter-card" id="token-meter">
+            <div class="meter-head">
+              <span>Packed Tokens (int32 limit 99,864)</span>
+              <span id="token-label" class="mono-val">—</span>
+            </div>
+            <svg id="token-bar-svg" class="meter-svg" viewBox="0 0 100 8" preserveAspectRatio="none" aria-label="Packed token preflight">
+              <rect x="0" y="0" width="100" height="8" rx="4" fill="#E2E8F0"></rect>
+              <rect id="token-bar-fill" x="0" y="0" width="0" height="8" rx="4" fill="#2563EB"></rect>
+            </svg>
+            <div id="preflight-detail" class="hint-text">Run preflight to inspect latent steps &amp; audio tokens.</div>
+          </div>
+
+          <div id="capabilities-list" class="capabilities-list"></div>
+
+          <div class="drawer-actions-row">
+            <button id="btn-compile-inspect" type="button" class="btn-outline-sm">Verify Compile</button>
+            <button id="btn-interrupt" type="button" class="btn-outline-sm">Interrupt</button>
+            <button id="btn-forget" type="button" class="btn-danger-sm">Forget Temp</button>
+          </div>
+        </section>
+      </div>
+    </aside>
+  </main>
+
+  <!-- 4. BOTTOM CONTEXTUAL FOOTER BAR (48px, single-line, 100% visible inside 1280px) -->
+  <footer id="studio-footer" class="studio-footer">
+    <div class="footer-left">
+      <span class="footer-section-label">Tool Registry:</span>
+      <span id="footer-anchor-pill" class="footer-pill">
+        <span class="footer-dot"></span>
+        <span id="footer-anchor-text">Anchor: None</span>
+      </span>
+      <span id="footer-layer-pill" class="footer-pill footer-pill-blue">
+        <span id="footer-layer-text">Portal + Halo</span>
+      </span>
+      <span id="footer-coupling-pill" class="footer-pill footer-pill-emerald hidden">
+        <span id="footer-coupling-text">Coupling 0%</span>
+      </span>
+      <button id="footer-add-stamp-btn" type="button" class="footer-btn-dashed">+ Stamp</button>
+    </div>
+
+    <div class="footer-center" aria-label="Gesture controls">
+      <span class="control-chip"><strong>Scroll</strong> Size</span>
+      <span class="control-chip"><strong>Shift+Scroll</strong> Halo</span>
+      <span class="control-chip"><strong>Alt+Scroll</strong> Scale</span>
+      <span class="control-chip"><strong>Shift+Drag</strong> Couple</span>
+      <span class="control-chip"><strong>1–9</strong> Cue</span>
+    </div>
+
+    <div class="footer-right">
+      <button id="btn-compare-ab" type="button" class="btn-compare">
+        <svg class="ui-svg ui-svg-blue" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M10 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h5v2h2V1h-2v2zm0 15H5l5-6v6zm9-15h-5v2h5v13l-5-6v9h5a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2z"/>
+        </svg>
+        <span>Compare Original (A|B)</span>
+      </button>
+    </div>
+  </footer>
+
+  <script type="module" src="/static/js/app.js"></script>
+</body>
+</html>
