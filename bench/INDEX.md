@@ -14,7 +14,7 @@ this file is only a way to find a script by what it says it does.
 | [`grade_*`](#grade) | 19 |
 | [`compare_*`](#compare) | 15 |
 | [`build_*`](#build) | 13 |
-| [`probe_*`](#probe) | 14 |
+| [`probe_*`](#probe) | 15 |
 | [the rest](#the-rest) | 201 |
 
 ## check
@@ -327,6 +327,7 @@ this file is only a way to find a script by what it says it does.
 
 | script | what it says it does |
 |---|---|
+| [`probe_anchor_transfer.py`](probe_anchor_transfer.py) | Live 1-clip Pika probes for block-scoped AudioAttentionGain and perturbed Frame-0 anchor transfer. |
 | [`probe_audio_marker_effect.py`](probe_audio_marker_effect.py) | Does an audio reference degrade what the H3 encoder produces? |
 | [`probe_block_propagation.py`](probe_block_propagation.py) | Does Sol's error at ONE block reach the output? Measured, one block at a time. |
 | [`probe_encoder_rope_kitchen.py`](probe_encoder_rope_kitchen.py) | Did core's move of the text encoder's RoPE onto comfy-kitchen change its numbers? |
@@ -738,7 +739,7 @@ Arm manifests and the like; a manifest's line is its own `what`.
 
 ### results
 
-237 tracked files: [`results/INDEX.md`](results/INDEX.md).
+238 tracked files: [`results/INDEX.md`](results/INDEX.md).
 
 ### rubrics
 

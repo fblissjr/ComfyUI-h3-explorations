@@ -7,6 +7,7 @@ Router index for dated studies, experiment logs, and postmortems under `docs/wik
 | Document | Topic |
 |---|---|
 | [`2026-11-14_cross_pillar_api_workflows_and_sam31_decoupling.md`](2026-11-14_cross_pillar_api_workflows_and_sam31_decoupling.md) | Six-pillar API composition synthesis (`P-H3-Image` + Phase 1 `guide_end_percent` + `EditGuider` + `SoundCues` + `SpriteTrajectory` + `AudioRefine` + decoupled `SAM 3.1` / `Sapiens2`), Phase 2B `H3MaskedSource -> AudioFreezeSong` boundary audit, two-phase zero-swap execution, and 3-node extraction plan off [`audio_freeze_song.py`](../../../audio_freeze_song.py) |
+| [`2026-11-16_geiru_keystone_audit_and_roadmap.md`](2026-11-16_geiru_keystone_audit_and_roadmap.md) | Clean-room technical audit of `geiru_context_suite` / `NerdNotes`, `ComfyUI-MMH3Tools`, and `ComfyUI-MiniMaxH3-Context-Loop` (`4,629f` `30`-clip analysis, RTX 4090 `return_lse` `88.2 ms` vs. `519.0 ms` benchmark, `c % 5 == 2` VAE seam-lock proof, and `5`-bucket holistic roadmap) |
 
 ## Control Vectors, Readouts, Sound Cues & 2D D-Pad (`docs/wiki/research/control_vectors/`)
 

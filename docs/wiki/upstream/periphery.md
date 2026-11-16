@@ -1,6 +1,6 @@
 # The periphery: how it differs, aligns, and what it does that others do not
 
-last updated: 2026-11-15 (page created; state as of [`sweeps/2026-11-15.md`](sweeps/2026-11-15.md))
+last updated: 2026-11-16 (added `geiru_context_suite`, `NerdNotes`, `ComfyUI-MMH3Tools`, and `ComfyUI-MiniMaxH3-Context-Loop` from hand audit); 2026-11-15 (page created; state as of [`sweeps/2026-11-15.md`](sweeps/2026-11-15.md))
 
 Everything outside sglang, vllm-omni, diffusers and core: the other libraries, distill releases, node packs,
 Hugging Face uploads and papers. **Periphery is never a vote** ([`index.md`](index.md), "When upstreams disagree").
@@ -33,6 +33,9 @@ This page holds the standing picture per source. Each sweep record has the dated
 | Continuity Studio, h3-editor, h3-long-video-research | visual memory across shots; editor-style timelines; latent carry against decode-reencode colour creep | long clips | READMEs |
 | H3-Image Soft-Start, Conditioning Plus, Concept Sliders, Video-LoRA-for-Image | an empty picture for the first steps; neutral vision patches for t2i; concept text before the refiner; video LoRAs on the image model | image lane, control vectors | READMEs |
 | Sol-H3-VAE (`Efficient-Large-Model/Sol-H3-VAE`) and WanGP #2625 | a non-causal int8 video decoder reported faster and sharper than LightVAE | video decode | issue and listing |
+| `roycho87/geiru_context_suite` (GPL-3.0) & `roycho87/NerdNotes` (CC BY-SA 4.0) | clean Clip-1 frame-0 keystone anchor + post-sample restore; exact within-slice mass-conserving attention re-splitting (`keystone <-> context`) preserving text/refs/audio shares; 1-clip perturbed-anchor block ablation isolating global appearance/luma blocks (`31–33, 36–44, 47`); host-RAM cropped Hybrid Windows | `audio_freeze_song.py` (timeline-scoped section anchor), `attention.py` (`return_lse` subset balance), `bench/probe_anchor_transfer.py` (clean-room MIT equivalents only; no GPL/BY-SA code copied) | code + 4,629f 4-arm MP4 (`H`: [2026-11-16 audit](../research/2026-11-16_geiru_keystone_audit_and_roadmap.md)) |
+| `ckinpdx/ComfyUI-MMH3Tools` (MIT) | `Carry Attention` logit bias lowering carried-context weight and optionally raising `<Picture N>` reference weight (`carry_bias`, `reference_bias`) | `attention.py` & `ref2va` identity-vs-pose balance (superseded within-slice by LSE subset re-splitting) | NerdNotes summary + formula check (`B`) |
+| `ethanfel/ComfyUI-MiniMaxH3-Context-Loop` (`Lumifel`) | tapered `context_noise` ramp fading from full noise at head to clean at join (`matched_noise_ratio`) | `audio_freeze.py` (`MiniMaxH3FreezeAudioWindow`) & `audio_freeze_song.py` causal-overlap taper | Geiru / MAINodes comparison (`B`) |
 
 ## Distills (outside the owner's set, listed for awareness)
 
