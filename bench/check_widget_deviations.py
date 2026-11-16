@@ -494,13 +494,15 @@ DECLARED: dict[tuple[str, str], tuple] = {
                 "interpolated Reality Lens sweeps to clicked (x, y, t) target zones "
                 "synchronized with 3f SoundCues and Genie D-Pad sprites (2026-11-15)."),
     ("MiniMaxH3DirectorHUD", "title"):
-        ("ARM", "Scene-specific HUD header title on h3_spatial_portal_pika and "
-                "h3_world_targets_genie_pika, against the node default "
+        ("ARM", "Scene-specific HUD header title on h3_spatial_portal_pika, "
+                "h3_world_targets_genie_pika, h3_r2v_spatial_portal_pika, and "
+                "h3_i2v_spatial_portal_pika, against the node default "
                 "'SPATIAL WORLD DIRECTOR · 2D VELOCITY STEERING' (2026-11-15)."),
     ("MiniMaxH3DirectorHUD", "subtitle"):
         ("ARM", "Scene-specific HUD subtitle pill explaining inside-vs-outside "
-                "mask behavior on h3_spatial_portal_pika and "
-                "h3_world_targets_genie_pika, against the empty default (2026-11-15)."),
+                "mask behavior on h3_spatial_portal_pika, "
+                "h3_world_targets_genie_pika, h3_r2v_spatial_portal_pika, and "
+                "h3_i2v_spatial_portal_pika, against the empty default (2026-11-15)."),
 }
 
 #: **There is deliberately no exception table here.** One was written on

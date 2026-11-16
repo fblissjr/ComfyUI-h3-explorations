@@ -5,7 +5,10 @@ from __future__ import annotations
 
 import importlib
 import json
+import math
+import re
 import sys
+import types
 from pathlib import Path
 
 _BENCH = Path(__file__).resolve().parent
@@ -17,9 +20,18 @@ from _lib import bootstrap, case, finish, refused  # noqa: E402
 
 bootstrap(cpu=True)
 
+if str(_REPO) in sys.path:
+    sys.path.remove(str(_REPO))
+
+import nodes as _comfy_nodes  # noqa: E402,F401
+import numpy as np  # noqa: E402
 import torch  # noqa: E402
 
-_PKG = f"custom_nodes.{_REPO.name}"
+_PKG = "_h3pack"
+if _PKG not in sys.modules:
+    _pkg = types.ModuleType(_PKG)
+    _pkg.__path__ = [str(_REPO)]
+    sys.modules[_PKG] = _pkg
 sd_mod = importlib.import_module(f"{_PKG}.spatial_director")
 sc_mod = importlib.import_module(f"{_PKG}.sound_cues")
 st_mod = importlib.import_module(f"{_PKG}.sprite_trajectory")
@@ -265,26 +277,308 @@ def _check_hud_layouts() -> None:
     assert float((split_with_base - split_no_base).abs().max()) > 0.25
 
 
+def _assert_dual_vhs(graph: dict[str, dict], hud_id: str) -> None:
+    vhs_nodes = _nodes_by_class(graph, "VHS_VideoCombine")
+    assert len(vhs_nodes) == 2, f"expected dual VHS_VideoCombine ('13' + '162'), got {len(vhs_nodes)}"
+    assert "13" in graph and "162" in graph
+    hud_vhs = graph["13"]["inputs"]
+    clean_vhs = graph["162"]["inputs"]
+    assert hud_vhs["images"] == [hud_id, 0]
+    assert clean_vhs["images"] == ["11", 0]
+    assert clean_vhs["audio"] == hud_vhs["audio"]
+    assert clean_vhs["filename_prefix"] == f"{hud_vhs['filename_prefix']}_clean"
+    for k, v in hud_vhs.items():
+        if k not in ("images", "filename_prefix"):
+            assert clean_vhs[k] == v, f"VHS param {k!r} mismatch between '13' and '162'"
+
+
+def _check_weight_halo_and_portal_window() -> None:
+    w, h, n_frames, feather = 320, 192, 39, 0.08
+    short_edge = float(min(w, h))
+    feather_px = feather * short_edge
+    px = np.arange(w, dtype=np.float32)[None, :] + 0.5
+    py = np.arange(h, dtype=np.float32)[:, None] + 0.5
+
+    # 1. Bitwise identity on default portal_path (no weight/halo/portal_start/portal_end/portal_ramp)
+    p_def_json = json.dumps(
+        {
+            "portal": [
+                {"frame": 0, "x": 0.25, "y": 0.50, "rx": 0.20, "ry": 0.20, "shape": "circle"},
+                {"frame": 38, "x": 0.75, "y": 0.50, "rx": 0.24, "ry": 0.24, "shape": "circle"},
+            ]
+        }
+    )
+    out_def = sd_mod.MiniMaxH3SpatialDirector.execute(
+        mode="portal_path", width=w, height=h, length=n_frames, feather=feather, events_json=p_def_json
+    ).result
+    mask_def = out_def[0]
+    plan_def = json.loads(out_def[3])
+    assert plan_def["portal_start"] == 0 and plan_def["portal_end"] == n_frames - 1
+    portals, targets, _, _, win = sd_mod.parse_director_events(
+        p_def_json, mode="portal_path", length=n_frames, return_portal_window=True
+    )
+    assert win == (0, n_frames - 1, 0)
+    ref_arr = np.zeros((n_frames, h, w), dtype=np.float32)
+    for f in range(n_frames):
+        x, y, rx, _ry, _shape, _lbl, wt, hr, hw = sd_mod._eval_portal_frame(portals, f)
+        assert wt == 1.0 and hr == 0.0 and hw == 0.30
+        rad_px = max(2.0, float(rx) * short_edge)
+        dist = np.sqrt((px - float(x) * w) ** 2 + (py - float(y) * h) ** 2) - rad_px
+        ref_arr[f] = sd_mod._soft_edge_from_signed_dist(dist, feather_px)
+    assert torch.equal(mask_def, torch.from_numpy(ref_arr)), "default portal_path mask must stay bitwise identical"
+
+    # 2. Bitwise identity on default point_targets
+    t_def_json = json.dumps(
+        {
+            "targets": [
+                {"id": 1, "start": 6, "end": 30, "ramp": 4, "x": 0.5, "y": 0.5, "radius": 0.18, "cue": "click"}
+            ]
+        }
+    )
+    mask_t_def = sd_mod.MiniMaxH3SpatialDirector.execute(
+        mode="point_targets", width=w, height=h, length=n_frames, feather=feather, events_json=t_def_json
+    ).result[0]
+    _, t_evs, _, _ = sd_mod.parse_director_events(t_def_json, mode="point_targets", length=n_frames)
+    t_obj = t_evs[0]
+    assert t_obj.weight == 1.0 and t_obj.halo_radius == 0.0 and t_obj.halo_weight == 0.30
+    rad_px = max(2.0, float(t_obj.radius) * short_edge)
+    s_disc = sd_mod._soft_edge_from_signed_dist(
+        np.sqrt((px - float(t_obj.x) * w) ** 2 + (py - float(t_obj.y) * h) ** 2) - rad_px,
+        feather_px,
+    )
+    ref_t_arr = np.zeros((n_frames, h, w), dtype=np.float32)
+    for f in range(n_frames):
+        tw = sd_mod._target_temporal_weight(t_obj, f)
+        if tw > 1e-5:
+            ref_t_arr[f] = s_disc * np.float32(tw)
+    assert torch.equal(mask_t_def, torch.from_numpy(ref_t_arr)), "default point_targets mask must stay bitwise identical"
+
+    # 3. Portal keyframe cosine-eased weight, outer cosine halo shelf, bounded portal_start/end/ramp, and HUD dashed halo
+    bounded_json = json.dumps(
+        {
+            "portal_start": 6,
+            "portal_end": 30,
+            "portal_ramp": 4,
+            "portal": [
+                {
+                    "frame": 6,
+                    "x": 0.50,
+                    "y": 0.50,
+                    "rx": 0.18,
+                    "ry": 0.18,
+                    "shape": "circle",
+                    "weight": 0.60,
+                    "halo_radius": 0.20,
+                    "halo_weight": 0.50,
+                },
+                {
+                    "frame": 30,
+                    "x": 0.50,
+                    "y": 0.50,
+                    "rx": 0.18,
+                    "ry": 0.18,
+                    "shape": "circle",
+                    "weight": 0.90,
+                    "halo_radius": 0.20,
+                    "halo_weight": 0.50,
+                },
+            ],
+        }
+    )
+    out_b = sd_mod.MiniMaxH3SpatialDirector.execute(
+        mode="portal_path", width=w, height=h, length=n_frames, feather=feather, events_json=bounded_json
+    ).result
+    mask_b = out_b[0].numpy()
+    plan_b = json.loads(out_b[3])
+    assert plan_b["portal_start"] == 6 and plan_b["portal_end"] == 30
+    assert plan_b["portals"][0]["weight"] == 0.6 and plan_b["portals"][0]["halo_radius"] == 0.2
+    assert plan_b["portals"][0]["halo_weight"] == 0.5
+    assert mask_b[:6].max() == 0.0 and mask_b[31:].max() == 0.0
+    # Mid-plateau frame 18 has u = 0.5 -> eased weight = 0.75
+    assert abs(float(mask_b[18, h // 2, w // 2]) - 0.75) < 1e-4
+    # Fade-in frame 6 matches target temporal ramp formula
+    expected_f6 = 0.60 * sd_mod._cosine_ease(1.0 / 5.0)
+    assert abs(float(mask_b[6, h // 2, w // 2]) - expected_f6) < 1e-4
+    # Outer halo check at frame 18: core radius = 0.18*192 = 34.56px, halo_px = 0.20*192 = 38.4px
+    # At dx = 55px from center: dist_2d = 20.44px (> half_feather 7.68px so core==0, inside halo <= 38.4px)
+    cx = 0.5 * w
+    cy = 0.5 * h
+    dx_test = 55
+    col = int(cx) + dx_test
+    row = int(cy)
+    dist_pt = math.hypot((col + 0.5) - cx, (row + 0.5) - cy) - (0.18 * short_edge)
+    halo_px = 0.20 * short_edge
+    expected_halo = (0.75 * 0.50) * 0.5 * (1.0 + math.cos(math.pi * min(1.0, max(0.0, dist_pt / halo_px))))
+    assert abs(float(mask_b[18, row, col]) - expected_halo) < 1e-4
+    # Beyond core + halo (dx = 80px -> dist ~ 45.4px > 38.4px) is exact 0.0
+    assert float(mask_b[18, row, int(cx) + 80]) == 0.0
+
+    # HUD draws dashed outer halo circle visibly when halo_radius > 0
+    no_halo_json = json.dumps(
+        {
+            "portal_start": 6,
+            "portal_end": 30,
+            "portal_ramp": 4,
+            "portal": [
+                {"frame": 6, "x": 0.50, "y": 0.50, "rx": 0.18, "ry": 0.18, "shape": "circle", "weight": 0.60},
+                {"frame": 30, "x": 0.50, "y": 0.50, "rx": 0.18, "ry": 0.18, "shape": "circle", "weight": 0.90},
+            ],
+        }
+    )
+    plan_nh = sd_mod.MiniMaxH3SpatialDirector.execute(
+        mode="portal_path", width=w, height=h, length=n_frames, feather=feather, events_json=no_halo_json
+    ).result[3]
+    frames = torch.full((n_frames, h, w, 3), 0.35, dtype=torch.float32)
+    hud_halo = sd_mod.MiniMaxH3DirectorHUD.execute(
+        frames, director_plan=out_b[3], hud_layout="canvas_reticle_only"
+    ).result[0]
+    hud_no_halo = sd_mod.MiniMaxH3DirectorHUD.execute(
+        frames, director_plan=plan_nh, hud_layout="canvas_reticle_only"
+    ).result[0]
+    assert float((hud_halo[18] - hud_no_halo[18]).abs().max()) > 0.15
+    # Closed frame (f=2) differs from active frame (f=18)
+    assert float((hud_halo[18] - hud_halo[2]).abs().max()) > 0.15
+
+    # 4. WorldTargetEvent weight + halo
+    t_halo_json = json.dumps(
+        {
+            "targets": [
+                {
+                    "id": 1,
+                    "start": 8,
+                    "end": 30,
+                    "ramp": 0,
+                    "x": 0.5,
+                    "y": 0.5,
+                    "radius": 0.15,
+                    "cue": "click",
+                    "weight": 0.50,
+                    "halo_radius": 0.18,
+                    "halo_weight": 0.40,
+                }
+            ]
+        }
+    )
+    out_th = sd_mod.MiniMaxH3SpatialDirector.execute(
+        mode="point_targets", width=w, height=h, length=n_frames, feather=feather, events_json=t_halo_json
+    ).result
+    mask_th = out_th[0].numpy()
+    plan_th = json.loads(out_th[3])
+    assert plan_th["targets"][0]["weight"] == 0.5
+    assert plan_th["targets"][0]["halo_radius"] == 0.18
+    assert plan_th["targets"][0]["halo_weight"] == 0.4
+    assert abs(float(mask_th[15, h // 2, w // 2]) - 0.50) < 1e-4
+    assert float(mask_th[15, row, int(cx) + 46]) > 0.02
+
+    # 5. Refusals for invalid halo/weight/portal window values
+    refused(
+        lambda: sd_mod.parse_director_events(
+            json.dumps({"portal": [{"frame": 0, "weight": 0.01}]}), mode="portal_path", length=n_frames
+        ),
+        "weight",
+    )
+    refused(
+        lambda: sd_mod.parse_director_events(
+            json.dumps({"portal": [{"frame": 0, "halo_radius": 1.5}]}), mode="portal_path", length=n_frames
+        ),
+        "halo_radius",
+    )
+    refused(
+        lambda: sd_mod.parse_director_events(
+            json.dumps({"portal_start": 20, "portal_end": 10, "portal": [{"frame": 0}]}),
+            mode="portal_path",
+            length=n_frames,
+        ),
+        "exceed",
+    )
+    refused(
+        lambda: sd_mod.parse_director_events(
+            json.dumps({"portal_ramp": -1, "portal": [{"frame": 0}]}),
+            mode="portal_path",
+            length=n_frames,
+        ),
+        "portal_ramp",
+    )
+
+
+def _check_js_sound_presets() -> None:
+    js_path = _REPO / "web" / "h3_spatial_director.js"
+    js_text = js_path.read_text(encoding="utf-8")
+    m = re.search(r"const SOUND_PRESETS\s*=\s*\[(.*?)\];", js_text, re.S)
+    assert m is not None, "SOUND_PRESETS declaration not found in web/h3_spatial_director.js"
+    js_presets = re.findall(r'"([^"]+)"', m.group(1))
+    expected = sorted(sc_mod.SOUND_CUE_PRESETS) + ["none"]
+    assert set(js_presets) == set(expected) and len(js_presets) == len(expected), (
+        f"SOUND_PRESETS {js_presets} != expected {expected}"
+    )
+    cues_used = re.findall(r'\bcue\s*:\s*"([^"]+)"', js_text)
+    assert cues_used, "expected cue defaults in web/h3_spatial_director.js"
+    for cue in cues_used:
+        assert cue in sc_mod.SOUND_CUE_PRESETS, f"stale/unknown cue {cue!r} in web/h3_spatial_director.js"
+
+
+def _check_same_prompt_builder() -> None:
+    wf_dir = str(_REPO / "workflows")
+    if wf_dir not in sys.path:
+        sys.path.insert(0, wf_dir)
+    import build_workflows as bw  # noqa: E402
+
+    for task, extra in (
+        ("t2v", {}),
+        ("r2v", {"ref_images": bw.SPATIAL_PORTAL_REF_IMAGES, "ref_image_count": 1}),
+        ("i2v", {"first_frame": True}),
+    ):
+        g = bw.build_api(
+            task,
+            length=141,
+            prompt=bw.SPATIAL_PORTAL_T2V_PROMPT
+            if task == "t2v"
+            else bw.SPATIAL_PORTAL_REF2V_PROMPT
+            if task == "r2v"
+            else bw.SPATIAL_PORTAL_I2V_PROMPT,
+            lora=(bw.PIKA_REF2VA_SVD995_LORA if task == "r2v" else bw.PIKA_FL2VA_SVD995_LORA, bw.PIKA_STRENGTH),
+            lora_branch=True,
+            steps=bw.PIKA_STEPS,
+            sampler_name=bw.PIKA_SAMPLER,
+            manual_sigmas=bw.PIKA_MANUAL_SIGMAS,
+            spatial_director=True,
+            control_vector=dict(vector="film_16mm_1974", strength=1.1, edit_pass="edited_only"),
+            edit_guidance=dict(same_prompt=True, spatial_mask=True, streams="independent", scale=2.0, audio_scale=1.0),
+            **extra,
+        )
+        assert "130" not in g, f"{task}: same_prompt=True must omit MiniMaxH3PromptEdit ('130')"
+        assert g["133"]["class_type"] == "PrimitiveStringMultiline"
+        assert g["5"]["inputs"]["prompt"] == ["133", 0]
+        assert g["131"]["inputs"]["prompt"] == ["133", 0]
+        assert g["115"]["class_type"] == "MiniMaxH3Steer"
+        assert g["115"]["inputs"]["edit_pass"] == "edited_only"
+        assert g["9"]["class_type"] == "MiniMaxH3EditGuider"
+        assert g["9"]["inputs"]["model"] == ["115", 0]
+        assert g["9"]["inputs"]["edited"] == ["131", 0]
+        assert g["9"]["inputs"]["mask"] == ["160", 0]
+
+
 def _check_shipped_workflows() -> None:
     portal_path = _REPO / "workflows" / "h3_spatial_portal_pika_api.json"
     targets_path = _REPO / "workflows" / "h3_world_targets_genie_pika_api.json"
+    r2v_portal_path = _REPO / "workflows" / "h3_r2v_spatial_portal_pika_api.json"
+    i2v_portal_path = _REPO / "workflows" / "h3_i2v_spatial_portal_pika_api.json"
     assert portal_path.exists() and targets_path.exists()
+    assert r2v_portal_path.exists() and i2v_portal_path.exists()
 
     portal_graph = json.loads(portal_path.read_text(encoding="utf-8"))
     sd_nodes = _nodes_by_class(portal_graph, "MiniMaxH3SpatialDirector")
     hud_nodes = _nodes_by_class(portal_graph, "MiniMaxH3DirectorHUD")
     eg_nodes = _nodes_by_class(portal_graph, "MiniMaxH3EditGuider")
-    vhs_nodes = _nodes_by_class(portal_graph, "VHS_VideoCombine")
-    assert len(sd_nodes) == 1 and len(hud_nodes) == 1 and len(eg_nodes) == 1 and len(vhs_nodes) == 1
+    assert len(sd_nodes) == 1 and len(hud_nodes) == 1 and len(eg_nodes) == 1
     sd_id, sd_node = sd_nodes[0]
     hud_id, hud_node = hud_nodes[0]
     _, eg_node = eg_nodes[0]
-    _, vhs_node = vhs_nodes[0]
     assert sd_node["inputs"]["mode"] == "portal_path"
     assert eg_node["inputs"]["streams"] == "independent"
     assert eg_node["inputs"]["mask"] == [sd_id, 0]
     assert hud_node["inputs"]["director_plan"] == [sd_id, 3]
-    assert vhs_node["inputs"]["images"] == [hud_id, 0]
+    _assert_dual_vhs(portal_graph, hud_id)
 
     targets_graph = json.loads(targets_path.read_text(encoding="utf-8"))
     sd_nodes_t = _nodes_by_class(targets_graph, "MiniMaxH3SpatialDirector")
@@ -292,14 +586,12 @@ def _check_shipped_workflows() -> None:
     eg_nodes_t = _nodes_by_class(targets_graph, "MiniMaxH3EditGuider")
     sc_nodes_t = _nodes_by_class(targets_graph, "MiniMaxH3SoundCues")
     st_nodes_t = _nodes_by_class(targets_graph, "MiniMaxH3AppendSpriteTrajectory")
-    vhs_nodes_t = _nodes_by_class(targets_graph, "VHS_VideoCombine")
     assert (
         len(sd_nodes_t) == 1
         and len(hud_nodes_t) == 1
         and len(eg_nodes_t) == 1
         and len(sc_nodes_t) == 1
         and len(st_nodes_t) == 1
-        and len(vhs_nodes_t) == 1
     )
     sd_tid, sd_tnode = sd_nodes_t[0]
     hud_tid, hud_tnode = hud_nodes_t[0]
@@ -309,7 +601,43 @@ def _check_shipped_workflows() -> None:
     assert sc_nodes_t[0][1]["inputs"]["cues"] == [sd_tid, 1]
     assert st_nodes_t[0][1]["inputs"]["keyframes"] == [sd_tid, 2]
     assert hud_tnode["inputs"]["director_plan"] == [sd_tid, 3]
-    assert vhs_nodes_t[0][1]["inputs"]["images"] == [hud_tid, 0]
+    _assert_dual_vhs(targets_graph, hud_tid)
+
+    r2v_graph = json.loads(r2v_portal_path.read_text(encoding="utf-8"))
+    sd_r = _nodes_by_class(r2v_graph, "MiniMaxH3SpatialDirector")
+    hud_r = _nodes_by_class(r2v_graph, "MiniMaxH3DirectorHUD")
+    eg_r = _nodes_by_class(r2v_graph, "MiniMaxH3EditGuider")
+    enc_r = _nodes_by_class(r2v_graph, "MiniMaxH3EncodeReferences")
+    pr_r = _nodes_by_class(r2v_graph, "MiniMaxH3PromptOnReferences")
+    app_r = _nodes_by_class(r2v_graph, "MiniMaxH3AppendRefImage")
+    assert len(sd_r) == 1 and len(hud_r) == 1 and len(eg_r) == 1
+    assert len(enc_r) == 1 and len(pr_r) == 2 and len(app_r) == 1
+    assert "51" not in r2v_graph and "70" not in r2v_graph
+    assert r2v_graph["15"]["inputs"]["image"] == "ref_signal/tortoise_pic1.png"
+    assert sd_r[0][1]["inputs"]["mode"] == "portal_path"
+    assert eg_r[0][1]["inputs"]["streams"] == "independent"
+    assert eg_r[0][1]["inputs"]["mask"] == [sd_r[0][0], 0]
+    assert hud_r[0][1]["inputs"]["director_plan"] == [sd_r[0][0], 3]
+    _assert_dual_vhs(r2v_graph, hud_r[0][0])
+
+    i2v_graph = json.loads(i2v_portal_path.read_text(encoding="utf-8"))
+    sd_i = _nodes_by_class(i2v_graph, "MiniMaxH3SpatialDirector")
+    hud_i = _nodes_by_class(i2v_graph, "MiniMaxH3DirectorHUD")
+    eg_i = _nodes_by_class(i2v_graph, "MiniMaxH3EditGuider")
+    res_i = _nodes_by_class(i2v_graph, "MiniMaxH3Resolution")
+    cond_i = _nodes_by_class(i2v_graph, "MiniMaxH3Conditioning")
+    assert len(sd_i) == 1 and len(hud_i) == 1 and len(eg_i) == 1
+    assert len(res_i) == 1 and len(cond_i) == 2
+    assert i2v_graph["27"]["inputs"]["shape"] == "same as the picture"
+    assert i2v_graph["27"]["inputs"]["picture"] == ["15", 0]
+    assert i2v_graph["27"]["inputs"]["length"] == 141
+    for cid in ("5", "131"):
+        ci = i2v_graph[cid]["inputs"]
+        assert ci["width"] == ["27", 0] and ci["height"] == ["27", 1] and ci["length"] == ["27", 2]
+        assert ci["canvas"] == "explicit" and ci["first_frame"] == ["15", 0]
+    assert eg_i[0][1]["inputs"]["mask"] == [sd_i[0][0], 0]
+    assert hud_i[0][1]["inputs"]["director_plan"] == [sd_i[0][0], 3]
+    _assert_dual_vhs(i2v_graph, hud_i[0][0])
 
 
 def main() -> int:
@@ -318,9 +646,12 @@ def main() -> int:
     case("portal shapes (ellipse, vertical_split) work at length 90", _check_portal_shapes_and_short_length)
     case("point_targets compiles 2D+time targets, 3f cues, and D-pad kfs at 141 and 90", _check_point_targets_both_lengths)
     case("invert_mask equals 1.0 - mask elementwise", _check_invert_mask)
+    case("weight, concentric outer halo, bounded portal_start/end/ramp, and HUD dashed ring", _check_weight_halo_and_portal_window)
+    case("web/h3_spatial_director.js SOUND_PRESETS and defaults match sound_cues.py", _check_js_sound_presets)
+    case("edit_guidance(same_prompt=True) + MiniMaxH3Steer(edit_pass='edited_only') builder", _check_same_prompt_builder)
     case("refuses off-grid lengths, malformed JSON, unknown cues/shapes, and invalid spans", _check_refusals)
     case("MiniMaxH3DirectorHUD renders all layouts, even-clamps odd dims, and draws baseline deltas", _check_hud_layouts)
-    case("shipped spatial portal and genie world-targets workflows are wired properly", _check_shipped_workflows)
+    case("shipped t2v, world-targets, r2v, and i2v spatial workflows + dual VHS are wired properly", _check_shipped_workflows)
     return finish()
 
 

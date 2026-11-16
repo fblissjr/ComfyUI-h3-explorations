@@ -57,6 +57,9 @@ class PortalKeyframe:
     ry: float
     shape: str
     label: str
+    weight: float = 1.0
+    halo_radius: float = 0.0
+    halo_weight: float = 0.30
 
 
 @dataclass(frozen=True)
@@ -71,6 +74,9 @@ class WorldTargetEvent:
     radius: float
     cue: str
     gain: float
+    weight: float = 1.0
+    halo_radius: float = 0.0
+    halo_weight: float = 0.30
 
 
 def _cosine_ease(u: float) -> float:
@@ -114,6 +120,8 @@ def _resolve_frame_value(val: Any, length: int, *, field_name: str) -> int:
 
 
 def _validate_coord(val: Any, *, field_name: str, lo: float = -0.25, hi: float = 1.25) -> float:
+    if isinstance(val, bool):
+        raise ValueError(f"MiniMaxH3SpatialDirector: `{field_name}` expected a number, got {val!r}")
     fval = float(val)
     if not (math.isfinite(fval) and lo <= fval <= hi):
         raise ValueError(
@@ -122,17 +130,52 @@ def _validate_coord(val: Any, *, field_name: str, lo: float = -0.25, hi: float =
     return fval
 
 
+def _validate_halo_fields(item: dict[str, Any], *, scope: str) -> tuple[float, float, float]:
+    raw_weight = item.get("weight")
+    raw_halo_r = item.get("halo_radius")
+    raw_halo_w = item.get("halo_weight")
+    weight = _validate_coord(
+        1.0 if raw_weight is None else raw_weight,
+        field_name=f"{scope}.weight",
+        lo=0.05,
+        hi=1.0,
+    )
+    halo_radius = _validate_coord(
+        0.0 if raw_halo_r is None else raw_halo_r,
+        field_name=f"{scope}.halo_radius",
+        lo=0.0,
+        hi=1.0,
+    )
+    halo_weight = _validate_coord(
+        0.30 if raw_halo_w is None else raw_halo_w,
+        field_name=f"{scope}.halo_weight",
+        lo=0.0,
+        hi=1.0,
+    )
+    return weight, halo_radius, halo_weight
+
+
 def parse_director_events(
     events_json: str,
     *,
     mode: str,
     length: int,
-) -> tuple[
-    tuple[PortalKeyframe, ...],
-    tuple[WorldTargetEvent, ...],
-    list[tuple[int, str, float]],
-    str,
-]:
+    return_portal_window: bool = False,
+) -> (
+    tuple[
+        tuple[PortalKeyframe, ...],
+        tuple[WorldTargetEvent, ...],
+        list[tuple[int, str, float]],
+        str,
+    ]
+    | tuple[
+        tuple[PortalKeyframe, ...],
+        tuple[WorldTargetEvent, ...],
+        list[tuple[int, str, float]],
+        str,
+        tuple[int, int, int],
+    ]
+):
     """Validate and normalize `events_json` into portals, targets, portal cues, and sprite text."""
     if mode not in DIRECTOR_MODES:
         raise ValueError(f"MiniMaxH3SpatialDirector: unknown mode {mode!r}; expected {DIRECTOR_MODES}")
@@ -142,6 +185,28 @@ def parse_director_events(
         raise ValueError(f"MiniMaxH3SpatialDirector: invalid `events_json`: {exc}") from exc
     if not isinstance(doc, dict):
         raise ValueError("MiniMaxH3SpatialDirector: `events_json` must decode to a JSON object")
+
+    raw_p_start = doc.get("portal_start")
+    raw_p_end = doc.get("portal_end")
+    raw_p_ramp = doc.get("portal_ramp")
+    portal_start = 0 if raw_p_start is None else _resolve_frame_value(raw_p_start, length, field_name="portal_start")
+    portal_end = (
+        length - 1
+        if raw_p_end is None
+        else _resolve_frame_value(raw_p_end, length, field_name="portal_end")
+    )
+    if portal_end <= portal_start:
+        raise ValueError(
+            f"MiniMaxH3SpatialDirector: `portal_end` ({portal_end}) must exceed `portal_start` ({portal_start})"
+        )
+    if raw_p_ramp is None:
+        portal_ramp = 0
+    elif isinstance(raw_p_ramp, bool):
+        raise ValueError(f"MiniMaxH3SpatialDirector: `portal_ramp` expected integer >= 0, got {raw_p_ramp!r}")
+    else:
+        portal_ramp = int(raw_p_ramp)
+        if portal_ramp < 0:
+            raise ValueError(f"MiniMaxH3SpatialDirector: `portal_ramp`={portal_ramp} must be >= 0")
 
     raw_portals = doc.get("portal") or []
     if not isinstance(raw_portals, list):
@@ -161,7 +226,21 @@ def parse_director_events(
                 f"MiniMaxH3SpatialDirector: `portal[{idx}].shape`={shape!r} must be one of {PORTAL_SHAPES}"
             )
         label = str(item.get("label", "REALITY LENS")).strip() or "REALITY LENS"
-        portals.append(PortalKeyframe(frame=frame, x=x, y=y, rx=rx, ry=ry, shape=shape, label=label[:36]))
+        p_weight, p_halo_r, p_halo_w = _validate_halo_fields(item, scope=f"portal[{idx}]")
+        portals.append(
+            PortalKeyframe(
+                frame=frame,
+                x=x,
+                y=y,
+                rx=rx,
+                ry=ry,
+                shape=shape,
+                label=label[:36],
+                weight=p_weight,
+                halo_radius=p_halo_r,
+                halo_weight=p_halo_w,
+            )
+        )
     portals.sort(key=lambda p: p.frame)
 
     raw_targets = doc.get("targets") or []
@@ -196,6 +275,7 @@ def parse_director_events(
         gain = float(item.get("gain", 1.15))
         if not (0.05 <= gain <= 2.5):
             raise ValueError(f"MiniMaxH3SpatialDirector: `targets[{idx}].gain`={gain} outside [0.05, 2.5]")
+        t_weight, t_halo_r, t_halo_w = _validate_halo_fields(item, scope=f"targets[{idx}]")
         targets.append(
             WorldTargetEvent(
                 target_id=tid,
@@ -208,6 +288,9 @@ def parse_director_events(
                 radius=radius,
                 cue=cue,
                 gain=gain,
+                weight=t_weight,
+                halo_radius=t_halo_r,
+                halo_weight=t_halo_w,
             )
         )
     targets.sort(key=lambda t: (t.start, t.target_id))
@@ -269,16 +352,27 @@ def parse_director_events(
     # Validate round-trip compatibility with MiniMaxH3AppendSpriteTrajectory immediately.
     parse_sprite_trajectory(sprite_keyframes, length)
 
+    if return_portal_window:
+        return (
+            tuple(portals),
+            tuple(targets),
+            portal_cues,
+            sprite_keyframes,
+            (portal_start, portal_end, portal_ramp),
+        )
     return tuple(portals), tuple(targets), portal_cues, sprite_keyframes
 
 
-def _eval_portal_frame(portals: tuple[PortalKeyframe, ...], frame: int) -> tuple[float, float, float, float, str, str]:
+def _eval_portal_frame(
+    portals: tuple[PortalKeyframe, ...],
+    frame: int,
+) -> tuple[float, float, float, float, str, str, float, float, float]:
     if frame <= portals[0].frame:
         p = portals[0]
-        return p.x, p.y, p.rx, p.ry, p.shape, p.label
+        return p.x, p.y, p.rx, p.ry, p.shape, p.label, p.weight, p.halo_radius, p.halo_weight
     if frame >= portals[-1].frame:
         p = portals[-1]
-        return p.x, p.y, p.rx, p.ry, p.shape, p.label
+        return p.x, p.y, p.rx, p.ry, p.shape, p.label, p.weight, p.halo_radius, p.halo_weight
     for i in range(len(portals) - 1):
         p0, p1 = portals[i], portals[i + 1]
         if p0.frame <= frame <= p1.frame:
@@ -288,26 +382,33 @@ def _eval_portal_frame(portals: tuple[PortalKeyframe, ...], frame: int) -> tuple
             y = p0.y + (p1.y - p0.y) * u
             rx = p0.rx + (p1.rx - p0.rx) * u
             ry = p0.ry + (p1.ry - p0.ry) * u
+            weight = p0.weight + (p1.weight - p0.weight) * u
+            halo_radius = p0.halo_radius + (p1.halo_radius - p0.halo_radius) * u
+            halo_weight = p0.halo_weight + (p1.halo_weight - p0.halo_weight) * u
             src = p0 if u < 0.5 else p1
-            return x, y, rx, ry, src.shape, src.label
+            return x, y, rx, ry, src.shape, src.label, weight, halo_radius, halo_weight
     p = portals[-1]
-    return p.x, p.y, p.rx, p.ry, p.shape, p.label
+    return p.x, p.y, p.rx, p.ry, p.shape, p.label, p.weight, p.halo_radius, p.halo_weight
 
 
-def _target_temporal_weight(target: WorldTargetEvent, frame: int) -> float:
-    if frame < target.start or frame > target.end:
+def _span_temporal_weight(start: int, end: int, ramp: int, frame: int) -> float:
+    if frame < start or frame > end:
         return 0.0
-    span = target.end - target.start
-    if target.ramp < 1 or span < 2:
+    span = end - start
+    if ramp < 1 or span < 2:
         return 1.0
-    r_eff = min(target.ramp, max(1, span // 2))
-    rel_in = frame - target.start
-    rel_out = target.end - frame
+    r_eff = min(ramp, max(1, span // 2))
+    rel_in = frame - start
+    rel_out = end - frame
     if rel_in < r_eff:
         return _cosine_ease((rel_in + 1) / float(r_eff + 1))
     if rel_out < r_eff:
         return _cosine_ease((rel_out + 1) / float(r_eff + 1))
     return 1.0
+
+
+def _target_temporal_weight(target: WorldTargetEvent, frame: int) -> float:
+    return _span_temporal_weight(target.start, target.end, target.ramp, frame)
 
 
 def _soft_edge_from_signed_dist(dist_px: np.ndarray, feather_px: float) -> np.ndarray:
@@ -317,6 +418,31 @@ def _soft_edge_from_signed_dist(dist_px: np.ndarray, feather_px: float) -> np.nd
     half_f = 0.5 * feather_px
     t = np.clip((dist_px + half_f) / (2.0 * half_f), 0.0, 1.0)
     return (0.5 * (1.0 + np.cos(math.pi * t))).astype(np.float32)
+
+
+def _mask_with_halo(
+    dist_px: np.ndarray,
+    *,
+    feather_px: float,
+    short_edge: float,
+    weight: float,
+    halo_radius: float,
+    halo_weight: float,
+) -> np.ndarray:
+    """Combine weighted core feather with optional concentric outer cosine halo."""
+    core = _soft_edge_from_signed_dist(dist_px, feather_px)
+    if weight != 1.0:
+        core = (np.float32(weight) * core).astype(np.float32, copy=False)
+    halo_px = float(halo_radius) * short_edge
+    if halo_px > 1.0 and halo_weight > 0.0:
+        outer = (dist_px > 0.0) & (dist_px <= halo_px)
+        if np.any(outer):
+            amp = float(weight) * float(halo_weight) * 0.5
+            t_halo = np.clip(dist_px[outer] / float(halo_px), 0.0, 1.0)
+            halo_vals = (amp * (1.0 + np.cos(math.pi * t_halo))).astype(np.float32)
+            core = core.copy()
+            core[outer] = np.maximum(core[outer], halo_vals)
+    return core
 
 
 def _compute_sound_cues_text(
@@ -530,10 +656,11 @@ class MiniMaxH3SpatialDirector(io.ComfyNode):
                 f"(nearest valid: {_rules.snap_length(max(5, n_frames))})"
             )
 
-        portals, targets, portal_cues, sprite_keyframes = parse_director_events(
+        portals, targets, portal_cues, sprite_keyframes, (portal_start, portal_end, portal_ramp) = parse_director_events(
             events_json,
             mode=mode,
             length=n_frames,
+            return_portal_window=True,
         )
         sound_cues_text, cue_meta = _compute_sound_cues_text(
             mode=mode,
@@ -551,10 +678,11 @@ class MiniMaxH3SpatialDirector(io.ComfyNode):
 
         mask_arr = np.zeros((n_frames, h, w), dtype=np.float32)
         portal_frames_meta: list[dict[str, Any]] = []
+        portal_bounded = portal_start > 0 or portal_end < (n_frames - 1) or portal_ramp > 0
 
         if mode == "portal_path":
             for f in range(n_frames):
-                x, y, rx, ry, shape, label = _eval_portal_frame(portals, f)
+                x, y, rx, ry, shape, label, weight, halo_radius, halo_weight = _eval_portal_frame(portals, f)
                 cx = float(x) * float(w)
                 cy = float(y) * float(h)
                 if shape == "vertical_split":
@@ -568,7 +696,21 @@ class MiniMaxH3SpatialDirector(io.ComfyNode):
                 else:  # "circle"
                     rad_px = max(2.0, float(rx) * short_edge)
                     dist_2d = np.sqrt((px - cx) ** 2 + (py - cy) ** 2) - rad_px
-                mask_arr[f] = _soft_edge_from_signed_dist(dist_2d, feather_px)
+                frame_mask = _mask_with_halo(
+                    dist_2d,
+                    feather_px=feather_px,
+                    short_edge=short_edge,
+                    weight=weight,
+                    halo_radius=halo_radius,
+                    halo_weight=halo_weight,
+                )
+                if portal_bounded:
+                    tw = _span_temporal_weight(portal_start, portal_end, portal_ramp, f)
+                    if tw <= 1e-5:
+                        frame_mask = np.zeros((h, w), dtype=np.float32)
+                    elif tw < 1.0 - 1e-6:
+                        frame_mask = (frame_mask * np.float32(tw)).astype(np.float32, copy=False)
+                mask_arr[f] = frame_mask
                 portal_frames_meta.append(
                     {
                         "x": round(x, 4),
@@ -577,6 +719,9 @@ class MiniMaxH3SpatialDirector(io.ComfyNode):
                         "ry": round(ry, 4),
                         "shape": shape,
                         "label": label,
+                        "weight": round(weight, 4),
+                        "halo_radius": round(halo_radius, 4),
+                        "halo_weight": round(halo_weight, 4),
                     }
                 )
         else:
@@ -586,7 +731,19 @@ class MiniMaxH3SpatialDirector(io.ComfyNode):
                 cy = float(t.y) * float(h)
                 rad_px = max(2.0, float(t.radius) * short_edge)
                 dist_2d = np.sqrt((px - cx) ** 2 + (py - cy) ** 2) - rad_px
-                spatial_discs.append((t, _soft_edge_from_signed_dist(dist_2d, feather_px)))
+                spatial_discs.append(
+                    (
+                        t,
+                        _mask_with_halo(
+                            dist_2d,
+                            feather_px=feather_px,
+                            short_edge=short_edge,
+                            weight=t.weight,
+                            halo_radius=t.halo_radius,
+                            halo_weight=t.halo_weight,
+                        ),
+                    )
+                )
             for f in range(n_frames):
                 acc = np.zeros((h, w), dtype=np.float32)
                 for t, s_disc in spatial_discs:
@@ -614,6 +771,9 @@ class MiniMaxH3SpatialDirector(io.ComfyNode):
             "fps": VIDEO_FPS,
             "feather": round(float(feather), 4),
             "invert_mask": bool(invert_mask),
+            "portal_start": portal_start,
+            "portal_end": portal_end,
+            "portal_ramp": portal_ramp,
             "portals": [
                 {
                     "frame": p.frame,
@@ -623,6 +783,9 @@ class MiniMaxH3SpatialDirector(io.ComfyNode):
                     "ry": round(p.ry, 4),
                     "shape": p.shape,
                     "label": p.label,
+                    "weight": round(p.weight, 4),
+                    "halo_radius": round(p.halo_radius, 4),
+                    "halo_weight": round(p.halo_weight, 4),
                 }
                 for p in portals
             ],
@@ -639,6 +802,9 @@ class MiniMaxH3SpatialDirector(io.ComfyNode):
                     "radius": round(t.radius, 4),
                     "cue": t.cue,
                     "gain": round(t.gain, 3),
+                    "weight": round(t.weight, 4),
+                    "halo_radius": round(t.halo_radius, 4),
+                    "halo_weight": round(t.halo_weight, 4),
                 }
                 for t in targets
             ],
@@ -737,6 +903,52 @@ def _draw_pill(
     return pw, ph
 
 
+def _draw_dashed_ellipse(
+    draw: ImageDraw.ImageDraw,
+    bbox: list[float],
+    *,
+    outline: tuple[int, int, int, int],
+    width: int,
+    dash_deg: float = 10.0,
+    gap_deg: float = 8.0,
+) -> None:
+    if bbox[2] <= bbox[0] or bbox[3] <= bbox[1]:
+        return
+    step = dash_deg + gap_deg
+    deg = 0.0
+    while deg < 360.0:
+        draw.arc(bbox, start=deg, end=min(360.0, deg + dash_deg), fill=outline, width=width)
+        deg += step
+
+
+def _draw_dashed_line(
+    draw: ImageDraw.ImageDraw,
+    p0: tuple[float, float],
+    p1: tuple[float, float],
+    *,
+    fill: tuple[int, int, int, int],
+    width: int,
+    dash_px: float = 14.0,
+    gap_px: float = 10.0,
+) -> None:
+    dx = p1[0] - p0[0]
+    dy = p1[1] - p0[1]
+    dist = math.hypot(dx, dy)
+    if dist < 1.0:
+        return
+    ux, uy = dx / dist, dy / dist
+    pos = 0.0
+    step = dash_px + gap_px
+    while pos < dist:
+        end = min(dist, pos + dash_px)
+        draw.line(
+            [(p0[0] + ux * pos, p0[1] + uy * pos), (p0[0] + ux * end, p0[1] + uy * end)],
+            fill=fill,
+            width=width,
+        )
+        pos += step
+
+
 def _render_scene_overlay(
     frame_rgb_u8: np.ndarray,
     *,
@@ -780,6 +992,13 @@ def _render_scene_overlay(
         cy = float(pf["y"]) * oh
         shape = pf.get("shape", "circle")
         label = pf.get("label", "REALITY LENS")
+        p_start = int(plan.get("portal_start", 0))
+        p_end = int(plan.get("portal_end", max(0, total_frames - 1)))
+        portal_active = p_start <= f_clamp <= p_end
+        p_main = a_main if portal_active else int(round(90 * alpha_scale))
+        p_soft = a_soft if portal_active else int(round(50 * alpha_scale))
+        p_halo_px = float(pf.get("halo_radius", 0.0)) * short_edge * ss
+        closed_suffix = "" if portal_active else " [CLOSED]"
 
         # Breadcrumb trail behind portal center
         trail_pts: list[tuple[float, float]] = []
@@ -791,22 +1010,30 @@ def _render_scene_overlay(
                 frac = (ti + 1) / float(len(trail_pts))
                 draw.line(
                     [trail_pts[ti], trail_pts[ti + 1]],
-                    fill=(92, 225, 230, int(round(160 * frac * alpha_scale))),
+                    fill=(92, 225, 230, int(round((160 if portal_active else 60) * frac * alpha_scale))),
                     width=max(2, int(round(3.5 * ss))),
                 )
 
         if shape == "vertical_split":
-            draw.line([(cx, 0), (cx, oh)], fill=(92, 225, 230, int(round(85 * alpha_scale))), width=10 * ss)
-            draw.line([(cx, 0), (cx, oh)], fill=(125, 249, 255, a_main), width=3 * ss)
+            if p_halo_px > 1.0:
+                _draw_dashed_line(
+                    draw,
+                    (cx - p_halo_px, 0.0),
+                    (cx - p_halo_px, float(oh)),
+                    fill=(125, 249, 255, int(round((175 if portal_active else 65) * alpha_scale))),
+                    width=max(1, int(round(2.0 * ss))),
+                )
+            draw.line([(cx, 0), (cx, oh)], fill=(92, 225, 230, int(round((85 if portal_active else 35) * alpha_scale))), width=10 * ss)
+            draw.line([(cx, 0), (cx, oh)], fill=(125, 249, 255, p_main), width=3 * ss)
             _draw_cursor_arrow(
                 draw,
                 cx + 4 * ss,
                 cy - 8 * ss,
                 scale=1.15 * ss,
-                fill=(255, 255, 255, 245),
+                fill=(255, 255, 255, 245 if portal_active else 140),
                 outline=(10, 14, 24, 245),
             )
-            tag = f"{label} · SPLIT x={pf['x']:.2f}" + (" [INV]" if inv else "")
+            tag = f"{label} · SPLIT x={pf['x']:.2f}" + (" [INV]" if inv else "") + closed_suffix
             bx = min(ow - 280 * ss, max(16 * ss, int(cx + 18 * ss)))
             _draw_pill(
                 draw,
@@ -814,8 +1041,8 @@ def _render_scene_overlay(
                 tag,
                 font=font_tag,
                 bg=(11, 16, 26, 205),
-                fg=(125, 249, 255, 255),
-                border=(92, 225, 230, a_main),
+                fg=(125, 249, 255, 255 if portal_active else 170),
+                border=(92, 225, 230, p_main),
                 pad_x=10 * ss,
                 pad_y=5 * ss,
             )
@@ -823,21 +1050,31 @@ def _render_scene_overlay(
             rx_px = float(pf["rx"]) * (ow if shape == "ellipse" else short_edge * ss)
             ry_px = float(pf["ry"]) * (oh if shape == "ellipse" else short_edge * ss)
             feather_r = max(6.0 * ss, float(plan.get("feather", 0.08)) * 0.5 * short_edge * ss)
+            if p_halo_px > 1.0:
+                avg_r = max(2.0, 0.5 * (rx_px + ry_px))
+                halo_rx = rx_px * (1.0 + p_halo_px / avg_r)
+                halo_ry = ry_px * (1.0 + p_halo_px / avg_r)
+                _draw_dashed_ellipse(
+                    draw,
+                    [cx - halo_rx, cy - halo_ry, cx + halo_rx, cy + halo_ry],
+                    outline=(125, 249, 255, int(round((175 if portal_active else 65) * alpha_scale))),
+                    width=max(1, int(round(2.0 * ss))),
+                )
             draw.ellipse(
                 [cx - rx_px - feather_r, cy - ry_px - feather_r, cx + rx_px + feather_r, cy + ry_px + feather_r],
-                outline=(92, 225, 230, a_soft),
+                outline=(92, 225, 230, p_soft),
                 width=max(1, int(round(1.5 * ss))),
             )
             draw.ellipse(
                 [cx - rx_px, cy - ry_px, cx + rx_px, cy + ry_px],
-                outline=(125, 249, 255, a_main),
+                outline=(125, 249, 255, p_main),
                 width=max(2, int(round(3.0 * ss))),
             )
             tick = 9 * ss
             for tx, ty in ((cx - rx_px, cy), (cx + rx_px, cy), (cx, cy - ry_px), (cx, cy + ry_px)):
-                draw.ellipse([tx - 3 * ss, ty - 3 * ss, tx + 3 * ss, ty + 3 * ss], fill=(255, 209, 102, a_main))
-            draw.line([(cx - tick, cy), (cx + tick, cy)], fill=(125, 249, 255, a_soft), width=ss)
-            draw.line([(cx, cy - tick), (cx, cy + tick)], fill=(125, 249, 255, a_soft), width=ss)
+                draw.ellipse([tx - 3 * ss, ty - 3 * ss, tx + 3 * ss, ty + 3 * ss], fill=(255, 209, 102, p_main))
+            draw.line([(cx - tick, cy), (cx + tick, cy)], fill=(125, 249, 255, p_soft), width=ss)
+            draw.line([(cx, cy - tick), (cx, cy + tick)], fill=(125, 249, 255, p_soft), width=ss)
 
             grab_x = cx + rx_px * 0.70
             grab_y = cy + ry_px * 0.65
@@ -846,10 +1083,10 @@ def _render_scene_overlay(
                 grab_x,
                 grab_y,
                 scale=1.15 * ss,
-                fill=(255, 255, 255, 245),
+                fill=(255, 255, 255, 245 if portal_active else 140),
                 outline=(10, 14, 24, 245),
             )
-            pill_txt = f"{label} ({pf['x']:.2f}, {pf['y']:.2f})" + (" [INV]" if inv else "")
+            pill_txt = f"{label} ({pf['x']:.2f}, {pf['y']:.2f})" + (" [INV]" if inv else "") + closed_suffix
             pw, ph = _text_wh(draw, pill_txt, font_tag)
             px_pos = int(max(14 * ss, min(ow - pw - 28 * ss, cx - pw * 0.5)))
             py_pos = int(max(52 * ss, cy - ry_px - ph - 20 * ss))
@@ -859,8 +1096,8 @@ def _render_scene_overlay(
                 pill_txt,
                 font=font_tag,
                 bg=(11, 16, 26, 205),
-                fg=(125, 249, 255, 255),
-                border=(92, 225, 230, a_main),
+                fg=(125, 249, 255, 255 if portal_active else 170),
+                border=(92, 225, 230, p_main),
                 pad_x=9 * ss,
                 pad_y=4 * ss,
             )
@@ -876,6 +1113,19 @@ def _render_scene_overlay(
             tid = int(t["id"])
             lbl = str(t.get("label", f"TARGET {tid}"))
             if st <= f_clamp <= en:
+                t_halo_px = float(t.get("halo_radius", 0.0)) * short_edge * ss
+                if t_halo_px > 1.0:
+                    _draw_dashed_ellipse(
+                        draw,
+                        [
+                            tx - r_px - t_halo_px,
+                            ty - r_px - t_halo_px,
+                            tx + r_px + t_halo_px,
+                            ty + r_px + t_halo_px,
+                        ],
+                        outline=(255, 195, 77, int(round(175 * alpha_scale))),
+                        width=max(1, int(round(2.0 * ss))),
+                    )
                 # Active zone + shockwave on click start
                 draw.ellipse(
                     [tx - r_px, ty - r_px, tx + r_px, ty + r_px],
@@ -1183,8 +1433,10 @@ def _render_director_footer(
         lanes: list[tuple[str, list[tuple[int, int, tuple[int, int, int, int], str]]]] = []
         if mode == "portal_path":
             p_list = plan.get("portals") or []
-            p_start = int(p_list[0]["frame"]) if p_list else 0
-            p_end = int(p_list[-1]["frame"]) if p_list else total_span
+            default_start = int(p_list[0]["frame"]) if p_list else 0
+            default_end = int(p_list[-1]["frame"]) if p_list else total_span
+            p_start = int(plan.get("portal_start", default_start))
+            p_end = int(plan.get("portal_end", default_end))
             lanes.append(("PORTAL", [(p_start, p_end, (34, 211, 238, 210), "LENS PATH")]))
         else:
             t_blocks = [

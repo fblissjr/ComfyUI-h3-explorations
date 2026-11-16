@@ -1341,6 +1341,22 @@
       "donor": "h3_image_ref_dpad_sound_pika_api",
       "brief": "Genie + Point-and-Click World Targets on twilight basalt alley: <Picture 1> candle tortoise follows a MiniMaxH3AppendSpriteTrajectory D-pad path from MiniMaxH3SpatialDirector while two clicked target zones trigger 3f-snapped SoundCues (`slam`, `hop`) and localized cyan crystal / golden ember eruptions via MiniMaxH3EditGuider.mask(first_step=0, streams='video_only').",
       "tests": "Joint Genie D-pad sprite trajectory + 2D+time clicked world target [F, H, W] masks + 3f SoundCues (`spatial_director.py`, 2026-11-15): localized target eruptions on exact clicked `(x, y, t)` coordinates without disturbing unmasked cobbles or sprite path."
+    },
+    {
+      "id": "ref2va_spatial_reality_portal",
+      "mode": "ref2va",
+      "frames": 141,
+      "donor": "h3_image_ref_plus_text_to_video_pika_api",
+      "brief": "Reference subject <Picture 1> in a sunlit Mediterranean limestone courtyard contrasted inside a moving 2D+time Reality Portal (`MiniMaxH3SpatialDirector portal_path` + `MiniMaxH3EditGuider.mask` at `first_step=0`) with a frozen midnight bioluminescent frost cavern, keeping `51`/`70` unwired.",
+      "tests": "Spatially-masked r2v Pika H3 Flex velocity editing (`h3_r2v_spatial_portal_pika_api.json`, 2026-11-16): preserves <Picture 1> identity across the sunlit courtyard while transforming only the swept portal lens into a glowing frost cavern with dual HUD/clean exports."
+    },
+    {
+      "id": "i2va_spatial_reality_portal",
+      "mode": "i2va",
+      "frames": 141,
+      "donor": null,
+      "brief": "First-frame <Picture 1> anchor contrasted inside a moving 2D+time Reality Portal (`MiniMaxH3SpatialDirector portal_path` wired to `MiniMaxH3Resolution` `same as the picture` + `MiniMaxH3EditGuider.mask` at `first_step=0`) with a midnight bioluminescent frost cavern.",
+      "tests": "Spatially-masked i2v Pika H3 Flex velocity editing (`h3_i2v_spatial_portal_pika_api.json`, 2026-11-16): derives Picture 1 trained canvas via `MiniMaxH3Resolution` and transforms only the swept portal region with zero Step-0 leak outside the mask and dual HUD/clean exports."
     }
   ]
 }

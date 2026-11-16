@@ -1,0 +1,9 @@
+For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.
+
+integrated_multimodal_description: [Shot 1] Live-action, cinematic, holding the exact framing, lighting, layout and composition established in <Picture 1>, a medium-wide static shot holds steady across the 5.875-second take while the subject shown in <Picture 1> remains grounded in a sunlit courtyard atmosphere warmed by crisp golden afternoon light and drifting floating dust motes. Gentle subtle breath, tiny natural eye blinks, and slight cloth or hair sway unfold calmly within the anchored space as clean directional afternoon highlights rest steadily across the foreground planes and distant background surfaces. The surrounding architectural planes and ground surfaces remain consistent in warm natural daylight with balanced depth and crisp natural micro-texture from the first frame to the last frame. The camera holds a static shot with zero pans, tilts, cuts, or zoom changes so every spatial edge aligns accurately with <Picture 1> throughout.
+
+overall_soundscape:
+Quiet outdoor courtyard room tone with a soft warm afternoon breeze rustling faint foliage and subtle natural physical movement.
+
+non_diegetic_music:
+N/A
