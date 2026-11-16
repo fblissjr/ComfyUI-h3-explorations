@@ -173,3 +173,45 @@ Step:  0 (sig=1.00) ──▶ 1 (0.973) ──▶ 2 (0.923) ──▶ 3 (0.800) 
    - **Center Stage (`16:9` / `7:4` anchored canvas)**: Shows the real `<Picture 1>` still or scrubbed input video frame, draggable `circle`/`ellipse`/`vertical_split` Reality Portals, numbered Target Pins with live radius handles, WASD/arrow D-Pad sprite path with facing badges, click-to-seed SAM3 subject protection, and a toggleable `16 px × 4f` grid overlay.
    - **Bottom 24 fps Multi-Lane Sequencer**: Separate lanes for **Portal Keyframes**, **Targets + `3f` Sound Cues**, **D-Pad Waypoints + Multi-Hop Arcs**, and **Subject Mask / Vector Window**, with `Space` playing a local 60 fps canvas + WebAudio preview at `0` GPU cost.
    - **Right Rail (Steering & Non-Blocking Queue)**: Toggle between **Vector Split-World** (no prompt diffing) and **Inline Prompt Diff** (`old -> new` word highlighting), interactive **6-Step Window Selector (`first_step` / `last_step`)**, **"90f Scout (`3.75s`) → 141f Hero (`5.875s`)"** lock-seed escalation, and a non-blocking **Render Queue** opening into a **Same-Seed A/B Swipe Cinema** with toggleable HUD overlay.
+
+---
+
+## 6. Project Context, Phase-by-Phase Roadmap, & Longer-Term Vision
+
+### 6.1 Where This Fits in the Repo (`VISION.md` Alignment)
+
+Per [`VISION.md`](../../../VISION.md), this repo exists to push what a single RTX 4090 box can achieve with MiniMax H3 and leave behind reproducible workflows, measurements, and tools—always anchored to a **same-seed baseline** (`Truth`), driven from **one generated source of truth** (`workflows/build_workflows.py`, node schemas) rather than duplicated UI hacks (`Structure`).
+
+- [`app/`](../../../app) (H3-Image Studio) proved that a standalone web front end can talk directly to ComfyUI's API graphs (`workflows/image/`) with workflow-inherited controls, zero hardcoded prompt banks, and non-blocking session queues.
+- [`MiniMaxH3SpatialDirector`](../../../spatial_director.py) and [`web/h3_spatial_director.js`](../../../web/h3_spatial_director.js) proved 3D `(x, y, t)` velocity steering, `3f` sound cues, and D-Pad locomotion inside ComfyUI—but LiteGraph widgets lack real image/video backdrops, multi-lane timing editors, clean-vs-HUD dual outputs, and masking-engine routing.
+- **The Desktop Spatial Director App** unifies both: an NLE-style desktop web studio that gives creators deterministic `60 fps` local pre-visualization before spending `~54s`–`~2.5 min` of 4090 render time.
+
+### 6.2 Phase-by-Phase Execution Plan
+
+#### Phase 1 — Anchored Spatial Stage & Dual-Save Core (MVP)
+*Goal: Real `<Picture 1>`-anchored Reality Portals, World Targets, and WASD D-Pad choreography with zero node schema changes.*
+- **Workflows ([`build_workflows.py`](../../../workflows/build_workflows.py))**:
+  - Add `<Picture 1>`-anchored `ref2va` `portal_path` and `fl2va` (`i2v`, `canvas="explicit"` + `"27"`) spatial director graphs.
+  - Add `same_prompt` Split-World support (`MiniMaxH3Steer(edit_pass="edited_only")` + `EditGuider.mask`).
+  - Add a second `VHS_VideoCombine` (`"162"`) saving the clean `VAEDecode` output alongside `MiniMaxH3DirectorHUD` (`"161"`).
+- **Desktop App**:
+  - 3-pane NLE layout (`Center Stage` with real `<Picture 1>` / `first_frame` backdrop, `24 fps Multi-Lane Sequencer`, `Right Rail` steering + queue).
+  - Direct manipulation: draggable `circle`/`ellipse`/`vertical_split` portals, Target Pins with WebAudio `3f` cue synthesis, `WASD`/Arrow multi-hop D-Pad path recording, `16 px × 4f` grid overlay toggle, and a **Same-Seed A/B Swipe Cinema** with toggleable HTML5 HUD.
+
+#### Phase 2 — Full Masking Union, V2V Inpainting, & Audio Re-Dubbing
+*Goal: Bridge all repo masking engines cleanly behind one unified UX.*
+- **Node Enhancements (`AGENTS.md` §5 backwards-compatible, appended at end of `inputs`)**:
+  - Extend `MiniMaxH3SpatialDirector` with `"combined"` mode (portal + targets together) and optional `include_mask` / `exclude_mask` inputs for native subject composition.
+- **Masking & Routing**:
+  - **Interactive SAM 3.1 / Sapiens2 Seeding**: Click/box-select actors or garments on an uploaded clip or still -> feed `MiniMaxH3SubjectTrack.seeds` and `MiniMaxH3SubjectParts`, wire frame-`0` subject mask into `MiniMaxH3AppendSpriteTrajectory.mask` (eliminating GrabCut tears), and protect subjects inside portals via `InvertMask(GrowMask(...))`.
+  - **Engine-Aware Workflow Router**: Route semantic/portal/target/vector jobs to `EditGuider`, binary subject-replacement jobs to `MaskedSource -> RestorePlate`, and post-render foley/dialogue tweaks to `FrozenVideoCache -> AudioRefineMask` (keeping the locked video take).
+
+#### Phase 3 — Chained Multi-Shot Storyboards & Two-Speed Escalation
+*Goal: Scale beyond single `5.875s` clips into coherent multi-shot sequences on one 4090.*
+- **Seed-Locked Escalation**: One-click **`90f` Scout (`3.75s`) → `141f` Hero (`5.875s`)** and multi-variant Director's Take queues (e.g., sweeping `first_step` or `scale` on one locked choreography).
+- **Multi-Shot Continuity**: Chain `on_both_clocks` windows (`chain_lengths()`: `141..345` frames with `39`/`90`-frame contexts, `h3_rules.py:124–130`) and `MiniMaxH3AudioFreezeSong` tracks where Shot `N`'s tail frame seeds Shot `N+1`'s Spatial Director stage.
+
+### 6.3 Longer-Term Vision
+
+- **From Prompting Clips to Directing Persistent Worlds**: Treat H3 as a **stateful spatial world engine** rather than a one-shot prompt box—where cast identity (`<Picture 1..N>`), acoustic beats (`40 Hz` `SoundCues`), locomotion (`<Video N>` released at `0.33`), semantic physics (`EditGuider` + `Steer`), and object segmentation (`SAM 3.1` + `Sapiens2`) are authored on one continuous timeline and verified against same-seed baselines.
+- **Drop-In Speed Scaling**: Keeping `events_json`, `director_plan`, and ComfyUI's generated API graphs as the strict contract means any future 4090 speedup (fewer sampling steps, faster sparse attention, or next-gen distills) compresses the `~1.5–2.5 min` loop toward near-real-time playable world slices **without rewriting the authoring UX**.
