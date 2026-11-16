@@ -963,8 +963,13 @@ of these steps, in order:
 1. **The A/B first.** One ref2va graph with a `<Video N>` reference, the
    same seed, two arms: the shipped Sol settings, and per-segment rows with
    only video references routed. Judged by the owner on playback (picture and
-   voice), sampler time from the run's record. If routed video references
-   lose, stop here: the branch can still land with the input, unused.
+   voice), sampler time from the run's record. Neither arm attaches the
+   LSE reference balance (`attention.py::attach_lse_reference_balance`,
+   from `main` after this branch was cut): where it is active Sol hands those
+   blocks to dense (route `lse_balance`), so both arms would match there and
+   the A/B would test the rows only on the other blocks. If routed video
+   references lose, stop here: the branch can still land with the input,
+   unused.
 2. **Merge the branch.** Then restart ComfyUI by the recipe in
    [`../ops/comfy_notes.md`](../ops/comfy_notes.md) (check for an armed
    `H3_*` capture first), so `/object_info` lists `video_reference_rows`.
