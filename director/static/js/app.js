@@ -46,6 +46,7 @@ const state = {
     sam3: false,
     sam3_engine: "grabcut",
     spatial_combined: true,
+    audio_refine: true,
   },
 
   length: 141,
@@ -80,12 +81,14 @@ const state = {
   anchorMedia: null,
   activeVideoEl: null,
   activeVideoUrl: "",
+  activeStageTake: null,
 
   spriteCutout: null, // { ref, viewUrl, img }
   livePreview: null,  // { kind, media, step, total, fullFrame, fps, avgStepMs }
 
   targetPrompt: "",
   samePrompt: false,
+  audioRefine: false,
   controlVector: "none",
   controlVectorStrength: 1.0,
   couplings: [],
@@ -934,6 +937,8 @@ function syncAllUI() {
   if (invChk) invChk.checked = Boolean(state.doc.invert_mask);
   const spChk = $("#chk-same-prompt");
   if (spChk) spChk.checked = Boolean(state.samePrompt);
+  const arChk = $("#chk-audio-refine");
+  if (arChk) arChk.checked = Boolean(state.audioRefine);
 
   syncLiveTaeBadges(state.livePreview ? { step: state.livePreview.step, total: state.livePreview.total, fps: state.livePreview.fps } : null);
   syncAudioGuardAndSequencer();
@@ -958,6 +963,13 @@ function syncAudioGuardAndSequencer() {
     guardBtn.classList.toggle("active", streams === "independent");
     guardBtn.classList.toggle("emerald", streams === "video_only");
     guardBtn.classList.toggle("warn", streams === "both");
+  }
+
+  const chainBtn = $("#btn-chain-frame");
+  if (chainBtn) {
+    const canChain = Boolean(state.activeVideoEl && state.activeStageTake);
+    chainBtn.classList.toggle("hidden", !canChain);
+    chainBtn.textContent = `Chain f${Math.max(0, Math.round(state.frame))}→Shot`;
   }
 
   const tray = $("#sequencer-tray");
@@ -1026,6 +1038,7 @@ function loadAnchorImageUrl(url, meta = {}) {
       state.anchorName = meta.name || state.anchorName || "Anchor Still";
       state.hasAnchor = true;
       state.activeVideoEl = null;
+      state.activeStageTake = null;
       if (prevRef && meta.ref && prevRef !== meta.ref) {
         state.spriteMaskRef = "";
         state.includeMaskRef = "";
@@ -1306,6 +1319,7 @@ function buildCompilePayload() {
     couplings: activeCouplings,
     target_prompt: state.targetPrompt,
     same_prompt: Boolean(state.samePrompt),
+    audio_refine: Boolean(state.audioRefine),
     feather: Number(state.doc.feather),
     invert_mask: Boolean(state.doc.invert_mask),
     scale: Number(state.editGuidance.scale),
@@ -1449,6 +1463,22 @@ function renderTakesList() {
         abCompare.exportTake("clean");
       });
       actions.appendChild(expClean);
+
+      const chainBtn = document.createElement("button");
+      chainBtn.type = "button";
+      chainBtn.className = "btn-outline-sm";
+      chainBtn.textContent = "Tail → Shot";
+      chainBtn.title = "Extract last frame as lossless PNG anchor for Shot N+1 (i2v_portal)";
+      chainBtn.addEventListener("click", () => chainTakeFrameToAnchor(take, -1, chainBtn));
+      actions.appendChild(chainBtn);
+
+      const redubBtn = document.createElement("button");
+      redubBtn.type = "button";
+      redubBtn.className = "btn-outline-sm";
+      redubBtn.textContent = "Re-Dub Audio";
+      redubBtn.title = "Queue 2nd-pass FrozenVideoCache audio re-dub keeping video locked";
+      redubBtn.addEventListener("click", () => redubTakeAudio(take, redubBtn));
+      actions.appendChild(redubBtn);
     }
 
     card.appendChild(actions);
@@ -1486,6 +1516,7 @@ function loadTakeIntoStage(take) {
     syncAllUI();
   };
   v.addEventListener("loadeddata", onReady);
+  state.activeStageTake = take;
   state.activeVideoUrl = url;
   v.src = url;
   try { v.load(); } catch {}
@@ -1494,6 +1525,67 @@ function loadTakeIntoStage(take) {
     directedTake: take,
     baselineTake: findBaselineTake(take),
   });
+}
+
+async function chainTakeFrameToAnchor(take, frameIndex = -1, btn = null) {
+  if (!take?.take_id) return;
+  if (btn) btn.disabled = true;
+  try {
+    const res = await apiJson("/api/extract_frame", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ take_id: take.take_id, frame_index: frameIndex }),
+    });
+    const url = res.view_url || videoItemViewUrl(res);
+    if (!url) throw new Error("Extracted frame returned no view URL");
+    await loadAnchorImageUrl(url, {
+      ref: res.ref,
+      name: res.filename || `shot_f${res.frame_index}.png`,
+    });
+    const hasI2V = state.workflows.some((w) => w.id === "i2v_portal" && w.available !== false);
+    if (hasI2V) {
+      state.workflowId = "i2v_portal";
+      const wfSel = $("#engine-workflow");
+      if (wfSel) wfSel.value = "i2v_portal";
+    }
+    syncAllUI();
+    schedulePreflight();
+    const maxIdx = Math.max(0, Number(res.total_frames || 1) - 1);
+    showToast(`Chained f${res.frame_index}/${maxIdx} → Shot N+1 anchor (${state.workflowId || "anchor"})`, "ok");
+  } catch (err) {
+    showToast(`Frame chain failed: ${err.message}`, "err");
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+async function redubTakeAudio(take, btn = null) {
+  if (!take?.take_id) return;
+  if (btn) btn.disabled = true;
+  try {
+    const payload = {
+      take_id: take.take_id,
+      denoise: 1.0,
+      steps: 6,
+      source_length: Number(state.length),
+      events_json: JSON.stringify(state.doc),
+      client_id: wsClient.clientId,
+    };
+    if (state.seedLocked) payload.seed = Number(state.seed);
+    if (state.targetPrompt) payload.audio_prompt = state.targetPrompt;
+    const res = await apiJson("/api/redub", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    state.activeRenderPromptId = res.prompt_id || "";
+    showToast(`Queued 2nd-pass audio re-dub (${res.take_id || "queued"})`, "ok");
+    await refreshTakes();
+  } catch (err) {
+    showToast(`Audio re-dub failed: ${err.message}`, "err");
+  } finally {
+    if (btn) btn.disabled = false;
+  }
 }
 
 function openABCompareForTake(take = null) {
@@ -2021,6 +2113,11 @@ function init() {
     syncAllUI();
     schedulePreflight();
   });
+  $("#btn-chain-frame")?.addEventListener("click", () => {
+    if (state.activeStageTake) {
+      chainTakeFrameToAnchor(state.activeStageTake, Math.max(0, Math.round(state.frame)), $("#btn-chain-frame"));
+    }
+  });
 
   const toggleLanes = (forceOpen = null) => {
     state.lanesOpen = forceOpen === null ? !state.lanesOpen : Boolean(forceOpen);
@@ -2211,6 +2308,10 @@ function init() {
   });
   $("#chk-same-prompt")?.addEventListener("change", (ev) => {
     state.samePrompt = Boolean(ev.target.checked);
+  });
+  $("#chk-audio-refine")?.addEventListener("change", (ev) => {
+    state.audioRefine = Boolean(ev.target.checked);
+    syncAllUI();
   });
   $("#engine-cv-select")?.addEventListener("change", (ev) => {
     state.controlVector = ev.target.value;

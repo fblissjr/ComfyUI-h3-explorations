@@ -317,6 +317,9 @@
           <button id="btn-audio-guard" type="button" class="micro-pill-btn" title="Cycle EditGuider audio stream routing (independent / video_only / both)">
             Audio: Indep
           </button>
+          <button id="btn-chain-frame" type="button" class="micro-pill-btn hidden" title="Extract current video frame as next shot anchor (Shot N -> Shot N+1)">
+            Chain f→Shot
+          </button>
         </div>
 
         <div id="scrubber-track-wrap" class="scrubber-track-wrap" title="Click or drag to scrub 24 fps">
@@ -431,6 +434,10 @@
           <label class="checkbox-row">
             <input id="chk-same-prompt" type="checkbox">
             <span>Same-Prompt Vector Split-World</span>
+          </label>
+          <label class="checkbox-row">
+            <input id="chk-audio-refine" type="checkbox">
+            <span>2nd-Pass Audio Refine (FrozenVideoCache)</span>
           </label>
 
           <div class="drawer-field">

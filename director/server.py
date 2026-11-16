@@ -507,44 +507,124 @@ async def _comfy_fetch_view(app: web.Application, desc: dict[str, str]) -> tuple
         return resp.status, data, ctype
 
 
+def _decode_video_frame_rgb(raw_bytes: bytes, filename: str, frame_index: int = 0) -> tuple[Any, int, int]:
+    """Decode one video frame as ``(rgb_ndarray, resolved_index, total_frames)``.
+
+    Negative ``frame_index`` indexes from the end (``-1`` = last frame);
+    out-of-range indices clamp to ``[0, total_frames - 1]``.
+    """
+    from collections import deque
+
+    ext = Path(filename).suffix.lower() or ".mp4"
+    target_idx = int(frame_index)
+    with tempfile.NamedTemporaryFile(suffix=ext) as tmp:
+        tmp.write(raw_bytes)
+        tmp.flush()
+        try:
+            import cv2  # type: ignore
+
+            cap = cv2.VideoCapture(tmp.name)
+            try:
+                reported_total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
+                if reported_total > 0:
+                    seek_idx = max(0, min(reported_total - 1, (reported_total + target_idx) if target_idx < 0 else target_idx))
+                    if seek_idx > 0:
+                        cap.set(cv2.CAP_PROP_POS_FRAMES, float(seek_idx))
+                    ok, frame_bgr = cap.read()
+                    if ok and frame_bgr is not None:
+                        return cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB), seek_idx, reported_total
+                    cap.set(cv2.CAP_PROP_POS_FRAMES, 0.0)
+
+                count = 0
+                tail_buf: deque[Any] | None = deque(maxlen=max(1, -target_idx)) if target_idx < 0 else None
+                last_bgr = None
+                picked_bgr = None
+                while True:
+                    ok, frame_bgr = cap.read()
+                    if not ok or frame_bgr is None:
+                        break
+                    last_bgr = frame_bgr
+                    if tail_buf is not None:
+                        tail_buf.append(frame_bgr)
+                    elif count == target_idx:
+                        picked_bgr = frame_bgr
+                        count += 1
+                        break
+                    count += 1
+                if target_idx < 0 and tail_buf:
+                    resolved = max(0, count + target_idx)
+                    idx_in_buf = max(0, len(tail_buf) - (count - resolved))
+                    chosen = tail_buf[idx_in_buf]
+                    return cv2.cvtColor(chosen, cv2.COLOR_BGR2RGB), resolved, count
+                if picked_bgr is not None:
+                    return cv2.cvtColor(picked_bgr, cv2.COLOR_BGR2RGB), target_idx, max(reported_total, count)
+                if last_bgr is not None and count > 0:
+                    return cv2.cvtColor(last_bgr, cv2.COLOR_BGR2RGB), count - 1, count
+            finally:
+                cap.release()
+        except Exception:
+            pass
+
+        try:
+            import av  # type: ignore
+
+            tail_av: deque[Any] | None = deque(maxlen=max(1, -target_idx)) if target_idx < 0 else None
+            last_rgb = None
+            picked_rgb = None
+            count = 0
+            with av.open(tmp.name) as container:
+                for fr in container.decode(video=0):
+                    rgb = fr.to_ndarray(format="rgb24")
+                    last_rgb = rgb
+                    if tail_av is not None:
+                        tail_av.append(rgb)
+                    elif count == target_idx:
+                        picked_rgb = rgb
+                        count += 1
+                        break
+                    count += 1
+            if target_idx < 0 and tail_av:
+                resolved = max(0, count + target_idx)
+                idx_in_buf = max(0, len(tail_av) - (count - resolved))
+                return tail_av[idx_in_buf], resolved, count
+            if picked_rgb is not None:
+                return picked_rgb, target_idx, count
+            if last_rgb is not None and count > 0:
+                return last_rgb, count - 1, count
+        except Exception as exc:
+            raise ValueError(f"Unable to decode frame {target_idx} from {filename!r}: {exc}") from exc
+
+    raise ValueError(f"Video {filename!r} contains no readable video frames")
+
+
+def _extract_video_frame_png(raw_bytes: bytes, filename: str, frame_index: int = -1) -> tuple[bytes, int, int, int, int]:
+    """Extract frame ``frame_index`` as lossless PNG ``(png_bytes, resolved_idx, total_frames, w, h)``."""
+    from PIL import Image
+
+    ext = Path(filename).suffix.lower()
+    if ext in (".png", ".jpg", ".jpeg", ".webp"):
+        with Image.open(io.BytesIO(raw_bytes)) as img:
+            rgb = img.convert("RGB")
+            buf = io.BytesIO()
+            rgb.save(buf, format="PNG")
+            return buf.getvalue(), 0, 1, int(rgb.width), int(rgb.height)
+
+    frame_rgb, resolved_idx, total_frames = _decode_video_frame_rgb(raw_bytes, filename, frame_index=frame_index)
+    img = Image.fromarray(frame_rgb, mode="RGB")
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return buf.getvalue(), resolved_idx, total_frames, int(img.width), int(img.height)
+
+
 def _decode_frame0_or_image(raw_bytes: bytes, filename: str) -> tuple[bytes, int, int, str, str]:
     """Return ``(png_bytes, width, height, target_filename, source_kind)``."""
     from PIL import Image
 
     ext = Path(filename).suffix.lower()
     if ext in (".mp4", ".mov", ".webm", ".mkv", ".avi"):
-        suffix = ext or ".mp4"
-        with tempfile.NamedTemporaryFile(suffix=suffix) as tmp:
-            tmp.write(raw_bytes)
-            tmp.flush()
-            frame_rgb = None
-            try:
-                import cv2  # type: ignore
-
-                cap = cv2.VideoCapture(tmp.name)
-                ok, frame_bgr = cap.read()
-                cap.release()
-                if ok and frame_bgr is not None:
-                    frame_rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
-            except Exception:
-                frame_rgb = None
-            if frame_rgb is None:
-                try:
-                    import av  # type: ignore
-
-                    with av.open(tmp.name) as container:
-                        for fr in container.decode(video=0):
-                            frame_rgb = fr.to_ndarray(format="rgb24")
-                            break
-                except Exception as exc:
-                    raise ValueError(f"Unable to decode Frame 0 from {filename!r}: {exc}") from exc
-            if frame_rgb is None:
-                raise ValueError(f"Video {filename!r} contains no readable video frames")
-            img = Image.fromarray(frame_rgb, mode="RGB")
-            buf = io.BytesIO()
-            img.save(buf, format="PNG")
-            out_name = _sanitize_filename(f"{Path(filename).stem}_frame0.png", default_ext=".png")
-            return buf.getvalue(), int(img.width), int(img.height), out_name, "video_frame0"
+        png_bytes, _idx, _total, w, h = _extract_video_frame_png(raw_bytes, filename, frame_index=0)
+        out_name = _sanitize_filename(f"{Path(filename).stem}_frame0.png", default_ext=".png")
+        return png_bytes, w, h, out_name, "video_frame0"
 
     try:
         with Image.open(io.BytesIO(raw_bytes)) as img:
@@ -712,6 +792,8 @@ async def _read_json_body(request: web.Request) -> dict[str, Any]:
 _SCHEMA_OBJECT_INFO_CLASSES: tuple[str, ...] = (
     compiler.PREVIEW_NODE_CLASS,
     "MiniMaxH3SpatialDirector",
+    "MiniMaxH3AudioRefineMask",
+    "MiniMaxH3FrozenVideoCache",
     "SAM3_Detect",
     "MiniMaxH3SAM31Corrections",
     "CheckpointLoaderSimple",
@@ -1377,6 +1459,251 @@ async def handle_render(request: web.Request) -> web.Response:
     )
 
 
+def _resolve_take_video_descriptor(
+    store: SessionStore,
+    body: dict[str, Any],
+    *,
+    default_type: str = "temp",
+) -> tuple[dict[str, str], dict[str, Any] | None]:
+    """Resolve ``(view_descriptor, source_take)`` from explicit ``video`` or ``take_id``."""
+    take_id = str(body.get("take_id") or "").strip()
+    take: dict[str, Any] | None = store.get_take(take_id) if take_id else None
+    if take_id and take is None and not body.get("video"):
+        raise LookupError(f"Unknown take_id {take_id!r}")
+
+    if body.get("video"):
+        return _parse_view_descriptor(body["video"], default_type=default_type), take
+
+    if take is not None:
+        role = str(body.get("role") or "").strip().lower()
+        if role == "baseline":
+            vid = take.get("baseline_video") or take.get("clean_video") or take.get("hud_video")
+        elif role == "hud":
+            vid = take.get("hud_video") or take.get("clean_video") or take.get("baseline_video")
+        else:
+            vid = take.get("clean_video") or take.get("hud_video") or take.get("baseline_video")
+        if not vid:
+            raise ValueError(f"Take {take_id!r} has no completed video yet")
+        return _parse_view_descriptor(vid, default_type=default_type), take
+
+    raise ValueError("video descriptor or take_id is required")
+
+
+async def handle_extract_frame(request: web.Request) -> web.Response:
+    """Extract any video frame (default ``-1`` tail) as lossless PNG into ComfyUI input."""
+    try:
+        body = await _read_json_body(request)
+    except Exception as exc:
+        return web.json_response({"ok": False, "error": str(exc)}, status=400)
+
+    sid: str = request["director_sid"]
+    try:
+        frame_index = int(body.get("frame_index", -1))
+        src_desc, take = _resolve_take_video_descriptor(request.app["store"], body, default_type="temp")
+    except LookupError as exc:
+        return web.json_response({"ok": False, "error": str(exc)}, status=404)
+    except (ValueError, TypeError) as exc:
+        return web.json_response({"ok": False, "error": str(exc)}, status=400)
+
+    status, raw_bytes, _ctype = await _comfy_fetch_view(request.app, src_desc)
+    if status != 200 or not raw_bytes:
+        err_status = 404 if status == 404 else 502
+        return web.json_response({"ok": False, "error": f"Unable to fetch source video ({status})"}, status=err_status)
+
+    try:
+        png_bytes, resolved_idx, total_frames, w, h = _extract_video_frame_png(
+            raw_bytes,
+            src_desc["filename"],
+            frame_index=frame_index,
+        )
+        out_name = _sanitize_filename(f"{Path(src_desc['filename']).stem}_f{resolved_idx}.png", default_ext=".png")
+        up = await _comfy_upload_bytes(
+            request.app,
+            png_bytes,
+            out_name,
+            subfolder=UPLOADS_SUBFOLDER,
+            content_type="image/png",
+        )
+    except ValueError as exc:
+        return web.json_response({"ok": False, "error": str(exc)}, status=400)
+    except Exception as exc:
+        return web.json_response({"ok": False, "error": str(exc)}, status=502)
+
+    stored_name = str(up.get("name") or out_name)
+    stored_sub = str(up.get("subfolder") if "subfolder" in up else UPLOADS_SUBFOLDER).strip("/")
+    stored_type = str(up.get("type") or "input")
+    ref = f"{stored_sub}/{stored_name}" if stored_sub else stored_name
+    request.app["store"].record_upload(ref, sid)
+
+    return web.json_response(
+        {
+            "ok": True,
+            "ref": ref,
+            "filename": stored_name,
+            "subfolder": stored_sub,
+            "type": stored_type,
+            "frame_index": resolved_idx,
+            "total_frames": total_frames,
+            "width": w,
+            "height": h,
+            "view_url": _view_url(stored_name, stored_sub, stored_type),
+            "source_take_id": take["take_id"] if take else None,
+        }
+    )
+
+
+async def handle_redub(request: web.Request) -> web.Response:
+    """Compile (and queue unless ``dry_run=True``) a 2nd-pass video-frozen audio re-dub."""
+    try:
+        body = await _read_json_body(request)
+    except Exception as exc:
+        return web.json_response({"ok": False, "error": str(exc)}, status=400)
+
+    sid: str = request["director_sid"]
+    store: SessionStore = request.app["store"]
+    take: dict[str, Any] | None = None
+    video_ref = str(body.get("video_ref") or "").strip()
+
+    if not video_ref or body.get("video") or body.get("take_id"):
+        try:
+            src_desc, take = _resolve_take_video_descriptor(store, body, default_type="temp")
+        except LookupError as exc:
+            return web.json_response({"ok": False, "error": str(exc)}, status=404)
+        except ValueError as exc:
+            return web.json_response({"ok": False, "error": str(exc)}, status=400)
+
+        if src_desc["type"] == "input":
+            video_ref = f"{src_desc['subfolder']}/{src_desc['filename']}" if src_desc["subfolder"] else src_desc["filename"]
+        else:
+            status, raw_bytes, _ctype = await _comfy_fetch_view(request.app, src_desc)
+            if status != 200 or not raw_bytes:
+                err_status = 404 if status == 404 else 502
+                return web.json_response(
+                    {"ok": False, "error": f"Unable to fetch source video ({status})"},
+                    status=err_status,
+                )
+            up_name = _sanitize_filename(src_desc["filename"], default_ext=".mp4")
+            try:
+                up = await _comfy_upload_bytes(
+                    request.app,
+                    raw_bytes,
+                    up_name,
+                    subfolder=UPLOADS_SUBFOLDER,
+                    content_type="video/mp4",
+                )
+            except Exception as exc:
+                return web.json_response({"ok": False, "error": str(exc)}, status=502)
+            stored_name = str(up.get("name") or up_name)
+            stored_sub = str(up.get("subfolder") if "subfolder" in up else UPLOADS_SUBFOLDER).strip("/")
+            video_ref = f"{stored_sub}/{stored_name}" if stored_sub else stored_name
+            store.record_upload(video_ref, sid)
+
+    take_params = dict((take or {}).get("params") or {})
+    compile_params: dict[str, Any] = {
+        "video_ref": video_ref,
+        "length": body.get("length") or (take or {}).get("length") or take_params.get("length") or 90,
+        "width": body.get("width") or (take or {}).get("width") or take_params.get("width") or 1344,
+        "height": body.get("height") or (take or {}).get("height") or take_params.get("height") or 768,
+        "denoise": body.get("denoise", 1.0),
+        "steps": body.get("steps", 6),
+        "use_distill": bool(body.get("use_distill", False)),
+    }
+    if "seed" in body:
+        compile_params["seed"] = body["seed"]
+    elif take and take.get("seed") is not None:
+        compile_params["seed"] = take["seed"]
+
+    audio_prompt = (
+        body.get("audio_prompt")
+        or body.get("target_prompt")
+        or body.get("prompt")
+        or take_params.get("target_prompt")
+        or take_params.get("original_prompt")
+    )
+    if audio_prompt:
+        compile_params["audio_prompt"] = audio_prompt
+
+    if body.get("cues_text"):
+        compile_params["cues_text"] = body["cues_text"]
+    elif isinstance(body.get("sound_cues"), list) and body["sound_cues"]:
+        compile_params["cues_text"] = "\n".join(str(x).strip() for x in body["sound_cues"] if str(x).strip())
+    elif body.get("events_json") is not None:
+        compile_params["events_json"] = body["events_json"]
+    elif take_params.get("events_json") is not None:
+        compile_params["events_json"] = take_params["events_json"]
+
+    if body.get("source_length") is not None:
+        compile_params["source_length"] = int(body["source_length"])
+    elif "events_json" in compile_params and body.get("events_json") is None and take and take.get("length"):
+        compile_params["source_length"] = int(take["length"])
+
+    if isinstance(body.get("portal_cues"), list) and body["portal_cues"]:
+        compile_params["portal_cues"] = body["portal_cues"]
+
+    obj_info = await _fetch_object_info(request.app)
+    try:
+        compiled = compiler.compile_audio_redub(compile_params, object_info=obj_info)
+    except Exception as exc:
+        return web.json_response({"ok": False, "error": str(exc)}, status=400)
+
+    if bool(body.get("dry_run")):
+        return web.json_response({"ok": True, "dry_run": True, **compiled})
+
+    new_take_id = f"take_{secrets.token_hex(6)}"
+    client_id = str(body.get("client_id") or secrets.token_hex(8))
+    try:
+        prompt_id = await _submit_comfy_prompt(
+            request.app,
+            compiled["graph"],
+            client_id=client_id,
+            extra_meta={"kind": "redub", "role": "edited", "take_id": new_take_id},
+        )
+    except Exception as exc:
+        return web.json_response({"ok": False, "error": str(exc)}, status=502)
+
+    store.record_take(
+        {
+            "take_id": new_take_id,
+            "kind": "redub",
+            "prompt_id": prompt_id,
+            "baseline_prompt_id": None,
+            "client_id": client_id,
+            "session_id": sid,
+            "status": "queued",
+            "mode": compiled["mode"],
+            "director_mode": compiled["mode"],
+            "source_take_id": take["take_id"] if take else None,
+            "length": compiled["length"],
+            "width": compiled["width"],
+            "height": compiled["height"],
+            "seed": compiled["seed"],
+            "params": compile_params,
+            "clean_video": None,
+            "hud_video": None,
+            "baseline_video": None,
+            "created_at": time.time(),
+            "updated_at": time.time(),
+        }
+    )
+    return web.json_response(
+        {
+            "ok": True,
+            "take_id": new_take_id,
+            "kind": "redub",
+            "prompt_id": prompt_id,
+            "client_id": client_id,
+            "mode": compiled["mode"],
+            "video_ref": compiled["video_ref"],
+            "length": compiled["length"],
+            "width": compiled["width"],
+            "height": compiled["height"],
+            "seed": compiled["seed"],
+            "denoise": compiled["denoise"],
+            "nodes_summary": compiled["nodes_summary"],
+        }
+    )
+
+
 async def handle_escalate(request: web.Request) -> web.Response:
     try:
         body = await _read_json_body(request)
@@ -1923,6 +2250,8 @@ def create_app(
     app.router.add_post("/api/preflight", handle_preflight)
     app.router.add_post("/api/compile", handle_compile)
     app.router.add_post("/api/render", handle_render)
+    app.router.add_post("/api/extract_frame", handle_extract_frame)
+    app.router.add_post("/api/redub", handle_redub)
     app.router.add_post("/api/escalate", handle_escalate)
     app.router.add_post("/api/context_suggest", handle_context_suggest)
     app.router.add_get("/api/takes", handle_takes)

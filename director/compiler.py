@@ -1332,6 +1332,73 @@ def _compile_single_spatial(
         release_overrides=params.get("release_references"),
     )
 
+    # Optional in-graph 2nd-pass Audio Refine (`MiniMaxH3FrozenVideoCache` + `MiniMaxH3AudioRefineMask`).
+    for stale_ref_id in ("80", "81", "82", "83", "84", "85", "86", "87", "88"):
+        graph.pop(stale_ref_id, None)
+    audio_refine = bool(params.get("audio_refine", False))
+    if audio_refine:
+        audio_refine_denoise = max(0.05, min(1.0, float(params.get("audio_refine_denoise", 0.5))))
+        audio_refine_steps = max(1, min(30, int(params.get("audio_refine_steps", 6))))
+        rsrc: list[Any] = ["1", 0]
+        graph["80"] = {
+            "class_type": "MiniMaxH3SigmaShift",
+            "inputs": {"model": rsrc, "shift_video": 12.0, "shift_audio": 3.0},
+        }
+        rsrc = ["80", 0]
+        if "58" in graph and isinstance(graph["58"].get("inputs"), dict):
+            graph["81"] = {
+                "class_type": "ModelAttentionBackend",
+                "inputs": {"model": rsrc, "attention": graph["58"]["inputs"].get("attention", "comfy kitchen attention")},
+            }
+            rsrc = ["81", 0]
+        if "21" in graph and isinstance(graph["21"], dict) and graph["21"].get("class_type") == "MiniMaxH3Sol":
+            sol_inputs = {k: copy.deepcopy(v) for k, v in (graph["21"].get("inputs") or {}).items() if k != "model"}
+            sol_inputs["model"] = rsrc
+            graph["82"] = {"class_type": "MiniMaxH3Sol", "inputs": sol_inputs}
+            rsrc = ["82", 0]
+        graph["88"] = {
+            "class_type": "MiniMaxH3FrozenVideoCache",
+            "inputs": {
+                "model": rsrc,
+                "precision": "int4",
+                "refresh": False,
+                "refresh_every": 2,
+                "verify": False,
+                "halo": 0,
+            },
+        }
+        rsrc = ["88", 0]
+        graph["83"] = {
+            "class_type": "MiniMaxH3AudioRefineMask",
+            "inputs": {"latent": ["10", 0], "video_mask": 0.0, "audio_mask": 1.0},
+        }
+        graph["84"] = {
+            "class_type": "BasicScheduler",
+            "inputs": {
+                "model": rsrc,
+                "scheduler": "simple",
+                "steps": audio_refine_steps,
+                "denoise": audio_refine_denoise,
+            },
+        }
+        graph["85"] = {"class_type": "KSamplerSelect", "inputs": {"sampler_name": "euler"}}
+        graph["86"] = {"class_type": "BasicGuider", "inputs": {"model": rsrc, "conditioning": edited_ref}}
+        graph["87"] = {
+            "class_type": "SamplerCustomAdvanced",
+            "inputs": {
+                "noise": ["6", 0],
+                "guider": ["86", 0],
+                "sampler": ["85", 0],
+                "sigmas": ["84", 0],
+                "latent_image": ["83", 0],
+            },
+        }
+        graph["11"]["inputs"]["samples"] = ["87", 0]
+        graph["12"]["inputs"]["samples"] = ["87", 0]
+    else:
+        graph["11"]["inputs"]["samples"] = ["10", 0]
+        graph["12"]["inputs"]["samples"] = ["10", 0]
+
     # Dual VHS_VideoCombine outputs ("13" HUD + "162" Clean), strictly temp-only (`save_output: False`).
     base_combine = copy.deepcopy(graph[HUD_COMBINE_NODE_ID])
     base_inputs = dict(base_combine.get("inputs") or {})
@@ -1368,6 +1435,7 @@ def _compile_single_spatial(
             "has_exclude_mask": bool(exclude_mask_ref),
             "spatial_combined_native": native_combined,
             "has_sound_cues": has_cues,
+            "has_audio_refine": audio_refine,
             "has_preview_override": injected,
             "has_release_refs": "135" in graph,
             "control_vector_nodes": steer_ids,
@@ -1602,6 +1670,276 @@ def escalate_plan(params: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def has_audio_refine_support(object_info: dict[str, Any] | None) -> bool:
+    """Return True when ``MiniMaxH3AudioRefineMask`` + ``MiniMaxH3FrozenVideoCache`` are available."""
+    if not isinstance(object_info, dict):
+        return True
+    has_mask = isinstance(object_info.get("MiniMaxH3AudioRefineMask"), dict)
+    has_cache = isinstance(object_info.get("MiniMaxH3FrozenVideoCache"), dict)
+    if has_mask and has_cache:
+        return True
+    if has_mask or has_cache:
+        return False
+    sd = object_info.get("MiniMaxH3SpatialDirector")
+    if isinstance(sd, dict):
+        inp = sd.get("input") or {}
+        if inp.get("required") or inp.get("optional"):
+            return False
+    return True
+
+
+def compile_audio_redub(
+    params: dict[str, Any] | None = None,
+    object_info: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Compile a 2nd-pass video-frozen audio re-dub workflow (``FrozenVideoCache`` + ``AudioRefineMask``)."""
+    cfg = dict(params or {})
+    video_ref = str(cfg.get("video_ref") or cfg.get("source_video") or "").strip()
+    if not video_ref:
+        raise ValueError("video_ref is required for audio re-dub")
+
+    tpl_path = _WORKFLOWS_DIR / "h3_spatial_portal_pika_api.json"
+    if not tpl_path.is_file():
+        raise FileNotFoundError(f"Audio re-dub base template missing: {tpl_path}")
+    graph = _load_json(tpl_path)
+
+    base_sol = copy.deepcopy(graph.get("21") or {})
+    base_combine = copy.deepcopy(graph.get(HUD_COMBINE_NODE_ID) or {})
+
+    for stale in ("7", "9", "10", "11", "19", "21", "58", "60", "130", "131", "134", "160", "161"):
+        graph.pop(stale, None)
+
+    length = snap_to_on_both_clocks(int(cfg.get("length", 90)))
+    width = int(cfg.get("width", 1344))
+    height = int(cfg.get("height", 768))
+    _set_resolution_node(graph, width=width, height=height, length=length, canvas="explicit")
+
+    seed = _resolve_seed(cfg, graph)
+    graph["6"]["inputs"]["noise_seed"] = seed
+
+    raw_prompt = str(
+        cfg.get("audio_prompt")
+        or cfg.get("target_prompt")
+        or cfg.get("prompt")
+        or graph.get("133", {}).get("inputs", {}).get("value")
+        or ""
+    ).strip()
+    if not raw_prompt:
+        raw_prompt = "Natural cinematic foley and ambience synced to on-screen motion."
+    graph["133"] = {"class_type": "PrimitiveStringMultiline", "inputs": {"value": raw_prompt}}
+    graph["5"]["inputs"]["prompt"] = ["133", 0]
+
+    graph["90"] = {"class_type": "LoadVideo", "inputs": {"file": video_ref}}
+    graph["91"] = {"class_type": "GetVideoComponents", "inputs": {"video": ["90", 0]}}
+    graph["92"] = {
+        "class_type": "ImageScale",
+        "inputs": {
+            "image": ["91", 0],
+            "upscale_method": "bilinear",
+            "width": ["27", 0],
+            "height": ["27", 1],
+            "crop": "disabled",
+        },
+    }
+    graph["93"] = {"class_type": "VAEEncode", "inputs": {"pixels": ["92", 0], "vae": ["3", 0]}}
+
+    denoise = max(0.05, min(1.0, float(cfg.get("denoise", 1.0))))
+    if denoise >= 0.999:
+        graph["94"] = {"class_type": "LTXVSeparateAVLatent", "inputs": {"av_latent": ["5", 1]}}
+        graph["95"] = {
+            "class_type": "LTXVConcatAVLatent",
+            "inputs": {"video_latent": ["93", 0], "audio_latent": ["94", 1]},
+        }
+    else:
+        graph["94"] = {
+            "class_type": "MiniMaxH3EncodeTrack",
+            "inputs": {"audio_vae": ["4", 0], "audio": ["91", 1], "level": "clip_guard"},
+        }
+        graph["95"] = {
+            "class_type": "LTXVConcatAVLatent",
+            "inputs": {"video_latent": ["93", 0], "audio_latent": ["94", 0]},
+        }
+
+    cues_str = str(cfg.get("cues_text") or "").strip()
+    if not cues_str and (cfg.get("events_json") is not None or cfg.get("portal_cues")):
+        minimal_fallback = '{"portal":[{"frame":0,"x":0.5,"y":0.5,"rx":0.2,"ry":0.2,"shape":"circle","label":"PORTAL"}]}'
+        events_doc, _ = _parse_events_doc(cfg.get("events_json"), minimal_fallback)
+        if cfg.get("events_json") is not None:
+            raw_frames: list[int] = [0]
+            for p in events_doc.get("portal") or ():
+                if isinstance(p, dict) and p.get("frame") is not None:
+                    raw_frames.append(int(float(p["frame"])))
+            for t in events_doc.get("targets") or ():
+                if isinstance(t, dict):
+                    for fk in ("start", "end"):
+                        if t.get(fk) is not None:
+                            raw_frames.append(int(float(t[fk])))
+            for c in events_doc.get("portal_cues") or ():
+                if isinstance(c, dict) and c.get("frame") is not None:
+                    raw_frames.append(int(float(c["frame"])))
+            dp = events_doc.get("dpad")
+            if isinstance(dp, dict):
+                for wp in dp.get("waypoints") or ():
+                    if isinstance(wp, dict) and wp.get("frame") is not None:
+                        raw_frames.append(int(float(wp["frame"])))
+                for hp in dp.get("hops") or ():
+                    if isinstance(hp, dict):
+                        for fk in ("start", "end"):
+                            if hp.get(fk) is not None:
+                                raw_frames.append(int(float(hp[fk])))
+            max_doc_frame = max(raw_frames)
+            src_len = int(cfg["source_length"]) if cfg.get("source_length") else (max_doc_frame + 1 if max_doc_frame >= length else length)
+            if src_len != length and src_len > 1:
+                _scale_events_doc(events_doc, src_len, length)
+        if cfg.get("portal_cues"):
+            clamped_cues = []
+            for item in cfg["portal_cues"]:
+                if not isinstance(item, dict):
+                    continue
+                c_copy = dict(item)
+                f_val = max(0, min(length - 1, int(float(c_copy.get("frame", 0)))))
+                c_copy["frame"] = _snap_cue_frame_3f(f_val, length)
+                clamped_cues.append(c_copy)
+            events_doc["portal_cues"] = clamped_cues
+        if _events_have_sound_cues(events_doc, cfg, director_mode="combined"):
+            if not events_doc.get("portal") and not events_doc.get("targets"):
+                events_doc["portal"] = [
+                    {"frame": 0, "x": 0.5, "y": 0.5, "rx": 0.2, "ry": 0.2, "shape": "circle", "label": "PORTAL"}
+                ]
+            cues_str = str(
+                _spatial_director().MiniMaxH3SpatialDirector.execute(
+                    mode="combined",
+                    width=64,
+                    height=64,
+                    length=length,
+                    feather=0.08,
+                    invert_mask=False,
+                    events_json=json.dumps(events_doc),
+                )[1]
+            ).strip()
+
+    has_cues = bool(cues_str)
+    if has_cues:
+        graph["70"] = {
+            "class_type": "MiniMaxH3SoundCues",
+            "inputs": {
+                "positive": ["5", 0],
+                "latent": ["95", 0],
+                "audio_vae": ["4", 0],
+                "cues": cues_str,
+                "snap_to_3f": True,
+                "floor_dbfs": float(cfg.get("floor_dbfs", -28.0)),
+                "seed": int(cfg.get("audio_seed", seed)),
+            },
+        }
+        cond_ref: list[Any] = ["70", 0]
+        av_latent_ref: list[Any] = ["70", 1]
+    else:
+        graph.pop("70", None)
+        cond_ref = ["5", 0]
+        av_latent_ref = ["95", 0]
+
+    graph["26"] = {
+        "class_type": "MiniMaxH3Preflight",
+        "inputs": {"conditioning": cond_ref, "samples": av_latent_ref},
+    }
+    graph["83"] = {
+        "class_type": "MiniMaxH3AudioRefineMask",
+        "inputs": {"latent": ["26", 1], "video_mask": 0.0, "audio_mask": 1.0},
+    }
+
+    use_distill = bool(cfg.get("use_distill", False))
+    if not use_distill:
+        graph.pop("18", None)
+        rsrc: list[Any] = ["1", 0]
+    else:
+        rsrc = ["18", 0]
+
+    graph["80"] = {"class_type": "MiniMaxH3SigmaShift", "inputs": {"model": rsrc, "shift_video": 12.0, "shift_audio": 3.0}}
+    graph["81"] = {
+        "class_type": "ModelAttentionBackend",
+        "inputs": {"model": ["80", 0], "attention": "comfy kitchen attention"},
+    }
+    sol_inputs = {k: copy.deepcopy(v) for k, v in (base_sol.get("inputs") or {}).items() if k != "model"}
+    sol_inputs.setdefault("tau", 1.0)
+    sol_inputs.setdefault("start_percent", 0.2)
+    sol_inputs.setdefault("end_percent", 1.0)
+    sol_inputs.setdefault("min_tokens", 12288)
+    sol_inputs.setdefault("sink_conditioning", "exact_kv_and_all_rows")
+    sol_inputs.setdefault("verbose", True)
+    sol_inputs.setdefault("dense_blocks", "49")
+    sol_inputs.setdefault("quantizer", "rotated")
+    sol_inputs.setdefault("token_routing", "off")
+    sol_inputs["model"] = ["81", 0]
+    graph["82"] = {"class_type": "MiniMaxH3Sol", "inputs": sol_inputs}
+    graph["88"] = {
+        "class_type": "MiniMaxH3FrozenVideoCache",
+        "inputs": {"model": ["82", 0], "precision": "int4", "refresh": False, "refresh_every": 2, "verify": False, "halo": 0},
+    }
+    steps = max(1, min(30, int(cfg.get("steps", 6))))
+    graph["84"] = {
+        "class_type": "BasicScheduler",
+        "inputs": {"model": ["88", 0], "scheduler": "simple", "steps": steps, "denoise": denoise},
+    }
+    graph["85"] = {"class_type": "KSamplerSelect", "inputs": {"sampler_name": "lcm" if use_distill else "euler"}}
+    graph["86"] = {"class_type": "BasicGuider", "inputs": {"model": ["88", 0], "conditioning": ["26", 0]}}
+    graph["87"] = {
+        "class_type": "SamplerCustomAdvanced",
+        "inputs": {
+            "noise": ["6", 0],
+            "guider": ["86", 0],
+            "sampler": ["85", 0],
+            "sigmas": ["84", 0],
+            "latent_image": ["83", 0],
+        },
+    }
+
+    graph["12"] = {"class_type": "VAEDecodeAudio", "inputs": {"samples": ["87", 0], "vae": ["4", 0]}}
+
+    base_inputs = dict(base_combine.get("inputs") or {})
+    base_inputs.update(
+        {
+            "images": ["92", 0],
+            "audio": ["12", 0],
+            "frame_rate": 24.0,
+            "filename_prefix": "h3_spatial_director/audio_redub_hud",
+            "save_output": False,
+        }
+    )
+    graph[HUD_COMBINE_NODE_ID] = {"class_type": "VHS_VideoCombine", "inputs": base_inputs}
+
+    clean_inputs = copy.deepcopy(base_inputs)
+    clean_inputs["images"] = ["92", 0]
+    clean_inputs["filename_prefix"] = "h3_spatial_director/audio_redub_clean"
+    clean_inputs["save_output"] = False
+    graph[CLEAN_DECODE_NODE_ID] = {"class_type": "VHS_VideoCombine", "inputs": clean_inputs}
+
+    return {
+        "mode": "audio_redub",
+        "video_ref": video_ref,
+        "seed": seed,
+        "length": length,
+        "width": width,
+        "height": height,
+        "denoise": denoise,
+        "steps": steps,
+        "use_distill": use_distill,
+        "has_audio_refine": True,
+        "nodes_summary": {
+            "has_sound_cues": has_cues,
+            "has_audio_refine": True,
+            "use_distill": use_distill,
+            "denoise": round(denoise, 3),
+            "steps": steps,
+            "video_source": "LoadVideo->VAEEncode",
+            "audio_source": "fresh_empty" if denoise >= 0.999 else "MiniMaxH3EncodeTrack",
+            "hud_save_output": False,
+            "clean_save_output": False,
+        },
+        "graph": graph,
+    }
+
+
 def get_schema_data(object_info: dict[str, Any] | None = None, *, heylook_suggestions: bool = False) -> dict[str, Any]:
     """Return full schema metadata for ``GET /api/schema``."""
     cues = _sound_cues()
@@ -1628,6 +1966,7 @@ def get_schema_data(object_info: dict[str, Any] | None = None, *, heylook_sugges
             "sam3": bool(sam3_cap["available"]),
             "sam3_engine": sam3_cap["engine"],
             "spatial_combined": has_spatial_combined_support(object_info),
+            "audio_refine": has_audio_refine_support(object_info),
         },
         "defaults": {
             "mode": "r2v_portal",

@@ -120,7 +120,9 @@ MOCK_OBJECT_INFO_WITH_KJ: dict[str, Any] = {
                 "audio_vae": ["VAE", {}],
             },
         }
-    }
+    },
+    "MiniMaxH3AudioRefineMask": {"input": {"required": {}, "optional": {}}},
+    "MiniMaxH3FrozenVideoCache": {"input": {"required": {}, "optional": {}}},
 }
 
 MOCK_OBJECT_INFO_WITHOUT_KJ: dict[str, Any] = {
@@ -298,6 +300,33 @@ def _encode_solid_mp4_b64(rgb: tuple[int, int, int] = (0, 235, 255), width: int 
         for pkt in stream.encode():
             container.mux(pkt)
     return base64.b64encode(buf.getvalue()).decode("ascii")
+
+
+def _encode_indexed_mp4_bytes(
+    colors: list[tuple[int, int, int]] | None = None,
+    width: int = 160,
+    height: int = 96,
+) -> bytes:
+    import av
+    import numpy as np
+
+    palette = colors or [(230, 30, 30), (30, 220, 40), (30, 70, 235)]
+    buf = io.BytesIO()
+    with av.open(buf, mode="w", format="mp4") as container:
+        stream = container.add_stream("libx264", rate=24)
+        stream.width = width
+        stream.height = height
+        stream.pix_fmt = "yuv420p"
+        stream.gop_size = 1
+        for rgb in palette:
+            frame_arr = np.empty((height, width, 3), dtype=np.uint8)
+            frame_arr[:, :] = rgb
+            vf = av.VideoFrame.from_ndarray(frame_arr, format="rgb24")
+            for pkt in stream.encode(vf):
+                container.mux(pkt)
+        for pkt in stream.encode():
+            container.mux(pkt)
+    return buf.getvalue()
 
 
 # ---------------------------------------------------------------------------
@@ -588,7 +617,61 @@ def check_compiler_contracts() -> str:
     res_still_nokj = _call_with_adaptive_sig(compiler_mod.compile_still, still_payload, MOCK_OBJECT_INFO_WITHOUT_KJ)
     g_still_nokj, _ = _extract_graphs(res_still_nokj)
     assert "165" not in g_still_nokj and not _nodes_by_class(g_still_nokj, "ModelPreviewOverrideKJ")
-    return "all 4 spatial modes, dual VHS save_output=False, dynamic '165' preview_fps=7/omission, '51'/'70' omission, baseline opt-in, and pika_t2i still verified"
+
+    # 8. Slice 2C: 2nd-Pass Audio Refine (in-graph) & Standalone Audio Re-Dub
+    assert compiler_mod.has_audio_refine_support(MOCK_OBJECT_INFO_WITH_KJ) is True
+    assert compiler_mod.has_audio_refine_support({"MiniMaxH3SpatialDirector": {"input": {"required": {"mode": ["COMBO", {}]}}}}) is False
+    res_ar = compiler_mod.compile_spatial_take(
+        {**common_base, "mode": "t2v_portal", "director_mode": "combined", "audio_refine": True},
+        object_info=MOCK_OBJECT_INFO_WITH_KJ,
+    )
+    g_ar = res_ar["graph"]
+    for nid in ("80", "81", "82", "83", "84", "85", "86", "87", "88"):
+        assert nid in g_ar, f"audio_refine=True missing node #{nid}"
+    assert g_ar["88"]["class_type"] == "MiniMaxH3FrozenVideoCache"
+    assert g_ar["83"]["class_type"] == "MiniMaxH3AudioRefineMask"
+    assert g_ar["87"]["class_type"] == "SamplerCustomAdvanced"
+    assert g_ar["11"]["inputs"]["samples"] == ["87", 0]
+    assert g_ar["12"]["inputs"]["samples"] == ["87", 0]
+    assert res_ar["nodes_summary"]["has_audio_refine"] is True
+
+    res_rd1 = compiler_mod.compile_audio_redub(
+        {
+            "video_ref": "h3_spatial_director/shot1.mp4",
+            "length": 90,
+            "denoise": 1.0,
+            "portal_cues": [{"frame": 14, "preset": "slam", "gain": 1.0}],
+        },
+        object_info=MOCK_OBJECT_INFO_WITH_KJ,
+    )
+    g_rd1 = res_rd1["graph"]
+    assert g_rd1["90"]["class_type"] == "LoadVideo" and g_rd1["90"]["inputs"]["file"] == "h3_spatial_director/shot1.mp4"
+    assert g_rd1["93"]["class_type"] == "VAEEncode"
+    assert g_rd1["94"]["class_type"] == "LTXVSeparateAVLatent"
+    assert g_rd1["95"]["class_type"] == "LTXVConcatAVLatent"
+    assert g_rd1["70"]["class_type"] == "MiniMaxH3SoundCues" and "15: slam" in g_rd1["70"]["inputs"]["cues"]
+    assert g_rd1["88"]["class_type"] == "MiniMaxH3FrozenVideoCache"
+    assert g_rd1["83"]["class_type"] == "MiniMaxH3AudioRefineMask"
+    assert g_rd1["162"]["inputs"]["images"] == ["92", 0] and g_rd1["162"]["inputs"]["save_output"] is False
+    assert g_rd1["13"]["inputs"]["images"] == ["92", 0] and g_rd1["13"]["inputs"]["save_output"] is False
+
+    res_rd2 = compiler_mod.compile_audio_redub(
+        {
+            "video_ref": "h3_spatial_director/shot1.mp4",
+            "length": 141,
+            "source_length": 90,
+            "denoise": 0.55,
+            "use_distill": True,
+            "events_json": base_events,
+        },
+        object_info=MOCK_OBJECT_INFO_WITH_KJ,
+    )
+    g_rd2 = res_rd2["graph"]
+    assert g_rd2["94"]["class_type"] == "MiniMaxH3EncodeTrack"
+    assert "18" in g_rd2 and g_rd2["85"]["inputs"]["sampler_name"] == "lcm"
+    assert float(g_rd2["84"]["inputs"]["denoise"]) < 0.6
+
+    return "all 4 spatial modes, dual VHS save_output=False, dynamic '165' preview_fps=7/omission, '51'/'70' omission, audio_refine + redub, baseline opt-in, and pika_t2i still verified"
 
 
 def check_forget_plan_and_isolation() -> str:
@@ -719,7 +802,11 @@ def check_server_routes_and_escalate() -> str:
     _compiler_mod, _routes_mod, server_mod = _load_director_modules()
 
     async def _run() -> None:
-        stored_uploads: dict[str, bytes] = {"test_anchor.png": _encode_test_png_bytes(336, 192)}
+        stored_uploads: dict[str, bytes] = {
+            "test_anchor.png": _encode_test_png_bytes(336, 192),
+            "shot_src.mp4": _encode_indexed_mp4_bytes([(230, 30, 30), (30, 220, 40), (30, 70, 235)]),
+        }
+        submitted_prompts: list[dict[str, Any]] = []
 
         async def _stub_upload(req: web.Request) -> web.Response:
             reader = await req.multipart()
@@ -747,7 +834,13 @@ def check_server_routes_and_escalate() -> str:
             raw = stored_uploads.get(key) or stored_uploads.get(fn)
             if raw is None:
                 return web.Response(status=404, text="not found")
-            return web.Response(body=raw, content_type="image/png")
+            ctype = "video/mp4" if fn.endswith(".mp4") else "image/png"
+            return web.Response(body=raw, content_type=ctype)
+
+        async def _stub_prompt(req: web.Request) -> web.Response:
+            body = await req.json()
+            submitted_prompts.append(body)
+            return web.json_response({"prompt_id": f"stub_redub_pid_{len(submitted_prompts)}"})
 
         stub = web.Application()
         stub.router.add_get("/object_info", lambda _r: web.json_response(MOCK_OBJECT_INFO_WITH_KJ))
@@ -756,6 +849,7 @@ def check_server_routes_and_escalate() -> str:
         stub.router.add_get("/history", lambda _r: web.json_response({}))
         stub.router.add_post("/upload/image", _stub_upload)
         stub.router.add_get("/view", _stub_view)
+        stub.router.add_post("/prompt", _stub_prompt)
 
         async with TestServer(stub) as comfy_srv:
             comfy_url = f"http://127.0.0.1:{comfy_srv.port}"
@@ -777,6 +871,7 @@ def check_server_routes_and_escalate() -> str:
                     schema = await r_schema.json()
                     assert schema["capabilities"]["kj_preview_override"] is True
                     assert schema["capabilities"]["taeh3"] is True
+                    assert schema["capabilities"]["audio_refine"] is True
                     assert all(h3_rules.on_both_clocks(n) for n in schema["lengths"]), schema["lengths"]
 
                     # 3. Context suggest disabled cleanly without H3_HEYLOOK_URL
@@ -893,8 +988,70 @@ def check_server_routes_and_escalate() -> str:
                     seg_exc = await r_seg_exc.json()
                     assert seg_exc["ok"] is True and seg_exc["role"] == "exclude" and seg_exc.get("mask_ref"), seg_exc
 
+                    # 7. Slice 2C: POST /api/extract_frame & POST /api/redub
+                    from PIL import Image
+                    import numpy as np
+
+                    r_ext_tail = await client.post(
+                        "/api/extract_frame",
+                        json={"video": {"filename": "shot_src.mp4", "subfolder": "", "type": "temp"}, "frame_index": -1},
+                    )
+                    assert r_ext_tail.status == 200, await r_ext_tail.text()
+                    ext_tail = await r_ext_tail.json()
+                    assert ext_tail["ok"] is True and ext_tail["total_frames"] == 3 and ext_tail["frame_index"] == 2, ext_tail
+                    assert ext_tail["ref"] in stored_uploads
+                    with Image.open(io.BytesIO(stored_uploads[ext_tail["ref"]])) as tail_im:
+                        tail_rgb = np.asarray(tail_im.convert("RGB"), dtype=np.float32).mean(axis=(0, 1))
+                    assert tail_rgb[2] > tail_rgb[0] + 80, f"expected blue tail frame, got RGB={tail_rgb}"
+
+                    r_ext_0 = await client.post(
+                        "/api/extract_frame",
+                        json={"video": {"filename": "shot_src.mp4", "subfolder": "", "type": "temp"}, "frame_index": 0},
+                    )
+                    assert r_ext_0.status == 200, await r_ext_0.text()
+                    ext_0 = await r_ext_0.json()
+                    assert ext_0["ok"] is True and ext_0["frame_index"] == 0, ext_0
+                    with Image.open(io.BytesIO(stored_uploads[ext_0["ref"]])) as f0_im:
+                        f0_rgb = np.asarray(f0_im.convert("RGB"), dtype=np.float32).mean(axis=(0, 1))
+                    assert f0_rgb[0] > f0_rgb[2] + 80, f"expected red f0 frame, got RGB={f0_rgb}"
+
+                    r_rd_dry = await client.post(
+                        "/api/redub",
+                        json={
+                            "video_ref": "h3_spatial_director/shot_src.mp4",
+                            "length": 90,
+                            "denoise": 1.0,
+                            "dry_run": True,
+                        },
+                    )
+                    assert r_rd_dry.status == 200, await r_rd_dry.text()
+                    rd_dry = await r_rd_dry.json()
+                    assert rd_dry["ok"] is True and rd_dry["dry_run"] is True
+                    assert rd_dry["graph"]["88"]["class_type"] == "MiniMaxH3FrozenVideoCache"
+
+                    r_rd_live = await client.post(
+                        "/api/redub",
+                        json={
+                            "video": {"filename": "shot_src.mp4", "subfolder": "", "type": "temp"},
+                            "length": 90,
+                            "denoise": 1.0,
+                            "cues_text": "12:1.0:slam",
+                        },
+                    )
+                    assert r_rd_live.status == 200, await r_rd_live.text()
+                    rd_live = await r_rd_live.json()
+                    assert rd_live["ok"] is True and rd_live["kind"] == "redub", rd_live
+                    assert rd_live["prompt_id"] == "stub_redub_pid_1"
+                    assert rd_live["video_ref"].startswith("h3_spatial_director/shot_src_") and rd_live["video_ref"].endswith(".mp4"), rd_live
+                    assert rd_live["video_ref"] in stored_uploads, stored_uploads.keys()
+                    assert len(submitted_prompts) == 1
+
+                    r_takes = await client.get("/api/takes")
+                    takes_doc = await r_takes.json()
+                    assert any(t.get("take_id") == rd_live["take_id"] and t.get("kind") == "redub" for t in takes_doc["takes"])
+
     asyncio.run(_run())
-    return "server CSP/Host guard, schema capabilities, /api/segment, /api/escalate on_both_clocks + 3f cues, and /api/compile verified"
+    return "server CSP/Host guard, schema capabilities, /api/segment, /api/extract_frame, /api/redub, /api/escalate on_both_clocks + 3f cues, and /api/compile verified"
 
 
 def check_static_and_route_audit() -> str:
@@ -1557,6 +1714,20 @@ async def _run_cdp_browser(director_url: str, anchor_png: Path) -> str:
                     assert tab_state_1["activeIdx"] == 1 and tab_state_1["selectedAfter"][1] == "true", (
                         f"ArrowRight tablist navigation failed: {tab_state_1}"
                     )
+
+                    # Switch back to Steering tab and verify #chk-audio-refine propagates audio_refine=True
+                    await js(
+                        """(() => {
+                          const tabs = [...document.querySelectorAll('#engine-drawer [role="tablist"] [role="tab"]')];
+                          if (tabs[0]) tabs[0].click();
+                          document.getElementById('chk-audio-refine')?.click();
+                        })()"""
+                    )
+                    ar_req = await _capture_render_payload()
+                    assert ar_req.get("audio_refine") is True, f"expected audio_refine=True after checking #chk-audio-refine, got {ar_req.get('audio_refine')}"
+                    await js("document.getElementById('chk-audio-refine')?.click()")
+                    ar_req_off = await _capture_render_payload()
+                    assert ar_req_off.get("audio_refine") is False, f"expected audio_refine=False after unchecking #chk-audio-refine, got {ar_req_off.get('audio_refine')}"
 
                     # POST /api/compile from page using edited payload -> emits "165" ModelPreviewOverrideKJ
                     compile_res = await js(
