@@ -212,6 +212,12 @@ SOL_ROUTING_NESTED = {"custom": ("blocks",)}
 # The node's widgets in declared order (`model` is a socket).
 SOL_WIDGETS = ("tau", "quantizer", "dense_blocks", "sink_conditioning", "token_routing",
                "start_percent", "end_percent", "min_tokens", "verbose")
+# The optional `rows` DynamicCombo (`sol_attn_h3.py::ROWS_PER_SEGMENT`), which a
+# recipe carries as `rows` plus `rows.<input>` keys, the way `token_routing`
+# carries `token_routing.blocks`. No shipped recipe sets it yet; a recipe
+# without it emits no `rows` key and the node runs `as sink_conditioning`.
+SOL_ROWS_NESTED = {"per segment": ("text_rows", "reference_rows", "audio_rows",
+                                   "video_reference_rows")}
 
 
 def _distill(lora, key):
@@ -231,10 +237,12 @@ def _distill(lora, key):
 def sol_api_inputs(sol):
     """API-form inputs for the Sol node from a recipe dict (SOL_RECOMMENDED_CUDA
     and its overrides). A custom token-routing list travels as
-    `token_routing.blocks`; a key the node does not declare is refused here
-    rather than at queue time."""
+    `token_routing.blocks`, per-segment rows as `rows.<input>`; a key the
+    node does not declare is refused here rather than at queue time."""
     nested = SOL_ROUTING_NESTED.get(sol.get("token_routing"), ())
     known = set(SOL_WIDGETS) | {f"token_routing.{k}" for k in nested}
+    if "rows" in sol:
+        known |= {"rows"} | {f"rows.{k}" for k in SOL_ROWS_NESTED.get(sol["rows"], ())}
     unknown = sorted(set(sol) - known)
     if unknown:
         raise KeyError(f"Sol config carries {unknown}, which {SOL_NODE} does not declare "

@@ -952,6 +952,49 @@ defaults from the node's `define_schema`.
   `bench/check_sol_node_equivalence.py` holds it on core's own
   `PackedLayout` and through the kernel.
 
+#### Landing `video_reference_rows` (branch `claude-sol-video-ref-rows`)
+
+The branch adds the input and teaches the generator to carry `rows`
+(`workflows/build_workflows.py::SOL_ROWS_NESTED`), but **no shipped graph
+uses it**: a rebuild on the branch is byte-identical to the graphs on
+`main`. Merging is meant to put it in every shipped graph, which takes all
+of these steps, in order:
+
+1. **The A/B first.** One ref2va graph with a `<Video N>` reference, the
+   same seed, two arms: the shipped Sol settings, and per-segment rows with
+   only video references routed. Judged by the owner on playback (picture and
+   voice), sampler time from the run's record. If routed video references
+   lose, stop here: the branch can still land with the input, unused.
+2. **Merge the branch.** Then restart ComfyUI by the recipe in
+   [`../ops/comfy_notes.md`](../ops/comfy_notes.md) (check for an armed
+   `H3_*` capture first), so `/object_info` lists `video_reference_rows`.
+3. **Put it in the recipe.** In `workflows/h3_config.py`, directly after
+   `SOL_RECOMMENDED_CUDA = dict(...)`, add
+   `SOL_RECOMMENDED_CUDA.update(SOL_ROWS_VIDEO_REFERENCES_ROUTED)`.
+   `h3_config.sol_for_graph` then hands it to every Sol graph.
+4. **Regenerate every shipped graph.** From `workflows/`, run
+   `<comfy-venv-python> build_workflows.py` (it validates against the
+   restarted server's `/object_info`). Every shipped Sol graph gains the five
+   `rows` keys. Never hand-edit the JSON.
+5. **Checks.** `bench/check_sol_node_equivalence.py` (with the card),
+   `bench/check_attention_defaults.py` (it grades every Sol graph against
+   `sol_for_graph`, so a graph left unregenerated fails here),
+   `bench/check_node_ids.py`, `bench/check_literal_widgets.py`, then
+   `bench/build_index.py`.
+6. **Record it.** A dated entry in [`../decisions.md`](../decisions.md)
+   naming the A/B record, and update this section and the node tooltip if
+   the setting became the default.
+7. **Clean up.** `git worktree remove` the branch's worktree and delete the
+   branch.
+
+What changes on a regenerated graph: only graphs with a video reference
+route anything differently. On every other graph (text to video, first and
+last frame, picture references, every image graph Sol runs on) the exact
+rows form one run and the kernel call is the one `exact_kv_and_all_rows`
+makes, with no `tau_map`. The build requirement does not change: the
+`tau_map` option is on the same kitchen fork as the shipped `rotated`
+quantizer ([`comfy_kitchen.md`](comfy_kitchen.md)).
+
 **With neither chosen the kernel call is the one the node made before**: no
 `tau_map` keyword is passed, which `bench/check_sol_node_equivalence.py` holds
 by reading the keywords that reach the kernel. The stamp records the table's

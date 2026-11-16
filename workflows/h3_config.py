@@ -597,6 +597,22 @@ SOL_DENSE_TAIL = SOL_DENSE_TERMINAL
 #: (owner decision 2026-10-02, measured; `exact_kv_and_rows` before).
 SOL_SINK_DEFAULT = "exact_kv_and_all_rows"
 
+#: Per-segment rows with every conditioning class exact except video
+#: references (`sol_attn_h3.py::SEGMENT_CLASSES`, added 2026-11-16 on branch
+#: `claude-sol-video-ref-rows`). **Not in any recipe yet.** Landing it means
+#: `SOL_RECOMMENDED_CUDA.update(SOL_ROWS_VIDEO_REFERENCES_ROUTED)` below the
+#: recipe and regenerating every shipped graph; the steps are in
+#: `docs/wiki/attention/SOLATTN.md`, "Landing video_reference_rows". On a graph
+#: with no video reference it is the same kernel call as `SOL_SINK_DEFAULT`
+#: alone (`bench/check_sol_node_equivalence.py`).
+SOL_ROWS_VIDEO_REFERENCES_ROUTED = {
+    "rows": "per segment",
+    "rows.text_rows": "exact",
+    "rows.reference_rows": "exact",
+    "rows.audio_rows": "exact",
+    "rows.video_reference_rows": "routed",
+}
+
 SOL_RECOMMENDED_CUDA = dict(
     # Keyed to `MiniMaxH3Sol`'s inputs since the redesign (2026-09-27,
     # `docs/wiki/archive/2026-09-27_sol_node_redesign.md`). Retired with the old
