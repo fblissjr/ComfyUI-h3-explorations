@@ -66,12 +66,10 @@
     </div>
   </header>
 
-  <!-- 2. HERO 7:4 INTERACTIVE SCENE STAGE (Studio Well #EEF2F6, ~88% height) -->
+  <!-- 2. HERO 7:4 INTERACTIVE SCENE STAGE (Studio Well #EEF2F6) -->
   <main id="stage-well" class="stage-well">
-    <div id="stageContainer" class="stage-container">
-      <canvas id="stage-canvas" class="stage-canvas" width="1344" height="768"></canvas>
-
-      <!-- Top-Left Mode & Placement Helper Pill -->
+    <div class="stage-toolbar">
+      <!-- Mode & Placement Helper Pill -->
       <div class="stage-top-left">
         <div id="stage-helper-pill" class="stage-pill">
           <svg class="ui-svg ui-svg-blue" viewBox="0 0 24 24" aria-hidden="true">
@@ -87,7 +85,7 @@
         </div>
       </div>
 
-      <!-- Top-Right TAE Status & Mask Toggle -->
+      <!-- TAE Status & Mask Toggle -->
       <div class="stage-top-right">
         <div id="stage-tae-badge" class="stage-pill stage-pill-emerald">
           <span id="stage-tae-dot" class="status-dot"></span>
@@ -97,6 +95,11 @@
           Masked Preview
         </button>
       </div>
+    </div>
+
+    <div class="stage-center">
+      <div id="stageContainer" class="stage-container">
+        <canvas id="stage-canvas" class="stage-canvas" width="1344" height="768"></canvas>
 
       <!-- UNCLIPPED Live Preview Portal Readout Pill (NEVER inside circular clip) -->
       <div id="portal-tae-pill" class="portal-tae-pill">
@@ -268,7 +271,10 @@
 
       <!-- Toast Notification Banner inside Stage -->
       <div id="stage-toast" class="stage-toast hidden" role="status" aria-live="polite"></div>
+      </div>
+    </div>
 
+    <div class="stage-dock">
       <!-- Expandable 3-Lane Keyframe Sequencer Tray -->
       <section id="sequencer-tray" class="sequencer-tray hidden" role="region" aria-label="Multi-lane keyframe sequencer">
         <div id="sequencer-head" class="sequencer-head">
@@ -285,7 +291,7 @@
         <canvas id="sequencer-canvas" class="sequencer-canvas" width="960" height="88" aria-label="Portal, Target, and Sprite timeline lanes"></canvas>
       </section>
 
-      <!-- 3. FLOATING LOOP SCRUBBER PILL -->
+      <!-- 3. DOCKED LOOP SCRUBBER PILL -->
       <div id="scrubber-bar" class="scrubber-bar">
         <button id="btn-play" type="button" class="play-btn" title="Play / Pause (Space)" aria-label="Play or Pause">
           <svg id="icon-play" class="ui-svg ui-svg-white" viewBox="0 0 24 24" aria-hidden="true">

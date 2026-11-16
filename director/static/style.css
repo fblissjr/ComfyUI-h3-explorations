@@ -347,19 +347,38 @@ body.light-studio {
   min-height: 0;
   position: relative;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 8px 14px;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 6px;
+  padding: 6px 14px;
   background: var(--stage-well);
   overflow: hidden;
 }
 
+.stage-toolbar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.stage-center {
+  flex: 1 1 0;
+  min-height: 0;
+  width: 100%;
+  container-type: size;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .stage-container {
   position: relative;
-  width: 100%;
-  max-width: calc((100dvh - 108px) * 7 / 4);
-  aspect-ratio: 7 / 4;
-  max-height: calc(100dvh - 108px);
+  width: min(100cqw, calc(100cqh * 7 / 4));
+  height: min(100cqh, calc(100cqw * 4 / 7));
   border-radius: 12px;
   border: 1px solid var(--border-card);
   background: var(--surface);
@@ -379,24 +398,18 @@ body.light-studio {
 }
 
 .stage-top-left {
-  position: absolute;
-  top: 12px;
-  left: 12px;
-  z-index: 15;
   display: flex;
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
+  min-width: 0;
 }
 
 .stage-top-right {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  z-index: 15;
   display: flex;
   align-items: center;
   gap: 6px;
+  flex-shrink: 0;
 }
 
 .stage-pill {
@@ -468,8 +481,8 @@ body.light-studio {
 /* UNCLIPPED Live taeh3 Portal Telemetry Pill (outside any circular clip) */
 .portal-tae-pill {
   position: absolute;
-  left: 16px;
-  bottom: 70px;
+  left: 14px;
+  bottom: 12px;
   z-index: 16;
   display: inline-flex;
   align-items: center;
@@ -490,7 +503,7 @@ body.light-studio {
 }
 
 .stage-container.lanes-open .portal-tae-pill {
-  bottom: 204px;
+  bottom: 12px;
 }
 
 .portal-tae-dot {
@@ -614,10 +627,10 @@ body.light-studio {
 /* Contextual Portal Popover Card (clamped strictly inside stage bounds) */
 .portal-card {
   position: absolute;
-  top: 48px;
+  top: 12px;
   width: 312px;
-  max-width: calc(100% - 32px);
-  max-height: calc(100% - 118px);
+  max-width: calc(100% - 28px);
+  max-height: calc(100% - 24px);
   overflow-y: auto;
   background: rgba(255, 255, 255, 0.96);
   backdrop-filter: blur(18px);
@@ -646,7 +659,7 @@ body.light-studio {
 }
 
 .stage-container.lanes-open .portal-card {
-  max-height: calc(100% - 256px);
+  max-height: calc(100% - 24px);
 }
 
 .portal-card-head {
@@ -1272,15 +1285,20 @@ body.light-studio {
   color: var(--emerald);
 }
 
-/* ---------------- 3. FLOATING LOOP SCRUBBER PILL ---------------- */
+/* ---------------- 3. DOCKED LOOP SCRUBBER & SEQUENCER ---------------- */
+.stage-dock {
+  flex: 0 0 auto;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
 .scrubber-bar {
-  position: absolute;
-  bottom: 12px;
-  left: 14px;
-  right: 14px;
+  position: relative;
   height: 46px;
   z-index: 20;
-  background: rgba(255, 255, 255, 0.95);
+  background: rgba(255, 255, 255, 0.96);
   backdrop-filter: blur(12px);
   border: 1px solid var(--border-card);
   border-radius: 11px;
@@ -1288,7 +1306,7 @@ body.light-studio {
   display: flex;
   align-items: center;
   gap: 10px;
-  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.06);
 }
 
 .play-btn {
@@ -1373,17 +1391,14 @@ body.light-studio {
 }
 
 .sequencer-tray {
-  position: absolute;
-  left: 14px;
-  right: 14px;
-  bottom: 64px;
+  position: relative;
   z-index: 22;
   background: rgba(255, 255, 255, 0.97);
   backdrop-filter: blur(14px);
   border: 1px solid var(--border-card);
   border-radius: 11px;
   padding: 6px 10px 8px;
-  box-shadow: 0 10px 26px rgba(15, 23, 42, 0.14);
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
   display: flex;
   flex-direction: column;
   gap: 5px;
