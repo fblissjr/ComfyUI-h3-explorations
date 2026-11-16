@@ -8,7 +8,7 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 172 |
+| [`check_*`](#check) | 173 |
 | [`measure_*`](#measure) | 39 |
 | [`analyze_*`](#analyze) | 18 |
 | [`grade_*`](#grade) | 19 |
@@ -56,6 +56,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_day_pieces.py`](check_day_pieces.py) | `bench/day_pieces.py` makes the folder of a day's standing pieces, each with the graph it was queued with; each case is a way the folder could hand over the wrong graph, hide a missing input, copy a video, or drop a piece. |
 | [`check_delivery_table.py`](check_delivery_table.py) | The generated delivery table (`bench/delivery_table.py`) on a small made-up ledger: each step of its rule, with the render that must NOT stand beside the one that does. |
 | [`check_denoise_mask_probe.py`](check_denoise_mask_probe.py) | `denoise_mask_probe.py` observes the mask and changes nothing. |
+| [`check_director_studio.py`](check_director_studio.py) | Two-tier contract, security, compiler, and live Chrome CDP checks for Spatial Director Studio (`director/`). |
 | [`check_distill_grid.py`](check_distill_grid.py) | Check every distilled graph samples ON the sigma grid its LoRA was distilled at. |
 | [`check_distill_settings.py`](check_distill_settings.py) | Check every distill is loaded at the shift and step count it was trained at. |
 | [`check_dit_prefix_attention.py`](check_dit_prefix_attention.py) | Controls for `bench/measure_dit_prefix_attention.py`, on a synthetic capture. |

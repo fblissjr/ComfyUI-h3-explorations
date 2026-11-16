@@ -157,19 +157,20 @@ with none is a helper the others import.
 | `.gemini/` | 8 | [below](#gemini) |
 | `archive/` | 31 | (none) |
 | `assets/` | 1 | [below](#assets) |
-| `bench/` | 870 | [`bench/INDEX.md`](bench/INDEX.md) and [`bench/results/INDEX.md`](bench/results/INDEX.md) for the records |
+| `bench/` | 871 | [`bench/INDEX.md`](bench/INDEX.md) and [`bench/results/INDEX.md`](bench/results/INDEX.md) for the records |
 | `changelog.d/` | | [`changelog.d/README.md`](changelog.d/README.md), one file per changelog entry; not listed and not counted |
 | `contact_sheets/` | 2 | [below](#contact_sheets) |
 | `data/` | 2 | [below](#data) |
+| `director/` | 14 | [below](#director) |
 | `docs/` | 316 | [`docs/wiki/index.md`](docs/wiki/index.md), the hand-written router |
-| `prompt_bank/` | 228 | [`docs/wiki/prompting/prompt_bank.md`](docs/wiki/prompting/prompt_bank.md), the prompt catalogue |
+| `prompt_bank/` | 232 | [`docs/wiki/prompting/prompt_bank.md`](docs/wiki/prompting/prompt_bank.md), the prompt catalogue |
 | `sparse_tables/` | 1 | [below](#sparse_tables) |
 | `standalone/` | 6 | [below](#standalone) |
 | `vendor/` | 11 | [below](#vendor) |
 | `vendor_config/` | 10 | [below](#vendor_config) |
 | `vendor_guides/` | 21 | [below](#vendor_guides) |
 | `web/` | 2 | [below](#web) |
-| `workflows/` | 119 | [`workflows/INDEX.md`](workflows/INDEX.md) |
+| `workflows/` | 121 | [`workflows/INDEX.md`](workflows/INDEX.md) |
 
 ## .claude/
 
@@ -209,6 +210,25 @@ with none is a helper the others import.
 |---|---|
 | [`AGENTS.md`](data/AGENTS.md) | data/: the masked video-to-video lane and the projects in it |
 | [`CLAUDE.md`](data/CLAUDE.md) | @AGENTS.md |
+
+## director/
+
+| file | what it says |
+|---|---|
+| [`AGENTS.md`](director/AGENTS.md) | Spatial World Director (`director/`) |
+| [`__init__.py`](director/__init__.py) | Spatial World Director desktop web app backend, compiler, and ComfyUI routes. |
+| [`compiler.py`](director/compiler.py) | Runtime workflow compiler for Spatial World Director. |
+| [`routes.py`](director/routes.py) | ComfyUI cleanup route extension for Spatial World Director (`/h3_spatial_director/forget`). |
+| [`server.py`](director/server.py) | Standalone backend HTTP + WebSocket server for Spatial World Director. |
+| [`static/icon.svg`](director/static/icon.svg) | <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180"> |
+| [`static/index.html`](director/static/index.html) | <!doctype html> |
+| [`static/js/ab_compare.js`](director/static/js/ab_compare.js) | Same-Seed A\|B Split Wipe & Export Controller (`ab_compare.js`). |
+| [`static/js/app.js`](director/static/js/app.js) | Genie Direct Spatial Studio — Main Controller (`app.js`). |
+| [`static/js/foley_synth.js`](director/static/js/foley_synth.js) | Parametric WebAudio Foley Synthesizer (`foley_synth.js`). |
+| [`static/js/stage.js`](director/static/js/stage.js) | Sliderless Interactive 7:4 Stage Canvas & Masked TAEH3 Compositor (`stage.js`). |
+| [`static/js/ws_client.js`](director/static/js/ws_client.js) | ComfyUI / Spatial Director WebSocket Client (`ws_client.js`). |
+| [`static/style.css`](director/static/style.css) | Genie Direct — Strict Light Mode Scene-First Spatial Studio */ |
+| [`studio.sh`](director/studio.sh) | Launcher for Spatial World Director (`director/server.py`). |
 
 ## sparse_tables/
 

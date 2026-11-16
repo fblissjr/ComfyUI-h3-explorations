@@ -309,8 +309,8 @@ def check_compiler_contracts() -> str:
 
     base_events = json.dumps(SAMPLE_EVENTS_90)
     common_base = {
-        "anchor_ref": "h3_spatial_director/test_anchor.png [temp]",
-        "first_frame_ref": "h3_spatial_director/test_anchor.png [temp]",
+        "source_ref": "h3_spatial_director/test_anchor.png",
+        "first_frame": "h3_spatial_director/test_anchor.png",
         "length": 90,
         "width": 1344,
         "height": 768,
@@ -331,15 +331,14 @@ def check_compiler_contracts() -> str:
             common_base,
             mode=mode,
             portal_cues=[],
-            cues="",
-            sound_cues="",
-            sprite_cutout_ref=None,
-            cutout_ref=None,
+            cues=[],
+            sound_cues=[],
+            sprite_ref="",
             events_json=json.dumps(
                 {
                     "portal": SAMPLE_EVENTS_90["portal"],
                     "targets": [
-                        {k: ( "none" if k == "cue" else v) for k, v in t.items()}
+                        {k: ("none" if k == "cue" else v) for k, v in t.items()}
                         for t in SAMPLE_EVENTS_90["targets"]
                     ],
                 }
@@ -385,16 +384,14 @@ def check_compiler_contracts() -> str:
     payload_active = dict(
         common_base,
         mode="world_targets",
-        sprite_cutout_ref="h3_spatial_director/cutout_1.png [temp]",
-        cutout_ref="h3_spatial_director/cutout_1.png [temp]",
-        cues="12: slam @1.10\n51: hop",
-        sound_cues="12: slam @1.10\n51: hop",
+        sprite_ref="h3_spatial_director/cutout_1.png",
+        portal_cues=[{"frame": 12, "preset": "slam", "gain": 1.1}, {"frame": 51, "preset": "hop", "gain": 1.0}],
         queue_baseline=True,
     )
     res_act = _call_with_adaptive_sig(compiler_mod.compile_spatial_take, payload_active, MOCK_OBJECT_INFO_WITH_KJ)
     g_act, g_base = _extract_graphs(res_act)
-    assert "51" in g_act and g_act["51"]["class_type"] == "MiniMaxH3AppendSpriteTrajectory"
-    assert "70" in g_act and g_act["70"]["class_type"] == "MiniMaxH3SoundCues"
+    assert "51" in g_act and g_act["51"]["class_type"] == "MiniMaxH3AppendSpriteTrajectory", "missing '51' when sprite_ref attached"
+    assert "70" in g_act and g_act["70"]["class_type"] == "MiniMaxH3SoundCues", "missing '70' when cues attached"
     rel_nodes = _nodes_by_class(g_act, "MiniMaxH3ReleaseReferences")
     assert rel_nodes, "expected MiniMaxH3ReleaseReferences when sprite/sound cues are attached"
     assert abs(float(rel_nodes[0][1]["inputs"]["video_end_percent"]) - 0.33) < 1e-4
@@ -408,7 +405,7 @@ def check_compiler_contracts() -> str:
         common_base,
         mode="t2v_portal",
         edit_lines="warm sunlit flagstones -> frozen midnight crystal shards",
-        prompt="integrated_multimodal_description: [Shot 1] A courtyard of warm sunlit flagstones.\n\noverall_soundscape: Wind.\n\nnon_diegetic_music: N/A",
+        original_prompt="integrated_multimodal_description: [Shot 1] A courtyard of warm sunlit flagstones.\n\noverall_soundscape: Wind.\n\nnon_diegetic_music: N/A",
     )
     res_edits = _call_with_adaptive_sig(compiler_mod.compile_spatial_take, payload_edits, MOCK_OBJECT_INFO_WITH_KJ)
     g_edits, _ = _extract_graphs(res_edits)
@@ -434,9 +431,7 @@ def check_compiler_contracts() -> str:
         mode="r2v_portal",
         feather=0.08,
         halo_radius=0.25,
-        sprite_cutout_ref="h3_spatial_director/cutout_1.png [temp]",
-        cutout_ref="h3_spatial_director/cutout_1.png [temp]",
-        dpad_keyframes="0: x=0.600, y=0.500, face=right, scale=1.00\n45: x=0.600, y=0.500, face=right, scale=1.00\n89: x=0.600, y=0.500, face=right, scale=1.00",
+        sprite_ref="h3_spatial_director/cutout_1.png",
         events_json=json.dumps(coupling_events),
         couplings=[
             {
@@ -471,11 +466,12 @@ def check_compiler_contracts() -> str:
         f"push coupling must offset sprite waypoint away from portal x=0.40 -> >0.65, got {coupled_wps}"
     )
     if isinstance(res_couple, dict) and isinstance(res_couple.get("nodes_summary"), dict):
-        assert int(res_couple["nodes_summary"].get("couplings_applied", 0)) >= 1, res_couple["nodes_summary"]
+        applied_list = res_couple["nodes_summary"].get("couplings_applied") or []
+        assert len(applied_list) >= 1, res_couple["nodes_summary"]
 
-    # 3. Anchor / Stamp Still (`compile_still` with `h3_pika_image_t2i` default)
+    # 3. Anchor / Stamp Still (`compile_still` with `pika_image` -> `h3_pika_image_t2i` default)
     still_payload = {
-        "workflow": "h3_pika_image_t2i",
+        "workflow": "pika_image",
         "prompt": "integrated_multimodal_description: [Shot 1] A sunlit limestone archway.\n\noverall_soundscape: N/A\n\nnon_diegetic_music: N/A",
         "width": 768,
         "height": 768,
@@ -508,8 +504,8 @@ def check_forget_plan_and_isolation() -> str:
                 1,
                 "dir_1",
                 {
-                    "15": {"class_type": "LoadImage", "inputs": {"image": "h3_spatial_director/orphan.png [temp]"}},
-                    "16": {"class_type": "LoadImage", "inputs": {"image": "h3_spatial_director/kept_open.png [temp]"}},
+                    "15": {"class_type": "LoadImage", "inputs": {"image": "h3_spatial_director/orphan.png"}},
+                    "16": {"class_type": "LoadImage", "inputs": {"image": "h3_spatial_director/kept_open.png"}},
                 },
                 {"h3_spatial_director": True},
             ],
@@ -529,7 +525,7 @@ def check_forget_plan_and_isolation() -> str:
             "prompt": [
                 2,
                 "other_lane",
-                {"15": {"class_type": "LoadImage", "inputs": {"image": "h3_spatial_director/other_upload.png [temp]"}}},
+                {"15": {"class_type": "LoadImage", "inputs": {"image": "h3_spatial_director/other_upload.png"}}},
                 {"h3_image_app": True},
             ],
             "outputs": {
@@ -541,63 +537,77 @@ def check_forget_plan_and_isolation() -> str:
         [
             3,
             "q_run",
-            {"15": {"class_type": "LoadImage", "inputs": {"image": "h3_spatial_director/queued.png [temp]"}}},
+            {"15": {"class_type": "LoadImage", "inputs": {"image": "h3_spatial_director/queued.png"}}},
             {"h3_spatial_director": True},
         ]
     ]
-    pending: list[Any] = []
-
-    targets, deletable, wipe_dir, kept = routes_mod.compute_forget_plan(
-        history,
-        running,
-        pending,
-        delete_all=True,
-        keep_uploads=["h3_spatial_director/kept_open.png [temp]"],
-    )
-    assert targets == ["dir_1"], f"expected only ['dir_1'] targeted, got {targets}"
-    assert "other_lane" not in targets
-    for rel in ("hud_1.mp4", "clean_1.mp4", "dir_sub/anchor_still.png", "foley_1.wav", "h3_spatial_director/orphan.png"):
-        assert rel in deletable, f"{rel} missing from deletable {deletable}"
-    assert "Video/exported_keep.mp4" not in deletable, "output file must NEVER be deletable"
-    assert "other_lane.mp4" not in deletable, "non-director temp file must NEVER be deletable"
-    assert "h3_spatial_director/kept_open.png" in kept and "h3_spatial_director/kept_open.png" not in deletable
-    assert "h3_spatial_director/queued.png" in kept and "h3_spatial_director/queued.png" not in deletable
-    assert wipe_dir is False, "wipe_uploads_dir must be False while a director job is running"
 
     with tempfile.TemporaryDirectory(prefix="h3_dir_forget_") as tmp:
         tmp_root = Path(tmp) / "temp"
-        out_video_dir = Path(tmp) / "out_root" / "Video"
-        (tmp_root / "h3_spatial_director").mkdir(parents=True)
+        in_root = Path(tmp) / "input"
+        out_root = Path(tmp) / "out_root"
+        out_video_dir = out_root / "Video"
+        (in_root / "h3_spatial_director").mkdir(parents=True)
         (tmp_root / "dir_sub").mkdir(parents=True)
         out_video_dir.mkdir(parents=True)
 
-        for rel in (
-            "hud_1.mp4",
-            "clean_1.mp4",
-            "dir_sub/anchor_still.png",
-            "foley_1.wav",
-            "other_lane.mp4",
-            "h3_spatial_director/orphan.png",
-            "h3_spatial_director/kept_open.png",
-            "h3_spatial_director/queued.png",
-            "h3_spatial_director/stray_orphan.png",
-        ):
+        for rel in ("hud_1.mp4", "clean_1.mp4", "dir_sub/anchor_still.png", "foley_1.wav", "other_lane.mp4"):
             (tmp_root / rel).write_bytes(b"test")
+        for up in ("orphan.png", "kept_open.png", "other_upload.png", "queued.png", "stray_orphan.png"):
+            (in_root / "h3_spatial_director" / up).write_bytes(b"img")
         protected_export = out_video_dir / "exported_keep.mp4"
         protected_export.write_bytes(b"keep-export")
 
-        routes_mod.delete_temp_files(tmp_root, deletable, wipe_uploads_dir=wipe_dir, keep=kept)
-        for gone in ("hud_1.mp4", "clean_1.mp4", "dir_sub/anchor_still.png", "foley_1.wav", "h3_spatial_director/orphan.png"):
+        plan = routes_mod.compute_forget_plan(
+            history=history,
+            queue_running=running,
+            queue_pending=[],
+            protected_uploads=["h3_spatial_director/kept_open.png"],
+            temp_dir=tmp_root,
+            input_dir=in_root,
+            output_dir=out_root,
+        )
+        assert plan["history_ids_to_delete"] == ["dir_1"], f"expected only ['dir_1'], got {plan['history_ids_to_delete']}"
+        temp_rels = {
+            f"{e['subfolder']}/{e['filename']}" if e.get("subfolder") else e["filename"]
+            for e in plan["temp_files_to_delete"]
+        }
+        assert {"hud_1.mp4", "clean_1.mp4", "dir_sub/anchor_still.png", "foley_1.wav"} <= temp_rels, temp_rels
+        assert "Video/exported_keep.mp4" not in temp_rels
+        assert "other_lane.mp4" not in temp_rels
+        assert any(s.get("filename") == "exported_keep.mp4" for s in plan["skipped_non_temp"])
+        assert "h3_spatial_director/stray_orphan.png" in plan["uploads_to_delete"]
+        assert "h3_spatial_director/orphan.png" in plan["uploads_to_delete"]
+        for prot in ("h3_spatial_director/kept_open.png", "h3_spatial_director/queued.png", "h3_spatial_director/other_upload.png"):
+            assert prot in plan["protected_uploads"] and prot not in plan["uploads_to_delete"]
+
+        routes_mod.delete_temp_files(plan, temp_dir=tmp_root, input_dir=in_root, output_dir=out_root)
+        for gone in ("hud_1.mp4", "clean_1.mp4", "dir_sub/anchor_still.png", "foley_1.wav"):
             assert not (tmp_root / gone).exists(), f"{gone} should have been deleted"
-        for safe in ("other_lane.mp4", "h3_spatial_director/kept_open.png", "h3_spatial_director/queued.png"):
-            assert (tmp_root / safe).is_file(), f"{safe} should have been protected"
+        assert not (in_root / "h3_spatial_director" / "stray_orphan.png").exists()
+        assert not (in_root / "h3_spatial_director" / "orphan.png").exists()
+        for safe_up in ("kept_open.png", "queued.png", "other_upload.png"):
+            assert (in_root / "h3_spatial_director" / safe_up).is_file(), f"{safe_up} should have been protected"
+        assert (tmp_root / "other_lane.mp4").is_file()
         assert protected_export.is_file(), "$H3_OUTPUT_DIR/Video export must NEVER be touched"
 
-        # Now queue drains and open-session keeps nothing -> wipe_uploads_dir cleans stray_orphan.png
-        t2, del2, wipe2, kept2 = routes_mod.compute_forget_plan(history, [], [], delete_all=True, keep_uploads=[])
-        assert wipe2 is True and t2 == ["dir_1"]
-        routes_mod.delete_temp_files(tmp_root, del2, wipe_uploads_dir=wipe2, keep=kept2)
-        assert not (tmp_root / "h3_spatial_director" / "stray_orphan.png").exists()
+        # When protected_uploads clears and queue drains, kept_open.png & queued.png become eligible
+        plan2 = routes_mod.compute_forget_plan(
+            history=history,
+            queue_running=[],
+            queue_pending=[],
+            protected_uploads=[],
+            temp_dir=tmp_root,
+            input_dir=in_root,
+            output_dir=out_root,
+        )
+        assert "h3_spatial_director/kept_open.png" in plan2["uploads_to_delete"]
+        assert "h3_spatial_director/queued.png" in plan2["uploads_to_delete"]
+        assert "h3_spatial_director/other_upload.png" not in plan2["uploads_to_delete"]
+        routes_mod.delete_temp_files(plan2, temp_dir=tmp_root, input_dir=in_root, output_dir=out_root)
+        assert not (in_root / "h3_spatial_director" / "kept_open.png").exists()
+        assert not (in_root / "h3_spatial_director" / "queued.png").exists()
+        assert (in_root / "h3_spatial_director" / "other_upload.png").is_file()
         assert protected_export.is_file()
 
     return "compute_forget_plan & delete_temp_files clean temp + orphans while protecting output/Video/, queue, and keep_uploads"
@@ -699,8 +709,8 @@ def check_server_routes_and_escalate() -> str:
                         "/api/compile",
                         json={
                             "mode": "r2v_portal",
-                            "anchor_ref": "h3_spatial_director/test_anchor.png [temp]",
-                            "sprite_cutout_ref": "h3_spatial_director/cutout_1.png [temp]",
+                            "source_ref": "h3_spatial_director/test_anchor.png",
+                            "sprite_ref": "h3_spatial_director/cutout_1.png",
                             "length": 141,
                             "width": 1344,
                             "height": 768,
@@ -724,7 +734,7 @@ def check_server_routes_and_escalate() -> str:
                     assert cmp_data["ok"] is True and cmp_data["preview_override_injected"] is True
                     assert cmp_data["graph"]["165"]["inputs"]["preview_fps"] == 7
                     assert float(cmp_data["graph"]["160"]["inputs"]["feather"]) >= 0.22
-                    assert int(cmp_data["nodes_summary"].get("couplings_applied", 0)) >= 1, cmp_data["nodes_summary"]
+                    assert len(cmp_data["nodes_summary"].get("couplings_applied") or []) >= 1, cmp_data["nodes_summary"]
 
     asyncio.run(_run())
     return "server CSP/Host guard, schema capabilities, context_suggest disabled, /api/escalate on_both_clocks + 3f cues, and /api/compile verified"
