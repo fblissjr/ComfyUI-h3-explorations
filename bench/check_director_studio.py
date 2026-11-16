@@ -548,6 +548,25 @@ def check_compiler_contracts() -> str:
     assert g_fb["179"]["class_type"] == "MaskComposite" and g_fb["179"]["inputs"]["operation"] == "multiply"
     assert g_fb["9"]["inputs"]["mask"] == ["179", 0]
 
+    # 7. Audio-Gate Guard (`streams` defaults & summary in `point_targets` vs explicit override)
+    pt_no_streams = {
+        k: v
+        for k, v in common_base.items()
+        if k != "streams"
+    }
+    pt_no_streams.update(mode="r2v_portal", director_mode="point_targets")
+    res_pt_def = compiler_mod.compile_spatial_take(pt_no_streams, object_info=MOCK_OBJECT_INFO_WITH_KJ)
+    assert res_pt_def["graph"]["9"]["inputs"]["streams"] == "video_only", res_pt_def["graph"]["9"]["inputs"]
+    assert res_pt_def["nodes_summary"]["streams"] == "video_only"
+    assert res_pt_def["nodes_summary"]["audio_gated_by_mask"] is False
+
+    res_pt_both = compiler_mod.compile_spatial_take({**pt_no_streams, "streams": "both"}, object_info=MOCK_OBJECT_INFO_WITH_KJ)
+    assert res_pt_both["graph"]["9"]["inputs"]["streams"] == "both"
+    assert res_pt_both["nodes_summary"]["audio_gated_by_mask"] is True
+
+    res_pt_ind = compiler_mod.compile_spatial_take({**pt_no_streams, "streams": "independent"}, object_info=MOCK_OBJECT_INFO_WITH_KJ)
+    assert res_pt_ind["graph"]["9"]["inputs"]["streams"] == "independent"
+
     # 3. Anchor / Stamp Still (`compile_still` with `pika_image` -> `h3_pika_image_t2i` default)
     still_payload = {
         "workflow": "pika_image",
@@ -1441,6 +1460,50 @@ async def _run_cdp_browser(director_url: str, anchor_png: Path) -> str:
                         f"#portal-card clipped at 1280x800 with SAM bar: {comb_state['rect']}"
                     )
                     assert comb_state["armed"], f"#btn-sam-pick did not arm canvas cursor: {comb_state}"
+
+                    # Open 3-Lane Keyframe Sequencer, add multi-hop arcs, unlink ry, cycle Audio Guard
+                    await js("document.getElementById('btn-lanes-toggle')?.click()")
+                    await asyncio.sleep(0.1)
+                    tray_box = await js(
+                        """(() => {
+                          const t = document.getElementById('sequencer-tray');
+                          if (!t || t.classList.contains('hidden')) return null;
+                          const r = t.getBoundingClientRect();
+                          return { left: r.left, top: r.top, right: r.right, bottom: r.bottom, height: r.height };
+                        })()"""
+                    )
+                    assert tray_box and tray_box["left"] >= 0 and tray_box["right"] <= 1280 and tray_box["bottom"] <= 800, (
+                        f"#sequencer-tray invalid bounds at 1280x800: {tray_box}"
+                    )
+                    await js("document.getElementById('btn-seq-add-hop')?.click()")
+                    await cdp("Input.dispatchKeyEvent", {"type": "rawKeyDown", "key": "ArrowRight", "code": "ArrowRight", "windowsVirtualKeyCode": 39, "modifiers": 8})
+                    await cdp("Input.dispatchKeyEvent", {"type": "keyUp", "key": "ArrowRight", "code": "ArrowRight", "windowsVirtualKeyCode": 39, "modifiers": 8})
+                    await js("document.getElementById('btn-seq-add-hop')?.click()")
+                    await js("document.getElementById('btn-seq-ry-unlink')?.click()")
+                    await js("document.getElementById('btn-audio-guard')?.click()")
+                    await asyncio.sleep(0.1)
+
+                    shot_out = (os.environ.get("DIRECTOR_CDP_SCREENSHOT") or "").strip()
+                    if shot_out:
+                        shot_res = await cdp("Page.captureScreenshot", {"format": "png"})
+                        Path(shot_out).write_bytes(base64.b64decode(shot_res["data"]))
+
+                    seq_req = await _capture_render_payload()
+                    seq_ev = json.loads(seq_req.get("events_json", "{}"))
+                    hops = (seq_ev.get("dpad") or {}).get("hops") or []
+                    assert len(hops) >= 2, f"Expected >=2 multi-hop arcs without overwrite, got {hops}"
+                    assert seq_req.get("streams") in ("video_only", "both", "independent"), seq_req.get("streams")
+                    assert any(
+                        p.get("shape") == "ellipse" and p.get("unlink_ry") for p in (seq_ev.get("portal") or [])
+                    ), seq_ev.get("portal")
+
+                    # Delete the last selected hop (second hop) with #btn-seq-delete
+                    await js("document.getElementById('btn-seq-delete')?.click()")
+                    seq_req_after_del = await _capture_render_payload()
+                    hops_after = (json.loads(seq_req_after_del.get("events_json", "{}")).get("dpad") or {}).get("hops") or []
+                    assert len(hops_after) == len(hops) - 1, f"Delete failed: before={len(hops)} after={len(hops_after)}"
+
+                    await js("document.getElementById('btn-seq-close')?.click()")
 
                     # Open Engine drawer and verify ArrowRight tablist navigation
                     await js("document.getElementById('btn-engine').click()")

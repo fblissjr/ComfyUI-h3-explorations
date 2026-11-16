@@ -269,6 +269,22 @@
       <!-- Toast Notification Banner inside Stage -->
       <div id="stage-toast" class="stage-toast hidden" role="status" aria-live="polite"></div>
 
+      <!-- Expandable 3-Lane Keyframe Sequencer Tray -->
+      <section id="sequencer-tray" class="sequencer-tray hidden" role="region" aria-label="Multi-lane keyframe sequencer">
+        <div id="sequencer-head" class="sequencer-head">
+          <span id="seq-selection-label" class="seq-sel-label">3 Lanes · 17n+5 / 4f Causal Grid (Shift=Snap, Del=Remove)</span>
+          <div class="sequencer-actions">
+            <button id="btn-seq-add-kf" type="button" class="seq-action-btn" title="Insert or update portal keyframe at current frame">+ KF</button>
+            <button id="btn-seq-add-target" type="button" class="seq-action-btn" title="Add world target span at current frame">+ Target</button>
+            <button id="btn-seq-add-hop" type="button" class="seq-action-btn" title="Append D-Pad sprite hop arc at current frame">+ Hop</button>
+            <button id="btn-seq-ry-unlink" type="button" class="seq-action-btn" aria-pressed="false" title="Unlink ellipse vertical radius (ry) from rx">ry: Linked</button>
+            <button id="btn-seq-delete" type="button" class="seq-action-btn seq-action-danger" disabled title="Delete selected timeline keyframe, span, cue, or hop (Del)">Delete</button>
+            <button id="btn-seq-close" type="button" class="icon-btn-xs" title="Collapse keyframe lanes" aria-label="Collapse keyframe lanes">×</button>
+          </div>
+        </div>
+        <canvas id="sequencer-canvas" class="sequencer-canvas" width="960" height="88" aria-label="Portal, Target, and Sprite timeline lanes"></canvas>
+      </section>
+
       <!-- 3. FLOATING LOOP SCRUBBER PILL -->
       <div id="scrubber-bar" class="scrubber-bar">
         <button id="btn-play" type="button" class="play-btn" title="Play / Pause (Space)" aria-label="Play or Pause">
@@ -289,14 +305,21 @@
               <path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/>
             </svg>
           </button>
-          <button id="btn-grid-toggle" type="button" class="micro-pill-btn" title="Toggle 32x32px DiT Patch Grid">
+          <button id="btn-grid-toggle" type="button" class="micro-pill-btn" title="Toggle 32x32px DiT Patch &amp; 4f Causal Grid">
             32px
+          </button>
+          <button id="btn-audio-guard" type="button" class="micro-pill-btn" title="Cycle EditGuider audio stream routing (independent / video_only / both)">
+            Audio: Indep
           </button>
         </div>
 
         <div id="scrubber-track-wrap" class="scrubber-track-wrap" title="Click or drag to scrub 24 fps">
           <canvas id="scrubber-canvas" class="scrubber-canvas" width="800" height="32" aria-label="24fps timeline scrubber"></canvas>
         </div>
+
+        <button id="btn-lanes-toggle" type="button" class="micro-pill-btn" aria-expanded="false" aria-controls="sequencer-tray" title="Toggle 3-lane keyframe sequencer (L)">
+          Lanes ▴
+        </button>
 
         <div class="frame-readout">
           <span id="scrubber-frame-cur" class="frame-cur">0</span>

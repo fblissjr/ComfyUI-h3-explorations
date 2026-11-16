@@ -329,6 +329,9 @@ export class StageController {
         return { kind: "portal_move" };
       }
     } else {
+      if ((pf.shape === "ellipse" || st.unlinkPortalRy) && Math.hypot(px - cx, py - (cy - ryPx)) <= 16 * dpr) {
+        return { kind: "portal_resize_y" };
+      }
       const hx = cx + rxPx;
       const hy = cy;
       if (Math.hypot(px - hx, py - hy) <= 16 * dpr) {
@@ -392,7 +395,7 @@ export class StageController {
       this.canvas.setPointerCapture?.(ev.pointerId);
       return;
     }
-    if (hit.kind === "portal_resize" || hit.kind === "portal_halo" || hit.kind === "portal_move") {
+    if (hit.kind === "portal_resize" || hit.kind === "portal_resize_y" || hit.kind === "portal_halo" || hit.kind === "portal_move") {
       this._drag = { kind: hit.kind };
       this.onCardInspect({ kind: "portal", frame: st.frame });
       this.canvas.setPointerCapture?.(ev.pointerId);
@@ -507,16 +510,42 @@ export class StageController {
       return;
     }
 
+    if (this._drag.kind === "portal_resize_y") {
+      const kf = this._ensurePortalKeyframeAtFrame(st);
+      const w = this.canvas.width;
+      const h = this.canvas.height;
+      const shortEdge = Math.min(w, h);
+      if (kf.shape !== "ellipse") {
+        kf.rx = Number(clamp((kf.rx * shortEdge) / Math.max(1, w), 0.04, 0.45).toFixed(3));
+        kf.shape = "ellipse";
+      }
+      kf.unlink_ry = true;
+      st.unlinkPortalRy = true;
+      kf.ry = Number(clamp(Math.abs(ny - kf.y), 0.04, 0.48).toFixed(3));
+      this.onMutate("resize_portal_y", { live: true });
+      this.render();
+      return;
+    }
+
     if (this._drag.kind === "portal_resize") {
       const kf = this._ensurePortalKeyframeAtFrame(st);
       const w = this.canvas.width;
       const h = this.canvas.height;
       const shortEdge = Math.min(w, h);
-      const dx = Math.abs(nx - kf.x) * (kf.shape === "ellipse" ? w : shortEdge);
-      const dy = Math.abs(ny - kf.y) * (kf.shape === "ellipse" ? h : shortEdge);
-      const r = clamp(Math.max(dx, dy) / shortEdge, 0.04, 0.45);
-      kf.rx = Number(r.toFixed(3));
-      kf.ry = kf.shape === "ellipse" ? Number(clamp(r * 1.25, 0.04, 0.48).toFixed(3)) : kf.rx;
+      if (kf.shape === "ellipse" && (st.unlinkPortalRy || kf.unlink_ry)) {
+        kf.rx = Number(clamp(Math.abs(nx - kf.x), 0.04, 0.45).toFixed(3));
+      } else if (st.unlinkPortalRy || kf.unlink_ry) {
+        kf.shape = "ellipse";
+        kf.unlink_ry = true;
+        kf.rx = Number(clamp(Math.abs(nx - kf.x), 0.04, 0.45).toFixed(3));
+        kf.ry = Number(clamp((kf.ry * shortEdge) / Math.max(1, h), 0.04, 0.48).toFixed(3));
+      } else {
+        const dx = Math.abs(nx - kf.x) * (kf.shape === "ellipse" ? w : shortEdge);
+        const dy = Math.abs(ny - kf.y) * (kf.shape === "ellipse" ? h : shortEdge);
+        const r = clamp(Math.max(dx, dy) / shortEdge, 0.04, 0.45);
+        kf.rx = Number(r.toFixed(3));
+        kf.ry = kf.shape === "ellipse" ? Number(clamp(r * 1.25, 0.04, 0.48).toFixed(3)) : kf.rx;
+      }
       this.onMutate("resize_portal", { live: true });
       this.render();
       return;
@@ -1199,6 +1228,13 @@ export class StageController {
     ctx.arc(cx + rxPx, cy, 6.5 * dpr, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
+
+    if (pf.shape === "ellipse" || st.unlinkPortalRy) {
+      ctx.beginPath();
+      ctx.arc(cx, cy - ryPx, 6 * dpr, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+    }
     ctx.restore();
 
     // Delicate 14px vertical dotted tether + External Rim Power & Preview Badge

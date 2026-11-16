@@ -161,7 +161,7 @@ with none is a helper the others import.
 | `changelog.d/` | | [`changelog.d/README.md`](changelog.d/README.md), one file per changelog entry; not listed and not counted |
 | `contact_sheets/` | 2 | [below](#contact_sheets) |
 | `data/` | 2 | [below](#data) |
-| `director/` | 13 | [below](#director) |
+| `director/` | 14 | [below](#director) |
 | `docs/` | 316 | [`docs/wiki/index.md`](docs/wiki/index.md), the hand-written router |
 | `prompt_bank/` | 232 | [`docs/wiki/prompting/prompt_bank.md`](docs/wiki/prompting/prompt_bank.md), the prompt catalogue |
 | `sparse_tables/` | 1 | [below](#sparse_tables) |
@@ -225,6 +225,7 @@ with none is a helper the others import.
 | [`static/js/ab_compare.js`](director/static/js/ab_compare.js) | Same-Seed A\|B Split Wipe & Export Controller (`ab_compare.js`). |
 | [`static/js/app.js`](director/static/js/app.js) | Interactive Spatial Director — Main Controller (`app.js`). |
 | [`static/js/foley_synth.js`](director/static/js/foley_synth.js) | Parametric WebAudio Foley Synthesizer (`foley_synth.js`). |
+| [`static/js/sequencer.js`](director/static/js/sequencer.js) | Interactive 3-Lane Keyframe Sequencer (`sequencer.js`). |
 | [`static/js/stage.js`](director/static/js/stage.js) | Sliderless Interactive 7:4 Stage Canvas & Masked Latent Preview Compositor (`stage.js`). |
 | [`static/js/ws_client.js`](director/static/js/ws_client.js) | ComfyUI / Spatial Director WebSocket Client (`ws_client.js`). |
 | [`static/style.css`](director/static/style.css) | Interactive Spatial Director — Strict Light Mode Scene-First Studio */ |

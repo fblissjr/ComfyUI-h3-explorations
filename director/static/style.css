@@ -486,6 +486,11 @@ body.light-studio {
   box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
   pointer-events: none;
   white-space: nowrap;
+  transition: bottom 0.15s ease;
+}
+
+.stage-container.lanes-open .portal-tae-pill {
+  bottom: 204px;
 }
 
 .portal-tae-dot {
@@ -638,6 +643,10 @@ body.light-studio {
 
 .portal-card.collapsed .portal-card-body {
   display: none;
+}
+
+.stage-container.lanes-open .portal-card {
+  max-height: calc(100% - 256px);
 }
 
 .portal-card-head {
@@ -1341,12 +1350,104 @@ body.light-studio {
   border-radius: 4px;
   padding: 2px 6px;
   cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .micro-pill-btn.active {
   background: var(--blue-tint);
   border-color: var(--blue-border);
   color: var(--blue-dark);
+}
+
+.micro-pill-btn.emerald {
+  background: var(--emerald-bg);
+  border-color: var(--emerald-border);
+  color: var(--emerald);
+}
+
+.micro-pill-btn.warn {
+  background: #FEF3C7;
+  border-color: #F59E0B;
+  color: #92400E;
+}
+
+.sequencer-tray {
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  bottom: 64px;
+  z-index: 22;
+  background: rgba(255, 255, 255, 0.97);
+  backdrop-filter: blur(14px);
+  border: 1px solid var(--border-card);
+  border-radius: 11px;
+  padding: 6px 10px 8px;
+  box-shadow: 0 10px 26px rgba(15, 23, 42, 0.14);
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.sequencer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.seq-sel-label {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--ink-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sequencer-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.seq-action-btn {
+  border: 1px solid var(--border-card);
+  background: #FFFFFF;
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.seq-action-btn.active {
+  background: var(--blue-tint);
+  border-color: var(--blue-border);
+  color: var(--blue-dark);
+}
+
+.seq-action-btn:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+}
+
+.seq-action-danger:not(:disabled) {
+  border-color: #FECACA;
+  color: #B91C1C;
+  background: #FEF2F2;
+}
+
+.sequencer-canvas {
+  width: 100%;
+  height: 86px;
+  display: block;
+  border-radius: 6px;
+  cursor: pointer;
 }
 
 .scrubber-track-wrap {

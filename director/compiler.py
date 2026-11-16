@@ -1299,8 +1299,10 @@ def _compile_single_spatial(
         n9["scale"] = float(params["scale"])
     if params.get("audio_scale") is not None:
         n9["audio_scale"] = float(params["audio_scale"])
-    if params.get("streams") is not None:
-        n9["streams"] = str(params["streams"])
+    if params.get("streams") is not None and str(params.get("streams")).strip():
+        n9["streams"] = str(params["streams"]).strip()
+    elif director_mode == "point_targets":
+        n9["streams"] = "video_only"
     elif not used_shipped and mode == "r2v_portal":
         n9["streams"] = "independent"
     if params.get("first_step") is not None:
@@ -1372,6 +1374,8 @@ def _compile_single_spatial(
             "prompt_mode": prompt_mode,
             "feather": round(float(n160["feather"]), 4),
             "halo_radius": round(max(0.0, min(0.35, float(params["halo_radius"]))) if params.get("halo_radius") is not None else 0.0, 4),
+            "streams": str(n9.get("streams") or "independent"),
+            "audio_gated_by_mask": str(n9.get("streams") or "independent") == "both",
             "couplings_applied": couplings_applied,
             "hud_save_output": bool(graph[HUD_COMBINE_NODE_ID]["inputs"].get("save_output")),
             "clean_save_output": bool(graph[CLEAN_DECODE_NODE_ID]["inputs"].get("save_output")),

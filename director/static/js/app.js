@@ -13,6 +13,7 @@
 import { FoleySynth, snapFrameTo3f } from "./foley_synth.js";
 import { DirectorWSClient } from "./ws_client.js";
 import { ABCompareController, videoItemViewUrl } from "./ab_compare.js";
+import { SequencerController, causalStepBoundaries } from "./sequencer.js";
 import {
   StageController,
   clamp,
@@ -63,6 +64,10 @@ const state = {
   excludeMaskRef: "",
   includeMaskImg: null,
   excludeMaskImg: null,
+  lanesOpen: false,
+  streamsManualOverride: false,
+  unlinkPortalRy: false,
+  seqSelection: null,
 
   workflowId: "",
   anchorWorkflowId: "",
@@ -127,6 +132,7 @@ const state = {
 
 const foley = new FoleySynth();
 let stage = null;
+let sequencer = null;
 let abCompare = null;
 let wsClient = null;
 let rafHandle = 0;
@@ -549,14 +555,33 @@ function syncScrubberSVG() {
   // Track base
   drawPillBar(padX, trackY, trackW, trackH, trackH * 0.5, "#E2E8F0");
 
+  // Causal 17n+5 & [1, 4, 4, 4, 4] step boundaries
+  const { clipStarts, stepStarts } = causalStepBoundaries(state.length);
+  ctx.save();
+  ctx.fillStyle = "rgba(100, 116, 139, 0.35)";
+  for (const c of clipStarts) {
+    if (c === 0) continue;
+    const cx = padX + (c / maxF) * trackW;
+    ctx.fillRect(cx - 0.5 * dpr, trackY - 3 * dpr, 1 * dpr, trackH + 6 * dpr);
+  }
+  if (state.showPatchGrid) {
+    ctx.fillStyle = "rgba(37, 99, 235, 0.35)";
+    for (const s of stepStarts) {
+      const sx = padX + (s / maxF) * trackW;
+      ctx.fillRect(sx - 0.5 * dpr, trackY + trackH + 1 * dpr, 1 * dpr, 3 * dpr);
+    }
+  }
+  ctx.restore();
+
   // Causal active span highlights
-  if (state.doc.mode === "portal_path") {
+  if (state.doc.mode === "portal_path" || state.doc.mode === "combined") {
     const pStart = state.doc.portal_start != null ? Number(state.doc.portal_start) : 0;
     const pEnd = state.doc.portal_end != null ? Number(state.doc.portal_end) : maxF;
     const x0 = padX + (pStart / maxF) * trackW;
     const x1 = padX + (pEnd / maxF) * trackW;
     drawPillBar(x0, trackY - 1 * dpr, Math.max(6 * dpr, x1 - x0), trackH + 2 * dpr, 4 * dpr, "rgba(37, 99, 235, 0.20)");
-  } else {
+  }
+  if (state.doc.mode === "point_targets" || state.doc.mode === "combined") {
     for (const t of state.doc.targets || []) {
       const x0 = padX + (clamp(Number(t.start || 0), 0, maxF) / maxF) * trackW;
       const x1 = padX + (clamp(Number(t.end || maxF), 0, maxF) / maxF) * trackW;
@@ -568,7 +593,7 @@ function syncScrubberSVG() {
   drawPillBar(padX, trackY, Math.max(0, thumbX - padX), trackH, trackH * 0.5, "#93C5FD");
 
   // Portal keyframe dots
-  if (state.doc.mode === "portal_path") {
+  if (state.doc.mode === "portal_path" || state.doc.mode === "combined") {
     for (const kf of state.doc.portal || []) {
       const kx = padX + (clamp(Number(kf.frame || 0), 0, maxF) / maxF) * trackW;
       ctx.fillStyle = "#2563EB";
@@ -911,11 +936,60 @@ function syncAllUI() {
   if (spChk) spChk.checked = Boolean(state.samePrompt);
 
   syncLiveTaeBadges(state.livePreview ? { step: state.livePreview.step, total: state.livePreview.total, fps: state.livePreview.fps } : null);
+  syncAudioGuardAndSequencer();
   syncScrubberSVG();
   syncContextualCard();
   syncCueChips();
   syncUndoRedoButtons();
   stage?.render();
+}
+
+function syncAudioGuardAndSequencer() {
+  const streams = String(state.editGuidance?.streams || "independent");
+  const guardBtn = $("#btn-audio-guard");
+  if (guardBtn) {
+    const labelMap = {
+      independent: "Audio: Indep",
+      video_only: "Audio: VideoOnly",
+      both: "Audio: Gated",
+      audio_only: "Audio: AudOnly",
+    };
+    guardBtn.textContent = labelMap[streams] || `Audio: ${streams}`;
+    guardBtn.classList.toggle("active", streams === "independent");
+    guardBtn.classList.toggle("emerald", streams === "video_only");
+    guardBtn.classList.toggle("warn", streams === "both");
+  }
+
+  const tray = $("#sequencer-tray");
+  const stageEl = $("#stageContainer");
+  const lanesBtn = $("#btn-lanes-toggle");
+  tray?.classList.toggle("hidden", !state.lanesOpen);
+  stageEl?.classList.toggle("lanes-open", Boolean(state.lanesOpen));
+  if (lanesBtn) {
+    lanesBtn.classList.toggle("active", Boolean(state.lanesOpen));
+    lanesBtn.setAttribute("aria-expanded", state.lanesOpen ? "true" : "false");
+    lanesBtn.textContent = state.lanesOpen ? "Lanes ▾" : "Lanes ▴";
+  }
+
+  const ryBtn = $("#btn-seq-ry-unlink");
+  if (ryBtn) {
+    const pf = evalPortalAtFrame(state.doc, state.frame, state.length);
+    const unlinked = Boolean(state.unlinkPortalRy || pf.shape === "ellipse");
+    ryBtn.classList.toggle("active", unlinked);
+    ryBtn.setAttribute("aria-pressed", unlinked ? "true" : "false");
+    ryBtn.textContent = unlinked ? "ry: Unlinked" : "ry: Linked";
+  }
+
+  const delBtn = $("#btn-seq-delete");
+  if (delBtn) delBtn.disabled = !state.seqSelection;
+
+  const selLbl = $("#seq-selection-label");
+  if (selLbl && sequencer) {
+    selLbl.textContent = sequencer.describeSelection(state);
+  }
+  if (state.lanesOpen) {
+    sequencer?.render();
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -1594,6 +1668,24 @@ function init() {
     onSamPick: (nx, ny, opts) => runSamSegmentAt(nx, ny, opts),
   });
 
+  sequencer = new SequencerController($("#sequencer-canvas"), {
+    getState: () => state,
+    onMutate: (_reason, opts = {}) => {
+      if (opts.beforeEdit) {
+        pushUndo();
+        return;
+      }
+      if (!opts.live) schedulePreflight();
+      syncAllUI();
+    },
+    onSelect: () => {
+      syncAllUI();
+    },
+    onScrub: () => {
+      syncAllUI();
+    },
+  });
+
   wsClient = new DirectorWSClient({
     onConnection: (status) => {
       if (status === "disconnected") {
@@ -1709,6 +1801,9 @@ function init() {
     pushUndo();
     state.spriteMode = false;
     state.doc.mode = "portal_path";
+    if (!state.streamsManualOverride) {
+      state.editGuidance.streams = "independent";
+    }
     syncAllUI();
     schedulePreflight();
   });
@@ -1716,6 +1811,9 @@ function init() {
     pushUndo();
     state.spriteMode = false;
     state.doc.mode = "point_targets";
+    if (!state.streamsManualOverride) {
+      state.editGuidance.streams = "video_only";
+    }
     if (!state.doc.targets?.length) {
       state.doc.targets = [{
         id: 1,
@@ -1740,6 +1838,9 @@ function init() {
     pushUndo();
     state.spriteMode = false;
     state.doc.mode = "combined";
+    if (!state.streamsManualOverride) {
+      state.editGuidance.streams = "independent";
+    }
     if (!state.doc.targets?.length) {
       state.doc.targets = [{
         id: 1,
@@ -1909,8 +2010,129 @@ function init() {
   $("#btn-grid-toggle")?.addEventListener("click", () => {
     state.showPatchGrid = !state.showPatchGrid;
     $("#btn-grid-toggle")?.classList.toggle("active", state.showPatchGrid);
+    syncScrubberSVG();
     stage?.render();
   });
+  $("#btn-audio-guard")?.addEventListener("click", () => {
+    const order = ["independent", "video_only", "both"];
+    const idx = order.indexOf(String(state.editGuidance.streams || "independent"));
+    state.editGuidance.streams = order[(idx + 1) % order.length];
+    state.streamsManualOverride = true;
+    syncAllUI();
+    schedulePreflight();
+  });
+
+  const toggleLanes = (forceOpen = null) => {
+    state.lanesOpen = forceOpen === null ? !state.lanesOpen : Boolean(forceOpen);
+    syncAudioGuardAndSequencer();
+    if (state.lanesOpen) sequencer?.resize();
+  };
+  const deleteSelectedSeqItem = () => {
+    if (!sequencer || !state.seqSelection) return;
+    const snap = snapshotDoc();
+    const res = sequencer.deleteSelected(state);
+    if (!res.ok) {
+      showToast(res.reason || "Cannot remove sole anchor", "err", 2200);
+      return;
+    }
+    state.undoStack.push(snap);
+    if (state.undoStack.length > 40) state.undoStack.shift();
+    state.redoStack = [];
+    syncAllUI();
+    schedulePreflight();
+  };
+
+  $("#btn-lanes-toggle")?.addEventListener("click", () => toggleLanes());
+  $("#btn-seq-close")?.addEventListener("click", () => toggleLanes(false));
+  $("#btn-seq-add-kf")?.addEventListener("click", () => {
+    pushUndo();
+    const pf = evalPortalAtFrame(state.doc, state.frame, state.length);
+    if (!Array.isArray(state.doc.portal)) state.doc.portal = [];
+    let kf = state.doc.portal.find((p) => Number(p.frame) === state.frame);
+    if (!kf) {
+      kf = {
+        frame: state.frame,
+        x: Number(pf.x.toFixed(3)),
+        y: Number(pf.y.toFixed(3)),
+        rx: Number(pf.rx.toFixed(3)),
+        ry: Number(pf.ry.toFixed(3)),
+        shape: pf.shape || "circle",
+        label: pf.label || "REALITY LENS",
+        weight: Number((pf.weight ?? 1.0).toFixed(2)),
+        halo_radius: Number((pf.halo_radius ?? 0.10).toFixed(3)),
+        halo_weight: Number((pf.halo_weight ?? 0.30).toFixed(2)),
+        unlink_ry: Boolean(state.unlinkPortalRy),
+      };
+      state.doc.portal.push(kf);
+      state.doc.portal.sort((a, b) => a.frame - b.frame);
+    }
+    state.seqSelection = { kind: "portal_kf", idx: state.doc.portal.indexOf(kf) };
+    syncAllUI();
+    schedulePreflight();
+  });
+  $("#btn-seq-add-target")?.addEventListener("click", () => {
+    pushUndo();
+    if (!Array.isArray(state.doc.targets)) state.doc.targets = [];
+    const maxF = Math.max(3, state.length - 1);
+    let start = snapFrameTo3f(state.frame, state.length);
+    if (start > maxF - 3) start = Math.max(0, maxF - 3);
+    const end = Math.min(maxF, Math.max(start + 3, start + 24));
+    const nextId = state.doc.targets.reduce((m, t) => Math.max(m, Number(t.id || 0)), 0) + 1;
+    state.doc.targets.push({
+      id: nextId,
+      label: `TARGET ${nextId}`,
+      start,
+      end,
+      ramp: 4,
+      x: Number(clamp(0.25 + ((nextId * 0.19) % 0.5), 0.15, 0.85).toFixed(3)),
+      y: 0.50,
+      radius: 0.16,
+      cue: state.defaultSoundPreset || "none",
+      gain: 1.15,
+      weight: 1.0,
+      halo_radius: 0.08,
+      halo_weight: 0.30,
+    });
+    if (state.doc.mode === "portal_path") {
+      state.doc.mode = "combined";
+    }
+    state.selectedTargetIdx = state.doc.targets.length - 1;
+    state.seqSelection = { kind: "target", idx: state.selectedTargetIdx };
+    syncAllUI();
+    schedulePreflight();
+  });
+  $("#btn-seq-add-hop")?.addEventListener("click", () => {
+    pushUndo();
+    if (!state.doc.dpad) state.doc.dpad = { waypoints: [], hops: [] };
+    if (!Array.isArray(state.doc.dpad.hops)) state.doc.dpad.hops = [];
+    const hs = clamp(state.frame, 0, Math.max(0, state.length - 7));
+    const he = clamp(hs + 15, hs + 4, state.length - 1);
+    state.doc.dpad.hops.push({ start: hs, end: he, lift: 0.25 });
+    state.seqSelection = { kind: "hop_arc", idx: state.doc.dpad.hops.length - 1 };
+    syncAllUI();
+    schedulePreflight();
+  });
+  $("#btn-seq-ry-unlink")?.addEventListener("click", () => {
+    pushUndo();
+    state.unlinkPortalRy = !state.unlinkPortalRy;
+    const kf = stage?._ensurePortalKeyframeAtFrame(state);
+    if (kf && state.unlinkPortalRy) {
+      if (kf.shape !== "ellipse") {
+        const w = Number(state.doc.width || 1344);
+        const h = Number(state.doc.height || 768);
+        const s = Math.min(w, h);
+        kf.rx = Number(clamp((kf.rx * s) / w, 0.04, 0.45).toFixed(3));
+        kf.ry = Number(clamp((kf.ry * s) / h, 0.04, 0.48).toFixed(3));
+        kf.shape = "ellipse";
+      }
+      kf.unlink_ry = true;
+    } else if (kf) {
+      kf.unlink_ry = false;
+    }
+    syncAllUI();
+    schedulePreflight();
+  });
+  $("#btn-seq-delete")?.addEventListener("click", () => deleteSelectedSeqItem());
 
   const scrubWrap = $("#scrubber-track-wrap");
   if (scrubWrap) {
@@ -1964,6 +2186,9 @@ function init() {
   });
   $("#engine-streams")?.addEventListener("change", (ev) => {
     state.editGuidance.streams = ev.target.value;
+    state.streamsManualOverride = true;
+    syncAudioGuardAndSequencer();
+    schedulePreflight();
   });
   $("#engine-scale")?.addEventListener("change", (ev) => {
     state.editGuidance.scale = clamp(Number(ev.target.value || 1.5), 0.5, 2.5);
@@ -2069,6 +2294,18 @@ function init() {
       return;
     }
 
+    if ((ev.key === "Delete" || ev.key === "Backspace") && state.lanesOpen && state.seqSelection) {
+      ev.preventDefault();
+      $("#btn-seq-delete")?.click();
+      return;
+    }
+
+    if (!ev.metaKey && !ev.ctrlKey && ev.key.toLowerCase() === "l") {
+      ev.preventDefault();
+      $("#btn-lanes-toggle")?.click();
+      return;
+    }
+
     if (ev.key === " ") {
       ev.preventDefault();
       if (state.spriteMode && state.playing) {
@@ -2127,6 +2364,7 @@ function init() {
   window.addEventListener("resize", () => {
     stage?.resize();
     syncScrubberSVG();
+    sequencer?.resize();
   });
 
   // Initial hydrate
@@ -2137,7 +2375,7 @@ function init() {
     });
 
   // Expose debug handle for inspection without touching DOM styles
-  window.__SPATIAL_DIRECTOR__ = { state, stage, abCompare, wsClient, foley, syncAllUI };
+  window.__SPATIAL_DIRECTOR__ = { state, stage, sequencer, abCompare, wsClient, foley, syncAllUI };
 }
 
 document.addEventListener("DOMContentLoaded", init);
