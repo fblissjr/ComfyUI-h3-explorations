@@ -1173,6 +1173,9 @@ async def _run_cdp_browser(director_url: str, anchor_png: Path) -> str:
                         """(() => {
                           const p = document.getElementById('portal-card');
                           const tp = document.getElementById('target-prompt');
+                          const hd = document.getElementById('portal-card-heading');
+                          const diffWrap = document.getElementById('prompt-diff-preview');
+                          const diffEdit = document.getElementById('diff-edit-line');
                           if (!p) return null;
                           const r = p.getBoundingClientRect().toJSON();
                           if (tp) {
@@ -1180,11 +1183,24 @@ async def _run_cdp_browser(director_url: str, anchor_png: Path) -> str:
                             tp.dispatchEvent(new Event('input', {bubbles: true}));
                             tp.dispatchEvent(new Event('change', {bubbles: true}));
                           }
-                          return {rect: r, visible: getComputedStyle(p).display !== 'none', hasPrompt: !!tp};
+                          return {
+                            rect: r,
+                            visible: getComputedStyle(p).display !== 'none',
+                            hasPrompt: !!tp,
+                            cardScrollHeight: p.scrollHeight,
+                            cardClientHeight: p.clientHeight,
+                            headingText: hd ? hd.textContent : '',
+                            headingScrollW: hd ? hd.scrollWidth : 0,
+                            headingClientW: hd ? hd.clientWidth : 0,
+                            diffVisible: diffWrap ? getComputedStyle(diffWrap).display !== 'none' : false,
+                            diffEditText: diffEdit ? diffEdit.textContent : '',
+                          };
                         })()"""
                     )
                     assert pop and pop["visible"] and pop["hasPrompt"], f"Contextual popover #portal-card/#target-prompt missing: {pop}"
                     assert pop["rect"]["right"] <= 1280 and pop["rect"]["bottom"] <= 800, f"Popover clipped: {pop['rect']}"
+                    assert pop["headingScrollW"] <= pop["headingClientW"] + 1, f"#portal-card-heading truncated: {pop}"
+                    assert pop["diffVisible"] and "Swirling bioluminescent cavern portal" in pop["diffEditText"], f"#prompt-diff-preview did not update: {pop}"
 
                     # Helper: intercept one /api/render click to read exact serialized frontend state without queueing
                     async def _capture_render_payload() -> dict[str, Any]:

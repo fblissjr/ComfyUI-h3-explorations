@@ -600,40 +600,39 @@ function allActiveCues() {
 
 function renderSynthesizedOperators(pf, sp, coupling) {
   const host = $("#synth-operators");
+  const detailEl = $("#synth-op-detail");
   if (!host) return;
   const ops = [
     {
       id: "aperture",
-      title: `Aperture Mask (${pf.shape} · rx=${Number(pf.rx).toFixed(2)})`,
-      sub: `EditGuider scale=${Number(state.editGuidance.scale).toFixed(1)}x · streams=${state.editGuidance.streams}`,
+      title: `Mask ${Number(pf.rx).toFixed(2)}`,
+      sub: `${pf.shape} · EditGuider ${Number(state.editGuidance.scale).toFixed(1)}x · ${state.editGuidance.streams}`,
     },
     {
       id: "halo",
-      title: `Halo Influence Field (r=${Number(pf.halo_radius || 0).toFixed(2)})`,
+      title: `Halo ${Number(pf.halo_radius || 0).toFixed(2)}`,
       sub: `feather=${Number(state.doc.feather).toFixed(2)} · halo_weight=${Number(pf.halo_weight ?? 0.30).toFixed(2)}x`,
     },
     {
       id: "coupling",
-      title: coupling.active
-        ? `Sprite Coupling (${Math.round(coupling.strength * 100)}% · ${coupling.mode})`
-        : "Link Sprite Coupling (Shift+Drag)",
+      title: coupling.active ? `Couple ${Math.round(coupling.strength * 100)}%` : "Couple",
       sub: coupling.active
-        ? `AppendSpriteTrajectory Δ(${coupling.dx >= 0 ? "+" : ""}${coupling.dx.toFixed(2)}, ${coupling.dy >= 0 ? "+" : ""}${coupling.dy.toFixed(2)}) · Release 0.33`
-        : "Click to toggle radial push/pull on Subject Sprite",
+        ? `Sprite ${coupling.mode} Δ(${coupling.dx >= 0 ? "+" : ""}${coupling.dx.toFixed(2)}, ${coupling.dy >= 0 ? "+" : ""}${coupling.dy.toFixed(2)}) · Release 0.33`
+        : "Shift+Drag Portal → Sprite or click to link push/pull",
     },
   ];
   host.replaceChildren();
+  const activeOp = ops.find((o) => o.id === state.activeOperator) || ops[0];
+  if (detailEl) detailEl.textContent = activeOp.sub;
   for (const op of ops) {
     const btn = document.createElement("button");
     btn.type = "button";
+    btn.title = op.sub;
     btn.className = state.activeOperator === op.id ? "synth-op-btn active" : "synth-op-btn";
     const t = document.createElement("span");
     t.className = "synth-op-title";
     t.textContent = op.title;
-    const s = document.createElement("span");
-    s.className = "synth-op-sub";
-    s.textContent = op.sub;
-    btn.append(t, s);
+    btn.append(t);
     btn.addEventListener("click", () => {
       state.activeOperator = op.id;
       if (op.id === "coupling") {
@@ -659,6 +658,27 @@ function renderSynthesizedOperators(pf, sp, coupling) {
   }
 }
 
+function syncPromptDiffPreview() {
+  const origEl = $("#diff-orig-line");
+  const editEl = $("#diff-edit-line");
+  const badgeEl = $("#prompt-diff-badge");
+  if (!origEl || !editEl) return;
+
+  const anchorLabel = state.anchorName ? state.anchorName.replace(/\.[^/.]+$/, "") : "anchor";
+  const editClause = (state.targetPrompt || "").trim();
+  origEl.textContent = `- ${anchorLabel} base conditioning`;
+  if (state.samePrompt) {
+    if (badgeEl) badgeEl.textContent = "Same-Prompt Steer";
+    editEl.textContent = "+ Control Vector delta (edited_only pass)";
+  } else if (editClause) {
+    if (badgeEl) badgeEl.textContent = state.anchorRef ? "Baseline → Edited" : "Prompt Diff";
+    editEl.textContent = `+ ${editClause}`;
+  } else {
+    if (badgeEl) badgeEl.textContent = "Baseline → Edited";
+    editEl.textContent = "+ Type edit clause above to steer portal";
+  }
+}
+
 function syncContextualCard() {
   const card = $("#portal-card");
   if (!card) return;
@@ -674,23 +694,22 @@ function syncContextualCard() {
     : null;
   const coupling = computeCouplingInfo(state, pf, sp);
   let anchorX = pf.x;
-
-  const px = Math.round(pf.x * Number(state.doc.width || 1344));
-  const py = Math.round(pf.y * Number(state.doc.height || 768));
+  let normX = pf.x;
+  let normY = pf.y;
 
   if (state.doc.mode === "point_targets" && state.doc.targets?.length) {
     const idx = clamp(state.selectedTargetIdx ?? 0, 0, state.doc.targets.length - 1);
     const t = state.doc.targets[idx];
     anchorX = t.x;
-    const tx = Math.round(t.x * Number(state.doc.width || 1344));
-    const ty = Math.round(t.y * Number(state.doc.height || 768));
-    $("#portal-card-heading").textContent = `Tool Synth (${tx},${ty})`;
+    normX = t.x;
+    normY = t.y;
+    $("#portal-card-heading").textContent = `Target Pin #${idx + 1}`;
     const nearCue = t.cue && t.cue !== "none" ? t.cue : "none";
     const cueSel = $("#card-cue-select");
     if (cueSel) cueSel.value = nearCue;
     $("#pill-cue-text").textContent = `3f @ f${snapFrameTo3f(t.start, state.length)}: ${nearCue}`;
   } else {
-    $("#portal-card-heading").textContent = `Tool Synth (${px},${py})`;
+    $("#portal-card-heading").textContent = state.spriteMode ? "Sprite Trajectory" : "Spatial Portal";
     const nearCue = (state.doc.portal_cues || [])[0];
     const cueSel = $("#card-cue-select");
     if (nearCue) {
@@ -716,7 +735,7 @@ function syncContextualCard() {
   const cFillPct = coupling.active ? cPct : ((scaleVal - 0.5) / 2.0) * 100;
   $("#dial-coupling-fill")?.setAttribute("width", clamp(cFillPct, 6, 100).toFixed(1));
 
-  // Compiled H3 Nodes readout
+  // Compiled Nodes readout
   const cuesCount = allActiveCues().length;
   const spriteNote = sp
     ? ` · AppendSpriteTrajectory(51, Release 0.33, Δx=${coupling.dx >= 0 ? "+" : ""}${coupling.dx.toFixed(2)})`
@@ -724,12 +743,17 @@ function syncContextualCard() {
   $("#compiled-nodes-readout").textContent =
     `SpatialDirector(160) -> EditGuider(${scaleVal.toFixed(1)}x) · ${cuesCount}× 3f SoundCues${spriteNote}`;
 
-  const synthBadge = $("#synth-latency-badge");
-  if (synthBadge) {
-    synthBadge.textContent = state.capabilities.heylook_suggestions ? "heylook" : "0ms local";
+  const coordBadge = $("#synth-latency-badge");
+  if (coordBadge) {
+    coordBadge.textContent = `[${normX.toFixed(2)}, ${normY.toFixed(2)}]`;
+  }
+  const modeTag = $("#synth-mode-tag");
+  if (modeTag) {
+    modeTag.textContent = state.capabilities.heylook_suggestions ? "heylook · 0ms" : "0ms local";
   }
 
   renderSynthesizedOperators(pf, sp, coupling);
+  syncPromptDiffPreview();
 
   // Clamp card opposite the active portal/target so it stays inside stage bounds
   card.classList.toggle("dock-left", anchorX > 0.56);
@@ -1619,6 +1643,7 @@ function init() {
   });
   $("#target-prompt")?.addEventListener("input", (ev) => {
     state.targetPrompt = ev.target.value;
+    syncPromptDiffPreview();
   });
   $("#btn-refresh-suggest")?.addEventListener("click", () => refreshContextSuggestions());
   $("#card-cue-select")?.addEventListener("change", (ev) => {

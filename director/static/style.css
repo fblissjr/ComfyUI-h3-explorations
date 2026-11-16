@@ -605,21 +605,21 @@ body.light-studio {
 /* Contextual Portal Popover Card (clamped strictly inside stage bounds) */
 .portal-card {
   position: absolute;
-  top: 52px;
-  width: 326px;
+  top: 48px;
+  width: 312px;
   max-width: calc(100% - 32px);
-  max-height: calc(100% - 130px);
+  max-height: calc(100% - 118px);
   overflow-y: auto;
   background: rgba(255, 255, 255, 0.96);
   backdrop-filter: blur(18px);
   border: 1px solid var(--border-card);
   border-radius: 12px;
-  padding: 11px 12px;
+  padding: 10px 11px;
   box-shadow: 0 16px 36px -10px rgba(15, 23, 42, 0.16);
   z-index: 20;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 7px;
 }
 
 .portal-card.dock-right {
@@ -638,11 +638,28 @@ body.light-studio {
 
 .portal-card-head {
   display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.portal-card-head-top {
+  display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding-bottom: 7px;
-  border-bottom: 1px solid var(--border-light);
+}
+
+.portal-card-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+.portal-card-meta-row .op-auto-tag {
+  margin-left: auto;
 }
 
 .portal-card-title {
@@ -650,7 +667,7 @@ body.light-studio {
   align-items: center;
   gap: 6px;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--ink);
   min-width: 0;
   flex: 1 1 auto;
@@ -658,15 +675,6 @@ body.light-studio {
 
 .portal-card-title span {
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.portal-card-head-right {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  flex-shrink: 0;
 }
 
 .time-badge {
@@ -696,13 +704,13 @@ body.light-studio {
 .portal-card-body {
   display: flex;
   flex-direction: column;
-  gap: 9px;
+  gap: 7px;
 }
 
 .field-group {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 3px;
 }
 
 .field-label {
@@ -720,7 +728,7 @@ body.light-studio {
   background: var(--surface-subtle);
   border: 1px solid var(--border-card);
   border-radius: 7px;
-  padding: 6px 8px;
+  padding: 5px 8px;
   font-family: var(--font-sans);
   font-size: 12px;
   color: var(--ink);
@@ -728,9 +736,13 @@ body.light-studio {
 
 .field-textarea {
   resize: vertical;
-  min-height: 58px;
-  line-height: 1.45;
+  min-height: 46px;
+  line-height: 1.4;
   user-select: text;
+}
+
+.field-textarea-compact {
+  min-height: 44px;
 }
 
 .field-input {
@@ -862,23 +874,22 @@ body.light-studio {
 }
 
 .synth-operators {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 4px;
 }
 
 .synth-op-btn {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 1px;
-  width: 100%;
-  text-align: left;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
   background: var(--surface-subtle);
   border: 1px solid var(--border-light);
-  border-radius: 7px;
-  padding: 5px 8px;
+  border-radius: 6px;
+  padding: 4px 6px;
   cursor: pointer;
+  min-width: 0;
 }
 
 .synth-op-btn:hover {
@@ -892,31 +903,95 @@ body.light-studio {
 }
 
 .synth-op-title {
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 600;
   color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.synth-op-sub {
+.synth-op-detail {
   font-family: var(--font-mono);
   font-size: 9.5px;
   color: var(--ink-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.prompt-diff-card {
+  background: var(--surface-subtle);
+  border: 1px solid var(--border-light);
+  border-radius: 7px;
+  padding: 5px 7px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.prompt-diff-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.prompt-diff-badge {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 600;
+  color: var(--blue-dark);
+  background: var(--blue-tint);
+  border: 1px solid var(--blue-border);
+  border-radius: 4px;
+  padding: 1px 5px;
+  white-space: nowrap;
+}
+
+.prompt-diff-lines {
+  background: var(--surface);
+  border: 1px solid var(--border-light);
+  border-radius: 5px;
+  padding: 4px 6px;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  line-height: 1.3;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.diff-orig-line {
+  color: var(--ink-muted);
+  text-decoration: line-through;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.diff-edit-line {
+  color: var(--blue-dark);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .dial-stack {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 4px;
 }
 
 .dial-card {
   background: var(--surface-subtle);
   border: 1px solid var(--border-light);
   border-radius: 7px;
-  padding: 6px 8px;
+  padding: 5px 8px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 3px;
   cursor: ew-resize;
 }
 

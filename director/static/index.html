@@ -140,34 +140,46 @@
       </section>
 
       <!-- Contextual Tool Synthesizer Card (clamped inside stage bounds via dock classes) -->
-      <aside id="portal-card" class="portal-card dock-right hidden" aria-label="Contextual Tool Synthesizer">
+      <aside id="portal-card" class="portal-card dock-right hidden" aria-label="Contextual Portal Controls">
         <div class="portal-card-head">
-          <div class="portal-card-title">
-            <svg class="ui-svg ui-svg-blue" viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8zm0-12a4 4 0 1 0 4 4 4 4 0 0 0-4-4z"/>
-            </svg>
-            <span id="portal-card-heading">Tool Synth (0,0)</span>
-          </div>
-          <div class="portal-card-head-right">
-            <span id="synth-latency-badge" class="synth-badge">0ms local</span>
-            <span id="card-time-badge" class="time-badge">f000 · 0.00s</span>
+          <div class="portal-card-head-top">
+            <div class="portal-card-title">
+              <svg class="ui-svg ui-svg-blue" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8zm0-12a4 4 0 1 0 4 4 4 4 0 0 0-4-4z"/>
+              </svg>
+              <span id="portal-card-heading">Spatial Portal</span>
+            </div>
             <button id="btn-collapse-card" type="button" class="icon-btn-xs" title="Collapse card" aria-label="Collapse card">–</button>
+          </div>
+          <div class="portal-card-meta-row">
+            <span id="synth-latency-badge" class="synth-badge">[0.50, 0.50]</span>
+            <span id="card-time-badge" class="time-badge">f000 · 0.00s</span>
+            <span id="synth-mode-tag" class="op-auto-tag">0ms local</span>
           </div>
         </div>
 
         <div id="portal-card-body" class="portal-card-body">
-          <!-- Dynamic Operator Pills synthesized from live stage state -->
+          <!-- Compact Operator Mode Tabs synthesized from live stage geometry -->
           <div class="synth-ops-wrap">
-            <div class="suggestions-head">
-              <span class="field-label">Synthesized Operators</span>
-              <span class="op-auto-tag">live geometry</span>
-            </div>
-            <div id="synth-operators" class="synth-operators"></div>
+            <div id="synth-operators" class="synth-operators" role="group" aria-label="Contextual operators"></div>
+            <div id="synth-op-detail" class="synth-op-detail">EditGuider scale=1.5x · streams=independent</div>
           </div>
 
           <div class="field-group">
             <label for="target-prompt" class="field-label">Target Latent Prompt</label>
-            <textarea id="target-prompt" class="field-textarea" rows="2" placeholder="Describe the edit or world reaction inside the portal..."></textarea>
+            <textarea id="target-prompt" class="field-textarea field-textarea-compact" rows="2" placeholder="Describe the edit or world reaction inside the portal..."></textarea>
+          </div>
+
+          <!-- Compact Baseline -> Edited Prompt Conditioning Diff -->
+          <div id="prompt-diff-preview" class="prompt-diff-card">
+            <div class="prompt-diff-head">
+              <span class="field-label">Prompt Conditioning</span>
+              <span id="prompt-diff-badge" class="prompt-diff-badge">Baseline → Edited</span>
+            </div>
+            <div class="prompt-diff-lines">
+              <div id="diff-orig-line" class="diff-orig-line">- Original anchor conditioning</div>
+              <div id="diff-edit-line" class="diff-edit-line">+ Enter target prompt or Same-Prompt Vector</div>
+            </div>
           </div>
 
           <!-- Dynamic Scene-Aware Suggestions: ONLY shown when POST /api/context_suggest returns enabled:true & suggestions.length > 0 -->

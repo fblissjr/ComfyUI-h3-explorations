@@ -894,6 +894,49 @@ export class StageController {
     if (coupling.active && sp) {
       this._drawCouplingArc(ctx, pf, sp, coupling, w, h, dpr);
     }
+
+    // Dotted visual tether linking active Portal/Target to the docked Contextual Popover Card
+    if (st.hasAnchor) {
+      const cardEl = document.getElementById("portal-card");
+      if (cardEl && !cardEl.classList.contains("hidden") && !cardEl.classList.contains("collapsed")) {
+        let srcX = pf.x * w + (pf.rx * shortEdge);
+        let srcY = pf.y * h;
+        let dockLeft = pf.x > 0.56;
+        if (st.doc.mode === "point_targets" && st.doc.targets?.length) {
+          const idx = clamp(st.selectedTargetIdx ?? 0, 0, st.doc.targets.length - 1);
+          const t = st.doc.targets[idx];
+          srcX = t.x * w + (dockLeft ? -t.radius * shortEdge : t.radius * shortEdge);
+          srcY = t.y * h;
+          dockLeft = t.x > 0.56;
+        } else if (dockLeft) {
+          srcX = pf.x * w - (pf.rx * shortEdge);
+        }
+        const dstX = dockLeft ? Math.min(w * 0.27, 344 * (w / 1280)) : Math.max(w * 0.72, w - 344 * (w / 1280));
+        const dstY = h * 0.34;
+        ctx.save();
+        const tGrad = ctx.createLinearGradient(srcX, srcY, dstX, dstY);
+        tGrad.addColorStop(0, "rgba(2, 132, 199, 0.72)");
+        tGrad.addColorStop(1, "rgba(37, 99, 235, 0.42)");
+        ctx.strokeStyle = tGrad;
+        ctx.lineWidth = 1.5 * dpr;
+        ctx.setLineDash([4 * dpr, 4 * dpr]);
+        ctx.beginPath();
+        const midX = (srcX + dstX) * 0.5;
+        ctx.moveTo(srcX, srcY);
+        ctx.bezierCurveTo(midX, srcY, midX, dstY, dstX, dstY);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle = "#0284C7";
+        ctx.beginPath();
+        ctx.arc(srcX, srcY, 3 * dpr, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#2563EB";
+        ctx.beginPath();
+        ctx.arc(dstX, dstY, 3 * dpr, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+    }
   }
 
   _drawCouplingArc(ctx, pf, sp, coupling, w, h, dpr) {
@@ -1109,18 +1152,32 @@ export class StageController {
     ctx.stroke();
     ctx.restore();
 
-    // External Rim Power & Coupling Badge
+    // Delicate 14px vertical dotted tether + External Rim Power & Preview Badge
+    const rimBottomY = cy + Math.max(ryPx, hrY);
+    const pillTopY = Math.min(h - 92 * dpr, rimBottomY + 14 * dpr);
+    if (pillTopY - rimBottomY >= 6 * dpr) {
+      ctx.save();
+      ctx.strokeStyle = "rgba(37, 99, 235, 0.72)";
+      ctx.lineWidth = 1.4 * dpr;
+      ctx.setLineDash([2.5 * dpr, 3 * dpr]);
+      ctx.beginPath();
+      ctx.moveTo(cx, rimBottomY + 2 * dpr);
+      ctx.lineTo(cx, pillTopY);
+      ctx.stroke();
+      ctx.restore();
+    }
     const pwr = Number(st.editGuidance?.scale ?? 1.5).toFixed(1);
     const aud = Number(st.editGuidance?.audio_scale ?? 1.0).toFixed(1);
+    const stepStr = st.livePreview?.total > 0 ? `Step ${st.livePreview.step}/${st.livePreview.total}` : `Mask ${pf.rx.toFixed(2)}`;
     const rimTxt = coupling.active
-      ? `Power: ${pwr}x · Coupling: ${Math.round(coupling.strength * 100)}%`
-      : `Power: ${pwr}x · Audio: ${aud}x`;
+      ? `${stepStr} · Power ${pwr}x · Coupling ${Math.round(coupling.strength * 100)}%`
+      : `${stepStr} · Power ${pwr}x · Audio ${aud}x`;
     this._drawPill(
       ctx,
-      cx - Math.max(rxPx, 80 * dpr) * 0.45,
-      Math.min(h - 92 * dpr, cy + Math.max(ryPx, hrY) + 8 * dpr),
+      cx,
+      pillTopY,
       rimTxt,
-      { border: "#CBD5E1", fg: "#1D4ED8", dot: "#2563EB" }
+      { border: "#BFDBFE", fg: "#1D4ED8", dot: "#2563EB" }
     );
   }
 
