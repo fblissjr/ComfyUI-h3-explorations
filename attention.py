@@ -27,6 +27,7 @@ fail at the kernel regardless of which rope variant ran.
 from __future__ import annotations
 
 import functools
+import inspect
 import logging
 
 import torch
@@ -41,9 +42,13 @@ import torch
 try:
     from . import h3_trace as _trace
     from . import h3_capture as _capture
+    from . import h3_layout as _h3layout
+    from .block_spec import parse_blocks as _parse_blocks
 except ImportError:                              # loaded as a top-level module
     import h3_trace as _trace
     import h3_capture as _capture
+    import h3_layout as _h3layout
+    from block_spec import parse_blocks as _parse_blocks
 
 logger = logging.getLogger(__name__)
 
@@ -314,6 +319,584 @@ def apply_audio_gain(k, v, transformer_options, seq_axis):
     return k, v
 
 
+# ---------------------------------------------------------------------------
+# Clean-room mass-conserving within-slice subset attention balance (`return_lse`)
+# ---------------------------------------------------------------------------
+# Clean-room MIT re-derivation of the exact subset re-splitting identity credited
+# in `docs/wiki/upstream/periphery.md` (`roycho87/geiru_context_suite`, GPL-3.0,
+# no GPL code copied): using native PyTorch `aten._scaled_dot_product_flash_attention`
+# (and optionally our `sage-fork`'s `return_lse=True`) at `head_dim = 128` without
+# mutating `V` channels or forcing PyTorch `EFFICIENT_ATTENTION` fallback.
+
+_LSE_SCALE_ACCUM_FLOOR = 1e-12
+
+
+def _normalize_spans(raw_spans, tokens: int) -> tuple[tuple[int, int], ...]:
+    """Validate and sort non-overlapping `[start, stop)` spans within `[0, tokens]`."""
+    if not raw_spans:
+        return ()
+    norm: list[tuple[int, int]] = []
+    for item in raw_spans:
+        a_raw, b_raw = item[0], item[1]
+        a = max(0, min(int(a_raw), int(tokens)))
+        b = max(0, min(int(b_raw), int(tokens)))
+        if b > a:
+            norm.append((a, b))
+    norm.sort()
+    for (_, prev_b), (cur_a, _) in zip(norm, norm[1:]):
+        if prev_b > cur_a:
+            raise ValueError(f"overlapping attention spans in LSE balance: {norm}")
+    return tuple(norm)
+
+
+def _spans_overlap(spans_a: tuple[tuple[int, int], ...], spans_b: tuple[tuple[int, int], ...]) -> bool:
+    """Return True if any interval in sorted `spans_a` intersects sorted `spans_b`."""
+    ia = ib = 0
+    while ia < len(spans_a) and ib < len(spans_b):
+        a0, a1 = spans_a[ia]
+        b0, b1 = spans_b[ib]
+        if a0 < b1 and b0 < a1:
+            return True
+        if a1 <= b1:
+            ia += 1
+        else:
+            ib += 1
+    return False
+
+
+def _resolve_span_spec(
+    cfg: dict,
+    key_spans: str,
+    key_kinds: str,
+    key_ref_idx: str,
+    segs,
+    tokens: int,
+) -> tuple[tuple[int, int], ...] | None:
+    """Resolve explicit tuple spans, layout segment kinds, or 0-based `ref_img` indices."""
+    explicit = cfg.get(key_spans)
+    if explicit is not None:
+        return _normalize_spans(explicit, tokens)
+    kinds = cfg.get(key_kinds)
+    if kinds is not None:
+        kind_set = set(kinds)
+        return _normalize_spans(
+            [(a, b) for a, b, k in (segs or ()) if k in kind_set and b > a],
+            tokens,
+        )
+    ref_indices = cfg.get(key_ref_idx)
+    if ref_indices is not None:
+        ref_imgs = [(a, b) for a, b, k in (segs or ()) if k == "ref_img" and b > a]
+        picked = [ref_imgs[int(idx)] for idx in ref_indices if 0 <= int(idx) < len(ref_imgs)]
+        return _normalize_spans(picked, tokens)
+    return None
+
+
+def resolve_lse_balance_plan(transformer_options, tokens: int) -> dict | None:
+    """Return an active LSE subset balance plan for this attention call, or None."""
+    if not isinstance(transformer_options, dict):
+        return None
+    cfg = transformer_options.get("minimax_h3_lse_balance")
+    if not isinstance(cfg, dict):
+        return None
+    weight = float(cfg.get("weight", 1.0))
+    if not (weight > 0.0) or abs(weight - 1.0) <= 1e-6:
+        return None
+
+    require_layout = bool(cfg.get("require_layout", True))
+    layout = _h3layout.layout_for(transformer_options, tokens)
+    if require_layout and layout is None:
+        return None
+
+    blocks = cfg.get("blocks")
+    block = (
+        _h3layout.block_index(transformer_options, tokens)
+        if require_layout
+        else transformer_options.get("block_index")
+    )
+    if blocks is not None:
+        if block is None or int(block) not in blocks:
+            return None
+
+    sigma_start = cfg.get("sigma_start")
+    sigma_end = cfg.get("sigma_end")
+    if sigma_start is not None or sigma_end is not None:
+        sig = transformer_options.get("sigmas")
+        if sig is not None:
+            sigma = float(sig.flatten()[0])
+            if sigma_start is not None and sigma > float(sigma_start):
+                return None
+            if sigma_end is not None and sigma < float(sigma_end):
+                return None
+
+    segs = _h3layout.segments(transformer_options, tokens) if layout is not None else None
+    spans_a = _resolve_span_spec(cfg, "spans_a", "kinds_a", "ref_indices_a", segs, tokens)
+    if not spans_a:
+        return None
+    spans_b = _resolve_span_spec(cfg, "spans_b", "kinds_b", "ref_indices_b", segs, tokens)
+    if spans_b is not None:
+        if not spans_b:
+            return None
+        if _spans_overlap(spans_a, spans_b):
+            raise ValueError(
+                f"spans_a {spans_a} and spans_b {spans_b} must be disjoint for mass-conserving LSE balance"
+            )
+
+    q_explicit = cfg.get("query_spans")
+    q_kinds = cfg.get("query_kinds")
+    if q_explicit is not None or q_kinds is not None:
+        query_spans = _resolve_span_spec(cfg, "query_spans", "query_kinds", "_unused", segs, tokens)
+        if not query_spans:
+            return None
+    else:
+        query_spans = ((0, int(tokens)),)
+
+    return {
+        "weight": weight,
+        "spans_a": spans_a,
+        "spans_b": spans_b,
+        "query_spans": query_spans,
+        "block": None if block is None else int(block),
+    }
+
+
+def _gather_spans(t: torch.Tensor, spans: tuple[tuple[int, int], ...], dim: int) -> torch.Tensor:
+    """Gather `[a, b)` intervals along `dim`, using zero-copy `narrow` for a single span."""
+    if len(spans) == 1:
+        a, b = spans[0]
+        return t.narrow(dim, a, b - a)
+    return torch.cat([t.narrow(dim, a, b - a) for a, b in spans], dim=dim)
+
+
+def _write_spans_(dst: torch.Tensor, src: torch.Tensor, spans: tuple[tuple[int, int], ...], dim: int) -> None:
+    """Write concatenated `src` back into `dst` along `dim` across `spans`."""
+    off = 0
+    for a, b in spans:
+        n = b - a
+        dst.narrow(dim, a, n).copy_(src.narrow(dim, off, n).to(dst.dtype))
+        off += n
+
+
+def _kernel_supports_return_lse(kernel_fn) -> bool:
+    """Whether `kernel_fn` can accept `return_lse=True`."""
+    try:
+        params = inspect.signature(kernel_fn).parameters.values()
+    except (TypeError, ValueError):
+        return False
+    return any(p.name == "return_lse" or p.kind == inspect.Parameter.VAR_KEYWORD for p in params)
+
+
+def _closure_lookup(fn, names, depth: int = 3) -> dict:
+    """Resolve closure cells in `fn` and inner closures (not descending into `previous`)."""
+    found, queue, seen = {}, [(fn, 0)], set()
+    wanted = set(names)
+    while queue and len(found) < len(wanted):
+        cur, d = queue.pop(0)
+        if id(cur) in seen:
+            continue
+        seen.add(id(cur))
+        code = getattr(cur, "__code__", None)
+        cells = getattr(cur, "__closure__", None) or ()
+        for name, cell in zip(getattr(code, "co_freevars", ()) or (), cells):
+            try:
+                val = cell.cell_contents
+            except ValueError:
+                continue
+            if name in wanted and name not in found:
+                found[name] = val
+            if name != "previous" and d < depth and callable(val) and getattr(val, "__code__", None) is not None:
+                queue.append((val, d + 1))
+    return found
+
+
+def _next_override(probe):
+    """Return the underlying `previous` callable wrapped by `probe`, if any."""
+    next_prev = getattr(probe, "h3_previous", None)
+    if next_prev is not None:
+        return next_prev
+    return _closure_lookup(probe, ("previous",)).get("previous")
+
+
+def _find_sage_kernel(previous):
+    """Find `(kernel_fn, kernel_kwargs)` on an underlying `make_sage_override`, if any."""
+    probe = previous
+    for _ in range(8):
+        if probe is None:
+            return None
+        sk = getattr(probe, "_sage_kernel", None)
+        if sk is not None:
+            return sk
+        probe = _next_override(probe)
+    return None
+
+
+def _flash_or_exact_lse_bhnd(
+    qh: torch.Tensor,
+    kh: torch.Tensor,
+    vh: torch.Tensor,
+    scale: float | None = None,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Compute `(output [B, H, Q, D], lse [B, H, Q] in natural log)`."""
+    if (
+        qh.device.type == "cuda"
+        and qh.dtype in (torch.bfloat16, torch.float16)
+        and qh.shape[-1] <= 256
+    ):
+        o, lse = torch.ops.aten._scaled_dot_product_flash_attention(
+            qh, kh, vh, 0.0, False, False, scale=scale
+        )[:2]
+        return o, lse
+
+    work_dtype = torch.float64 if qh.dtype == torch.float64 else torch.float32
+    s = (float(qh.shape[-1]) ** -0.5) if scale is None else float(scale)
+    scores = torch.matmul(qh.to(work_dtype), kh.to(work_dtype).transpose(-2, -1)) * s
+    lse = torch.logsumexp(scores, dim=-1)
+    probs = torch.exp(scores - lse.unsqueeze(-1))
+    out = torch.matmul(probs, vh.to(work_dtype)).to(qh.dtype)
+    lse_out = lse if qh.dtype == torch.float64 else lse.to(torch.float32)
+    return out, lse_out
+
+
+def _compute_lse_delta_bhnd(
+    o_all_sub: torch.Tensor,
+    lse_sub: torch.Tensor,
+    q_sub: torch.Tensor,
+    ka: torch.Tensor,
+    va: torch.Tensor,
+    weight: float,
+    kb: torch.Tensor | None = None,
+    vb: torch.Tensor | None = None,
+    scale: float | None = None,
+) -> torch.Tensor:
+    """Compute mass-conserving subset balance delta for `query_spans` in natural-log space."""
+    acc_dtype = torch.float64 if q_sub.dtype == torch.float64 else torch.float32
+    oa, lse_a = _flash_or_exact_lse_bhnd(q_sub, ka, va, scale=scale)
+    pa = torch.exp(lse_a.to(acc_dtype) - lse_sub.to(acc_dtype)).clamp(0.0, 1.0)
+    w = float(weight)
+
+    if kb is not None and vb is not None:
+        ob, lse_b = _flash_or_exact_lse_bhnd(q_sub, kb, vb, scale=scale)
+        pb = torch.exp(lse_b.to(acc_dtype) - lse_sub.to(acc_dtype)).clamp(0.0, 1.0)
+        denom = (w * pa + pb).clamp_min(_LSE_SCALE_ACCUM_FLOOR)
+        dpa = ((w - 1.0) * pa * pb) / denom
+        return dpa.unsqueeze(-1) * (oa.to(acc_dtype) - ob.to(acc_dtype))
+
+    rem = (1.0 - pa).clamp_min(0.0)
+    denom = (w * pa + rem).clamp_min(_LSE_SCALE_ACCUM_FLOOR)
+    coeff = ((w - 1.0) * pa) / denom
+    return coeff.unsqueeze(-1) * (oa.to(acc_dtype) - o_all_sub.to(acc_dtype))
+
+
+def lse_subset_balance_bhnd(
+    qh: torch.Tensor,
+    kh: torch.Tensor,
+    vh: torch.Tensor,
+    plan: dict,
+    scale: float | None = None,
+    sage_kernel=None,
+) -> torch.Tensor:
+    """Run full attention with LSE and shift mass inside `A cup B` (or `A` vs complement)."""
+    q_spans = plan["query_spans"]
+    spans_a = plan["spans_a"]
+    spans_b = plan["spans_b"]
+    weight = float(plan["weight"])
+
+    o_all = lse_all = None
+    if (
+        sage_kernel is not None
+        and scale is None
+        and qh.device.type == "cuda"
+        and qh.dtype in (torch.bfloat16, torch.float16)
+        and qh.shape[-1] <= 128
+    ):
+        kernel_fn, kernel_kwargs = sage_kernel
+        if _kernel_supports_return_lse(kernel_fn):
+            try:
+                o_all, lse_all = kernel_fn(
+                    [qh, kh, vh],
+                    **dict(kernel_kwargs, tensor_layout="HND", return_lse=True),
+                )
+            except Exception as exc:
+                _log_fallback_once(exc)
+                o_all = lse_all = None
+
+    if o_all is None or lse_all is None:
+        o_all, lse_all = _flash_or_exact_lse_bhnd(qh, kh, vh, scale=scale)
+
+    if abs(weight - 1.0) <= 1e-6:
+        return o_all
+
+    q_sub = _gather_spans(qh, q_spans, 2)
+    ka = _gather_spans(kh, spans_a, 2)
+    va = _gather_spans(vh, spans_a, 2)
+    kb = _gather_spans(kh, spans_b, 2) if spans_b is not None else None
+    vb = _gather_spans(vh, spans_b, 2) if spans_b is not None else None
+    o_all_sub = _gather_spans(o_all, q_spans, 2)
+    lse_sub = _gather_spans(lse_all, q_spans, 2)
+
+    delta = _compute_lse_delta_bhnd(
+        o_all_sub, lse_sub, q_sub, ka, va, weight, kb=kb, vb=vb, scale=scale
+    )
+    acc_dtype = delta.dtype
+    updated = o_all_sub.to(acc_dtype) + delta
+    out = o_all.clone()
+    _write_spans_(out, updated, q_spans, 2)
+    return out
+
+
+def _lse_subset_balance_nhd_box(
+    qkv_box: list,
+    plan: dict,
+    *,
+    kernel_fn=None,
+    kernel_kwargs=None,
+    clone_v: bool = False,
+) -> torch.Tensor:
+    """NHD wrapper that preserves early QKV consumption when `sage-fork` runs `return_lse=True`."""
+    q, k, v = qkv_box
+    qkv_box.clear()
+
+    q_spans = plan["query_spans"]
+    spans_a = plan["spans_a"]
+    spans_b = plan["spans_b"]
+    weight = float(plan["weight"])
+
+    can_sage = (
+        kernel_fn is not None
+        and _kernel_supports_return_lse(kernel_fn)
+        and q.device.type == "cuda"
+        and q.dtype in (torch.bfloat16, torch.float16)
+        and q.shape[-1] <= 128
+    )
+
+    q_sub = _gather_spans(q, q_spans, 1).transpose(1, 2).contiguous()
+    ka = _gather_spans(k, spans_a, 1).transpose(1, 2).contiguous()
+    va = _gather_spans(v, spans_a, 1).transpose(1, 2).contiguous()
+    kb = _gather_spans(k, spans_b, 1).transpose(1, 2).contiguous() if spans_b is not None else None
+    vb = _gather_spans(v, spans_b, 1).transpose(1, 2).contiguous() if spans_b is not None else None
+
+    if can_sage:
+        if clone_v and _prefers_cloned_v(q.device):
+            v = v.clone()
+        sage_box = [q, k, v]
+        del q, k, v
+        out_nhd, lse_all = kernel_fn(sage_box, **dict(kernel_kwargs or {}, return_lse=True))
+        o_all_sub = _gather_spans(out_nhd, q_spans, 1).transpose(1, 2)
+        lse_sub = _gather_spans(lse_all, q_spans, 2)
+        delta = _compute_lse_delta_bhnd(o_all_sub, lse_sub, q_sub, ka, va, weight, kb=kb, vb=vb)
+        updated_nhd = (o_all_sub.to(delta.dtype) + delta).transpose(1, 2)
+        out = out_nhd.clone()
+        _write_spans_(out, updated_nhd, q_spans, 1)
+        return out
+
+    qh = q.transpose(1, 2)
+    kh = k.transpose(1, 2)
+    vh = v.transpose(1, 2)
+    del q, k, v
+    o_all, lse_all = _flash_or_exact_lse_bhnd(qh, kh, vh, scale=None)
+    del qh, kh, vh
+    o_all_sub = _gather_spans(o_all, q_spans, 2)
+    lse_sub = _gather_spans(lse_all, q_spans, 2)
+    delta = _compute_lse_delta_bhnd(o_all_sub, lse_sub, q_sub, ka, va, weight, kb=kb, vb=vb)
+    updated_bhnd = o_all_sub.to(delta.dtype) + delta
+    out_bhnd = o_all.clone()
+    _write_spans_(out_bhnd, updated_bhnd, q_spans, 2)
+    return out_bhnd.transpose(1, 2).contiguous()
+
+
+def make_lse_balance_override(previous=None):
+    """Build an `optimized_attention_override` executing LSE subset attention balance."""
+    sage_kernel = _find_sage_kernel(previous)
+
+    def override(
+        func,
+        q,
+        k,
+        v,
+        heads,
+        mask=None,
+        attn_precision=None,
+        skip_reshape=False,
+        skip_output_reshape=False,
+        **kwargs,
+    ):
+        held = not torch.is_tensor(q)
+
+        def fallback():
+            if held:
+                return previous.container_function(
+                    q,
+                    k,
+                    v,
+                    heads,
+                    mask=mask,
+                    attn_precision=attn_precision,
+                    skip_reshape=skip_reshape,
+                    skip_output_reshape=skip_output_reshape,
+                    **kwargs,
+                )
+            target = func if previous is None else functools.partial(previous, func)
+            return target(
+                q,
+                k,
+                v,
+                heads,
+                mask=mask,
+                attn_precision=attn_precision,
+                skip_reshape=skip_reshape,
+                skip_output_reshape=skip_output_reshape,
+                **kwargs,
+            )
+
+        options = kwargs.get("transformer_options")
+        tq = q if not held else q.peek()
+        tk = k if torch.is_tensor(k) else k.peek()
+        tv = v if torch.is_tensor(v) else v.peek()
+        want_ndim = 4 if skip_reshape else 3
+        if mask is not None or tq.ndim != want_ndim or tk.ndim != want_ndim or tv.ndim != want_ndim:
+            return fallback()
+        tokens = int(tq.shape[2] if skip_reshape else tq.shape[1])
+        lse_plan = resolve_lse_balance_plan(options, tokens)
+        if lse_plan is None:
+            return fallback()
+
+        b = int(tq.shape[0])
+        dim_head = int(tq.shape[-1]) if skip_reshape else (int(tq.shape[-1]) // int(heads))
+        if dim_head > 256:
+            return fallback()
+
+        if held:
+            q_t, k_t, v_t = q.take(), k.take(), v.take()
+        else:
+            q_t, k_t, v_t = q, k, v
+
+        if skip_reshape:
+            qh, kh, vh = q_t, k_t, v_t
+        else:
+            qh, kh, vh = (t.view(b, -1, heads, dim_head).transpose(1, 2) for t in (q_t, k_t, v_t))
+
+        kh, vh = apply_audio_gain(kh, vh, options, 2)
+        out_bhnd = lse_subset_balance_bhnd(
+            qh,
+            kh,
+            vh,
+            lse_plan,
+            scale=kwargs.get("scale"),
+            sage_kernel=sage_kernel,
+        )
+        if skip_output_reshape:
+            return out_bhnd
+        return out_bhnd.transpose(1, 2).reshape(b, -1, heads * dim_head)
+
+    if getattr(previous, "container_function", None) is not None:
+        override.container_function = functools.partial(override, None)
+    override.h3_kernel = "lse_balance"
+    override.h3_previous = previous
+    return override
+
+
+def _override_has_lse_balance(override, depth: int = 16) -> bool:
+    """Return True if an `lse_balance` override already sits in the chain."""
+    probe = override
+    for _ in range(depth):
+        if probe is None:
+            return False
+        if getattr(probe, "h3_kernel", None) == "lse_balance":
+            return True
+        probe = _next_override(probe)
+    return False
+
+
+def install_lse_balance_override(model):
+    """Clone `model` and install `make_lse_balance_override` cleanly beneath any Sol override."""
+    m = model.clone() if hasattr(model, "clone") else model
+    opts = getattr(m, "model_options", None)
+    if not isinstance(opts, dict):
+        return m
+    to = opts["transformer_options"] = dict(opts.get("transformer_options") or {})
+    current = to.get("optimized_attention_override")
+    if _override_has_lse_balance(current):
+        return m
+
+    sol_cbs = []
+    if current is not None and "sol_compose" in to and getattr(current, "h3_kernel", None) is None:
+        found = _closure_lookup(current, ("dense_blocks", "previous"))
+        if "dense_blocks" in found and "previous" in found and hasattr(m, "get_callbacks"):
+            try:
+                from comfy.patcher_extension import CallbacksMP
+
+                sol_cbs = list(m.get_callbacks(CallbacksMP.ON_PREPARE_STATE, "h3_sol") or ())
+            except Exception:
+                sol_cbs = []
+            if sol_cbs:
+                under_sol = found["previous"]
+                to["optimized_attention_override"] = make_lse_balance_override(previous=under_sol)
+                for cb in sol_cbs:
+                    cb(m, None, m.model_options)
+                return m
+
+    to["optimized_attention_override"] = make_lse_balance_override(previous=current)
+    return m
+
+
+def attach_lse_reference_balance(
+    model,
+    *,
+    ref_indices_a,
+    ref_indices_b=None,
+    weight: float = 1.0,
+    blocks: str = "30-49",
+    start_percent: float = 0.0,
+    end_percent: float = 1.0,
+    query_kinds=("video",),
+):
+    """Attach clean-room LSE subset balance between `<Picture N>`/`<Video N>` ref slices."""
+    w = float(weight)
+    if not (w > 0.0):
+        raise ValueError(f"weight must be positive, got {weight!r}")
+    if abs(w - 1.0) <= 1e-6:
+        m = model.clone() if hasattr(model, "clone") else model
+        opts = getattr(m, "model_options", None)
+        if isinstance(opts, dict):
+            to = opts["transformer_options"] = dict(opts.get("transformer_options") or {})
+            to.pop("minimax_h3_lse_balance", None)
+        return m
+
+    m = install_lse_balance_override(model)
+    n_blocks = 50
+    if hasattr(m, "get_model_object"):
+        try:
+            dm = m.get_model_object("diffusion_model")
+            blk_list = getattr(dm, "blocks", None)
+            if blk_list is not None:
+                n_blocks = len(blk_list)
+        except Exception:
+            pass
+    blocks_spec = (blocks or "all").strip().lower()
+    block_set = None if blocks_spec in ("", "all") else _parse_blocks(blocks, n_blocks)
+
+    sigma_start = sigma_end = None
+    if hasattr(m, "get_model_object") and (float(start_percent) > 0.0 or float(end_percent) < 1.0):
+        try:
+            ms = m.get_model_object("model_sampling")
+            sigma_start = float(ms.percent_to_sigma(float(start_percent)))
+            sigma_end = float(ms.percent_to_sigma(float(end_percent)))
+        except Exception:
+            pass
+
+    to = m.model_options["transformer_options"]
+    to["minimax_h3_lse_balance"] = {
+        "weight": w,
+        "ref_indices_a": tuple(int(i) for i in ref_indices_a),
+        "ref_indices_b": None if ref_indices_b is None else tuple(int(i) for i in ref_indices_b),
+        "query_kinds": None if query_kinds is None else tuple(str(k) for k in query_kinds),
+        "blocks": block_set,
+        "sigma_start": sigma_start,
+        "sigma_end": sigma_end,
+        "require_layout": True,
+    }
+    return m
+
+
 def make_sage_override(kernel_fn, kernel_kwargs, previous=None):
     """An `optimized_attention_override` that routes eligible calls to sage.
 
@@ -418,6 +1001,7 @@ def make_sage_override(kernel_fn, kernel_kwargs, previous=None):
     # the difference between "Sol is correctly absent" and "Sol is broken",
     # which is the third-state rule in VISION.md. The chain is exposed for the
     # same reason: whoever inspects this needs to reach what it wrapped.
+    override._sage_kernel = (kernel_fn, kernel_kwargs)
     override.h3_kernel = "sage"
     override.h3_previous = previous
     return override
@@ -621,6 +1205,27 @@ def make_minimax_attn_forward(kernel_fn, kernel_kwargs, head_chunks=1,
         if n <= 1 and isinstance(transformer_options, dict):
             n = transformer_options.get("minimax_head_chunks", 1)
         n = max(1, min(int(n), self.heads))
+
+        lse_plan = resolve_lse_balance_plan(transformer_options, s)
+        if lse_plan is not None:
+            qkv_box = [q, k, v]
+            del q, k, v
+            use_sage = (n == 1)
+            try:
+                out = _lse_subset_balance_nhd_box(
+                    qkv_box,
+                    lse_plan,
+                    kernel_fn=kernel_fn if use_sage else None,
+                    kernel_kwargs=kernel_kwargs if use_sage else None,
+                    clone_v=clone_v,
+                )
+            except Exception as exc:
+                _log_fallback_once(exc)
+                _trace.route(s, "fallback_kernel")
+                del qkv_box
+                return _stock_forward(self, x, rope_freqs, transformer_options)
+            _trace.route(s, "lse_balance")
+            return self.out_proj(out.view(s, self.heads * self.head_dim))
 
         # Deliberately below the whole of the `n` resolution above, including
         # the transformer_options read -- not beside the clone's old home. The

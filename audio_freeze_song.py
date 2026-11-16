@@ -150,6 +150,8 @@ from .audio_freeze import (
     _stereo,
     video_latent_t,
 )
+from .attention import install_lse_balance_override
+from .block_spec import parse_blocks
 from .conditioning import MiniMaxH3Conditioning
 from . import loop_plan, loop_resume, part_coverage, shot_table
 from .h3_rules import MAX_LENGTH
@@ -515,10 +517,12 @@ def reference_costs(records, width: int, height: int, frames: int, clip=None, pr
 SECTION_ANCHOR_MODES = ("off", "per_section", "whole_track")
 SECTION_ANCHOR_DEFAULT = "off"
 ANCHOR_END_PERCENT_DEFAULT = 0.33
+ANCHOR_WEIGHT_DEFAULT = 1.0
+ANCHOR_BLOCKS_DEFAULT = "30-49"
 SECTION_ANCHOR_WRAPPER_KEY = "h3_section_anchor"
 
 
-def _attach_anchor_to_conditioning(cond, anchor_latent: torch.Tensor):
+def _attach_anchor_to_conditioning(cond, anchor_latent: torch.Tensor, context_steps: int = 0):
     """Return a shallow copy of `cond` with a DiT-only Frame-0 `section_anchor` image ref."""
     anchor_blk = {
         "kind": "image",
@@ -526,6 +530,7 @@ def _attach_anchor_to_conditioning(cond, anchor_latent: torch.Tensor):
         "latent_w": int(anchor_latent.shape[-1]),
         "latent": anchor_latent,
         "section_anchor": True,
+        "context_steps": int(context_steps),
     }
     attached = []
     for item in cond:
@@ -679,14 +684,39 @@ def _drop_section_anchor_from_layout(orig_layout: Any, refs: Any) -> Any:
     return released
 
 
-def attach_section_anchor_release(model, end_cutoff: float):
-    """Clone `model` and selectively drop `section_anchor=True` refs after `end_cutoff`
-    of denoising steps while keeping user `<Picture N>`/`<Video N>` refs and 3D RoPE intact.
+def attach_section_anchor_release(
+    model,
+    end_cutoff: float,
+    anchor_weight: float = ANCHOR_WEIGHT_DEFAULT,
+    anchor_blocks: str = ANCHOR_BLOCKS_DEFAULT,
+):
+    """Clone `model`, optionally wire LSE subset balance, and selectively drop `section_anchor=True`
+    refs after `end_cutoff` of denoising steps while keeping user `<Picture N>`/`<Video N>` refs
+    and 3D RoPE intact.
     """
     if not (hasattr(model, "clone") and hasattr(model, "add_wrapper_with_key")):
         return model
 
-    cloned = model.clone()
+    anchor_w = float(anchor_weight)
+    use_lse = abs(anchor_w - 1.0) > 1e-6
+    block_set = None
+    if use_lse:
+        blk_spec = str(anchor_blocks or "").strip()
+        if not blk_spec:
+            raise ValueError("anchor_blocks cannot be empty when anchor_weight != 1.0 (use '30-49' or 'all')")
+        n_blocks = 50
+        if hasattr(model, "get_model_object"):
+            try:
+                dm = model.get_model_object("diffusion_model")
+                dm_blocks = getattr(dm, "blocks", None)
+                if dm_blocks is not None:
+                    n_blocks = len(dm_blocks)
+            except Exception:
+                pass
+        block_set = None if blk_spec.lower() == "all" else parse_blocks(blk_spec, n_blocks)
+        cloned = install_lse_balance_override(model)
+    else:
+        cloned = model.clone()
     if hasattr(cloned, "remove_wrappers_with_key"):
         cloned.remove_wrappers_with_key(WrappersMP.DIFFUSION_MODEL, SECTION_ANCHOR_WRAPPER_KEY)
 
@@ -740,6 +770,41 @@ def attach_section_anchor_release(model, end_cutoff: float):
 
         if _anchor_step_active(transformer_options, timestep, float(end_cutoff)):
             spans = _section_anchor_spans(orig_layout, refs) if orig_layout is not None else []
+            lse_cfg = None
+            if use_lse and spans and orig_layout is not None:
+                vid_span = next(
+                    ((int(a), int(b)) for a, b, k in getattr(orig_layout, "segments", ()) if k == "video" and b > a),
+                    None,
+                )
+                sig = getattr(orig_layout, "signature", None)
+                if vid_span is not None and sig is not None and len(sig) >= 4:
+                    va, vb = vid_span
+                    latent_t, latent_h, latent_w = int(sig[1]), int(sig[2]), int(sig[3])
+                    frame_rows = max(1, (latent_h // 2) * (latent_w // 2))
+                    ctx_steps = max(
+                        (
+                            int(r.get("context_steps", 0))
+                            for r in refs
+                            if isinstance(r, Mapping) and r.get("section_anchor")
+                        ),
+                        default=0,
+                    )
+                    ctx_end = va + ctx_steps * frame_rows
+                    if ctx_steps > 0 and ctx_steps < latent_t and ctx_end < vb:
+                        spans_b = ((va, ctx_end),)
+                        query_spans = ((ctx_end, vb),)
+                    else:
+                        spans_b = None
+                        query_spans = ((va, vb),)
+                    lse_cfg = {
+                        "weight": anchor_w,
+                        "spans_a": tuple(spans),
+                        "spans_b": spans_b,
+                        "query_spans": query_spans,
+                        "blocks": block_set,
+                        "require_layout": True,
+                    }
+
             missing_marker = object()
             is_dict_opts = isinstance(transformer_options, dict)
             prior_spans = (
@@ -747,8 +812,15 @@ def attach_section_anchor_release(model, end_cutoff: float):
                 if is_dict_opts
                 else missing_marker
             )
+            prior_lse = (
+                transformer_options.get("minimax_h3_lse_balance", missing_marker)
+                if is_dict_opts
+                else missing_marker
+            )
             if is_dict_opts and spans:
                 transformer_options["h3_section_anchor_spans"] = spans
+            if is_dict_opts and lse_cfg is not None:
+                transformer_options["minimax_h3_lse_balance"] = lse_cfg
             try:
                 return executor(x, timestep, context, transformer_options, **kwargs)
             finally:
@@ -757,6 +829,11 @@ def attach_section_anchor_release(model, end_cutoff: float):
                         transformer_options.pop("h3_section_anchor_spans", None)
                     else:
                         transformer_options["h3_section_anchor_spans"] = prior_spans
+                if is_dict_opts and lse_cfg is not None:
+                    if prior_lse is missing_marker:
+                        transformer_options.pop("minimax_h3_lse_balance", None)
+                    else:
+                        transformer_options["minimax_h3_lse_balance"] = prior_lse
 
         cache_key = (id(orig_layout), id(refs)) if orig_layout is not None else None
         cached = layout_cache.get(cache_key) if cache_key is not None else None
@@ -998,6 +1075,32 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
                         "and releases cleanly before fine-detail steps; 1.00 holds through all steps)."
                     ),
                 ),
+                # appended 2026-11-16 (Bucket 4): mass-conserving LSE subset attention balance on section anchor
+                io.Float.Input(
+                    "anchor_weight",
+                    default=ANCHOR_WEIGHT_DEFAULT,
+                    min=0.1,
+                    max=16.0,
+                    step=0.1,
+                    optional=True,
+                    tooltip=(
+                        "Within-slice LSE attention weight factor between `section_anchor` rows and "
+                        "carried context video rows while active (`1.0` leaves attention unchanged; "
+                        "`> 1.0` shifts softmax mass from carried context toward the section anchor "
+                        "via FlashAttention-2 / `sage-fork` `return_lse=True`, leaving prompt text, "
+                        "references, audio, and non-target queries untouched)."
+                    ),
+                ),
+                io.String.Input(
+                    "anchor_blocks",
+                    default=ANCHOR_BLOCKS_DEFAULT,
+                    optional=True,
+                    tooltip=(
+                        "DiT blocks running LSE subset balance when `anchor_weight != 1.0` "
+                        "(syntax like `'30-49'`, `'all'`, or `'31-44,47'`; `'30-49'` scopes to late "
+                        "appearance/exposure blocks while keeping early/mid blocks on full Sol speed)."
+                    ),
+                ),
             ],
             outputs=[
                 io.String.Output(display_name="path"),
@@ -1024,7 +1127,9 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
                 continue_from="", context_noise=CONTEXT_NOISE, save_kept=False,
                 context_profile=CONTEXT_PROFILE_DEFAULT,
                 section_anchor=SECTION_ANCHOR_DEFAULT,
-                anchor_end_percent=ANCHOR_END_PERCENT_DEFAULT) -> io.NodeOutput:
+                anchor_end_percent=ANCHOR_END_PERCENT_DEFAULT,
+                anchor_weight=ANCHOR_WEIGHT_DEFAULT,
+                anchor_blocks=ANCHOR_BLOCKS_DEFAULT) -> io.NodeOutput:
         import folder_paths
         if context_profile not in CONTEXT_PROFILES:
             raise ValueError(f"unknown context_profile {context_profile!r}; expected one of {CONTEXT_PROFILES}")
@@ -1033,6 +1138,15 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
         anchor_end = float(anchor_end_percent)
         if not math.isfinite(anchor_end) or anchor_end < 0.05 or anchor_end > 1.0:
             raise ValueError(f"anchor_end_percent must be in [0.05, 1.0], got {anchor_end_percent!r}")
+        anchor_w = float(anchor_weight)
+        if not math.isfinite(anchor_w) or anchor_w < 0.1 or anchor_w > 16.0:
+            raise ValueError(f"anchor_weight must be in [0.1, 16.0], got {anchor_weight!r}")
+        anchor_blk_str = str(anchor_blocks or "").strip()
+        if not anchor_blk_str:
+            if abs(anchor_w - 1.0) > 1e-6:
+                raise ValueError("anchor_blocks cannot be empty when anchor_weight != 1.0 (use '30-49' or 'all')")
+        elif anchor_blk_str.lower() != "all":
+            parse_blocks(anchor_blk_str, 50)
         # A DynamicCombo arrives as one nested dict (the selection under its own
         # id, the option's inputs beside it) or, from an API prompt that sets
         # only the selection, as a bare string.
@@ -1091,7 +1205,12 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
             lines.append(f"continues from {os.path.basename(continue_from)}: the first {head} frames of this run's "
                          f"track are that window's context and are not written; {kept_frames - head} frames are")
         if section_anchor != "off":
-            lines.append(f"section anchor: {section_anchor} (active through {anchor_end:.2f} of steps)")
+            lse_note = (
+                f", LSE weight={anchor_w:.2f} on blocks={anchor_blk_str!r}"
+                if abs(anchor_w - 1.0) > 1e-6
+                else ""
+            )
+            lines.append(f"section anchor: {section_anchor} (active through {anchor_end:.2f} of steps{lse_note})")
         zoom, cut_sides = None, set()
         if source is not None:
             # A small subject rendered zoomed in (`render_region`): from here on `source` is one box of the load
@@ -1246,7 +1365,16 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
         files, stored_latents = [], []
         # the first window of a run that continues another takes its context from the stored window named
         prev = loop_resume.load_window_latent(continue_from) if continue_from else None
-        run_model = attach_section_anchor_release(model, anchor_end) if section_anchor != "off" else model
+        run_model = (
+            attach_section_anchor_release(
+                model,
+                anchor_end,
+                anchor_weight=anchor_w,
+                anchor_blocks=anchor_blk_str,
+            )
+            if section_anchor != "off"
+            else model
+        )
         active_anchor = None
         active_anchor_entry = None
         active_anchor_origin = ""
@@ -1353,7 +1481,11 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
                 use_anchor = section_anchor != "off" and active_anchor is not None
                 guider = Guider_Basic(run_model if use_anchor else model)
                 if use_anchor:
-                    guider.set_conds(_attach_anchor_to_conditioning(conds[cond_keys[w.number]], active_anchor))
+                    guider.set_conds(
+                        _attach_anchor_to_conditioning(
+                            conds[cond_keys[w.number]], active_anchor, context_steps=c_steps
+                        )
+                    )
                     reports.append(
                         f"[{w.number}] section anchor from {active_anchor_origin} active through {anchor_end:.2f} of steps"
                     )

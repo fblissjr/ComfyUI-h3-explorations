@@ -87,7 +87,8 @@
       "start_percent",
       "end_percent",
       "blocks",
-      "include_reference_rows"
+      "include_reference_rows",
+      "mode"
     ],
     "node_id": "MiniMaxH3AudioAttentionGain",
     "outputs": [
@@ -127,7 +128,9 @@
       "save_kept",
       "context_profile",
       "section_anchor",
-      "anchor_end_percent"
+      "anchor_end_percent",
+      "anchor_weight",
+      "anchor_blocks"
     ],
     "node_id": "MiniMaxH3AudioFreezeSong",
     "outputs": [

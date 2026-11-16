@@ -8,13 +8,13 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 173 |
+| [`check_*`](#check) | 174 |
 | [`measure_*`](#measure) | 39 |
 | [`analyze_*`](#analyze) | 18 |
 | [`grade_*`](#grade) | 19 |
 | [`compare_*`](#compare) | 15 |
 | [`build_*`](#build) | 13 |
-| [`probe_*`](#probe) | 17 |
+| [`probe_*`](#probe) | 18 |
 | [the rest](#the-rest) | 201 |
 
 ## check
@@ -99,6 +99,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_lora_alpha.py`](check_lora_alpha.py) | Check every LoRA this repo names is one ComfyUI can scale correctly. |
 | [`check_lora_branch.py`](check_lora_branch.py) | `MiniMaxH3LoRABranch` computes the merged LoRA exactly, on every module an H3 LoRA targets. |
 | [`check_lowvram_handoff.py`](check_lowvram_handoff.py) | Check that the sage forward survives KJNodes' low-VRAM block patch. |
+| [`check_lse_balance.py`](check_lse_balance.py) | Verify clean-room LSE subset attention balance, Sol/Provenance composition, and CUDA kernels. |
 | [`check_marker_arms.py`](check_marker_arms.py) | A marker-corpus arm that was declared and not applied must go red. |
 | [`check_masked_code_map.py`](check_masked_code_map.py) | Check `bench/masked_code_map.py` AST symbol extraction, dependency/call/data/step chains, and code-map gates. |
 | [`check_masked_job.py`](check_masked_job.py) | Check the masked job builder: the graphs it writes and what it refuses. |
@@ -333,6 +334,7 @@ this file is only a way to find a script by what it says it does.
 | [`probe_block_propagation.py`](probe_block_propagation.py) | Does Sol's error at ONE block reach the output? Measured, one block at a time. |
 | [`probe_bucket2_seam_and_gain.py`](probe_bucket2_seam_and_gain.py) | Live `:8188` Bucket 2 probe: AudioAttentionGain guard/scoping & Song seam_taper A/B. |
 | [`probe_bucket3_section_anchor.py`](probe_bucket3_section_anchor.py) | Bucket 3 probe: Timeline-scoped Frame-0 `section_anchor` + `anchor_end_percent=0.33` release. |
+| [`probe_bucket4_lse_balance.py`](probe_bucket4_lse_balance.py) | Bucket 4 probe: Mass-conserving `return_lse=True` subset balance + `section_anchor` `0.33` release. |
 | [`probe_encoder_rope_kitchen.py`](probe_encoder_rope_kitchen.py) | Did core's move of the text encoder's RoPE onto comfy-kitchen change its numbers? |
 | [`probe_grade_row_selection.py`](probe_grade_row_selection.py) | Does the video-and-audio row selector in `grade_dense_kernels_on_captures.py` select and grade the right rows? |
 | [`probe_h3_image_vae_tiles.py`](probe_h3_image_vae_tiles.py) | How the MiniMax-H3-Image VAE's 256 px decode tiles shape its pictures, measured on real pictures with no DiT. |
@@ -742,7 +744,7 @@ Arm manifests and the like; a manifest's line is its own `what`.
 
 ### results
 
-240 tracked files: [`results/INDEX.md`](results/INDEX.md).
+241 tracked files: [`results/INDEX.md`](results/INDEX.md).
 
 ### rubrics
 

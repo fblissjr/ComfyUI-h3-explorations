@@ -1591,6 +1591,119 @@ def check_section_anchor(problems):
         _fail(problems, "section_anchor wrapper: h3_section_anchor_spans leaked on executor exception")
 
 
+def check_anchor_lse_balance_and_gain_mode(problems):
+    """Bucket 4 unit checks: `attach_section_anchor_release(..., anchor_weight=...)` LSE balance
+    publication/release + refusals, and `MiniMaxH3AudioAttentionGain(mode='lse_balance'|'kv_scale')`.
+    """
+    import importlib
+    from comfy.ldm.minimax.model import PackedLayout
+    from comfy.model_patcher import ModelPatcher
+    from comfy.patcher_extension import WrapperExecutor, WrappersMP
+
+    af_mod = importlib.import_module("_h3pack.audio_freeze")
+    song_mod = importlib.import_module("_h3pack.audio_freeze_song")
+
+    class DummySampling:
+        @staticmethod
+        def percent_to_sigma(p):
+            return 1.0 - float(p)
+
+    class DummyDiffModel(torch.nn.Module):
+        def __init__(self, n_blocks=50):
+            super().__init__()
+            self.diffusion_model = torch.nn.Identity()
+            self.diffusion_model.blocks = [object() for _ in range(n_blocks)]
+            self.model_sampling = DummySampling()
+
+    # 1. `MiniMaxH3AudioAttentionGain` mode="lse_balance" vs "kv_scale"
+    mp_base = ModelPatcher(DummyDiffModel(), load_device=torch.device("cpu"), offload_device=torch.device("cpu"))
+    out_lse = af_mod.MiniMaxH3AudioAttentionGain.execute(
+        mp_base, 2.5, 1.2, 0.0, 1.0, blocks="0-29", include_reference_rows=True, mode="lse_balance"
+    ).args[0]
+    to_lse = out_lse.model_options["transformer_options"]
+    cfg_lse = to_lse.get("minimax_h3_lse_balance")
+    cfg_kv = to_lse.get("minimax_h3_audio_gain")
+    if (
+        not isinstance(cfg_lse, dict)
+        or cfg_lse.get("weight") != 2.5
+        or cfg_lse.get("kinds_a") != {"audio", "ref_audio", "cond_audio"}
+        or cfg_lse.get("query_kinds") != {"video"}
+        or cfg_lse.get("blocks") != frozenset(range(0, 30))
+        or getattr(to_lse.get("optimized_attention_override"), "h3_kernel", None) != "lse_balance"
+    ):
+        _fail(problems, f"MiniMaxH3AudioAttentionGain(mode='lse_balance') misconfigured: {cfg_lse}")
+    if not isinstance(cfg_kv, dict) or cfg_kv.get("key_gain") != 1.0 or cfg_kv.get("value_gain") != 1.2:
+        _fail(problems, f"MiniMaxH3AudioAttentionGain(mode='lse_balance') value_gain mismatch: {cfg_kv}")
+
+    out_kv = af_mod.MiniMaxH3AudioAttentionGain.execute(
+        out_lse, 2.5, 1.0, 0.0, 1.0, blocks="0-29", include_reference_rows=False, mode="kv_scale"
+    ).args[0]
+    to_kv = out_kv.model_options["transformer_options"]
+    if "minimax_h3_lse_balance" in to_kv:
+        _fail(problems, "MiniMaxH3AudioAttentionGain(mode='kv_scale') did not clear minimax_h3_lse_balance")
+    if to_kv.get("minimax_h3_audio_gain", {}).get("key_gain") != 2.5:
+        _fail(problems, f"MiniMaxH3AudioAttentionGain(mode='kv_scale') dropped key_gain: {to_kv}")
+
+    # 2. `attach_section_anchor_release(..., anchor_weight=4.0, anchor_blocks="30-49")`
+    t_user = torch.full((1, 24, 1, 4, 4), 11.0)
+    t_anc = torch.full((1, 24, 1, 4, 4), 22.0)
+    user_ref = {"kind": "image", "latent_h": 4, "latent_w": 4, "latent": t_user}
+    anc_ref = {"kind": "image", "latent_h": 4, "latent_w": 4, "latent": t_anc, "section_anchor": True, "context_steps": 2}
+    orig_layout = PackedLayout(16, 7, 4, 4, 20, refs=[user_ref, anc_ref])  # video is (64, 92), frame_rows=4, ctx=2 -> (64, 72)
+
+    wrapped_mp = song_mod.attach_section_anchor_release(mp_base, 0.33, anchor_weight=4.0, anchor_blocks="30-49")
+    if getattr(wrapped_mp.model_options["transformer_options"].get("optimized_attention_override"), "h3_kernel", None) != "lse_balance":
+        _fail(problems, "attach_section_anchor_release(anchor_weight=4.0) did not install lse_balance override")
+
+    wrappers = wrapped_mp.get_all_wrappers(WrappersMP.DIFFUSION_MODEL)
+    seen_lse = []
+
+    def _dummy_forward(x_in, ts_in, ctx_in, topts_in, **kw):
+        seen_lse.append(topts_in.get("minimax_h3_lse_balance"))
+        return x_in
+
+    pika_sigmas = torch.tensor([1.0, 0.972973, 0.923077, 0.8, 0.571429, 0.333333, 0.0], dtype=torch.float32)
+    x_dummy = [torch.zeros(1, 24, 7, 4, 4), torch.zeros(1, 32, 2, 20)]
+    ctx_dummy = torch.zeros(1, 16, 5376)
+    base_payload = {"refs": [user_ref, anc_ref], "cond_video_latents": [t_user, t_anc], "layout": orig_layout}
+
+    for step_idx in range(6):
+        cur_sig = pika_sigmas[step_idx : step_idx + 1]
+        t_opts = {"sample_sigmas": pika_sigmas, "sigmas": cur_sig}
+        WrapperExecutor.new_class_executor(_dummy_forward, None, wrappers).execute(
+            x_dummy, cur_sig * 1000.0, ctx_dummy, t_opts, minimax_payload=dict(base_payload)
+        )
+        if "minimax_h3_lse_balance" in t_opts:
+            _fail(problems, f"section_anchor wrapper: minimax_h3_lse_balance leaked after step {step_idx}")
+
+    for active_idx in (0, 1):
+        cfg = seen_lse[active_idx]
+        if (
+            not isinstance(cfg, dict)
+            or cfg.get("weight") != 4.0
+            or cfg.get("spans_a") != ((20, 24),)
+            or cfg.get("spans_b") != ((64, 72),)
+            or cfg.get("query_spans") != ((72, 92),)
+            or cfg.get("blocks") != frozenset(range(30, 50))
+        ):
+            _fail(problems, f"section_anchor step {active_idx}: unexpected LSE balance cfg {cfg}")
+    for rel_idx in (2, 3, 4, 5):
+        if seen_lse[rel_idx] is not None:
+            _fail(problems, f"section_anchor step {rel_idx}: minimax_h3_lse_balance remained active after release")
+
+    # 3. Preview/execute refusals on invalid `anchor_weight` / empty `anchor_blocks`
+    track = {"waveform": torch.zeros(1, 2, int(round(4.0 * 32000))), "sample_rate": 32000}
+    for bad_kw in ({"anchor_weight": 0.01}, {"anchor_weight": 20.0}, {"anchor_weight": 4.0, "anchor_blocks": ""}):
+        if not _raises(
+            lambda kw=bad_kw: song_mod.MiniMaxH3AudioFreezeSong.execute(
+                object(), object(), object(), FakeAudioVAE(), track, object(), pika_sigmas,
+                "p", "", True, 64, 64, 141, 39, "whole", 11, 0.0, "clip_guard",
+                "t/bad", 19, section_anchor="per_section", **kw,
+            )
+        ):
+            _fail(problems, f"MiniMaxH3AudioFreezeSong did not refuse invalid kwargs {bad_kw}")
+
+
 def _raises(call, *args) -> bool:
     try:
         call(*args)
@@ -1607,6 +1720,7 @@ def main() -> int:
     check_window_geometry(problems)
     check_seam_taper_and_gain_guard(problems)
     check_section_anchor(problems)
+    check_anchor_lse_balance_and_gain_mode(problems)
     check_resume(problems)
     check_song_plan(problems)
     check_step_grid(problems)

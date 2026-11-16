@@ -67,6 +67,7 @@ from collections.abc import Mapping
 import torch
 from comfy_api.latest import io
 
+from .attention import install_lse_balance_override
 from .audio_resample import RESAMPLER, resample
 from .h3_rules import chain_lengths
 
@@ -748,6 +749,10 @@ def _parse_blocks(text: str, count: int = 50):
     return frozenset(out)
 
 
+AUDIO_GAIN_MODES = ("kv_scale", "lse_balance")
+AUDIO_GAIN_MODE_DEFAULT = "kv_scale"
+
+
 class MiniMaxH3AudioAttentionGain(io.ComfyNode):
     @classmethod
     def define_schema(cls):
@@ -757,15 +762,14 @@ class MiniMaxH3AudioAttentionGain(io.ComfyNode):
             category="model/patches/minimax",
             description=(
                 "A knob on how much the audio rows weigh in attention (docs/wiki/core/h3_audio_freeze.md, "
-                "the lane's 'more audio influence' ask). key_gain scales the audio rows' keys, a "
-                "temperature on how sharply every query attends to them; value_gain scales what "
-                "the audio rows contribute to every row's attention output. Both 1.0 is inert. "
-                "Applies inside the sage forward, the sage override and, through them, Sol; a "
-                "call that falls back to ComfyUI's stock attention is not scaled. Sigma window and "
-                "block range as the Sol node spells them. On 6-step Pika (2026-11-16 Gate 1 probe, "
-                "aligning with roycho87/NerdNotes block-split findings), blocks='all' collapses "
-                "into dark static while scoping blocks='0-29' keeps early/mid structure-motion "
-                "blocks active and avoids late-block (30-49) visual exposure overwrite."
+                "the lane's 'more audio influence' ask). In 'kv_scale' mode, key_gain scales the audio "
+                "rows' keys and value_gain scales what they contribute; in 'lse_balance' mode, key_gain "
+                "acts as a mass-conserving within-slice LSE factor (`A` = audio rows vs complement "
+                "for video queries via FlashAttention-2 / `sage-fork` `return_lse=True`). Both 1.0 is "
+                "inert. On 6-step Pika (2026-11-16 Gate 1 probe, aligning with roycho87/NerdNotes "
+                "block-split findings), blocks='all' collapses into dark static while scoping "
+                "blocks='0-29' keeps early/mid structure-motion blocks active and avoids late-block "
+                "(30-49) visual exposure overwrite."
             ),
             inputs=[
                 io.Model.Input("model"),
@@ -780,24 +784,87 @@ class MiniMaxH3AudioAttentionGain(io.ComfyNode):
                 ),
                 io.Boolean.Input("include_reference_rows", default=False,
                                  tooltip="Also scale reference and guide audio rows, not only the target audio rows."),
+                io.Combo.Input(
+                    "mode",
+                    options=list(AUDIO_GAIN_MODES),
+                    default=AUDIO_GAIN_MODE_DEFAULT,
+                    optional=True,
+                    tooltip=(
+                        "'kv_scale' (default): scales audio K and V tensors in-place. "
+                        "'lse_balance': treats key_gain as a mass-conserving LSE weight for target "
+                        "video queries attending audio rows (runs via FlashAttention-2 / `sage-fork` "
+                        "`return_lse=True` and routes Sol blocks through its dense fallback)."
+                    ),
+                ),
             ],
             outputs=[io.Model.Output(display_name="model")],
         )
 
     @classmethod
     def execute(cls, model, key_gain, value_gain, start_percent, end_percent, blocks="all",
-                include_reference_rows=False) -> io.NodeOutput:
+                include_reference_rows=False, mode=AUDIO_GAIN_MODE_DEFAULT) -> io.NodeOutput:
+        if mode not in AUDIO_GAIN_MODES:
+            raise ValueError(f"unknown MiniMaxH3AudioAttentionGain mode {mode!r}; expected {AUDIO_GAIN_MODES}")
+        kg = float(key_gain)
+        vg = float(value_gain)
         ms = model.get_model_object("model_sampling")
+        sigma_start = float(ms.percent_to_sigma(start_percent))
+        sigma_end = float(ms.percent_to_sigma(end_percent))
+        n_blocks = 50
+        if hasattr(model, "get_model_object"):
+            try:
+                dm = model.get_model_object("diffusion_model")
+                dm_blocks = getattr(dm, "blocks", None)
+                if dm_blocks is not None:
+                    n_blocks = len(dm_blocks)
+            except Exception:
+                pass
+        blk_set = _parse_blocks(blocks, n_blocks)
+
         m = model.clone()
-        opts = m.model_options.setdefault("transformer_options", {})
-        if float(key_gain) == 1.0 and float(value_gain) == 1.0:
+        opts = m.model_options["transformer_options"] = dict(m.model_options.get("transformer_options") or {})
+
+        if mode == "lse_balance":
+            if abs(kg - 1.0) > 1e-6:
+                m = install_lse_balance_override(m)
+                opts = m.model_options["transformer_options"] = dict(m.model_options.get("transformer_options") or {})
+                kinds_a = {"audio"} | ({"ref_audio", "cond_audio"} if include_reference_rows else set())
+                opts["minimax_h3_lse_balance"] = {
+                    "weight": kg,
+                    "kinds_a": kinds_a,
+                    "kinds_b": None,
+                    "query_kinds": {"video"},
+                    "sigma_start": sigma_start,
+                    "sigma_end": sigma_end,
+                    "blocks": blk_set,
+                    "require_layout": True,
+                }
+            else:
+                opts.pop("minimax_h3_lse_balance", None)
+
+            if abs(vg - 1.0) > 1e-6:
+                opts["minimax_h3_audio_gain"] = {
+                    "key_gain": 1.0,
+                    "value_gain": vg,
+                    "sigma_start": sigma_start,
+                    "sigma_end": sigma_end,
+                    "blocks": blk_set,
+                    "include_reference_rows": bool(include_reference_rows),
+                }
+            else:
+                opts.pop("minimax_h3_audio_gain", None)
+            logger.info("[h3] MiniMaxH3AudioAttentionGain (lse_balance): kg=%s vg=%s", kg, vg)
+            return io.NodeOutput(m)
+
+        opts.pop("minimax_h3_lse_balance", None)
+        if abs(kg - 1.0) <= 1e-6 and abs(vg - 1.0) <= 1e-6:
             opts.pop("minimax_h3_audio_gain", None)
             return io.NodeOutput(m)
         opts["minimax_h3_audio_gain"] = {
-            "key_gain": float(key_gain), "value_gain": float(value_gain),
-            "sigma_start": float(ms.percent_to_sigma(start_percent)),
-            "sigma_end": float(ms.percent_to_sigma(end_percent)),
-            "blocks": _parse_blocks(blocks),
+            "key_gain": kg, "value_gain": vg,
+            "sigma_start": sigma_start,
+            "sigma_end": sigma_end,
+            "blocks": blk_set,
             "include_reference_rows": bool(include_reference_rows),
         }
         logger.info("[h3] MiniMaxH3AudioAttentionGain: %s", opts["minimax_h3_audio_gain"])
