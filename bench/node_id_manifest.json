@@ -922,7 +922,9 @@
       "feather",
       "invert_mask",
       "events_json",
-      "backdrop"
+      "backdrop",
+      "include_mask",
+      "exclude_mask"
     ],
     "node_id": "MiniMaxH3SpatialDirector",
     "outputs": [

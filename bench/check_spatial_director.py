@@ -640,6 +640,74 @@ def _check_shipped_workflows() -> None:
     _assert_dual_vhs(i2v_graph, hud_i[0][0])
 
 
+def _check_combined_and_aux_masks() -> None:
+    w, h, n_frames, feather = 320, 192, 39, 0.04
+    comb_json = json.dumps(
+        {
+            "portal": [{"frame": 0, "x": 0.25, "y": 0.50, "rx": 0.14, "ry": 0.14, "shape": "circle"}],
+            "targets": [
+                {"id": 1, "start": 6, "end": 30, "ramp": 2, "x": 0.78, "y": 0.50, "radius": 0.14, "cue": "impact", "gain": 1.1}
+            ],
+            "portal_cues": [{"frame": 6, "preset": "click", "gain": 0.6}],
+        }
+    )
+    out_comb = sd_mod.MiniMaxH3SpatialDirector.execute(
+        mode="combined", width=w, height=h, length=n_frames, feather=feather, events_json=comb_json
+    ).result
+    m_comb = out_comb[0]
+    cues_comb = out_comb[1]
+    plan_comb = json.loads(out_comb[3])
+    assert plan_comb["mode"] == "combined"
+    assert len(plan_comb["cursor_frames"]) == n_frames
+    # Check both portal (left) and active target (right) at frame 12
+    assert float(m_comb[12, h // 2, int(w * 0.25)]) > 0.90
+    assert float(m_comb[12, h // 2, int(w * 0.78)]) > 0.90
+    # Frame 6 collision between target cue (gain 1.1) and portal_cue (gain 0.6) deduplicates to max gain (1.1)
+    assert cues_comb.count("6:") == 1 and "impact" in cues_comb
+
+    # Optional include_mask (union max) + exclude_mask (0.0 velocity protection even under invert_mask)
+    inc = torch.zeros((1, h, w), dtype=torch.float32)
+    inc[:, 10:30, 10:30] = 0.85
+    exc = torch.zeros((n_frames, h, w), dtype=torch.float32)
+    exc[:, h // 2 - 12 : h // 2 + 12, int(w * 0.25) - 12 : int(w * 0.25) + 12] = 1.0
+
+    out_aux = sd_mod.MiniMaxH3SpatialDirector.execute(
+        mode="combined",
+        width=w,
+        height=h,
+        length=n_frames,
+        feather=feather,
+        invert_mask=False,
+        events_json=comb_json,
+        include_mask=inc,
+        exclude_mask=exc,
+    ).result
+    m_aux = out_aux[0]
+    plan_aux = json.loads(out_aux[3])
+    assert plan_aux["has_include_mask"] is True and plan_aux["has_exclude_mask"] is True
+    assert abs(float(m_aux[0, 20, 20]) - 0.85) < 1e-4, "include_mask should union via max"
+    assert float(m_aux[12, h // 2, int(w * 0.25)]) == 0.0, "exclude_mask must zero out portal core"
+
+    out_inv_exc = sd_mod.MiniMaxH3SpatialDirector.execute(
+        mode="combined",
+        width=w,
+        height=h,
+        length=n_frames,
+        feather=feather,
+        invert_mask=True,
+        events_json=comb_json,
+        exclude_mask=exc,
+    ).result
+    m_inv_exc = out_inv_exc[0]
+    assert float(m_inv_exc[12, h // 2, int(w * 0.25)]) == 0.0, "exclude_mask must protect subject even when invert_mask=True"
+
+    imgs = torch.full((n_frames, h, w, 3), 0.30)
+    hud_comb = sd_mod.MiniMaxH3DirectorHUD.execute(
+        imgs, director_plan=out_aux[3], hud_layout="director_card"
+    ).result[0]
+    assert hud_comb.shape == (n_frames, h + 144, w, 3)
+
+
 def main() -> int:
     print("checking MiniMaxH3SpatialDirector, MiniMaxH3DirectorHUD, and spatial workflows")
     case("portal_path default (141 frames) compiles masks, cues, sprite kfs, and plan", _check_portal_path_default)
@@ -647,6 +715,7 @@ def main() -> int:
     case("point_targets compiles 2D+time targets, 3f cues, and D-pad kfs at 141 and 90", _check_point_targets_both_lengths)
     case("invert_mask equals 1.0 - mask elementwise", _check_invert_mask)
     case("weight, concentric outer halo, bounded portal_start/end/ramp, and HUD dashed ring", _check_weight_halo_and_portal_window)
+    case("combined mode (union + deduped 3f cues + HUD) and include_mask / exclude_mask", _check_combined_and_aux_masks)
     case("web/h3_spatial_director.js SOUND_PRESETS and defaults match sound_cues.py", _check_js_sound_presets)
     case("edit_guidance(same_prompt=True) + MiniMaxH3Steer(edit_pass='edited_only') builder", _check_same_prompt_builder)
     case("refuses off-grid lengths, malformed JSON, unknown cues/shapes, and invalid spans", _check_refusals)

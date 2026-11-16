@@ -39,7 +39,7 @@ except ImportError:  # standalone bench check loaded without package context
 
 
 VIDEO_FPS = 24.0
-DIRECTOR_MODES = ("portal_path", "point_targets")
+DIRECTOR_MODES = ("portal_path", "point_targets", "combined")
 PORTAL_SHAPES = ("circle", "ellipse", "vertical_split")
 HUD_LAYOUTS = ("director_card", "canvas_reticle_only", "split_ab_card")
 ALL_SOUND_PRESETS = tuple(sorted(SOUND_CUE_PRESETS))
@@ -299,6 +299,8 @@ def parse_director_events(
         raise ValueError("MiniMaxH3SpatialDirector: `mode='portal_path'` requires at least one keyframe in `portal`")
     if mode == "point_targets" and not targets:
         raise ValueError("MiniMaxH3SpatialDirector: `mode='point_targets'` requires at least one entry in `targets`")
+    if mode == "combined" and not (portals or targets):
+        raise ValueError("MiniMaxH3SpatialDirector: `mode='combined'` requires at least one entry in `portal` or `targets`")
 
     portal_cues: list[tuple[int, str, float]] = []
     raw_portal_cues = doc.get("portal_cues") or []
@@ -454,24 +456,67 @@ def _compute_sound_cues_text(
     portal_cues: list[tuple[int, str, float]],
 ) -> tuple[str, list[dict[str, Any]]]:
     entries: list[tuple[int, str, float]] = []
-    if mode == "point_targets":
+    if mode in ("point_targets", "combined"):
         for t in targets:
             if t.cue != "none":
                 entries.append((_snap_to_3f(t.start, length), t.cue, t.gain))
     for frame, preset, gain in portal_cues:
         entries.append((_snap_to_3f(frame, length), preset, gain))
-    if not entries:
+    # Sort by snapped 3f frame and merge exact-frame collisions (keeping max gain)
+    # so `MiniMaxH3SoundCues` never fails `validate_audio_keyframe_spans`.
+    merged_by_frame: dict[int, tuple[int, str, float]] = {}
+    for f_snap, preset, gain in entries:
+        prev = merged_by_frame.get(f_snap)
+        if prev is None or gain > prev[2]:
+            merged_by_frame[f_snap] = (f_snap, preset, gain)
+    deduped = sorted(merged_by_frame.values(), key=lambda e: e[0])
+    if not deduped:
         anchor = _snap_to_3f(portals[0].frame if portals else 3, length)
-        entries.append((max(3, min(anchor, max(3, ((length - 1) // 3) * 3))), "step", 0.25))
+        deduped = [(max(3, min(anchor, max(3, ((length - 1) // 3) * 3))), "step", 0.25)]
     lines = [
         f"{f}: {preset} @{gain:.2f}" if abs(gain - 1.0) > 1e-4 else f"{f}: {preset}"
-        for f, preset, gain in entries
+        for f, preset, gain in deduped
     ]
     cue_meta = [
         {"frame": int(f), "preset": preset, "gain": round(float(gain), 3)}
-        for f, preset, gain in entries
+        for f, preset, gain in deduped
     ]
     return "\n".join(lines), cue_meta
+
+
+def _coerce_aux_mask(aux_mask: Any, n_frames: int, h: int, w: int) -> np.ndarray | None:
+    """Normalize an optional ComfyUI ``MASK`` (``[H,W]``, ``[1,H,W]``, or ``[F,H,W]``) onto ``(n_frames, h, w)``."""
+    if aux_mask is None:
+        return None
+    if isinstance(aux_mask, np.ndarray):
+        t = torch.from_numpy(aux_mask.astype(np.float32, copy=False))
+    elif torch.is_tensor(aux_mask):
+        t = aux_mask.detach().to(device="cpu", dtype=torch.float32)
+    else:
+        raise ValueError(f"MiniMaxH3SpatialDirector: auxiliary mask must be Tensor or ndarray, got {type(aux_mask).__name__}")
+    if t.ndim == 2:
+        t = t.unsqueeze(0)
+    elif t.ndim == 4 and t.shape[-1] in (1, 3, 4):
+        t = t[..., 0]
+    elif t.ndim != 3:
+        raise ValueError(f"MiniMaxH3SpatialDirector: auxiliary mask expected 2D/3D tensor, got shape {tuple(t.shape)}")
+    if t.shape[0] < 1:
+        return None
+    if int(t.shape[1]) != h or int(t.shape[2]) != w:
+        t = torch.nn.functional.interpolate(
+            t.unsqueeze(1),
+            size=(h, w),
+            mode="bilinear",
+            align_corners=False,
+        ).squeeze(1)
+    if int(t.shape[0]) == 1 and n_frames > 1:
+        t = t.expand(n_frames, h, w)
+    elif int(t.shape[0]) < n_frames:
+        pad = t[-1:].expand(n_frames - int(t.shape[0]), h, w)
+        t = torch.cat([t, pad], dim=0)
+    elif int(t.shape[0]) > n_frames:
+        t = t[:n_frames]
+    return t.clamp(0.0, 1.0).contiguous().numpy().astype(np.float32, copy=False)
 
 
 def _compute_sprite_states(
@@ -602,7 +647,8 @@ class MiniMaxH3SpatialDirector(io.ComfyNode):
                     options=list(DIRECTOR_MODES),
                     default=_SD_DEFAULTS["mode"],
                     tooltip="`portal_path`: moving Reality Lens or vertical wipe across keyframes. "
-                            "`point_targets`: timed `(x, y)` click zones paired with SoundCues & Genie D-pad.",
+                            "`point_targets`: timed `(x, y)` click zones paired with SoundCues & D-pad. "
+                            "`combined`: union portal mask and timed point targets in one `[F, H, W]` pass.",
                 ),
                 io.Int.Input("width", default=_SD_DEFAULTS["width"], min=64, max=4096, step=32),
                 io.Int.Input("height", default=_SD_DEFAULTS["height"], min=64, max=4096, step=32),
@@ -625,6 +671,16 @@ class MiniMaxH3SpatialDirector(io.ComfyNode):
                 io.Boolean.Input("invert_mask", default=_SD_DEFAULTS["invert_mask"]),
                 io.String.Input("events_json", default=DEFAULT_DIRECTOR_EVENTS_JSON, multiline=True),
                 io.Image.Input("backdrop", optional=True),
+                io.Mask.Input(
+                    "include_mask",
+                    optional=True,
+                    tooltip="Optional [H, W] or [F, H, W] subject mask unioned (max) into the velocity mask before invert_mask.",
+                ),
+                io.Mask.Input(
+                    "exclude_mask",
+                    optional=True,
+                    tooltip="Optional [H, W] or [F, H, W] subject protection mask subtracted (mask * (1 - exclude_mask)) so protected subjects receive 0.0 edit velocity.",
+                ),
             ],
             outputs=[
                 io.Mask.Output(display_name="mask"),
@@ -645,6 +701,8 @@ class MiniMaxH3SpatialDirector(io.ComfyNode):
         invert_mask: bool = _SD_DEFAULTS["invert_mask"],
         events_json: str = DEFAULT_DIRECTOR_EVENTS_JSON,
         backdrop=None,
+        include_mask=None,
+        exclude_mask=None,
     ) -> io.NodeOutput:
         del backdrop  # Optional ComfyUI preview backdrop for interactive HTML5 stage
         w = max(64, int(width))
@@ -680,7 +738,7 @@ class MiniMaxH3SpatialDirector(io.ComfyNode):
         portal_frames_meta: list[dict[str, Any]] = []
         portal_bounded = portal_start > 0 or portal_end < (n_frames - 1) or portal_ramp > 0
 
-        if mode == "portal_path":
+        if mode in ("portal_path", "combined") and portals:
             for f in range(n_frames):
                 x, y, rx, ry, shape, label, weight, halo_radius, halo_weight = _eval_portal_frame(portals, f)
                 cx = float(x) * float(w)
@@ -724,7 +782,7 @@ class MiniMaxH3SpatialDirector(io.ComfyNode):
                         "halo_weight": round(halo_weight, 4),
                     }
                 )
-        else:
+        if mode in ("point_targets", "combined") and targets:
             spatial_discs: list[tuple[WorldTargetEvent, np.ndarray]] = []
             for t in targets:
                 cx = float(t.x) * float(w)
@@ -745,23 +803,32 @@ class MiniMaxH3SpatialDirector(io.ComfyNode):
                     )
                 )
             for f in range(n_frames):
-                acc = np.zeros((h, w), dtype=np.float32)
+                acc = mask_arr[f] if mode == "combined" else np.zeros((h, w), dtype=np.float32)
                 for t, s_disc in spatial_discs:
                     tw = _target_temporal_weight(t, f)
                     if tw > 1e-5:
                         np.maximum(acc, s_disc * np.float32(tw), out=acc)
                 mask_arr[f] = acc
 
+        inc_arr = _coerce_aux_mask(include_mask, n_frames, h, w)
+        if inc_arr is not None:
+            np.maximum(mask_arr, inc_arr, out=mask_arr)
+
         if invert_mask:
             mask_arr = 1.0 - mask_arr
+
+        exc_arr = _coerce_aux_mask(exclude_mask, n_frames, h, w)
+        if exc_arr is not None:
+            mask_arr = (mask_arr * (1.0 - exc_arr)).astype(np.float32, copy=False)
+
         mask_arr = np.clip(mask_arr, 0.0, 1.0).astype(np.float32, copy=False)
 
         if float(mask_arr.max()) <= 1e-6:
             raise ValueError(
-                "MiniMaxH3SpatialDirector produced an all-zero mask; adjust target/portal size or invert_mask."
+                "MiniMaxH3SpatialDirector produced an all-zero mask; adjust target/portal/aux masks or invert_mask."
             )
 
-        cursor_frames = _compute_target_cursor_path(targets, n_frames) if mode == "point_targets" else []
+        cursor_frames = _compute_target_cursor_path(targets, n_frames) if (mode in ("point_targets", "combined") and targets) else []
         plan = {
             "version": 1,
             "mode": mode,
@@ -771,6 +838,8 @@ class MiniMaxH3SpatialDirector(io.ComfyNode):
             "fps": VIDEO_FPS,
             "feather": round(float(feather), 4),
             "invert_mask": bool(invert_mask),
+            "has_include_mask": inc_arr is not None,
+            "has_exclude_mask": exc_arr is not None,
             "portal_start": portal_start,
             "portal_end": portal_end,
             "portal_ramp": portal_ramp,
@@ -986,7 +1055,7 @@ def _render_scene_overlay(
     font_small = _load_font(12 * ss, mono=True)
     font_head = _load_font(15 * ss, mono=False)
 
-    if mode == "portal_path" and pframes:
+    if mode in ("portal_path", "combined") and pframes:
         pf = pframes[min(f_clamp, len(pframes) - 1)]
         cx = float(pf["x"]) * ow
         cy = float(pf["y"]) * oh
@@ -1102,7 +1171,7 @@ def _render_scene_overlay(
                 pad_y=4 * ss,
             )
 
-    elif mode == "point_targets" and targets:
+    if mode in ("point_targets", "combined") and targets:
         # Target reticles: queued (slate) -> active click + hold (amber/gold) -> done (muted green)
         for t in targets:
             tx = float(t["x"]) * ow
@@ -1345,7 +1414,7 @@ def _render_director_footer(
         ly = int(round(ry0 + gy * radar_h))
         draw.line([(rx0 + 2, ly), (rx0 + radar_w - 2, ly)], fill=(30, 41, 59, 180), width=1)
 
-    if mode == "portal_path" and pframes:
+    if mode in ("portal_path", "combined") and pframes:
         pf = pframes[min(f_clamp, len(pframes) - 1)]
         mx = rx0 + float(pf["x"]) * radar_w
         my = ry0 + float(pf["y"]) * radar_h
@@ -1373,7 +1442,7 @@ def _render_director_footer(
         if len(path_pts) >= 2:
             draw.line(path_pts, fill=(92, 225, 230, 150), width=1)
         draw.ellipse([mx - 3, my - 3, mx + 3, my + 3], fill=(255, 255, 255, 255))
-    elif mode == "point_targets":
+    if mode in ("point_targets", "combined") and targets:
         for t in targets:
             tx = rx0 + float(t["x"]) * radar_w
             ty = ry0 + float(t["y"]) * radar_h
@@ -1431,14 +1500,14 @@ def _render_director_footer(
 
         # Lanes depend on mode + dpad/cues
         lanes: list[tuple[str, list[tuple[int, int, tuple[int, int, int, int], str]]]] = []
-        if mode == "portal_path":
+        if mode in ("portal_path", "combined") and pframes:
             p_list = plan.get("portals") or []
             default_start = int(p_list[0]["frame"]) if p_list else 0
             default_end = int(p_list[-1]["frame"]) if p_list else total_span
             p_start = int(plan.get("portal_start", default_start))
             p_end = int(plan.get("portal_end", default_end))
             lanes.append(("PORTAL", [(p_start, p_end, (34, 211, 238, 210), "LENS PATH")]))
-        else:
+        if mode in ("point_targets", "combined") and targets:
             t_blocks = [
                 (int(t["start"]), int(t["end"]), (245, 158, 11, 215), f"#{t['id']} {t.get('label', '')[:12]}")
                 for t in targets
@@ -1482,7 +1551,7 @@ def _render_director_footer(
             draw.line([(tx, top_y + 2), (tx, bot_y - 2)], fill=(30, 41, 59, 210), width=1)
             draw.text((tx + 3, bot_y - 14), f"{sec}s", font=font_lbl, fill=(100, 116, 139, 220))
 
-        lane_h = max(20, (bot_y - top_y - 18) // n_lanes)
+        lane_h = max(16, (bot_y - top_y - 18) // n_lanes)
         for l_idx, (lane_name, blocks) in enumerate(lanes):
             ly0 = top_y + 4 + l_idx * lane_h
             ly1 = min(bot_y - 18, ly0 + lane_h - 4)
@@ -1506,7 +1575,7 @@ def _render_director_footer(
                 )
 
         # Readout line inside sequencer right edge
-        if mode == "portal_path" and pframes:
+        if mode in ("portal_path", "combined") and pframes:
             pf = pframes[min(f_clamp, len(pframes) - 1)]
             info = f"pos=({pf['x']:.2f}, {pf['y']:.2f}) r={pf['rx']:.2f}"
         elif cframes:

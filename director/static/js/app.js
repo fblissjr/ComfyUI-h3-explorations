@@ -42,6 +42,9 @@ const state = {
     taeh3: false,
     taeh3_image: false,
     heylook_suggestions: false,
+    sam3: false,
+    sam3_engine: "grabcut",
+    spatial_combined: true,
   },
 
   length: 141,
@@ -51,6 +54,15 @@ const state = {
   showPatchGrid: false,
   spriteMode: false,
   selectedTargetIdx: 0,
+  samPicking: false,
+  samRole: "cutout",
+  samSegmenting: false,
+  samEngine: "",
+  spriteMaskRef: "",
+  includeMaskRef: "",
+  excludeMaskRef: "",
+  includeMaskImg: null,
+  excludeMaskImg: null,
 
   workflowId: "",
   anchorWorkflowId: "",
@@ -584,7 +596,7 @@ function syncScrubberSVG() {
 
 function allActiveCues() {
   const cues = [];
-  if (state.doc.mode === "point_targets") {
+  if (state.doc.mode === "point_targets" || state.doc.mode === "combined") {
     for (const t of state.doc.targets || []) {
       if (t.cue && t.cue !== "none") {
         cues.push({ frame: snapFrameTo3f(t.start, state.length), preset: t.cue, gain: t.gain || 1.15, source: "target" });
@@ -708,6 +720,17 @@ function syncContextualCard() {
     const cueSel = $("#card-cue-select");
     if (cueSel) cueSel.value = nearCue;
     $("#pill-cue-text").textContent = `3f @ f${snapFrameTo3f(t.start, state.length)}: ${nearCue}`;
+  } else if (state.doc.mode === "combined") {
+    $("#portal-card-heading").textContent = "Combined Portal";
+    const nearCue = (state.doc.portal_cues || [])[0];
+    const cueSel = $("#card-cue-select");
+    if (nearCue) {
+      if (cueSel) cueSel.value = nearCue.preset;
+      $("#pill-cue-text").textContent = `3f @ f${snapFrameTo3f(nearCue.frame, state.length)}: ${nearCue.preset}`;
+    } else {
+      if (cueSel) cueSel.value = "none";
+      $("#pill-cue-text").textContent = `3f @ f${snapFrameTo3f(state.frame, state.length)}: none`;
+    }
   } else {
     $("#portal-card-heading").textContent = state.spriteMode ? "Sprite Trajectory" : "Spatial Portal";
     const nearCue = (state.doc.portal_cues || [])[0];
@@ -740,8 +763,29 @@ function syncContextualCard() {
   const spriteNote = sp
     ? ` · AppendSpriteTrajectory(51, Release 0.33, Δx=${coupling.dx >= 0 ? "+" : ""}${coupling.dx.toFixed(2)})`
     : "";
+  const maskParts = [];
+  if (state.spriteMaskRef) maskParts.push("SpriteMask");
+  if (state.excludeMaskRef) maskParts.push("Protect(exclude)");
+  if (state.includeMaskRef) maskParts.push("Lock(include)");
+  const maskNote = maskParts.length ? ` · ${maskParts.join("+")}` : "";
   $("#compiled-nodes-readout").textContent =
-    `SpatialDirector(160) -> EditGuider(${scaleVal.toFixed(1)}x) · ${cuesCount}× 3f SoundCues${spriteNote}`;
+    `SpatialDirector(160) -> EditGuider(${scaleVal.toFixed(1)}x) · ${cuesCount}× 3f SoundCues${spriteNote}${maskNote}`;
+
+  const pickBtn = $("#btn-sam-pick");
+  if (pickBtn) {
+    pickBtn.disabled = !state.hasAnchor || state.samSegmenting;
+    pickBtn.classList.toggle("active", Boolean(state.samPicking));
+    pickBtn.textContent = state.samSegmenting
+      ? "Segmenting…"
+      : (state.samPicking ? "Click Subject…" : "Pick Subject");
+  }
+  for (const rBtn of $$(".sam-role-btn")) {
+    const activeRole = rBtn.dataset.role === state.samRole;
+    rBtn.classList.toggle("active", activeRole);
+    rBtn.setAttribute("aria-pressed", activeRole ? "true" : "false");
+  }
+  const hasAnySamMask = Boolean(state.spriteMaskRef || state.excludeMaskRef || state.includeMaskRef);
+  $("#btn-sam-clear")?.classList.toggle("hidden", !hasAnySamMask);
 
   const coordBadge = $("#synth-latency-badge");
   if (coordBadge) {
@@ -806,6 +850,10 @@ function syncAllUI() {
 
   if (state.doc.mode === "point_targets") {
     $("#footer-layer-text").textContent = `Targets (${(state.doc.targets || []).length})`;
+  } else if (state.doc.mode === "combined") {
+    const ps = state.doc.portal_start != null ? state.doc.portal_start : 0;
+    const pe = state.doc.portal_end != null ? state.doc.portal_end : state.length - 1;
+    $("#footer-layer-text").textContent = `Portal(f${ps}–f${pe}) + ${(state.doc.targets || []).length} Targets`;
   } else {
     const ps = state.doc.portal_start != null ? state.doc.portal_start : 0;
     const pe = state.doc.portal_end != null ? state.doc.portal_end : state.length - 1;
@@ -827,13 +875,18 @@ function syncAllUI() {
   // Mode buttons
   $("#mode-btn-portal")?.classList.toggle("active", state.doc.mode === "portal_path" && !state.spriteMode);
   $("#mode-btn-targets")?.classList.toggle("active", state.doc.mode === "point_targets" && !state.spriteMode);
+  $("#mode-btn-combined")?.classList.toggle("active", state.doc.mode === "combined" && !state.spriteMode);
   $("#mode-btn-sprite")?.classList.toggle("active", state.spriteMode);
 
-  $("#stage-helper-text").textContent = state.spriteMode
-    ? "WASD steers cutout · Space hops · Drag repositions"
-    : (state.doc.mode === "point_targets"
-      ? "Click to move target · Shift+Click adds target"
-      : "Click/drag portal · Scroll size · Shift Halo · Alt Power");
+  $("#stage-helper-text").textContent = state.samPicking
+    ? `Click subject on stage to segment (${state.samRole}) · Esc cancels`
+    : (state.spriteMode
+      ? "WASD steers cutout · Space hops · Drag repositions"
+      : (state.doc.mode === "combined"
+        ? "Drag Portal or Targets · Ctrl+Click adds Target · Scroll size"
+        : (state.doc.mode === "point_targets"
+          ? "Click to move target · Shift+Click adds target"
+          : "Click/drag portal · Scroll size · Shift Halo · Alt Power")));
 
   // Play / Pause icon
   $("#icon-play")?.classList.toggle("hidden", state.playing);
@@ -893,11 +946,20 @@ function loadAnchorImageUrl(url, meta = {}) {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => {
+      const prevRef = state.anchorRef;
       state.anchorMedia = img;
       state.anchorRef = meta.ref || state.anchorRef;
       state.anchorName = meta.name || state.anchorName || "Anchor Still";
       state.hasAnchor = true;
       state.activeVideoEl = null;
+      if (prevRef && meta.ref && prevRef !== meta.ref) {
+        state.spriteMaskRef = "";
+        state.includeMaskRef = "";
+        state.excludeMaskRef = "";
+        state.includeMaskImg = null;
+        state.excludeMaskImg = null;
+        state.samPicking = false;
+      }
       $("#empty-anchor-card")?.classList.add("hidden");
       if (state.capabilities.heylook_suggestions) {
         refreshContextSuggestions();
@@ -1046,6 +1108,77 @@ function loadCutoutUrl(url, ref) {
   });
 }
 
+function loadMaskOverlayImage(url, field) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      state[field] = img;
+      stage?.render();
+      resolve(img);
+    };
+    img.onerror = () => resolve(null);
+    img.src = url;
+  });
+}
+
+function clearSamMasks() {
+  state.samPicking = false;
+  state.spriteMaskRef = "";
+  state.includeMaskRef = "";
+  state.excludeMaskRef = "";
+  state.includeMaskImg = null;
+  state.excludeMaskImg = null;
+  syncAllUI();
+  schedulePreflight();
+}
+
+async function runSamSegmentAt(nx, ny, opts = {}) {
+  if (!state.anchorRef || state.samSegmenting) return;
+  const role = state.samRole || "cutout";
+  state.samSegmenting = true;
+  state.samPicking = false;
+  syncAllUI();
+  showToast(`Segmenting subject (${role})…`, "info");
+  try {
+    const data = await apiJson("/api/segment", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        source_ref: state.anchorRef,
+        positive_points: [{ nx, ny }],
+        negative_points: opts.negative ? [{ nx, ny }] : [],
+        role,
+      }),
+    });
+    state.samEngine = data.engine || "";
+    if (data.role === "cutout") {
+      state.spriteMaskRef = data.mask_ref || "";
+      if (data.cutout_view_url) {
+        await loadCutoutUrl(data.cutout_view_url, data.cutout_ref || "");
+      }
+    } else if (data.role === "exclude") {
+      state.excludeMaskRef = data.mask_ref || "";
+      if (data.mask_view_url) {
+        await loadMaskOverlayImage(data.mask_view_url, "excludeMaskImg");
+      }
+    } else if (data.role === "include") {
+      state.includeMaskRef = data.mask_ref || "";
+      if (data.mask_view_url) {
+        await loadMaskOverlayImage(data.mask_view_url, "includeMaskImg");
+      }
+    }
+    const pct = Math.round(Number(data.coverage || 0) * 100);
+    showToast(`Segmented ${data.role} via ${data.engine || "sam"} (${pct}%)`, "ok");
+    syncAllUI();
+    schedulePreflight();
+  } catch (err) {
+    showToast(`Segmentation failed: ${err.message}`, "err");
+  } finally {
+    state.samSegmenting = false;
+    syncAllUI();
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Compile, Render, Escalate, Takes, Forget
 // ---------------------------------------------------------------------------
@@ -1091,6 +1224,9 @@ function buildCompilePayload() {
     seed: Number($("#seed-input")?.value || state.seed),
     source_ref: state.anchorRef,
     sprite_ref: state.spriteCutout?.ref || "",
+    sprite_mask_ref: state.spriteMaskRef || "",
+    include_mask_ref: state.includeMaskRef || "",
+    exclude_mask_ref: state.excludeMaskRef || "",
     sprite_pos: sp ? { x: sp.x, y: sp.y, face: sp.face } : null,
     halo_radius: Number(pf.halo_radius || 0),
     couplings: activeCouplings,
@@ -1455,6 +1591,7 @@ function init() {
     onInteractHud: () => {
       syncAllUI();
     },
+    onSamPick: (nx, ny, opts) => runSamSegmentAt(nx, ny, opts),
   });
 
   wsClient = new DirectorWSClient({
@@ -1599,9 +1736,55 @@ function init() {
     syncAllUI();
     schedulePreflight();
   });
+  $("#mode-btn-combined")?.addEventListener("click", () => {
+    pushUndo();
+    state.spriteMode = false;
+    state.doc.mode = "combined";
+    if (!state.doc.targets?.length) {
+      state.doc.targets = [{
+        id: 1,
+        label: "TARGET 1",
+        start: snapFrameTo3f(Math.round(state.length * 0.2), state.length),
+        end: Math.min(state.length - 1, Math.round(state.length * 0.7)),
+        ramp: 4,
+        x: 0.45,
+        y: 0.52,
+        radius: 0.18,
+        cue: state.defaultSoundPreset,
+        gain: 1.15,
+        weight: 1.0,
+        halo_radius: 0.08,
+        halo_weight: 0.30,
+      }];
+    }
+    syncAllUI();
+    schedulePreflight();
+  });
   $("#mode-btn-sprite")?.addEventListener("click", () => {
     state.spriteMode = !state.spriteMode;
     syncAllUI();
+  });
+  $("#btn-sam-pick")?.addEventListener("click", () => {
+    if (!state.hasAnchor || state.samSegmenting) return;
+    state.samPicking = !state.samPicking;
+    syncAllUI();
+    if (state.samPicking) {
+      showToast(`Click a subject on stage (${state.samRole})`, "info", 2400);
+    }
+  });
+  for (const roleBtn of $$(".sam-role-btn")) {
+    roleBtn.addEventListener("click", () => {
+      const nextRole = roleBtn.dataset.role || "cutout";
+      state.samRole = nextRole;
+      syncAllUI();
+    });
+  }
+  $("#btn-sam-clear")?.addEventListener("click", () => clearSamMasks());
+  window.addEventListener("keydown", (ev) => {
+    if (ev.key === "Escape" && state.samPicking) {
+      state.samPicking = false;
+      syncAllUI();
+    }
   });
   $("#btn-fullframe-tae")?.addEventListener("click", () => {
     if (!state.livePreview) state.livePreview = { fullFrame: true };
@@ -1842,7 +2025,18 @@ function init() {
   });
   $("#btn-forget")?.addEventListener("click", async () => {
     try {
-      const res = await apiJson("/api/forget", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ client_id: wsClient.clientId }) });
+      const keepUploads = [
+        state.anchorRef,
+        state.spriteCutout?.ref,
+        state.spriteMaskRef,
+        state.includeMaskRef,
+        state.excludeMaskRef,
+      ].filter(Boolean);
+      const res = await apiJson("/api/forget", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ client_id: wsClient.clientId, keep_uploads: keepUploads }),
+      });
       state.takes = [];
       renderTakesList();
       showToast(`Cleared temp files (${res.deleted_temp ?? 0} outputs)`, "ok");

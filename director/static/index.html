@@ -82,6 +82,7 @@
         <div class="mode-switch" role="group" aria-label="Director interaction mode">
           <button id="mode-btn-portal" type="button" class="mode-btn active" data-mode="portal_path">Portal</button>
           <button id="mode-btn-targets" type="button" class="mode-btn" data-mode="point_targets">Targets</button>
+          <button id="mode-btn-combined" type="button" class="mode-btn" data-mode="combined">Combined</button>
           <button id="mode-btn-sprite" type="button" class="mode-btn" data-mode="sprite">WASD Sprite</button>
         </div>
       </div>
@@ -220,6 +221,17 @@
           <!-- Compiled Nodes Readout Box -->
           <div id="compiled-nodes-readout" class="compiled-readout">
             SpatialDirector(160) · EditGuider(2.0x)
+          </div>
+
+          <!-- Interactive Subject Segmentation Bar (SAM 3.1 / GrabCut) -->
+          <div id="sam-subject-bar" class="sam-subject-bar" role="group" aria-label="Subject segmentation">
+            <button id="btn-sam-pick" type="button" class="sam-pick-btn" title="Click on stage subject to segment (SAM 3.1 / GrabCut)">Pick Subject</button>
+            <div class="sam-role-group" role="group" aria-label="Segmentation role">
+              <button id="sam-role-cutout" type="button" class="sam-role-btn active" data-role="cutout" title="Extract RGBA cutout sprite and clean mask">Cutout</button>
+              <button id="sam-role-exclude" type="button" class="sam-role-btn" data-role="exclude" title="Protect subject from portal edit (exclude_mask)">Protect</button>
+              <button id="sam-role-include" type="button" class="sam-role-btn" data-role="include" title="Lock subject into edit mask (include_mask)">Lock</button>
+            </div>
+            <button id="btn-sam-clear" type="button" class="sam-clear-btn hidden" title="Clear subject segmentation masks" aria-label="Clear subject segmentation masks">×</button>
           </div>
 
           <div class="card-cue-row">

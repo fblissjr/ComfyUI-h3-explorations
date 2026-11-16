@@ -52,7 +52,7 @@ SPATIAL_WORKFLOW_SPECS: dict[str, dict[str, Any]] = {
         "label": "Reference Portal (R2V + optional Stamp)",
         "preferred": _WORKFLOWS_DIR / "h3_r2v_spatial_portal_pika_api.json",
         "fallback": _WORKFLOWS_DIR / "h3_world_targets_genie_pika_api.json",
-        "modes": ["portal_path", "point_targets"],
+        "modes": ["portal_path", "point_targets", "combined"],
         "has_ref_image": True,
         "has_first_frame": False,
         "supports_sprite": True,
@@ -62,7 +62,7 @@ SPATIAL_WORKFLOW_SPECS: dict[str, dict[str, Any]] = {
         "label": "First-Frame Portal (I2V)",
         "preferred": _WORKFLOWS_DIR / "h3_i2v_spatial_portal_pika_api.json",
         "fallback": _WORKFLOWS_DIR / "h3_spatial_portal_pika_api.json",
-        "modes": ["portal_path", "point_targets"],
+        "modes": ["portal_path", "point_targets", "combined"],
         "has_ref_image": False,
         "has_first_frame": True,
         "supports_sprite": False,
@@ -72,7 +72,7 @@ SPATIAL_WORKFLOW_SPECS: dict[str, dict[str, Any]] = {
         "label": "Text-to-Video Portal (T2V)",
         "preferred": _WORKFLOWS_DIR / "h3_spatial_portal_pika_api.json",
         "fallback": _WORKFLOWS_DIR / "h3_spatial_portal_pika_api.json",
-        "modes": ["portal_path", "point_targets"],
+        "modes": ["portal_path", "point_targets", "combined"],
         "has_ref_image": False,
         "has_first_frame": False,
         "supports_sprite": False,
@@ -82,7 +82,7 @@ SPATIAL_WORKFLOW_SPECS: dict[str, dict[str, Any]] = {
         "label": "World Targets + Sprite & SoundCues",
         "preferred": _WORKFLOWS_DIR / "h3_world_targets_genie_pika_api.json",
         "fallback": _WORKFLOWS_DIR / "h3_world_targets_genie_pika_api.json",
-        "modes": ["point_targets", "portal_path"],
+        "modes": ["point_targets", "portal_path", "combined"],
         "has_ref_image": True,
         "has_first_frame": False,
         "supports_sprite": True,
@@ -318,6 +318,182 @@ def has_kj_preview_override(object_info: dict[str, Any] | None, desired_filename
     return resolve_kj_tiny_vae_option(object_info, desired_filename) is not None
 
 
+_SAM3_PREFERRED_CKPTS: tuple[str, ...] = (
+    "sam3.1_multiplex_fp16.safetensors",
+    "sam3.1_multiplex_fp32.safetensors",
+    "sam3_fp32.safetensors",
+)
+
+
+def resolve_sam3_checkpoint(object_info: dict[str, Any] | None) -> str | None:
+    """Resolve an available SAM 3 / 3.1 checkpoint name from ``CheckpointLoaderSimple`` options."""
+    if not isinstance(object_info, dict):
+        return None
+    loader = object_info.get("CheckpointLoaderSimple")
+    if not isinstance(loader, dict):
+        return None
+    req = (loader.get("input") or {}).get("required") or {}
+    options = _extract_combo_options(req.get("ckpt_name"))
+    if not options:
+        return None
+    by_basename = {Path(opt).name: opt for opt in options}
+    for pref in _SAM3_PREFERRED_CKPTS:
+        if pref in options:
+            return pref
+        if pref in by_basename:
+            return by_basename[pref]
+    for opt in options:
+        low = Path(opt).name.lower()
+        if "sam3" in low and low.endswith(".safetensors"):
+            return opt
+    return None
+
+
+def detect_sam3_capability(object_info: dict[str, Any] | None) -> dict[str, Any]:
+    """Detect whether connected ComfyUI exposes ``SAM3_Detect`` and a SAM 3 / 3.1 checkpoint."""
+    if not isinstance(object_info, dict):
+        return {"available": False, "checkpoint": None, "has_corrections": False, "engine": "grabcut"}
+    has_sam3 = isinstance(object_info.get("SAM3_Detect"), dict)
+    ckpt = resolve_sam3_checkpoint(object_info)
+    has_corr = isinstance(object_info.get("MiniMaxH3SAM31Corrections"), dict)
+    available = bool(has_sam3 and ckpt)
+    if available:
+        engine = "sam3.1" if "3.1" in str(ckpt) else "sam3"
+    else:
+        engine = "grabcut"
+    return {
+        "available": available,
+        "checkpoint": ckpt,
+        "has_corrections": has_corr,
+        "engine": engine,
+    }
+
+
+def has_spatial_combined_support(object_info: dict[str, Any] | None) -> bool:
+    """Return True unless connected ``/object_info`` proves ``MiniMaxH3SpatialDirector`` lacks ``combined``/aux masks."""
+    if not isinstance(object_info, dict):
+        return True
+    info = object_info.get("MiniMaxH3SpatialDirector")
+    if not isinstance(info, dict):
+        return True
+    inp = info.get("input") or {}
+    req = inp.get("required") or {}
+    opt = inp.get("optional") or {}
+    if not req and not opt:
+        return True
+    modes = _extract_combo_options(req.get("mode"))
+    return ("combined" in modes) and ("include_mask" in opt) and ("exclude_mask" in opt)
+
+
+def _normalize_sam3_points(raw_pts: Any, *, width: int, height: int) -> list[dict[str, int]]:
+    """Convert ``[{"nx", "ny"}]`` or ``[{"x", "y"}]`` points into clamped integer pixel coords."""
+    if not raw_pts:
+        return []
+    if not isinstance(raw_pts, (list, tuple)):
+        raise ValueError("point list must be a JSON array")
+    w_max = max(0, int(width) - 1)
+    h_max = max(0, int(height) - 1)
+    out: list[dict[str, int]] = []
+    for item in raw_pts:
+        if not isinstance(item, dict):
+            continue
+        if "nx" in item or "ny" in item:
+            nx = max(0.0, min(1.0, float(item.get("nx", 0.5))))
+            ny = max(0.0, min(1.0, float(item.get("ny", 0.5))))
+            px = int(round(nx * float(w_max)))
+            py = int(round(ny * float(h_max)))
+        else:
+            rx = float(item.get("x", 0.0))
+            ry = float(item.get("y", 0.0))
+            if bool(item.get("normalized", False)):
+                px = int(round(max(0.0, min(1.0, rx)) * float(w_max)))
+                py = int(round(max(0.0, min(1.0, ry)) * float(h_max)))
+            else:
+                px = int(round(rx))
+                py = int(round(ry))
+        out.append({"x": max(0, min(w_max, px)), "y": max(0, min(h_max, py))})
+    return out
+
+
+def compile_sam3_segment(
+    params: dict[str, Any],
+    *,
+    image_width: int,
+    image_height: int,
+    object_info: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Compile an offline/live ComfyUI ``SAM3_Detect`` single-frame segmentation graph."""
+    cfg = dict(params or {})
+    image_ref = str(cfg.get("image_ref") or cfg.get("source_ref") or "").strip()
+    if not image_ref:
+        raise ValueError("image_ref is required for SAM3 segmentation")
+    w = max(1, int(image_width))
+    h = max(1, int(image_height))
+
+    raw_pos = cfg.get("positive_points")
+    if raw_pos is None and ("nx" in cfg or "ny" in cfg):
+        raw_pos = [{"nx": float(cfg.get("nx", 0.5)), "ny": float(cfg.get("ny", 0.5))}]
+    pos_px = _normalize_sam3_points(raw_pos, width=w, height=h)
+    neg_px = _normalize_sam3_points(cfg.get("negative_points"), width=w, height=h)
+    prompt_text = str(cfg.get("prompt") or "").strip()
+    if not pos_px and not prompt_text:
+        raise ValueError("At least one positive point or text prompt is required")
+
+    cap = detect_sam3_capability(object_info)
+    ckpt_name = str(cfg.get("checkpoint") or cap["checkpoint"] or _SAM3_PREFERRED_CKPTS[0])
+    use_corrections = True if object_info is None else bool(cap["has_corrections"])
+
+    graph: dict[str, Any] = {
+        "200": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": ckpt_name}},
+        "202": {"class_type": "LoadImage", "inputs": {"image": image_ref}},
+    }
+    if use_corrections:
+        graph["201"] = {
+            "class_type": "MiniMaxH3SAM31Corrections",
+            "inputs": {
+                "segmenter": ["200", 0],
+                "segmenter_clip": ["200", 1],
+                "correct_image_range": True,
+                "correct_text_activation": True,
+                "memory_selection": True,
+            },
+        }
+        model_ref: list[Any] = ["201", 0]
+        clip_ref: list[Any] = ["201", 1]
+    else:
+        model_ref = ["200", 0]
+        clip_ref = ["200", 1]
+
+    sam_inputs: dict[str, Any] = {
+        "model": model_ref,
+        "image": ["202", 0],
+        "threshold": max(0.0, min(1.0, float(cfg.get("threshold", 0.5)))),
+        "refine_iterations": max(0, min(5, int(cfg.get("refine_iterations", 2)))),
+        "individual_masks": bool(cfg.get("individual_masks", False)),
+    }
+    if pos_px:
+        graph["203"] = {"class_type": "PrimitiveString", "inputs": {"value": json.dumps(pos_px)}}
+        sam_inputs["positive_coords"] = ["203", 0]
+    if neg_px:
+        graph["204"] = {"class_type": "PrimitiveString", "inputs": {"value": json.dumps(neg_px)}}
+        sam_inputs["negative_coords"] = ["204", 0]
+    if prompt_text and (not pos_px or bool(cfg.get("combine_text_and_points", False))):
+        graph["205"] = {"class_type": "CLIPTextEncode", "inputs": {"text": prompt_text, "clip": clip_ref}}
+        sam_inputs["conditioning"] = ["205", 0]
+
+    graph["206"] = {"class_type": "SAM3_Detect", "inputs": sam_inputs}
+    graph["207"] = {"class_type": "MaskToImage", "inputs": {"mask": ["206", 0]}}
+    graph["208"] = {"class_type": "PreviewImage", "inputs": {"images": ["207", 0]}}
+    return {
+        "checkpoint": ckpt_name,
+        "engine": "sam3.1" if "3.1" in ckpt_name else "sam3",
+        "positive_points": pos_px,
+        "negative_points": neg_px,
+        "output_node_id": "208",
+        "graph": graph,
+    }
+
+
 def _inject_kj_preview_override(
     graph: dict[str, Any],
     *,
@@ -491,7 +667,7 @@ def _events_have_sound_cues(doc: dict[str, Any], params: dict[str, Any], *, dire
     explicit = params.get("sound_cues_enabled")
     if explicit is False:
         return False
-    if director_mode == "point_targets":
+    if director_mode in ("point_targets", "combined"):
         for t in doc.get("targets") or ():
             if isinstance(t, dict) and str(t.get("cue") or "none").strip().lower() not in ("", "none"):
                 return True
@@ -886,12 +1062,22 @@ def _compile_single_spatial(
     events_str = json.dumps(events_doc, indent=2)
     _spatial_director().parse_director_events(events_str, mode=director_mode, length=length)
 
-    n160["mode"] = director_mode
+    feather_val = _feather_value(params, width, height, float(n160.get("feather", 0.08)))
+    want_invert = bool(params.get("invert_mask", n160.get("invert_mask", False)))
+    include_mask_ref = str(params.get("include_mask_ref") or "").strip()
+    exclude_mask_ref = str(params.get("exclude_mask_ref") or "").strip()
+    sprite_mask_ref = str(params.get("sprite_mask_ref") or "").strip()
+    native_combined = has_spatial_combined_support(object_info)
+
+    for stale_id in ("166", "167", "168", "170", "171", "172", "173", "174", "175", "176", "177", "178", "179"):
+        graph.pop(stale_id, None)
+    n160.pop("include_mask", None)
+    n160.pop("exclude_mask", None)
+
     n160["width"] = ["27", 0]
     n160["height"] = ["27", 1]
     n160["length"] = ["27", 2]
-    n160["feather"] = _feather_value(params, width, height, float(n160.get("feather", 0.08)))
-    n160["invert_mask"] = bool(params.get("invert_mask", n160.get("invert_mask", False)))
+    n160["feather"] = feather_val
     n160["events_json"] = events_str
 
     n161 = graph["161"]["inputs"]
@@ -913,29 +1099,163 @@ def _compile_single_spatial(
         else:
             graph["52"] = {"class_type": "LoadImage", "inputs": {"image": sprite_ref}}
             sprite_loader_ref = ["52", 0]
+        n51_inputs: dict[str, Any] = {
+            "image": sprite_loader_ref,
+            "length": ["27", 2],
+            "keyframes": ["160", 2],
+            "canvas_width": int(params.get("sprite_canvas_width", 384)),
+            "canvas_height": int(params.get("sprite_canvas_height", 224)),
+            "sprite_scale": float(params.get("sprite_scale", 0.31)),
+            "use_vae": True,
+            "references": ["50", 0],
+        }
+        if sprite_mask_ref:
+            graph["53"] = {"class_type": "LoadImage", "inputs": {"image": sprite_mask_ref}}
+            graph["54"] = {"class_type": "ImageToMask", "inputs": {"image": ["53", 0], "channel": "red"}}
+            n51_inputs["mask"] = ["54", 0]
+        else:
+            graph.pop("53", None)
+            graph.pop("54", None)
         graph["51"] = {
             "class_type": "MiniMaxH3AppendSpriteTrajectory",
-            "inputs": {
-                "image": sprite_loader_ref,
-                "length": ["27", 2],
-                "keyframes": ["160", 2],
-                "canvas_width": int(params.get("sprite_canvas_width", 384)),
-                "canvas_height": int(params.get("sprite_canvas_height", 224)),
-                "sprite_scale": float(params.get("sprite_scale", 0.31)),
-                "use_vae": True,
-                "references": ["50", 0],
-            },
+            "inputs": n51_inputs,
         }
         graph["132"]["inputs"]["references"] = ["51", 0]
     else:
         graph.pop("51", None)
         graph.pop("52", None)
+        graph.pop("53", None)
+        graph.pop("54", None)
         if is_r2v and "132" in graph:
             graph["132"]["inputs"]["references"] = ["50", 0]
 
     # Seed & noise.
     seed = _resolve_seed(params, graph)
     graph["6"]["inputs"]["noise_seed"] = seed
+
+    # Native combined/aux masks OR zero-restart MaskComposite fallback when live server has 2-mode schema.
+    fallback_cues_ref: Any = ["160", 1]
+    if native_combined:
+        n160["mode"] = director_mode
+        n160["invert_mask"] = want_invert
+        if include_mask_ref:
+            graph["170"] = {"class_type": "LoadImage", "inputs": {"image": include_mask_ref}}
+            graph["171"] = {"class_type": "ImageToMask", "inputs": {"image": ["170", 0], "channel": "red"}}
+            n160["include_mask"] = ["171", 0]
+        if exclude_mask_ref:
+            graph["172"] = {"class_type": "LoadImage", "inputs": {"image": exclude_mask_ref}}
+            graph["173"] = {"class_type": "ImageToMask", "inputs": {"image": ["172", 0], "channel": "red"}}
+            n160["exclude_mask"] = ["173", 0]
+        final_mask_ref: list[Any] = ["160", 0]
+    else:
+        has_portals = bool(events_doc.get("portal"))
+        has_targets = bool(events_doc.get("targets"))
+        need_mask_pipeline = (director_mode == "combined") or bool(include_mask_ref) or bool(exclude_mask_ref)
+        if director_mode == "combined":
+            if has_portals and has_targets:
+                n160["mode"] = "portal_path"
+                n160["invert_mask"] = False
+                graph["166"] = {
+                    "class_type": "MiniMaxH3SpatialDirector",
+                    "inputs": {
+                        "mode": "point_targets",
+                        "width": ["27", 0],
+                        "height": ["27", 1],
+                        "length": ["27", 2],
+                        "feather": feather_val,
+                        "invert_mask": False,
+                        "events_json": events_str,
+                    },
+                }
+                graph["167"] = {
+                    "class_type": "MaskComposite",
+                    "inputs": {
+                        "destination": ["160", 0],
+                        "source": ["166", 0],
+                        "x": 0,
+                        "y": 0,
+                        "operation": "add",
+                    },
+                }
+                final_mask_ref = ["167", 0]
+                deduped_cues = str(
+                    _spatial_director().MiniMaxH3SpatialDirector.execute(
+                        mode="combined",
+                        width=64,
+                        height=64,
+                        length=length,
+                        feather=feather_val,
+                        invert_mask=False,
+                        events_json=events_str,
+                    )[1]
+                )
+                graph["168"] = {"class_type": "PrimitiveStringMultiline", "inputs": {"value": deduped_cues}}
+                fallback_cues_ref = ["168", 0]
+            elif has_targets:
+                n160["mode"] = "point_targets"
+                n160["invert_mask"] = False
+                final_mask_ref = ["160", 0]
+            else:
+                n160["mode"] = "portal_path"
+                n160["invert_mask"] = False
+                final_mask_ref = ["160", 0]
+        else:
+            n160["mode"] = director_mode
+            n160["invert_mask"] = False if need_mask_pipeline else want_invert
+            final_mask_ref = ["160", 0]
+
+        if include_mask_ref:
+            graph["170"] = {"class_type": "LoadImage", "inputs": {"image": include_mask_ref}}
+            graph["171"] = {
+                "class_type": "ImageScale",
+                "inputs": {
+                    "image": ["170", 0],
+                    "upscale_method": "bilinear",
+                    "width": ["27", 0],
+                    "height": ["27", 1],
+                    "crop": "disabled",
+                },
+            }
+            graph["172"] = {"class_type": "ImageToMask", "inputs": {"image": ["171", 0], "channel": "red"}}
+            graph["173"] = {
+                "class_type": "MaskComposite",
+                "inputs": {
+                    "destination": final_mask_ref,
+                    "source": ["172", 0],
+                    "x": 0,
+                    "y": 0,
+                    "operation": "add",
+                },
+            }
+            final_mask_ref = ["173", 0]
+        if need_mask_pipeline and want_invert:
+            graph["174"] = {"class_type": "InvertMask", "inputs": {"mask": final_mask_ref}}
+            final_mask_ref = ["174", 0]
+        if exclude_mask_ref:
+            graph["175"] = {"class_type": "LoadImage", "inputs": {"image": exclude_mask_ref}}
+            graph["176"] = {
+                "class_type": "ImageScale",
+                "inputs": {
+                    "image": ["175", 0],
+                    "upscale_method": "bilinear",
+                    "width": ["27", 0],
+                    "height": ["27", 1],
+                    "crop": "disabled",
+                },
+            }
+            graph["177"] = {"class_type": "ImageToMask", "inputs": {"image": ["176", 0], "channel": "red"}}
+            graph["178"] = {"class_type": "InvertMask", "inputs": {"mask": ["177", 0]}}
+            graph["179"] = {
+                "class_type": "MaskComposite",
+                "inputs": {
+                    "destination": final_mask_ref,
+                    "source": ["178", 0],
+                    "x": 0,
+                    "y": 0,
+                    "operation": "multiply",
+                },
+            }
+            final_mask_ref = ["179", 0]
 
     # Conditional SoundCues ("70") + Preflight ("26") + EditGuider ("9") positive inputs.
     has_cues = _events_have_sound_cues(events_doc, params, director_mode=director_mode)
@@ -947,7 +1267,7 @@ def _compile_single_spatial(
                 "positive": ["5", 0],
                 "latent": [latent_source, 1],
                 "audio_vae": ["4", 0],
-                "cues": ["160", 1],
+                "cues": fallback_cues_ref,
                 "snap_to_3f": True,
                 "floor_dbfs": float(params.get("floor_dbfs", -28.0)),
                 "seed": int(params.get("audio_seed", seed)),
@@ -972,7 +1292,7 @@ def _compile_single_spatial(
     n9 = graph["9"]["inputs"]
     n9["original"] = ["26", 0]
     n9["edited"] = edited_ref
-    n9["mask"] = ["160", 0]
+    n9["mask"] = final_mask_ref
     if scale_override is not None:
         n9["scale"] = float(scale_override)
     elif params.get("scale") is not None:
@@ -1041,6 +1361,10 @@ def _compile_single_spatial(
         "preview_override_injected": injected,
         "nodes_summary": {
             "has_sprite": has_sprite,
+            "has_sprite_mask": bool(has_sprite and sprite_mask_ref),
+            "has_include_mask": bool(include_mask_ref),
+            "has_exclude_mask": bool(exclude_mask_ref),
+            "spatial_combined_native": native_combined,
             "has_sound_cues": has_cues,
             "has_preview_override": injected,
             "has_release_refs": "135" in graph,
@@ -1277,6 +1601,7 @@ def escalate_plan(params: dict[str, Any]) -> dict[str, Any]:
 def get_schema_data(object_info: dict[str, Any] | None = None, *, heylook_suggestions: bool = False) -> dict[str, Any]:
     """Return full schema metadata for ``GET /api/schema``."""
     cues = _sound_cues()
+    sam3_cap = detect_sam3_capability(object_info)
     canvases = [
         {"label": "7:4 Wide (1344×768)", "width": 1344, "height": 768, "aspect": "7:4"},
         {"label": "4:3 Standard (1152×896)", "width": 1152, "height": 896, "aspect": "4:3"},
@@ -1296,6 +1621,9 @@ def get_schema_data(object_info: dict[str, Any] | None = None, *, heylook_sugges
             "taeh3": has_kj_preview_override(object_info, TAEH3_VIDEO_FILE),
             "taeh3_image": has_kj_preview_override(object_info, TAEH3_IMAGE_FILE),
             "heylook_suggestions": bool(heylook_suggestions),
+            "sam3": bool(sam3_cap["available"]),
+            "sam3_engine": sam3_cap["engine"],
+            "spatial_combined": has_spatial_combined_support(object_info),
         },
         "defaults": {
             "mode": "r2v_portal",

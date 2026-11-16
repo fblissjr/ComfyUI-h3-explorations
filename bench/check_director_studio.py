@@ -469,6 +469,85 @@ def check_compiler_contracts() -> str:
         applied_list = res_couple["nodes_summary"].get("couplings_applied") or []
         assert len(applied_list) >= 1, res_couple["nodes_summary"]
 
+    # 5. SAM 3.1 segmentation graph compiler contracts (points vs text prompt)
+    mock_sam3_info = {
+        **MOCK_OBJECT_INFO_WITH_KJ,
+        "CheckpointLoaderSimple": {
+            "input": {"required": {"ckpt_name": [["sam3.1_multiplex_fp16.safetensors", "sam3_fp32.safetensors"], {}]}}
+        },
+        "SAM3_Detect": {"input": {"required": {}, "optional": {}}},
+        "MiniMaxH3SAM31Corrections": {"input": {"required": {}, "optional": {}}},
+    }
+    sam_pt = compiler_mod.compile_sam3_segment(
+        {"image_ref": "h3_spatial_director/test_anchor.png", "positive_points": [{"nx": 0.5, "ny": 0.5}], "prompt": "ignore text"},
+        image_width=1344,
+        image_height=768,
+        object_info=mock_sam3_info,
+    )
+    g_sam = sam_pt["graph"]
+    assert g_sam["200"]["inputs"]["ckpt_name"] == "sam3.1_multiplex_fp16.safetensors"
+    assert g_sam["201"]["class_type"] == "MiniMaxH3SAM31Corrections"
+    assert g_sam["203"]["class_type"] == "PrimitiveString"
+    assert json.loads(g_sam["203"]["inputs"]["value"]) == [{"x": 672, "y": 384}]
+    assert g_sam["206"]["inputs"]["positive_coords"] == ["203", 0]
+    assert "205" not in g_sam and "conditioning" not in g_sam["206"]["inputs"], (
+        "Point click must not union CLIPTextEncode conditioning unless explicitly requested"
+    )
+    assert g_sam["207"]["class_type"] == "MaskToImage" and g_sam["208"]["class_type"] == "PreviewImage"
+
+    sam_txt = compiler_mod.compile_sam3_segment(
+        {"image_ref": "h3_spatial_director/test_anchor.png", "prompt": "bronze tortoise"},
+        image_width=1344,
+        image_height=768,
+        object_info=mock_sam3_info,
+    )
+    assert sam_txt["graph"]["205"]["class_type"] == "CLIPTextEncode"
+    assert sam_txt["graph"]["206"]["inputs"]["conditioning"] == ["205", 0]
+
+    # 6. Combined mode + sprite_mask_ref + include_mask_ref + exclude_mask_ref (native AND pre-reload fallback)
+    comb_payload = dict(
+        common_base,
+        mode="r2v_portal",
+        director_mode="combined",
+        sprite_ref="h3_spatial_director/cutout_1.png",
+        sprite_mask_ref="h3_spatial_director/seg_cutout.png",
+        include_mask_ref="h3_spatial_director/seg_include.png",
+        exclude_mask_ref="h3_spatial_director/seg_exclude.png",
+        invert_mask=True,
+    )
+    res_native = compiler_mod.compile_spatial_take(comb_payload, object_info=MOCK_OBJECT_INFO_WITH_KJ)
+    g_nat = res_native["graph"]
+    assert res_native["director_mode"] == "combined"
+    assert g_nat["160"]["inputs"]["mode"] == "combined"
+    assert g_nat["160"]["inputs"]["include_mask"] == ["171", 0]
+    assert g_nat["160"]["inputs"]["exclude_mask"] == ["173", 0]
+    assert g_nat["51"]["inputs"]["mask"] == ["54", 0]
+    assert res_native["nodes_summary"]["has_sprite_mask"] is True
+    assert res_native["nodes_summary"]["has_include_mask"] is True
+    assert res_native["nodes_summary"]["has_exclude_mask"] is True
+    assert res_native["nodes_summary"]["spatial_combined_native"] is True
+
+    mock_pre_reload = {
+        **MOCK_OBJECT_INFO_WITH_KJ,
+        "MiniMaxH3SpatialDirector": {
+            "input": {
+                "required": {"mode": ["COMBO", {"options": ["portal_path", "point_targets"]}]},
+                "optional": {"backdrop": ["IMAGE", {}]},
+            }
+        },
+    }
+    res_fb = compiler_mod.compile_spatial_take(comb_payload, object_info=mock_pre_reload)
+    g_fb = res_fb["graph"]
+    assert res_fb["nodes_summary"]["spatial_combined_native"] is False
+    assert g_fb["160"]["inputs"]["mode"] == "portal_path"
+    assert "include_mask" not in g_fb["160"]["inputs"] and "exclude_mask" not in g_fb["160"]["inputs"]
+    assert g_fb["166"]["class_type"] == "MiniMaxH3SpatialDirector" and g_fb["166"]["inputs"]["mode"] == "point_targets"
+    assert g_fb["167"]["class_type"] == "MaskComposite" and g_fb["167"]["inputs"]["operation"] == "add"
+    assert g_fb["168"]["class_type"] == "PrimitiveStringMultiline" and g_fb["70"]["inputs"]["cues"] == ["168", 0]
+    assert g_fb["171"]["class_type"] == "ImageScale" and g_fb["174"]["class_type"] == "InvertMask"
+    assert g_fb["179"]["class_type"] == "MaskComposite" and g_fb["179"]["inputs"]["operation"] == "multiply"
+    assert g_fb["9"]["inputs"]["mask"] == ["179", 0]
+
     # 3. Anchor / Stamp Still (`compile_still` with `pika_image` -> `h3_pika_image_t2i` default)
     still_payload = {
         "workflow": "pika_image",
@@ -621,11 +700,43 @@ def check_server_routes_and_escalate() -> str:
     _compiler_mod, _routes_mod, server_mod = _load_director_modules()
 
     async def _run() -> None:
+        stored_uploads: dict[str, bytes] = {"test_anchor.png": _encode_test_png_bytes(336, 192)}
+
+        async def _stub_upload(req: web.Request) -> web.Response:
+            reader = await req.multipart()
+            fname = "up.png"
+            sub = "h3_spatial_director"
+            fbytes = b""
+            while True:
+                part = await reader.next()
+                if part is None:
+                    break
+                if part.name == "image":
+                    fname = part.filename or fname
+                    fbytes = await part.read()
+                elif part.name == "subfolder":
+                    sub = (await part.text()).strip()
+            key = f"{sub}/{fname}" if sub else fname
+            stored_uploads[key] = fbytes
+            return web.json_response({"name": fname, "subfolder": sub, "type": "input"})
+
+        async def _stub_view(req: web.Request) -> web.Response:
+            q = req.rel_url.query
+            fn = q.get("filename", "")
+            sub = q.get("subfolder", "")
+            key = f"{sub}/{fn}" if sub else fn
+            raw = stored_uploads.get(key) or stored_uploads.get(fn)
+            if raw is None:
+                return web.Response(status=404, text="not found")
+            return web.Response(body=raw, content_type="image/png")
+
         stub = web.Application()
         stub.router.add_get("/object_info", lambda _r: web.json_response(MOCK_OBJECT_INFO_WITH_KJ))
         stub.router.add_get("/system_stats", lambda _r: web.json_response({"system": {"ram_total": 64}, "devices": []}))
         stub.router.add_get("/queue", lambda _r: web.json_response({"queue_running": [], "queue_pending": []}))
         stub.router.add_get("/history", lambda _r: web.json_response({}))
+        stub.router.add_post("/upload/image", _stub_upload)
+        stub.router.add_get("/view", _stub_view)
 
         async with TestServer(stub) as comfy_srv:
             comfy_url = f"http://127.0.0.1:{comfy_srv.port}"
@@ -736,8 +847,35 @@ def check_server_routes_and_escalate() -> str:
                     assert float(cmp_data["graph"]["160"]["inputs"]["feather"]) >= 0.22
                     assert len(cmp_data["nodes_summary"].get("couplings_applied") or []) >= 1, cmp_data["nodes_summary"]
 
+                    # 6. POST /api/segment offline GrabCut path (cutout + exclude roles)
+                    r_seg_cut = await client.post(
+                        "/api/segment",
+                        json={
+                            "source_ref": "test_anchor.png",
+                            "positive_points": [{"nx": 0.5, "ny": 0.5}],
+                            "role": "cutout",
+                        },
+                    )
+                    assert r_seg_cut.status == 200, await r_seg_cut.text()
+                    seg_cut = await r_seg_cut.json()
+                    assert seg_cut["ok"] is True and seg_cut["role"] == "cutout" and seg_cut["engine"] == "grabcut", seg_cut
+                    assert seg_cut.get("mask_ref") and seg_cut.get("cutout_ref"), seg_cut
+                    assert 0.01 <= float(seg_cut["coverage"]) <= 0.95, seg_cut
+
+                    r_seg_exc = await client.post(
+                        "/api/segment",
+                        json={
+                            "source_ref": "test_anchor.png",
+                            "positive_points": [{"nx": 0.5, "ny": 0.5}],
+                            "role": "exclude",
+                        },
+                    )
+                    assert r_seg_exc.status == 200, await r_seg_exc.text()
+                    seg_exc = await r_seg_exc.json()
+                    assert seg_exc["ok"] is True and seg_exc["role"] == "exclude" and seg_exc.get("mask_ref"), seg_exc
+
     asyncio.run(_run())
-    return "server CSP/Host guard, schema capabilities, context_suggest disabled, /api/escalate on_both_clocks + 3f cues, and /api/compile verified"
+    return "server CSP/Host guard, schema capabilities, /api/segment, /api/escalate on_both_clocks + 3f cues, and /api/compile verified"
 
 
 def check_static_and_route_audit() -> str:
@@ -1271,6 +1409,38 @@ async def _run_cdp_browser(director_url: str, anchor_png: Path) -> str:
                     p3_req = await _capture_render_payload()
                     scale3 = float(p3_req.get("scale", 1.5))
                     assert abs(scale3 - scale0) > 1e-4, f"Alt+Wheel did not adjust scale: before={scale0} after={scale3}"
+
+                    # Switch to Combined mode & toggle Pick Subject bar (1280x800 layout unclipped)
+                    comb_state = await js(
+                        """(() => {
+                          document.getElementById('mode-btn-combined')?.click();
+                          const btnComb = document.getElementById('mode-btn-combined');
+                          const heading = document.getElementById('portal-card-heading');
+                          const card = document.getElementById('portal-card');
+                          const pick = document.getElementById('btn-sam-pick');
+                          pick?.click();
+                          const canvas = document.getElementById('stage-canvas');
+                          const armed = Boolean(pick?.classList.contains('active') && canvas?.classList.contains('sam-pick-cursor'));
+                          pick?.click();
+                          const r = card.getBoundingClientRect();
+                          return {
+                            combinedActive: Boolean(btnComb?.classList.contains('active')),
+                            headingText: heading ? heading.textContent.trim() : '',
+                            headingScrollW: heading ? Math.ceil(heading.scrollWidth) : 0,
+                            headingClientW: heading ? Math.floor(heading.clientWidth) : 0,
+                            rect: { left: r.left, top: r.top, right: r.right, bottom: r.bottom },
+                            armed,
+                          };
+                        })()"""
+                    )
+                    assert comb_state["combinedActive"], f"#mode-btn-combined not active: {comb_state}"
+                    assert comb_state["headingScrollW"] <= comb_state["headingClientW"] + 1, (
+                        f"#portal-card-heading truncated in combined mode: {comb_state}"
+                    )
+                    assert comb_state["rect"]["right"] <= 1280 and comb_state["rect"]["bottom"] <= 800, (
+                        f"#portal-card clipped at 1280x800 with SAM bar: {comb_state['rect']}"
+                    )
+                    assert comb_state["armed"], f"#btn-sam-pick did not arm canvas cursor: {comb_state}"
 
                     # Open Engine drawer and verify ArrowRight tablist navigation
                     await js("document.getElementById('btn-engine').click()")

@@ -374,6 +374,10 @@ body.light-studio {
   cursor: crosshair;
 }
 
+.stage-canvas.sam-pick-cursor {
+  cursor: cell;
+}
+
 .stage-top-left {
   position: absolute;
   top: 12px;
@@ -1021,12 +1025,92 @@ body.light-studio {
   background: var(--emerald-bg);
   border: 1px solid var(--emerald-border);
   border-radius: 7px;
-  padding: 6px 8px;
+  padding: 5px 8px;
   font-family: var(--font-mono);
   font-size: 10px;
   font-weight: 500;
   color: var(--emerald);
-  line-height: 1.35;
+  line-height: 1.3;
+}
+
+.sam-subject-bar {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.sam-pick-btn {
+  border: 1px solid var(--blue-border);
+  background: var(--blue-tint);
+  color: var(--blue-dark);
+  font-size: 10px;
+  font-weight: 700;
+  padding: 4px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.sam-pick-btn:disabled {
+  opacity: 0.48;
+  cursor: not-allowed;
+}
+
+.sam-pick-btn.active {
+  background: var(--blue);
+  border-color: var(--blue);
+  color: #ffffff;
+}
+
+.sam-role-group {
+  display: inline-flex;
+  align-items: center;
+  background: #F1F5F9;
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  padding: 1px;
+  gap: 1px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.sam-role-btn {
+  flex: 1 1 0;
+  border: none;
+  background: transparent;
+  color: var(--ink-muted);
+  font-size: 10px;
+  font-weight: 600;
+  padding: 3px 4px;
+  border-radius: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.sam-role-btn.active {
+  background: #ffffff;
+  color: var(--ink);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+}
+
+.sam-clear-btn {
+  border: 1px solid var(--border-card);
+  background: #ffffff;
+  color: var(--ink-muted);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.sam-clear-btn:hover {
+  color: var(--ink);
+  border-color: var(--ink-muted);
 }
 
 .card-cta-row {

@@ -606,9 +606,7 @@ async def handle_static(request: web.Request) -> web.StreamResponse:
 
 async def handle_schema(request: web.Request) -> web.Response:
     app = request.app
-    obj_info = await _comfy_get_json(app, f"/object_info/{compiler.PREVIEW_NODE_CLASS}", timeout=2.0)
-    if obj_info is None:
-        obj_info = await _comfy_get_json(app, "/object_info", timeout=3.0)
+    obj_info = await _fetch_object_info(app)
     heylook_url = await _probe_heylook_url(app)
     data = compiler.get_schema_data(obj_info, heylook_suggestions=bool(heylook_url))
     return web.json_response(data)
@@ -711,11 +709,27 @@ async def _read_json_body(request: web.Request) -> dict[str, Any]:
     return doc
 
 
+_SCHEMA_OBJECT_INFO_CLASSES: tuple[str, ...] = (
+    compiler.PREVIEW_NODE_CLASS,
+    "MiniMaxH3SpatialDirector",
+    "SAM3_Detect",
+    "MiniMaxH3SAM31Corrections",
+    "CheckpointLoaderSimple",
+)
+
+
 async def _fetch_object_info(app: web.Application) -> dict[str, Any] | None:
-    info = await _comfy_get_json(app, f"/object_info/{compiler.PREVIEW_NODE_CLASS}", timeout=2.0)
-    if info is None:
-        info = await _comfy_get_json(app, "/object_info", timeout=3.0)
-    return info
+    results = await asyncio.gather(
+        *(_comfy_get_json(app, f"/object_info/{cls}", timeout=2.0) for cls in _SCHEMA_OBJECT_INFO_CLASSES),
+        return_exceptions=True,
+    )
+    merged: dict[str, Any] = {}
+    for item in results:
+        if isinstance(item, dict):
+            merged.update(item)
+    if merged:
+        return merged
+    return await _comfy_get_json(app, "/object_info", timeout=3.0)
 
 
 async def _submit_comfy_prompt(
@@ -912,6 +926,338 @@ async def handle_stamp_cutout(request: web.Request) -> web.Response:
             "graph": compiled["graph"],
         }
     )
+
+
+_VALID_SEGMENT_ROLES = {"cutout", "exclude", "include"}
+
+
+def _fallback_point_ellipse_mask(
+    width: int,
+    height: int,
+    *,
+    positive_points: list[dict[str, int]],
+) -> Any:
+    import numpy as np
+
+    yy, xx = np.mgrid[0:height, 0:width].astype(np.float32)
+    pts = positive_points or [{"x": width // 2, "y": height // 2}]
+    rx = max(8.0, float(width) * 0.16)
+    ry = max(8.0, float(height) * 0.22)
+    mask = np.zeros((height, width), dtype=np.float32)
+    for pt in pts:
+        cx = float(pt["x"])
+        cy = float(pt["y"])
+        dist = np.sqrt(((xx - cx) / rx) ** 2 + ((yy - cy) / ry) ** 2)
+        soft = np.clip((1.12 - dist) / 0.24, 0.0, 1.0)
+        mask = np.maximum(mask, soft)
+    return mask
+
+
+def _segment_grabcut_mask(
+    rgb_u8: Any,
+    *,
+    positive_points: list[dict[str, int]],
+    negative_points: list[dict[str, int]],
+) -> tuple[Any, float]:
+    import numpy as np
+
+    h, w = int(rgb_u8.shape[0]), int(rgb_u8.shape[1])
+    pts_pos = positive_points or [{"x": w // 2, "y": h // 2}]
+    short_side = max(8, min(w, h))
+
+    mask_f32: Any | None = None
+    try:
+        import cv2  # type: ignore
+
+        gc_mask = np.full((h, w), cv2.GC_PR_BGD, dtype=np.uint8)
+        border = max(1, min(4, short_side // 32))
+        gc_mask[:border, :] = cv2.GC_BGD
+        gc_mask[-border:, :] = cv2.GC_BGD
+        gc_mask[:, :border] = cv2.GC_BGD
+        gc_mask[:, -border:] = cv2.GC_BGD
+
+        r_pr = max(12, int(round(short_side * 0.24)))
+        r_fg = max(4, int(round(short_side * 0.035)))
+        r_neg = max(4, int(round(short_side * 0.04)))
+
+        for pt in pts_pos:
+            cv2.circle(gc_mask, (int(pt["x"]), int(pt["y"])), r_pr, int(cv2.GC_PR_FGD), -1)
+        for pt in pts_pos:
+            cv2.circle(gc_mask, (int(pt["x"]), int(pt["y"])), r_fg, int(cv2.GC_FGD), -1)
+        for pt in negative_points:
+            cv2.circle(gc_mask, (int(pt["x"]), int(pt["y"])), r_neg, int(cv2.GC_BGD), -1)
+
+        has_fg = np.any((gc_mask == cv2.GC_FGD) | (gc_mask == cv2.GC_PR_FGD))
+        has_bg = np.any((gc_mask == cv2.GC_BGD) | (gc_mask == cv2.GC_PR_BGD))
+        if not has_bg:
+            gc_mask[0, :] = cv2.GC_BGD
+        if has_fg and np.any((gc_mask == cv2.GC_BGD) | (gc_mask == cv2.GC_PR_BGD)):
+            bgr_u8 = cv2.cvtColor(rgb_u8, cv2.COLOR_RGB2BGR)
+            bgd_model = np.zeros((1, 65), dtype=np.float64)
+            fgd_model = np.zeros((1, 65), dtype=np.float64)
+            cv2.grabCut(bgr_u8, gc_mask, None, bgd_model, fgd_model, 4, cv2.GC_INIT_WITH_MASK)
+            fg_bin = ((gc_mask == cv2.GC_FGD) | (gc_mask == cv2.GC_PR_FGD)).astype(np.float32)
+            cov_raw = float(fg_bin.mean())
+            if 0.005 <= cov_raw <= 0.95:
+                mask_f32 = np.clip(cv2.GaussianBlur(fg_bin, (0, 0), sigmaX=1.2), 0.0, 1.0)
+    except Exception:
+        mask_f32 = None
+
+    if mask_f32 is None:
+        mask_f32 = _fallback_point_ellipse_mask(w, h, positive_points=pts_pos)
+    coverage = float((mask_f32 > 0.5).mean())
+    return mask_f32, coverage
+
+
+def _encode_mask_rgb_png(mask_f32: Any) -> tuple[bytes, Any]:
+    import numpy as np
+    from PIL import Image
+
+    mask_u8 = np.clip(np.round(mask_f32 * 255.0), 0, 255).astype(np.uint8)
+    mask_rgb = np.stack([mask_u8, mask_u8, mask_u8], axis=-1)
+    buf = io.BytesIO()
+    Image.fromarray(mask_rgb, mode="RGB").save(buf, format="PNG")
+    return buf.getvalue(), mask_u8
+
+
+def _encode_rgba_cutout_png(rgb_u8: Any, mask_u8: Any) -> bytes:
+    import numpy as np
+    from PIL import Image
+
+    rgba = np.dstack([rgb_u8, mask_u8])
+    buf = io.BytesIO()
+    Image.fromarray(rgba, mode="RGBA").save(buf, format="PNG")
+    return buf.getvalue()
+
+
+async def _run_sam3_segment_live(
+    app: web.Application,
+    *,
+    sid: str,
+    input_ref: str,
+    width: int,
+    height: int,
+    params: dict[str, Any],
+    obj_info: dict[str, Any],
+) -> tuple[Any, float, str] | None:
+    import numpy as np
+    from PIL import Image
+
+    seg_params = dict(params)
+    seg_params["image_ref"] = input_ref
+    compiled = compiler.compile_sam3_segment(
+        seg_params,
+        image_width=width,
+        image_height=height,
+        object_info=obj_info,
+    )
+    seg_cid = f"seg_{secrets.token_hex(6)}"
+    prompt_id = await _submit_comfy_prompt(
+        app,
+        compiled["graph"],
+        client_id=seg_cid,
+        extra_meta={"kind": "segment", "session_id": sid},
+    )
+
+    output_node = str(compiled.get("output_node_id") or "208")
+    out_desc: dict[str, Any] | None = None
+    try:
+        deadline = time.monotonic() + 75.0
+        while time.monotonic() < deadline:
+            hist = await _comfy_get_json(app, f"/history/{prompt_id}", timeout=3.0)
+            entry = hist.get(prompt_id) if isinstance(hist, dict) else None
+            if isinstance(entry, dict):
+                status_str = str((entry.get("status") or {}).get("status_str") or "")
+                if status_str == "error":
+                    return None
+                outputs = entry.get("outputs") or {}
+                node_out = outputs.get(output_node)
+                if isinstance(node_out, dict):
+                    out_desc = _first_image_from_node_output(node_out)
+                    if out_desc is not None:
+                        break
+                if (entry.get("status") or {}).get("completed"):
+                    break
+            await asyncio.sleep(0.25)
+
+        if out_desc is None:
+            return None
+        s, img_bytes, _ = await _comfy_fetch_view(app, {
+            "filename": str(out_desc["filename"]),
+            "subfolder": str(out_desc.get("subfolder") or ""),
+            "type": str(out_desc.get("type") or "temp"),
+        })
+        if s != 200 or not img_bytes:
+            return None
+        with Image.open(io.BytesIO(img_bytes)) as m_img:
+            l_img = m_img.convert("L")
+            if l_img.size != (width, height):
+                l_img = l_img.resize((width, height), Image.Resampling.BILINEAR)
+            mask_f32 = np.asarray(l_img, dtype=np.float32) / 255.0
+        coverage = float((mask_f32 > 0.35).mean())
+        if coverage <= 0.001:
+            return None
+        return mask_f32, coverage, str(compiled.get("engine") or "sam3.1")
+    finally:
+        try:
+            await _comfy_post_json(app, "/history", {"delete": [prompt_id]}, timeout=5.0)
+        except Exception:
+            pass
+
+
+async def handle_segment(request: web.Request) -> web.Response:
+    import numpy as np
+    from PIL import Image
+
+    try:
+        body = await _read_json_body(request)
+    except Exception as exc:
+        return web.json_response({"ok": False, "error": str(exc)}, status=400)
+
+    sid: str = request["director_sid"]
+    role = str(body.get("role") or "cutout").strip().lower()
+    if role not in _VALID_SEGMENT_ROLES:
+        return web.json_response(
+            {"ok": False, "error": f"Unknown role {role!r}; expected one of {sorted(_VALID_SEGMENT_ROLES)}"},
+            status=400,
+        )
+
+    source_spec = body.get("source_ref") or body.get("source_image") or body.get("image_output")
+    if not source_spec:
+        return web.json_response({"ok": False, "error": "source_ref is required"}, status=400)
+
+    raw_pos = body.get("positive_points")
+    if raw_pos is None and ("nx" in body or "ny" in body):
+        raw_pos = [{"nx": float(body.get("nx", 0.5)), "ny": float(body.get("ny", 0.5))}]
+    raw_neg = body.get("negative_points")
+    prompt_text = str(body.get("prompt") or "").strip()
+    if not raw_pos and not prompt_text:
+        return web.json_response(
+            {"ok": False, "error": "positive_points (or nx/ny) or prompt is required"},
+            status=400,
+        )
+
+    try:
+        desc = _parse_view_descriptor(source_spec, default_type="input")
+    except ValueError as exc:
+        return web.json_response({"ok": False, "error": str(exc)}, status=400)
+
+    status, raw_bytes, _ = await _comfy_fetch_view(request.app, desc)
+    if status != 200 or not raw_bytes:
+        return web.json_response({"ok": False, "error": f"source image unavailable ({status})"}, status=404)
+
+    try:
+        with Image.open(io.BytesIO(raw_bytes)) as src_img:
+            rgb_img = src_img.convert("RGB")
+            w, h = int(rgb_img.width), int(rgb_img.height)
+            rgb_u8 = np.asarray(rgb_img, dtype=np.uint8)
+        pos_px = compiler._normalize_sam3_points(raw_pos, width=w, height=h)
+        neg_px = compiler._normalize_sam3_points(raw_neg, width=w, height=h)
+    except Exception as exc:
+        return web.json_response({"ok": False, "error": f"Invalid source image or points: {exc}"}, status=400)
+
+    store: SessionStore = request.app["store"]
+    obj_info = await _fetch_object_info(request.app)
+    sam3_cap = compiler.detect_sam3_capability(obj_info)
+    force_grabcut = bool(body.get("force_grabcut", False))
+
+    sam_result: tuple[Any, float, str] | None = None
+    if sam3_cap["available"] and not force_grabcut:
+        try:
+            if desc["type"] == "input":
+                input_ref = f"{desc['subfolder']}/{desc['filename']}" if desc["subfolder"] else desc["filename"]
+            else:
+                src_buf = io.BytesIO()
+                Image.fromarray(rgb_u8, mode="RGB").save(src_buf, format="PNG")
+                tmp_in_name = _sanitize_filename(
+                    f"seg_src_{Path(desc['filename']).stem}_{secrets.token_hex(3)}.png",
+                    default_ext=".png",
+                )
+                up_src = await _comfy_upload_bytes(
+                    request.app,
+                    src_buf.getvalue(),
+                    tmp_in_name,
+                    subfolder=UPLOADS_SUBFOLDER,
+                    content_type="image/png",
+                )
+                up_sub = str(up_src.get("subfolder") or UPLOADS_SUBFOLDER)
+                up_name = str(up_src.get("name") or tmp_in_name)
+                input_ref = f"{up_sub}/{up_name}" if up_sub else up_name
+                store.record_upload(input_ref, sid)
+
+            sam_result = await _run_sam3_segment_live(
+                request.app,
+                sid=sid,
+                input_ref=input_ref,
+                width=w,
+                height=h,
+                params={**body, "positive_points": pos_px, "negative_points": neg_px},
+                obj_info=obj_info or {},
+            )
+        except Exception as exc:
+            log.warning("SAM3 segmentation failed, falling back to GrabCut: %s", exc)
+            sam_result = None
+
+    if sam_result is not None:
+        mask_f32, coverage, engine = sam_result
+    else:
+        mask_f32, coverage = _segment_grabcut_mask(
+            rgb_u8,
+            positive_points=pos_px,
+            negative_points=neg_px,
+        )
+        engine = "grabcut"
+
+    try:
+        mask_png_bytes, mask_u8 = _encode_mask_rgb_png(mask_f32)
+        mask_name = _sanitize_filename(
+            f"seg_{role}_{Path(desc['filename']).stem}_{secrets.token_hex(3)}.png",
+            default_ext=".png",
+        )
+        m_res = await _comfy_upload_bytes(
+            request.app, mask_png_bytes, mask_name, subfolder=UPLOADS_SUBFOLDER, content_type="image/png"
+        )
+        m_saved = str(m_res.get("name") or mask_name)
+        m_sub = str(m_res.get("subfolder") or UPLOADS_SUBFOLDER)
+        m_type = str(m_res.get("type") or "input")
+        mask_ref = f"{m_sub}/{m_saved}" if m_sub else m_saved
+        store.record_upload(mask_ref, sid)
+        mask_url = _view_url(m_saved, m_sub, m_type)
+
+        resp_payload: dict[str, Any] = {
+            "ok": True,
+            "role": role,
+            "engine": engine,
+            "mask_ref": mask_ref,
+            "mask_view_url": mask_url,
+            "view_url": mask_url,
+            "coverage": round(coverage, 4),
+            "width": w,
+            "height": h,
+            "points_px": pos_px,
+            "negative_points_px": neg_px,
+        }
+        if role == "cutout":
+            cut_png_bytes = _encode_rgba_cutout_png(rgb_u8, mask_u8)
+            cut_name = _sanitize_filename(
+                f"seg_cutout_{Path(desc['filename']).stem}_{secrets.token_hex(3)}.png",
+                default_ext=".png",
+            )
+            c_res = await _comfy_upload_bytes(
+                request.app, cut_png_bytes, cut_name, subfolder=UPLOADS_SUBFOLDER, content_type="image/png"
+            )
+            c_saved = str(c_res.get("name") or cut_name)
+            c_sub = str(c_res.get("subfolder") or UPLOADS_SUBFOLDER)
+            c_type = str(c_res.get("type") or "input")
+            cutout_ref = f"{c_sub}/{c_saved}" if c_sub else c_saved
+            store.record_upload(cutout_ref, sid)
+            cut_url = _view_url(c_saved, c_sub, c_type)
+            resp_payload["cutout_ref"] = cutout_ref
+            resp_payload["cutout_view_url"] = cut_url
+            resp_payload["view_url"] = cut_url
+        return web.json_response(resp_payload)
+    except Exception as exc:
+        return web.json_response({"ok": False, "error": str(exc)}, status=502)
 
 
 async def handle_preflight(request: web.Request) -> web.Response:
@@ -1572,6 +1918,7 @@ def create_app(
     app.router.add_get("/api/system_stats", handle_system_stats)
     app.router.add_post("/api/upload", handle_upload)
     app.router.add_post("/api/stamp_cutout", handle_stamp_cutout)
+    app.router.add_post("/api/segment", handle_segment)
     app.router.add_post("/api/anchor", handle_anchor)
     app.router.add_post("/api/preflight", handle_preflight)
     app.router.add_post("/api/compile", handle_compile)

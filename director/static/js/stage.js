@@ -229,10 +229,12 @@ export class StageController {
     this.onMutate = opts.onMutate || (() => {});
     this.onCardInspect = opts.onCardInspect || (() => {});
     this.onInteractHud = opts.onInteractHud || (() => {});
+    this.onSamPick = opts.onSamPick || null;
     this.abCompare = opts.abCompare || null;
 
     this._taeCanvas = document.createElement("canvas");
     this._taeCtx = this._taeCanvas.getContext("2d");
+    this._maskTintCache = {};
 
     this._drag = null; // { kind, idx, linkEndX, linkEndY }
     this._dashPhase = 0;
@@ -293,7 +295,7 @@ export class StageController {
       }
     }
 
-    if (st.doc.mode === "point_targets") {
+    if (st.doc.mode === "point_targets" || st.doc.mode === "combined") {
       const targets = st.doc.targets || [];
       for (let i = targets.length - 1; i >= 0; i--) {
         const t = targets[i];
@@ -308,7 +310,9 @@ export class StageController {
           return { kind: "target_move", idx: i };
         }
       }
-      return { kind: "stage_empty" };
+      if (st.doc.mode === "point_targets") {
+        return { kind: "stage_empty" };
+      }
     }
 
     const pf = evalPortalAtFrame(st.doc, frame, len);
@@ -353,8 +357,13 @@ export class StageController {
       return;
     }
 
+    if (st.samPicking) {
+      this.onSamPick?.(nx, ny, { negative: Boolean(ev.altKey) });
+      return;
+    }
+
     // Shift + Drag from portal links Cross-Entity Coupling to Sprite
-    if (ev.shiftKey && st.doc.mode === "portal_path") {
+    if (ev.shiftKey && (st.doc.mode === "portal_path" || st.doc.mode === "combined")) {
       this._drag = { kind: "couple_link", linkEndX: nx, linkEndY: ny };
       this.canvas.setPointerCapture?.(ev.pointerId);
       this.render();
@@ -390,8 +399,9 @@ export class StageController {
       return;
     }
 
-    if (st.doc.mode === "point_targets") {
-      if (ev.shiftKey || !(st.doc.targets || []).length) {
+    if (st.doc.mode === "point_targets" || (st.doc.mode === "combined" && (ev.ctrlKey || ev.metaKey))) {
+      const wantAdd = st.doc.mode === "combined" || ev.shiftKey || !(st.doc.targets || []).length;
+      if (wantAdd) {
         const nextId = (st.doc.targets || []).reduce((m, t) => Math.max(m, Number(t.id || 0)), 0) + 1;
         const start = snapFrameTo3f(st.frame, st.length);
         const end = Math.min(st.length - 1, Math.max(start + 12, start + 36));
@@ -744,7 +754,7 @@ export class StageController {
     tCtx.globalCompositeOperation = "destination-in";
 
     const featherPx = Math.max(4, Number(st.doc.feather ?? 0.08) * shortEdge);
-    if (st.doc.mode === "point_targets") {
+    if (st.doc.mode === "point_targets" || st.doc.mode === "combined") {
       for (const t of st.doc.targets || []) {
         const tw = evalTargetTemporalWeight(t, st.frame, st.length);
         if (tw <= 0.01) continue;
@@ -764,7 +774,8 @@ export class StageController {
         tCtx.arc(tx, ty, rOuter, 0, Math.PI * 2);
         tCtx.fill();
       }
-    } else if (pf.temporalWeight > 0.01) {
+    }
+    if ((st.doc.mode === "portal_path" || st.doc.mode === "combined") && pf.temporalWeight > 0.01) {
       const cx = pf.x * w;
       const cy = pf.y * h;
       const tw = pf.temporalWeight;
@@ -823,9 +834,37 @@ export class StageController {
     ctx.restore();
   }
 
+  _getTintedMaskCanvas(key, maskImg, rgbTuple, alphaScale) {
+    if (!maskImg || !(maskImg.naturalWidth > 0)) return null;
+    const src = maskImg.src || "";
+    const cached = this._maskTintCache[key];
+    if (cached && cached.src === src) return cached.canvas;
+    const mw = maskImg.naturalWidth;
+    const mh = maskImg.naturalHeight;
+    const c = document.createElement("canvas");
+    c.width = mw;
+    c.height = mh;
+    const cx = c.getContext("2d");
+    cx.drawImage(maskImg, 0, 0, mw, mh);
+    const imgData = cx.getImageData(0, 0, mw, mh);
+    const d = imgData.data;
+    const [r, g, b] = rgbTuple;
+    for (let i = 0; i < d.length; i += 4) {
+      const lum = d[i];
+      d[i] = r;
+      d[i + 1] = g;
+      d[i + 2] = b;
+      d[i + 3] = Math.round(lum * alphaScale);
+    }
+    cx.putImageData(imgData, 0, 0);
+    this._maskTintCache[key] = { src, canvas: c };
+    return c;
+  }
+
   render() {
     const st = this.getState?.();
     if (!st || !this.ctx) return;
+    this.canvas.classList.toggle("sam-pick-cursor", Boolean(st.samPicking));
     const ctx = this.ctx;
     const w = this.canvas.width;
     const h = this.canvas.height;
@@ -876,14 +915,24 @@ export class StageController {
       return;
     }
 
+    const incTint = this._getTintedMaskCanvas("include", st.includeMaskImg, [2, 132, 199], 0.30);
+    if (incTint) {
+      this._drawContainOrCover(ctx, incTint, w, h);
+    }
+    const excTint = this._getTintedMaskCanvas("exclude", st.excludeMaskImg, [4, 120, 87], 0.34);
+    if (excTint) {
+      this._drawContainOrCover(ctx, excTint, w, h);
+    }
+
     const sp = (st.spriteMode || st.spriteCutout?.img || (st.couplings || []).length > 0)
       ? evalSpriteAtFrame(st.doc, st.frame, st.length)
       : null;
     const coupling = computeCouplingInfo(st, pf, sp);
 
-    if (st.doc.mode === "portal_path") {
+    if (st.doc.mode === "portal_path" || st.doc.mode === "combined") {
       this._drawPortalOverlay(ctx, st, pf, sp, coupling, w, h, shortEdge, dpr);
-    } else {
+    }
+    if (st.doc.mode === "point_targets" || st.doc.mode === "combined") {
       this._drawTargetsOverlay(ctx, st, w, h, shortEdge, dpr);
     }
 
