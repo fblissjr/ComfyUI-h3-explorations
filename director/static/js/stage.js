@@ -1,9 +1,9 @@
 /**
- * Sliderless Interactive 7:4 Stage Canvas & Masked TAEH3 Compositor (`stage.js`).
+ * Sliderless Interactive 7:4 Stage Canvas & Masked Latent Preview Compositor (`stage.js`).
  *
  * Renders:
- * - Anchor still / finished MP4 backdrop + optional 32x32px DiT patch grid
- * - Pixel-masked live `taeh3` sampler video/image strictly inside feathered Portal + Halo
+ * - Anchor still / finished MP4 backdrop + optional 32x32px patch grid
+ * - Pixel-masked live preview video/image strictly inside feathered Portal + Halo
  * - Outer dashed Influence Halo (`Shift + Scroll` adjusts `halo_radius` 0.02..0.30)
  * - Inner Macro <-> Micro Aperture ring (`Scroll` adjusts `rx`/`ry`) + trajectory curve
  * - Portal Patch HUD pill (`Portal @ [x, y] · 32px Patch [col, row] · Span fA..fB`)
@@ -12,7 +12,7 @@
  *   or `Shift + Drag` links them
  * - External rim EditGuider Power & Coupling badge (`Alt + Scroll` / ArrowUp/ArrowDown)
  * - Point-and-Click World Targets + 3f cue markers
- * - Genie RGBA Sprite cutout + 0ms onion-skin motion trail (`WASD` / `Space` hop)
+ * - Interactive RGBA Sprite cutout + 0ms onion-skin motion trail (`WASD` / `Space` hop)
  * - Interactive `◄ A | B ►` split comparison overlay (`ab_compare.js`)
  *
  * Zero `element.style.*` mutations: all stage visuals paint onto <canvas>.

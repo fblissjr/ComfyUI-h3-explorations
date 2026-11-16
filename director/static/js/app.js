@@ -1,9 +1,9 @@
 /**
- * Genie Direct Spatial Studio — Main Controller (`app.js`).
+ * Interactive Spatial Director — Main Controller (`app.js`).
  *
  * Hydrates all options from GET /api/schema & GET /api/system_stats, manages Beat 1
  * Anchor upload/generation, drives 24 fps loop + 3f FoleySynth playback, connects
- * live taeh3 WS previews, runs accessible tablist navigation in the Engine drawer,
+ * live preview WS frames, runs accessible tablist navigation in the Engine drawer,
  * and coordinates A|B wipe comparison & Clean/HUD MP4 exports.
  *
  * Zero external URLs, zero inline handlers, zero element.style.* mutations,
@@ -477,22 +477,22 @@ function syncLiveTaeBadges(stepMeta = null) {
   if (stepMeta && stepMeta.total > 0) {
     const fpsPart = stepMeta.fps ? ` · ${Number(stepMeta.fps).toFixed(1)}fps` : "";
     const stepStr = `Step ${stepMeta.step}/${stepMeta.total}`;
-    if (hdrText) hdrText.textContent = `Live TAE: ${stepMeta.step}/${stepMeta.total}${fpsPart}`;
-    if (stageText) stageText.textContent = `tae-h3 Live Latents · ${stepStr}`;
-    if (portalText) portalText.textContent = `Live taeh3 · ${stepStr} · r=${radStr}`;
+    if (hdrText) hdrText.textContent = `Live Preview: ${stepMeta.step}/${stepMeta.total}${fpsPart}`;
+    if (stageText) stageText.textContent = `Live Latents · ${stepStr}`;
+    if (portalText) portalText.textContent = `Live Preview · ${stepStr} · r=${radStr}`;
     hdrPill?.classList.remove("warn");
   } else if (state.capabilities.kj_preview_override && state.capabilities.taeh3) {
-    if (hdrText) hdrText.textContent = "Live TAE: taeh3 Ready · KV 1x";
-    if (stageText) stageText.textContent = "tae-h3 Live Latents Ready";
-    if (portalText) portalText.textContent = `Live taeh3 · Ready · r=${radStr}`;
+    if (hdrText) hdrText.textContent = "Live Preview: Ready · KV 1x";
+    if (stageText) stageText.textContent = "Live Latents Ready";
+    if (portalText) portalText.textContent = `Live Preview · Ready · r=${radStr}`;
     hdrPill?.classList.remove("warn");
   } else if (state.capabilities.kj_preview_override) {
-    if (hdrText) hdrText.textContent = "Live TAE: Latent2RGB";
+    if (hdrText) hdrText.textContent = "Live Preview: Latent2RGB";
     if (stageText) stageText.textContent = "Latent2RGB Fallback";
     if (portalText) portalText.textContent = `Live Preview · Ready · r=${radStr}`;
     hdrPill?.classList.add("warn");
   } else {
-    if (hdrText) hdrText.textContent = "Live TAE: Idle";
+    if (hdrText) hdrText.textContent = "Live Preview: Idle";
     if (stageText) stageText.textContent = "Sampler Telemetry Ready";
     if (portalText) portalText.textContent = `Portal · r=${radStr}`;
     hdrPill?.classList.add("warn");
@@ -1107,7 +1107,7 @@ async function renderPortalEdit() {
     });
     state.activeRenderPromptId = res.prompt_id || "";
     state.activeBaselinePromptId = res.baseline_prompt_id || "";
-    showToast(`Queued ${state.length}f render (${res.preview_override_injected ? "taeh3 live" : "standard"})`, "ok");
+    showToast(`Queued ${state.length}f render (${res.preview_override_injected ? "live preview" : "standard"})`, "ok");
     await refreshTakes();
   } catch (err) {
     showToast(`Render error: ${err.message}`, "err");
@@ -1806,7 +1806,7 @@ function init() {
         body: JSON.stringify(buildCompilePayload()),
       });
       const nodeCount = Object.keys(res.graph || {}).length;
-      showToast(`Compiled ${res.mode} (${nodeCount} nodes, TAEH3=${Boolean(res.preview_override_injected)})`, "ok");
+      showToast(`Compiled ${res.mode} (${nodeCount} nodes, preview=${Boolean(res.preview_override_injected)})`, "ok");
     } catch (err) {
       showToast(`Compile check failed: ${err.message}`, "err");
     }
@@ -1918,7 +1918,7 @@ function init() {
     });
 
   // Expose debug handle for inspection without touching DOM styles
-  window.__GENIE_DIRECTOR__ = { state, stage, abCompare, wsClient, foley, syncAllUI };
+  window.__SPATIAL_DIRECTOR__ = { state, stage, abCompare, wsClient, foley, syncAllUI };
 }
 
 document.addEventListener("DOMContentLoaded", init);

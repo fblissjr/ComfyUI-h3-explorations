@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Launcher for Spatial World Director (`director/server.py`).
+# Launcher for Interactive Spatial Director (`director/server.py`).
 # Local HTTP defaults to 127.0.0.1:8195; optional Tailscale HTTPS terminates on :8194.
 # Never touches ComfyUI :8188 or app/ :8193.
 
@@ -84,7 +84,7 @@ except Exception:
 do_start() {
     mkdir -p "$STATE_DIR"
     if is_running; then
-        echo "Spatial World Director already running (pid $(cat "$PID_FILE")) at http://$HOST:$PORT/"
+        echo "Interactive Spatial Director already running (pid $(cat "$PID_FILE")) at http://$HOST:$PORT/"
         return 0
     fi
     if [ ! -x "$PYTHON_BIN" ]; then
@@ -105,7 +105,7 @@ do_start() {
     local i
     for i in $(seq 1 40); do
         if ! kill -0 "$pid" 2>/dev/null; then
-            echo "Spatial World Director exited unexpectedly. Log:" >&2
+            echo "Interactive Spatial Director exited unexpectedly. Log:" >&2
             tail -n 40 "$LOG_FILE" >&2 || true
             rm -f "$PID_FILE"
             exit 1
@@ -121,7 +121,7 @@ do_start() {
         exit 1
     fi
 
-    echo "Spatial World Director listening on http://$HOST:$PORT/ (pid $pid, comfy=$COMFY_URL)"
+    echo "Interactive Spatial Director listening on http://$HOST:$PORT/ (pid $pid, comfy=$COMFY_URL)"
     if command -v tailscale >/dev/null 2>&1; then
         local ts_dns
         ts_dns="$(tailscale_dns)"
@@ -147,10 +147,10 @@ do_stop() {
         done
         kill -9 "$pid" 2>/dev/null || true
         rm -f "$PID_FILE"
-        echo "Stopped Spatial World Director (pid $pid)"
+        echo "Stopped Interactive Spatial Director (pid $pid)"
     else
         rm -f "$PID_FILE"
-        echo "Spatial World Director is not running"
+        echo "Interactive Spatial Director is not running"
     fi
 }
 

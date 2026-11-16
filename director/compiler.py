@@ -1,4 +1,4 @@
-"""Runtime workflow compiler for Spatial World Director.
+"""Runtime workflow compiler for Interactive Spatial Director.
 
 Compiles spatial takes and anchor stills directly from shipped ``workflows/*.json``
 templates and injects ``ModelPreviewOverrideKJ`` + ``taeh3`` / ``taeh3_image`` only

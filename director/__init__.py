@@ -1,4 +1,4 @@
-"""Spatial World Director desktop web app backend, compiler, and ComfyUI routes."""
+"""Interactive Spatial Director desktop web app backend, compiler, and ComfyUI routes."""
 
 from __future__ import annotations
 

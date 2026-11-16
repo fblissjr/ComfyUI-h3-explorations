@@ -1,4 +1,4 @@
-"""Standalone backend HTTP + WebSocket server for Spatial World Director.
+"""Standalone backend HTTP + WebSocket server for Interactive Spatial Director.
 
 Default ports: `:8195` HTTP locally (behind `:8194` Tailscale HTTPS when launched via
 `director/studio.sh`). Proxies ComfyUI (`/object_info`, `/system_stats`, `/prompt`,
@@ -210,7 +210,7 @@ def _view_url(filename: str, subfolder: str = "", media_type: str = "temp") -> s
 
 
 class SessionStore:
-    """Thread-safe persistent store for Spatial World Director takes, prompts, and uploads."""
+    """Thread-safe persistent store for Interactive Spatial Director takes, prompts, and uploads."""
 
     def __init__(self, state_dir: Path) -> None:
         self.state_dir = Path(state_dir)
@@ -585,7 +585,7 @@ async def handle_index(request: web.Request) -> web.StreamResponse:
     index_path = STATIC_DIR / "index.html"
     if not index_path.is_file():
         return web.Response(
-            text="Spatial World Director static frontend is not installed yet.",
+            text="Interactive Spatial Director static frontend is not installed yet.",
             status=503,
             content_type="text/plain",
         )
@@ -1591,7 +1591,7 @@ def create_app(
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    ap = argparse.ArgumentParser(description="Spatial World Director standalone backend server")
+    ap = argparse.ArgumentParser(description="Interactive Spatial Director standalone backend server")
     ap.add_argument("--host", default=os.environ.get("DIRECTOR_HOST", DEFAULT_HOST))
     ap.add_argument("--port", type=int, default=int(os.environ.get("DIRECTOR_PORT", DEFAULT_PORT)))
     ap.add_argument(

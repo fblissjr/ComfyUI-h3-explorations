@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Genie Direct — Spatial Portal &amp; TAE Sampler</title>
+  <title>Interactive Spatial Director</title>
   <link rel="icon" type="image/svg+xml" href="/static/icon.svg">
   <link rel="stylesheet" href="/static/style.css">
 </head>
@@ -16,8 +16,7 @@
     <div class="header-left">
       <div class="brand-lockup">
         <img src="/static/icon.svg" alt="" class="brand-icon" width="24" height="24">
-        <span class="brand-title">GENIE DIRECT</span>
-        <span class="brand-badge">SPATIAL PORTAL</span>
+        <span class="brand-title">Interactive Spatial Director</span>
       </div>
       <div class="header-divider" aria-hidden="true"></div>
       <div id="scene-pill" class="scene-pill" title="Active anchor scene and canvas">
@@ -91,17 +90,17 @@
       <div class="stage-top-right">
         <div id="stage-tae-badge" class="stage-pill stage-pill-emerald">
           <span id="stage-tae-dot" class="status-dot"></span>
-          <span id="stage-tae-text">tae-h3 Ready</span>
+          <span id="stage-tae-text">Live Latents Ready</span>
         </div>
-        <button id="btn-fullframe-tae" type="button" class="stage-pill-btn" title="Toggle Masked Portal TAE vs Full-Frame TAE">
-          Masked TAE
+        <button id="btn-fullframe-tae" type="button" class="stage-pill-btn" title="Toggle Masked Portal Preview vs Full-Frame Preview">
+          Masked Preview
         </button>
       </div>
 
-      <!-- UNCLIPPED Live taeh3 Portal Readout Pill (NEVER inside circular clip) -->
+      <!-- UNCLIPPED Live Preview Portal Readout Pill (NEVER inside circular clip) -->
       <div id="portal-tae-pill" class="portal-tae-pill">
         <span class="portal-tae-dot"></span>
-        <span id="portal-tae-text">Live taeh3 · Step 0/6 · r=0.22</span>
+        <span id="portal-tae-text">Live Preview · Step 0/6 · r=0.22</span>
       </div>
 
       <!-- Beat 1 Anchor First Empty Stage Card -->
@@ -111,7 +110,7 @@
           <span class="anchor-badge">Beat 1 · 1-Frame Still or Upload</span>
         </div>
         <p class="anchor-subtitle">
-          Drop an image or MP4 (Frame 0 auto-extracted), or generate a 1-frame H3 still to open the spatial stage.
+          Drop an image or MP4 (Frame 0 auto-extracted), or generate a 1-frame still to open the spatial stage.
         </p>
 
         <div id="anchor-dropzone" class="anchor-dropzone">
@@ -157,10 +156,10 @@
         </div>
 
         <div id="portal-card-body" class="portal-card-body">
-          <!-- Dynamic H3 Operator Pills synthesized from live stage state -->
+          <!-- Dynamic Operator Pills synthesized from live stage state -->
           <div class="synth-ops-wrap">
             <div class="suggestions-head">
-              <span class="field-label">Synthesized H3 Operators</span>
+              <span class="field-label">Synthesized Operators</span>
               <span class="op-auto-tag">live geometry</span>
             </div>
             <div id="synth-operators" class="synth-operators"></div>
@@ -206,7 +205,7 @@
             </div>
           </div>
 
-          <!-- Compiled H3 Nodes Readout Box -->
+          <!-- Compiled Nodes Readout Box -->
           <div id="compiled-nodes-readout" class="compiled-readout">
             SpatialDirector(160) · EditGuider(2.0x)
           </div>

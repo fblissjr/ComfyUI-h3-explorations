@@ -1,6 +1,6 @@
-# Spatial World Director (`director/`)
+# Interactive Spatial Director (`director/`)
 
-Standalone desktop web application backend, ComfyUI route extension, runtime workflow compiler, and launcher for interactive `[F, H, W]` spatial editing, Genie D-Pad cutouts, and 3-frame audio cues on MiniMax H3 / Pika H3 Flex.
+Standalone desktop web application backend, ComfyUI route extension, runtime workflow compiler, and launcher for interactive `[F, H, W]` spatial editing, D-Pad cutouts, and 3-frame audio cues on MiniMax H3 / Pika H3 Flex.
 
 ## Scope & Ownership
 

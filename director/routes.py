@@ -1,4 +1,4 @@
-"""ComfyUI cleanup route extension for Spatial World Director (`/h3_spatial_director/forget`).
+"""ComfyUI cleanup route extension for Interactive Spatial Director (`/h3_spatial_director/forget`).
 
 Keeps top-level imports strictly stdlib so ``bench/check_imports.py`` passes offline.
 ComfyUI modules (``aiohttp``, ``folder_paths``, ``server``) are imported lazily inside
