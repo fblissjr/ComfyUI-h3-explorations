@@ -87,7 +87,8 @@
       "start_percent",
       "end_percent",
       "blocks",
-      "include_reference_rows"
+      "include_reference_rows",
+      "mode"
     ],
     "node_id": "MiniMaxH3AudioAttentionGain",
     "outputs": [
@@ -124,7 +125,12 @@
       "save_mask_review",
       "continue_from",
       "context_noise",
-      "save_kept"
+      "save_kept",
+      "context_profile",
+      "section_anchor",
+      "anchor_end_percent",
+      "anchor_weight",
+      "anchor_blocks"
     ],
     "node_id": "MiniMaxH3AudioFreezeSong",
     "outputs": [
@@ -382,7 +388,8 @@
       "audio_mask",
       "level",
       "track_latent",
-      "context_noise"
+      "context_noise",
+      "context_profile"
     ],
     "node_id": "MiniMaxH3FreezeAudioWindow",
     "outputs": [
@@ -920,7 +927,9 @@
       "feather",
       "invert_mask",
       "events_json",
-      "backdrop"
+      "backdrop",
+      "include_mask",
+      "exclude_mask"
     ],
     "node_id": "MiniMaxH3SpatialDirector",
     "outputs": [

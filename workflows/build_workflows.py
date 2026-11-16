@@ -128,7 +128,7 @@ from h3_config import (  # noqa: E402
     DPAD_SOUND_REF_IMAGES, DPAD_SOUND_CUES, DPAD_VIDEO_RELEASE_END,
     SPATIAL_DIRECTOR_NODE, SPATIAL_DIRECTOR_DEFAULTS,
     DIRECTOR_HUD_NODE, DIRECTOR_HUD_DEFAULTS,
-    SPATIAL_PORTAL_EDIT_GUIDANCE, WORLD_TARGETS_EDIT_GUIDANCE,
+    SPATIAL_PORTAL_REF_IMAGES, SPATIAL_PORTAL_EDIT_GUIDANCE, WORLD_TARGETS_EDIT_GUIDANCE,
     CONTROL_VECTOR_NODE, CONTROL_VECTOR_DEFAULTS, CONTROL_VECTOR_OPTIONAL_DEFAULTS, LAYER_NORM_MATCH_NODE,
     STEER_NODE, STEER_DEFAULTS, RELEASE_REFERENCES_NODE, RELEASE_REFERENCES_DEFAULTS,
     WORD_VECTOR_NODE, WORD_VECTOR_DEFAULTS, LOAD_CONTROL_VECTOR_NODE,
@@ -309,6 +309,8 @@ LONG_T2V_PROMPT = _bank_prompt("t2va_covered_market")
 SOUND_GUIDE_T2V_PROMPT = _bank_prompt("t2va_offpath_tortoise_sound_guide")
 DPAD_SOUND_REF2V_PROMPT = _bank_prompt("ref2va_dpad_tortoise_sound_cues")
 SPATIAL_PORTAL_T2V_PROMPT = _bank_prompt("t2va_spatial_reality_portal")
+SPATIAL_PORTAL_REF2V_PROMPT = _bank_prompt("ref2va_spatial_reality_portal")
+SPATIAL_PORTAL_I2V_PROMPT = _bank_prompt("i2va_spatial_reality_portal")
 WORLD_TARGETS_REF2V_PROMPT = _bank_prompt("ref2va_genie_world_targets")
 # The bench pair's scene (see the bench block near the end of main).
 BENCH_T2V_PROMPT = _bank_prompt("t2va_frontier_standoff")
@@ -1832,11 +1834,20 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
         g["13"] = {"class_type": "PreviewImage",
                    "inputs": {"images": ["11", 0]}}
 
-    # Resolution decides the geometry for every task except i2v, where the
-    # keyframe decides it and MiniMaxH3KeyframeCanvas is the node that does.
+    spatial_director_on = spatial_director is not None and spatial_director is not False
+    # Resolution decides the geometry for every task except plain i2v, where the
+    # keyframe decides it (MiniMaxH3Conditioning). When spatial_director is active
+    # on i2v, emit Resolution ('27') from Picture 1 so both conditioning ('5')
+    # and MiniMaxH3SpatialDirector ('160') share the exact trained canvas size.
     if task != "i2v":
         g["27"] = {"class_type": "MiniMaxH3Resolution",
                    "inputs": _resolution_widgets(cv["width"], cv["height"], length)}
+    elif spatial_director_on:
+        if single_frame or not first_frame:
+            raise SystemExit("i2v with spatial_director requires non-single-frame first_frame=True ('15')")
+        g["27"] = {"class_type": "MiniMaxH3Resolution",
+                   "inputs": {"shape": RESOLUTION_SAME_AS_PICTURE,
+                              "length": length, "picture": ["15", 0]}}
 
     # The video VAE's ENCODE half, optionally promoted. Only the conditioning
     # node is rebound: it is the consumer that encodes references, keyframes and
@@ -2058,15 +2069,19 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
         # omitted from new API workflows.
         inputs = {"clip": ["2", 0], "vae": vae_enc, "prompt": prompt}
         if task == "i2v":
-            # `canvas` carries what node 17's `mode` used to: derive the canvas
-            # from the keyframe, or hold the geometry the caller typed. The
-            # length window and the aspect refusal ride along inside the node,
-            # so a graph edited in the UI afterwards keeps both.
-            inputs |= {"width": cv["width"], "height": cv["height"],
-                       "length": length,
-                       "canvas": ("from_keyframe"
-                                  if canvas_mode == "match_keyframe"
-                                  else "explicit")}
+            if spatial_director_on:
+                inputs |= {"width": ["27", 0], "height": ["27", 1],
+                           "length": ["27", 2], "canvas": "explicit"}
+            else:
+                # `canvas` carries what node 17's `mode` used to: derive the canvas
+                # from the keyframe, or hold the geometry the caller typed. The
+                # length window and the aspect refusal ride along inside the node,
+                # so a graph edited in the UI afterwards keeps both.
+                inputs |= {"width": cv["width"], "height": cv["height"],
+                           "length": length,
+                           "canvas": ("from_keyframe"
+                                      if canvas_mode == "match_keyframe"
+                                      else "explicit")}
             # first_frame only. Wiring `last_frame` from a second LoadImage
             # turns this into the fl2va task the checkpoint is named for; every
             # other node stays the same. Unlike core, wiring ONLY `last_frame`
@@ -2852,10 +2867,12 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
             raise SystemExit(f"director_hud must be bool or dict; got {director_hud!r}")
         if single_frame or "13" not in g or "160" not in g:
             raise SystemExit("director_hud requires non-single-frame video output ('13') and spatial_director ('160')")
+        clean_images = list(g["13"]["inputs"]["images"])
+        vhs_inputs = dict(g["13"]["inputs"])
         g["161"] = {
             "class_type": DIRECTOR_HUD_NODE,
             "inputs": {
-                "images": g["13"]["inputs"]["images"],
+                "images": clean_images,
                 "director_plan": ["160", 3],
                 "hud_layout": str(hud_cfg["hud_layout"]),
                 "title": str(hud_cfg["title"]),
@@ -2864,6 +2881,14 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
             },
         }
         g["13"]["inputs"]["images"] = ["161", 0]
+        g["162"] = {
+            "class_type": g["13"]["class_type"],
+            "inputs": dict(
+                vhs_inputs,
+                images=clean_images,
+                filename_prefix=f"{vhs_inputs['filename_prefix']}_clean",
+            ),
+        }
 
     if edit_guidance is not None:
         _wire_edit_guidance(g, prompt, edit_guidance)
@@ -2957,13 +2982,16 @@ def _wire_edit_guidance(g: dict, prompt: str, spec: dict) -> None:
             "audio_scale",
             "keyframe_differential",
             "spatial_mask",
+            "same_prompt",
         }
     )
     kf_diff = bool(spec.get("keyframe_differential", False))
-    if unknown or (not kf_diff and "edits" not in spec) or (kf_diff and "edits" in spec):
+    same_prompt = bool(spec.get("same_prompt", False))
+    n_modes = int(kf_diff) + int(same_prompt) + int("edits" in spec)
+    if unknown or n_modes != 1:
         raise SystemExit(
-            "edit_guidance takes (edits | keyframe_differential=True) plus scale, first_step, "
-            f"last_step, streams and audio_scale; got {sorted(spec)}"
+            "edit_guidance takes exactly one of (edits | keyframe_differential=True | same_prompt=True) "
+            f"plus scale, first_step, last_step, streams, audio_scale, and spatial_mask; got {sorted(spec)}"
         )
     streams = str(spec.get("streams", EDIT_GUIDANCE_DEFAULTS["streams"]))
     if streams not in EDIT_GUIDANCE_STREAMS:
@@ -3003,20 +3031,24 @@ def _wire_edit_guidance(g: dict, prompt: str, spec: dict) -> None:
     else:
         g["133"] = {"class_type": "PrimitiveStringMultiline", "inputs": {"value": prompt}}
         written = ["133", 0]
-    g["130"] = {
-        "class_type": "MiniMaxH3PromptEdit",
-        "inputs": {
-            "original": written,
-            "edits": spec["edits"],
-        },
-    }
+    if same_prompt:
+        edited_prompt_src = list(written)
+    else:
+        g["130"] = {
+            "class_type": "MiniMaxH3PromptEdit",
+            "inputs": {
+                "original": written,
+                "edits": spec["edits"],
+            },
+        }
+        edited_prompt_src = ["130", 0]
     if cond["class_type"] == "MiniMaxH3ReferenceConditioning":
         g["132"] = {"class_type": "MiniMaxH3EncodeReferences",
                     "inputs": {k: v for k, v in cond["inputs"].items() if k != "prompt"}}
         g["5"] = {"class_type": "MiniMaxH3PromptOnReferences",
                   "inputs": {"encoded_references": ["132", 0], "prompt": written}}
         g["131"] = {"class_type": "MiniMaxH3PromptOnReferences",
-                    "inputs": {"encoded_references": ["132", 0], "prompt": ["130", 0]}}
+                    "inputs": {"encoded_references": ["132", 0], "prompt": edited_prompt_src}}
         for node in g.values():
             for key, val in node["inputs"].items():
                 if val == ["5", 1]:
@@ -3027,10 +3059,10 @@ def _wire_edit_guidance(g: dict, prompt: str, spec: dict) -> None:
             _split_h3_image_references(g)
             cond = g["5"]
         # the edited prompt is encoded exactly as the written one: same node, same inputs, on the same pictures
-        g["131"] = {"class_type": cond["class_type"], "inputs": dict(cond["inputs"], prompt=["130", 0])}
+        g["131"] = {"class_type": cond["class_type"], "inputs": dict(cond["inputs"], prompt=edited_prompt_src)}
         cond["inputs"]["prompt"] = written
     elif cond["class_type"] in ("MiniMaxH3Conditioning", "MiniMaxH3ReferenceToVideo", "MiniMaxH3PH3ImageConditioning"):
-        g["131"] = {"class_type": cond["class_type"], "inputs": dict(cond["inputs"], prompt=["130", 0])}
+        g["131"] = {"class_type": cond["class_type"], "inputs": dict(cond["inputs"], prompt=edited_prompt_src)}
         cond["inputs"]["prompt"] = written
     else:
         raise SystemExit(f"edit_guidance does not know how to add a second prompt to {cond['class_type']}")
@@ -6079,6 +6111,42 @@ def main():
               ),
               out_prefix="Video/h3_world_targets_genie_pika"),
          "Genie D-Pad sprite + clicked `(x, y, t)` world target discs (`MiniMaxH3SpatialDirector mode='point_targets'`) driving `MiniMaxH3AppendSpriteTrajectory`, `3f`-snapped `MiniMaxH3SoundCues`, `MiniMaxH3EditGuider(mask, first_step=0, streams='video_only', scale=2.0)`, and `MiniMaxH3DirectorHUD` on Pika H3 Flex 6-step LCM"),
+        ("h3_r2v_spatial_portal_pika.json", "r2v-pika-spatial-portal", "r2v",
+         SPATIAL_PORTAL_REF2V_PROMPT,
+         dict(length=141,
+              ref_images=SPATIAL_PORTAL_REF_IMAGES, ref_image_count=1,
+              lora=(PIKA_REF2VA_SVD995_LORA, PIKA_STRENGTH), lora_branch=True,
+              steps=PIKA_STEPS, sampler_name=PIKA_SAMPLER,
+              manual_sigmas=PIKA_MANUAL_SIGMAS,
+              spatial_director=True,
+              director_hud=dict(
+                  title="R2V REALITY PORTAL · [F, H, W] VELOCITY MASK",
+                  subtitle="Inside lens: frozen bioluminescent cavern | Outside: <Picture 1> courtyard (0.0 Step-0 leak)",
+              ),
+              edit_guidance=dict(
+                  **SPATIAL_PORTAL_EDIT_GUIDANCE,
+                  edits=_edit_guidance_text("ref2va_spatial_reality_portal"),
+              ),
+              out_prefix="Video/h3_r2v_spatial_portal_pika"),
+         "reference image + interactive 2D+time Reality Portal (`MiniMaxH3SpatialDirector`) -> `[F, H, W]` velocity mask on `MiniMaxH3EditGuider(first_step=0, streams='independent', scale=2.0, audio_scale=1.0)` + dual HUD/clean `VHS_VideoCombine` export on Pika H3 Flex 6-step LCM (SVD995 branch, `51`/`70` unwired)"),
+        ("h3_i2v_spatial_portal_pika.json", "i2v-pika-spatial-portal", "i2v",
+         SPATIAL_PORTAL_I2V_PROMPT,
+         dict(length=141,
+              first_frame=True,
+              lora=(PIKA_FL2VA_SVD995_LORA, PIKA_STRENGTH), lora_branch=True,
+              steps=PIKA_STEPS, sampler_name=PIKA_SAMPLER,
+              manual_sigmas=PIKA_MANUAL_SIGMAS,
+              spatial_director=True,
+              director_hud=dict(
+                  title="I2V REALITY PORTAL · [F, H, W] VELOCITY MASK",
+                  subtitle="Inside lens: bioluminescent cavern | Outside: <Picture 1> keyframe world (0.0 Step-0 leak)",
+              ),
+              edit_guidance=dict(
+                  **SPATIAL_PORTAL_EDIT_GUIDANCE,
+                  edits=_edit_guidance_text("i2va_spatial_reality_portal"),
+              ),
+              out_prefix="Video/h3_i2v_spatial_portal_pika"),
+         "first frame + interactive 2D+time Reality Portal (`MiniMaxH3SpatialDirector` wired to `MiniMaxH3Resolution` `same as the picture`) -> `[F, H, W]` velocity mask on `MiniMaxH3EditGuider(first_step=0, streams='independent', scale=2.0, audio_scale=1.0)` + dual HUD/clean `VHS_VideoCombine` export on Pika H3 Flex 6-step LCM (SVD995 branch)"),
         # Plain H3 prompting at one frame on Pika (owner, 2026-11-10): a Pika
         # still is prompted as the video is, with no guide node and no
         # third-party LoRA. The one frame is the conditioning node's own

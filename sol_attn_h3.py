@@ -51,6 +51,7 @@ import torch
 from comfy_api.latest import io
 
 from .block_spec import parse_blocks
+from . import attention as _h3attn
 from . import h3_layout as _h3layout
 from . import sol_observe
 from . import h3_capture as _capture
@@ -787,6 +788,14 @@ def make_override(tau=1.0, min_tokens=12288,
                                   sink=sink, device=device)
             del tq, tk, tv, qs, ks, vs
 
+        # Subset LSE attention balance gate (`attention.py::resolve_lse_balance_plan`):
+        # runs dense via the chained `lse_balance` fallback and reports its own route.
+        lse_plan = _h3attn.resolve_lse_balance_plan(options, tokens)
+        if lse_plan is not None:
+            _stats["dense_fallback"] += 1
+            route("lse_balance", f"block {block} in lse_balance (w={lse_plan['weight']:.3g})")
+            return dense()
+
         # Depth gate: a block in dense_blocks runs on the fallback.
         if block in dense_blocks:
             _stats["dense_block"] += 1
@@ -1123,6 +1132,9 @@ def _describe_override(override):
         except (KeyError, ValueError):
             kwargs = None
         return f"sage, MiniMaxH3SageAttention ({kwargs})" if kwargs else "sage, MiniMaxH3SageAttention"
+    if getattr(override, "h3_kernel", None) == "lse_balance":
+        prev = getattr(override, "h3_previous", None)
+        return "lse_balance" if prev is None else f"lse_balance -> {_describe_override(prev)}"
     cells = dict(zip(getattr(getattr(override, "__code__", None), "co_freevars", ()) or (),
                      getattr(override, "__closure__", None) or ()))
     try:

@@ -38,7 +38,28 @@ def _register_studio_routes() -> None:
             "[h3] app's cleanup route was not loaded from app/routes.py", exc_info=True)
 
 
+def _register_director_routes() -> None:
+    """Add the spatial director cleanup route when its folder is here.
+    """
+    import importlib.util
+    import logging
+    from pathlib import Path
+
+    path = Path(__file__).resolve().parent / "director" / "routes.py"
+    if not path.is_file():
+        return
+    try:
+        spec = importlib.util.spec_from_file_location("h3_spatial_director_routes", path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        module.register()
+    except Exception:
+        logging.getLogger(__name__).warning(
+            "[h3] director cleanup route was not loaded from director/routes.py", exc_info=True)
+
+
 _register_studio_routes()
+_register_director_routes()
 
 # The single-frame shim that used to be applied here is archived, and with it
 # the last thing in this pack that modified ComfyUI core. Nothing here patches

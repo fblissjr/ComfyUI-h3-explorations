@@ -15,17 +15,15 @@ import { app } from "../../scripts/app.js";
 const NODE_NAME = "MiniMaxH3SpatialDirector";
 const VIDEO_FPS = 24.0;
 const SOUND_PRESETS = [
-  "slam",
-  "hop",
-  "thud",
-  "crash",
-  "pop",
-  "snap",
-  "whoosh",
-  "bell",
-  "gong",
   "click",
-  "tone",
+  "hop",
+  "impact",
+  "slam",
+  "snap",
+  "step",
+  "thud",
+  "yank",
+  "yank_slam",
   "none",
 ];
 
@@ -63,7 +61,7 @@ const PRESET_PORTAL_SPLIT = {
 const PRESET_GENIE_TARGETS = {
   portal: PRESET_PORTAL_CIRCLE.portal,
   targets: [
-    { id: 1, label: "TARGET A · CRYSTAL", start: 24, end: 66, ramp: 5, x: 0.72, y: 0.48, radius: 0.19, cue: "bell", gain: 1.25 },
+    { id: 1, label: "TARGET A · CRYSTAL", start: 24, end: 66, ramp: 5, x: 0.72, y: 0.48, radius: 0.19, cue: "click", gain: 1.25 },
     { id: 2, label: "TARGET B · GEYSER", start: 78, end: 126, ramp: 5, x: 0.30, y: 0.56, radius: 0.19, cue: "slam", gain: 1.20 },
   ],
   dpad: {
@@ -421,7 +419,8 @@ function buildSpatialDirectorUI(node) {
   };
 
   function getParams() {
-    const mode = wMode?.value === "point_targets" ? "point_targets" : "portal_path";
+    const rawMode = wMode?.value;
+    const mode = rawMode === "point_targets" || rawMode === "combined" ? rawMode : "portal_path";
     const width = Math.max(64, Number(wWidth?.value ?? 1344));
     const height = Math.max(64, Number(wHeight?.value ?? 768));
     const length = Math.max(5, Math.round(Number(wLength?.value ?? 141)));
@@ -479,8 +478,12 @@ function buildSpatialDirectorUI(node) {
   const btnTargetMode = document.createElement("button");
   btnTargetMode.type = "button";
   btnTargetMode.className = "h3sd-btn";
-  btnTargetMode.textContent = "Genie + Targets";
-  modeSeg.append(btnPortalMode, btnTargetMode);
+  btnTargetMode.textContent = "Targets";
+  const btnCombinedMode = document.createElement("button");
+  btnCombinedMode.type = "button";
+  btnCombinedMode.className = "h3sd-btn";
+  btnCombinedMode.textContent = "Combined";
+  modeSeg.append(btnPortalMode, btnTargetMode, btnCombinedMode);
 
   const presetWrap = document.createElement("div");
   presetWrap.className = "h3sd-bar";
@@ -642,10 +645,11 @@ function buildSpatialDirectorUI(node) {
     const { mode, length } = getParams();
     btnPortalMode.classList.toggle("active", mode === "portal_path");
     btnTargetMode.classList.toggle("active", mode === "point_targets");
-    shapeSelect.style.display = mode === "portal_path" ? "" : "none";
-    cueSelect.style.display = mode === "point_targets" ? "" : "none";
-    btnAddTarget.style.display = mode === "point_targets" ? "" : "none";
-    dpadCluster.style.display = mode === "point_targets" ? "" : "none";
+    btnCombinedMode.classList.toggle("active", mode === "combined");
+    shapeSelect.style.display = mode === "portal_path" || mode === "combined" ? "" : "none";
+    cueSelect.style.display = mode === "point_targets" || mode === "combined" ? "" : "none";
+    btnAddTarget.style.display = mode === "point_targets" || mode === "combined" ? "" : "none";
+    dpadCluster.style.display = mode === "point_targets" || mode === "combined" ? "" : "none";
 
     slider.max = String(Math.max(1, length - 1));
     state.frame = clamp(state.frame, 0, Math.max(0, length - 1));
@@ -654,7 +658,7 @@ function buildSpatialDirectorUI(node) {
     frameLabel.textContent = `f${String(state.frame).padStart(3, "0")}/${String(length - 1).padStart(3, "0")} · ${sec}s`;
     slider.setAttribute("aria-valuetext", `Frame ${state.frame} of ${length - 1} (${sec} seconds)`);
 
-    if (mode === "portal_path") {
+    if (mode === "portal_path" || (mode === "combined" && state.selected.kind === "portal")) {
       const pIdx = clamp(state.selected.index, 0, Math.max(0, state.doc.portal.length - 1));
       const kf = state.doc.portal[pIdx];
       if (kf) shapeSelect.value = kf.shape || "circle";
@@ -705,7 +709,7 @@ function buildSpatialDirectorUI(node) {
     const shortPx = Math.min(cw, ch);
     const featherPx = feather * shortPx;
 
-    if (mode === "portal_path") {
+    if (mode === "portal_path" || mode === "combined") {
       const evalP = evalPortalAtFrame(state.doc, state.frame, length);
       // Draw full smooth spline trail
       ctx.beginPath();
@@ -783,7 +787,8 @@ function buildSpatialDirectorUI(node) {
 
       statusLeft.textContent = `Portal: x=${evalP.x.toFixed(2)} y=${evalP.y.toFixed(2)} r=${evalP.rx.toFixed(2)} (${evalP.shape})`;
       statusRight.textContent = `Drag dot=move · Yellow rim=resize · f=${state.frame}`;
-    } else {
+    }
+    if (mode === "point_targets" || mode === "combined") {
       // point_targets + Genie D-pad visualization
       state.doc.targets.forEach((t, idx) => {
         const tx = Number(t.x ?? 0.5) * cw;
@@ -871,7 +876,9 @@ function buildSpatialDirectorUI(node) {
         }
       }
 
-      statusLeft.textContent = `Targets: ${state.doc.targets.length} · D-Pad wps: ${wps.length} (3f audio snap)`;
+      statusLeft.textContent = mode === "combined"
+        ? `Combined: Portal+Targets(${state.doc.targets.length}) · wps: ${wps.length}`
+        : `Targets: ${state.doc.targets.length} · D-Pad wps: ${wps.length} (3f audio snap)`;
       statusRight.textContent = `Drag target/sprite · Rim dot=radius · f=${state.frame}`;
     }
 
@@ -879,7 +886,11 @@ function buildSpatialDirectorUI(node) {
     const barY = ch - 14;
     ctx.fillStyle = "rgba(15, 23, 42, 0.88)";
     ctx.fillRect(0, barY, cw, 14);
-    if (mode === "point_targets") {
+    if (mode === "portal_path" || mode === "combined") {
+      ctx.fillStyle = "rgba(34, 211, 238, 0.55)";
+      ctx.fillRect(0, barY + 4, cw, 5);
+    }
+    if (mode === "point_targets" || mode === "combined") {
       state.doc.targets.forEach((t) => {
         const s = resolveFrame(t.start ?? 0, length);
         const e = resolveFrame(t.end ?? length - 1, length);
@@ -892,9 +903,6 @@ function buildSpatialDirectorUI(node) {
         ctx.fillStyle = "#34d399";
         ctx.fillRect(cx - 1.5, barY + 8, 3, 4);
       });
-    } else {
-      ctx.fillStyle = "rgba(34, 211, 238, 0.55)";
-      ctx.fillRect(0, barY + 4, cw, 5);
     }
     const playX = (state.frame / Math.max(1, length - 1)) * cw;
     ctx.fillStyle = "#ffffff";
@@ -916,7 +924,34 @@ function buildSpatialDirectorUI(node) {
     const px = nx * cw;
     const py = ny * ch;
 
-    if (mode === "portal_path") {
+    if (mode === "point_targets" || mode === "combined") {
+      // check target rim dots -> D-pad waypoints -> target centers
+      for (let idx = 0; idx < state.doc.targets.length; idx++) {
+        const t = state.doc.targets[idx];
+        const tr = Math.max(8, Number(t.radius ?? 0.18) * shortPx);
+        const rimX = Number(t.x ?? 0.5) * cw + tr;
+        const rimY = Number(t.y ?? 0.5) * ch;
+        if (Math.hypot(px - rimX, py - rimY) <= 13) {
+          return { kind: "target_rim", index: idx };
+        }
+      }
+      for (let idx = 0; idx < (state.doc.dpad?.waypoints || []).length; idx++) {
+        const wp = state.doc.dpad.waypoints[idx];
+        if (Math.hypot(px - Number(wp.x ?? 0.5) * cw, py - Number(wp.y ?? 0.72) * ch) <= 14) {
+          return { kind: "dpad", index: idx };
+        }
+      }
+      if (mode === "combined") {
+        for (let idx = 0; idx < state.doc.targets.length; idx++) {
+          const t = state.doc.targets[idx];
+          if (Math.hypot(px - Number(t.x ?? 0.5) * cw, py - Number(t.y ?? 0.5) * ch) <= 18) {
+            return { kind: "target", index: idx };
+          }
+        }
+      }
+    }
+
+    if (mode === "portal_path" || mode === "combined") {
       const evalP = evalPortalAtFrame(state.doc, state.frame, length);
       if (evalP.shape !== "vertical_split") {
         const rxPx = evalP.shape === "ellipse" ? evalP.rx * cw : evalP.rx * shortPx;
@@ -960,22 +995,6 @@ function buildSpatialDirectorUI(node) {
       return { kind: "portal", index: timeBest };
     }
 
-    // point_targets: check target rim dots -> D-pad waypoints -> target centers
-    for (let idx = 0; idx < state.doc.targets.length; idx++) {
-      const t = state.doc.targets[idx];
-      const tr = Math.max(8, Number(t.radius ?? 0.18) * shortPx);
-      const rimX = Number(t.x ?? 0.5) * cw + tr;
-      const rimY = Number(t.y ?? 0.5) * ch;
-      if (Math.hypot(px - rimX, py - rimY) <= 13) {
-        return { kind: "target_rim", index: idx };
-      }
-    }
-    for (let idx = 0; idx < (state.doc.dpad?.waypoints || []).length; idx++) {
-      const wp = state.doc.dpad.waypoints[idx];
-      if (Math.hypot(px - Number(wp.x ?? 0.5) * cw, py - Number(wp.y ?? 0.72) * ch) <= 14) {
-        return { kind: "dpad", index: idx };
-      }
-    }
     let bestT = 0;
     let bestD = 1e9;
     state.doc.targets.forEach((t, idx) => {
@@ -1131,6 +1150,10 @@ function buildSpatialDirectorUI(node) {
     e.stopPropagation();
     setMode("point_targets");
   });
+  btnCombinedMode.addEventListener("click", (e) => {
+    e.stopPropagation();
+    setMode("combined");
+  });
 
   btnSplitPreset.addEventListener("click", (e) => {
     e.stopPropagation();
@@ -1200,7 +1223,7 @@ function buildSpatialDirectorUI(node) {
       x: Number(clamp(0.25 + ((nextId * 0.23) % 0.5), 0.15, 0.85).toFixed(3)),
       y: Number(clamp(0.35 + ((nextId * 0.17) % 0.35), 0.2, 0.8).toFixed(3)),
       radius: 0.18,
-      cue: "pop",
+      cue: "click",
       gain: 1.15,
     });
     state.selected = { kind: "target", index: state.doc.targets.length - 1 };
