@@ -116,7 +116,9 @@ that; its first run is a throwaway.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 import contextlib
+import copy
 import glob
 import json
 import logging
@@ -124,6 +126,7 @@ import math
 import os
 import time
 import subprocess
+from typing import Any
 
 import torch
 from comfy_api.latest import io, ui
@@ -132,6 +135,7 @@ import comfy.model_management
 import comfy.nested_tensor
 import comfy.sample
 import comfy.utils
+from comfy.patcher_extension import WrappersMP
 import latent_preview
 from comfy_extras.nodes_custom_sampler import Guider_Basic
 from comfy_extras.nodes_minimax_h3 import FPS, _empty_av_latent
@@ -508,6 +512,319 @@ def reference_costs(records, width: int, height: int, frames: int, clip=None, pr
     return lines
 
 
+SECTION_ANCHOR_MODES = ("off", "per_section", "whole_track")
+SECTION_ANCHOR_DEFAULT = "off"
+ANCHOR_END_PERCENT_DEFAULT = 0.33
+SECTION_ANCHOR_WRAPPER_KEY = "h3_section_anchor"
+
+
+def _attach_anchor_to_conditioning(cond, anchor_latent: torch.Tensor):
+    """Return a shallow copy of `cond` with a DiT-only Frame-0 `section_anchor` image ref."""
+    anchor_blk = {
+        "kind": "image",
+        "latent_h": int(anchor_latent.shape[-2]),
+        "latent_w": int(anchor_latent.shape[-1]),
+        "latent": anchor_latent,
+        "section_anchor": True,
+    }
+    attached = []
+    for item in cond:
+        meta = dict(item[1])
+        existing_refs = list(meta.get("minimax_refs") or ())
+        meta["minimax_refs"] = existing_refs + [anchor_blk]
+        attached.append([item[0], meta])
+    return attached
+
+
+def _anchor_step_active(transformer_options: Any, timestep: Any, end_cutoff: float) -> bool:
+    """Match `control_vector_nodes._step_in_window(transformer_options, timestep, 0.0, end_cutoff)`."""
+    if end_cutoff < 0.05:
+        return False
+    if end_cutoff >= 1.0:
+        return True
+    t_opts = transformer_options or {}
+    sched = t_opts.get("sample_sigmas")
+    cur = t_opts.get("sigmas")
+    if cur is None and timestep is not None:
+        cur = timestep
+    if sched is not None and cur is not None:
+        sched_t = (
+            sched.detach().flatten().to(dtype=torch.float64, device="cpu")
+            if isinstance(sched, torch.Tensor)
+            else torch.tensor(list(sched), dtype=torch.float64)
+        )
+        if int(sched_t.numel()) >= 2:
+            cur_val = float(
+                cur.detach().flatten()[0].item()
+                if isinstance(cur, torch.Tensor)
+                else cur[0]
+                if isinstance(cur, (list, tuple))
+                else cur
+            )
+            if cur is timestep and cur_val > 1.0 and float(sched_t.max().item()) <= 1.0001:
+                cur_val /= 1000.0
+            n_sched = int(sched_t.numel()) - 1
+            idx_step = int((sched_t[:n_sched] - cur_val).abs().argmin().item())
+            frac_step = idx_step / n_sched
+            return bool(frac_step < end_cutoff)
+    if cur is not None:
+        cur_val = float(
+            cur.detach().flatten()[0].item()
+            if isinstance(cur, torch.Tensor)
+            else cur[0]
+            if isinstance(cur, (list, tuple))
+            else cur
+        )
+        if cur is timestep and 1.0 < cur_val <= 1000.0:
+            cur_val /= 1000.0
+        if 0.0 <= cur_val <= 1.0:
+            frac_step = 1.0 - cur_val
+            return bool(frac_step < end_cutoff)
+    return True
+
+
+def _section_anchor_spans(orig_layout: Any, refs: Any) -> list[tuple[int, int]]:
+    """Packed token spans `(start, stop)` occupied by `section_anchor` `'ref_img'` rows."""
+    if not hasattr(orig_layout, "segments"):
+        return []
+    anchor_flags = [
+        bool(r.get("section_anchor"))
+        for r in (refs or ())
+        if isinstance(r, Mapping) and r.get("kind") in ("image", "video", "video_audio")
+    ]
+    spans: list[tuple[int, int]] = []
+    ref_cursor = 0
+    for seg_a, seg_b, seg_kind in orig_layout.segments:
+        if seg_kind == "ref_img":
+            is_anchor = anchor_flags[ref_cursor] if ref_cursor < len(anchor_flags) else False
+            ref_cursor += 1
+            if is_anchor:
+                spans.append((int(seg_a), int(seg_b)))
+    return spans
+
+
+def _drop_section_anchor_from_layout(orig_layout: Any, refs: Any) -> Any:
+    """Drop `section_anchor` `'ref_img'` segments from `PackedLayout` while preserving
+    all surviving segments (including user `<Picture N>`/`<Video N>` refs) and exact
+    3D RoPE `position_ids`.
+    """
+    if not (
+        hasattr(orig_layout, "segments")
+        and hasattr(orig_layout, "position_ids")
+        and hasattr(orig_layout, "signature")
+    ):
+        return orig_layout
+    anchor_flags = [
+        bool(r.get("section_anchor"))
+        for r in (refs or ())
+        if isinstance(r, Mapping) and r.get("kind") in ("image", "video", "video_audio")
+    ]
+    if not any(anchor_flags):
+        return orig_layout
+
+    kept_pos: list[torch.Tensor] = []
+    new_segments: list[tuple[int, int, str]] = []
+    new_img_pos: list[torch.Tensor] = []
+    new_img_update: list[torch.Tensor] = []
+    new_audio_pos: list[torch.Tensor] = []
+    new_audio_update: list[torch.Tensor] = []
+
+    off_pos = 0
+    ref_cursor = 0
+    dropped = False
+    for seg_a, seg_b, seg_kind in orig_layout.segments:
+        if seg_kind == "ref_img":
+            is_anchor = anchor_flags[ref_cursor] if ref_cursor < len(anchor_flags) else False
+            ref_cursor += 1
+            if is_anchor:
+                dropped = True
+                continue
+        n_seg = int(seg_b) - int(seg_a)
+        kept_pos.append(orig_layout.position_ids[int(seg_a) : int(seg_b)])
+        new_segments.append((off_pos, off_pos + n_seg, str(seg_kind)))
+        if seg_kind in ("cond", "ref_img"):
+            new_img_pos.append(torch.arange(off_pos, off_pos + n_seg))
+            new_img_update.append(torch.zeros(n_seg, dtype=torch.bool))
+        elif seg_kind == "video":
+            new_img_pos.append(torch.arange(off_pos, off_pos + n_seg))
+            new_img_update.append(torch.ones(n_seg, dtype=torch.bool))
+        elif seg_kind in ("cond_audio", "ref_audio"):
+            new_audio_pos.append(torch.arange(off_pos, off_pos + n_seg))
+            new_audio_update.append(torch.zeros(n_seg, dtype=torch.bool))
+        elif seg_kind == "audio":
+            new_audio_pos.append(torch.arange(off_pos, off_pos + n_seg))
+            new_audio_update.append(torch.ones(n_seg, dtype=torch.bool))
+        off_pos += n_seg
+
+    if not dropped:
+        return orig_layout
+
+    released = copy.copy(orig_layout)
+    released.seq_len = off_pos
+    released.position_ids = torch.cat(kept_pos, dim=0)
+    released.img_pos = (
+        torch.cat(new_img_pos) if new_img_pos else torch.empty(0, dtype=torch.long)
+    )
+    released.img_update = (
+        torch.cat(new_img_update) if new_img_update else torch.empty(0, dtype=torch.bool)
+    )
+    released.audio_pos = (
+        torch.cat(new_audio_pos) if new_audio_pos else torch.empty(0, dtype=torch.long)
+    )
+    released.audio_update = (
+        torch.cat(new_audio_update) if new_audio_update else torch.empty(0, dtype=torch.bool)
+    )
+    released.signature = orig_layout.signature
+    released.segments = new_segments
+    return released
+
+
+def attach_section_anchor_release(model, end_cutoff: float):
+    """Clone `model` and selectively drop `section_anchor=True` refs after `end_cutoff`
+    of denoising steps while keeping user `<Picture N>`/`<Video N>` refs and 3D RoPE intact.
+    """
+    if not (hasattr(model, "clone") and hasattr(model, "add_wrapper_with_key")):
+        return model
+
+    cloned = model.clone()
+    if hasattr(cloned, "remove_wrappers_with_key"):
+        cloned.remove_wrappers_with_key(WrappersMP.DIFFUSION_MODEL, SECTION_ANCHOR_WRAPPER_KEY)
+
+    layout_cache: dict[
+        tuple[int, int],
+        tuple[Any, Any, Any, list[dict[str, Any]], int],
+    ] = {}
+
+    def _section_anchor_wrapper(executor, x, timestep, context, transformer_options={}, **kwargs):
+        payload = kwargs.get("minimax_payload") or {}
+        refs = payload.get("refs") or ()
+        if not any(isinstance(r, Mapping) and bool(r.get("section_anchor")) for r in refs):
+            return executor(x, timestep, context, transformer_options, **kwargs)
+
+        orig_layout = payload.get("layout")
+        is_av_x = isinstance(x, (list, tuple)) and len(x) >= 2
+        target_sig: tuple[int, int, int, int, int] | None = None
+        if (
+            is_av_x
+            and torch.is_tensor(x[0])
+            and x[0].ndim == 5
+            and torch.is_tensor(x[1])
+            and x[1].ndim >= 1
+        ):
+            target_sig = (
+                int(context.shape[1]),
+                int(x[0].shape[2]),
+                (int(x[0].shape[3]) + 1) // 2 * 2,
+                (int(x[0].shape[4]) + 1) // 2 * 2,
+                int(x[1].shape[-1]),
+            )
+        elif torch.is_tensor(x) and x.ndim == 5:
+            target_sig = (
+                int(context.shape[1]),
+                int(x.shape[2]),
+                (int(x.shape[3]) + 1) // 2 * 2,
+                (int(x.shape[4]) + 1) // 2 * 2,
+                0,
+            )
+        if target_sig is not None and (
+            orig_layout is None
+            or getattr(orig_layout, "signature", None) != target_sig
+        ):
+            from comfy.ldm.minimax.model import PackedLayout
+
+            orig_layout = PackedLayout(
+                *target_sig,
+                keyframes=payload.get("keyframes"),
+                refs=refs,
+            )
+
+        if _anchor_step_active(transformer_options, timestep, float(end_cutoff)):
+            spans = _section_anchor_spans(orig_layout, refs) if orig_layout is not None else []
+            missing_marker = object()
+            is_dict_opts = isinstance(transformer_options, dict)
+            prior_spans = (
+                transformer_options.get("h3_section_anchor_spans", missing_marker)
+                if is_dict_opts
+                else missing_marker
+            )
+            if is_dict_opts and spans:
+                transformer_options["h3_section_anchor_spans"] = spans
+            try:
+                return executor(x, timestep, context, transformer_options, **kwargs)
+            finally:
+                if is_dict_opts and spans:
+                    if prior_spans is missing_marker:
+                        transformer_options.pop("h3_section_anchor_spans", None)
+                    else:
+                        transformer_options["h3_section_anchor_spans"] = prior_spans
+
+        cache_key = (id(orig_layout), id(refs)) if orig_layout is not None else None
+        cached = layout_cache.get(cache_key) if cache_key is not None else None
+        if cached is not None and cached[0] is orig_layout and cached[1] is refs:
+            _, _, released_layout, kept_refs_list, n_kf_vis = cached
+        else:
+            released_layout = (
+                _drop_section_anchor_from_layout(orig_layout, refs)
+                if orig_layout is not None
+                else None
+            )
+            kept_refs_list = [
+                dict(r)
+                for r in refs
+                if isinstance(r, Mapping) and not bool(r.get("section_anchor"))
+            ]
+            n_kf_vis = sum(
+                1
+                for kf in (payload.get("keyframes") or ())
+                if isinstance(kf, Mapping) and kf.get("latent") is not None
+            )
+            if not payload.get("keyframes") and orig_layout is not None:
+                n_kf_vis = sum(
+                    1
+                    for _a, _b, k in getattr(orig_layout, "segments", ())
+                    if k == "cond"
+                )
+            if cache_key is not None and len(layout_cache) < 32:
+                layout_cache[cache_key] = (
+                    orig_layout,
+                    refs,
+                    released_layout,
+                    kept_refs_list,
+                    n_kf_vis,
+                )
+
+        new_payload = dict(payload)
+        orig_vid_lats = list(payload.get("cond_video_latents") or ())
+        if orig_vid_lats:
+            kf_lats = orig_vid_lats[:n_kf_vis]
+            ref_lats = orig_vid_lats[n_kf_vis:]
+            lat_refs = [r for r in refs if isinstance(r, Mapping) and "latent" in r]
+            kept_ref_lats = [
+                lat
+                for lat, blk in zip(ref_lats, lat_refs)
+                if not bool(blk.get("section_anchor"))
+            ]
+            new_payload["cond_video_latents"] = kf_lats + kept_ref_lats
+
+        if kept_refs_list:
+            new_payload["refs"] = kept_refs_list
+        else:
+            new_payload.pop("refs", None)
+        if released_layout is not None:
+            new_payload["layout"] = released_layout
+
+        call_kwargs = dict(kwargs)
+        call_kwargs["minimax_payload"] = new_payload
+        return executor(x, timestep, context, transformer_options, **call_kwargs)
+
+    cloned.add_wrapper_with_key(
+        WrappersMP.DIFFUSION_MODEL,
+        SECTION_ANCHOR_WRAPPER_KEY,
+        _section_anchor_wrapper,
+    )
+    return cloned
+
+
 class MiniMaxH3AudioFreezeSong(io.ComfyNode):
     @classmethod
     def define_schema(cls):
@@ -654,6 +971,33 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
                         "(clean-room adaptation crediting Lumifel & geiru_context_suite)."
                     ),
                 ),
+                # appended 2026-11-16 (Bucket 3): timeline-scoped DiT-only Frame-0 exposure/palette anchor
+                io.Combo.Input(
+                    "section_anchor",
+                    options=list(SECTION_ANCHOR_MODES),
+                    default=SECTION_ANCHOR_DEFAULT,
+                    optional=True,
+                    tooltip=(
+                        "DiT-only Frame-0 visual anchor across multi-window runs to prevent long-run "
+                        "exposure/palette drift (clean-room adaptation crediting geiru_context_suite & "
+                        "MMH3Tools). 'off' disables anchoring; 'per_section' captures frame 0 of each "
+                        "`--- label` timeline section and releases on entry changes; 'whole_track' holds "
+                        "window 1 frame 0 across every window."
+                    ),
+                ),
+                io.Float.Input(
+                    "anchor_end_percent",
+                    default=ANCHOR_END_PERCENT_DEFAULT,
+                    min=0.05,
+                    max=1.0,
+                    step=0.01,
+                    optional=True,
+                    tooltip=(
+                        "Fraction of denoising steps through which the `section_anchor` DiT reference "
+                        "rows stay active (0.33 locks low-frequency exposure/palette over early steps "
+                        "and releases cleanly before fine-detail steps; 1.00 holds through all steps)."
+                    ),
+                ),
             ],
             outputs=[
                 io.String.Output(display_name="path"),
@@ -678,10 +1022,17 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
                 filename_prefix, crf, save_metadata_png=True, keep_windows=True, references=None,
                 lists=None, source=None, save_mask_review=True,
                 continue_from="", context_noise=CONTEXT_NOISE, save_kept=False,
-                context_profile=CONTEXT_PROFILE_DEFAULT) -> io.NodeOutput:
+                context_profile=CONTEXT_PROFILE_DEFAULT,
+                section_anchor=SECTION_ANCHOR_DEFAULT,
+                anchor_end_percent=ANCHOR_END_PERCENT_DEFAULT) -> io.NodeOutput:
         import folder_paths
         if context_profile not in CONTEXT_PROFILES:
             raise ValueError(f"unknown context_profile {context_profile!r}; expected one of {CONTEXT_PROFILES}")
+        if section_anchor not in SECTION_ANCHOR_MODES:
+            raise ValueError(f"unknown section_anchor {section_anchor!r}; expected one of {SECTION_ANCHOR_MODES}")
+        anchor_end = float(anchor_end_percent)
+        if not math.isfinite(anchor_end) or anchor_end < 0.05 or anchor_end > 1.0:
+            raise ValueError(f"anchor_end_percent must be in [0.05, 1.0], got {anchor_end_percent!r}")
         # A DynamicCombo arrives as one nested dict (the selection under its own
         # id, the option's inputs beside it) or, from an API prompt that sets
         # only the selection, as a bare string.
@@ -739,6 +1090,8 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
         if continue_from:
             lines.append(f"continues from {os.path.basename(continue_from)}: the first {head} frames of this run's "
                          f"track are that window's context and are not written; {kept_frames - head} frames are")
+        if section_anchor != "off":
+            lines.append(f"section anchor: {section_anchor} (active through {anchor_end:.2f} of steps)")
         zoom, cut_sides = None, set()
         if source is not None:
             # A small subject rendered zoomed in (`render_region`): from here on `source` is one box of the load
@@ -893,11 +1246,27 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
         files, stored_latents = [], []
         # the first window of a run that continues another takes its context from the stored window named
         prev = loop_resume.load_window_latent(continue_from) if continue_from else None
+        run_model = attach_section_anchor_release(model, anchor_end) if section_anchor != "off" else model
+        active_anchor = None
+        active_anchor_entry = None
+        active_anchor_origin = ""
+        if continue_from and section_anchor != "off" and prev is not None:
+            prev_samples = prev["samples"]
+            prev_v = prev_samples.unbind()[0] if getattr(prev_samples, "is_nested", False) else prev_samples
+            active_anchor = prev_v[:, :, :1].detach().clone().to(comfy.model_management.intermediate_device())
+            active_anchor_entry = windows[0].entry if windows else None
+            active_anchor_origin = os.path.basename(continue_from)
         for w in windows:
             i = w.number - 1
             comfy.model_management.throw_exception_if_processing_interrupted()
             lap.clear()
             clock[0] = time.perf_counter()
+            if section_anchor == "per_section" and active_anchor is not None and w.entry != active_anchor_entry:
+                sec_lbl = entries[w.entry][1] if (w.entry is not None and entries) else str(w.entry)
+                active_anchor = None
+                active_anchor_entry = None
+                active_anchor_origin = ""
+                reports.append(f"[{w.number}] section anchor reset at timeline entry {sec_lbl!r}")
             latent, _count = _empty_av_latent(width, height, w.frames)
             src_pixels = src_tokens = src_mask = kept = kept_weight = matte = None
             if source is not None:
@@ -981,8 +1350,15 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
                 samples = wlatent["samples"]
                 reports.append(f"[{w.number}] nothing masked in this window; not sampled, the source is written")
             else:
-                guider = Guider_Basic(model)
-                guider.set_conds(conds[cond_keys[w.number]])
+                use_anchor = section_anchor != "off" and active_anchor is not None
+                guider = Guider_Basic(run_model if use_anchor else model)
+                if use_anchor:
+                    guider.set_conds(_attach_anchor_to_conditioning(conds[cond_keys[w.number]], active_anchor))
+                    reports.append(
+                        f"[{w.number}] section anchor from {active_anchor_origin} active through {anchor_end:.2f} of steps"
+                    )
+                else:
+                    guider.set_conds(conds[cond_keys[w.number]])
                 latent_image = comfy.sample.fix_empty_latent_channels(model, wlatent["samples"])
                 noise = comfy.sample.prepare_noise(latent_image, int(seed) + i)
                 x0_output = {}
@@ -1075,6 +1451,26 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
                                    "does; they are not written")
             if zoomed_images is not None:
                 zoomed_images = zoomed_images[int(trim):][:int(images.shape[0])]     # frame for frame with the video
+            need_anchor_later = (i + 1 < n_windows) and (
+                section_anchor == "whole_track" or windows[i + 1].entry == w.entry
+            )
+            anchor_source = zoomed_images if zoomed_images is not None else images
+            if (
+                section_anchor != "off"
+                and active_anchor is None
+                and need_anchor_later
+                and int(anchor_source.shape[0]) >= 1
+            ):
+                with torch.no_grad():
+                    anchor_z = vae.encode(anchor_source[:1])
+                active_anchor = anchor_z.detach().to(comfy.model_management.intermediate_device())
+                active_anchor_entry = w.entry
+                sec_name = entries[w.entry][1] if (w.entry is not None and entries) else "track"
+                active_anchor_origin = f"window {w.number} ({sec_name} frame 0)"
+                reports.append(
+                    f"[{w.number}] captured section anchor ({sec_name} frame 0, latent {tuple(active_anchor.shape)})"
+                )
+                mark("anchor encode")
             video_path, latent_path = loop_resume.window_paths(work_dir, filename, w.number)
             # the old latent goes first: a latent on disk must mean its video finished. Its old mask
             # review goes with it: a review on disk must be of the video beside it, and a run with the

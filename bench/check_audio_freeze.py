@@ -1353,6 +1353,244 @@ def check_seam_taper_and_gain_guard(problems):
         comfy_attn.optimized_attention = real_opt
 
 
+def check_section_anchor(problems):
+    """Bucket 3 unit checks: timeline-scoped Frame-0 anchoring (`off`/`per_section`/`whole_track`),
+    post-trim capture across cuts/sections, selective `PackedLayout` + `WrappersMP` release keeping
+    user `<Picture N>` refs and 3D RoPE intact, and invalid-knob refusals.
+    """
+    import importlib
+    import tempfile
+    import folder_paths
+    from comfy.ldm.minimax.model import PackedLayout
+    from comfy.model_patcher import ModelPatcher
+    from comfy.patcher_extension import WrapperExecutor, WrappersMP
+
+    song_mod = importlib.import_module("_h3pack.audio_freeze_song")
+
+    class StubGuider:
+        seen_anchors: list[list[float]] = []
+
+        def __init__(self, model):
+            self.model = model
+
+        def set_conds(self, conds):
+            vals = []
+            for _t, meta in conds:
+                for blk in meta.get("minimax_refs") or ():
+                    if blk.get("section_anchor"):
+                        vals.append(round(float(blk["latent"][0, 0, 0, 0, 0]), 4))
+            StubGuider.seen_anchors.append(vals)
+
+        def sample(self, noise, latent_image, sampler, sigmas, denoise_mask=None, callback=None, disable_pbar=False, seed=None):
+            return latent_image
+
+    class StubCond:
+        @staticmethod
+        def execute(clip, vae, prompt_text, *args, **kwargs):
+            return ([[torch.zeros(1, 8, 5120), {"prompt_text": prompt_text}]],)
+
+    class StubVideoVAE:
+        def __init__(self):
+            self.decode_calls = 0
+            self.encoded: list[tuple[tuple[int, ...], float]] = []
+
+        def decode(self, z):
+            self.decode_calls += 1
+            n_frames = af.pixel_frames(int(z.shape[2]))
+            vals = (self.decode_calls + torch.arange(n_frames, dtype=torch.float32) * 0.001).view(n_frames, 1, 1, 1)
+            return vals.expand(n_frames, 64, 64, 3).clone()
+
+        def encode(self, pixels):
+            val = round(float(pixels[0, 0, 0, 0]), 4)
+            self.encoded.append((tuple(pixels.shape), val))
+            return torch.full((1, 24, 1, 4, 4), val, dtype=torch.float32)
+
+    # 18.625s = 447f across 2 sections -> W1, W2 (studio, entry 0) + W3, W4 (stage, entry 1)
+    track = {"waveform": torch.zeros(1, 2, int(round(18.625 * 32000))), "sample_rate": 32000}
+    prompt_text = "--- studio\nbright rehearsal studio\n--- stage\ndark blue stage spotlight"
+    timeline_text = "00:00 studio\n00:10.125 stage"
+    sigmas = torch.linspace(1.0, 0.0, 7)
+
+    with tempfile.TemporaryDirectory() as tmp:
+        real = (
+            song_mod.Guider_Basic,
+            song_mod.MiniMaxH3Conditioning,
+            folder_paths.get_output_directory,
+            song_mod.comfy.sample.fix_empty_latent_channels,
+            song_mod.latent_preview.prepare_callback,
+        )
+        song_mod.Guider_Basic = StubGuider
+        song_mod.MiniMaxH3Conditioning = StubCond
+        folder_paths.get_output_directory = lambda: tmp
+        song_mod.comfy.sample.fix_empty_latent_channels = lambda model, latent, *a, **k: latent
+        song_mod.latent_preview.prepare_callback = lambda *a, **k: None
+        try:
+            def _run_mode(mode: str, prefix: str, *, anchor_end: float = 0.33, continue_from: str = ""):
+                StubGuider.seen_anchors.clear()
+                vae_stub = StubVideoVAE()
+                tr = track if not continue_from else {
+                    "waveform": torch.zeros(1, 2, int(round(10.125 * 32000))),
+                    "sample_rate": 32000,
+                }
+                pr = prompt_text if not continue_from else "continued prompt"
+                tl = timeline_text if not continue_from else ""
+                out = getattr(
+                    song_mod.MiniMaxH3AudioFreezeSong.execute(
+                        object(), object(), vae_stub, FakeAudioVAE(), tr, object(), sigmas,
+                        pr, tl, False, 64, 64, 192, 39, "whole", 11, 0.0, "clip_guard",
+                        prefix, 19, save_metadata_png=False, keep_windows=True,
+                        continue_from=continue_from, context_noise=0.6,
+                        context_profile="seam_taper", section_anchor=mode,
+                        anchor_end_percent=anchor_end,
+                    ),
+                    "args",
+                    None,
+                )
+                return list(StubGuider.seen_anchors), vae_stub.encoded, out
+
+            seen_off, enc_off, _ = _run_mode("off", "t/sa_off")
+            if seen_off != [[], [], [], []] or enc_off != []:
+                _fail(problems, f"section_anchor='off': expected no anchors/encodes, got seen={seen_off}, enc={enc_off}")
+
+            seen_sec, enc_sec, out_sec = _run_mode("per_section", "t/sa_sec")
+            if seen_sec != [[], [1.0], [], [3.039]]:
+                _fail(problems, f"section_anchor='per_section': expected [[], [1.0], [], [3.039]], got {seen_sec}")
+            if enc_sec != [((1, 64, 64, 3), 1.0), ((1, 64, 64, 3), 3.039)]:
+                _fail(problems, f"section_anchor='per_section': expected 2 post-trim 1-frame encodes, got {enc_sec}")
+            if out_sec is None or "section anchor reset at timeline entry 'stage'" not in out_sec[1]:
+                _fail(problems, "section_anchor='per_section': report did not log section boundary reset")
+
+            seen_whl, enc_whl, _ = _run_mode("whole_track", "t/sa_whl")
+            if seen_whl != [[], [1.0], [1.0], [1.0]] or enc_whl != [((1, 64, 64, 3), 1.0)]:
+                _fail(problems, f"section_anchor='whole_track': expected W1 capture reused on W2..W4, got seen={seen_whl}, enc={enc_whl}")
+
+            # Continuing from a stored window seeds Window 1's anchor immediately from prev[:, :, :1]
+            w1_resume = str(Path(tmp) / "t" / "sa_off_windows" / "sa_off_window_1.safetensors")
+            seen_cont, enc_cont, _ = _run_mode("per_section", "t/sa_cont", continue_from=w1_resume)
+            if len(seen_cont) != 2 or not seen_cont[0] or seen_cont[0] != seen_cont[1] or enc_cont != []:
+                _fail(problems, f"section_anchor continue_from: expected immediate W1/W2 anchor without re-encode, got seen={seen_cont}, enc={enc_cont}")
+
+            # Refusals
+            for bad_mode in ("bogus",):
+                if not _raises(
+                    lambda: song_mod.MiniMaxH3AudioFreezeSong.execute(
+                        object(), object(), StubVideoVAE(), FakeAudioVAE(), track, object(), sigmas,
+                        "p", "", True, 64, 64, 141, 39, "whole", 11, 0.0, "clip_guard",
+                        "t/bad", 19, section_anchor=bad_mode,
+                    )
+                ):
+                    _fail(problems, f"section_anchor={bad_mode!r} was not refused")
+            for bad_pct in (0.01, 1.5):
+                if not _raises(
+                    lambda p=bad_pct: song_mod.MiniMaxH3AudioFreezeSong.execute(
+                        object(), object(), StubVideoVAE(), FakeAudioVAE(), track, object(), sigmas,
+                        "p", "", True, 64, 64, 141, 39, "whole", 11, 0.0, "clip_guard",
+                        "t/bad", 19, section_anchor="per_section", anchor_end_percent=p,
+                    )
+                ):
+                    _fail(problems, f"anchor_end_percent={bad_pct} was not refused")
+        finally:
+            (
+                song_mod.Guider_Basic,
+                song_mod.MiniMaxH3Conditioning,
+                folder_paths.get_output_directory,
+                song_mod.comfy.sample.fix_empty_latent_channels,
+                song_mod.latent_preview.prepare_callback,
+            ) = real
+
+    # 2. Selective `PackedLayout` + `WrappersMP.DIFFUSION_MODEL` release with user `<Picture 1>` ref
+    t_user = torch.full((1, 24, 1, 4, 4), 11.0)
+    t_anc = torch.full((1, 24, 1, 4, 4), 22.0)
+    user_ref = {"kind": "image", "latent_h": 4, "latent_w": 4, "latent": t_user}
+    anc_ref = {"kind": "image", "latent_h": 4, "latent_w": 4, "latent": t_anc, "section_anchor": True}
+    orig_layout = PackedLayout(16, 7, 4, 4, 20, refs=[user_ref, anc_ref])
+    if orig_layout.seq_len != 92:
+        _fail(problems, f"section_anchor layout setup: expected seq_len 92, got {orig_layout.seq_len}")
+
+    class DummyDiffModel(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.diffusion_model = torch.nn.Identity()
+
+    mp = ModelPatcher(DummyDiffModel(), load_device=torch.device("cpu"), offload_device=torch.device("cpu"))
+    wrapped_mp = song_mod.attach_section_anchor_release(mp, 0.33)
+    wrappers = wrapped_mp.get_all_wrappers(WrappersMP.DIFFUSION_MODEL)
+    if len(wrappers) != 1:
+        _fail(problems, f"attach_section_anchor_release: expected 1 wrapper, got {len(wrappers)}")
+        return
+
+    observed = []
+
+    def _dummy_forward(x_in, ts_in, ctx_in, topts_in, **kw):
+        pl = kw["minimax_payload"]
+        lay = pl["layout"]
+        observed.append(
+            {
+                "seq_len": lay.seq_len,
+                "segments": list(lay.segments),
+                "n_refs": len(pl.get("refs") or ()),
+                "n_vid_lats": len(pl.get("cond_video_latents") or ()),
+                "first_lat_val": float(pl["cond_video_latents"][0][0, 0, 0, 0, 0]),
+                "spans": topts_in.get("h3_section_anchor_spans"),
+                "pos": lay.position_ids.clone(),
+            }
+        )
+        return x_in
+
+    pika_sigmas = torch.tensor([1.0, 0.972973, 0.923077, 0.8, 0.571429, 0.333333, 0.0], dtype=torch.float32)
+    x_dummy = [torch.zeros(1, 24, 7, 4, 4), torch.zeros(1, 32, 2, 20)]
+    ctx_dummy = torch.zeros(1, 16, 5376)
+    base_payload = {
+        "refs": [user_ref, anc_ref],
+        "cond_video_latents": [t_user, t_anc],
+        "layout": orig_layout,
+    }
+    want_released_pos = torch.cat([orig_layout.position_ids[:20], orig_layout.position_ids[24:]], dim=0)
+
+    for step_idx in range(6):
+        cur_sig = pika_sigmas[step_idx : step_idx + 1]
+        t_opts = {"sample_sigmas": pika_sigmas, "sigmas": cur_sig}
+        WrapperExecutor.new_class_executor(
+            _dummy_forward, None, wrappers
+        ).execute(x_dummy, cur_sig * 1000.0, ctx_dummy, t_opts, minimax_payload=dict(base_payload))
+        if "h3_section_anchor_spans" in t_opts:
+            _fail(problems, f"section_anchor wrapper: h3_section_anchor_spans leaked after step {step_idx}")
+
+    for idx_step in (0, 1):
+        rec = observed[idx_step]
+        if rec["seq_len"] != 92 or rec["n_refs"] != 2 or rec["n_vid_lats"] != 2 or rec["spans"] != [(20, 24)]:
+            _fail(problems, f"section_anchor step {idx_step}: expected active anchor with span [(20, 24)], got {rec}")
+    for idx_step in (2, 3, 4, 5):
+        rec = observed[idx_step]
+        want_segs = [(0, 16, "text"), (16, 20, "ref_img"), (20, 60, "audio"), (60, 88, "video")]
+        if (
+            rec["seq_len"] != 88
+            or rec["segments"] != want_segs
+            or rec["n_refs"] != 1
+            or rec["n_vid_lats"] != 1
+            or rec["first_lat_val"] != 11.0
+            or rec["spans"] is not None
+        ):
+            _fail(problems, f"section_anchor step {idx_step}: selective release failed: {rec}")
+        elif not torch.equal(rec["pos"], want_released_pos):
+            _fail(problems, f"section_anchor step {idx_step}: surviving 3D RoPE position_ids drifted after release")
+
+    # Verify exception-safe span cleanup on active step
+    exc_opts = {"sample_sigmas": pika_sigmas, "sigmas": pika_sigmas[:1]}
+
+    def _boom(*a, **kw):
+        raise RuntimeError("boom")
+
+    try:
+        WrapperExecutor.new_class_executor(_boom, None, wrappers).execute(
+            x_dummy, pika_sigmas[:1] * 1000.0, ctx_dummy, exc_opts, minimax_payload=dict(base_payload)
+        )
+    except RuntimeError:
+        pass
+    if "h3_section_anchor_spans" in exc_opts:
+        _fail(problems, "section_anchor wrapper: h3_section_anchor_spans leaked on executor exception")
+
+
 def _raises(call, *args) -> bool:
     try:
         call(*args)
@@ -1368,6 +1606,7 @@ def main() -> int:
     check_execute(problems)
     check_window_geometry(problems)
     check_seam_taper_and_gain_guard(problems)
+    check_section_anchor(problems)
     check_resume(problems)
     check_song_plan(problems)
     check_step_grid(problems)

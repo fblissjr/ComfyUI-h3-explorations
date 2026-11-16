@@ -125,7 +125,9 @@
       "continue_from",
       "context_noise",
       "save_kept",
-      "context_profile"
+      "context_profile",
+      "section_anchor",
+      "anchor_end_percent"
     ],
     "node_id": "MiniMaxH3AudioFreezeSong",
     "outputs": [
