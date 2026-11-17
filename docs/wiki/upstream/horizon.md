@@ -1,6 +1,6 @@
 # Upstream horizon: open work we are waiting on
 
-last updated: 2026-11-15 (page created from [`sweeps/2026-11-15.md`](sweeps/2026-11-15.md); a second pass over sglang's and vllm-omni's open H3 PRs added the same day)
+last updated: 2026-11-17 (DiffSynth #1824 moved to "Landed or closed", after a peer session's review); 2026-11-15 (page created from [`sweeps/2026-11-15.md`](sweeps/2026-11-15.md); a second pass over sglang's and vllm-omni's open H3 PRs added the same day)
 
 Open PRs, issues and announced work upstream, each with what it would change for this pack. A row stays until it
 lands or closes. Then it moves to "Landed or closed" with the commit and the sweep that saw it. The status column is
@@ -31,7 +31,6 @@ as of the sweep in the row's "seen" column; re-check before acting. Ranking and 
 | diffusers | [#15299](https://github.com/huggingface/diffusers/pull/15299) | loads the pruned ComfyUI checkpoints (curve interpolated as core does) and single-file H3-Image | a diffusers reference run on the owner's own files | 2026-11-15 |
 | diffusers | [#15209](https://github.com/huggingface/diffusers/pull/15209) | Comfy int8 ConvRot checkpoints through comfy-kitchen | same | 2026-11-15 |
 | diffusers | [#15199](https://github.com/huggingface/diffusers/pull/15199) / [#15245](https://github.com/huggingface/diffusers/issues/15245) | ref2va soundtracks not at 32 kHz without torchaudio | `MiniMaxH3AppendRefAudio` resampling (compare) | 2026-11-15 |
-| DiffSynth | [#1824](https://github.com/modelscope/DiffSynth-Studio/pull/1824) | H3-Image training encodes every caption as `" "` until this lands | any H3-Image LoRA trained with DiffSynth's merged scripts | 2026-11-15 |
 | DiffSynth | [#1735](https://github.com/modelscope/DiffSynth-Studio/issues/1735) | SFT on the CFG-distilled H3 base comes out blurry; training shift differs from 12/3 | H3 video LoRA training | 2026-11-15 |
 | Pika | [#9](https://github.com/Pika-Labs/Pika-H3-Flex/issues/9) | how the distill was trained (LoRA or full, training shift, what the adapter holds) | the Pika contract's unknowns | 2026-11-15 |
 | release | [MiniMax-H3 #91](https://github.com/MiniMax-AI/MiniMax-H3/pull/91) (draft) | Level-of-Token mixed-resolution DiT; research checkpoints below dense quality by its author | attention cost | 2026-11-15 |
@@ -55,3 +54,4 @@ as of the sweep in the row's "seen" column; re-check before acting. Ranking and 
 | upstream | item | how it ended | seen |
 |---|---|---|---|
 | sglang | [#50218](https://github.com/sgl-project/sglang/issues/50218) | the SGLD app's SHA pin replaced by a symbol check (`6de483b326`, #50223) | 2026-11-15 |
+| DiffSynth | [#1824](https://github.com/modelscope/DiffSynth-Studio/pull/1824) | the PR was closed unmerged, and the same fix (H3-Image training encoded every caption as `" "`) landed on main as `c05b58d6` (2026-11-16), crediting the PR's author. So an H3-Image LoRA trained with DiffSynth after that date used its captions | 2026-11-17 |
