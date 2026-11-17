@@ -5,10 +5,10 @@ on a ref2va graph with a `<Video N>` reference, does routing only the video-refe
 path (`h3_config.SOL_ROWS_VIDEO_REFERENCES_ROUTED`) hold up against the shipped Sol settings? Picture and voice are the
 owner's call on playback. This record holds the sampler times and where the renders are.
 
-**Answer so far.**
+**Answer.**
 - **Sampler time:** routed is faster, by the margin in the table below.
-- **Picture and voice:** not judged here. The owner judges them on playback.
-- **Steps 3–6 of the landing** wait on that verdict.
+- **Picture and voice:** the owner saw no difference between the arms on playback, the same day.
+- **Outcome:** routed became the default on every shipped Sol graph (`0e43de1d`, the owner's word: keep the faster).
 
 ## The runs
 
