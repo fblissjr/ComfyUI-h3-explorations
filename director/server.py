@@ -41,7 +41,7 @@ from workflows.h3_env import load as load_h3_env  # noqa: E402
 
 load_h3_env()
 
-from director import compiler  # noqa: E402
+from director import compiler, routes as director_routes  # noqa: E402
 
 log = logging.getLogger("h3.director")
 
@@ -2192,9 +2192,34 @@ async def _sync_store_history(app: web.Application) -> dict[str, Any]:
     return {}
 
 
+def _extract_active_queue_pids(queue_doc: Any) -> list[str]:
+    if not isinstance(queue_doc, dict):
+        return []
+    seen: list[str] = []
+    for bucket in ("queue_running", "queue_pending"):
+        items = queue_doc.get(bucket)
+        if not isinstance(items, list):
+            continue
+        for item in items:
+            pid, _graph, _extra = director_routes._queue_item_parts(item)
+            if pid and str(pid) not in seen:
+                seen.append(str(pid))
+    return seen
+
+
 async def handle_takes(request: web.Request) -> web.Response:
     await _sync_store_history(request.app)
-    return web.json_response({"ok": True, "takes": request.app["store"].list_takes()})
+    q_doc = await _comfy_get_json(request.app, "/queue", timeout=2.0)
+    queue_ok = isinstance(q_doc, dict)
+    active_pids = _extract_active_queue_pids(q_doc) if queue_ok else []
+    return web.json_response(
+        {
+            "ok": True,
+            "takes": request.app["store"].list_takes(),
+            "active_prompt_ids": active_pids,
+            "queue_ok": queue_ok,
+        }
+    )
 
 
 async def handle_history(request: web.Request) -> web.Response:

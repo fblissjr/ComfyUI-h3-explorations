@@ -410,6 +410,15 @@ def check_compiler_contracts() -> str:
         )
         assert g_no_kj["9"]["inputs"]["model"] != ["165", 0]
 
+    assert compiler_mod.video_preview_schedule(39) == (12, 7)
+    assert compiler_mod.video_preview_schedule(90) == (27, 7)
+    assert compiler_mod.video_preview_schedule(141) == (27, 5)
+    assert compiler_mod.video_preview_schedule(345) == (27, 2)
+    res_345 = _call_with_adaptive_sig(compiler_mod.compile_spatial_take, {**common_base, "length": 345}, MOCK_OBJECT_INFO_WITH_KJ)
+    g_345, _ = _extract_graphs(res_345)
+    assert g_345["165"]["inputs"]["preview_frames"] == 27
+    assert g_345["165"]["inputs"]["preview_fps"] == 2
+
     # 2. Sprite cutout + cues attached + queue_baseline=True + edit_lines
     payload_active = dict(
         common_base,
@@ -1046,7 +1055,8 @@ def check_server_routes_and_escalate() -> str:
                     assert r_cmp.status == 200, await r_cmp.text()
                     cmp_data = await r_cmp.json()
                     assert cmp_data["ok"] is True and cmp_data["preview_override_injected"] is True
-                    assert cmp_data["graph"]["165"]["inputs"]["preview_fps"] == 7
+                    assert cmp_data["graph"]["165"]["inputs"]["preview_frames"] == 27
+                    assert cmp_data["graph"]["165"]["inputs"]["preview_fps"] == 5
                     assert float(cmp_data["graph"]["160"]["inputs"]["feather"]) >= 0.22
                     assert len(cmp_data["nodes_summary"].get("couplings_applied") or []) >= 1, cmp_data["nodes_summary"]
 
@@ -1152,6 +1162,7 @@ def check_server_routes_and_escalate() -> str:
 
                     r_takes = await client.get("/api/takes")
                     takes_doc = await r_takes.json()
+                    assert takes_doc.get("queue_ok") is True and isinstance(takes_doc.get("active_prompt_ids"), list), takes_doc
                     assert any(t.get("take_id") == rd_live["take_id"] and t.get("kind") == "redub" for t in takes_doc["takes"])
                     assert any(t.get("take_id") == up_mp4["imported_take_id"] and t.get("kind") == "imported" for t in takes_doc["takes"])
 
@@ -1987,9 +1998,14 @@ async def _run_cdp_browser(director_url: str, anchor_png: Path) -> str:
                         f"body: JSON.stringify({json.dumps(p3_req)})}}).then(r => r.json())"
                     )
                     assert compile_res["ok"] is True and compile_res["preview_override_injected"] is True, compile_res
-                    assert compile_res["graph"]["165"]["class_type"] == "ModelPreviewOverrideKJ"
-                    assert compile_res["graph"]["165"]["inputs"]["tiny_vae"] == "taeh3.safetensors"
-                    assert compile_res["graph"]["165"]["inputs"]["preview_fps"] == 7
+                    assert compile_res["graph"]["165"]["class_type"] == "ModelPreviewOverrideKJ", compile_res["graph"]["165"]
+                    assert compile_res["graph"]["165"]["inputs"]["tiny_vae"] == "taeh3.safetensors", compile_res["graph"]["165"]
+                    assert compile_res["graph"]["165"]["inputs"]["preview_frames"] == 27, (
+                        f"expected preview_frames=27 for length={p3_req.get('length')}, got {compile_res['graph']['165']['inputs']}"
+                    )
+                    assert compile_res["graph"]["165"]["inputs"]["preview_fps"] == 7, (
+                        f"expected preview_fps=7 for length={p3_req.get('length')}, got {compile_res['graph']['165']['inputs']}"
+                    )
 
                     # Simulate "kj_preview_override" WebSocket messages (mp4 blob + jpeg) & verify canvas compositing
                     canvas_before = await js(
@@ -2040,7 +2056,10 @@ async def _run_cdp_browser(director_url: str, anchor_png: Path) -> str:
                               h: 192,
                               step: 4,
                               total: 6,
-                              sigma: 0.571429
+                              sigma: 0.571429,
+                              step_ms: 1420.0,
+                              avg_step_ms: 1380.0,
+                              delta: 0.14
                             }}
                           }});
                           ws.dispatchEvent(new MessageEvent('message', {{data: msgJpg}}));
@@ -2059,14 +2078,22 @@ async def _run_cdp_browser(director_url: str, anchor_png: Path) -> str:
                               return {{
                                 changed: sum !== {canvas_before},
                                 pillText: pill ? pill.textContent.replace(/\\s+/g, '') : '',
+                                storedClientId: sessionStorage.getItem('h3_director_client_id') || '',
+                                activeClientId: window.__SPATIAL_DIRECTOR__?.wsClient?.clientId || '',
                               }};
                             }})()"""
                         )
-                        if res_comp["changed"] and "4/6" in res_comp["pillText"]:
+                        if (
+                            res_comp["changed"]
+                            and "4/6" in res_comp["pillText"]
+                            and "Δ0.14" in res_comp["pillText"]
+                            and res_comp["storedClientId"]
+                            and res_comp["storedClientId"] == res_comp["activeClientId"]
+                        ):
                             composited = True
                             break
                         await asyncio.sleep(0.12)
-                    assert composited, "Simulated kj_preview_override frame did not composite onto #stage-canvas / update #live-tae-pill"
+                    assert composited, "Simulated kj_preview_override frame did not composite onto #stage-canvas / update #live-tae-pill or persist clientId"
 
                     csp_violations = await js("window.__cspViolations")
                     assert csp_violations == [], f"CSP violations recorded: {csp_violations}"

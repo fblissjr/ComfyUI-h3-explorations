@@ -137,6 +137,7 @@ const state = {
   },
 
   takes: [],
+  activeQueuePromptIds: null,
   activeRenderPromptId: "",
   activeBaselinePromptId: "",
   activeAnchorPromptId: "",
@@ -169,14 +170,21 @@ function updateRenderStatusOverlay() {
     return;
   }
   banner.classList.remove("hidden");
-  const elapsedSec = ((performance.now() - (ar.startedAt || performance.now())) / 1000).toFixed(1);
+  const elapsedMs = ar.startedEpochMs
+    ? Math.max(0, Date.now() - ar.startedEpochMs)
+    : Math.max(0, performance.now() - (ar.startedAt || performance.now()));
+  const elapsedSec = (elapsedMs / 1000).toFixed(1);
   const total = Math.max(0, Number(ar.total || 0));
   const step = Math.max(0, Number(ar.step || 0));
   const phaseEl = $("#render-status-phase");
   const metaEl = $("#render-status-meta");
   const fillEl = $("#render-progress-fill");
+  const paceMs = Number(ar.avgStepMs || ar.stepMs || 0);
+  const paceStr = paceMs > 0 ? ` · ${(paceMs / 1000).toFixed(1)}s/st` : "";
+  const hasDelta = ar.delta !== null && ar.delta !== undefined && Number.isFinite(Number(ar.delta));
+  const deltaStr = hasDelta ? ` · Δ ${Number(ar.delta).toFixed(2)}` : "";
   if (phaseEl) phaseEl.textContent = ar.phase || "Running on GPU…";
-  if (metaEl) metaEl.textContent = total > 0 ? `Step ${step}/${total} · ${elapsedSec}s` : `${elapsedSec}s`;
+  if (metaEl) metaEl.textContent = total > 0 ? `Step ${step}/${total}${paceStr}${deltaStr} · ${elapsedSec}s` : `${elapsedSec}s`;
   if (fillEl) {
     const pct = total > 0 ? clamp((step / total) * 100, 10, 100) : 22;
     fillEl.setAttribute("width", pct.toFixed(1));
@@ -190,8 +198,12 @@ function setActiveRender(meta) {
     phase: meta.phase || "Rendering…",
     step: Number(meta.step || 0),
     total: Number(meta.total || 0),
+    stepMs: meta.stepMs ?? null,
+    avgStepMs: meta.avgStepMs ?? null,
+    delta: meta.delta ?? null,
     meta: meta.meta || null,
     startedAt: performance.now(),
+    startedEpochMs: meta.startedEpochMs || null,
   };
   lastPollTakesAt = 0;
   if (renderStatusTimer) clearInterval(renderStatusTimer);
@@ -306,7 +318,20 @@ async function checkActivePromptCompletion(pid) {
   if (!pid) return;
   try {
     await refreshTakes();
-    await handleFinishedTakeById(pid);
+    if (await handleFinishedTakeById(pid)) {
+      return;
+    }
+    if (state.activeQueuePromptIds instanceof Set && !state.activeQueuePromptIds.has(pid)) {
+      const take = state.takes.find((t) => t.prompt_id === pid);
+      const ageSec = Date.now() / 1000 - Number(take?.created_at || 0);
+      if (take && take.status === "queued" && ageSec > 5.0) {
+        if (pid === state.activeAnchorPromptId) state.activeAnchorPromptId = "";
+        if (pid === state.activeMaskPreviewPromptId) state.activeMaskPreviewPromptId = "";
+        if (pid === state.activeStampPromptId) state.activeStampPromptId = "";
+        if (pid === state.activeRenderPromptId) state.activeRenderPromptId = "";
+        clearActiveRender();
+      }
+    }
   } catch {}
 }
 
@@ -710,8 +735,10 @@ function syncLiveTaeBadges(stepMeta = null) {
 
   if (stepMeta && stepMeta.total > 0) {
     const fpsPart = stepMeta.fps ? ` · ${Number(stepMeta.fps).toFixed(1)}fps` : "";
+    const hasDelta = stepMeta.delta !== null && stepMeta.delta !== undefined && Number.isFinite(Number(stepMeta.delta));
+    const deltaPart = hasDelta ? ` · Δ ${Number(stepMeta.delta).toFixed(2)}` : "";
     const stepStr = `Step ${stepMeta.step}/${stepMeta.total}`;
-    if (hdrText) hdrText.textContent = `Live Preview: ${stepMeta.step}/${stepMeta.total}${fpsPart}`;
+    if (hdrText) hdrText.textContent = `Live Preview: ${stepMeta.step}/${stepMeta.total}${fpsPart}${deltaPart}`;
     if (stageText) stageText.textContent = `Live Latents · ${stepStr}`;
     if (portalText) portalText.textContent = `Live Preview · ${stepStr} · r=${radStr}`;
     hdrPill?.classList.remove("warn");
@@ -1202,7 +1229,16 @@ function syncAllUI() {
   const arChk = $("#chk-audio-refine");
   if (arChk) arChk.checked = Boolean(state.audioRefine);
 
-  syncLiveTaeBadges(state.livePreview ? { step: state.livePreview.step, total: state.livePreview.total, fps: state.livePreview.fps } : null);
+  syncLiveTaeBadges(
+    state.livePreview
+      ? {
+          step: state.livePreview.step,
+          total: state.livePreview.total,
+          fps: state.livePreview.fps,
+          delta: state.livePreview.delta,
+        }
+      : null
+  );
   syncAudioGuardAndSequencer();
   syncEventChipsTrack();
   syncScrubberSVG();
@@ -1965,10 +2001,73 @@ async function promoteSeedToHero() {
   await switchLength(heroTarget);
 }
 
+function rehydrateInFlightRender() {
+  if (state.activeRender || !(state.activeQueuePromptIds instanceof Set) || state.activeQueuePromptIds.size === 0) {
+    return;
+  }
+  const queuedMatches = state.takes.filter(
+    (t) =>
+      t &&
+      t.status === "queued" &&
+      (state.activeQueuePromptIds.has(String(t.prompt_id || "")) ||
+        (t.baseline_prompt_id && state.activeQueuePromptIds.has(String(t.baseline_prompt_id))))
+  );
+  if (!queuedMatches.length) return;
+  const take = queuedMatches.find((t) => t.client_id && t.client_id === wsClient?.clientId) || queuedMatches[0];
+  const pid = String(take.prompt_id || "");
+  if (!pid) return;
+
+  const kind = String(take.kind || "render");
+  const wf = String(take.mode || take.params?.workflow || "");
+  let total = Number(take.params?.steps || 6);
+  let phase = `Generating ${take.length || state.length}f World Clip (${wf || "i2v_portal"})…`;
+  let meta = null;
+
+  if (kind === "anchor") {
+    state.activeAnchorPromptId = pid;
+    total = wf === "ph3_image" ? 8 : 6;
+    phase = `Generating Still (${wf || "h3_image"})…`;
+  } else if (kind === "mask_preview") {
+    state.activeMaskPreviewPromptId = pid;
+    total = wf === "ph3_image" ? 8 : 6;
+    phase = `Mask Preview (${wf || "h3_image"})…`;
+    meta = {
+      region: take.params?.region || {},
+      feather: Number(take.params?.feather ?? state.doc.feather ?? 0.08),
+      snapToInclude: Boolean(take.params?.snap_to_include_mask),
+      maskRef: take.params?.mask_ref || "",
+    };
+  } else if (kind === "stamp") {
+    state.activeStampPromptId = pid;
+    total = wf === "ph3_image" ? 8 : 6;
+    phase = "Generating Actor Cutout…";
+  } else if (kind === "redub") {
+    state.activeRenderPromptId = pid;
+    phase = "Re-Dubbing Audio…";
+  } else {
+    state.activeRenderPromptId = pid;
+    if (take.baseline_prompt_id) state.activeBaselinePromptId = String(take.baseline_prompt_id);
+  }
+
+  setActiveRender({
+    kind,
+    pid,
+    phase,
+    step: 0,
+    total,
+    meta,
+    startedEpochMs: take.created_at ? Number(take.created_at) * 1000 : Date.now(),
+  });
+}
+
 async function refreshTakes() {
   try {
     const data = await apiJson("/api/takes");
     state.takes = Array.isArray(data.takes) ? data.takes : [];
+    if (data.queue_ok === true && Array.isArray(data.active_prompt_ids)) {
+      state.activeQueuePromptIds = new Set(data.active_prompt_ids.map(String));
+    }
+    rehydrateInFlightRender();
     renderTakesList();
   } catch {}
 }
@@ -2178,6 +2277,13 @@ async function redubTakeAudio(take, btn = null) {
       body: JSON.stringify(payload),
     });
     state.activeRenderPromptId = res.prompt_id || "";
+    setActiveRender({
+      kind: "redub",
+      pid: res.prompt_id || "",
+      phase: "Re-Dubbing Audio…",
+      step: 0,
+      total: Number(payload.steps || 6),
+    });
     const modeTag = res.redub_mode === "fresh" ? "Fresh 1.0x" : "Polish 0.5x";
     showToast(`Queued ${modeTag} audio re-dub (${res.take_id || "queued"})`, "ok");
     await refreshTakes();
@@ -2479,10 +2585,13 @@ function init() {
     },
     onPreviewTelemetry: (d) => {
       if (d && d.total > 0) {
-        syncLiveTaeBadges({ step: d.step || 0, total: d.total, fps: d.fps });
+        syncLiveTaeBadges({ step: d.step || 0, total: d.total, fps: d.fps, delta: d.delta });
         if (state.activeRender) {
           state.activeRender.step = Number(d.step || 0);
           state.activeRender.total = Number(d.total || 0);
+          if (d.step_ms !== undefined && d.step_ms !== null) state.activeRender.stepMs = d.step_ms;
+          if (d.avg_step_ms !== undefined && d.avg_step_ms !== null) state.activeRender.avgStepMs = d.avg_step_ms;
+          if (d.delta !== undefined && d.delta !== null) state.activeRender.delta = d.delta;
           updateRenderStatusOverlay();
         }
       }
@@ -2492,10 +2601,13 @@ function init() {
         ...item,
         fullFrame: state.livePreview?.fullFrame || Boolean(state.activeAnchorPromptId || state.activeStampPromptId),
       };
-      syncLiveTaeBadges({ step: item.step || 0, total: item.total || 0, fps: item.fps });
+      syncLiveTaeBadges({ step: item.step || 0, total: item.total || 0, fps: item.fps, delta: item.delta });
       if (state.activeRender && item.total > 0) {
         state.activeRender.step = Number(item.step || 0);
         state.activeRender.total = Number(item.total || 0);
+        if (item.stepMs !== undefined && item.stepMs !== null) state.activeRender.stepMs = item.stepMs;
+        if (item.avgStepMs !== undefined && item.avgStepMs !== null) state.activeRender.avgStepMs = item.avgStepMs;
+        if (item.delta !== undefined && item.delta !== null) state.activeRender.delta = item.delta;
         updateRenderStatusOverlay();
       }
       stage?.render();

@@ -32,10 +32,20 @@ export class DirectorWSClient {
   }
 
   _makeClientId() {
-    if (window.crypto && typeof window.crypto.randomUUID === "function") {
-      return window.crypto.randomUUID().replace(/-/g, "");
-    }
-    return `dir${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+    const key = "h3_director_client_id";
+    try {
+      const existing = window.sessionStorage?.getItem(key);
+      if (existing && /^[a-zA-Z0-9_-]{8,64}$/.test(existing)) {
+        return existing;
+      }
+    } catch {}
+    const fresh = (window.crypto && typeof window.crypto.randomUUID === "function")
+      ? window.crypto.randomUUID().replace(/-/g, "")
+      : `dir${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+    try {
+      window.sessionStorage?.setItem(key, fresh);
+    } catch {}
+    return fresh;
   }
 
   setVideoSink(el) {
@@ -214,6 +224,7 @@ export class DirectorWSClient {
         w: meta.w || video.videoWidth || 0,
         h: meta.h || video.videoHeight || 0,
         nodeId: meta.node_id,
+        stepMs: meta.step_ms,
         avgStepMs: meta.avg_step_ms,
         delta: meta.delta,
       });
@@ -242,6 +253,7 @@ export class DirectorWSClient {
         w: meta.w || img.naturalWidth || 0,
         h: meta.h || img.naturalHeight || 0,
         nodeId: meta.node_id,
+        stepMs: meta.step_ms,
         avgStepMs: meta.avg_step_ms,
         delta: meta.delta,
         fallbackBinary: Boolean(meta.fallbackBinary),

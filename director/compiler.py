@@ -23,6 +23,7 @@ _WORKFLOWS_DIR = _REPO_ROOT / "workflows"
 INT32_TOKEN_LIMIT = 99864  # preflight._INT32_FUSED = 2**31 // (3 * 56 * 128)
 TAEH3_VIDEO_FILE = "taeh3.safetensors"
 TAEH3_IMAGE_FILE = "taeh3_image.safetensors"
+MAX_VIDEO_PREVIEW_FRAMES = 27
 PREVIEW_NODE_CLASS = "ModelPreviewOverrideKJ"
 PREVIEW_NODE_ID = "165"
 CLEAN_DECODE_NODE_ID = "162"
@@ -519,6 +520,18 @@ def compile_sam3_segment(
         "output_node_id": "208",
         "graph": graph,
     }
+
+
+def video_preview_schedule(length: int) -> tuple[int, int]:
+    """Return ``(preview_frames, preview_fps)`` for ``taeh3.safetensors`` at 1.0x real-time duration."""
+    length_i = max(5, int(length))
+    latent_steps = 5 * ((length_i - 5) // 17) + 2
+    preview_frames = min(latent_steps, MAX_VIDEO_PREVIEW_FRAMES)
+    if preview_frames >= latent_steps:
+        preview_fps = 7  # ~7.06 Hz native H3 latent-step rate (39f->12@7fps, 90f->27@7fps)
+    else:
+        preview_fps = max(2, int(round(preview_frames * 24.0 / float(length_i))))
+    return preview_frames, preview_fps
 
 
 def _inject_kj_preview_override(
@@ -1395,13 +1408,13 @@ def _wire_model_chain(
 
     graph["9"]["inputs"]["model"] = copy.deepcopy(head)
 
-    latent_steps = 5 * ((int(length) - 5) // 17) + 2
+    preview_frames, preview_fps = video_preview_schedule(int(length))
     injected = _inject_kj_preview_override(
         graph,
         object_info=object_info,
         tiny_vae_filename=TAEH3_VIDEO_FILE,
-        preview_frames=latent_steps,
-        preview_fps=7,  # Matches ~7.06 Hz TinyVAEDecoder; never fps=24.0
+        preview_frames=preview_frames,
+        preview_fps=preview_fps,
         enabled=preview_override,
     )
     return injected, steer_ids
