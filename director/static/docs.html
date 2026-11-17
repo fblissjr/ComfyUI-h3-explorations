@@ -80,12 +80,35 @@
     </aside>
   </div>
 
-  <dialog id="mobile-nav-dialog" class="mobile-nav-dialog" aria-label="Browse documentation files">
+  <dialog id="mobile-nav-dialog" class="mobile-nav-dialog" closedby="any" aria-labelledby="mobile-nav-title">
     <div class="mobile-nav-head">
-      <span>Browse Documentation</span>
-      <button id="btn-mobile-nav-close" type="button" class="docs-btn-xs" aria-label="Close drawer">Close</button>
+      <h2 id="mobile-nav-title" class="dialog-title">Browse Documentation</h2>
+      <form method="dialog" class="dialog-close-form">
+        <button id="btn-mobile-nav-close" type="submit" class="docs-btn-xs" autofocus>Close</button>
+      </form>
     </div>
     <div id="mobile-nav-slot" class="mobile-nav-slot"></div>
+  </dialog>
+
+  <dialog id="visual-lightbox-dialog" class="visual-lightbox-dialog" closedby="any" aria-labelledby="visual-lightbox-title">
+    <div class="visual-lightbox-head">
+      <div class="visual-lightbox-title-wrap">
+        <h2 id="visual-lightbox-title" class="dialog-title">Workflow Diagram</h2>
+        <span class="diagram-hint">Scroll or pinch to zoom · Drag to move · Double-click to zoom in</span>
+      </div>
+      <div class="visual-lightbox-actions">
+        <div id="lightbox-toolbar" class="diagram-toolbar" role="group" aria-label="Zoom controls">
+          <button id="btn-lb-zoom-out" type="button" class="diagram-tool-btn" title="Zoom out (-)" aria-label="Zoom out">−</button>
+          <button id="btn-lb-zoom-pct" type="button" class="diagram-tool-btn diagram-zoom-readout" title="Reset to 100%">100%</button>
+          <button id="btn-lb-zoom-in" type="button" class="diagram-tool-btn" title="Zoom in (+)" aria-label="Zoom in">+</button>
+          <button id="btn-lb-zoom-fit" type="button" class="diagram-tool-btn" title="Fit visual to window">Fit</button>
+        </div>
+        <form method="dialog" class="dialog-close-form">
+          <button id="btn-lightbox-close" type="submit" class="docs-btn-xs" autofocus>Close (Esc)</button>
+        </form>
+      </div>
+    </div>
+    <div id="visual-lightbox-stage" class="visual-lightbox-stage" tabindex="0" aria-label="Interactive zoomed visual canvas"></div>
   </dialog>
 
   <div id="doc-toast" class="doc-toast hidden" role="status" aria-live="polite"></div>

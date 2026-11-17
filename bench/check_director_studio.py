@@ -2135,7 +2135,7 @@ async def _run_cdp_browser(director_url: str, anchor_png: Path) -> str:
                     guide_box = await js("document.getElementById('btn-docs-guide')?.getBoundingClientRect().toJSON()")
                     assert guide_box and guide_box["width"] > 0 and guide_box["right"] <= 1280, f"#btn-docs-guide invalid: {guide_box}"
 
-                    # Verify /docs Documentation Hub renders spatial_director_guide.md, Mermaid SVG, TOC links & cross-doc nav
+                    # Verify /docs Documentation Hub renders spatial_director_guide.md, cycle-safe Mermaid SVG, pan/zoom & lightbox, TOC links & cross-doc nav
                     await cdp("Page.navigate", {"url": f"{director_url.rstrip('/')}/docs"})
                     docs_ready = False
                     for _ in range(40):
@@ -2143,10 +2143,12 @@ async def _run_cdp_browser(director_url: str, anchor_png: Path) -> str:
                             """(() => {
                               const h1 = document.querySelector('#doc-article h1');
                               const svg = document.querySelector('#doc-article svg.mermaid-svg');
+                              const firstRect = svg ? svg.querySelector('.mermaid-node-rect') : null;
                               const tocLinks = document.querySelectorAll('#doc-toc-nav a.toc-link').length;
                               return {
                                 h1: h1 ? h1.textContent.trim() : '',
                                 hasSvg: Boolean(svg),
+                                firstRectX: firstRect ? Number(firstRect.getAttribute('x')) : -1,
                                 tocLinks,
                                 scrollWidth: document.documentElement.scrollWidth,
                               };
@@ -2162,7 +2164,46 @@ async def _run_cdp_browser(director_url: str, anchor_png: Path) -> str:
                             break
                         await asyncio.sleep(0.15)
                     assert docs_ready, f"/docs failed to hydrate tutorial, Mermaid SVG, or TOC: {docs_state}"
+                    assert 0 <= docs_state["firstRectX"] < 80, f"Mermaid first node pushed right (empty left void?): {docs_state}"
                     assert docs_state["scrollWidth"] <= 1280, f"/docs horizontal overflow: {docs_state['scrollWidth']}"
+
+                    # Verify inline Mermaid zoom/fit controls update viewBox without style mutations
+                    inline_zoom = await js(
+                        """(() => {
+                          const svg = document.querySelector('#doc-article svg.mermaid-svg');
+                          const parseVb = (el) => (el.getAttribute('viewBox') || '').trim().split(/\\s+/).map(Number);
+                          const vb0 = parseVb(svg);
+                          document.querySelector('.mermaid-card [data-action="zoom-in"]')?.click();
+                          const vb1 = parseVb(svg);
+                          const pct1 = document.querySelector('.mermaid-card .diagram-zoom-readout')?.textContent.trim() || '';
+                          document.querySelector('.mermaid-card [data-action="zoom-fit"]')?.click();
+                          const vb2 = parseVb(svg);
+                          const pct2 = document.querySelector('.mermaid-card .diagram-zoom-readout')?.textContent.trim() || '';
+                          return { w0: vb0[2], w1: vb1[2], pct1, w2: vb2[2], pct2 };
+                        })()"""
+                    )
+                    assert inline_zoom["w1"] < inline_zoom["w0"] and inline_zoom["pct1"] != "100%", f"Inline zoom-in failed: {inline_zoom}"
+                    assert abs(inline_zoom["w2"] - inline_zoom["w0"]) < 1.0 and inline_zoom["pct2"] == "100%", f"Inline fit failed: {inline_zoom}"
+
+                    # Verify fullscreen Lightbox <dialog> opens, zooms, and closes via <form method="dialog">
+                    lightbox_check = await js(
+                        """(() => {
+                          document.querySelector('.mermaid-card [data-action="expand"]')?.click();
+                          const dlg = document.getElementById('visual-lightbox-dialog');
+                          const lbSvg = document.querySelector('#visual-lightbox-stage svg.mermaid-svg');
+                          const parseVb = (el) => (el?.getAttribute('viewBox') || '').trim().split(/\\s+/).map(Number);
+                          const opened = Boolean(dlg && dlg.open && lbSvg);
+                          const vb0 = parseVb(lbSvg);
+                          document.getElementById('btn-lb-zoom-in')?.click();
+                          const vb1 = parseVb(lbSvg);
+                          document.getElementById('btn-lightbox-close')?.click();
+                          const closedAfter = Boolean(dlg && !dlg.open);
+                          return { opened, w0: vb0[2] || 0, w1: vb1[2] || 0, closedAfter };
+                        })()"""
+                    )
+                    assert lightbox_check["opened"], f"Lightbox dialog failed to open: {lightbox_check}"
+                    assert 0 < lightbox_check["w1"] < lightbox_check["w0"], f"Lightbox zoom-in failed: {lightbox_check}"
+                    assert lightbox_check["closedAfter"], f"Lightbox dialog failed to close: {lightbox_check}"
 
                     # Navigate to Edit Guidance via sidebar or internal link
                     await js("document.querySelector(\"#doc-tree button[data-doc-path='docs/wiki/edit_guidance.md']\")?.click()")

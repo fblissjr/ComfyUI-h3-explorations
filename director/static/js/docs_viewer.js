@@ -25,6 +25,7 @@ const viewerState = {
   searchTimer: 0,
   tocObserver: null,
   slugCounts: new Map(),
+  lightboxAbort: null,
 };
 
 function showToast(msg, durationMs = 2400) {
@@ -201,13 +202,49 @@ function appendInline(parent, rawText, docPath) {
           const info = resolveRepoTarget(docPath, srcRaw);
           if (info.kind === "asset") {
             flushPlain();
+            const assetUrl = `/api/docs/asset?path=${encodeURIComponent(info.path)}`;
             const fig = document.createElement("figure");
             fig.className = "md-figure";
+            const fHead = document.createElement("div");
+            fHead.className = "md-figure-head";
+            const fBadge = document.createElement("span");
+            fBadge.className = "md-figure-badge";
+            fBadge.textContent = "Figure";
+            const fExpand = document.createElement("button");
+            fExpand.type = "button";
+            fExpand.className = "diagram-tool-btn";
+            fExpand.dataset.action = "expand";
+            fExpand.textContent = "Expand & Zoom";
+            fHead.append(fBadge, fExpand);
+
             const img = document.createElement("img");
             img.loading = "lazy";
             img.alt = alt;
-            img.src = `/api/docs/asset?path=${encodeURIComponent(info.path)}`;
-            fig.appendChild(img);
+            img.title = "Click to expand and zoom";
+            img.src = assetUrl;
+            const openFig = () => {
+              openVisualLightbox({
+                title: alt || info.path,
+                buildSvg: () => {
+                  const natW = Math.max(120, img.naturalWidth || 1200);
+                  const natH = Math.max(120, img.naturalHeight || 800);
+                  const svg = document.createElementNS(SVG_NS, "svg");
+                  svg.setAttribute("class", "mermaid-svg");
+                  svg.setAttribute("viewBox", `0 0 ${natW} ${natH}`);
+                  const imageEl = document.createElementNS(SVG_NS, "image");
+                  imageEl.setAttribute("href", assetUrl);
+                  imageEl.setAttribute("x", "0");
+                  imageEl.setAttribute("y", "0");
+                  imageEl.setAttribute("width", String(natW));
+                  imageEl.setAttribute("height", String(natH));
+                  svg.appendChild(imageEl);
+                  return { svg, baseBox: { x: 0, y: 0, w: natW, h: natH } };
+                },
+              });
+            };
+            fExpand.addEventListener("click", openFig);
+            img.addEventListener("click", openFig);
+            fig.append(fHead, img);
             if (alt) {
               const cap = document.createElement("figcaption");
               cap.textContent = alt;
@@ -373,34 +410,65 @@ function findClosingSingleStar(text, startIdx) {
 }
 
 /* -------------------------------------------------------------------------
- * Minimal Built-In Mermaid Flowchart -> Crisp SVG Renderer
+ * Cycle-Safe Mermaid Flowchart Renderer & Interactive Pan/Zoom Lightbox
  * ---------------------------------------------------------------------- */
 
-function parseMermaidNodeToken(tok, nodeMap) {
+function wrapDiagramLine(raw, maxLen = 36) {
+  const txt = String(raw || "").trim();
+  if (!txt || txt.length <= maxLen) return txt ? [txt] : [];
+  const words = txt.split(/\s+/);
+  const out = [];
+  let cur = "";
+  for (const w of words) {
+    if (!cur) {
+      cur = w;
+    } else if (cur.length + 1 + w.length <= maxLen) {
+      cur += ` ${w}`;
+    } else {
+      out.push(cur);
+      cur = w;
+    }
+  }
+  if (cur) out.push(cur);
+  return out;
+}
+
+function parseMermaidNodeToken(tok, nodeMap, subgraphStack = [], nodeSubgraph = null) {
   const s = tok.trim();
   const m = s.match(/^([A-Za-z0-9_.-]+)\s*(?:\["([^"]*)"\]|\[\(([^)]*)\)\]|\(([^)]*)\)|\[([^\]]*)\])?$/);
   if (!m) return null;
   const id = m[1];
-  const rawLabel = m[2] ?? m[3] ?? m[4] ?? m[5] ?? id;
+  const rawLabel = m[2] ?? m[3] ?? m[4] ?? m[5];
+  const splitWrapped = (lbl) => {
+    const rawParts = String(lbl)
+      .replace(/<br\s*\/?>/gi, "\n")
+      .split("\n")
+      .map((l) => l.trim())
+      .filter(Boolean);
+    const wrapped = [];
+    for (const part of rawParts) {
+      wrapped.push(...wrapDiagramLine(part, 36));
+    }
+    return wrapped.length ? wrapped : [id];
+  };
+
   if (!nodeMap.has(id)) {
-    const lines = String(rawLabel)
-      .replace(/<br\s*\/?>/gi, "\n")
-      .split("\n")
-      .map((l) => l.trim())
-      .filter(Boolean);
-    nodeMap.set(id, { id, lines: lines.length ? lines : [id] });
-  } else if (m[2] || m[3] || m[4] || m[5]) {
-    const lines = String(rawLabel)
-      .replace(/<br\s*\/?>/gi, "\n")
-      .split("\n")
-      .map((l) => l.trim())
-      .filter(Boolean);
+    const lines = rawLabel !== undefined ? splitWrapped(rawLabel) : [id];
+    nodeMap.set(id, { id, lines, order: nodeMap.size });
+  } else if (rawLabel !== undefined) {
+    const lines = splitWrapped(rawLabel);
     if (lines.length) nodeMap.get(id).lines = lines;
+  }
+
+  if (subgraphStack.length && nodeSubgraph && !nodeSubgraph.has(id)) {
+    const curSg = subgraphStack[subgraphStack.length - 1];
+    nodeSubgraph.set(id, curSg.id);
+    if (!curSg.nodeIds.includes(id)) curSg.nodeIds.push(id);
   }
   return id;
 }
 
-function renderMermaidCard(srcText) {
+function buildMermaidSvg(srcText) {
   const lines = String(srcText || "").replace(/\r\n/g, "\n").split("\n").map((l) => l.trim()).filter(Boolean);
   if (!lines.length || !/^(?:flowchart|graph)\s+(LR|TD|TB)\b/i.test(lines[0])) {
     return null;
@@ -408,32 +476,103 @@ function renderMermaidCard(srcText) {
   const isHorizontal = /LR/i.test(lines[0]);
   const nodeMap = new Map();
   const edges = [];
+  const subgraphs = [];
+  const subgraphStack = [];
+  const nodeSubgraph = new Map();
 
   for (let i = 1; i < lines.length; i++) {
     const line = lines[i];
-    if (line.startsWith("%%") || /^(?:subgraph|end|classDef|class|style)\b/i.test(line)) continue;
-    const edgeMatch = line.match(/^(.+?)\s*(?:-->|-.->|==>)(?:\|"([^"]*)"\|)?\s*(.+?);?$/);
+    if (line.startsWith("%%") || /^(?:classDef|class|style|linkStyle)\b/i.test(line)) continue;
+    const sgMatch = line.match(/^subgraph\s+([A-Za-z0-9_.-]+)(?:\s*\["([^"]*)"\]|\s+\[([^\]]*)\]|\s+(.+))?$/i);
+    if (sgMatch) {
+      const sg = {
+        id: sgMatch[1],
+        title: (sgMatch[2] || sgMatch[3] || sgMatch[4] || sgMatch[1]).trim(),
+        nodeIds: [],
+      };
+      subgraphs.push(sg);
+      subgraphStack.push(sg);
+      continue;
+    }
+    if (/^end\b/i.test(line)) {
+      if (subgraphStack.length) subgraphStack.pop();
+      continue;
+    }
+
+    const edgeMatch = line.match(/^(.+?)\s*(?:-->|-.->|==>)(?:\|"([^"]*)"\||\|([^|]*)\|)?\s*(.+?);?$/);
     if (edgeMatch) {
-      const fromId = parseMermaidNodeToken(edgeMatch[1], nodeMap);
-      const toId = parseMermaidNodeToken(edgeMatch[3], nodeMap);
+      const fromId = parseMermaidNodeToken(edgeMatch[1], nodeMap, subgraphStack, nodeSubgraph);
+      const toId = parseMermaidNodeToken(edgeMatch[4], nodeMap, subgraphStack, nodeSubgraph);
       if (fromId && toId) {
-        edges.push({ from: fromId, to: toId, label: (edgeMatch[2] || "").trim() });
+        edges.push({
+          from: fromId,
+          to: toId,
+          label: (edgeMatch[2] ?? edgeMatch[3] ?? "").trim(),
+          isBackEdge: false,
+        });
       }
     } else {
-      parseMermaidNodeToken(line.replace(/;$/, ""), nodeMap);
+      parseMermaidNodeToken(line.replace(/;$/, ""), nodeMap, subgraphStack, nodeSubgraph);
     }
   }
 
-  if (!edges.length || nodeMap.size < 2) {
+  if (nodeMap.size < 2 || (!edges.length && !subgraphs.some((s) => s.nodeIds.length >= 2))) {
     return null;
   }
 
-  // Topological longest-path layer assignment
+  // Build adjacency and 3-color DFS from natural roots (0-in-degree first, then first declared node)
+  const outAdj = new Map();
+  const inCount = new Map();
+  for (const id of nodeMap.keys()) {
+    outAdj.set(id, []);
+    inCount.set(id, 0);
+  }
+  for (const e of edges) {
+    outAdj.get(e.from).push(e);
+    inCount.set(e.to, (inCount.get(e.to) || 0) + 1);
+  }
+
+  const dfsRoots = [];
+  const seenRoot = new Set();
+  for (const id of nodeMap.keys()) {
+    if ((inCount.get(id) || 0) === 0 && !seenRoot.has(id)) {
+      dfsRoots.push(id);
+      seenRoot.add(id);
+    }
+  }
+  for (const id of nodeMap.keys()) {
+    if (!seenRoot.has(id)) {
+      dfsRoots.push(id);
+      seenRoot.add(id);
+    }
+  }
+
+  const dfsColor = new Map(); // 0/undefined = unvisited, 1 = active stack, 2 = complete
+  const runDfs = (u) => {
+    dfsColor.set(u, 1);
+    for (const e of outAdj.get(u) || []) {
+      const c = dfsColor.get(e.to) || 0;
+      if (c === 1) {
+        e.isBackEdge = true;
+      } else if (c === 0) {
+        runDfs(e.to);
+      }
+    }
+    dfsColor.set(u, 2);
+  };
+  for (const rootId of dfsRoots) {
+    if ((dfsColor.get(rootId) || 0) === 0) {
+      runDfs(rootId);
+    }
+  }
+
+  // Forward longest-path layer assignment (feedback back-edges excluded so ranks stay forward!)
+  const forwardEdges = edges.filter((e) => !e.isBackEdge);
   const depth = new Map();
   for (const id of nodeMap.keys()) depth.set(id, 0);
   for (let pass = 0; pass < nodeMap.size; pass++) {
     let changed = false;
-    for (const e of edges) {
+    for (const e of forwardEdges) {
       const next = (depth.get(e.from) || 0) + 1;
       if (next > (depth.get(e.to) || 0) && next < nodeMap.size) {
         depth.set(e.to, next);
@@ -443,111 +582,346 @@ function renderMermaidCard(srcText) {
     if (!changed) break;
   }
 
+  // Compact layers to 0..K-1 (zero empty columns)
+  const distinctRanks = Array.from(new Set(depth.values())).sort((a, b) => a - b);
+  const rankMap = new Map(distinctRanks.map((r, idx) => [r, idx]));
   const columns = new Map();
   for (const node of nodeMap.values()) {
-    const col = depth.get(node.id) || 0;
+    const col = rankMap.get(depth.get(node.id) || 0) ?? 0;
+    node.col = col;
     if (!columns.has(col)) columns.set(col, []);
     columns.get(col).push(node);
   }
 
-  const boxW = 210;
-  const boxHBase = 48;
-  const gapX = 76;
-  const gapY = 26;
-  const pad = 22;
-  const positions = new Map();
-  let maxX = 0;
-  let maxY = 0;
+  // Measure each node box accurately from wrapped lines
+  const sizeOfNode = (node) => {
+    const maxChars = Math.max(12, ...node.lines.map((l) => l.length));
+    const w = Math.max(186, Math.min(296, Math.round(maxChars * 6.5 + 30)));
+    const h = Math.max(50, Math.round(22 + node.lines.length * 15.5));
+    return { w, h };
+  };
+  const nodeDims = new Map();
+  for (const node of nodeMap.values()) {
+    nodeDims.set(node.id, sizeOfNode(node));
+  }
+
+  const labelWidthOf = (lbl) => (lbl ? Math.max(48, Math.round(lbl.length * 6.1 + 18)) : 0);
 
   const sortedCols = Array.from(columns.keys()).sort((a, b) => a - b);
+  const positions = new Map();
+
+  // Order items within each column > 0 by average predecessor coordinate to prevent crossings
+  const prelimCenter = new Map();
   for (const colIdx of sortedCols) {
     const list = columns.get(colIdx);
-    let offset = pad;
+    if (colIdx > 0) {
+      list.sort((a, b) => {
+        const predsA = forwardEdges.filter((e) => e.to === a.id && (nodeMap.get(e.from)?.col ?? 0) < colIdx);
+        const predsB = forwardEdges.filter((e) => e.to === b.id && (nodeMap.get(e.from)?.col ?? 0) < colIdx);
+        const avgA = predsA.length ? predsA.reduce((s, e) => s + (prelimCenter.get(e.from) || 0), 0) / predsA.length : a.order;
+        const avgB = predsB.length ? predsB.reduce((s, e) => s + (prelimCenter.get(e.from) || 0), 0) / predsB.length : b.order;
+        if (Math.abs(avgA - avgB) > 1e-3) return avgA - avgB;
+        return a.order - b.order;
+      });
+    } else {
+      list.sort((a, b) => a.order - b.order);
+    }
+    list.forEach((n, idx) => prelimCenter.set(n.id, idx));
+  }
+
+  const gapY = isHorizontal ? 38 : 66;
+  const colPositions = new Map();
+  const colThick = new Map();
+  for (const colIdx of sortedCols) {
+    const list = columns.get(colIdx);
+    colThick.set(
+      colIdx,
+      isHorizontal
+        ? Math.max(...list.map((n) => nodeDims.get(n.id).w))
+        : Math.max(...list.map((n) => nodeDims.get(n.id).h))
+    );
+  }
+
+  let cursorPrimary = 0;
+  for (let i = 0; i < sortedCols.length; i++) {
+    const colIdx = sortedCols[i];
+    colPositions.set(colIdx, cursorPrimary);
+    let stepGap = isHorizontal ? 96 : gapY;
+    if (isHorizontal && i + 1 < sortedCols.length) {
+      const nextCol = sortedCols[i + 1];
+      let maxLbl = 0;
+      for (const e of forwardEdges) {
+        if ((nodeMap.get(e.from)?.col ?? -1) === colIdx && (nodeMap.get(e.to)?.col ?? -1) === nextCol && e.label) {
+          maxLbl = Math.max(maxLbl, labelWidthOf(e.label));
+        }
+      }
+      if (maxLbl > 0) {
+        stepGap = Math.max(96, Math.min(220, maxLbl + 28));
+      }
+    } else if (!isHorizontal && i + 1 < sortedCols.length) {
+      stepGap = 68;
+    }
+    cursorPrimary += colThick.get(colIdx) + stepGap;
+  }
+
+  // Secondary-axis spans per column so shorter columns center cleanly
+  const colSecondarySpans = new Map();
+  const gapSec = isHorizontal ? 40 : 28;
+  let maxSecSpan = 0;
+  for (const colIdx of sortedCols) {
+    const list = columns.get(colIdx);
+    const totalSec = list.reduce(
+      (sum, n, idx) => sum + (isHorizontal ? nodeDims.get(n.id).h : nodeDims.get(n.id).w) + (idx > 0 ? gapSec : 0),
+      0
+    );
+    colSecondarySpans.set(colIdx, totalSec);
+    maxSecSpan = Math.max(maxSecSpan, totalSec);
+  }
+
+  for (const colIdx of sortedCols) {
+    const list = columns.get(colIdx);
+    const span = colSecondarySpans.get(colIdx);
+    let offset = (maxSecSpan - span) * 0.5;
+    const thick = colThick.get(colIdx);
+    const pStart = colPositions.get(colIdx);
     for (const node of list) {
-      const h = Math.max(boxHBase, 22 + node.lines.length * 16);
-      const x = isHorizontal ? pad + colIdx * (boxW + gapX) : offset;
-      const y = isHorizontal ? offset : pad + colIdx * (92 + gapY);
-      positions.set(node.id, { x, y, w: boxW, h, lines: node.lines });
-      offset += (isHorizontal ? h : boxW) + gapY;
-      maxX = Math.max(maxX, x + boxW);
-      maxY = Math.max(maxY, y + h);
+      const dim = nodeDims.get(node.id);
+      const x = isHorizontal ? pStart + (thick - dim.w) * 0.5 : offset;
+      const y = isHorizontal ? offset : pStart + (thick - dim.h) * 0.5;
+      positions.set(node.id, { x, y, w: dim.w, h: dim.h, lines: node.lines, col: colIdx });
+      offset += (isHorizontal ? dim.h : dim.w) + gapSec;
     }
   }
 
-  const svgW = maxX + pad;
-  const svgH = maxY + pad;
-  const card = document.createElement("div");
-  card.className = "mermaid-card";
-  const head = document.createElement("div");
-  head.className = "mermaid-card-head";
-  head.textContent = "Workflow Diagram";
-  card.appendChild(head);
+  let contentMinX = Infinity;
+  let contentMinY = Infinity;
+  let contentMaxX = -Infinity;
+  let contentMaxY = -Infinity;
+  for (const box of positions.values()) {
+    contentMinX = Math.min(contentMinX, box.x);
+    contentMinY = Math.min(contentMinY, box.y);
+    contentMaxX = Math.max(contentMaxX, box.x + box.w);
+    contentMaxY = Math.max(contentMaxY, box.y + box.h);
+  }
+
+  // Compute subgraph bounding boxes
+  const subgraphBoxes = [];
+  for (const sg of subgraphs) {
+    const members = sg.nodeIds.map((id) => positions.get(id)).filter(Boolean);
+    if (!members.length) continue;
+    const padSg = 14;
+    const minX = Math.min(...members.map((m) => m.x)) - padSg;
+    const minY = Math.min(...members.map((m) => m.y)) - padSg - 18;
+    const maxX = Math.max(...members.map((m) => m.x + m.w)) + padSg;
+    const maxY = Math.max(...members.map((m) => m.y + m.h)) + padSg;
+    subgraphBoxes.push({ x: minX, y: minY, w: maxX - minX, h: maxY - minY, title: sg.title });
+    contentMinX = Math.min(contentMinX, minX);
+    contentMinY = Math.min(contentMinY, minY);
+    contentMaxX = Math.max(contentMaxX, maxX);
+    contentMaxY = Math.max(contentMaxY, maxY);
+  }
 
   const svg = document.createElementNS(SVG_NS, "svg");
   svg.setAttribute("class", "mermaid-svg");
-  svg.setAttribute("viewBox", `0 0 ${svgW} ${svgH}`);
 
   const defs = document.createElementNS(SVG_NS, "defs");
-  const marker = document.createElementNS(SVG_NS, "marker");
-  const markerId = `arrow-${Math.random().toString(36).slice(2, 8)}`;
-  marker.setAttribute("id", markerId);
-  marker.setAttribute("viewBox", "0 0 10 10");
-  marker.setAttribute("refX", "9");
-  marker.setAttribute("refY", "5");
-  marker.setAttribute("markerWidth", "6");
-  marker.setAttribute("markerHeight", "6");
-  marker.setAttribute("orient", "auto-start-reverse");
-  const arrowPath = document.createElementNS(SVG_NS, "path");
-  arrowPath.setAttribute("d", "M 0 1.5 L 10 5 L 0 8.5 z");
-  arrowPath.setAttribute("fill", "#475569");
-  marker.appendChild(arrowPath);
-  defs.appendChild(marker);
+  const uid = Math.random().toString(36).slice(2, 8);
+  const markerFwdId = `arrow-${uid}`;
+  const markerBackId = `arrow-back-${uid}`;
+
+  const makeMarker = (id, fillColor) => {
+    const mk = document.createElementNS(SVG_NS, "marker");
+    mk.setAttribute("id", id);
+    mk.setAttribute("viewBox", "0 0 10 10");
+    mk.setAttribute("refX", "9");
+    mk.setAttribute("refY", "5");
+    mk.setAttribute("markerWidth", "6");
+    mk.setAttribute("markerHeight", "6");
+    mk.setAttribute("orient", "auto-start-reverse");
+    const ap = document.createElementNS(SVG_NS, "path");
+    ap.setAttribute("d", "M 0 1.5 L 10 5 L 0 8.5 z");
+    ap.setAttribute("fill", fillColor);
+    mk.appendChild(ap);
+    return mk;
+  };
+  defs.append(makeMarker(markerFwdId, "#475569"), makeMarker(markerBackId, "#2563eb"));
   svg.appendChild(defs);
 
-  // Edges first
-  for (const e of edges) {
+  // Layer groups for clean z-order (subgraphs -> edges -> nodes -> labels)
+  const gSubgraphs = document.createElementNS(SVG_NS, "g");
+  const gEdges = document.createElementNS(SVG_NS, "g");
+  const gNodes = document.createElementNS(SVG_NS, "g");
+  const gLabels = document.createElementNS(SVG_NS, "g");
+
+  for (const sgb of subgraphBoxes) {
+    const rect = document.createElementNS(SVG_NS, "rect");
+    rect.setAttribute("x", String(sgb.x));
+    rect.setAttribute("y", String(sgb.y));
+    rect.setAttribute("width", String(sgb.w));
+    rect.setAttribute("height", String(sgb.h));
+    rect.setAttribute("rx", "10");
+    rect.setAttribute("class", "mermaid-subgraph-rect");
+    const stxt = document.createElementNS(SVG_NS, "text");
+    stxt.setAttribute("x", String(sgb.x + 12));
+    stxt.setAttribute("y", String(sgb.y + 15));
+    stxt.setAttribute("class", "mermaid-subgraph-title");
+    stxt.textContent = sgb.title;
+    gSubgraphs.append(rect, stxt);
+  }
+
+  let fullMinX = contentMinX;
+  let fullMinY = contentMinY;
+  let fullMaxX = contentMaxX;
+  let fullMaxY = contentMaxY;
+
+  const appendEdgeLabel = (mx, my, labelText) => {
+    if (!labelText) return;
+    const lw = labelWidthOf(labelText);
+    const lrect = document.createElementNS(SVG_NS, "rect");
+    lrect.setAttribute("x", String(mx - lw * 0.5));
+    lrect.setAttribute("y", String(my - 9.5));
+    lrect.setAttribute("width", String(lw));
+    lrect.setAttribute("height", "19");
+    lrect.setAttribute("rx", "9.5");
+    lrect.setAttribute("class", "mermaid-edge-label-bg");
+
+    const ltxt = document.createElementNS(SVG_NS, "text");
+    ltxt.setAttribute("x", String(mx));
+    ltxt.setAttribute("y", String(my + 3));
+    ltxt.setAttribute("text-anchor", "middle");
+    ltxt.setAttribute("class", "mermaid-edge-label-text");
+    ltxt.textContent = labelText;
+
+    gLabels.append(lrect, ltxt);
+    fullMinX = Math.min(fullMinX, mx - lw * 0.5);
+    fullMaxX = Math.max(fullMaxX, mx + lw * 0.5);
+    fullMinY = Math.min(fullMinY, my - 10);
+    fullMaxY = Math.max(fullMaxY, my + 10);
+  };
+
+  // Track port offsets for multi-edge fan-out / fan-in so forward arrows separate cleanly
+  const outForwardMap = new Map();
+  const inForwardMap = new Map();
+  for (const e of forwardEdges) {
+    if (!outForwardMap.has(e.from)) outForwardMap.set(e.from, []);
+    if (!inForwardMap.has(e.to)) inForwardMap.set(e.to, []);
+    outForwardMap.get(e.from).push(e);
+    inForwardMap.get(e.to).push(e);
+  }
+  const sortByOtherBox = (list, key, coordProp) => {
+    list.sort((e1, e2) => {
+      const b1 = positions.get(e1[key]);
+      const b2 = positions.get(e2[key]);
+      return (b1?.[coordProp] || 0) - (b2?.[coordProp] || 0);
+    });
+  };
+  for (const list of outForwardMap.values()) sortByOtherBox(list, "to", isHorizontal ? "y" : "x");
+  for (const list of inForwardMap.values()) sortByOtherBox(list, "from", isHorizontal ? "y" : "x");
+
+  for (const e of forwardEdges) {
     const a = positions.get(e.from);
     const b = positions.get(e.to);
     if (!a || !b) continue;
-    const x1 = isHorizontal ? a.x + a.w : a.x + a.w * 0.5;
-    const y1 = isHorizontal ? a.y + a.h * 0.5 : a.y + a.h;
-    const x2 = isHorizontal ? b.x : b.x + b.w * 0.5;
-    const y2 = isHorizontal ? b.y + b.h * 0.5 : b.y;
-    const dx = Math.max(24, Math.abs(x2 - x1) * 0.45);
-    const dy = Math.max(24, Math.abs(y2 - y1) * 0.45);
+    const outSibs = outForwardMap.get(e.from) || [e];
+    const inSibs = inForwardMap.get(e.to) || [e];
+    const outOff = (outSibs.indexOf(e) - (outSibs.length - 1) * 0.5) * 12;
+    const inOff = (inSibs.indexOf(e) - (inSibs.length - 1) * 0.5) * 12;
+
+    const x1 = isHorizontal ? a.x + a.w : a.x + a.w * 0.5 + outOff;
+    const y1 = isHorizontal ? a.y + a.h * 0.5 + outOff : a.y + a.h;
+    const x2 = isHorizontal ? b.x : b.x + b.w * 0.5 + inOff;
+    const y2 = isHorizontal ? b.y + b.h * 0.5 + inOff : b.y;
+    const dx = Math.max(28, Math.abs(x2 - x1) * 0.45);
+    const dy = Math.max(28, Math.abs(y2 - y1) * 0.45);
+    const cx1 = isHorizontal ? x1 + dx : x1;
+    const cy1 = isHorizontal ? y1 : y1 + dy;
+    const cx2 = isHorizontal ? x2 - dx : x2;
+    const cy2 = isHorizontal ? y2 : y2 - dy;
+
     const path = document.createElementNS(SVG_NS, "path");
-    const dAttr = isHorizontal
-      ? `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`
-      : `M ${x1} ${y1} C ${x1} ${y1 + dy}, ${x2} ${y2 - dy}, ${x2} ${y2}`;
-    path.setAttribute("d", dAttr);
+    path.setAttribute("d", `M ${x1} ${y1} C ${cx1} ${cy1}, ${cx2} ${cy2}, ${x2} ${y2}`);
     path.setAttribute("class", "mermaid-edge-path");
-    path.setAttribute("marker-end", `url(#${markerId})`);
-    svg.appendChild(path);
+    path.setAttribute("marker-end", `url(#${markerFwdId})`);
+    gEdges.appendChild(path);
 
     if (e.label) {
-      const mx = (x1 + x2) * 0.5;
-      const my = (y1 + y2) * 0.5;
-      const lw = Math.min(180, Math.max(46, e.label.length * 6.4 + 14));
-      const lrect = document.createElementNS(SVG_NS, "rect");
-      lrect.setAttribute("x", String(mx - lw * 0.5));
-      lrect.setAttribute("y", String(my - 10));
-      lrect.setAttribute("width", String(lw));
-      lrect.setAttribute("height", "18");
-      lrect.setAttribute("rx", "9");
-      lrect.setAttribute("class", "mermaid-edge-label-bg");
-      svg.appendChild(lrect);
-
-      const ltxt = document.createElementNS(SVG_NS, "text");
-      ltxt.setAttribute("x", String(mx));
-      ltxt.setAttribute("y", String(my + 2.5));
-      ltxt.setAttribute("text-anchor", "middle");
-      ltxt.setAttribute("class", "mermaid-edge-label-text");
-      ltxt.textContent = e.label;
-      svg.appendChild(ltxt);
+      // Sample cubic Bezier at t=0.5 (slightly nudged if sibling branches exist)
+      const t = 0.5;
+      const u = 1 - t;
+      const mx = u ** 3 * x1 + 3 * u ** 2 * t * cx1 + 3 * u * t ** 2 * cx2 + t ** 3 * x2;
+      const my = u ** 3 * y1 + 3 * u ** 2 * t * cy1 + 3 * u * t ** 2 * cy2 + t ** 3 * y2;
+      appendEdgeLabel(mx, my, e.label);
     }
   }
 
-  // Nodes on top
+  // Route cyclic feedback back-edges cleanly outside the forward core
+  const backEdges = edges.filter((e) => e.isBackEdge);
+  const midContentY = (contentMinY + contentMaxY) * 0.5;
+  let topLaneIdx = 0;
+  let botLaneIdx = 0;
+  let rightLaneIdx = 0;
+
+  for (const e of backEdges) {
+    const a = positions.get(e.from);
+    const b = positions.get(e.to);
+    if (!a || !b) continue;
+
+    if (isHorizontal) {
+      const aMidY = a.y + a.h * 0.5;
+      const routeTop = aMidY <= midContentY + 1e-3;
+      const x1 = a.x + a.w * 0.5;
+      const x2 = b.x + b.w * 0.5 + (routeTop ? -10 : 10);
+      if (routeTop) {
+        const y1 = a.y;
+        const y2 = b.y;
+        const laneY = contentMinY - 36 - topLaneIdx * 28;
+        topLaneIdx += 1;
+        const dAttr = `M ${x1} ${y1} C ${x1} ${laneY}, ${x2} ${laneY}, ${x2} ${y2}`;
+        const path = document.createElementNS(SVG_NS, "path");
+        path.setAttribute("d", dAttr);
+        path.setAttribute("class", "mermaid-edge-back");
+        path.setAttribute("marker-end", `url(#${markerBackId})`);
+        gEdges.appendChild(path);
+        const mx = (x1 + x2) * 0.5;
+        const my = 0.125 * y1 + 0.75 * laneY + 0.125 * y2;
+        appendEdgeLabel(mx, my, e.label);
+        fullMinY = Math.min(fullMinY, laneY);
+      } else {
+        const y1 = a.y + a.h;
+        const y2 = b.y + b.h;
+        const laneY = contentMaxY + 36 + botLaneIdx * 28;
+        botLaneIdx += 1;
+        const dAttr = `M ${x1} ${y1} C ${x1} ${laneY}, ${x2} ${laneY}, ${x2} ${y2}`;
+        const path = document.createElementNS(SVG_NS, "path");
+        path.setAttribute("d", dAttr);
+        path.setAttribute("class", "mermaid-edge-back");
+        path.setAttribute("marker-end", `url(#${markerBackId})`);
+        gEdges.appendChild(path);
+        const mx = (x1 + x2) * 0.5;
+        const my = 0.125 * y1 + 0.75 * laneY + 0.125 * y2;
+        appendEdgeLabel(mx, my, e.label);
+        fullMaxY = Math.max(fullMaxY, laneY);
+      }
+    } else {
+      const x1 = a.x + a.w;
+      const y1 = a.y + a.h * 0.5;
+      const x2 = b.x + b.w;
+      const y2 = b.y + b.h * 0.5;
+      const laneX = contentMaxX + 44 + rightLaneIdx * 34;
+      rightLaneIdx += 1;
+      const dAttr = `M ${x1} ${y1} C ${laneX} ${y1}, ${laneX} ${y2}, ${x2} ${y2}`;
+      const path = document.createElementNS(SVG_NS, "path");
+      path.setAttribute("d", dAttr);
+      path.setAttribute("class", "mermaid-edge-back");
+      path.setAttribute("marker-end", `url(#${markerBackId})`);
+      gEdges.appendChild(path);
+      const mx = 0.125 * x1 + 0.75 * laneX + 0.125 * x2;
+      const my = (y1 + y2) * 0.5;
+      appendEdgeLabel(mx, my, e.label);
+      fullMaxX = Math.max(fullMaxX, laneX);
+    }
+  }
+
   for (const [id, box] of positions.entries()) {
     const g = document.createElementNS(SVG_NS, "g");
     const rect = document.createElementNS(SVG_NS, "rect");
@@ -556,7 +930,7 @@ function renderMermaidCard(srcText) {
     rect.setAttribute("width", String(box.w));
     rect.setAttribute("height", String(box.h));
     rect.setAttribute("rx", "9");
-    rect.setAttribute("class", colIsAccent(depth.get(id) || 0) ? "mermaid-node-rect mermaid-node-accent" : "mermaid-node-rect");
+    rect.setAttribute("class", colIsAccent(box.col) ? "mermaid-node-rect mermaid-node-accent" : "mermaid-node-rect");
     g.appendChild(rect);
 
     const startY = box.y + (box.h - (box.lines.length - 1) * 15) * 0.5 + 4;
@@ -571,10 +945,338 @@ function renderMermaidCard(srcText) {
       textEl.appendChild(tspan);
     });
     g.appendChild(textEl);
-    svg.appendChild(g);
+    gNodes.appendChild(g);
   }
 
-  card.appendChild(svg);
+  svg.append(gSubgraphs, gEdges, gNodes, gLabels);
+
+  const pad = 20;
+  const baseBox = {
+    x: Math.round(fullMinX - pad),
+    y: Math.round(fullMinY - pad),
+    w: Math.round((fullMaxX - fullMinX) + pad * 2),
+    h: Math.round((fullMaxY - fullMinY) + pad * 2),
+  };
+  svg.setAttribute("viewBox", `${baseBox.x} ${baseBox.y} ${baseBox.w} ${baseBox.h}`);
+  return { svg, baseBox };
+}
+
+function attachSvgPanZoom({
+  viewport,
+  svg,
+  baseBox,
+  zoomOutBtn,
+  zoomInBtn,
+  zoomPctBtn,
+  zoomFitBtn,
+  alwaysWheelZoom = false,
+  signal = undefined,
+}) {
+  const MIN_ZOOM = 0.45;
+  const MAX_ZOOM = 6.0;
+  const state = {
+    zoom: 1.0,
+    panX: baseBox.x,
+    panY: baseBox.y,
+    dragging: false,
+    moved: 0,
+    lastX: 0,
+    lastY: 0,
+  };
+
+  const clampAndApply = () => {
+    const vw = baseBox.w / state.zoom;
+    const vh = baseBox.h / state.zoom;
+    const minPanX = baseBox.x - vw * 0.65;
+    const maxPanX = baseBox.x + baseBox.w - vw * 0.35;
+    const minPanY = baseBox.y - vh * 0.65;
+    const maxPanY = baseBox.y + baseBox.h - vh * 0.35;
+    state.panX = Math.max(minPanX, Math.min(maxPanX, state.panX));
+    state.panY = Math.max(minPanY, Math.min(maxPanY, state.panY));
+
+    svg.setAttribute("viewBox", `${state.panX.toFixed(2)} ${state.panY.toFixed(2)} ${vw.toFixed(2)} ${vh.toFixed(2)}`);
+    if (zoomPctBtn) zoomPctBtn.textContent = `${Math.round(state.zoom * 100)}%`;
+    viewport.classList.toggle("is-zoomed", Math.abs(state.zoom - 1) > 0.015 || Math.abs(state.panX - baseBox.x) > 2 || Math.abs(state.panY - baseBox.y) > 2);
+  };
+
+  const getRenderedMetrics = () => {
+    const r = svg.getBoundingClientRect();
+    const wBox = Math.max(1, r.width);
+    const hBox = Math.max(1, r.height);
+    const vw = baseBox.w / state.zoom;
+    const vh = baseBox.h / state.zoom;
+    const scale = Math.min(wBox / vw, hBox / vh);
+    const renW = vw * scale;
+    const renH = vh * scale;
+    const offX = r.left + (wBox - renW) * 0.5;
+    const offY = r.top + (hBox - renH) * 0.5;
+    return { scale, renW, renH, offX, offY, vw, vh };
+  };
+
+  const zoomAtClientPoint = (factor, clientX, clientY) => {
+    const m = getRenderedMetrics();
+    const nextZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, state.zoom * factor));
+    if (Math.abs(nextZoom - state.zoom) < 1e-4) return;
+    const fx = m.renW > 0 ? (clientX - m.offX) / m.renW : 0.5;
+    const fy = m.renH > 0 ? (clientY - m.offY) / m.renH : 0.5;
+    const worldX = state.panX + fx * m.vw;
+    const worldY = state.panY + fy * m.vh;
+    state.zoom = nextZoom;
+    const newVw = baseBox.w / state.zoom;
+    const newVh = baseBox.h / state.zoom;
+    state.panX = worldX - fx * newVw;
+    state.panY = worldY - fy * newVh;
+    clampAndApply();
+  };
+
+  const zoomAtCenter = (factor) => {
+    const r = svg.getBoundingClientRect();
+    zoomAtClientPoint(factor, r.left + r.width * 0.5, r.top + r.height * 0.5);
+  };
+
+  const resetFit = () => {
+    state.zoom = 1.0;
+    state.panX = baseBox.x;
+    state.panY = baseBox.y;
+    clampAndApply();
+  };
+
+  const evOpts = signal ? { signal } : undefined;
+  zoomOutBtn?.addEventListener("click", () => zoomAtCenter(1 / 1.25), evOpts);
+  zoomInBtn?.addEventListener("click", () => zoomAtCenter(1.25), evOpts);
+  zoomPctBtn?.addEventListener("click", resetFit, evOpts);
+  zoomFitBtn?.addEventListener("click", resetFit, evOpts);
+
+  viewport.addEventListener(
+    "pointerdown",
+    (ev) => {
+      if (ev.button !== 0) return;
+      if (ev.target instanceof Element && ev.target.closest("button")) return;
+      state.dragging = true;
+      state.moved = 0;
+      state.lastX = ev.clientX;
+      state.lastY = ev.clientY;
+      viewport.classList.add("is-panning");
+      if (typeof viewport.setPointerCapture === "function") {
+        try {
+          viewport.setPointerCapture(ev.pointerId);
+        } catch {
+          // Ignore synthetic pointer events without active pointerId
+        }
+      }
+    },
+    evOpts
+  );
+
+  viewport.addEventListener(
+    "pointermove",
+    (ev) => {
+      if (!state.dragging) return;
+      const dx = ev.clientX - state.lastX;
+      const dy = ev.clientY - state.lastY;
+      state.lastX = ev.clientX;
+      state.lastY = ev.clientY;
+      state.moved += Math.hypot(dx, dy);
+      const m = getRenderedMetrics();
+      if (m.scale > 0) {
+        state.panX -= dx / m.scale;
+        state.panY -= dy / m.scale;
+        clampAndApply();
+      }
+    },
+    evOpts
+  );
+
+  const stopDrag = (ev) => {
+    if (!state.dragging) return;
+    const wasClick = state.moved < 4;
+    state.dragging = false;
+    viewport.classList.remove("is-panning");
+    if (typeof viewport.releasePointerCapture === "function") {
+      try {
+        viewport.releasePointerCapture(ev.pointerId);
+      } catch {
+        // Ignore if not captured
+      }
+    }
+    if (wasClick) {
+      viewport.focus({ preventScroll: true });
+    }
+  };
+  viewport.addEventListener("pointerup", stopDrag, evOpts);
+  viewport.addEventListener("pointercancel", stopDrag, evOpts);
+
+  viewport.addEventListener(
+    "dblclick",
+    (ev) => {
+      ev.preventDefault();
+      if (state.zoom >= 2.5) {
+        resetFit();
+      } else {
+        zoomAtClientPoint(1.65, ev.clientX, ev.clientY);
+      }
+    },
+    evOpts
+  );
+
+  viewport.addEventListener(
+    "wheel",
+    (ev) => {
+      const pinchOrModifier = ev.ctrlKey || ev.metaKey || ev.altKey;
+      const isFocusedOrZoomed = document.activeElement === viewport || Math.abs(state.zoom - 1) > 0.015;
+      if (!alwaysWheelZoom && !pinchOrModifier && !isFocusedOrZoomed) {
+        return;
+      }
+      ev.preventDefault();
+      const rawStep = Math.exp(-ev.deltaY * 0.0022);
+      const clampedStep = Math.max(0.72, Math.min(1.38, rawStep));
+      zoomAtClientPoint(clampedStep, ev.clientX, ev.clientY);
+    },
+    signal ? { passive: false, signal } : { passive: false }
+  );
+
+  viewport.addEventListener(
+    "keydown",
+    (ev) => {
+      const step = 32 / state.zoom;
+      if (ev.key === "+" || ev.key === "=") {
+        ev.preventDefault();
+        zoomAtCenter(1.25);
+      } else if (ev.key === "-" || ev.key === "_") {
+        ev.preventDefault();
+        zoomAtCenter(1 / 1.25);
+      } else if (ev.key === "0") {
+        ev.preventDefault();
+        resetFit();
+      } else if (ev.key === "ArrowLeft") {
+        ev.preventDefault();
+        state.panX -= step;
+        clampAndApply();
+      } else if (ev.key === "ArrowRight") {
+        ev.preventDefault();
+        state.panX += step;
+        clampAndApply();
+      } else if (ev.key === "ArrowUp") {
+        ev.preventDefault();
+        state.panY -= step;
+        clampAndApply();
+      } else if (ev.key === "ArrowDown") {
+        ev.preventDefault();
+        state.panY += step;
+        clampAndApply();
+      }
+    },
+    evOpts
+  );
+
+  clampAndApply();
+  return { resetFit, zoomAtCenter };
+}
+
+function openVisualLightbox({ title, buildSvg }) {
+  const dlg = $("#visual-lightbox-dialog");
+  const titleEl = $("#visual-lightbox-title");
+  const stage = $("#visual-lightbox-stage");
+  if (!dlg || !stage || typeof buildSvg !== "function") return;
+
+  if (viewerState.lightboxAbort) {
+    viewerState.lightboxAbort.abort();
+  }
+  const ac = new AbortController();
+  viewerState.lightboxAbort = ac;
+
+  const built = buildSvg();
+  if (!built || !built.svg) return;
+
+  if (titleEl) titleEl.textContent = title || "Visual Diagram";
+  stage.replaceChildren(built.svg);
+
+  attachSvgPanZoom({
+    viewport: stage,
+    svg: built.svg,
+    baseBox: built.baseBox,
+    zoomOutBtn: $("#btn-lb-zoom-out"),
+    zoomInBtn: $("#btn-lb-zoom-in"),
+    zoomPctBtn: $("#btn-lb-zoom-pct"),
+    zoomFitBtn: $("#btn-lb-zoom-fit"),
+    alwaysWheelZoom: true,
+    signal: ac.signal,
+  });
+
+  if (!dlg.open) {
+    dlg.showModal();
+  }
+}
+
+function renderMermaidCard(srcText) {
+  const built = buildMermaidSvg(srcText);
+  if (!built) return null;
+
+  const card = document.createElement("div");
+  card.className = "mermaid-card";
+
+  const head = document.createElement("div");
+  head.className = "mermaid-card-head";
+
+  const headLeft = document.createElement("div");
+  headLeft.className = "mermaid-head-left";
+  const titleSpan = document.createElement("span");
+  titleSpan.className = "mermaid-card-title";
+  titleSpan.textContent = "Workflow Diagram";
+  const hintSpan = document.createElement("span");
+  hintSpan.className = "diagram-hint";
+  hintSpan.textContent = "Click or pinch to zoom · Drag to move";
+  headLeft.append(titleSpan, hintSpan);
+
+  const toolbar = document.createElement("div");
+  toolbar.className = "diagram-toolbar";
+  toolbar.setAttribute("role", "group");
+  toolbar.setAttribute("aria-label", "Diagram zoom controls");
+
+  const mkBtn = (label, action, ariaLabel, extraClass = "") => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = extraClass ? `diagram-tool-btn ${extraClass}` : "diagram-tool-btn";
+    b.dataset.action = action;
+    b.textContent = label;
+    if (ariaLabel) b.setAttribute("aria-label", ariaLabel);
+    return b;
+  };
+
+  const btnOut = mkBtn("−", "zoom-out", "Zoom out");
+  const btnPct = mkBtn("100%", "zoom-reset", "Reset zoom to 100%", "diagram-zoom-readout");
+  const btnIn = mkBtn("+", "zoom-in", "Zoom in");
+  const btnFit = mkBtn("Fit", "zoom-fit", "Fit diagram");
+  const btnExpand = mkBtn("Expand", "expand", "Open fullscreen zoomable diagram");
+  toolbar.append(btnOut, btnPct, btnIn, btnFit, btnExpand);
+
+  head.append(headLeft, toolbar);
+
+  const viewport = document.createElement("div");
+  viewport.className = "mermaid-viewport";
+  viewport.tabIndex = 0;
+  viewport.setAttribute("aria-label", "Interactive workflow diagram canvas");
+  viewport.appendChild(built.svg);
+
+  attachSvgPanZoom({
+    viewport,
+    svg: built.svg,
+    baseBox: built.baseBox,
+    zoomOutBtn: btnOut,
+    zoomInBtn: btnIn,
+    zoomPctBtn: btnPct,
+    zoomFitBtn: btnFit,
+    alwaysWheelZoom: false,
+  });
+
+  btnExpand.addEventListener("click", () => {
+    openVisualLightbox({
+      title: "Workflow Diagram",
+      buildSvg: () => buildMermaidSvg(srcText),
+    });
+  });
+
+  card.append(head, viewport);
   return card;
 }
 
@@ -1254,14 +1956,31 @@ async function runDocSearch(query) {
   }
 }
 
+function installDialogClosedByFallback(dialog) {
+  if (!dialog || "closedBy" in HTMLDialogElement.prototype) return;
+  const outside = (ev) => {
+    const r = dialog.getBoundingClientRect();
+    return ev.clientX < r.left || ev.clientX > r.right || ev.clientY < r.top || ev.clientY > r.bottom;
+  };
+  let pressedOutside = false;
+  dialog.addEventListener("pointerdown", (ev) => {
+    pressedOutside = outside(ev);
+  });
+  dialog.addEventListener("pointerup", (ev) => {
+    if (pressedOutside && outside(ev)) {
+      dialog.close();
+    }
+    pressedOutside = false;
+  });
+}
+
 function openMobileNav() {
   const dlg = $("#mobile-nav-dialog");
   const slot = $("#mobile-nav-slot");
   const host = $("#doc-nav-host");
   if (!dlg || !slot || !host) return;
   slot.appendChild(host);
-  if (typeof dlg.showModal === "function") dlg.showModal();
-  else dlg.setAttribute("open", "");
+  if (!dlg.open) dlg.showModal();
 }
 
 function closeMobileNav() {
@@ -1271,9 +1990,20 @@ function closeMobileNav() {
   if (sidebar && host && host.parentElement !== sidebar) {
     sidebar.appendChild(host);
   }
-  if (dlg?.open && typeof dlg.close === "function") {
+  if (dlg?.open) {
     dlg.close();
   }
+}
+
+function closeVisualLightbox() {
+  const dlg = $("#visual-lightbox-dialog");
+  const stage = $("#visual-lightbox-stage");
+  if (viewerState.lightboxAbort) {
+    viewerState.lightboxAbort.abort();
+    viewerState.lightboxAbort = null;
+  }
+  if (stage) stage.replaceChildren();
+  if (dlg) dlg.returnValue = "";
 }
 
 async function initDocsHub() {
@@ -1336,12 +2066,16 @@ async function initDocsHub() {
     }
   });
 
+  const mobileDlg = $("#mobile-nav-dialog");
+  const lightboxDlg = $("#visual-lightbox-dialog");
   $("#btn-mobile-nav")?.addEventListener("click", openMobileNav);
-  $("#btn-mobile-nav-close")?.addEventListener("click", closeMobileNav);
-  $("#mobile-nav-dialog")?.addEventListener("close", closeMobileNav);
-  $("#mobile-nav-dialog")?.addEventListener("click", (ev) => {
-    if (ev.target === ev.currentTarget) closeMobileNav();
+  mobileDlg?.addEventListener("close", () => {
+    mobileDlg.returnValue = "";
+    closeMobileNav();
   });
+  lightboxDlg?.addEventListener("close", closeVisualLightbox);
+  installDialogClosedByFallback(mobileDlg);
+  installDialogClosedByFallback(lightboxDlg);
 
   window.addEventListener("popstate", () => {
     const p = new URLSearchParams(window.location.search);
