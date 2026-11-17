@@ -503,6 +503,18 @@ DECLARED: dict[tuple[str, str], tuple] = {
                 "mask behavior on h3_spatial_portal_pika, "
                 "h3_world_targets_genie_pika, h3_r2v_spatial_portal_pika, and "
                 "h3_i2v_spatial_portal_pika, against the empty default (2026-11-15)."),
+    ("ModelPreviewOverrideKJ", "max_resolution"):
+        ("HOUSE", "672 px cap on every h3_preview_* interactive companion graph so step "
+                  "previews decode fast via taeh3/taeh3_image without saturating WS payloads, "
+                  "against node default 1024 (2026-11-17).", 672),
+    ("ModelPreviewOverrideKJ", "tiny_vae"):
+        ("ARM", "'taeh3.safetensors' on the 3 daily video preview companions and "
+                "'taeh3_image.safetensors' on the 6 still-image preview companions, against "
+                "node default 'none' (2026-11-17)."),
+    ("ModelPreviewOverrideKJ", "preview_frames"):
+        ("ARM", "8 decoded frames per step on the 3 daily video preview companions (vs node "
+                "default 1 kept on the 6 still-image companions) so multi-frame motion and cuts "
+                "appear mid-sampling (2026-11-17)."),
 }
 
 #: **There is deliberately no exception table here.** One was written on

@@ -299,6 +299,7 @@ Full per-check history, 2026-08-23 amendments, and `"claims block"` notes are sh
 | `smoke_h3.py` | the H3 chain composes and runs... ([detail](checks/index_15.md)) | live ComfyUI... | no |
 | `check_h3_image_vae_convert.py` | bench/convert_h3_image_vae_from_diffusers.py writes a diffusers MiniMax-H3-Image VAE in core's layout ([detail](checks/index_15.md)) | no CUDA | no |
 | `check_h3_env.py` | this machine's locations stay in the gitignored h3.env; the template, loader and writer ([detail](checks/index_15.md)) | git | no |
+| `check_preview_gate.py` | that `bench/run_with_preview_gate.py` parses V1 and V3 `COMBO` choices, injects in-memory `ModelPreviewOverrideKJ` (`taeh3.safetensors` for multi-frame video, `taeh3_image.safetensors` for single-frame stills, leaving `vae`/`audio_vae` unwired) and safely bypasses when absent, records WebSocket `kj_preview_override` frames (including `step=0` init noise) to `steps/` and `steps.jsonl`, cancels early via `--stop-after-step` + `POST /interrupt`, and collects completed `/history` outputs against an in-process `aiohttp` mock server | `aiohttp`, no CUDA, no model weights | no |
 
 ## What is deliberately not checked
 

@@ -2946,6 +2946,44 @@ def _split_h3_image_references(g: dict) -> None:
                 node["inputs"][key] = ["132", 1]
 
 
+def _wire_kj_preview_override(g: dict[str, Any], *, single_frame: bool) -> None:
+    """Attach KJNodes `ModelPreviewOverrideKJ` (`165`) + `GetPreviewOverrideFramesKJ` (`166`) +
+    `PreviewImage` (`167`) onto interactive preview workflows, leaving `vae`/`audio_vae` unwired."""
+    guider = g.get("9")
+    sampler = g.get("10")
+    if not isinstance(guider, dict) or not isinstance(sampler, dict):
+        raise SystemExit("preview override wiring requires guider '9' and sampler '10'")
+    model_src = guider["inputs"]["model"]
+    tiny_vae = "taeh3_image.safetensors" if single_frame else "taeh3.safetensors"
+    preview_frames = 1 if single_frame else 8
+    g["165"] = {
+        "class_type": "ModelPreviewOverrideKJ",
+        "inputs": {
+            "model": model_src,
+            "tiny_vae": tiny_vae,
+            "max_resolution": 672,
+            "jpeg_quality": 80,
+            "suppress_default_preview": True,
+            "preview_frames": preview_frames,
+            "preview_fps": 12,
+        },
+    }
+    guider["inputs"]["model"] = ["165", 0]
+    g["166"] = {
+        "class_type": "GetPreviewOverrideFramesKJ",
+        "inputs": {
+            "model": ["165", 0],
+            "after_sample": ["10", 0],
+        },
+    }
+    g["167"] = {
+        "class_type": "PreviewImage",
+        "inputs": {
+            "images": ["166", 0],
+        },
+    }
+
+
 def _wire_edit_guidance(g: dict, prompt: str, spec: dict) -> None:
     """Turn a one-prompt graph into an edit-guidance graph, in place.
 
@@ -4805,7 +4843,8 @@ def validate_api(graph: dict, oi: dict, label: str) -> list[str]:
                 got = souts[slot]
                 want = s[0] if s else None
                 got_name = got if isinstance(got, str) else "COMBO"
-                if want and isinstance(want, str) and want not in ("*",) and got_name != want:
+                allowed_wants = {w.strip() for w in want.split(",")} if isinstance(want, str) else set()
+                if want and isinstance(want, str) and "*" not in allowed_wants and got_name not in allowed_wants:
                     e(f"node {nid} ({ct}).{name}: type {got_name} from node {src} "
                       f"does not match {want}")
                 continue
@@ -6310,7 +6349,27 @@ def main():
          dict(_probes[src][4], daily=True, out_prefix=f"Video/{name}"),
          f"daily: {_probes[src][5]}")
         for name, src in DAILY_GRAPHS.items())
-    GRAPHS = GRAPHS + _euler32_tests + tuple(_twins) + _daily
+    _PREVIEW_COMPANIONS: tuple[tuple[str, str, bool], ...] = (
+        ("h3_preview_pika_t2v", "h3_text_to_video_pika.json", True),
+        ("h3_preview_pika_fl2va", "h3_first_last_frame_pika.json", True),
+        ("h3_preview_pika_ref2va", "h3_image_ref_plus_text_to_video_pika.json", True),
+        ("h3_preview_image_t2i", "h3_image_t2i.json", False),
+        ("h3_preview_image_edit", "h3_image_edit.json", False),
+        ("h3_preview_p_h3_image_t2i", "h3_p_h3_image_t2i.json", False),
+        ("h3_preview_p_h3_image_edit", "h3_p_h3_image_edit.json", False),
+        ("h3_preview_pika_image_t2i", "h3_pika_image_t2i.json", False),
+        ("h3_preview_pika_image_edit", "h3_pika_image_edit.json", False),
+    )
+    _previews = tuple(
+        (f"{name}.json", name.removeprefix("h3_").replace("_", "-"), _probes[src][2], _probes[src][3],
+         dict(
+             _probes[src][4],
+             preview_override=True,
+             **(dict(daily=True, out_prefix=f"Video/{name}") if is_vid else dict(single_frame=True, out_prefix=f"Image/{name}")),
+         ),
+         f"interactive taeh3{' ' if is_vid else '_image '}preview companion: {_probes[src][5]}")
+        for name, src, is_vid in _PREVIEW_COMPANIONS)
+    GRAPHS = GRAPHS + _euler32_tests + tuple(_twins) + _daily + _previews
 
     if args.list_scenes:
         for name, text in T2V_SCENES.items():
@@ -6411,7 +6470,7 @@ def main():
             extra = _on_chain(extra, args.chain)
         sage_on, sol_on, _dense_mode = _attention_plan(extra)
         api_extra = {k: v for k, v in extra.items()
-                     if k not in ("sol_on", "dense_attn", "sol_overrides", "distill_experiment", "daily")}
+                     if k not in ("sol_on", "dense_attn", "sol_overrides", "distill_experiment", "daily", "preview_override")}
         # The instrumented twins keep the historical shared 2048-upscale still
         # inputs: their renders are compared byte for byte with earlier ones
         # (`h3_config.REF_QWEN_SHORT_EDGE`).
@@ -6429,6 +6488,8 @@ def main():
                            **({"dense_backend": DENSE_BACKEND_NODE["attention"]}
                               if _dense_mode == "ck" else {}),
                            **{**api_extra, "length": graph_length(api_extra)})
+        if extra.get("preview_override"):
+            _wire_kj_preview_override(wf, single_frame=bool(extra.get("single_frame")))
         if alt_chain:
             _suffix_output_prefixes(wf, args.chain)
         p = _graph_dir(out, extra, fname) / fname.replace(".json", "_api.json")
