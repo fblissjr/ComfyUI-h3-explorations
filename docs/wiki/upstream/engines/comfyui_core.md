@@ -1,6 +1,6 @@
 # ComfyUI core: what the pack runs on (trusted least as evidence)
 
-last updated: 2026-11-15 (page created; state as of [`../sweeps/2026-11-15.md`](../sweeps/2026-11-15.md))
+last updated: 2026-11-17 (MiniMax-H3-Image path read against the engines, [`../sweeps/2026-11-17_h3_image.md`](../sweeps/2026-11-17_h3_image.md); `bench/check_reference_encode.py` passed at HEAD); 2026-11-15 (page created; state as of [`../sweeps/2026-11-15.md`](../sweeps/2026-11-15.md))
 
 **The owner trusts core least as evidence of how H3 should work (2026-11-15).** It is watched more closely than
 anything else, though, because the pack runs on it, copies parts of it and patches it at runtime. A change in a
@@ -40,6 +40,47 @@ reference. The GitHub repo is `Comfy-Org/ComfyUI`, and the checkout is `../..`.
   ([`../topics/h3_image_sampling_step.md`](../topics/h3_image_sampling_step.md)).
 - **Encoder.** `CombinedLinear` fusion and video input for Qwen 3.x
   ([`../topics/qwen3vl_encoder.md`](../topics/qwen3vl_encoder.md)).
+
+## MiniMax-H3-Image against the engines, 2026-11-17
+
+Read by hand at HEAD on 2026-11-17. Every implementation is compared on
+[`../topics/h3_image_pipeline.md`](../topics/h3_image_pipeline.md). `bench/check_reference_encode.py` passed at that
+HEAD.
+
+**Core agrees with the engines on everything the model is shown:**
+- **The tokens.** Text to image sends the prompt alone (`comfy/text_encoders/minimax.py`). An edit sends
+  `Picture N: ` and a vision block per picture, then the prompt.
+- **The tags.** A vision block is tagged as image, its markers included (`token_tags_from_embeds_info`).
+- **The packed layout and its positions** (`comfy/ldm/minimax/model.py::PackedLayout`).
+- **The reference level** (`VISUAL_COND_TIMESTEP`).
+- **The grid and the heads.** The grid is read from the checkpoint (`MiniMaxH3ImageModelSampling`), and the heads
+  run in float32 after the final norm and AdaLN (`FinalLayer._modulate`).
+- **The VAE tiles,** at the release's tile settings.
+
+**Where core is the outlier:**
+- **An in-bounds reference is resampled to the 32 px grid;** the engines crop it (`comfy_extras/nodes_minimax_h3.py::_image_refs`).
+- **The reference posterior is drawn at a fixed seed and not rounded to fp16** (`comfy/ldm/minimax/vae.py::H3ImageVAE.encode`,
+  `IMAGE_ENCODE_SEED`).
+- **The reference encode runs at whatever dtype the VAE was loaded at.** `comfy/sd.py` casts the image VAE to its
+  working dtype on load; the engines encode in fp32.
+- **The anchor noise restarts one stream at the sampler's seed for every reference** (`_cond_video_rows`). The
+  engines take one draw per reference from the request's generator.
+- **The edit canvas defaults to image_1's VAE-copy size, with no floor and no resize back.** The engines take the
+  size from the request, raise it to a minimum generation area, and resize the decode back.
+- **The step is stock `euler`** (the denoised form); the engines use the velocity form. Tested and kept in this pack
+  ([`../topics/h3_image_sampling_step.md`](../topics/h3_image_sampling_step.md)).
+- **An empty prompt is encoded as one pad token, and the run goes ahead.** Every engine refuses one. No text segment
+  is cut; the engines cut each at a fixed token count.
+- **A text-encoder copy whose short edge is already `IMAGE_REF_SHORT_EDGE` is resampled to the grid anyway.** When
+  the copy is off the grid, core's own preprocessor resizes with bilinear (`comfy/text_encoders/qwen_vl.py::process_qwen2vl_images`),
+  where the engines' HF processor resizes with bicubic.
+
+**What this pack takes from core and what it replaces:**
+- **Text to image** runs core's `MiniMaxH3ImageConditioning`.
+- **An edit** replaces core's node with `MiniMaxH3EncodeImageReferences` and `MiniMaxH3PromptOnImageReferences`.
+  These match the engines on the crop, the draw, the fp16 rounding and the fp32 encode
+  ([`../../image/h3_image.md`](../../image/h3_image.md), "Edit references, point by point").
+- **The anchor stream and the step** stay core's.
 
 ## Open upstream work
 

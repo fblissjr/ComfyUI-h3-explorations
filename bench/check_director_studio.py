@@ -52,6 +52,7 @@ import json
 import os
 import re
 import shutil
+import signal
 import socket
 import subprocess
 import sys
@@ -409,6 +410,15 @@ def check_compiler_contracts() -> str:
         )
         assert g_no_kj["9"]["inputs"]["model"] != ["165", 0]
 
+    assert compiler_mod.video_preview_schedule(39) == (12, 7)
+    assert compiler_mod.video_preview_schedule(90) == (27, 7)
+    assert compiler_mod.video_preview_schedule(141) == (27, 5)
+    assert compiler_mod.video_preview_schedule(345) == (27, 2)
+    res_345 = _call_with_adaptive_sig(compiler_mod.compile_spatial_take, {**common_base, "length": 345}, MOCK_OBJECT_INFO_WITH_KJ)
+    g_345, _ = _extract_graphs(res_345)
+    assert g_345["165"]["inputs"]["preview_frames"] == 27
+    assert g_345["165"]["inputs"]["preview_fps"] == 2
+
     # 2. Sprite cutout + cues attached + queue_baseline=True + edit_lines
     payload_active = dict(
         common_base,
@@ -688,7 +698,78 @@ def check_compiler_contracts() -> str:
     assert g_lf["16"]["class_type"] == "LoadImage" and g_lf["16"]["inputs"]["image"] == "h3_spatial_director/shot_end.png"
     assert g_lf["5"]["inputs"]["last_frame"] == ["16", 0] and g_lf["131"]["inputs"]["last_frame"] == ["16", 0]
 
-    return "all 4 spatial modes, dual VHS save_output=False, dynamic '165' preview_fps=7/omission, '51'/'70' omission, audio_refine + redub, baseline opt-in, and pika_t2i still verified"
+    # 9. Scene-agnostic prompt synthesis (zero tortoise leakage) & missing-source_ref refusal on I2V/R2V
+    for clean_mode in ("r2v_portal", "i2v_portal", "t2v_portal", "world_targets"):
+        clean_res = compiler_mod.compile_spatial_take(
+            {
+                "mode": clean_mode,
+                "source_ref": "h3_spatial_director/custom_scene.png" if clean_mode != "t2v_portal" else "",
+                "length": 90,
+                "width": 1344,
+                "height": 768,
+                "seed": 77,
+                "target_prompt": "it bursts into glowing confetti",
+                "events_json": json.dumps(SAMPLE_EVENTS_90),
+            },
+            object_info=MOCK_OBJECT_INFO_WITH_KJ,
+        )
+        cg = clean_res["graph"]
+        blob = (
+            str(cg.get("133", {}).get("inputs", {}).get("value", ""))
+            + str(cg.get("134", {}).get("inputs", {}).get("value", ""))
+            + str(cg.get("161", {}).get("inputs", {}).get("subtitle", ""))
+        ).lower()
+        assert "tortoise" not in blob and "turtle" not in blob, f"{clean_mode}: leaked hardcoded tortoise text"
+        if clean_mode != "t2v_portal":
+            assert "<Picture 1>" in str(cg["133"]["inputs"]["value"]), f"{clean_mode}: missing <Picture 1> anchor"
+        assert "it bursts into glowing confetti" in str(cg["134"]["inputs"]["value"])
+
+    for req_mode in ("i2v_portal", "r2v_portal", "world_targets"):
+        raised = False
+        try:
+            compiler_mod.compile_spatial_take({"mode": req_mode, "length": 90, "target_prompt": "sparks"})
+        except ValueError:
+            raised = True
+        assert raised, f"{req_mode} must refuse empty source_ref instead of falling back to hardcoded sample image"
+
+    # 10. Cutout generation defaults to h3_image 4.0 MP floor & masked still edit works across all 3 image templates
+    cutout_res = compiler_mod.compile_still(
+        {"prompt": "a brass clockwork owl", "for_cutout": True},
+        object_info=MOCK_OBJECT_INFO_WITH_KJ,
+    )
+    assert cutout_res["workflow"] == "h3_image" and cutout_res["for_cutout"] is True
+    assert float(cutout_res["graph"]["4"]["inputs"]["megapixels"]) >= 4.0
+    assert float(cutout_res["graph"]["4"]["inputs"]["generate_megapixels"]) >= 4.0
+    assert cutout_res["graph"]["4"]["inputs"]["shape"] == "1:1"
+    assert "backdrop" in str(cutout_res["graph"]["5"]["inputs"]["prompt"]).lower()
+
+    for prev_wf in ("h3_image", "pika_image", "ph3_image"):
+        m_prev = compiler_mod.compile_masked_still_edit(
+            {
+                "workflow": prev_wf,
+                "source_ref": "h3_spatial_director/test_anchor.png",
+                "mask_ref": "h3_spatial_director/test_mask.png",
+                "target_prompt": "a swirling aurora portal",
+                "seed": 1234,
+            },
+            object_info=MOCK_OBJECT_INFO_WITH_KJ,
+        )
+        mg = m_prev["graph"]
+        assert not _nodes_by_class(mg, "SaveImage"), f"{prev_wf}: SaveImage forbidden"
+        assert _nodes_by_class(mg, "PreviewImage"), f"{prev_wf}: PreviewImage required"
+        assert mg["171"]["class_type"] == "ImageToMask"
+        assert mg["9"]["class_type"] == "MiniMaxH3EditGuider" and mg["9"]["inputs"]["mask"] == ["171", 0]
+        assert mg["165"]["class_type"] == "ModelPreviewOverrideKJ"
+        assert mg["165"]["inputs"]["tiny_vae"] == "taeh3_image.safetensors"
+        assert mg["165"]["inputs"]["preview_frames"] == 1 and mg["165"]["inputs"]["preview_fps"] == 1
+        if prev_wf == "pika_image":
+            assert mg["132"]["class_type"] == "MiniMaxH3EncodeReferences" and mg["132"]["inputs"]["single_frame"] is True
+            assert mg["26"]["class_type"] == "MiniMaxH3Preflight"
+            assert "overall_soundscape:" in m_prev["edited_prompt"].lower()
+        else:
+            assert "overall_soundscape:" not in m_prev["edited_prompt"].lower()
+
+    return "all 4 spatial modes, zero-tortoise synthesis, masked image previews, dual VHS save_output=False, dynamic '165' preview_fps=7/omission, '51'/'70' omission, audio_refine + redub, baseline opt-in, and image stills verified"
 
 
 def check_forget_plan_and_isolation() -> str:
@@ -974,7 +1055,8 @@ def check_server_routes_and_escalate() -> str:
                     assert r_cmp.status == 200, await r_cmp.text()
                     cmp_data = await r_cmp.json()
                     assert cmp_data["ok"] is True and cmp_data["preview_override_injected"] is True
-                    assert cmp_data["graph"]["165"]["inputs"]["preview_fps"] == 7
+                    assert cmp_data["graph"]["165"]["inputs"]["preview_frames"] == 27
+                    assert cmp_data["graph"]["165"]["inputs"]["preview_fps"] == 5
                     assert float(cmp_data["graph"]["160"]["inputs"]["feather"]) >= 0.22
                     assert len(cmp_data["nodes_summary"].get("couplings_applied") or []) >= 1, cmp_data["nodes_summary"]
 
@@ -1080,11 +1162,94 @@ def check_server_routes_and_escalate() -> str:
 
                     r_takes = await client.get("/api/takes")
                     takes_doc = await r_takes.json()
+                    assert takes_doc.get("queue_ok") is True and isinstance(takes_doc.get("active_prompt_ids"), list), takes_doc
                     assert any(t.get("take_id") == rd_live["take_id"] and t.get("kind") == "redub" for t in takes_doc["takes"])
                     assert any(t.get("take_id") == up_mp4["imported_take_id"] and t.get("kind") == "imported" for t in takes_doc["takes"])
 
+                    # 9. POST /api/preview_in_mask rasterizes circle PNG mask -> queues EditGuider + taeh3_image
+                    n_sub_before = len(submitted_prompts)
+                    r_mpv = await client.post(
+                        "/api/preview_in_mask",
+                        json={
+                            "source_ref": "test_anchor.png",
+                            "target_prompt": "a swirling azure vortex",
+                            "region": {"x": 0.5, "y": 0.5, "rx": 0.22, "ry": 0.22, "shape": "circle"},
+                            "feather": 0.08,
+                            "seed": 55,
+                        },
+                    )
+                    assert r_mpv.status == 200, await r_mpv.text()
+                    mpv = await r_mpv.json()
+                    assert mpv["ok"] is True and mpv["kind"] == "mask_preview"
+                    assert mpv["mask_ref"] in stored_uploads, mpv
+                    assert len(submitted_prompts) == n_sub_before + 1
+                    mpv_graph = submitted_prompts[-1]["prompt"]
+                    assert mpv_graph["9"]["class_type"] == "MiniMaxH3EditGuider"
+                    assert mpv_graph["165"]["inputs"]["tiny_vae"] == "taeh3_image.safetensors"
+
+                    # 10. POST /api/stamp_cutout with BOTH source_ref AND prompt triggers T2I for_cutout=True
+                    r_stp = await client.post(
+                        "/api/stamp_cutout",
+                        json={
+                            "source_ref": "test_anchor.png",
+                            "prompt": "a small clockwork brass owl",
+                            "seed": 77,
+                        },
+                    )
+                    assert r_stp.status == 200, await r_stp.text()
+                    stp = await r_stp.json()
+                    assert stp["ok"] is True and stp.get("prompt_id"), f"Expected T2I cutout queue when prompt provided, got {stp}"
+
+                    # 11. POST /api/context_suggest uses heylook POST /v1/messages (never /v1/chat/completions)
+                    seen_heylook: dict[str, Any] = {}
+
+                    async def _hl_models(_r: web.Request) -> web.Response:
+                        return web.json_response({"data": [{"id": "qwen-vision", "capabilities": ["chat", "vision"]}]})
+
+                    async def _hl_messages(req: web.Request) -> web.Response:
+                        seen_heylook["req_id"] = req.headers.get("X-Request-ID")
+                        seen_heylook["body"] = await req.json()
+                        return web.json_response(
+                            {
+                                "content": [
+                                    {"type": "thinking", "thinking": "ignoring chain of thought"},
+                                    {
+                                        "type": "text",
+                                        "text": json.dumps(
+                                            [{"title": "Frost Bloom", "target_prompt": "frost petals expand rapidly", "preset": "sparkle_burst"}]
+                                        ),
+                                    },
+                                ]
+                            }
+                        )
+
+                    hl_stub = web.Application()
+                    hl_stub.router.add_get("/v1/models", _hl_models)
+                    hl_stub.router.add_post("/v1/messages", _hl_messages)
+                    hl_stub.router.add_post("/v1/chat/completions", lambda _r: web.Response(status=404, text="removed"))
+                    async with TestServer(hl_stub) as hl_srv:
+                        prev_hl = os.environ.get("H3_HEYLOOK_URL")
+                        os.environ["H3_HEYLOOK_URL"] = f"http://127.0.0.1:{hl_srv.port}"
+                        try:
+                            r_hl = await client.post(
+                                "/api/context_suggest",
+                                json={"source_ref": "test_anchor.png", "original_prompt": "misty lake", "prompt": ""},
+                            )
+                            assert r_hl.status == 200, await r_hl.text()
+                            hl_doc = await r_hl.json()
+                            assert hl_doc["ok"] is True and hl_doc["enabled"] is True, hl_doc
+                            assert hl_doc["suggestions"] and hl_doc["suggestions"][0]["title"] == "Frost Bloom", hl_doc
+                            assert seen_heylook.get("req_id"), "Expected X-Request-ID on /v1/messages"
+                            blocks = seen_heylook["body"]["messages"][0]["content"]
+                            assert any(isinstance(b, dict) and b.get("type") == "image" for b in blocks), blocks
+                        finally:
+                            if prev_hl is None:
+                                os.environ.pop("H3_HEYLOOK_URL", None)
+                            else:
+                                os.environ["H3_HEYLOOK_URL"] = prev_hl
+
     asyncio.run(_run())
-    return "server CSP/Host guard, schema capabilities, /api/segment, /api/extract_frame, /api/redub, /api/escalate on_both_clocks + 3f cues, and /api/compile verified"
+    return "server CSP/Host guard, schema, /api/preview_in_mask, T2I /api/stamp_cutout, heylook /v1/messages, /api/segment, /api/extract_frame, /api/redub, /api/escalate, and /api/compile verified"
 
 
 def check_static_and_route_audit() -> str:
@@ -1201,13 +1366,16 @@ def check_static_and_route_audit() -> str:
         if missing:
             errors.append(f"JS calls /api routes not registered in director/server.py: {missing}")
 
-    # Zero owner paths across director/
+    # Zero owner paths or hardcoded tortoise/turtle strings across director/
     director_files = [p for p in sorted((REPO / "director").rglob("*")) if p.is_file() and "__pycache__" not in p.parts]
     for path, rel in check_no_owner_paths.text_files(REPO, director_files):
         data = path.read_bytes()
         for lineno, line in enumerate(data.splitlines(), 1):
             if any(pat.search(line) for pat in check_no_owner_paths.PATTERNS):
                 errors.append(f"{rel}:{lineno}: owner path stored in director/")
+            low_line = line.decode("utf-8", errors="ignore").lower()
+            if "tortoise" in low_line or "turtle" in low_line:
+                errors.append(f"{rel}:{lineno}: hardcoded tortoise/turtle text forbidden in director/")
 
     assert not errors, "\n  ".join(errors)
     return f"{len(js_files)} JS files audited, {len(called_api_routes)} /api routes verified, 0 CSP/inline/preset/path violations"
@@ -1247,11 +1415,31 @@ def _wait_http_json(
 def _terminate_proc(proc: subprocess.Popen | None, name: str) -> None:
     if proc is None or proc.poll() is not None:
         return
-    proc.terminate()
+    try:
+        pgid = os.getpgid(proc.pid)
+        if pgid == proc.pid:
+            os.killpg(pgid, signal.SIGTERM)
+        else:
+            proc.terminate()
+    except Exception:
+        try:
+            proc.terminate()
+        except Exception:
+            pass
     try:
         proc.wait(timeout=6.0)
     except subprocess.TimeoutExpired:
-        proc.kill()
+        try:
+            pgid = os.getpgid(proc.pid)
+            if pgid == proc.pid:
+                os.killpg(pgid, signal.SIGKILL)
+            else:
+                proc.kill()
+        except Exception:
+            try:
+                proc.kill()
+            except Exception:
+                pass
         try:
             proc.wait(timeout=3.0)
         except subprocess.TimeoutExpired:
@@ -1265,7 +1453,7 @@ async def _run_cdp_browser(director_url: str, anchor_png: Path) -> str:
     assert chrome_bin, "google-chrome not found"
 
     cdp_port = _free_port()
-    with tempfile.TemporaryDirectory(prefix="h3_dir_cdp_") as user_data:
+    with tempfile.TemporaryDirectory(prefix="h3_dir_cdp_", ignore_cleanup_errors=True) as user_data:
         chrome_proc = subprocess.Popen(
             [
                 chrome_bin,
@@ -1280,6 +1468,7 @@ async def _run_cdp_browser(director_url: str, anchor_png: Path) -> str:
             ],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
+            start_new_session=True,
         )
         try:
             ws_url = None
@@ -1588,6 +1777,19 @@ async def _run_cdp_browser(director_url: str, anchor_png: Path) -> str:
                         return portals[0]
 
                     p0_req = await _capture_render_payload()
+                    assert p0_req.get("mode") == "i2v_portal", (
+                        f"Expected uploaded anchor without cutout to default to i2v_portal, got {p0_req.get('mode')!r}"
+                    )
+                    sandbox_dom = await js(
+                        """(() => ({
+                          hasPreviewBtn: Boolean(document.getElementById('btn-preview-mask')),
+                          hasOrigPrompt: Boolean(document.getElementById('original-prompt')),
+                          hasPrevSelect: Boolean(document.getElementById('preview-workflow-select')),
+                          hasEventTrack: Boolean(document.getElementById('event-chips-track')),
+                          hasStatusOverlay: Boolean(document.getElementById('render-status-overlay')),
+                        }))()"""
+                    )
+                    assert all(sandbox_dom.values()), f"Missing World Sandbox DOM elements: {sandbox_dom}"
                     p0 = _first_portal(p0_req)
                     rx0, ry0 = float(p0["rx"]), float(p0["ry"])
                     halo0 = float(p0_req.get("halo_radius", p0.get("halo_radius", 0.0)))
@@ -1796,9 +1998,14 @@ async def _run_cdp_browser(director_url: str, anchor_png: Path) -> str:
                         f"body: JSON.stringify({json.dumps(p3_req)})}}).then(r => r.json())"
                     )
                     assert compile_res["ok"] is True and compile_res["preview_override_injected"] is True, compile_res
-                    assert compile_res["graph"]["165"]["class_type"] == "ModelPreviewOverrideKJ"
-                    assert compile_res["graph"]["165"]["inputs"]["tiny_vae"] == "taeh3.safetensors"
-                    assert compile_res["graph"]["165"]["inputs"]["preview_fps"] == 7
+                    assert compile_res["graph"]["165"]["class_type"] == "ModelPreviewOverrideKJ", compile_res["graph"]["165"]
+                    assert compile_res["graph"]["165"]["inputs"]["tiny_vae"] == "taeh3.safetensors", compile_res["graph"]["165"]
+                    assert compile_res["graph"]["165"]["inputs"]["preview_frames"] == 27, (
+                        f"expected preview_frames=27 for length={p3_req.get('length')}, got {compile_res['graph']['165']['inputs']}"
+                    )
+                    assert compile_res["graph"]["165"]["inputs"]["preview_fps"] == 7, (
+                        f"expected preview_fps=7 for length={p3_req.get('length')}, got {compile_res['graph']['165']['inputs']}"
+                    )
 
                     # Simulate "kj_preview_override" WebSocket messages (mp4 blob + jpeg) & verify canvas compositing
                     canvas_before = await js(
@@ -1849,7 +2056,10 @@ async def _run_cdp_browser(director_url: str, anchor_png: Path) -> str:
                               h: 192,
                               step: 4,
                               total: 6,
-                              sigma: 0.571429
+                              sigma: 0.571429,
+                              step_ms: 1420.0,
+                              avg_step_ms: 1380.0,
+                              delta: 0.14
                             }}
                           }});
                           ws.dispatchEvent(new MessageEvent('message', {{data: msgJpg}}));
@@ -1868,23 +2078,32 @@ async def _run_cdp_browser(director_url: str, anchor_png: Path) -> str:
                               return {{
                                 changed: sum !== {canvas_before},
                                 pillText: pill ? pill.textContent.replace(/\\s+/g, '') : '',
+                                storedClientId: sessionStorage.getItem('h3_director_client_id') || '',
+                                activeClientId: window.__SPATIAL_DIRECTOR__?.wsClient?.clientId || '',
                               }};
                             }})()"""
                         )
-                        if res_comp["changed"] and "4/6" in res_comp["pillText"]:
+                        if (
+                            res_comp["changed"]
+                            and "4/6" in res_comp["pillText"]
+                            and "Δ0.14" in res_comp["pillText"]
+                            and res_comp["storedClientId"]
+                            and res_comp["storedClientId"] == res_comp["activeClientId"]
+                        ):
                             composited = True
                             break
                         await asyncio.sleep(0.12)
-                    assert composited, "Simulated kj_preview_override frame did not composite onto #stage-canvas / update #live-tae-pill"
+                    assert composited, "Simulated kj_preview_override frame did not composite onto #stage-canvas / update #live-tae-pill or persist clientId"
 
                     csp_violations = await js("window.__cspViolations")
                     assert csp_violations == [], f"CSP violations recorded: {csp_violations}"
                     assert not console_errors, f"Console errors recorded: {console_errors}"
                     assert not runtime_exceptions, f"Runtime exceptions recorded: {runtime_exceptions}"
 
-            return "1280x800 Light Mode, 0 CSP/console errors, blob media-src, upload, popover, Wheel/Shift+Wheel/Alt+Wheel, Engine tablist, compile '165', and kj_preview_override canvas composite ok"
+            return "1280x800 Light Mode, 0 CSP/console errors, blob media-src, upload, popover, i2v_portal default, Wheel/Shift+Wheel/Alt+Wheel, Engine tablist, compile '165', and kj_preview_override canvas composite ok"
         finally:
             _terminate_proc(chrome_proc, "google-chrome")
+            shutil.rmtree(user_data, ignore_errors=True)
 
 
 def check_tier2_live_cdp() -> str:

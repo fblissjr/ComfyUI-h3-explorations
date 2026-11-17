@@ -1,6 +1,6 @@
 # vllm-omni: the second H3 serving engine (rank 2)
 
-last updated: 2026-11-15 (page created; state as of [`../sweeps/2026-11-15.md`](../sweeps/2026-11-15.md))
+last updated: 2026-11-17 (MiniMax-H3-Image path read stage by stage, [`../sweeps/2026-11-17_h3_image.md`](../sweeps/2026-11-17_h3_image.md)); 2026-11-15 (page created; state as of [`../sweeps/2026-11-15.md`](../sweeps/2026-11-15.md))
 
 **Rank 2.** It is the most active H3 engine and covers the most ground that sglang does not: distill contracts
 (FastH3, Regenerate), long-clip machinery (timeline guides, continuation, windows), masks and edits, a ComfyUI app,
@@ -47,6 +47,49 @@ and agent skills for H3 prompting and character replacement.
 - **Encoder.** `text_encoder_cudnn_sdp` ([`../topics/qwen3vl_encoder.md`](../topics/qwen3vl_encoder.md)).
 - **Fixes:** the shifted first sigma is clamped to 1.0 (`d3414a3b0`; does not arise at shifts 12/3); Regenerate's
   missing control fields (`61aef20b7`).
+
+## MiniMax-H3-Image as of 2026-11-17
+
+Read stage by stage, at the tip on 2026-11-17. Every implementation is compared on
+[`../topics/h3_image_pipeline.md`](../topics/h3_image_pipeline.md). "By hand" marks a line checked against the file
+this session. Paths are under `vllm_omni/diffusion/models/minimax_h3/`; the pipeline is
+`pipeline_minimax_h3_image.py`.
+
+- **It agrees with sglang on every stage read except the defaults at the request edge.**
+- **Text to image** (by hand, `minimax_h3_image_presentation`):
+  - the prompt's tokens only, verbatim;
+  - each segment cut at `_TEXT_SEGMENT_MAX_TOKENS`;
+  - the ids padded to a multiple of 8, with the padding dropped before the DiT;
+  - an empty or blank prompt refused.
+  - cuDNN SDPA is on during the encode by default (`coderef/vllm-omni/vllm_omni/diffusion/models/minimax_h3/encoder.py::cudnn_sdp`,
+    [`../topics/qwen3vl_encoder.md`](../topics/qwen3vl_encoder.md)).
+- **Canvas** (by hand):
+  - The default request is `MINIMAX_H3_IMAGE_DEFAULT_SIZE` square.
+  - `MINIMAX_H3_IMAGE_DEFAULT_MIN_GENERATION_AREA` is a floor (`minimax_h3_image_generation_canvas`). A request may
+    set its own floor within `MINIMAX_H3_IMAGE_MIN_GENERATION_AREA_RANGE`.
+  - The decode is quantized to 8-bit by truncation and resized back with Lanczos.
+  - The output size never comes from a reference.
+- **Edit references** (by hand):
+  - **Bounds:** `MINIMAX_H3_IMAGE_QWEN_SHORT_EDGE` and `MINIMAX_H3_IMAGE_VAE_SHORT_EDGE`; a short edge already
+    inside keeps the original pixels (`minimax_h3_image_reference_size` returns `None`).
+  - **Limits:** at most `MINIMAX_H3_IMAGE_MAX_REFERENCES` pictures, each refused past
+    `MINIMAX_H3_IMAGE_MAX_REFERENCE_ASPECT`.
+  - **Encode:** the VAE is loaded and kept in fp32 for the encode (`coderef/vllm-omni/vllm_omni/diffusion/models/minimax_h3/image_vae.py::from_pretrained`). The picture is
+    cropped to the 16 px cell and encoded tiled. The posterior is drawn from the request's generator over the full
+    grid, then rounded to fp16 (`encode_image_latent`), and the latent is cut to an even grid
+    (`minimax_h3_image_reference_grid`).
+- **Noise** (by hand): the same order as sglang (target, anchors, posteriors; the comment at the top of `forward`),
+  on the platform device unless `generator_device=cpu`.
+- **Step** (by hand): velocity, float32, on the target rows only (`_euler_target_step`), on the release's
+  `pdd_config.json` grid after the fp32 `1 - sigma` round trip.
+- **Decode** (by hand for the cast): `prepare_decoder_weights` casts the decoder to bf16 at first decode and keeps
+  its 2D RoPE bases in fp32. It decodes tiled.
+- **Recipes** (agent): the H200 recipe's correctness guard and edit advice are on
+  [`../../image/h3_image.md`](../../image/h3_image.md). The XPU recipe adds that an edit prompt should name
+  `<Picture N>` and say what is kept and what changes, and that "a one-line instruction gives visibly worse edits".
+  This pack's edit system prompts already ask for that form
+  ([`../../system_prompts/h3_image/README.md`](../../system_prompts/h3_image/README.md)).
+- **Not present:** an H3-Image node in `apps/ComfyUI-vLLM-Omni` (agent).
 
 ## Open upstream work
 

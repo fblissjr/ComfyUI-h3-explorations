@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import base64
 import copy
 import hashlib
 import io
@@ -24,6 +25,7 @@ import sys
 import tempfile
 import threading
 import time
+import uuid
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote, urlencode, urlsplit
@@ -39,7 +41,7 @@ from workflows.h3_env import load as load_h3_env  # noqa: E402
 
 load_h3_env()
 
-from director import compiler  # noqa: E402
+from director import compiler, routes as director_routes  # noqa: E402
 
 log = logging.getLogger("h3.director")
 
@@ -943,7 +945,12 @@ async def handle_anchor(request: web.Request) -> web.Response:
     client_id = str(body.get("client_id") or secrets.token_hex(8))
     obj_info = await _fetch_object_info(request.app)
     try:
-        compiled = compiler.compile_still(body, object_info=obj_info)
+        anchor_cfg = {
+            **body,
+            "workflow": str(body.get("workflow") or "h3_image"),
+            "for_cutout": False,
+        }
+        compiled = compiler.compile_still(anchor_cfg, object_info=obj_info)
         prompt_id = await _submit_comfy_prompt(
             request.app,
             compiled["graph"],
@@ -984,6 +991,223 @@ async def handle_anchor(request: web.Request) -> web.Response:
             "seed": compiled["seed"],
             "preview_override_injected": compiled["preview_override_injected"],
             "graph": compiled["graph"],
+        }
+    )
+
+
+async def handle_preview_in_mask(request: web.Request) -> web.Response:
+    import numpy as np
+    import torch
+    from PIL import Image
+
+    try:
+        body = await _read_json_body(request)
+    except Exception as exc:
+        return web.json_response({"ok": False, "error": str(exc)}, status=400)
+
+    sid: str = request["director_sid"]
+    source_spec = body.get("source_ref") or body.get("ref_image") or body.get("anchor_image")
+    if not source_spec:
+        return web.json_response({"ok": False, "error": "source_ref is required"}, status=400)
+    target_prompt = str(body.get("target_prompt") or body.get("prompt") or "").strip()
+    if not target_prompt:
+        return web.json_response({"ok": False, "error": "target_prompt cannot be empty"}, status=400)
+
+    try:
+        src_desc = _parse_view_descriptor(source_spec, default_type="input")
+    except ValueError as exc:
+        return web.json_response({"ok": False, "error": str(exc)}, status=400)
+
+    status, src_bytes, _ = await _comfy_fetch_view(request.app, src_desc)
+    if status != 200 or not src_bytes:
+        return web.json_response({"ok": False, "error": f"source image unavailable ({status})"}, status=404)
+
+    with Image.open(io.BytesIO(src_bytes)) as src_im:
+        w, h = max(32, int(src_im.width)), max(32, int(src_im.height))
+
+    source_ref_norm = f"{src_desc['subfolder']}/{src_desc['filename']}" if src_desc["subfolder"] else src_desc["filename"]
+
+    region = body.get("region") if isinstance(body.get("region"), dict) else {}
+    fx = float(region.get("x", body.get("x", 0.5)))
+    fy = float(region.get("y", body.get("y", 0.5)))
+    rx = max(0.03, min(0.85, float(region.get("rx", body.get("rx", 0.24)))))
+    ry = max(0.03, min(0.85, float(region.get("ry", body.get("ry", 0.28)))))
+    shape = str(region.get("shape", body.get("shape", "circle")) or "circle")
+    weight = max(0.05, min(1.0, float(region.get("weight", body.get("weight", 1.0)))))
+    halo_radius = max(0.0, min(0.5, float(region.get("halo_radius", body.get("halo_radius", 0.0)))))
+    halo_weight = max(0.0, min(1.0, float(region.get("halo_weight", body.get("halo_weight", 0.30)))))
+    feather = max(0.0, min(0.35, float(body.get("feather", 0.08))))
+    invert_mask = bool(body.get("invert_mask", False))
+    snap_to_include = bool(body.get("snap_to_include_mask", False))
+
+    include_mask_spec = body.get("include_mask_ref")
+    exclude_mask_spec = body.get("exclude_mask_ref")
+
+    async def _fetch_mask_array(spec: Any) -> Any | None:
+        if not spec:
+            return None
+        try:
+            m_desc = _parse_view_descriptor(spec, default_type="input")
+            ms, mb, _ = await _comfy_fetch_view(request.app, m_desc)
+            if ms != 200 or not mb:
+                return None
+            with Image.open(io.BytesIO(mb)) as m_im:
+                l_im = m_im.convert("L")
+                if l_im.size != (w, h):
+                    l_im = l_im.resize((w, h), Image.Resampling.BILINEAR)
+                return np.asarray(l_im, dtype=np.float32) / 255.0
+        except Exception:
+            return None
+
+    mask_f32: Any | None = None
+    if snap_to_include and include_mask_spec:
+        mask_f32 = await _fetch_mask_array(include_mask_spec)
+
+    if mask_f32 is None:
+        try:
+            spatial_director = compiler.import_pack_module("spatial_director")
+            ev5 = {
+                "portal": [
+                    {
+                        "frame": 0,
+                        "x": fx,
+                        "y": fy,
+                        "rx": rx,
+                        "ry": ry,
+                        "shape": shape if shape in ("circle", "ellipse", "vertical_split") else "circle",
+                        "label": "PREVIEW",
+                        "weight": weight,
+                        "halo_radius": halo_radius,
+                        "halo_weight": halo_weight,
+                    },
+                    {
+                        "frame": 4,
+                        "x": fx,
+                        "y": fy,
+                        "rx": rx,
+                        "ry": ry,
+                        "shape": shape if shape in ("circle", "ellipse", "vertical_split") else "circle",
+                        "label": "PREVIEW",
+                        "weight": weight,
+                        "halo_radius": halo_radius,
+                        "halo_weight": halo_weight,
+                    },
+                ]
+            }
+            out_t = spatial_director.MiniMaxH3SpatialDirector.execute(
+                mode="portal_path",
+                width=w,
+                height=h,
+                length=5,
+                feather=feather,
+                invert_mask=invert_mask,
+                events_json=json.dumps(ev5),
+            )[0]
+            mask_f32 = out_t[0].detach().cpu().numpy().astype(np.float32)
+        except Exception:
+            yy, xx = np.mgrid[0:h, 0:w].astype(np.float32)
+            short_side = float(min(w, h))
+            cx, cy = fx * float(w), fy * float(h)
+            if shape == "ellipse":
+                d = np.sqrt(((xx - cx) / max(4.0, rx * w)) ** 2 + ((yy - cy) / max(4.0, ry * h)) ** 2) - 1.0
+                mask_f32 = np.clip(0.5 - d / max(0.05, feather * 2.0), 0.0, 1.0)
+            else:
+                rad = max(4.0, rx * short_side)
+                d = (np.sqrt((xx - cx) ** 2 + (yy - cy) ** 2) - rad) / max(2.0, feather * short_side)
+                mask_f32 = np.clip(0.5 - d, 0.0, 1.0)
+            if invert_mask:
+                mask_f32 = 1.0 - mask_f32
+
+    if include_mask_spec and not snap_to_include:
+        inc_arr = await _fetch_mask_array(include_mask_spec)
+        if inc_arr is not None:
+            mask_f32 = np.maximum(mask_f32, inc_arr)
+
+    excl_arr = await _fetch_mask_array(exclude_mask_spec)
+    if excl_arr is not None:
+        mask_f32 = np.clip(mask_f32 * (1.0 - excl_arr), 0.0, 1.0)
+
+    if float(np.max(mask_f32)) <= 1e-3:
+        return web.json_response({"ok": False, "error": "Active mask region is empty"}, status=400)
+
+    store: SessionStore = request.app["store"]
+    try:
+        mask_png_bytes, _ = _encode_mask_rgb_png(mask_f32)
+        mask_name = _sanitize_filename(
+            f"preview_mask_{Path(src_desc['filename']).stem}_{secrets.token_hex(3)}.png",
+            default_ext=".png",
+        )
+        up_res = await _comfy_upload_bytes(
+            request.app,
+            mask_png_bytes,
+            mask_name,
+            subfolder=UPLOADS_SUBFOLDER,
+            content_type="image/png",
+        )
+        m_saved = str(up_res.get("name") or mask_name)
+        m_sub = str(up_res.get("subfolder") or UPLOADS_SUBFOLDER)
+        m_type = str(up_res.get("type") or "input")
+        mask_ref = f"{m_sub}/{m_saved}" if m_sub else m_saved
+        store.record_upload(mask_ref, sid)
+    except Exception as exc:
+        return web.json_response({"ok": False, "error": f"Failed to stage mask image: {exc}"}, status=502)
+
+    client_id = str(body.get("client_id") or secrets.token_hex(8))
+    obj_info = await _fetch_object_info(request.app)
+    compile_cfg = {
+        **body,
+        "source_ref": source_ref_norm,
+        "mask_ref": mask_ref,
+        "target_prompt": target_prompt,
+        "region_x": fx,
+        "region_y": fy,
+        "workflow": str(body.get("workflow") or body.get("preview_workflow") or "h3_image"),
+    }
+    try:
+        compiled = compiler.compile_masked_still_edit(compile_cfg, object_info=obj_info)
+        prompt_id = await _submit_comfy_prompt(
+            request.app,
+            compiled["graph"],
+            client_id=client_id,
+            extra_meta={"kind": "mask_preview"},
+        )
+    except ValueError as exc:
+        return web.json_response({"ok": False, "error": str(exc)}, status=400)
+    except Exception as exc:
+        return web.json_response({"ok": False, "error": str(exc)}, status=502)
+
+    take_id = f"mprev_{secrets.token_hex(6)}"
+    store.record_take(
+        {
+            "take_id": take_id,
+            "kind": "mask_preview",
+            "prompt_id": prompt_id,
+            "baseline_prompt_id": None,
+            "client_id": client_id,
+            "session_id": sid,
+            "status": "queued",
+            "mode": compiled["workflow"],
+            "seed": compiled["seed"],
+            "params": compile_cfg,
+            "still_image": None,
+            "created_at": time.time(),
+            "updated_at": time.time(),
+        }
+    )
+    return web.json_response(
+        {
+            "ok": True,
+            "take_id": take_id,
+            "kind": "mask_preview",
+            "prompt_id": prompt_id,
+            "client_id": client_id,
+            "workflow": compiled["workflow"],
+            "seed": compiled["seed"],
+            "mask_ref": mask_ref,
+            "mask_view_url": _view_url(m_saved, m_sub, m_type),
+            "preview_override_injected": compiled["preview_override_injected"],
+            "original_prompt": compiled["original_prompt"],
+            "edited_prompt": compiled["edited_prompt"],
         }
     )
 
@@ -1029,8 +1253,12 @@ async def handle_stamp_cutout(request: web.Request) -> web.Response:
         return web.json_response({"ok": False, "error": str(exc)}, status=400)
 
     sid: str = request["director_sid"]
+    prompt_str = str(body.get("prompt") or "").strip()
     source_spec = body.get("source_ref") or body.get("source_image") or body.get("image_output")
-    if source_spec:
+    # Only extract RGBA directly when caller passed an image_output OR no prompt was specified;
+    # when a text prompt is entered on stage, generate a dedicated T2I cutout (`for_cutout=True`)
+    # even if an anchor image is loaded on stage.
+    if source_spec and (body.get("image_output") or not prompt_str):
         try:
             desc = _parse_view_descriptor(source_spec, default_type="input")
             status, raw_bytes, _ = await _comfy_fetch_view(request.app, desc)
@@ -1069,7 +1297,12 @@ async def handle_stamp_cutout(request: web.Request) -> web.Response:
     client_id = str(body.get("client_id") or secrets.token_hex(8))
     obj_info = await _fetch_object_info(request.app)
     try:
-        compiled = compiler.compile_still(body, object_info=obj_info)
+        stamp_cfg = {
+            **body,
+            "workflow": str(body.get("workflow") or "h3_image"),
+            "for_cutout": True,
+        }
+        compiled = compiler.compile_still(stamp_cfg, object_info=obj_info)
         prompt_id = await _submit_comfy_prompt(
             request.app,
             compiled["graph"],
@@ -1846,38 +2079,105 @@ async def handle_context_suggest(request: web.Request) -> web.Response:
     session: ClientSession = request.app["http_client"]
     try:
         async with session.get(f"{heylook_url}/v1/models", timeout=ClientTimeout(total=1.5)) as resp:
+            if resp.status != 200:
+                return web.json_response({"ok": True, "enabled": False, "suggestions": []})
             models_doc = await resp.json()
-        model_list = models_doc.get("data") or []
-        model_id = str(model_list[0]["id"]) if model_list else ""
+        model_list = [m for m in (models_doc.get("data") or []) if isinstance(m, dict) and m.get("id")]
+        source_spec = body.get("source_ref") or body.get("anchor_image") or body.get("ref_image")
+
+        def _caps(m: dict[str, Any]) -> set[str]:
+            raw_c = m.get("capabilities")
+            if isinstance(raw_c, list):
+                return {str(c).strip().lower() for c in raw_c}
+            return set()
+
+        chat_models = [m for m in model_list if not _caps(m) or "chat" in _caps(m)]
+        chosen = None
+        if source_spec:
+            vision_models = [m for m in chat_models if "vision" in _caps(m)]
+            if vision_models:
+                chosen = vision_models[0]
+        if chosen is None and chat_models:
+            chosen = chat_models[0]
+        model_id = str(chosen["id"]) if chosen else ""
         if not model_id:
             return web.json_response({"ok": True, "enabled": False, "suggestions": []})
 
+        use_vision = bool(source_spec and ("vision" in _caps(chosen)))
+        content_blocks: list[dict[str, Any]] = []
+        if use_vision:
+            try:
+                from PIL import Image, ImageOps
+
+                s_desc = _parse_view_descriptor(source_spec, default_type="input")
+                st_s, raw_img, _ = await _comfy_fetch_view(request.app, s_desc)
+                if st_s == 200 and raw_img:
+                    with Image.open(io.BytesIO(raw_img)) as im:
+                        im = ImageOps.exif_transpose(im).convert("RGB")
+                        im.thumbnail((1024, 1024), Image.Resampling.LANCZOS)
+                        buf = io.BytesIO()
+                        im.save(buf, format="JPEG", quality=85)
+                    b64_img = base64.b64encode(buf.getvalue()).decode("ascii")
+                    content_blocks.append(
+                        {
+                            "type": "image",
+                            "source": {"type": "base64", "media_type": "image/jpeg", "data": b64_img},
+                        }
+                    )
+            except Exception:
+                pass
+
         prompt_ctx = str(body.get("original_prompt") or body.get("scene_prompt") or "").strip()[:800]
-        user_msg = (
-            f"Scene context:\n{prompt_ctx}\n\n"
-            "Return ONLY a JSON array of up to 3 concise portal/target edit ideas: "
-            '[{"title":"short label","target_prompt":"short replacement","preset":"sparkle_burst"}].'
+        cur_target = str(body.get("prompt") or body.get("target_prompt") or "").strip()[:240]
+        user_text_parts = []
+        if prompt_ctx:
+            user_text_parts.append(f"Scene description:\n{prompt_ctx}")
+        if cur_target:
+            user_text_parts.append(f"Current user draft: {cur_target}")
+        user_text_parts.append(
+            "Return ONLY a JSON array of up to 3 concise world-event / localized edit actions "
+            "(under 12 words each) suited to this scene: "
+            '[{"title":"short 2-4 word label","target_prompt":"concise action or localized edit","preset":"sparkle_burst"}].'
         )
-        payload = {
+        content_blocks.append({"type": "text", "text": "\n\n".join(user_text_parts)})
+
+        req_payload = {
             "model": model_id,
-            "messages": [
-                {"role": "system", "content": "Return compact JSON only."},
-                {"role": "user", "content": user_msg},
-            ],
+            "system": (
+                "You suggest concise, vivid world-sandbox actions grounded strictly in the attached scene image or description. "
+                "Do not invent unrelated subjects or animals not present in the scene. Return a valid JSON array only."
+            ),
+            "messages": [{"role": "user", "content": content_blocks}],
             "temperature": 0.6,
-            "max_tokens": 300,
+            "max_tokens": 512,
+            "stream": False,
         }
         async with session.post(
-            f"{heylook_url}/v1/chat/completions",
-            json=payload,
-            timeout=ClientTimeout(total=8.0),
+            f"{heylook_url}/v1/messages",
+            headers={"X-Request-ID": str(uuid.uuid4())},
+            json=req_payload,
+            timeout=ClientTimeout(total=12.0),
         ) as resp:
             if resp.status != 200:
                 return web.json_response({"ok": True, "enabled": False, "suggestions": []})
             comp = await resp.json()
-        raw_content = str((((comp.get("choices") or [{}])[0].get("message") or {}).get("content")) or "")
-        match = re.search(r"\[.*\]", raw_content, re.S)
-        parsed = json.loads(match.group(0)) if match else json.loads(raw_content)
+
+        raw_blocks = comp.get("content")
+        if isinstance(raw_blocks, list):
+            raw_content = "".join(
+                str(b.get("text") or "")
+                for b in raw_blocks
+                if isinstance(b, dict) and b.get("type") == "text"
+            )
+        else:
+            raw_content = str(comp.get("text") or "")
+
+        cleaned = raw_content.strip()
+        if "</think>" in cleaned:
+            cleaned = cleaned.split("</think>", 1)[1].strip()
+        cleaned = re.sub(r"^```(?:json)?\s*|\s*```$", "", cleaned, flags=re.I | re.S).strip()
+        match = re.search(r"\[.*\]", cleaned, re.S)
+        parsed = json.loads(match.group(0)) if match else json.loads(cleaned)
         suggestions = [s for s in parsed if isinstance(s, dict) and (s.get("target_prompt") or s.get("title"))][:4]
         return web.json_response({"ok": True, "enabled": True, "suggestions": suggestions})
     except Exception:
@@ -1892,9 +2192,34 @@ async def _sync_store_history(app: web.Application) -> dict[str, Any]:
     return {}
 
 
+def _extract_active_queue_pids(queue_doc: Any) -> list[str]:
+    if not isinstance(queue_doc, dict):
+        return []
+    seen: list[str] = []
+    for bucket in ("queue_running", "queue_pending"):
+        items = queue_doc.get(bucket)
+        if not isinstance(items, list):
+            continue
+        for item in items:
+            pid, _graph, _extra = director_routes._queue_item_parts(item)
+            if pid and str(pid) not in seen:
+                seen.append(str(pid))
+    return seen
+
+
 async def handle_takes(request: web.Request) -> web.Response:
     await _sync_store_history(request.app)
-    return web.json_response({"ok": True, "takes": request.app["store"].list_takes()})
+    q_doc = await _comfy_get_json(request.app, "/queue", timeout=2.0)
+    queue_ok = isinstance(q_doc, dict)
+    active_pids = _extract_active_queue_pids(q_doc) if queue_ok else []
+    return web.json_response(
+        {
+            "ok": True,
+            "takes": request.app["store"].list_takes(),
+            "active_prompt_ids": active_pids,
+            "queue_ok": queue_ok,
+        }
+    )
 
 
 async def handle_history(request: web.Request) -> web.Response:
@@ -2367,6 +2692,7 @@ def create_app(
     app.router.add_post("/api/stamp_cutout", handle_stamp_cutout)
     app.router.add_post("/api/segment", handle_segment)
     app.router.add_post("/api/anchor", handle_anchor)
+    app.router.add_post("/api/preview_in_mask", handle_preview_in_mask)
     app.router.add_post("/api/preflight", handle_preflight)
     app.router.add_post("/api/compile", handle_compile)
     app.router.add_post("/api/render", handle_render)

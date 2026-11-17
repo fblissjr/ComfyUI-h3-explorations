@@ -8,14 +8,14 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 174 |
+| [`check_*`](#check) | 175 |
 | [`measure_*`](#measure) | 39 |
 | [`analyze_*`](#analyze) | 18 |
 | [`grade_*`](#grade) | 19 |
 | [`compare_*`](#compare) | 15 |
 | [`build_*`](#build) | 13 |
 | [`probe_*`](#probe) | 18 |
-| [the rest](#the-rest) | 201 |
+| [the rest](#the-rest) | 202 |
 
 ## check
 
@@ -124,6 +124,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_pipeline_telemetry.py`](check_pipeline_telemetry.py) | Controls for `pipeline_telemetry.py` and `bench/telemetry_report.py`. |
 | [`check_plate_restore.py`](check_plate_restore.py) | A masked render split across two samplers ends on the clean plate, and resumes where it stopped. |
 | [`check_pose_along_shot.py`](check_pose_along_shot.py) | `bench/pose_along_shot.py` with the model replaced by a function whose answer is known: everything round the model. |
+| [`check_preview_gate.py`](check_preview_gate.py) | Offline unit check for `bench/run_with_preview_gate.py`. |
 | [`check_prompt_bank.py`](check_prompt_bank.py) | The prompt bank's gate, where the sweep can see it. |
 | [`check_prompt_docs_sync.py`](check_prompt_docs_sync.py) | Fail when a prompt DOCUMENT drifts from the source that owns what it quotes. |
 | [`check_prompt_guide_conformance.py`](check_prompt_guide_conformance.py) | Check every shipped ref prompt against the OFFICIAL guide, not against us. |
@@ -497,6 +498,7 @@ this file is only a way to find a script by what it says it does.
 | [`run_pruning_arms.py`](run_pruning_arms.py) | CLOSED RECORD since 2026-09-18. This runner renders bank prompts written for 345 frames at a fixed short length, which bench/run_graph_arms.py now refuses; it needs prompts written for its length before it runs again (its results are the ... |
 | [`run_shot_count_ablation.py`](run_shot_count_ablation.py) | CLOSED RECORD since 2026-09-18. This ablation computes cut times into shot headers by design, from a frozen out-of-bank base graph at 362 frames (on the grid, one step above the 345 every shipped graph now renders; ... |
 | [`run_tau_sweep.py`](run_tau_sweep.py) | Queue the scenes of a tau sweep on a server armed with `H3_SOL_SWEEP`. |
+| [`run_with_preview_gate.py`](run_with_preview_gate.py) | Run an API workflow through live ComfyUI WebSocket events with a tiny-VAE preview gate. |
 | [`runs_left.py`](runs_left.py) | The runs left to make past a frame, longest first, re-cut from a delivery table: one command the card runs after each rebuild. |
 | [`said_on_shot.py`](said_on_shot.py) | What the owner already said on a shot, from `owner_answers.jsonl` (plus `verdicts.jsonl` and optional inbox files), oldest first. |
 | [`sam31_corrections_queue_test.py`](sam31_corrections_queue_test.py) | The SAM 3.1 Corrections node's last acceptance: on a server's queue, with an H3 render between two reads. |
@@ -744,7 +746,7 @@ Arm manifests and the like; a manifest's line is its own `what`.
 
 ### results
 
-241 tracked files: [`results/INDEX.md`](results/INDEX.md).
+242 tracked files: [`results/INDEX.md`](results/INDEX.md).
 
 ### rubrics
 

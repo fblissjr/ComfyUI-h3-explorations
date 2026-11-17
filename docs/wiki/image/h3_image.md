@@ -1,6 +1,6 @@
 # MiniMax-H3-Image: MiniMax's own still-image model
 
-Last updated: 2026-11-14 (`delivered_size` / `MiniMaxH3ImageDownscale` preserves decoded shape beyond ±16 px and never enlarges either side; generate at 16 MP, deliver 4 MP, item 2; item 4 points at the release VAE inspection); 2026-11-13 (the edit graphs use the pack's reference nodes with the servers' crop and draw; the graphs load the bf16 text encoder; "Edit references, point by point" added under "What the vendor's servers do"); 2026-11-12.
+Last updated: 2026-11-17 (the servers re-read at their tips with diffusers, DiffSynth and LightX2V, stage by stage on [`../upstream/topics/h3_image_pipeline.md`](../upstream/topics/h3_image_pipeline.md); vllm-omni's encode precision filled in; the "Not compared" points compared); 2026-11-14 (`delivered_size` / `MiniMaxH3ImageDownscale` preserves decoded shape beyond ±16 px and never enlarges either side; generate at 16 MP, deliver 4 MP, item 2; item 4 points at the release VAE inspection); 2026-11-13 (the edit graphs use the pack's reference nodes with the servers' crop and draw; the graphs load the bf16 text encoder; "Edit references, point by point" added under "What the vendor's servers do"); 2026-11-12.
 
 MiniMax-H3-Image makes a picture from text, or edits one or more pictures, on
 one checkpoint, in six steps with no guidance. It is a different model from
@@ -212,7 +212,10 @@ MiniMax's release names sglang and vllm-omni as the servers to run it on, and
 the sglang code is the closest thing to the vendor's own reference. Both were
 read on 2026-11-11 (the `coderef/sglang` and `coderef/vllm-omni` clones, by a
 subagent, the lines below then checked by hand). They agree with the diffusers
-pipeline on everything the chain above takes from it. What they add:
+pipeline on everything the chain above takes from it. **Re-read 2026-11-17** at each clone's tip, with diffusers,
+DiffSynth and LightX2V: every stage, text to image and edit, implementation by implementation, is on
+[`../upstream/topics/h3_image_pipeline.md`](../upstream/topics/h3_image_pipeline.md). That read found that text to
+image gives the text encoder no vision tokens in any of them, as in this pack's text-to-image graph. What they add:
 
 - **A text-to-image picture is not stable at a fixed seed; an edit is.** The
   vllm-omni recipe for this model
@@ -281,7 +284,7 @@ The two servers agree with each other on every row.
 | **the reference latent's posterior sample** | drawn from the request's generator, after the target noise and the references' anchor noise (sglang `coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/image_noise.py`, vllm-omni `coderef/vllm-omni/vllm_omni/diffusion/models/minimax_h3/pipeline_minimax_h3_image.py`, `forward`) | a fixed seed (`comfy/ldm/minimax/vae.py::IMAGE_ENCODE_SEED`, in `H3ImageVAE.encode`) | the same fixed seed: the node calls the same `vae.encode` |
 | **the sampled latent** | rounded to fp16 before it is normalized (`use_fp16_latent`; vllm-omni `encode_image_latent`) | not rounded | not rounded |
 | **the noise mixed into each reference at its conditioning level** | one draw per reference, in order, from the request's generator | every reference restarts one stream at the sampler's seed (`comfy/ldm/minimax/model.py::_cond_video_rows`), so two references of one shape carry the same noise | the same: it is the model's code, not the node's |
-| encoder precision | fp32 in sglang (the same `_encode_keyframe_cond_rows`); vllm-omni's encoder weights not read | whatever the VAE was loaded as | the same; the shipped edit graphs put `MiniMaxH3VAEPrecision(encoder="fp32")` ahead of either node |
+| encoder precision | fp32 in sglang (the same `_encode_keyframe_cond_rows`) and in vllm-omni (`coderef/vllm-omni/vllm_omni/diffusion/models/minimax_h3/image_vae.py::from_pretrained` loads and keeps the VAE in fp32; read 2026-11-17) | whatever the VAE was loaded as | the same; the shipped edit graphs put `MiniMaxH3VAEPrecision(encoder="fp32")` ahead of either node |
 
 So for this model core is close to the servers, which was not true of H3
 video's references. Four rows differ (bold).
@@ -364,11 +367,19 @@ The conditioning level itself is the same number in core and sglang
 `coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/denoise_loop.py::MINIMAX_H3_IMGVID_COND_TIMESTEP`); only where its noise
 comes from differs.
 
-Not compared: the picture preprocessing inside each text encoder's own
-processor, the servers' padding of the token ids, and vllm-omni's refusal
-of a very long reference (`MINIMAX_H3_IMAGE_MAX_REFERENCE_ASPECT`). Whether
-any row is visible in a render is not known; the fp32 encode note above is
-the only one of these that has been rendered.
+Compared on 2026-11-17 ([`../upstream/topics/qwen3vl_encoder.md`](../upstream/topics/qwen3vl_encoder.md),
+[`../upstream/topics/h3_image_pipeline.md`](../upstream/topics/h3_image_pipeline.md)), where this paragraph used to
+list them as not compared:
+- **The picture preprocessing inside the text encoder's processor.** It is the same everywhere except for a picture
+  whose short edge already sits on `H3_IMAGE_QWEN_SHORT_EDGE` with its long edge off the grid. The engines'
+  processor resizes that one with bicubic. Core resamples it with Lanczos first. This pack hands it to core's
+  bilinear preprocessor.
+- **The servers' padding of the token ids.** It is dropped before the DiT, so the DiT sees the same rows.
+- **vllm-omni's refusal of a very long reference** (`MINIMAX_H3_IMAGE_MAX_REFERENCE_ASPECT`). It has no counterpart
+  here.
+
+Whether any row is visible in a render is not known; the fp32 encode note above is the only one of these that has
+been rendered.
 
 ## Prompts
 

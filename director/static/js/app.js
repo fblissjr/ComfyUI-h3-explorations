@@ -37,6 +37,7 @@ const state = {
   canvases: [],
   workflows: [],
   anchorWorkflows: [],
+  imageEditWorkflows: [],
   controlVectors: [],
   capabilities: {
     kj_preview_override: false,
@@ -55,6 +56,8 @@ const state = {
   loop: true,
   showPatchGrid: false,
   spriteMode: false,
+  settingSpritePath: false,
+  snapToIncludeMask: false,
   selectedTargetIdx: 0,
   samPicking: false,
   samRole: "cutout",
@@ -73,11 +76,13 @@ const state = {
   shotHistory: [],
   lanesOpen: false,
   streamsManualOverride: false,
+  workflowManualOverride: false,
   unlinkPortalRy: false,
   seqSelection: null,
 
-  workflowId: "",
-  anchorWorkflowId: "",
+  workflowId: "i2v_portal",
+  anchorWorkflowId: "h3_image",
+  previewWorkflowId: "h3_image",
   seed: 730451892,
   seedLocked: true,
 
@@ -91,8 +96,11 @@ const state = {
 
   spriteCutout: null, // { ref, viewUrl, img }
   livePreview: null,  // { kind, media, step, total, fullFrame, fps, avgStepMs }
+  maskPreview: null,  // { img, viewUrl, x, y, rx, ry, shape, feather, haloRadius, haloWeight, snapToInclude }
+  activeRender: null, // { kind, pid, phase, step, total, startedAt, meta }
 
   targetPrompt: "",
+  originalPrompt: "",
   samePrompt: false,
   audioRefine: false,
   controlVector: "none",
@@ -129,10 +137,12 @@ const state = {
   },
 
   takes: [],
+  activeQueuePromptIds: null,
   activeRenderPromptId: "",
   activeBaselinePromptId: "",
   activeAnchorPromptId: "",
   activeStampPromptId: "",
+  activeMaskPreviewPromptId: "",
 
   undoStack: [],
   redoStack: [],
@@ -148,6 +158,210 @@ let rafHandle = 0;
 let lastRafTime = 0;
 let toastTimer = 0;
 let preflightTimer = 0;
+let renderStatusTimer = 0;
+let lastPollTakesAt = 0;
+
+function updateRenderStatusOverlay() {
+  const banner = $("#render-status-overlay");
+  if (!banner) return;
+  const ar = state.activeRender;
+  if (!ar) {
+    banner.classList.add("hidden");
+    return;
+  }
+  banner.classList.remove("hidden");
+  const elapsedMs = ar.startedEpochMs
+    ? Math.max(0, Date.now() - ar.startedEpochMs)
+    : Math.max(0, performance.now() - (ar.startedAt || performance.now()));
+  const elapsedSec = (elapsedMs / 1000).toFixed(1);
+  const total = Math.max(0, Number(ar.total || 0));
+  const step = Math.max(0, Number(ar.step || 0));
+  const phaseEl = $("#render-status-phase");
+  const metaEl = $("#render-status-meta");
+  const fillEl = $("#render-progress-fill");
+  const paceMs = Number(ar.avgStepMs || ar.stepMs || 0);
+  const paceStr = paceMs > 0 ? ` · ${(paceMs / 1000).toFixed(1)}s/st` : "";
+  const hasDelta = ar.delta !== null && ar.delta !== undefined && Number.isFinite(Number(ar.delta));
+  const deltaStr = hasDelta ? ` · Δ ${Number(ar.delta).toFixed(2)}` : "";
+  if (phaseEl) phaseEl.textContent = ar.phase || "Running on GPU…";
+  if (metaEl) metaEl.textContent = total > 0 ? `Step ${step}/${total}${paceStr}${deltaStr} · ${elapsedSec}s` : `${elapsedSec}s`;
+  if (fillEl) {
+    const pct = total > 0 ? clamp((step / total) * 100, 10, 100) : 22;
+    fillEl.setAttribute("width", pct.toFixed(1));
+  }
+}
+
+function setActiveRender(meta) {
+  state.activeRender = {
+    kind: meta.kind || "render",
+    pid: meta.pid || "",
+    phase: meta.phase || "Rendering…",
+    step: Number(meta.step || 0),
+    total: Number(meta.total || 0),
+    stepMs: meta.stepMs ?? null,
+    avgStepMs: meta.avgStepMs ?? null,
+    delta: meta.delta ?? null,
+    meta: meta.meta || null,
+    startedAt: performance.now(),
+    startedEpochMs: meta.startedEpochMs || null,
+  };
+  lastPollTakesAt = 0;
+  if (renderStatusTimer) clearInterval(renderStatusTimer);
+  renderStatusTimer = setInterval(async () => {
+    if (!state.activeRender) {
+      clearInterval(renderStatusTimer);
+      renderStatusTimer = 0;
+      return;
+    }
+    updateRenderStatusOverlay();
+    const now = performance.now();
+    if (now - lastPollTakesAt >= 2000 && state.activeRender?.pid) {
+      lastPollTakesAt = now;
+      await checkActivePromptCompletion(state.activeRender.pid);
+    }
+  }, 500);
+  updateRenderStatusOverlay();
+}
+
+function clearActiveRender() {
+  state.activeRender = null;
+  if (renderStatusTimer) {
+    clearInterval(renderStatusTimer);
+    renderStatusTimer = 0;
+  }
+  updateRenderStatusOverlay();
+}
+
+async function handleFinishedTakeById(pid) {
+  const take = state.takes.find((t) => t.prompt_id === pid);
+  if (!take) return false;
+  if (take.status === "error") {
+    if (pid === state.activeAnchorPromptId) state.activeAnchorPromptId = "";
+    if (pid === state.activeMaskPreviewPromptId) state.activeMaskPreviewPromptId = "";
+    if (pid === state.activeStampPromptId) state.activeStampPromptId = "";
+    if (pid === state.activeRenderPromptId) state.activeRenderPromptId = "";
+    clearActiveRender();
+    showToast(take.error || "Execution failed on ComfyUI", "err", 5000);
+    return true;
+  }
+  const hasOutput = Boolean(take.still_image || take.clean_video || take.hud_video);
+  const isDone = take.status === "completed" || take.status === "done" || hasOutput;
+  if (!isDone) return false;
+  if (pid && pid === state.activeAnchorPromptId) {
+    state.activeAnchorPromptId = "";
+    state.livePreview = null;
+    state.maskPreview = null;
+    clearActiveRender();
+    const im = take.still_image;
+    if (im) {
+      await loadAnchorImageUrl(videoItemViewUrl(im), {
+        ref: `${im.subfolder ? im.subfolder + "/" : ""}${im.filename}`,
+        name: im.filename,
+        preserveOriginalPrompt: true,
+      });
+      showToast("Anchor still ready", "ok");
+    }
+    return true;
+  }
+  if (pid && pid === state.activeMaskPreviewPromptId) {
+    const meta = state.activeRender?.meta || {};
+    state.activeMaskPreviewPromptId = "";
+    state.livePreview = null;
+    clearActiveRender();
+    const im = take.still_image;
+    if (im) {
+      await loadMaskStillPreviewUrl(videoItemViewUrl(im), {
+        ...meta,
+        ref: `${im.subfolder ? im.subfolder + "/" : ""}${im.filename}`,
+      });
+      showToast("Masked image preview applied inside reticle", "ok");
+    }
+    return true;
+  }
+  if (pid && pid === state.activeStampPromptId) {
+    state.activeStampPromptId = "";
+    state.livePreview = null;
+    clearActiveRender();
+    const im = take.still_image;
+    if (im) {
+      try {
+        const cut = await apiJson("/api/stamp_cutout", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ image_output: im }),
+        });
+        const url = cut.view_url || videoItemViewUrl(cut);
+        if (url) await loadCutoutUrl(url, cut.cutout_ref || cut.ref || "");
+        showToast("Cutout actor ready (Click Set Path or drag)", "ok");
+      } catch {
+        await loadCutoutUrl(videoItemViewUrl(im), `${im.subfolder ? im.subfolder + "/" : ""}${im.filename}`);
+      }
+    }
+    return true;
+  }
+  if (pid && (pid === state.activeRenderPromptId || pid === state.activeBaselinePromptId)) {
+    if (take.clean_video || take.hud_video) {
+      if (pid === state.activeRenderPromptId) {
+        state.activeRenderPromptId = "";
+        clearActiveRender();
+        state.maskPreview = null;
+      }
+      loadTakeIntoStage(take);
+      showToast("World clip render complete", "ok");
+      return true;
+    }
+  }
+  return false;
+}
+
+async function checkActivePromptCompletion(pid) {
+  if (!pid) return;
+  try {
+    await refreshTakes();
+    if (await handleFinishedTakeById(pid)) {
+      return;
+    }
+    if (state.activeQueuePromptIds instanceof Set && !state.activeQueuePromptIds.has(pid)) {
+      const take = state.takes.find((t) => t.prompt_id === pid);
+      const ageSec = Date.now() / 1000 - Number(take?.created_at || 0);
+      if (take && take.status === "queued" && ageSec > 5.0) {
+        if (pid === state.activeAnchorPromptId) state.activeAnchorPromptId = "";
+        if (pid === state.activeMaskPreviewPromptId) state.activeMaskPreviewPromptId = "";
+        if (pid === state.activeStampPromptId) state.activeStampPromptId = "";
+        if (pid === state.activeRenderPromptId) state.activeRenderPromptId = "";
+        clearActiveRender();
+      }
+    }
+  } catch {}
+}
+
+function loadMaskStillPreviewUrl(url, meta = {}) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const pf = evalPortalAtFrame(state.doc, state.frame, state.length);
+      const reg = meta.region || {};
+      state.maskPreview = {
+        img,
+        viewUrl: url,
+        ref: meta.ref || "",
+        x: Number(reg.x ?? pf.x ?? 0.5),
+        y: Number(reg.y ?? pf.y ?? 0.5),
+        rx: Number(reg.rx ?? pf.rx ?? 0.24),
+        ry: Number(reg.ry ?? pf.ry ?? 0.24),
+        shape: reg.shape || pf.shape || "circle",
+        feather: Number(meta.feather ?? state.doc.feather ?? 0.08),
+        haloRadius: Number(reg.halo_radius ?? pf.halo_radius ?? 0),
+        haloWeight: Number(reg.halo_weight ?? pf.halo_weight ?? 0.30),
+        snapToInclude: Boolean(meta.snapToInclude),
+      };
+      syncAllUI();
+      resolve(img);
+    };
+    img.onerror = () => resolve(null);
+    img.src = url;
+  });
+}
 
 function showToast(msg, kind = "info", durationMs = 3600) {
   const el = $("#stage-toast");
@@ -230,6 +444,7 @@ async function hydrateSchema() {
   state.canvases = Array.isArray(data.canvases) ? data.canvases : [];
   state.workflows = Array.isArray(data.workflows) ? data.workflows : [];
   state.anchorWorkflows = Array.isArray(data.anchor_workflows) ? data.anchor_workflows : [];
+  state.imageEditWorkflows = Array.isArray(data.image_edit_workflows) ? data.image_edit_workflows : [];
   state.controlVectors = Array.isArray(data.control_vectors) ? data.control_vectors : [];
   state.capabilities = { ...state.capabilities, ...(data.capabilities || {}) };
 
@@ -269,6 +484,7 @@ async function hydrateSchema() {
   if (defs.audio_scale != null) state.editGuidance.audio_scale = Number(defs.audio_scale);
   if (defs.streams) state.editGuidance.streams = String(defs.streams);
   if (defs.anchor_workflow) state.anchorWorkflowId = String(defs.anchor_workflow);
+  if (defs.preview_image_workflow) state.previewWorkflowId = String(defs.preview_image_workflow);
   if (defs.mode && state.workflows.some((w) => w.id === defs.mode)) {
     state.workflowId = String(defs.mode);
   }
@@ -356,7 +572,7 @@ function renderHydratedControls() {
     if (state.workflowId) wfSel.value = state.workflowId;
   }
 
-  // 5. Anchor Still Workflows Select
+  // 5. Anchor Still Workflows Select & Image Edit Preview Select
   const anchorSel = $("#anchor-workflow-select");
   if (anchorSel) {
     anchorSel.replaceChildren();
@@ -370,6 +586,22 @@ function renderHydratedControls() {
       state.anchorWorkflowId = state.anchorWorkflows[0].id;
     }
     if (state.anchorWorkflowId) anchorSel.value = state.anchorWorkflowId;
+  }
+
+  const prevSel = $("#preview-workflow-select");
+  if (prevSel) {
+    prevSel.replaceChildren();
+    const list = state.imageEditWorkflows.length ? state.imageEditWorkflows : state.anchorWorkflows;
+    for (const pw of list) {
+      const opt = document.createElement("option");
+      opt.value = pw.id;
+      opt.textContent = pw.label || pw.id;
+      prevSel.appendChild(opt);
+    }
+    if (list.length && !state.previewWorkflowId) {
+      state.previewWorkflowId = list[0].id;
+    }
+    if (state.previewWorkflowId) prevSel.value = state.previewWorkflowId;
   }
 
   // 6. Sound Cue Presets (Card + Drawer)
@@ -503,8 +735,10 @@ function syncLiveTaeBadges(stepMeta = null) {
 
   if (stepMeta && stepMeta.total > 0) {
     const fpsPart = stepMeta.fps ? ` · ${Number(stepMeta.fps).toFixed(1)}fps` : "";
+    const hasDelta = stepMeta.delta !== null && stepMeta.delta !== undefined && Number.isFinite(Number(stepMeta.delta));
+    const deltaPart = hasDelta ? ` · Δ ${Number(stepMeta.delta).toFixed(2)}` : "";
     const stepStr = `Step ${stepMeta.step}/${stepMeta.total}`;
-    if (hdrText) hdrText.textContent = `Live Preview: ${stepMeta.step}/${stepMeta.total}${fpsPart}`;
+    if (hdrText) hdrText.textContent = `Live Preview: ${stepMeta.step}/${stepMeta.total}${fpsPart}${deltaPart}`;
     if (stageText) stageText.textContent = `Live Latents · ${stepStr}`;
     if (portalText) portalText.textContent = `Live Preview · ${stepStr} · r=${radStr}`;
     hdrPill?.classList.remove("warn");
@@ -704,24 +938,46 @@ function renderSynthesizedOperators(pf, sp, coupling) {
   }
 }
 
+function resolvedWorkflowMode() {
+  if (state.workflowManualOverride && state.workflowId) {
+    return state.workflowId;
+  }
+  if (state.spriteCutout?.ref) {
+    return "r2v_portal";
+  }
+  if (state.anchorRef) {
+    return "i2v_portal";
+  }
+  return "t2v_portal";
+}
+
 function syncPromptDiffPreview() {
   const origEl = $("#diff-orig-line");
   const editEl = $("#diff-edit-line");
   const badgeEl = $("#prompt-diff-badge");
   if (!origEl || !editEl) return;
 
-  const anchorLabel = state.anchorName ? state.anchorName.replace(/\.[^/.]+$/, "") : "anchor";
+  const wfMode = resolvedWorkflowMode();
+  const modeLabelMap = {
+    i2v_portal: "Frame-0 I2V",
+    r2v_portal: "Actor R2V (Release 0.33)",
+    world_targets: "World Targets R2V",
+    t2v_portal: "Text-to-Video",
+  };
+  const customOrig = (state.originalPrompt || "").trim();
   const editClause = (state.targetPrompt || "").trim();
-  origEl.textContent = `- ${anchorLabel} base conditioning`;
+  origEl.textContent = customOrig
+    ? `- ${customOrig.slice(0, 56)}${customOrig.length > 56 ? "…" : ""}`
+    : (state.anchorRef ? "- Anchored <Picture 1> calm hold (auto)" : "- Clean unedited scene base (auto)");
   if (state.samePrompt) {
     if (badgeEl) badgeEl.textContent = "Same-Prompt Steer";
     editEl.textContent = "+ Control Vector delta (edited_only pass)";
   } else if (editClause) {
-    if (badgeEl) badgeEl.textContent = state.anchorRef ? "Baseline → Edited" : "Prompt Diff";
+    if (badgeEl) badgeEl.textContent = modeLabelMap[wfMode] || "Prompt Diff";
     editEl.textContent = `+ ${editClause}`;
   } else {
-    if (badgeEl) badgeEl.textContent = "Baseline → Edited";
-    editEl.textContent = "+ Type edit clause above to steer portal";
+    if (badgeEl) badgeEl.textContent = modeLabelMap[wfMode] || "Prompt Diff";
+    editEl.textContent = "+ Enter action above to steer region";
   }
 }
 
@@ -823,6 +1079,24 @@ function syncContextualCard() {
   );
   $("#btn-sam-clear")?.classList.toggle("hidden", !Boolean(state.spriteMaskRef || state.excludeMaskRef || state.includeMaskRef || state.samPosPoints.length || state.samNegPoints.length));
   $("#sam-refine-bar")?.classList.toggle("hidden", !hasAnySamMask);
+  $("#sam-actor-actions")?.classList.toggle("hidden", !Boolean(state.spriteCutout?.ref || state.includeMaskRef || state.spriteMode));
+
+  const setPathBtn = $("#btn-set-path");
+  if (setPathBtn) {
+    setPathBtn.classList.toggle("active", Boolean(state.settingSpritePath));
+    setPathBtn.textContent = state.settingSpritePath ? "Click Destination…" : "Set Path →";
+  }
+  const snapChk = $("#chk-snap-mask");
+  if (snapChk) {
+    snapChk.checked = Boolean(state.snapToIncludeMask);
+    snapChk.disabled = !state.includeMaskRef;
+  }
+
+  const prevMaskBtn = $("#btn-preview-mask");
+  if (prevMaskBtn) {
+    prevMaskBtn.disabled = !state.hasAnchor || Boolean(state.activeRender);
+  }
+  $("#btn-clear-mask-preview")?.classList.toggle("hidden", !Boolean(state.maskPreview?.img));
 
   const coordBadge = $("#synth-latency-badge");
   if (coordBadge) {
@@ -830,7 +1104,7 @@ function syncContextualCard() {
   }
   const modeTag = $("#synth-mode-tag");
   if (modeTag) {
-    modeTag.textContent = state.capabilities.heylook_suggestions ? "heylook · 0ms" : "0ms local";
+    modeTag.textContent = resolvedWorkflowMode();
   }
 
   renderSynthesizedOperators(pf, sp, coupling);
@@ -844,6 +1118,10 @@ function syncContextualCard() {
   const tp = $("#target-prompt");
   if (tp && document.activeElement !== tp) {
     tp.value = state.targetPrompt;
+  }
+  const op = $("#original-prompt");
+  if (op && document.activeElement !== op) {
+    op.value = state.originalPrompt;
   }
 }
 
@@ -917,13 +1195,15 @@ function syncAllUI() {
 
   $("#stage-helper-text").textContent = state.samPicking
     ? `Click subject on stage to segment (${state.samRole}) · Esc cancels`
-    : (state.spriteMode
-      ? "WASD steers cutout · Space hops · Drag repositions"
-      : (state.doc.mode === "combined"
-        ? "Drag Portal or Targets · Ctrl+Click adds Target · Scroll size"
-        : (state.doc.mode === "point_targets"
-          ? "Click to move target · Shift+Click adds target"
-          : "Click/drag portal · Scroll size · Shift Halo · Alt Power")));
+    : (state.settingSpritePath
+      ? "Click anywhere on stage to set Movable Actor destination"
+      : (state.spriteMode
+        ? "WASD steers actor · Set Path places arrow · Space hops"
+        : (state.doc.mode === "combined"
+          ? "Drag Region or Timed Events · Ctrl+Click adds Event · Scroll size"
+          : (state.doc.mode === "point_targets"
+            ? "Click to move timed event · Shift+Click adds event"
+            : "Click/drag region · Scroll size · Shift Halo · Alt Scale"))));
 
   // Play / Pause icon
   $("#icon-play")?.classList.toggle("hidden", state.playing);
@@ -949,13 +1229,84 @@ function syncAllUI() {
   const arChk = $("#chk-audio-refine");
   if (arChk) arChk.checked = Boolean(state.audioRefine);
 
-  syncLiveTaeBadges(state.livePreview ? { step: state.livePreview.step, total: state.livePreview.total, fps: state.livePreview.fps } : null);
+  syncLiveTaeBadges(
+    state.livePreview
+      ? {
+          step: state.livePreview.step,
+          total: state.livePreview.total,
+          fps: state.livePreview.fps,
+          delta: state.livePreview.delta,
+        }
+      : null
+  );
   syncAudioGuardAndSequencer();
+  syncEventChipsTrack();
   syncScrubberSVG();
   syncContextualCard();
   syncCueChips();
   syncUndoRedoButtons();
+  updateRenderStatusOverlay();
   stage?.render();
+}
+
+function syncEventChipsTrack() {
+  const track = $("#event-chips-track");
+  if (!track) return;
+  track.replaceChildren();
+  const chips = [];
+  if (state.doc.mode === "portal_path" || state.doc.mode === "combined") {
+    const pf = evalPortalAtFrame(state.doc, state.frame, state.length);
+    chips.push({
+      label: `Region @ [${pf.x.toFixed(2)},${pf.y.toFixed(2)}]`,
+      cls: "event-chip active",
+      onClick: () => {
+        state.selectedTargetIdx = 0;
+        syncContextualCard();
+      },
+    });
+  }
+  if (state.doc.mode === "point_targets" || state.doc.mode === "combined") {
+    (state.doc.targets || []).forEach((t, idx) => {
+      chips.push({
+        label: `E${idx + 1} f${t.start}..${t.end}`,
+        cls: idx === state.selectedTargetIdx ? "event-chip active" : "event-chip",
+        onClick: () => {
+          state.selectedTargetIdx = idx;
+          state.frame = clamp(Number(t.start || 0), 0, Math.max(0, state.length - 1));
+          syncAllUI();
+        },
+      });
+    });
+  }
+  if (state.spriteCutout?.ref) {
+    const wps = state.doc.dpad?.waypoints || [];
+    chips.push({
+      label: `Actor (${wps.length} pts)`,
+      cls: "event-chip emerald",
+      onClick: () => {
+        state.spriteMode = true;
+        syncAllUI();
+      },
+    });
+  }
+  for (const c of allActiveCues()) {
+    chips.push({
+      label: `3f f${c.frame}: ${c.preset}`,
+      cls: "event-chip",
+      onClick: () => {
+        state.frame = clamp(Number(c.frame || 0), 0, Math.max(0, state.length - 1));
+        syncAllUI();
+      },
+    });
+  }
+  for (const ch of chips.slice(0, 6)) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = ch.cls;
+    b.textContent = ch.label;
+    b.addEventListener("click", ch.onClick);
+    track.appendChild(b);
+  }
 }
 
 function syncAudioGuardAndSequencer() {
@@ -976,9 +1327,12 @@ function syncAudioGuardAndSequencer() {
 
   const chainBtn = $("#btn-chain-frame");
   if (chainBtn) {
-    const canChain = Boolean(state.activeVideoEl && state.activeStageTake);
-    chainBtn.classList.toggle("hidden", !canChain);
-    chainBtn.textContent = `Chain f${Math.max(0, Math.round(state.frame))}→Shot`;
+    const hasVideo = Boolean(state.activeVideoEl && state.activeStageTake);
+    const hasMaskPrev = Boolean(state.maskPreview?.img);
+    chainBtn.classList.toggle("hidden", !(hasVideo || hasMaskPrev));
+    chainBtn.textContent = hasVideo
+      ? `Roll Forward f${Math.max(0, Math.round(state.frame))} ↪`
+      : "Apply Preview ↪";
   }
 
   const muteBtn = $("#btn-stage-mute");
@@ -1015,7 +1369,7 @@ function syncAudioGuardAndSequencer() {
   if (lanesBtn) {
     lanesBtn.classList.toggle("active", Boolean(state.lanesOpen));
     lanesBtn.setAttribute("aria-expanded", state.lanesOpen ? "true" : "false");
-    lanesBtn.textContent = state.lanesOpen ? "Lanes ▾" : "Lanes ▴";
+    lanesBtn.textContent = state.lanesOpen ? "Advanced ▾" : "Advanced ▴";
   }
 
   const ryBtn = $("#btn-seq-ry-unlink");
@@ -1051,6 +1405,11 @@ async function handleAnchorUpload(file) {
   try {
     const data = await apiJson("/api/upload", { method: "POST", body: fd });
     const imgUrl = data.view_url || videoItemViewUrl(data);
+    // Clear previous scene prompt & mask preview so uploaded media never inherits stale context
+    state.originalPrompt = "";
+    state.maskPreview = null;
+    const origEl = $("#original-prompt");
+    if (origEl) origEl.value = "";
     await loadAnchorImageUrl(imgUrl, {
       ref: data.ref || `${data.subfolder ? data.subfolder + "/" : ""}${data.filename}`,
       name: file.name,
@@ -1094,12 +1453,16 @@ function loadAnchorImageUrl(url, meta = {}) {
       state.hasAnchor = true;
       state.activeVideoEl = null;
       state.activeStageTake = null;
+      if (!meta.preserveOriginalPrompt) {
+        state.maskPreview = null;
+      }
       if (prevRef && meta.ref && prevRef !== meta.ref) {
         state.spriteMaskRef = "";
         state.includeMaskRef = "";
         state.excludeMaskRef = "";
         state.includeMaskImg = null;
         state.excludeMaskImg = null;
+        state.snapToIncludeMask = false;
         state.samPosPoints = [];
         state.samNegPoints = [];
         const samIn = $("#sam-prompt-input");
@@ -1129,19 +1492,30 @@ async function generateAnchorStill() {
   const btn = $("#btn-gen-anchor");
   if (btn) btn.disabled = true;
   try {
+    const wf = $("#anchor-workflow-select")?.value || state.anchorWorkflowId || "h3_image";
     const data = await apiJson("/api/anchor", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         prompt,
-        workflow: $("#anchor-workflow-select")?.value || state.anchorWorkflowId,
+        workflow: wf,
         width: state.doc.width,
         height: state.doc.height,
         seed: state.seed,
         client_id: wsClient.clientId,
       }),
     });
+    state.originalPrompt = prompt;
+    const origEl = $("#original-prompt");
+    if (origEl) origEl.value = prompt;
     state.activeAnchorPromptId = data.prompt_id || "";
+    setActiveRender({
+      kind: "anchor",
+      pid: data.prompt_id || "",
+      phase: `Generating Still (${data.workflow || wf})…`,
+      step: 0,
+      total: (wf === "ph3_image" ? 8 : 6),
+    });
     showToast("Generating 1-frame anchor still…", "info");
   } catch (err) {
     showToast(`Anchor generation failed: ${err.message}`, "err");
@@ -1160,9 +1534,10 @@ async function refreshContextSuggestions() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        source_ref: state.anchorRef,
         anchor_ref: state.anchorRef,
-        original_prompt: state.targetPrompt,
-        scene_prompt: state.targetPrompt,
+        original_prompt: state.originalPrompt,
+        scene_prompt: state.originalPrompt,
         prompt: state.targetPrompt,
         mode: state.doc.mode,
         x: pf.x,
@@ -1209,7 +1584,7 @@ async function refreshContextSuggestions() {
 async function generateOrExtractStamp() {
   const prompt = ($("#stamp-prompt-input")?.value || "").trim();
   if (!state.anchorRef && !prompt) {
-    showToast("Anchor a scene or enter a stamp prompt first.", "err");
+    showToast("Anchor a scene or enter a spawn actor prompt in Engine -> Steering first.", "err");
     return;
   }
   try {
@@ -1219,6 +1594,7 @@ async function generateOrExtractStamp() {
       body: JSON.stringify({
         source_ref: state.anchorRef || undefined,
         prompt: prompt || undefined,
+        workflow: state.anchorWorkflowId || "h3_image",
         width: state.doc.width,
         height: state.doc.height,
         seed: state.seed,
@@ -1227,17 +1603,146 @@ async function generateOrExtractStamp() {
     });
     if (data.prompt_id) {
       state.activeStampPromptId = data.prompt_id;
-      showToast("Generating RGBA stamp cutout…", "info");
+      setActiveRender({
+        kind: "stamp",
+        pid: data.prompt_id,
+        phase: "Generating Actor Cutout…",
+        step: 0,
+        total: 6,
+      });
+      showToast("Generating RGBA actor cutout…", "info");
       return;
     }
     const url = data.view_url || videoItemViewUrl(data);
     if (url) {
       await loadCutoutUrl(url, data.cutout_ref || data.ref || "");
-      showToast("RGBA cutout stamp ready (use WASD to steer)", "ok");
+      showToast("RGBA cutout ready (use Set Path or WASD)", "ok");
     }
   } catch (err) {
     showToast(`Stamp failed: ${err.message}`, "err");
   }
+}
+
+async function previewInMask() {
+  if (!state.anchorRef) {
+    showToast("Load or generate an anchor scene first.", "err");
+    return;
+  }
+  const cmd = (state.targetPrompt || "").trim();
+  if (!cmd) {
+    showToast("Enter an action or spawn prompt first.", "err");
+    $("#target-prompt")?.focus();
+    return;
+  }
+  const btn = $("#btn-preview-mask");
+  if (btn) btn.disabled = true;
+  try {
+    let region;
+    if (state.doc.mode === "point_targets" && state.doc.targets?.length) {
+      const idx = clamp(state.selectedTargetIdx ?? 0, 0, state.doc.targets.length - 1);
+      const t = state.doc.targets[idx];
+      region = {
+        x: t.x,
+        y: t.y,
+        rx: t.radius,
+        ry: t.radius,
+        shape: "circle",
+        weight: t.weight ?? 1.0,
+        halo_radius: t.halo_radius ?? 0.0,
+        halo_weight: t.halo_weight ?? 0.30,
+      };
+    } else {
+      const pf = evalPortalAtFrame(state.doc, state.frame, state.length);
+      region = {
+        x: pf.x,
+        y: pf.y,
+        rx: pf.rx,
+        ry: pf.ry,
+        shape: pf.shape || "circle",
+        weight: pf.weight ?? 1.0,
+        halo_radius: pf.halo_radius ?? 0.0,
+        halo_weight: pf.halo_weight ?? 0.30,
+      };
+    }
+    const wf = state.previewWorkflowId || "h3_image";
+    const res = await apiJson("/api/preview_in_mask", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        source_ref: state.anchorRef,
+        target_prompt: cmd,
+        original_prompt: (state.originalPrompt || "").trim(),
+        workflow: wf,
+        region,
+        feather: Number(state.doc.feather),
+        invert_mask: Boolean(state.doc.invert_mask),
+        include_mask_ref: state.includeMaskRef || "",
+        exclude_mask_ref: state.excludeMaskRef || "",
+        snap_to_include_mask: Boolean(state.snapToIncludeMask),
+        scale: Number(state.editGuidance.scale),
+        first_step: Number(state.editGuidance.first_step),
+        last_step: Number(state.editGuidance.last_step),
+        seed: Number($("#seed-input")?.value || state.seed),
+        client_id: wsClient.clientId,
+      }),
+    });
+    state.activeMaskPreviewPromptId = res.prompt_id || "";
+    setActiveRender({
+      kind: "mask_preview",
+      pid: res.prompt_id || "",
+      phase: `Mask Preview (${res.workflow || wf})…`,
+      step: 0,
+      total: wf === "ph3_image" ? 8 : 6,
+      meta: {
+        region,
+        feather: Number(state.doc.feather),
+        snapToInclude: Boolean(state.snapToIncludeMask),
+      },
+    });
+    showToast("Running masked 1-frame preview (taeh3_image)…", "info");
+  } catch (err) {
+    showToast(`Mask preview failed: ${err.message}`, "err");
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+async function chainMaskPreviewToAnchor() {
+  if (!state.anchorMedia || !state.maskPreview?.img) return;
+  const mw = state.anchorMedia.naturalWidth || state.doc.width || 1344;
+  const mh = state.anchorMedia.naturalHeight || state.doc.height || 768;
+  const c = document.createElement("canvas");
+  c.width = mw;
+  c.height = mh;
+  const cx = c.getContext("2d");
+  cx.drawImage(state.anchorMedia, 0, 0, mw, mh);
+  const compCanvas = document.createElement("canvas");
+  compCanvas.width = mw;
+  compCanvas.height = mh;
+  const tCtx = compCanvas.getContext("2d");
+  tCtx.drawImage(state.maskPreview.img, 0, 0, mw, mh);
+  tCtx.globalCompositeOperation = "destination-in";
+  if (state.maskPreview.snapToInclude && state.includeMaskImg) {
+    tCtx.drawImage(state.includeMaskImg, 0, 0, mw, mh);
+  } else if (stage) {
+    stage._drawFeatheredMaskShape(tCtx, mw, mh, Math.min(mw, mh), {
+      x: state.maskPreview.x,
+      y: state.maskPreview.y,
+      rx: state.maskPreview.rx,
+      ry: state.maskPreview.ry,
+      shape: state.maskPreview.shape,
+      feather: state.maskPreview.feather,
+      haloRadius: state.maskPreview.haloRadius,
+      haloWeight: state.maskPreview.haloWeight,
+      tw: 1.0,
+    });
+  }
+  cx.drawImage(compCanvas, 0, 0, mw, mh);
+  const blob = await new Promise((res) => c.toBlob(res, "image/png"));
+  if (!blob) return;
+  const file = new File([blob], "sandbox_roll_forward.png", { type: "image/png" });
+  await handleAnchorUpload(file);
+  showToast("Rolled preview forward as new World State", "ok");
 }
 
 function loadCutoutUrl(url, ref) {
@@ -1362,10 +1867,7 @@ function buildCompilePayload() {
     )
     .join("\n");
 
-  const wfMeta = state.workflows.find((w) => w.id === state.workflowId);
-  const mode = state.doc.mode === "point_targets"
-    ? "world_targets"
-    : (wfMeta?.id || (wfMeta?.has_first_frame ? "i2v_portal" : (state.anchorRef ? "r2v_portal" : "t2v_portal")));
+  const mode = resolvedWorkflowMode();
 
   const pf = evalPortalAtFrame(state.doc, state.frame, state.length);
   const sp = (state.spriteMode || state.spriteCutout?.img || (state.couplings || []).length > 0)
@@ -1385,7 +1887,7 @@ function buildCompilePayload() {
   return {
     mode,
     director_mode: state.doc.mode,
-    workflow: state.workflowId,
+    workflow: mode,
     width: state.doc.width,
     height: state.doc.height,
     length: state.length,
@@ -1396,9 +1898,11 @@ function buildCompilePayload() {
     sprite_mask_ref: state.spriteMaskRef || "",
     include_mask_ref: state.includeMaskRef || "",
     exclude_mask_ref: state.excludeMaskRef || "",
+    snap_to_include_mask: Boolean(state.snapToIncludeMask),
     sprite_pos: sp ? { x: sp.x, y: sp.y, face: sp.face } : null,
     halo_radius: Number(pf.halo_radius || 0),
     couplings: activeCouplings,
+    original_prompt: (state.originalPrompt || "").trim(),
     target_prompt: state.targetPrompt,
     same_prompt: Boolean(state.samePrompt),
     audio_refine: Boolean(state.audioRefine),
@@ -1422,7 +1926,7 @@ function buildCompilePayload() {
 
 async function renderPortalEdit() {
   if (!state.targetPrompt.trim() && !state.samePrompt && state.controlVector === "none") {
-    showToast("Enter a Target Latent Prompt inside the Contextual Card first.", "err");
+    showToast("Enter an action or spawn prompt inside the World Spawner card first.", "err");
     $("#target-prompt")?.focus();
     return;
   }
@@ -1437,9 +1941,17 @@ async function renderPortalEdit() {
     });
     state.activeRenderPromptId = res.prompt_id || "";
     state.activeBaselinePromptId = res.baseline_prompt_id || "";
-    showToast(`Queued ${state.length}f render (${res.preview_override_injected ? "live preview" : "standard"})`, "ok");
+    setActiveRender({
+      kind: "render",
+      pid: res.prompt_id || "",
+      phase: `Generating ${state.length}f World Clip (${payload.mode})…`,
+      step: 0,
+      total: 6,
+    });
+    showToast(`Queued ${state.length}f clip (${res.preview_override_injected ? "live taeh3 preview" : "standard"})`, "ok");
     await refreshTakes();
   } catch (err) {
+    clearActiveRender();
     showToast(`Render error: ${err.message}`, "err");
   } finally {
     if (btn) btn.disabled = false;
@@ -1489,10 +2001,73 @@ async function promoteSeedToHero() {
   await switchLength(heroTarget);
 }
 
+function rehydrateInFlightRender() {
+  if (state.activeRender || !(state.activeQueuePromptIds instanceof Set) || state.activeQueuePromptIds.size === 0) {
+    return;
+  }
+  const queuedMatches = state.takes.filter(
+    (t) =>
+      t &&
+      t.status === "queued" &&
+      (state.activeQueuePromptIds.has(String(t.prompt_id || "")) ||
+        (t.baseline_prompt_id && state.activeQueuePromptIds.has(String(t.baseline_prompt_id))))
+  );
+  if (!queuedMatches.length) return;
+  const take = queuedMatches.find((t) => t.client_id && t.client_id === wsClient?.clientId) || queuedMatches[0];
+  const pid = String(take.prompt_id || "");
+  if (!pid) return;
+
+  const kind = String(take.kind || "render");
+  const wf = String(take.mode || take.params?.workflow || "");
+  let total = Number(take.params?.steps || 6);
+  let phase = `Generating ${take.length || state.length}f World Clip (${wf || "i2v_portal"})…`;
+  let meta = null;
+
+  if (kind === "anchor") {
+    state.activeAnchorPromptId = pid;
+    total = wf === "ph3_image" ? 8 : 6;
+    phase = `Generating Still (${wf || "h3_image"})…`;
+  } else if (kind === "mask_preview") {
+    state.activeMaskPreviewPromptId = pid;
+    total = wf === "ph3_image" ? 8 : 6;
+    phase = `Mask Preview (${wf || "h3_image"})…`;
+    meta = {
+      region: take.params?.region || {},
+      feather: Number(take.params?.feather ?? state.doc.feather ?? 0.08),
+      snapToInclude: Boolean(take.params?.snap_to_include_mask),
+      maskRef: take.params?.mask_ref || "",
+    };
+  } else if (kind === "stamp") {
+    state.activeStampPromptId = pid;
+    total = wf === "ph3_image" ? 8 : 6;
+    phase = "Generating Actor Cutout…";
+  } else if (kind === "redub") {
+    state.activeRenderPromptId = pid;
+    phase = "Re-Dubbing Audio…";
+  } else {
+    state.activeRenderPromptId = pid;
+    if (take.baseline_prompt_id) state.activeBaselinePromptId = String(take.baseline_prompt_id);
+  }
+
+  setActiveRender({
+    kind,
+    pid,
+    phase,
+    step: 0,
+    total,
+    meta,
+    startedEpochMs: take.created_at ? Number(take.created_at) * 1000 : Date.now(),
+  });
+}
+
 async function refreshTakes() {
   try {
     const data = await apiJson("/api/takes");
     state.takes = Array.isArray(data.takes) ? data.takes : [];
+    if (data.queue_ok === true && Array.isArray(data.active_prompt_ids)) {
+      state.activeQueuePromptIds = new Set(data.active_prompt_ids.map(String));
+    }
+    rehydrateInFlightRender();
     renderTakesList();
   } catch {}
 }
@@ -1702,6 +2277,13 @@ async function redubTakeAudio(take, btn = null) {
       body: JSON.stringify(payload),
     });
     state.activeRenderPromptId = res.prompt_id || "";
+    setActiveRender({
+      kind: "redub",
+      pid: res.prompt_id || "",
+      phase: "Re-Dubbing Audio…",
+      step: 0,
+      total: Number(payload.steps || 6),
+    });
     const modeTag = res.redub_mode === "fresh" ? "Fresh 1.0x" : "Polish 0.5x";
     showToast(`Queued ${modeTag} audio re-dub (${res.take_id || "queued"})`, "ok");
     await refreshTakes();
@@ -1994,11 +2576,24 @@ function init() {
     onProgress: (d) => {
       if (d && d.max > 0) {
         syncLiveTaeBadges({ step: d.value, total: d.max, fps: null });
+        if (state.activeRender) {
+          state.activeRender.step = Number(d.value || 0);
+          state.activeRender.total = Number(d.max || 0);
+          updateRenderStatusOverlay();
+        }
       }
     },
     onPreviewTelemetry: (d) => {
       if (d && d.total > 0) {
-        syncLiveTaeBadges({ step: d.step || 0, total: d.total, fps: d.fps });
+        syncLiveTaeBadges({ step: d.step || 0, total: d.total, fps: d.fps, delta: d.delta });
+        if (state.activeRender) {
+          state.activeRender.step = Number(d.step || 0);
+          state.activeRender.total = Number(d.total || 0);
+          if (d.step_ms !== undefined && d.step_ms !== null) state.activeRender.stepMs = d.step_ms;
+          if (d.avg_step_ms !== undefined && d.avg_step_ms !== null) state.activeRender.avgStepMs = d.avg_step_ms;
+          if (d.delta !== undefined && d.delta !== null) state.activeRender.delta = d.delta;
+          updateRenderStatusOverlay();
+        }
       }
     },
     onPreviewMedia: (item) => {
@@ -2006,53 +2601,37 @@ function init() {
         ...item,
         fullFrame: state.livePreview?.fullFrame || Boolean(state.activeAnchorPromptId || state.activeStampPromptId),
       };
-      syncLiveTaeBadges({ step: item.step || 0, total: item.total || 0, fps: item.fps });
+      syncLiveTaeBadges({ step: item.step || 0, total: item.total || 0, fps: item.fps, delta: item.delta });
+      if (state.activeRender && item.total > 0) {
+        state.activeRender.step = Number(item.step || 0);
+        state.activeRender.total = Number(item.total || 0);
+        if (item.stepMs !== undefined && item.stepMs !== null) state.activeRender.stepMs = item.stepMs;
+        if (item.avgStepMs !== undefined && item.avgStepMs !== null) state.activeRender.avgStepMs = item.avgStepMs;
+        if (item.delta !== undefined && item.delta !== null) state.activeRender.delta = item.delta;
+        updateRenderStatusOverlay();
+      }
       stage?.render();
     },
     onExecuted: async (d) => {
       const pid = d?.prompt_id;
       await refreshTakes();
-      if (pid && pid === state.activeAnchorPromptId) {
-        state.activeAnchorPromptId = "";
-        state.livePreview = null;
-        const take = state.takes.find((t) => t.prompt_id === pid);
-        const im = take?.still_image || d?.output?.images?.[0];
-        if (im) {
-          await loadAnchorImageUrl(videoItemViewUrl(im), {
-            ref: `${im.subfolder ? im.subfolder + "/" : ""}${im.filename}`,
-            name: im.filename,
-          });
-          showToast("Anchor still ready", "ok");
-        }
-      } else if (pid && pid === state.activeStampPromptId) {
-        state.activeStampPromptId = "";
-        state.livePreview = null;
-        const take = state.takes.find((t) => t.prompt_id === pid);
-        const im = take?.still_image || d?.output?.images?.[0];
-        if (im) {
-          try {
-            const cut = await apiJson("/api/stamp_cutout", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ source_ref: im }),
-            });
-            const url = cut.view_url || videoItemViewUrl(cut);
-            if (url) await loadCutoutUrl(url, cut.cutout_ref || cut.ref || "");
-            showToast("Stamp cutout ready", "ok");
-          } catch {
-            await loadCutoutUrl(videoItemViewUrl(im), `${im.subfolder ? im.subfolder + "/" : ""}${im.filename}`);
-          }
-        }
-      } else if (!pid || pid === state.activeRenderPromptId || pid === state.activeBaselinePromptId) {
-        const take = state.takes.find((t) => t.prompt_id === (pid || state.activeRenderPromptId))
-          || state.takes.find((t) => t.clean_video || t.hud_video);
-        if (take && (take.clean_video || take.hud_video)) {
-          loadTakeIntoStage(take);
-          showToast("Portal render complete", "ok");
-        }
+      if (pid && await handleFinishedTakeById(pid)) {
+        return;
+      }
+      if (!pid && state.activeRender?.pid) {
+        await handleFinishedTakeById(state.activeRender.pid);
+        return;
+      }
+      const fallback = state.takes.find((t) => t.clean_video || t.hud_video);
+      if (!pid && fallback && state.activeRenderPromptId) {
+        state.activeRenderPromptId = "";
+        clearActiveRender();
+        loadTakeIntoStage(fallback);
+        showToast("World clip render complete", "ok");
       }
     },
     onExecutionError: (type, d) => {
+      clearActiveRender();
       showToast(`${type}: ${d?.exception_message || "Execution stopped"}`, "err", 6000);
     },
   });
@@ -2252,13 +2831,51 @@ function init() {
     state.anchorWorkflowId = ev.target.value;
   });
 
-  // Contextual Portal Card controls
+  // Contextual Portal Card & World Sandbox controls
   $("#btn-collapse-card")?.addEventListener("click", () => {
     $("#portal-card")?.classList.toggle("collapsed");
   });
   $("#target-prompt")?.addEventListener("input", (ev) => {
     state.targetPrompt = ev.target.value;
     syncPromptDiffPreview();
+  });
+  $("#original-prompt")?.addEventListener("input", (ev) => {
+    state.originalPrompt = ev.target.value;
+    syncPromptDiffPreview();
+  });
+  for (const qc of $$("#quick-action-chips .quick-chip")) {
+    qc.addEventListener("click", () => {
+      const act = qc.dataset.action || qc.textContent || "";
+      state.targetPrompt = act;
+      const tp = $("#target-prompt");
+      if (tp) tp.value = act;
+      syncPromptDiffPreview();
+    });
+  }
+  $("#btn-preview-mask")?.addEventListener("click", () => previewInMask());
+  $("#btn-clear-mask-preview")?.addEventListener("click", () => {
+    state.maskPreview = null;
+    syncAllUI();
+  });
+  $("#btn-cancel-render")?.addEventListener("click", async () => {
+    await apiJson("/api/interrupt", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ client_id: wsClient.clientId }) }).catch(() => {});
+    clearActiveRender();
+    state.livePreview = null;
+    showToast("Cancelled active render", "info", 2000);
+    stage?.render();
+  });
+  $("#btn-set-path")?.addEventListener("click", () => {
+    state.settingSpritePath = !state.settingSpritePath;
+    if (state.settingSpritePath) state.samPicking = false;
+    syncAllUI();
+    if (state.settingSpritePath) {
+      showToast("Click destination point on stage for Movable Actor path", "info", 2400);
+    }
+  });
+  $("#chk-snap-mask")?.addEventListener("change", (ev) => {
+    state.snapToIncludeMask = Boolean(ev.target.checked);
+    syncAllUI();
+    schedulePreflight();
   });
   $("#btn-refresh-suggest")?.addEventListener("click", () => refreshContextSuggestions());
   $("#card-cue-select")?.addEventListener("change", (ev) => {
@@ -2358,9 +2975,11 @@ function init() {
     syncMediaPlayback();
     syncAudioGuardAndSequencer();
   });
-  $("#btn-chain-frame")?.addEventListener("click", () => {
+  $("#btn-chain-frame")?.addEventListener("click", async () => {
     if (state.activeStageTake) {
-      chainTakeFrameToAnchor(state.activeStageTake, Math.max(0, Math.round(state.frame)), $("#btn-chain-frame"));
+      await chainTakeFrameToAnchor(state.activeStageTake, Math.max(0, Math.round(state.frame)), $("#btn-chain-frame"));
+    } else if (state.maskPreview?.img) {
+      await chainMaskPreviewToAnchor();
     }
   });
 
@@ -2495,7 +3114,13 @@ function init() {
   // Engine Drawer fields
   $("#engine-workflow")?.addEventListener("change", (ev) => {
     state.workflowId = ev.target.value;
+    state.workflowManualOverride = true;
+    syncPromptDiffPreview();
+    syncContextualCard();
     schedulePreflight();
+  });
+  $("#preview-workflow-select")?.addEventListener("change", (ev) => {
+    state.previewWorkflowId = ev.target.value;
   });
   $("#engine-canvas")?.addEventListener("change", (ev) => {
     const [w, h] = String(ev.target.value).split("x").map(Number);
