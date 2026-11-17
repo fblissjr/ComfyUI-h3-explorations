@@ -336,6 +336,21 @@ class SessionStore:
             t = self._takes.get(take_id)
             return copy.deepcopy(t) if t is not None else None
 
+    def find_take_by_video_filename(self, filename: str) -> dict[str, Any] | None:
+        target = Path(filename or "").name
+        if not target:
+            return None
+        with self._lock:
+            for tid in self._take_order:
+                t = self._takes.get(tid)
+                if not t:
+                    continue
+                for key in ("clean_video", "hud_video", "baseline_video"):
+                    item = t.get(key)
+                    if isinstance(item, dict) and Path(str(item.get("filename") or "")).name == target:
+                        return copy.deepcopy(t)
+        return None
+
     def client_for_prompt(self, prompt_id: str) -> str | None:
         with self._lock:
             return self._prompt_to_client.get(str(prompt_id))
@@ -464,6 +479,163 @@ class SessionStore:
             self._uploads = {u: s for u, s in self._uploads.items() if u in keep}
             self._save()
             return removed_pids
+
+
+def _backbone_for_image_workflow(workflow: str | None) -> str:
+    wf = str(workflow or "").strip().lower()
+    if wf == "pika_image":
+        return "pika"
+    if wf == "ph3_image":
+        return "ph3_image"
+    return "h3_image"
+
+
+def _extract_lineage_fields(
+    body: dict[str, Any],
+    *,
+    fallback_parent_id: str | None = None,
+) -> dict[str, Any]:
+    parent_tid = str(body.get("parent_take_id") or body.get("source_take_id") or fallback_parent_id or "").strip() or None
+    raw_pf = body.get("parent_frame")
+    parent_frame: int | None = None
+    if raw_pf is not None and not isinstance(raw_pf, bool) and str(raw_pf).strip() != "":
+        try:
+            parent_frame = max(0, int(raw_pf))
+        except (TypeError, ValueError):
+            parent_frame = None
+    return {"parent_take_id": parent_tid, "parent_frame": parent_frame}
+
+
+def _safe_ref_view_url(ref: str, *, default_type: str = "input") -> str:
+    clean = str(ref or "").strip()
+    if not clean:
+        return ""
+    try:
+        desc = _parse_view_descriptor(clean, default_type=default_type)
+        return _view_url(desc["filename"], desc["subfolder"], desc["type"])
+    except Exception:
+        return ""
+
+
+def _build_recipe_document(
+    take: dict[str, Any] | None,
+    *,
+    video_filename: str = "",
+    variant: str = "clean",
+    extra_recipe: dict[str, Any] | None = None,
+) -> dict[str, Any] | None:
+    """Build portable ``.director.json`` recipe sidecar metadata (zero local filesystem paths)."""
+    if take is None and not isinstance(extra_recipe, dict):
+        return None
+    raw_params: dict[str, Any] = {}
+    if isinstance(take, dict) and isinstance(take.get("params"), dict):
+        raw_params.update(copy.deepcopy(take["params"]))
+    if isinstance(extra_recipe, dict):
+        stage_part = extra_recipe.get("stage") if isinstance(extra_recipe.get("stage"), dict) else extra_recipe
+        for k, v in stage_part.items():
+            if k not in ("schema_version", "app", "exported_at", "video_filename", "variant"):
+                raw_params[k] = copy.deepcopy(v)
+
+    raw_events = raw_params.get("events_json")
+    events_obj: dict[str, Any] | None = None
+    if isinstance(raw_events, dict):
+        events_obj = copy.deepcopy(raw_events)
+    elif isinstance(raw_events, str) and raw_events.strip():
+        try:
+            parsed = json.loads(raw_events)
+            if isinstance(parsed, dict):
+                events_obj = parsed
+        except Exception:
+            events_obj = None
+
+    stage_doc: dict[str, Any] = {
+        "mode": str(raw_params.get("mode") or (take or {}).get("mode") or "i2v_portal"),
+        "director_mode": str(raw_params.get("director_mode") or (take or {}).get("director_mode") or "portal_path"),
+        "length": int(raw_params.get("length") or (take or {}).get("length") or 90),
+        "width": int(raw_params.get("width") or (take or {}).get("width") or 1344),
+        "height": int(raw_params.get("height") or (take or {}).get("height") or 768),
+        "seed": int(raw_params.get("seed") if raw_params.get("seed") is not None else ((take or {}).get("seed") or 0)),
+        "source_ref": str(
+            raw_params.get("source_ref")
+            or raw_params.get("first_frame")
+            or raw_params.get("anchor_image")
+            or raw_params.get("ref_image")
+            or ""
+        ).strip(),
+        "last_frame": str(raw_params.get("last_frame") or "").strip(),
+        "sprite_ref": str(raw_params.get("sprite_ref") or raw_params.get("sprite_cutout") or "").strip(),
+        "sprite_mask_ref": str(raw_params.get("sprite_mask_ref") or "").strip(),
+        "include_mask_ref": str(raw_params.get("include_mask_ref") or "").strip(),
+        "exclude_mask_ref": str(raw_params.get("exclude_mask_ref") or "").strip(),
+        "snap_to_include_mask": bool(raw_params.get("snap_to_include_mask", False)),
+        "lock_first_frame": bool(raw_params.get("lock_first_frame", True)),
+        "original_prompt": str(raw_params.get("original_prompt") or "").strip(),
+        "target_prompt": str(raw_params.get("target_prompt") or raw_params.get("prompt") or "").strip(),
+        "same_prompt": bool(raw_params.get("same_prompt", False)),
+        "audio_refine": bool(raw_params.get("audio_refine", False)),
+        "feather": float(raw_params.get("feather", 0.08)),
+        "invert_mask": bool(raw_params.get("invert_mask", False)),
+        "scale": float(raw_params.get("scale", 2.0)),
+        "audio_scale": float(raw_params.get("audio_scale", 1.0)),
+        "first_step": int(raw_params.get("first_step", 0)),
+        "last_step": int(raw_params.get("last_step", 1000)),
+        "streams": str(raw_params.get("streams") or "independent"),
+        "control_vectors": copy.deepcopy(raw_params.get("control_vectors") or []),
+        "couplings": copy.deepcopy(raw_params.get("couplings") or []),
+        "portal_cues": copy.deepcopy(raw_params.get("portal_cues") or []),
+        "events_json": events_obj if events_obj is not None else {},
+    }
+    ex = extra_recipe if isinstance(extra_recipe, dict) else {}
+    res_vid = video_filename or str(ex.get("video_filename") or "")
+    res_var = variant if video_filename else str(ex.get("variant") or variant or "clean")
+    res_pf = (
+        (take or {}).get("parent_frame")
+        if (take and take.get("parent_frame") is not None)
+        else (ex.get("parent_frame") if ex.get("parent_frame") is not None else raw_params.get("parent_frame"))
+    )
+    return {
+        "schema_version": 1,
+        "app": APP_MARK,
+        "exported_at": float(ex.get("exported_at") or time.time()),
+        "video_filename": Path(res_vid).name if res_vid else "",
+        "variant": str(res_var or "clean"),
+        "take_id": (take or {}).get("take_id") or ex.get("take_id"),
+        "parent_take_id": (take or {}).get("parent_take_id") or ex.get("parent_take_id") or raw_params.get("parent_take_id"),
+        "parent_frame": res_pf,
+        "stage": stage_doc,
+    }
+
+
+def _normalize_imported_recipe(raw_doc: dict[str, Any]) -> dict[str, Any]:
+    """Validate and normalize an imported ``.director.json`` or ``Take`` record into stage state."""
+    if not isinstance(raw_doc, dict):
+        raise ValueError("Recipe must be a JSON object")
+
+    if isinstance(raw_doc.get("stage"), dict):
+        built = _build_recipe_document(None, extra_recipe=raw_doc)
+    elif isinstance(raw_doc.get("params"), dict) or raw_doc.get("take_id"):
+        built = _build_recipe_document(raw_doc)
+    else:
+        built = _build_recipe_document(None, extra_recipe=raw_doc)
+    if built is None:
+        raise ValueError("Recipe payload is empty")
+
+    stage = built["stage"]
+    stage["length"] = compiler.snap_to_on_both_clocks(int(stage.get("length") or 90))
+    ev = stage.get("events_json")
+    if isinstance(ev, str):
+        ev = json.loads(ev) if ev.strip() else {}
+    if not isinstance(ev, dict):
+        raise ValueError("Recipe events_json must decode to a JSON object")
+    stage["events_json"] = ev
+
+    ref_urls: dict[str, str] = {}
+    for key in ("source_ref", "last_frame", "sprite_ref", "sprite_mask_ref", "include_mask_ref", "exclude_mask_ref"):
+        val = str(stage.get(key) or "").strip()
+        if val:
+            ref_urls[key] = _safe_ref_view_url(val, default_type="input")
+    built["ref_view_urls"] = ref_urls
+    return built
 
 
 def _normalize_media_entry(entry: dict[str, Any]) -> dict[str, Any]:
@@ -1068,6 +1240,7 @@ async def handle_system_stats(request: web.Request) -> web.Response:
             "devices": (stats or {}).get("devices") or [],
             "output_dir": out_label,
             "state_dir": state_label,
+            "resident_backbone": app.get("last_resident_backbone"),
         }
     )
 
@@ -1211,6 +1384,7 @@ async def _read_json_body(request: web.Request) -> dict[str, Any]:
 _SCHEMA_OBJECT_INFO_CLASSES: tuple[str, ...] = (
     compiler.PREVIEW_NODE_CLASS,
     "MiniMaxH3SpatialDirector",
+    "MiniMaxH3GuideLatent",
     "MiniMaxH3AudioRefineMask",
     "MiniMaxH3FrozenVideoCache",
     "SAM3_Detect",
@@ -1270,6 +1444,7 @@ async def handle_anchor(request: web.Request) -> web.Response:
             client_id=client_id,
             extra_meta={"kind": "anchor"},
         )
+        request.app["last_resident_backbone"] = _backbone_for_image_workflow(compiled["workflow"])
     except ValueError as exc:
         return web.json_response({"ok": False, "error": str(exc)}, status=400)
     except Exception as exc:
@@ -1287,6 +1462,7 @@ async def handle_anchor(request: web.Request) -> web.Response:
             "status": "queued",
             "mode": compiled["workflow"],
             "seed": compiled["seed"],
+            **_extract_lineage_fields(body),
             "params": body,
             "still_image": None,
             "created_at": time.time(),
@@ -1467,6 +1643,7 @@ async def handle_preview_in_mask(request: web.Request) -> web.Response:
 
     client_id = str(body.get("client_id") or secrets.token_hex(8))
     obj_info = await _fetch_object_info(request.app)
+    req_workflow = str(body.get("workflow") or body.get("preview_workflow") or "auto").strip()
     compile_cfg = {
         **body,
         "source_ref": source_ref_norm,
@@ -1474,7 +1651,8 @@ async def handle_preview_in_mask(request: web.Request) -> web.Response:
         "target_prompt": target_prompt,
         "region_x": fx,
         "region_y": fy,
-        "workflow": str(body.get("workflow") or body.get("preview_workflow") or "h3_image"),
+        "workflow": req_workflow,
+        "resident_backbone": request.app.get("last_resident_backbone"),
     }
     try:
         compiled = compiler.compile_masked_still_edit(compile_cfg, object_info=obj_info)
@@ -1484,6 +1662,7 @@ async def handle_preview_in_mask(request: web.Request) -> web.Response:
             client_id=client_id,
             extra_meta={"kind": "mask_preview"},
         )
+        request.app["last_resident_backbone"] = _backbone_for_image_workflow(compiled["workflow"])
     except ValueError as exc:
         return web.json_response({"ok": False, "error": str(exc)}, status=400)
     except Exception as exc:
@@ -1501,6 +1680,7 @@ async def handle_preview_in_mask(request: web.Request) -> web.Response:
             "status": "queued",
             "mode": compiled["workflow"],
             "seed": compiled["seed"],
+            **_extract_lineage_fields(body),
             "params": compile_cfg,
             "still_image": None,
             "created_at": time.time(),
@@ -1515,6 +1695,8 @@ async def handle_preview_in_mask(request: web.Request) -> web.Response:
             "prompt_id": prompt_id,
             "client_id": client_id,
             "workflow": compiled["workflow"],
+            "requested_workflow": req_workflow,
+            "resident_backbone": request.app["last_resident_backbone"],
             "seed": compiled["seed"],
             "mask_ref": mask_ref,
             "mask_view_url": _view_url(m_saved, m_sub, m_type),
@@ -1622,6 +1804,7 @@ async def handle_stamp_cutout(request: web.Request) -> web.Response:
             client_id=client_id,
             extra_meta={"kind": "stamp"},
         )
+        request.app["last_resident_backbone"] = _backbone_for_image_workflow(compiled["workflow"])
     except ValueError as exc:
         return web.json_response({"ok": False, "error": str(exc)}, status=400)
     except Exception as exc:
@@ -2062,6 +2245,7 @@ async def handle_render(request: web.Request) -> web.Response:
                 client_id=client_id,
                 extra_meta={"kind": "spatial", "role": "baseline", "take_id": take_id},
             )
+        request.app["last_resident_backbone"] = "pika"
     except ValueError as exc:
         return web.json_response({"ok": False, "error": str(exc)}, status=400)
     except Exception as exc:
@@ -2082,6 +2266,7 @@ async def handle_render(request: web.Request) -> web.Response:
             "width": compiled["width"],
             "height": compiled["height"],
             "seed": compiled["seed"],
+            **_extract_lineage_fields(body),
             "params": body,
             "clean_video": None,
             "hud_video": None,
@@ -2323,6 +2508,7 @@ async def handle_redub(request: web.Request) -> web.Response:
             client_id=client_id,
             extra_meta={"kind": "redub", "role": "edited", "take_id": new_take_id},
         )
+        request.app["last_resident_backbone"] = "pika"
     except Exception as exc:
         return web.json_response({"ok": False, "error": str(exc)}, status=502)
 
@@ -2338,6 +2524,7 @@ async def handle_redub(request: web.Request) -> web.Response:
             "mode": compiled["mode"],
             "director_mode": compiled["mode"],
             "source_take_id": take["take_id"] if take else None,
+            **_extract_lineage_fields(body, fallback_parent_id=take["take_id"] if take else None),
             "length": compiled["length"],
             "width": compiled["width"],
             "height": compiled["height"],
@@ -2417,26 +2604,78 @@ async def handle_context_suggest(request: web.Request) -> web.Response:
             return web.json_response({"ok": True, "enabled": False, "suggestions": []})
 
         use_vision = bool(source_spec and ("vision" in _caps(chosen)))
+        reg = body.get("region") if isinstance(body.get("region"), dict) else {}
+        has_reticle = ("x" in body and "y" in body) or isinstance(body.get("region"), dict)
+        x_n = max(0.0, min(1.0, float(reg.get("x", body.get("x", 0.5)))))
+        y_n = max(0.0, min(1.0, float(reg.get("y", body.get("y", 0.5)))))
+        rx_n = max(0.03, min(0.85, float(reg.get("rx", body.get("rx", 0.22)))))
+        ry_n = max(0.03, min(0.85, float(reg.get("ry", body.get("ry", rx_n)))))
+
         content_blocks: list[dict[str, Any]] = []
         if use_vision:
             try:
-                from PIL import Image, ImageOps
+                from PIL import Image, ImageDraw, ImageOps
 
                 s_desc = _parse_view_descriptor(source_spec, default_type="input")
                 st_s, raw_img, _ = await _comfy_fetch_view(request.app, s_desc)
                 if st_s == 200 and raw_img:
                     with Image.open(io.BytesIO(raw_img)) as im:
-                        im = ImageOps.exif_transpose(im).convert("RGB")
-                        im.thumbnail((1024, 1024), Image.Resampling.LANCZOS)
-                        buf = io.BytesIO()
-                        im.save(buf, format="JPEG", quality=85)
-                    b64_img = base64.b64encode(buf.getvalue()).decode("ascii")
-                    content_blocks.append(
-                        {
-                            "type": "image",
-                            "source": {"type": "base64", "media_type": "image/jpeg", "data": b64_img},
-                        }
-                    )
+                        full_im = ImageOps.exif_transpose(im).convert("RGB")
+                        w0, h0 = max(1, full_im.width), max(1, full_im.height)
+
+                        scene_im = full_im.copy()
+                        scene_im.thumbnail((1024, 1024), Image.Resampling.LANCZOS)
+                        if has_reticle:
+                            tw, th = scene_im.width, scene_im.height
+                            short_t = float(min(tw, th))
+                            cx_t = x_n * float(tw)
+                            cy_t = y_n * float(th)
+                            rx_t = max(8.0, rx_n * short_t)
+                            ry_t = max(8.0, ry_n * short_t)
+                            draw = ImageDraw.Draw(scene_im)
+                            box_outer = [cx_t - rx_t - 1, cy_t - ry_t - 1, cx_t + rx_t + 1, cy_t + ry_t + 1]
+                            box_inner = [cx_t - rx_t, cy_t - ry_t, cx_t + rx_t, cy_t + ry_t]
+                            draw.ellipse(box_outer, outline=(255, 255, 255), width=4)
+                            draw.ellipse(box_inner, outline=(37, 99, 235), width=2)
+
+                        buf_scene = io.BytesIO()
+                        scene_im.save(buf_scene, format="JPEG", quality=85)
+                        content_blocks.append(
+                            {
+                                "type": "image",
+                                "source": {
+                                    "type": "base64",
+                                    "media_type": "image/jpeg",
+                                    "data": base64.b64encode(buf_scene.getvalue()).decode("ascii"),
+                                },
+                            }
+                        )
+
+                        if has_reticle:
+                            short_0 = float(min(w0, h0))
+                            half_w = max(48, int(round(rx_n * short_0 * 1.65)))
+                            half_h = max(48, int(round(ry_n * short_0 * 1.65)))
+                            cx0 = int(round(x_n * float(w0)))
+                            cy0 = int(round(y_n * float(h0)))
+                            x0 = max(0, cx0 - half_w)
+                            y0 = max(0, cy0 - half_h)
+                            x1 = min(w0, cx0 + half_w)
+                            y1 = min(h0, cy0 + half_h)
+                            if (x1 - x0) >= 24 and (y1 - y0) >= 24:
+                                roi_im = full_im.crop((x0, y0, x1, y1))
+                                roi_im.thumbnail((512, 512), Image.Resampling.LANCZOS)
+                                buf_roi = io.BytesIO()
+                                roi_im.save(buf_roi, format="JPEG", quality=85)
+                                content_blocks.append(
+                                    {
+                                        "type": "image",
+                                        "source": {
+                                            "type": "base64",
+                                            "media_type": "image/jpeg",
+                                            "data": base64.b64encode(buf_roi.getvalue()).decode("ascii"),
+                                        },
+                                    }
+                                )
             except Exception:
                 pass
 
@@ -2447,19 +2686,33 @@ async def handle_context_suggest(request: web.Request) -> web.Response:
             user_text_parts.append(f"Scene description:\n{prompt_ctx}")
         if cur_target:
             user_text_parts.append(f"Current user draft: {cur_target}")
-        user_text_parts.append(
-            "Return ONLY a JSON array of up to 3 concise world-event / localized edit actions "
-            "(under 12 words each) suited to this scene: "
-            '[{"title":"short 2-4 word label","target_prompt":"concise action or localized edit","preset":"sparkle_burst"}].'
-        )
+        if use_vision and has_reticle:
+            user_text_parts.append(
+                f"Image 1 marks the selected target reticle in blue at normalized ({x_n:.2f}, {y_n:.2f}); "
+                "Image 2 is the zoomed crop of that target region. Return ONLY a JSON object: "
+                '{"scene_caption":"one concise visual sentence describing the whole scene",'
+                '"subject_label":"short noun phrase naming the subject inside the reticle",'
+                '"suggestions":[{"title":"2-4 word label","target_prompt":"concise action inside reticle (under 12 words)","preset":"sparkle_burst"}]}.'
+            )
+            system_msg = (
+                "You ground interactive spatial video edits strictly in Image 1 (reticle) and Image 2 (zoomed crop). "
+                "Name only visible subjects/objects inside the blue reticle and suggest up to 3 vivid localized edits. Return valid JSON only."
+            )
+        else:
+            user_text_parts.append(
+                "Return ONLY a JSON array of up to 3 concise world-event / localized edit actions "
+                "(under 12 words each) suited to this scene: "
+                '[{"title":"short 2-4 word label","target_prompt":"concise action or localized edit","preset":"sparkle_burst"}].'
+            )
+            system_msg = (
+                "You suggest concise, vivid world-sandbox actions grounded strictly in the attached scene image or description. "
+                "Do not invent unrelated subjects or animals not present in the scene. Return a valid JSON array only."
+            )
         content_blocks.append({"type": "text", "text": "\n\n".join(user_text_parts)})
 
         req_payload = {
             "model": model_id,
-            "system": (
-                "You suggest concise, vivid world-sandbox actions grounded strictly in the attached scene image or description. "
-                "Do not invent unrelated subjects or animals not present in the scene. Return a valid JSON array only."
-            ),
+            "system": system_msg,
             "messages": [{"role": "user", "content": content_blocks}],
             "temperature": 0.6,
             "max_tokens": 512,
@@ -2489,10 +2742,38 @@ async def handle_context_suggest(request: web.Request) -> web.Response:
         if "</think>" in cleaned:
             cleaned = cleaned.split("</think>", 1)[1].strip()
         cleaned = re.sub(r"^```(?:json)?\s*|\s*```$", "", cleaned, flags=re.I | re.S).strip()
-        match = re.search(r"\[.*\]", cleaned, re.S)
-        parsed = json.loads(match.group(0)) if match else json.loads(cleaned)
-        suggestions = [s for s in parsed if isinstance(s, dict) and (s.get("target_prompt") or s.get("title"))][:4]
-        return web.json_response({"ok": True, "enabled": True, "suggestions": suggestions})
+        try:
+            parsed = json.loads(cleaned)
+        except Exception:
+            match_obj = re.search(r"\{.*\}", cleaned, re.S)
+            match_arr = re.search(r"\[.*\]", cleaned, re.S)
+            if match_obj and (not match_arr or match_obj.start() < match_arr.start()):
+                parsed = json.loads(match_obj.group(0))
+            elif match_arr:
+                parsed = json.loads(match_arr.group(0))
+            else:
+                raise
+
+        scene_caption = ""
+        subject_label = ""
+        raw_items: Any = parsed
+        if isinstance(parsed, dict):
+            scene_caption = str(parsed.get("scene_caption") or "").strip()[:280]
+            subject_label = str(parsed.get("subject_label") or "").strip()[:120]
+            raw_items = parsed.get("suggestions") or []
+        if not isinstance(raw_items, list):
+            raw_items = []
+        suggestions = [s for s in raw_items if isinstance(s, dict) and (s.get("target_prompt") or s.get("title"))][:4]
+        return web.json_response(
+            {
+                "ok": True,
+                "enabled": True,
+                "suggestions": suggestions,
+                "scene_caption": scene_caption,
+                "subject_label": subject_label,
+                "reticle_grounded": bool(use_vision and has_reticle),
+            }
+        )
     except Exception:
         return web.json_response({"ok": True, "enabled": False, "suggestions": []})
 
@@ -2757,6 +3038,30 @@ async def handle_export(request: web.Request) -> web.Response:
     tmp_file.write_bytes(raw_bytes)
     tmp_file.replace(dest)
 
+    store: SessionStore = request.app["store"]
+    take_id = str(body.get("take_id") or "").strip()
+    take = store.get_take(take_id) if take_id else None
+    if take is None:
+        take = store.find_take_by_video_filename(src_desc["filename"])
+    extra_recipe = body.get("recipe") if isinstance(body.get("recipe"), dict) else None
+    recipe_doc = _build_recipe_document(
+        take,
+        video_filename=safe_name,
+        variant=str(body.get("variant") or "clean"),
+        extra_recipe=extra_recipe,
+    )
+    recipe_filename = None
+    recipe_output_rel = None
+    if recipe_doc is not None:
+        sidecar_name = f"{Path(safe_name).stem}.director.json"
+        sidecar_dest = (video_dir / sidecar_name).resolve()
+        if sidecar_dest.is_relative_to(video_dir.resolve()):
+            tmp_sidecar = video_dir / f".{sidecar_name}.{secrets.token_hex(4)}.tmp"
+            tmp_sidecar.write_text(json.dumps(recipe_doc, indent=2), encoding="utf-8")
+            tmp_sidecar.replace(sidecar_dest)
+            recipe_filename = sidecar_name
+            recipe_output_rel = f"Video/{sidecar_name}"
+
     return web.json_response(
         {
             "ok": True,
@@ -2766,8 +3071,57 @@ async def handle_export(request: web.Request) -> web.Response:
             "output_rel": f"Video/{safe_name}",
             "view_url": _view_url(safe_name, "Video", "output"),
             "bytes": len(raw_bytes),
+            "recipe_filename": recipe_filename,
+            "recipe_output_rel": recipe_output_rel,
         }
     )
+
+
+async def handle_import_recipe(request: web.Request) -> web.Response:
+    """Validate and normalize an exported ``.director.json`` sidecar or recorded ``take_id`` for stage restore."""
+    try:
+        body = await _read_json_body(request)
+    except Exception as exc:
+        return web.json_response({"ok": False, "error": str(exc)}, status=400)
+
+    store: SessionStore = request.app["store"]
+    raw_doc: Any = None
+    take_id = str(body.get("take_id") or "").strip()
+    if body.get("recipe_filename") is not None:
+        raw_fn = str(body.get("recipe_filename") or "").strip()
+        if (
+            not raw_fn
+            or "/" in raw_fn
+            or "\\" in raw_fn
+            or ".." in raw_fn
+            or not _SAFE_FILENAME_RE.match(raw_fn)
+            or not raw_fn.endswith(".director.json")
+        ):
+            return web.json_response({"ok": False, "error": "invalid recipe_filename"}, status=400)
+        video_dir = (_resolve_output_dir() / "Video").resolve()
+        target = (video_dir / raw_fn).resolve()
+        if not target.is_relative_to(video_dir):
+            return web.json_response({"ok": False, "error": "invalid recipe_filename"}, status=400)
+        if not target.is_file():
+            return web.json_response({"ok": False, "error": f"recipe sidecar not found: {raw_fn}"}, status=404)
+        try:
+            raw_doc = json.loads(target.read_text(encoding="utf-8"))
+        except Exception as exc:
+            return web.json_response({"ok": False, "error": f"invalid recipe JSON: {exc}"}, status=400)
+    elif isinstance(body.get("recipe"), dict):
+        raw_doc = body["recipe"]
+    elif take_id:
+        raw_doc = store.get_take(take_id)
+        if raw_doc is None:
+            return web.json_response({"ok": False, "error": f"Unknown take_id {take_id!r}"}, status=404)
+    else:
+        return web.json_response({"ok": False, "error": "take_id, recipe_filename, or recipe object is required"}, status=400)
+
+    try:
+        normalized = _normalize_imported_recipe(raw_doc)
+    except (ValueError, TypeError, json.JSONDecodeError) as exc:
+        return web.json_response({"ok": False, "error": str(exc)}, status=400)
+    return web.json_response({"ok": True, "recipe": normalized})
 
 
 async def handle_interrupt(request: web.Request) -> web.Response:
@@ -2985,6 +3339,7 @@ def create_app(
     app["allowed_hosts"] = allowed_hosts
     app["store"] = SessionStore(Path(state_dir))
     app["ws_clients"] = {}
+    app["last_resident_backbone"] = None
 
     async def _on_startup(a: web.Application) -> None:
         a["http_client"] = ClientSession()
@@ -3022,6 +3377,7 @@ def create_app(
     app.router.add_get("/api/view", handle_view)
     app.router.add_post("/api/ab_metrics", handle_ab_metrics)
     app.router.add_post("/api/export", handle_export)
+    app.router.add_post("/api/import_recipe", handle_import_recipe)
     app.router.add_post("/api/interrupt", handle_interrupt)
     app.router.add_post("/api/forget", handle_forget)
     app.router.add_get("/api/ws", handle_ws)

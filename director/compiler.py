@@ -247,11 +247,31 @@ def available_anchor_workflows() -> list[dict[str, Any]]:
 
 def available_image_edit_workflows() -> list[dict[str, Any]]:
     """Describe single-frame image-edit workflow templates for mask previews."""
-    out: list[dict[str, Any]] = []
+    any_avail = any(Path(spec["path"]).is_file() for spec in IMAGE_EDIT_WORKFLOW_TEMPLATES.values())
+    out: list[dict[str, Any]] = [
+        {
+            "id": "auto",
+            "label": "Auto (Warm Resident — Pika ~4s / H3-Image HQ)",
+            "available": any_avail,
+        }
+    ]
     for key, spec in IMAGE_EDIT_WORKFLOW_TEMPLATES.items():
         p = Path(spec["path"])
         out.append({"id": key, "label": spec["label"], "available": p.is_file()})
     return out
+
+
+def resolve_image_edit_workflow(workflow: str | None, *, resident_backbone: str | None = None) -> str:
+    """Resolve ``'auto'`` / empty masked-edit workflow against active resident VRAM backbone."""
+    raw = str(workflow or "auto").strip()
+    if raw in ("", "auto"):
+        bb = str(resident_backbone or "").strip().lower()
+        if bb == "pika":
+            return "pika_image"
+        if bb == "ph3_image":
+            return "ph3_image"
+        return "h3_image"
+    return raw
 
 
 def list_control_vectors() -> list[dict[str, Any]]:
@@ -411,6 +431,20 @@ def has_spatial_combined_support(object_info: dict[str, Any] | None) -> bool:
         return True
     modes = _extract_combo_options(req.get("mode"))
     return ("combined" in modes) and ("include_mask" in opt) and ("exclude_mask" in opt)
+
+
+def has_guide_latent_support(object_info: dict[str, Any] | None) -> bool:
+    """Return True unless connected ``/object_info`` proves ``MiniMaxH3GuideLatent`` is absent."""
+    if not isinstance(object_info, dict):
+        return True
+    if isinstance(object_info.get("MiniMaxH3GuideLatent"), dict):
+        return True
+    sd = object_info.get("MiniMaxH3SpatialDirector")
+    if isinstance(sd, dict):
+        inp = sd.get("input") or {}
+        if inp.get("required") or inp.get("optional"):
+            return False
+    return True
 
 
 def _normalize_sam3_points(raw_pts: Any, *, width: int, height: int) -> list[dict[str, int]]:
@@ -677,6 +711,134 @@ def _describe_spatial_region(x: float, y: float) -> str:
     return f"the {vert}-{horiz} region"
 
 
+def _collect_spatial_beats(
+    events_doc: dict[str, Any],
+    *,
+    director_mode: str,
+    length: int,
+    fallback_prompt: str = "",
+) -> tuple[list[dict[str, Any]], str]:
+    """Collect chronologically ordered spatial event beats and optional portal motion note."""
+    max_f = max(0, int(length) - 1)
+    targets = sorted(
+        (t for t in (events_doc.get("targets") or ()) if isinstance(t, dict)),
+        key=lambda t: (int(round(float(t.get("start", 0)))), int(t.get("id", 0))),
+    )
+    portal = sorted(
+        (k for k in (events_doc.get("portal") or ()) if isinstance(k, dict)),
+        key=lambda k: int(round(float(k.get("frame", 0)))),
+    )
+
+    fb = str(fallback_prompt or "").strip()
+    beats: list[dict[str, Any]] = []
+    trajectory_note = ""
+
+    if len(portal) >= 2:
+        k0, k1 = portal[0], portal[-1]
+        dx = float(k1.get("x", 0.5)) - float(k0.get("x", 0.5))
+        dy = float(k1.get("y", 0.5)) - float(k0.get("y", 0.5))
+        if math.hypot(dx, dy) >= 0.14:
+            r0 = _describe_spatial_region(float(k0.get("x", 0.5)), float(k0.get("y", 0.5)))
+            r1 = _describe_spatial_region(float(k1.get("x", 0.5)), float(k1.get("y", 0.5)))
+            t0 = f"{max(0, int(round(float(k0.get('frame', 0))))) / 24.0:.2f}"
+            t1 = f"{max(0, int(round(float(k1.get('frame', max_f))))) / 24.0:.2f}"
+            trajectory_note = f"sweeping smoothly from {r0} at {t0}s to {r1} at {t1}s"
+
+    if director_mode in ("point_targets", "combined") and targets:
+        has_custom_target_prompt = any(str(t.get("prompt") or "").strip() for t in targets)
+        for t in targets:
+            s_f = max(0, min(max_f, int(round(float(t.get("start", 0))))))
+            e_f = max(s_f, min(max_f, int(round(float(t.get("end", max_f))))))
+            reg = _describe_spatial_region(float(t.get("x", 0.5)), float(t.get("y", 0.5)))
+            cue = str(t.get("cue") or "").strip().lower()
+            cue = "" if cue == "none" else cue
+            t_prompt = str(t.get("prompt") or "").strip()
+            beats.append(
+                {
+                    "kind": "target",
+                    "start": s_f,
+                    "end": e_f,
+                    "region": reg,
+                    "prompt": t_prompt or fb,
+                    "explicit_prompt": bool(t_prompt),
+                    "cue": cue,
+                }
+            )
+        if director_mode == "combined" and portal:
+            p_explicit = [str(k.get("prompt") or "").strip() for k in portal if str(k.get("prompt") or "").strip()]
+            p_start = max(0, min(max_f, int(round(float(portal[0].get("frame", 0))))))
+            p_end = max(p_start, min(max_f, int(round(float(portal[-1].get("frame", max_f))))))
+            mid_k = portal[len(portal) // 2] if len(portal) > 1 else portal[0]
+            p_reg = _describe_spatial_region(float(mid_k.get("x", 0.5)), float(mid_k.get("y", 0.5)))
+            if p_explicit or (fb and has_custom_target_prompt):
+                beats.append(
+                    {
+                        "kind": "portal",
+                        "start": p_start,
+                        "end": p_end,
+                        "region": trajectory_note or p_reg,
+                        "prompt": p_explicit[0] if p_explicit else fb,
+                        "explicit_prompt": bool(p_explicit),
+                        "cue": "",
+                    }
+                )
+        beats.sort(key=lambda b: (b["start"], b["end"]))
+        return beats, (trajectory_note if director_mode == "combined" else "")
+
+    if portal:
+        explicit_kfs = [
+            (
+                max(0, min(max_f, int(round(float(k.get("frame", 0)))))),
+                k,
+                str(k.get("prompt") or "").strip(),
+            )
+            for k in portal
+            if str(k.get("prompt") or "").strip()
+        ]
+        distinct_prompts = {p for _, _, p in explicit_kfs if p}
+        if len(explicit_kfs) >= 2 and len(distinct_prompts) >= 2:
+            for idx, (kf_f, k_item, k_prompt) in enumerate(explicit_kfs):
+                next_f = explicit_kfs[idx + 1][0] if idx + 1 < len(explicit_kfs) else max_f
+                end_f = max(kf_f, next_f - 1 if (idx + 1 < len(explicit_kfs) and next_f > kf_f) else max_f)
+                beats.append(
+                    {
+                        "kind": "portal",
+                        "start": kf_f,
+                        "end": end_f,
+                        "region": _describe_spatial_region(float(k_item.get("x", 0.5)), float(k_item.get("y", 0.5))),
+                        "prompt": k_prompt,
+                        "explicit_prompt": True,
+                        "cue": "",
+                    }
+                )
+            return beats, trajectory_note
+
+        mid_k = portal[len(portal) // 2] if len(portal) > 1 else portal[0]
+        p_start = max(0, min(max_f, int(round(float(portal[0].get("frame", 0))))))
+        p_end = max(p_start, min(max_f, int(round(float(portal[-1].get("frame", max_f))))))
+        p_prompt = explicit_kfs[0][2] if explicit_kfs else fb
+        beats.append(
+            {
+                "kind": "portal",
+                "start": p_start,
+                "end": p_end,
+                "region": _describe_spatial_region(float(mid_k.get("x", 0.5)), float(mid_k.get("y", 0.5))),
+                "prompt": p_prompt,
+                "explicit_prompt": bool(explicit_kfs),
+                "cue": "",
+            }
+        )
+    return beats, trajectory_note
+
+
+def _events_have_per_event_prompts(events_doc: dict[str, Any]) -> bool:
+    for key in ("targets", "portal"):
+        for item in events_doc.get(key) or ():
+            if isinstance(item, dict) and str(item.get("prompt") or "").strip():
+                return True
+    return False
+
+
 def _summarize_focus_region_and_time(
     events_doc: dict[str, Any],
     *,
@@ -799,37 +961,83 @@ def synthesize_spatial_prompts(
     if raw_target and _has_h3_video_sections(raw_target):
         edited_out = raw_target
     else:
-        action_desc = raw_target if raw_target else "dynamic localized transformation unfolding inside the active region"
-        cue_audio_parts = [c.replace("_", " ") for c in cues]
-        audio_desc = (
-            f"Crisp localized acoustic event matching {action_desc} ({', '.join(cue_audio_parts)}) erupting around {onset_s} seconds atop consistent scene ambience."
-            if cue_audio_parts
-            else f"Localized sound effects matching {action_desc} arriving around {onset_s} seconds over subtle natural scene ambience."
+        beats, trajectory_note = _collect_spatial_beats(
+            events_doc,
+            director_mode=director_mode,
+            length=length,
+            fallback_prompt=raw_target,
         )
         sprite_react = (
             " Nearby subjects react dynamically with natural illumination bounce, air impulse, and cast shadows."
             if has_sprite
             else ""
         )
-        if use_pic1:
-            edited_out = (
-                f"For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.\n\n"
-                f"integrated_multimodal_description: [Shot 1] Live-action, cinematic, holding the exact framing, camera angle, "
-                f"palette, and spatial layout established in <Picture 1> across the {dur_s}-second take. "
-                f"Focused inside {region_phrase} from {onset_s}s to {offset_s}s, {action_desc}, interacting naturally with nearby surfaces, "
-                f"lighting, and reflections.{sprite_react} Outside the active region, all architecture, horizon, lighting, and surrounding scenery "
-                f"from <Picture 1> remain faithfully preserved.\n\n"
-                f"overall_soundscape:\n{audio_desc}\n\n"
-                f"non_diegetic_music:\nN/A"
-            )
+        cue_audio_parts = [c.replace("_", " ") for c in cues]
+
+        if len(beats) >= 2:
+            visual_clauses: list[str] = []
+            audio_clauses: list[str] = []
+            for b in beats:
+                b_on = f"{float(b['start']) / 24.0:.2f}"
+                b_off = f"{float(b['end']) / 24.0:.2f}"
+                b_act = str(b.get("prompt") or "").strip() or "localized transformation unfolding in place"
+                b_reg = str(b.get("region") or region_phrase)
+                visual_clauses.append(f"from {b_on}s to {b_off}s inside {b_reg}, {b_act}")
+                cue_tag = f" ({b['cue'].replace('_', ' ')})" if b.get("cue") else ""
+                audio_clauses.append(f"around {b_on} seconds{cue_tag} matching {b_act}")
+
+            timeline_visual = "; ".join(visual_clauses)
+            motion_note = f" The focal effect follows a path {trajectory_note}." if trajectory_note else ""
+            audio_desc = f"Staggered localized acoustic events erupt {', and '.join(audio_clauses)} atop consistent natural scene ambience."
+            region_summary = f"{len(beats)} beats @ f{beats[0]['start']}..{beats[-1]['end']}"
+
+            if use_pic1:
+                edited_out = (
+                    f"For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.\n\n"
+                    f"integrated_multimodal_description: [Shot 1] Live-action, cinematic, holding the exact framing, camera angle, "
+                    f"palette, and spatial layout established in <Picture 1> across the {dur_s}-second take. "
+                    f"In chronological sequence, {timeline_visual}, each interacting naturally with nearby surfaces, lighting, and reflections."
+                    f"{motion_note}{sprite_react} Outside the active regions, all architecture, horizon, lighting, and surrounding scenery "
+                    f"from <Picture 1> remain faithfully preserved.\n\n"
+                    f"overall_soundscape:\n{audio_desc}\n\n"
+                    f"non_diegetic_music:\nN/A"
+                )
+            else:
+                edited_out = (
+                    f"integrated_multimodal_description: [Shot 1] Live-action, cinematic {dur_s}-second shot. "
+                    f"In chronological sequence, {timeline_visual}, casting realistic lighting, motion, and physical interaction "
+                    f"into the surrounding environment while camera framing stays steady.{motion_note}\n\n"
+                    f"overall_soundscape:\n{audio_desc}\n\n"
+                    f"non_diegetic_music:\nN/A"
+                )
         else:
-            edited_out = (
-                f"integrated_multimodal_description: [Shot 1] Live-action, cinematic {dur_s}-second shot. "
-                f"Focused at {region_phrase} between {onset_s}s and {offset_s}s, {action_desc}, casting realistic lighting, motion, "
-                f"and physical interaction into the surrounding environment while camera framing stays steady.\n\n"
-                f"overall_soundscape:\n{audio_desc}\n\n"
-                f"non_diegetic_music:\nN/A"
+            single_prompt = str(beats[0].get("prompt") or "").strip() if beats else ""
+            action_desc = single_prompt or raw_target or "dynamic localized transformation unfolding inside the active region"
+            motion_note = f" while {trajectory_note}" if trajectory_note else ""
+            audio_desc = (
+                f"Crisp localized acoustic event matching {action_desc} ({', '.join(cue_audio_parts)}) erupting around {onset_s} seconds atop consistent scene ambience."
+                if cue_audio_parts
+                else f"Localized sound effects matching {action_desc} arriving around {onset_s} seconds over subtle natural scene ambience."
             )
+            if use_pic1:
+                edited_out = (
+                    f"For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.\n\n"
+                    f"integrated_multimodal_description: [Shot 1] Live-action, cinematic, holding the exact framing, camera angle, "
+                    f"palette, and spatial layout established in <Picture 1> across the {dur_s}-second take. "
+                    f"Focused inside {region_phrase} from {onset_s}s to {offset_s}s{motion_note}, {action_desc}, interacting naturally with nearby surfaces, "
+                    f"lighting, and reflections.{sprite_react} Outside the active region, all architecture, horizon, lighting, and surrounding scenery "
+                    f"from <Picture 1> remain faithfully preserved.\n\n"
+                    f"overall_soundscape:\n{audio_desc}\n\n"
+                    f"non_diegetic_music:\nN/A"
+                )
+            else:
+                edited_out = (
+                    f"integrated_multimodal_description: [Shot 1] Live-action, cinematic {dur_s}-second shot. "
+                    f"Focused at {region_phrase} between {onset_s}s and {offset_s}s{motion_note}, {action_desc}, casting realistic lighting, motion, "
+                    f"and physical interaction into the surrounding environment while camera framing stays steady.\n\n"
+                    f"overall_soundscape:\n{audio_desc}\n\n"
+                    f"non_diegetic_music:\nN/A"
+                )
 
     clauses = [str(c).strip() for c in (reaction_clauses or []) if str(c).strip()]
     if clauses:
@@ -998,7 +1206,10 @@ def compile_masked_still_edit(
 ) -> dict[str, Any]:
     """Compile a 1-frame masked image edit with ``MiniMaxH3EditGuider`` + ``taeh3_image`` preview."""
     cfg = dict(params or {})
-    workflow_key = str(cfg.get("workflow") or "h3_image").strip()
+    workflow_key = resolve_image_edit_workflow(
+        cfg.get("workflow"),
+        resident_backbone=cfg.get("resident_backbone"),
+    )
     if workflow_key not in IMAGE_EDIT_WORKFLOW_TEMPLATES:
         raise ValueError(
             f"Unknown image edit workflow {workflow_key!r}; expected one of {list(IMAGE_EDIT_WORKFLOW_TEMPLATES)}"
@@ -1560,7 +1771,8 @@ def _compile_single_spatial(
             "inputs": {"value": synth_edit},
         }
         graph["131"]["inputs"]["prompt"] = ["134", 0]
-        prompt_mode = "target_prompt" if target_prompt else "synthesized_hold"
+        has_ev_prompts = _events_have_per_event_prompts(events_doc)
+        prompt_mode = "target_prompt" if (target_prompt or has_ev_prompts) else "synthesized_hold"
 
     if not same_prompt and reaction_clauses:
         clause_suffix = " ".join(reaction_clauses)
@@ -1590,7 +1802,7 @@ def _compile_single_spatial(
     sprite_mask_ref = str(params.get("sprite_mask_ref") or "").strip()
     native_combined = has_spatial_combined_support(object_info)
 
-    for stale_id in ("166", "167", "168", "170", "171", "172", "173", "174", "175", "176", "177", "178", "179"):
+    for stale_id in ("166", "167", "168", "169", "170", "171", "172", "173", "174", "175", "176", "177", "178", "179"):
         graph.pop(stale_id, None)
     n160.pop("include_mask", None)
     n160.pop("exclude_mask", None)
@@ -1784,21 +1996,47 @@ def _compile_single_spatial(
             }
             final_mask_ref = ["179", 0]
 
-    # Conditional SoundCues ("70") + Preflight ("26") + EditGuider ("9") positive inputs.
+    # Conditional Frame-0 GuideLatent pin ("169") for R2V so movable sprites do not unpin Frame 0,
+    # followed by SoundCues ("70") -> Preflight ("26") -> EditGuider ("9").
     has_cues = _events_have_sound_cues(events_doc, params, director_mode=director_mode)
     latent_source = "132" if is_r2v else "5"
+    lock_first_frame = bool(params.get("lock_first_frame", True))
+    pin_guide_f0 = bool(
+        is_r2v and source_ref and lock_first_frame and has_guide_latent_support(object_info)
+    )
+    if pin_guide_f0:
+        graph["169"] = {
+            "class_type": "MiniMaxH3GuideLatent",
+            "inputs": {
+                "positive": ["5", 0],
+                "latent": [latent_source, 1],
+                "vae": ["3", 0],
+                "guide": ["15", 0],
+                "frame_idx": 0,
+                "single_frame": False,
+                "edited_positive": ["131", 0],
+            },
+        }
+        cond_pos_ref: list[Any] = ["169", 0]
+        cond_lat_ref: list[Any] = ["169", 1]
+        cond_edit_ref: list[Any] = ["169", 2]
+    else:
+        cond_pos_ref = ["5", 0]
+        cond_lat_ref = [latent_source, 1]
+        cond_edit_ref = ["131", 0]
+
     if has_cues:
         graph["70"] = {
             "class_type": "MiniMaxH3SoundCues",
             "inputs": {
-                "positive": ["5", 0],
-                "latent": [latent_source, 1],
+                "positive": cond_pos_ref,
+                "latent": cond_lat_ref,
                 "audio_vae": ["4", 0],
                 "cues": fallback_cues_ref,
                 "snap_to_3f": True,
                 "floor_dbfs": float(params.get("floor_dbfs", -28.0)),
                 "seed": int(params.get("audio_seed", seed)),
-                "edited_positive": ["131", 0],
+                "edited_positive": cond_edit_ref,
             },
         }
         graph["26"]["inputs"] = {
@@ -1810,11 +2048,11 @@ def _compile_single_spatial(
     else:
         graph.pop("70", None)
         graph["26"]["inputs"] = {
-            "conditioning": ["5", 0],
-            "samples": [latent_source, 1],
-            "edited_conditioning": ["131", 0],
+            "conditioning": cond_pos_ref,
+            "samples": cond_lat_ref,
+            "edited_conditioning": cond_edit_ref,
         }
-        edited_ref = ["131", 0]
+        edited_ref = cond_edit_ref
 
     n9 = graph["9"]["inputs"]
     n9["original"] = ["26", 0]
@@ -1958,6 +2196,7 @@ def _compile_single_spatial(
         "nodes_summary": {
             "has_sprite": has_sprite,
             "has_sprite_mask": bool(has_sprite and sprite_mask_ref),
+            "guide_latent_pinned": pin_guide_f0,
             "has_include_mask": bool(include_mask_ref),
             "has_exclude_mask": bool(exclude_mask_ref),
             "spatial_combined_native": native_combined,
@@ -2059,8 +2298,13 @@ def compute_preflight_summary(params: dict[str, Any] | None = None) -> dict[str,
     video_tokens = latent_steps * tokens_per_frame
 
     ref_tokens = 0
+    has_source_ref = bool(
+        cfg.get("source_ref") or cfg.get("ref_image") or cfg.get("first_frame") or cfg.get("anchor_image")
+    )
     if mode in ("r2v_portal", "world_targets"):
         ref_tokens += tokens_per_frame
+        if bool(cfg.get("lock_first_frame", True)) and has_source_ref:
+            ref_tokens += tokens_per_frame
         if cfg.get("sprite_ref") or cfg.get("sprite_cutout") or cfg.get("sprite_image"):
             sw = int(cfg.get("sprite_canvas_width", 384))
             sh = int(cfg.get("sprite_canvas_height", 224))
@@ -2068,8 +2312,21 @@ def compute_preflight_summary(params: dict[str, Any] | None = None) -> dict[str,
     elif mode == "i2v_portal":
         ref_tokens += tokens_per_frame
 
+    per_event_text = ""
+    raw_ev = cfg.get("events_json")
+    if raw_ev is not None:
+        try:
+            ev_doc, _ = _parse_events_doc(raw_ev, "{}")
+            per_event_text = " ".join(
+                str(item.get("prompt") or "")
+                for k in ("targets", "portal")
+                for item in (ev_doc.get(k) or ())
+                if isinstance(item, dict) and item.get("prompt")
+            )
+        except Exception:
+            per_event_text = ""
     prompt_text = " ".join(
-        str(cfg.get(k) or "") for k in ("original_prompt", "target_prompt", "edit_lines")
+        [*(str(cfg.get(k) or "") for k in ("original_prompt", "target_prompt", "edit_lines")), per_event_text]
     ).strip()
     prompt_tokens_est = max(64, len(prompt_text) // 4 + 64)
     total_tokens = video_tokens + audio_tokens + ref_tokens + prompt_tokens_est
@@ -2533,6 +2790,7 @@ def get_schema_data(object_info: dict[str, Any] | None = None, *, heylook_sugges
             "sam3": bool(sam3_cap["available"]),
             "sam3_engine": sam3_cap["engine"],
             "spatial_combined": has_spatial_combined_support(object_info),
+            "guide_latent": has_guide_latent_support(object_info),
             "audio_refine": has_audio_refine_support(object_info),
         },
         "defaults": {
@@ -2552,7 +2810,7 @@ def get_schema_data(object_info: dict[str, Any] | None = None, *, heylook_sugges
             "halo_radius": 0.0,
             "hud_layout": "director_card",
             "anchor_workflow": "h3_image",
-            "preview_image_workflow": "h3_image",
+            "preview_image_workflow": "auto",
             "preview_fps": 7,
         },
     }

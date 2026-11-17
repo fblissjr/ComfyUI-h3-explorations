@@ -1,119 +1,147 @@
 # Spatial Director: Current-to-Vision Gap Analysis & Roadmap
 
 > Last updated: 2026-11-17.
-> Maps the observable gaps between today's implementation in [`director/`](AGENTS.md) and the enduring direction defined in [`director/VISION.md`](VISION.md). For day-to-day usage and the 6-level progressive tutorial, see [`docs/wiki/spatial_director_guide.md`](../docs/wiki/spatial_director_guide.md); for module ownership and invariants, see [`director/AGENTS.md`](AGENTS.md).
+> Maps the observable gaps between today's implementation in [`director/`](AGENTS.md) and the enduring direction defined in [`director/VISION.md`](VISION.md), organized across all three backend layers and three delivery horizons. For day-to-day usage and the 6-level progressive tutorial, see [`docs/wiki/spatial_director_guide.md`](../docs/wiki/spatial_director_guide.md); for module ownership and invariants, see [`director/AGENTS.md`](AGENTS.md).
 
 ---
 
 ## 1. Current Baseline — What Already Works End-to-End
 
-Today's studio (`:8195` local HTTP / `:8194` private overlay HTTPS alongside ComfyUI `:8188`) delivers a complete **single-event anchored loop**:
+Today's studio (`:8195` local HTTP / `:8194` private overlay HTTPS alongside ComfyUI `:8188`) delivers a responsive anchored editing loop, including the **Batch 1 (`2026-11-17`, Zero-ComfyUI-Restart) Backend Lift**:
 
-1. **World State Anchor:** Upload a still image, extract Frame 0 from an uploaded MP4 (`director/server.py::_decode_frame0_or_image`), or generate a `4 MP`+ 1-frame still (`director/compiler.py::compile_still` across `MiniMax-H3-Image`, `Pika H3 Image`, and `P-H3-Image`).
-2. **Zero-Latency (`0 ms`) Stage Choreography:** Drag circular/elliptical/split portals, tune concentric inner aperture vs. outer reaction halo (`Scroll` / `Shift+Scroll`), place timed point targets, segment Frame-0 subjects via SAM 3.1 (`POST /api/segment`), lift or generate an RGBA actor cutout with `WASD`/path waypoints, and audition `3`-frame (`125 ms`) WebAudio cues (`director/static/js/stage.js`, `director/static/js/sequencer.js`, `director/static/js/foley_synth.js`).
-3. **1-Frame Masked Pre-Viz:** Run a localized still edit inside the active region (`POST /api/preview_in_mask` -> `director/compiler.py::compile_masked_still_edit`) with live `taeh3_image.safetensors` step previews, then roll the composited preview forward as the new World State.
-4. **Localized Joint AV Simulation & Counterfactual Audit:** Compile dual-branch `edit_guidance.py::MiniMaxH3EditGuider` Pika 6-step takes (`director/compiler.py::compile_spatial_take`, `i2v_portal` Frame-0 default) on `h3_rules.py::on_both_clocks` with real-time `27`-frame `taeh3.safetensors` step previews, optional 2nd-pass `MiniMaxH3FrozenVideoCache` + `MiniMaxH3AudioRefineMask` re-dubbing, `A|B` spatial wipe + In-Mask/Out-Mask MAE telemetry (`POST /api/ab_metrics`), and `temp/` scratch isolation until explicit export to `$H3_OUTPUT_DIR/Video/`.
+1. **World State Anchor:** Upload a still image, extract Frame 0 from an uploaded `.mp4` (`director/server.py::_decode_frame0_or_image`), drag/upload a saved `.director.json` sidecar recipe (`director/server.py::handle_import_recipe`), or generate a `4 MP`+ 1-frame still (`director/compiler.py::compile_still` across `MiniMax-H3-Image`, `Pika H3 Image`, and `P-H3-Image`).
+2. **Zero-Latency (`0 ms`) Stage Choreography:** Drag circular/elliptical/split portals, tune concentric inner aperture vs. outer reaction halo (`Scroll` / `Shift+Scroll`), place multiple timed point targets with per-event prompts, segment Frame-0 subjects via SAM 3.1 (`POST /api/segment`), lift or generate an RGBA actor cutout with `WASD`/path waypoints, and audition `3`-frame (`125 ms`) WebAudio cues (`director/static/js/stage.js`, `director/static/js/sequencer.js`, `director/static/js/foley_synth.js`).
+3. **Warm-VRAM Aware 1-Frame Pre-Viz:** Run a localized still edit inside the active region (`POST /api/preview_in_mask` -> `director/compiler.py::compile_masked_still_edit`) using `workflow="auto"` (`director/compiler.py::resolve_image_edit_workflow`) to stay on warm Pika (`pika_image`) when Pika video was last resident in VRAM or switch to `h3_image` (`16 -> 4 MP`) for high-res still bakes, then roll the composited preview forward as the new World State.
+4. **Anchored Localized Joint AV Simulation & Counterfactual Audit:** Compile dual-branch `edit_guidance.py::MiniMaxH3EditGuider` Pika 6-step takes (`director/compiler.py::compile_spatial_take`, `i2v_portal` Frame-0 default; `r2v_portal` / `world_targets` now pinning Frame 0 via `guide_latent.py::MiniMaxH3GuideLatent` node `"169"` alongside movable sprites) with chronological multi-beat `<T.T seconds>` prompts (`director/compiler.py::_collect_spatial_beats`, `director/compiler.py::synthesize_spatial_prompts`), real-time `27`-frame `taeh3.safetensors` previews, optional 2nd-pass `MiniMaxH3FrozenVideoCache` + `MiniMaxH3AudioRefineMask` re-dubbing, `A|B` spatial wipe + In-Mask/Out-Mask MAE telemetry (`POST /api/ab_metrics`), reticle-grounded `heylook` suggestions (`POST /api/context_suggest`), `parent_take_id` / `parent_frame` Shot-DAG tracking (`director/server.py::SessionStore`), and `<export_name>.director.json` provenance sidecars on export (`POST /api/export`).
 
 ---
 
 ## 2. At-a-Glance Gap Matrix
 
-| Vision Pillar (`director/VISION.md`) | Current State on Disk | Desired Future State | Leverage |
-| :--- | :--- | :--- | :--- |
-| **1. Anchored Reality & V2V Surgery** *(§2.1, §5)* | Guidance-space `MiniMaxH3EditGuider` only; MP4 upload extracts **Frame 0 PNG only** and discards frames `1..N`; attaching a sprite forces `ref2va` (**unpinning Frame 0**) | True video-to-video masked inpainting (`MiniMaxH3MaskedSource` + `MiniMaxH3RestorePlate` with frozen audio) + `MiniMaxH3GuideLatent` Frame-0 pin alongside sprites | **High** (pack nodes already exist) |
-| **2. Multi-Event & Multi-Entity Causality** *(§2.2, §2.4, §5)* | Multiple target pins exist in `events_json`, **but share one global `#target-prompt`** (`targets[0]` wins); SAM is 1-frame static (`SAM3_Detect`), 1 sprite max | Per-event prompts & staggered causal beats (`t0` impulse -> `t1` actor reaction); video-tracked `MiniMaxH3SubjectTrack` masks across moving plates | **High** |
-| **3. Recipe Lineage & Reopenability** *(§2.6, §5)* | `POST /api/export` copies raw `.mp4` bytes only (recipe lost on `Forget Temp`); `Load Stage` plays video without restoring controls; 8-item RAM `shotHistory` | Sidecar/embedded `.director.json` recipes on export; 1-click **Restore Recipe to Stage**; persistent **Branching Shot Tree** with `39f` causal overlap | **High** (immediate studio win) |
-| **4. Latency & Warm VRAM Harmony** *(§2.3)* | `Preview in Circle` defaults to `h3_image` (`16 -> 4 MP`), triggering ~20 GB VRAM checkpoint swaps (`~25–35s`) when alternating with Pika video | Warm-VRAM-aware pre-viz (`~3–5s` 1-frame Pika edit reusing `MiniMaxH3EncodeReferences` KV cache when Pika is resident; `h3_image` for HQ bake) + draggable preview patch | **Medium–High** |
-| **5. Visual Co-Direction (Local VLM)** *(§2.2, §5)* | Prompt compiler is **visually blind** to `<Picture 1>` unless `Scene Context Override` is typed; `heylook` sees whole frame without the `(x, y, r)` reticle | Reticle-cropped visual grounding: local VLM sees the exact circled object, grounds `<Subject 1>` automatically, and translates conversational stage notes | **Medium–High** |
-| **6. Live-Loop Puppeteering** *(§2.3, §5)* | Keyframes and waypoints are placed while paused or via discrete clicks; dragging / `WASD` during playback does not record live trajectories | Live-loop recording: hold-drag a portal, steer keys, or click impulses *while the 24 fps loop plays*, auto-fitting curves onto `[1, 4, 4, 4, 4]` steps | **Medium** |
-| **7. Spatial & Locked Acoustics** *(§2.4)* | Unpanned procedural `3f` `MiniMaxH3SoundCues` + full-stream `AudioRefineMask`; no imported audio stem lock (`MiniMaxH3FreezeAudio`) | Portal `x -> stereo L/R pan` in both `FoleySynth` and `MiniMaxH3SoundCues`; `MiniMaxH3FreezeAudio` stem lock so visual edits preserve uploaded voice/music | **Medium** |
-| **8. Pocket / Touch Surface Craft** *(§2.7)* | `/docs` is responsive, but main `/` stage relies on desktop `Wheel` / `Shift+Wheel` / `Alt+Wheel` / `WASD` and wide desktop chrome | Multi-touch pinch aperture, two-finger halo gesture, responsive bottom-sheet inspector, and phone/tablet ergonomics over private overlay HTTPS | **Medium** |
+| Vision Pillar (`director/VISION.md`) | Prior State | Current State (Post-Batch 1, `2026-11-17`) | Remaining Future State (Horizons 2–3) | Leverage |
+| :--- | :--- | :--- | :--- | :--- |
+| **1. Anchored Reality & V2V Surgery** *(§2.1, §5)* | Attaching a sprite unpinned Frame 0 (`ref2va` `<Picture 1>` only); MP4 frames `1..N` discarded | **Batch 1:** `MiniMaxH3GuideLatent` (`"169"`) pins Frame 0 inside `r2v_portal` / `world_targets`; **Remaining:** MP4 frames `1..N` + source audio still unused during generation | True **`v2v_masked`** plate restoration (`MiniMaxH3MaskedVideoLatent` + `MiniMaxH3RestorePlate` + `MiniMaxH3CompositePlate`) locking unmasked video pixels & original audio | **High** (Batch 2) |
+| **2. Multi-Event & Multi-Entity Causality** *(§2.2, §2.4, §5)* | `targets[0]` overwrote all pins; single global prompt only; static 1-frame SAM | **Batch 1:** Chronological multi-beat `<T.T seconds>` prompt synthesis across per-target & per-keyframe `prompt` fields; **Remaining:** static Frame-0 SAM, 1 sprite max | Multi-shot tracked cast masks via `subject_track.py::MiniMaxH3SubjectTrack` across camera/actor motion + multi-actor `dpad` tracks + `MiniMaxH3DirectorHUD` per-beat badges | **High** (Batch 2) |
+| **3. Recipe Lineage & Reopenability** *(§2.6, §5)* | Export wrote raw `.mp4` only; `Load Stage` played video only; linear `shotHistory` | **Batch 1:** `.director.json` export sidecars, `POST /api/import_recipe` + dropzone + **Restore Recipe** on Takes, `parent_take_id` / `parent_frame` persisted in `takes.json` | Visual branching **Shot Tree** graph UI + `39`-frame causal overlap handoffs (`h3_rules.py::chain_lengths`) for continuous motion & room-tone continuity | **High** (Batch 3) |
+| **4. Latency & Warm VRAM Harmony** *(§2.3)* | Fixed `h3_image` pre-viz swapped ~20 GB checkpoints on every video alternation | **Batch 1:** `workflow="auto"` tracks `app["last_resident_backbone"]` and stays on warm `pika_image` when Pika Video is loaded; **Remaining:** fixed patch coords + Pika 1x KV reuse | Re-use persistent `MiniMaxH3EncodeReferences` KV prefix across rapid iterations + draggable `0 ms` floating preview patch before bake | **Medium–High** |
+| **5. Visual Co-Direction (Local VLM)** *(§2.2, §5)* | Prompt compiler blind to canvas; `heylook` saw unmarked whole image | **Batch 1:** `POST /api/context_suggest` composites the `(x, y, rx, ry)` reticle onto Image #1 AND attaches a padded `512px` ROI crop as Image #2, returning `scene_caption` & `subject_label` | Auto-caption on upload into `<Subject N>` definitions + conversational `POST /api/co_direct` translating natural stage notes directly into `events_json` keyframes & prompt diffs | **Medium–High** |
+| **6. Live-Loop Puppeteering** *(§2.3, §5)* | Pause-and-place keyframes & discrete clicks only | Pause-and-place keyframes & discrete `WASD`/clicks | Opt-in **Record on Loop (`R`)** pass sampling continuous drags/keys at `24 fps` and fitting clean curves onto `[1, 4, 4, 4, 4]` causal steps | **Medium** (Batch 3) |
+| **7. Spatial & Locked Acoustics** *(§2.4)* | Unpanned mono-duplicated `3f` cues; no audio stem lock | Unpanned `MiniMaxH3SoundCues` + full-stream `AudioRefineMask`; no imported audio stem lock | Horizontal `x -> [-1..+1]` stereo pan in both `sound_cues.py::synthesize_island_waveform` and `FoleySynth`, plus `audio_freeze.py::MiniMaxH3FreezeAudio` voice/music stem locking | **Medium** (Batch 2) |
+| **8. Pocket / Touch Surface Craft** *(§2.7)* | `/docs` responsive; `/` stage tied to desktop mouse modifiers + keyboard | `/docs` has responsive reader + pan/zoom SVG lightbox; `/` stage still desktop-wheel-centric | Multi-touch pinch aperture, two-finger halo gesture, `44px` bottom-sheet inspector for private overlay (`:8194`) mobile/tablet control | **Medium** (Batch 3) |
 
 ---
 
-## 3. Code-Verified Architectural Gaps
+## 3. Three-Layer Backend Architecture & Gap Ledger
 
-### Gap 1: Guidance Steering Only — Missing Video-to-Video Plate Restoration & Pinned-Frame-0 Sprites
-- **Where it lives today:** `director/server.py::_decode_frame0_or_image` (`director/server.py:701-710`) and `director/compiler.py::compile_spatial_take` (`director/compiler.py:1461-1488`).
-- **What happens:**
-  1. Uploading an `.mp4` extracts Frame 0 as a static PNG and imports the clip into `takes.json` for playback/extraction, **discarding frames `1..N` and original audio during generation**. Even in `i2v_portal`, unmasked pixels on frames `1..N` evolve along the `original` prompt branch rather than locking to a captured video plate.
-  2. Attaching a movable cutout (`sprite_ref`) forces `mode` into `r2v_portal` or `world_targets` (`director/compiler.py:1461-1469`), demoting the anchor photo from pinned `first_frame` (`t = 0`) to `<Picture 1>` (`t < 0` reference) — allowing the model to re-compose camera framing and background architecture whenever a sprite is active.
-- **How to close it:**
-  - Add a **`v2v_masked`** workflow route in [`director/compiler.py`](compiler.py) wiring [`video_mask.py`](../video_mask.py) (`video_mask.py::MiniMaxH3MaskedSource`, max-pooled over `[1, 4, 4, 4, 4]` x `32x32` patches with `NestedTensor` audio freeze) + [`plate_restore.py`](../plate_restore.py) (`plate_restore.py::MiniMaxH3RestorePlate`) so uploaded videos keep `100%` pixel-locked unmasked plates and untouched original audio.
-  - Wire [`guide_latent.py`](../guide_latent.py) (`guide_latent.py::MiniMaxH3GuideLatent` pinning Frame 0 at `t = 0`) inside `r2v_portal` so `sprite_trajectory.py::MiniMaxH3AppendSpriteTrajectory` (`<Video N>` at `t < 0`) moves actors across a locked Frame-0 scene without re-rolling the room.
+The Spatial Director backend spans three distinct code layers with different restart boundaries:
 
-### Gap 2: Multi-Event Stage vs. Single-Prompt Bottleneck & Static Frame-0 Masks
-- **Where it lives today:** `spatial_director.py::WorldTargetEvent` (`spatial_director.py:65-80`), `director/compiler.py::_summarize_focus_region_and_time` (`director/compiler.py:680-721`), and `director/static/js/app.js:66-70`.
-- **What happens:**
-  1. Although a user can drop multiple timed `WorldTargetEvent` pins on the loop capsule (`f18`, `f54`, `f96`), `WorldTargetEvent` stores no per-event action text. Only one global `state.targetPrompt` (`#target-prompt`) exists, and `_summarize_focus_region_and_time` (`director/compiler.py:695-705`) reads **`primary_t = targets[0]` only** for the spatial region phrase and `onset_s..offset_s` window in `director/compiler.py::synthesize_spatial_prompts`.
-  2. SAM 3.1 segmentation (`POST /api/segment`) runs single-frame `SAM3_Detect` on Frame 0 (`1` include mask, `1` exclude mask, `1` sprite cutout), and `director/static/js/stage.js::computeCouplingInfo` (`director/static/js/stage.js:181-222`) computes a single radial `push`/`pull` vector onto that lone cutout.
-- **How to close it:**
-  - Add an optional `prompt` (and `subject_id`) field to `WorldTargetEvent` and portal keyframes so `synthesize_spatial_prompts` emits ordered, time-stamped `<T.T seconds>` multi-beat clauses across all active events.
-  - Upgrade entity locking on video plates from static Frame-0 `SAM3_Detect` PNGs to multi-object video tracking via [`subject_track.py`](../subject_track.py) (`subject_track.py::MiniMaxH3SubjectTrack`), allowing multiple named entities to be independently targeted, reacted, or protected across camera/subject motion.
+1. **Layer 1 — ComfyUI Pack Nodes (repo root `*.py`)**: Require restarting ComfyUI `:8188` only when adding nodes or altering `io.Schema` widget definitions.
+2. **Layer 2 — Runtime Graph & Prompt Compiler (`director/compiler.py`)**: Top-level stdlib only (`bench/check_imports.py`); live on `:8195` restart only.
+3. **Layer 3 — Studio Server, Provenance Store & Local VLM (`director/server.py`, `director/routes.py`)**: Live on `:8195` restart only.
 
-### Gap 3: Recipe Amnesia on Export & Reload + Linear-Only Roll-Forward
-- **Where it lives today:** `director/server.py::handle_export` (`director/server.py:2731-2770`), `director/static/js/app.js::loadTakeIntoStage` (`director/static/js/app.js:2163-2195`), and `director/static/js/app.js::chainTakeFrameToAnchor` (`director/static/js/app.js:2197-2255`).
-- **What happens:**
-  1. `POST /api/export` copies raw `temp/*.mp4` bytes to `$H3_OUTPUT_DIR/Video/<name>.mp4` with **zero sidecar or embedded recipe metadata**. Once `Forget Temp` runs, the portals, cues, masks, seed, and prompts behind that exported select cannot be recovered.
-  2. Clicking **Load Stage** in the `Takes` drawer loads the rendered `.mp4` for playback and `A|B` comparison, **without** restoring `take.params` (`events_json`, `target_prompt`, `original_prompt`, `seed`, `scale`, `anchor_image`) back onto the stage controls for iterative refinement.
-  3. Multi-shot chaining (`Roll Forward`) extracts a single still frame (`frame_index = -1` or current frame) into an 8-slot in-memory `state.shotHistory` array (`director/static/js/app.js:76`), losing motion momentum, room-tone audio continuity, and sibling shot branches.
-- **How to close it:**
-  - Write `<name>.director.json` provenance sidecars alongside exported `.mp4` files (and support importing `.director.json` back onto the stage), plus add a **Restore Recipe** action on every Take card in `Takes`.
-  - Persist `parent_take_id` + `parent_frame` in `takes.json` to render a navigable **Branching Shot Tree**, and add `39`-frame causal overlap handoffs on `h3_rules.py::chain_lengths` so motion velocity and room acoustics bridge smoothly across shot seams.
+### Layer 1 — ComfyUI Pack Nodes (`*.py`, `:8188`)
+
+| Capability Needed by Vision | Underlying Pack Primitives Already on Disk | Code-Verified Pack Gap (`path::Symbol` & Exact Catch) | Target Batch |
+| :--- | :--- | :--- | :--- |
+| **Frame-0 Lock Alongside Movable R2V Sprites** | `guide_latent.py::MiniMaxH3GuideLatent`, `control_vector_nodes.py::MiniMaxH3ReleaseReferences` | **None — Ready & Wired (`2026-11-17`).** `MiniMaxH3GuideLatent(frame_idx=0, edited_positive=...)` attaches `minimax_keyframes` to both branches, and `MiniMaxH3ReleaseReferences(end_percent=1.0, video_end_percent=0.33)` keeps Frame 0 pinned across all steps while releasing `<Video N>` sprite trajectories. | **Batch 1 (Shipped)** |
+| **True Masked V2V with Frozen Audio & `EditGuider`** | `video_mask.py::token_mask`, `video_mask.py::composite`, `plate_restore.py::MiniMaxH3RestorePlate`, `audio_freeze.py::MiniMaxH3FreezeAudio` | **Thin Wrapper Nodes Needed:** `video_mask.py::MiniMaxH3MaskedSource` (`video_mask.py:2330`) returns a custom `H3_MASKED_SOURCE` dict consumed exclusively by `audio_freeze_song.py::MiniMaxH3AudioFreezeSong` (`audio_freeze_song.py:905`), which embeds `BasicGuider` and writes directly to `$H3_OUTPUT_DIR`. It cannot feed `SamplerCustomAdvanced` + `edit_guidance.py::MiniMaxH3EditGuider` + `ModelPreviewOverrideKJ` (`27f` `taeh3`). **Fix:** Add two thin nodes wrapping `video_mask.py::token_mask` and `video_mask.py::composite`: `MiniMaxH3MaskedVideoLatent` (emitting `(latent_with_noise_mask, plate_latent, spatial_mask_tensor)` with audio frozen at `0.0`) and `MiniMaxH3CompositePlate` (blending decoded video over clean source pixels). | **Batch 2 (`:8188` reload)** |
+| **Multi-Shot Moving Entity Masks (`SAM 3.1`)** | `subject_track.py::MiniMaxH3SubjectTrack`, `shot_table.py::MiniMaxH3SaveShotTable` | **Frame-0 Detect Only Today:** Studio UI currently calls `SAM3_Detect` on Frame 0 only. Video-tracked cast masks across moving cameras need a lightweight wrapper or JSON mask-track cache feeding `MiniMaxH3SubjectTrack` outputs (`[N, H, W]` binary masks) into V2V mask pooling. | **Batch 2** |
+| **Spatial Stereo Panning (`3f` Cues)** | `sound_cues.py::MiniMaxH3SoundCues`, `sound_cues.py::synthesize_island_waveform` | **Mono Duplicated Across L/R:** `sound_cues.py::synthesize_island_waveform` (`sound_cues.py:304`, `L332-334`) renders mono `[n_samples]` and duplicates `torch.stack([mono, mono], dim=0)`, ignoring spatial coordinate `x`. **Fix:** Parse optional `@pan=<float>` (`-1..+1`) in `_CUE_LINE_RE` (`sound_cues.py:74`) and apply equal-power stereo panning per cue. | **Batch 2 (`:8188` reload)** |
+| **Per-Event Prompt & Entity Metadata in `SpatialDirector`** | `spatial_director.py::parse_director_events`, `spatial_director.py::PortalKeyframe`, `spatial_director.py::WorldTargetEvent`, `spatial_director.py::MiniMaxH3DirectorHUD` | **Non-Strict JSON Works Today / HUD Fields Missing:** Because `spatial_director.py::parse_director_events` (`spatial_director.py:158`) uses `.get(...)`, extra `prompt` / `entity_id` keys already pass live `:8188` validation with zero restart (enabling Batch 1). **Batch 2:** Add optional typed `prompt` and `entity_id` fields to `PortalKeyframe`, `WorldTargetEvent`, and `MiniMaxH3DirectorHUD` card rendering. | **Batch 1 (compat) + Batch 2 (HUD)** |
+
+### Layer 2 — Runtime Graph & Prompt Compiler (`director/compiler.py`)
+
+- **Shipped in Batch 1 (`2026-11-17`):**
+  - `director/compiler.py::has_guide_latent_support` & node `"169"` `MiniMaxH3GuideLatent` Frame-0 pinning in `r2v_portal` / `world_targets` (`nodes_summary["guide_latent_pinned"]`, opt-out via `lock_first_frame=False`, and Frame-0 `cond` token accounting in `director/compiler.py::compute_preflight_summary`).
+  - `director/compiler.py::_collect_spatial_beats`, `director/compiler.py::_events_have_per_event_prompts`, and upgraded `director/compiler.py::synthesize_spatial_prompts` compiling chronologically sorted `<T.T seconds>` multi-beat visual + soundscape prompts from per-target and per-keyframe `prompt` fields (plus moving-portal trajectory descriptions).
+  - `director/compiler.py::resolve_image_edit_workflow` and `"auto"` entry in `director/compiler.py::available_image_edit_workflows` routing 1-frame masked previews onto `pika_image` when Pika Video is warm in VRAM or `h3_image` otherwise.
+- **Remaining in Horizon 2–3 (`director/compiler.py`):**
+  - `compile_v2v_masked`: `LoadVideo` (`24.0 fps`) -> `MiniMaxH3MaskedVideoLatent` -> 2-sampler / optional `MiniMaxH3RestorePlate` -> `VAEDecode` -> `MiniMaxH3CompositePlate` with original audio muxed untouched unless `audio_refine=True` or external stem provided.
+  - `compile_sam3_video_track`: Compile `MiniMaxH3SAM31Corrections` -> `MiniMaxH3SubjectTrack` for uploaded/rendered clips.
+  - External audio stem attachment via `audio_freeze.py::MiniMaxH3FreezeAudio` in `compile_spatial_take` / `compile_v2v_masked`.
+  - `39`-frame causal overlap context compilation on `h3_rules.py::chain_lengths` (`cond` tail frames from Shot `N` + frozen tail audio -> Shot `N+1`).
+
+### Layer 3 — Studio Server, Provenance & Local VLM (`director/server.py`, `director/routes.py`)
+
+- **Shipped in Batch 1 (`2026-11-17`):**
+  - `director/server.py::handle_export`: Resolves originating `Take` (`take_id` or `director/server.py::SessionStore.find_take_by_video_filename`) and writes a portable `<safe_stem>.director.json` sidecar (`_build_recipe_document`) atomically alongside the exported `.mp4` in `$H3_OUTPUT_DIR/Video/`.
+  - `director/server.py::handle_import_recipe` (`POST /api/import_recipe` + `_normalize_imported_recipe`): Reloads stage controls from a `take_id`, a confined `<name>.director.json` inside `$H3_OUTPUT_DIR/Video/`, or an inline `.director.json` drop onto `#upload-anchor-input`.
+  - `app["last_resident_backbone"]` tracking across `/api/render`, `/api/redub`, `/api/anchor`, `/api/stamp_cutout`, `/api/preview_in_mask`, exposed on `GET /api/system_stats` and consumed automatically by `POST /api/preview_in_mask` (`workflow="auto"`).
+  - Reticle-grounded `heylook` vision payloads (`director/server.py::handle_context_suggest`): Draws the `(x, y, rx, ry)` blue/white reticle on the full-scene JPEG (Image #1) and attaches a padded `512px` ROI crop (Image #2) when reticle coords are passed, returning `scene_caption`, `subject_label`, `reticle_grounded`, and `suggestions`.
+  - Persistent Shot-DAG lineage (`_extract_lineage_fields` storing `parent_take_id` & `parent_frame` in `takes.json` across `/api/render`, `/api/preview_in_mask`, `/api/anchor`, and `/api/redub`).
+- **Remaining in Horizon 2–3 (`director/server.py`, `director/routes.py`):**
+  - Full-clip `24.0 fps` resample/conform on `.mp4` upload (`director/server.py::handle_upload`) + frame-count validation against `h3_rules.py::on_both_clocks`.
+  - Uploaded audio stem endpoint (`POST /api/upload_audio`, `.wav`/`.flac`/`.mp3`) + waveform peak JSON + `director/routes.py::compute_forget_plan` protection for active audio stems and V2V video sources.
+  - Persistent track mask cache (`.npz` / preview strips) for `MiniMaxH3SubjectTrack` results across `takes.json` shots.
+  - Conversational `POST /api/co_direct` (local `heylook` LLM proposing structured `events_json` diffs, `3f` cues, and `<Subject N>` edits for 1-click user apply).
+
+---
+
+## 4. Detailed Architectural Gaps (Gaps 1–8)
+
+### Gap 1: Guidance Steering Only -> True Video-to-Video Plate Restoration & Pinned-Frame-0 Sprites
+- **Where it lives today:** `director/server.py::_decode_frame0_or_image`, `director/compiler.py::compile_spatial_take` (`"169"` `MiniMaxH3GuideLatent`).
+- **Batch 1 status (`2026-11-17`):** **Partially closed.** Attaching a movable sprite cutout (`sprite_ref`) in `r2v_portal` / `world_targets` now automatically pins Frame 0 via `guide_latent.py::MiniMaxH3GuideLatent` (`frame_idx=0`, opt-out `lock_first_frame=False`), stopping background camera drift when sprites animate.
+- **Remaining gap:** Uploading an `.mp4` still discards frames `1..N` and source audio during diffusion rather than running true `v2v_masked` inpainting (`MiniMaxH3MaskedVideoLatent` + `plate_restore.py::MiniMaxH3RestorePlate` + `MiniMaxH3CompositePlate`).
+
+### Gap 2: Multi-Event Stage vs. Per-Event Prompt Synthesis & Static Frame-0 Masks
+- **Where it lives today:** `director/compiler.py::_collect_spatial_beats`, `director/static/js/app.js`, and `POST /api/segment`.
+- **Batch 1 status (`2026-11-17`):** **Partially closed.** Each `WorldTargetEvent` and `PortalKeyframe` now stores an optional `prompt`, and `synthesize_spatial_prompts` compiles chronological `<T.T seconds>` multi-beat sections across all active events instead of reading `targets[0]` alone.
+- **Remaining gap:** SAM 3.1 segmentation (`POST /api/segment`) runs single-frame `SAM3_Detect` on Frame 0 only (`1` include mask, `1` exclude mask, `1` sprite cutout). Multi-shot moving-plate subject locks require `subject_track.py::MiniMaxH3SubjectTrack`.
+
+### Gap 3: Recipe Provenance on Export & Reload + Branching Shot Tree
+- **Where it lives today:** `director/server.py::handle_export`, `director/server.py::handle_import_recipe`, `director/static/js/app.js::applyImportedRecipe`, and `director/server.py::SessionStore`.
+- **Batch 1 status (`2026-11-17`):** **Mostly closed for single takes.** Exporting now writes `<export_name>.director.json`, **Restore Recipe** restores full stage state from any recorded `take_id` (and dropping a `.director.json` file restores an archived shot), and `takes.json` stores `parent_take_id` / `parent_frame`.
+- **Remaining gap:** Render an interactive **Branching Shot Tree** drawer/view from `parent_take_id` links and implement `39`-frame causal overlap handoffs (`h3_rules.py::chain_lengths`) across multi-shot continuations.
 
 ### Gap 4: Cold VRAM Model Swaps Between Pre-Viz and Video Simulation
-- **Where it lives today:** `director/static/js/app.js:85` (`previewWorkflowId: "h3_image"`) and `director/compiler.py::compile_masked_still_edit` (`director/compiler.py:995-1164`).
-- **What happens:** `MiniMax-H3-Image` (`16 -> 4 MP`) yields crisp still edits, **but** alternating between `Preview in Circle` (`h3_image`) and `Generate World Clip` (`i2v_portal` Pika video) swaps ~20 GB checkpoints in and out of VRAM on single-GPU hosts, stretching a 5-second 6-step preview into a ~25–35s cold load. In addition, the previewed image patch is baked at its original coordinates rather than being draggable/resizable as a `0 ms` layer before committing.
-- **How to close it:**
-  - Add a **Warm Fast Pre-Viz (`pika_image`) vs. HQ Still Bake (`h3_image`)** auto-mode that reuses the already-loaded Pika DiT and [`reference_encode.py`](../reference_encode.py) (`reference_encode.py::MiniMaxH3EncodeReferences`) KV prefix cache for **~3–5s** turnaround when iterating rapidly before a video take, and allow `0 ms` 2D translation/scaling of the masked preview layer before baking.
+- **Where it lives today:** `director/compiler.py::resolve_image_edit_workflow`, `director/server.py::handle_preview_in_mask`, `director/static/js/app.js` (`previewWorkflowId = "auto"`).
+- **Batch 1 status (`2026-11-17`):** **Routing closed.** Setting `Mask Image Preview Model` to `"auto"` (default) keeps `Preview in Circle` on `pika_image` whenever Pika Video was last active on `:8188`, avoiding cold `~20 GB` swaps back to `MiniMax-H3-Image`.
+- **Remaining gap:** Reuse persistent `reference_encode.py::MiniMaxH3EncodeReferences` KV prefix caches across rapid tweaks and make the masked preview patch draggable/resizable at `0 ms` before `Apply Preview`.
 
 ### Gap 5: Visually Blind Prompt Compiler vs. Reticle-Grounded Local VLM
-- **Where it lives today:** `director/compiler.py::synthesize_spatial_prompts` (`director/compiler.py:772-824`) and `director/server.py::handle_context_suggest` (`director/server.py:2381-2496`).
-- **What happens:** Without a manual `Scene Context Override`, `synthesize_spatial_prompts` knows only normalized coordinates (`"the upper-right region"`), not what object is actually pictured in `<Picture 1>`. Even when `H3_HEYLOOK_URL` is online, `handle_context_suggest` sends the unmarked full image (`director/server.py:2420-2440`) without burning or cropping the active `(x, y, rx, ry)` portal reticle, so the VLM cannot see *which* element on the stage the director selected.
-- **How to close it:**
-  - Send both the full scene thumbnail (with a crisp visual reticle drawn at `(x, y, rx, ry)`) and a high-detail crop of the selected region to the local vision model on `H3_HEYLOOK_URL`: auto-drafting accurate scene context on upload, naming `<Subject 1>` precisely (*"the upper-right arched window"*), and compiling conversational stage notes into multi-beat `events_json` + prompt diffs.
+- **Where it lives today:** `director/server.py::handle_context_suggest` (`director/server.py`), `director/static/js/app.js::refreshContextSuggestions`.
+- **Batch 1 status (`2026-11-17`):** **Vision grounding shipped.** When `H3_HEYLOOK_URL` is online, `/api/context_suggest` composites the active `(x, y, rx, ry)` reticle onto the scene image and sends a padded `512px` ROI crop alongside it, returning `scene_caption` and `subject_label`.
+- **Remaining gap:** Auto-populate structured `<Subject 1>` tokens from `subject_label` and add conversational multi-beat `POST /api/co_direct`.
 
 ### Gap 6: Pause-and-Place Authoring vs. Live-Loop Puppeteering
-- **Where it lives today:** `director/static/js/app.js::stepPlayback` (`director/static/js/app.js:2352-2438`) and [`director/static/js/sequencer.js`](static/js/sequencer.js).
-- **What happens:** `stepPlayback` plays the 24 fps loop and triggers WebAudio cues, **but** dragging the portal, scrolling its radius, or steering `WASD` while playing mutates only a single static keyframe rather than recording a time-varying motion curve.
-- **How to close it:**
-  - Add an opt-in **Record on Loop (`R`)** pass that captures pointer `(x, y, rx)` and `WASD`/hop inputs at 24 fps while the loop plays, simplifying and snapping the recorded curve onto H3's `[1, 4, 4, 4, 4]` causal step boundaries (`director/static/js/sequencer.js::causalStepBoundaries`).
+- **Where it lives today:** `director/static/js/app.js::stepPlayback` and [`director/static/js/sequencer.js`](static/js/sequencer.js).
+- **Remaining gap:** Add an opt-in **Record on Loop (`R`)** pass that records continuous pointer `(x, y, rx)` and `WASD` steering while `24 fps` playback loops, fitting clean keyframes onto `[1, 4, 4, 4, 4]` causal step boundaries (`director/static/js/sequencer.js::causalStepBoundaries`).
 
 ### Gap 7: Unpanned Procedural Foley vs. Spatial Stereo & Locked Audio Stems
-- **Where it lives today:** [`sound_cues.py`](../sound_cues.py) (`sound_cues.py::MiniMaxH3SoundCues`), [`director/static/js/foley_synth.js`](static/js/foley_synth.js), and `director/compiler.py::compile_audio_redub`.
-- **What happens:** `3f` procedural cues are centered/unpanned regardless of whether an event fires at `x = 0.10` (far left) or `x = 0.90` (far right), and there is no stage control to upload or lock an external voice/music stem while directing visual events.
-- **How to close it:**
-  - Map event horizontal coordinate `x in [0..1]` to stereo `L/R` pan in both WebAudio `FoleySynth` and `MiniMaxH3SoundCues` stereo `cond_audio` islands, and expose [`audio_freeze.py`](../audio_freeze.py) (`audio_freeze.py::MiniMaxH3FreezeAudio`) so directors can lock an imported soundtrack or dialogue stem while steering visuals freely.
+- **Where it lives today:** `sound_cues.py::synthesize_island_waveform` (`sound_cues.py:304`), [`director/static/js/foley_synth.js`](static/js/foley_synth.js), and `director/compiler.py::compile_audio_redub`.
+- **Remaining gap:** Map horizontal coordinate `x in [0..1]` to stereo `L/R` pan in both WebAudio `FoleySynth` and `MiniMaxH3SoundCues`, and expose `audio_freeze.py::MiniMaxH3FreezeAudio` via `POST /api/upload_audio` so imported dialogue/music stems lock during visual direction.
 
 ### Gap 8: Desktop Wheel/Modifier Reliance vs. Pocket & Tablet Touch Ergonomics
-- **Where it lives today:** `director/static/js/stage.js:310-315` and [`director/static/style.css`](static/style.css).
-- **What happens:** Core stage controls (`Scroll` size, `Shift+Scroll` halo, `Alt+Scroll` scale, `Shift+Drag` couple, `WASD` actor nudge) assume a desktop mouse + keyboard at `>= 1280px`, whereas private-overlay review and direction (`:8194`) also happen on phones and tablets.
-- **How to close it:**
-  - Add two-finger pinch/spread gestures on [`director/static/js/stage.js`](static/js/stage.js) (pinch = inner aperture, two-finger rotate or rim-handle drag = outer halo), on-canvas touch handles, and a responsive `< 900px` bottom-sheet inspector layout matching `modern-web-guidance` `44px` touch targets.
+- **Where it lives today:** `director/static/js/stage.js` and [`director/static/style.css`](static/style.css).
+- **Remaining gap:** Add two-finger pinch aperture & halo gestures, on-canvas touch handles, and a responsive `< 900px` bottom-sheet inspector layout matching `modern-web-guidance` `44px` touch targets over `:8194`.
 
 ---
 
-## 4. Three-Horizon Implementation Roadmap
+## 5. Three-Horizon Implementation Roadmap
 
 ```mermaid
 flowchart LR
-  B["Current Baseline<br/>Single-Event I2V/R2V Stage<br/>1f Mask Pre-Viz + A|B Wipe"] --> H1["Horizon 1: Studio Core<br/>Recipe Restore & Export Sidecars<br/>Per-Event Prompts + Pinned-F0 Sprite<br/>Warm ~4s Pika Pre-Viz"]
-  H1 --> H2["Horizon 2: Engine Unification<br/>True V2V Plate Restore & SubjectTrack<br/>Reticle-Grounded Local VLM<br/>Stereo Pan + FreezeAudio Lock"]
-  H2 --> H3["Horizon 3: Living World Sandbox<br/>Live-Loop 24fps Puppeteering<br/>Branching Multi-Shot World Tree<br/>39f Causal Seam Continuity + Touch UI"]
+  B["Baseline + Batch 1 (Shipped 2026-11-17)<br/>GuideLatent F0 Pin + Multi-Beat Prompts<br/>Recipe Sidecars & Restore + Warm Auto Pre-Viz<br/>Reticle VLM Grounding + Lineage DAG"] --> H2["Horizon 2: Engine Unification (Batch 2)<br/>MiniMaxH3MaskedVideoLatent + RestorePlate<br/>SubjectTrack + Stereo Pan + FreezeAudio Lock<br/>Conversational /api/co_direct"]
+  H2 --> H3["Horizon 3: Living World Sandbox (Batch 3)<br/>Live-Loop 24fps Puppeteering<br/>Visual Branching Shot Tree UI<br/>39f Causal Seam Overlap + Touch Ergonomics"]
 ```
 
-### Horizon 1 — High-Leverage Studio Core (Zero New Model Research Required)
-1. **Recipe Provenance & Reopenability:** Emit `<export_name>.director.json` alongside exported MP4s in `director/server.py::handle_export`, support `.director.json` import, and add **Restore Recipe to Stage** in `Takes` (`director/static/js/app.js`).
-2. **Per-Event Multi-Beat Prompts:** Add `prompt` to `WorldTargetEvent` and portal keyframes; upgrade `director/compiler.py::synthesize_spatial_prompts` so multiple timed events compile into ordered `<T.T seconds>` action and soundscape beats instead of reading `targets[0]` alone.
-3. **Frame-0 Lock with Movable Sprites:** Wire `guide_latent.py::MiniMaxH3GuideLatent` (`t = 0` Frame-0 pin) into `r2v_portal` / `world_targets` so `MiniMaxH3AppendSpriteTrajectory` moves cutouts without unpinning background composition.
-4. **Warm VRAM Pre-Viz Mode:** Add auto/one-click `pika_image` warm 1-frame pre-viz reusing `MiniMaxH3EncodeReferences` node `"132"` (`~3–5s` with zero 20 GB checkpoint swap when Pika is loaded), keeping `h3_image` for `4 MP` HQ still bakes.
+### Horizon 1 — High-Leverage Studio Core (**Batch 1 Shipped `2026-11-17` — Zero `:8188` Restart**)
+- [x] **Recipe Provenance & Reopenability:** Emit `<export_name>.director.json` alongside exported MP4s (`director/server.py::handle_export`), validate/import via `POST /api/import_recipe` (`director/server.py::handle_import_recipe`), drag-drop `.director.json` onto stage, and **Restore Recipe** from `Takes` (`director/static/js/app.js::restoreTakeRecipe`).
+- [x] **Per-Event Multi-Beat Prompts:** Store per-target/keyframe `prompt` fields in `events_json` and compile chronological `<T.T seconds>` multi-beat sections (`director/compiler.py::_collect_spatial_beats`, `director/compiler.py::synthesize_spatial_prompts`).
+- [x] **Frame-0 Lock with Movable Sprites:** Wire `guide_latent.py::MiniMaxH3GuideLatent` (`"169"`, `frame_idx=0`) inside `r2v_portal` / `world_targets` (`director/compiler.py::has_guide_latent_support`) so movable sprites keep background framing anchored.
+- [x] **Warm VRAM Pre-Viz Routing:** Track `app["last_resident_backbone"]` in `director/server.py` and resolve `"auto"` (`director/compiler.py::resolve_image_edit_workflow`) to `pika_image` when Pika Video is loaded.
+- [x] **Reticle-Grounded Local VLM (`heylook`):** Composite `(x, y, rx, ry)` reticle + `512px` ROI crop onto `POST /api/context_suggest` (`director/server.py::handle_context_suggest`), returning `scene_caption` & `subject_label`.
+- [x] **Shot-DAG Persistence Foundations:** Record `parent_take_id` & `parent_frame` in `takes.json` (`director/server.py::SessionStore`).
+- [ ] **Remaining in Horizon 1b:** Draggable/resizable floating 1-frame preview patch before `Apply Preview`, and KV-prefix reuse across warm Pika edits.
 
-### Horizon 2 — Pack Engine Unification & Grounded Co-Direction
-1. **True Video-to-Video (`v2v_masked`) Mode:** Keep full uploaded `.mp4` frames (`on_both_clocks` up to `345f`), track cast masks across motion via `subject_track.py::MiniMaxH3SubjectTrack`, and compile `video_mask.py::MiniMaxH3MaskedSource` + `plate_restore.py::MiniMaxH3RestorePlate` with frozen source audio.
-2. **Reticle-Grounded Local VLM (`heylook`):** Composite the `(x, y, rx, ry)` reticle + cropped ROI onto `POST /api/context_suggest` vision payloads so local VLMs auto-caption uploaded scenes and bind `<Subject 1>` to the exact object under the cursor.
-3. **Spatial Stereo Foley & `FreezeAudio` Stem Lock:** Pan `3f` `MiniMaxH3SoundCues` + `FoleySynth` by normalized `x`, and allow locking imported audio tracks via `audio_freeze.py::MiniMaxH3FreezeAudio`.
+### Horizon 2 — Pack Engine Unification & Grounded Co-Direction (Batch 2 — `:8188` Schema Update)
+- [ ] **Layer 1 Pack Nodes:** Add `MiniMaxH3MaskedVideoLatent` + `MiniMaxH3CompositePlate` wrappers around `video_mask.py::token_mask` / `video_mask.py::composite`; add `@pan=` stereo panning to `sound_cues.py::synthesize_island_waveform`; add typed `prompt`/`entity_id` HUD rendering to `spatial_director.py::MiniMaxH3DirectorHUD`.
+- [ ] **True Video-to-Video (`v2v_masked`) & Tracking (`SubjectTrack`):** Keep full `24.0 fps`-conformed uploaded `.mp4` frames (`h3_rules.py::on_both_clocks`), track cast masks across cuts via `subject_track.py::MiniMaxH3SubjectTrack`, and compile `MiniMaxH3MaskedVideoLatent` + `plate_restore.py::MiniMaxH3RestorePlate` + `MiniMaxH3CompositePlate`.
+- [ ] **Spatial Stereo Foley & `FreezeAudio` Stem Lock:** Pan `FoleySynth` + `MiniMaxH3SoundCues` by event `x`, add `POST /api/upload_audio`, and lock stems with `audio_freeze.py::MiniMaxH3FreezeAudio`.
+- [ ] **Conversational Co-Direction (`POST /api/co_direct`):** Translate natural-language director notes + grounded `<Subject 1>` labels into structured `events_json` edits.
 
-### Horizon 3 — Continuous Branchable World Sandbox
-1. **Live-Loop Puppeteering (`Record on Loop`):** Record real-time cursor trajectories, radius modulation, and `WASD` paths while the 24 fps loop plays, fitting clean keyframes onto `[1, 4, 4, 4, 4]` causal steps.
-2. **Branching Multi-Shot World Tree & Overlap Seams:** Replace RAM-only `shotHistory` with a persistent DAG in `takes.json` (`parent_take_id`, `parent_frame`) and `39`-frame causal context handoffs (`h3_rules.py::chain_lengths`) carrying motion velocity, cast identity banks, and room tone across multi-shot sequences.
-3. **Touch & Tablet Stage Ergonomics:** Multi-touch aperture/halo gestures and `44px` responsive bottom-sheet controls across private-overlay mobile Safari.
+### Horizon 3 — Continuous Branchable World Sandbox (Batch 3)
+- [ ] **Live-Loop Puppeteering (`Record on Loop`):** Record continuous pointer trajectories, aperture modulation, and `WASD` steering at `24 fps`, fitting clean keyframes onto `[1, 4, 4, 4, 4]` steps (`director/static/js/sequencer.js::causalStepBoundaries`).
+- [ ] **Visual Branching Shot Tree & `39f` Causal Overlap Seams:** Render an interactive Shot Tree DAG from `parent_take_id` records and compile `39`-frame causal overlap handoffs (`h3_rules.py::chain_lengths`) carrying motion velocity and room tone across shots.
+- [ ] **Touch & Tablet Stage Ergonomics:** Multi-touch aperture/halo pinch gestures and `44px` responsive bottom-sheet controls over `:8194` mobile Safari.

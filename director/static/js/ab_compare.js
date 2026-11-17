@@ -399,6 +399,8 @@ export class ABCompareController {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          take_id: take?.take_id || undefined,
+          variant,
           filename: item.filename,
           subfolder: item.subfolder || "",
           type: item.type || "temp",
@@ -409,7 +411,8 @@ export class ABCompareController {
         this.onStatus(data.error || "Export failed", "err");
         return null;
       }
-      this.onStatus(`Exported ${variant.toUpperCase()} MP4 -> Video/${data.filename || ""}`, "ok");
+      const sidecarNote = data.recipe_filename ? ` + ${data.recipe_filename}` : "";
+      this.onStatus(`Exported ${variant.toUpperCase()} MP4 -> Video/${data.filename || ""}${sidecarNote}`, "ok");
       return data;
     } catch (err) {
       this.onStatus(`Export error: ${err.message}`, "err");

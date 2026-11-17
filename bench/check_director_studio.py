@@ -769,7 +769,80 @@ def check_compiler_contracts() -> str:
         else:
             assert "overall_soundscape:" not in m_prev["edited_prompt"].lower()
 
-    return "all 4 spatial modes, zero-tortoise synthesis, masked image previews, dual VHS save_output=False, dynamic '165' preview_fps=7/omission, '51'/'70' omission, audio_refine + redub, baseline opt-in, and image stills verified"
+    # 11. Batch 1 contracts: R2V GuideLatent F0 lock ("169"), multi-beat prompts, & "auto" warm pre-viz routing
+    r2v_pinned = compiler_mod.compile_spatial_take(
+        {
+            **common_base,
+            "mode": "r2v_portal",
+            "sprite_ref": "h3_spatial_director/cutout_1.png",
+        },
+        object_info=MOCK_OBJECT_INFO_WITH_KJ,
+    )
+    g_pin = r2v_pinned["graph"]
+    assert r2v_pinned["nodes_summary"]["guide_latent_pinned"] is True
+    assert "169" in g_pin and g_pin["169"]["class_type"] == "MiniMaxH3GuideLatent"
+    assert g_pin["169"]["inputs"]["frame_idx"] == 0 and g_pin["169"]["inputs"]["single_frame"] is False
+    assert g_pin["169"]["inputs"]["guide"] == ["15", 0] and g_pin["169"]["inputs"]["edited_positive"] == ["131", 0]
+    assert g_pin["70"]["inputs"]["positive"] == ["169", 0] and g_pin["70"]["inputs"]["edited_positive"] == ["169", 2]
+
+    r2v_unpinned = compiler_mod.compile_spatial_take(
+        {
+            **common_base,
+            "mode": "r2v_portal",
+            "sprite_ref": "h3_spatial_director/cutout_1.png",
+            "lock_first_frame": False,
+        },
+        object_info=MOCK_OBJECT_INFO_WITH_KJ,
+    )
+    assert r2v_unpinned["nodes_summary"]["guide_latent_pinned"] is False
+    assert "169" not in r2v_unpinned["graph"]
+
+    pf_pin = compiler_mod.compute_preflight_summary({**common_base, "mode": "r2v_portal", "lock_first_frame": True})
+    pf_nopin = compiler_mod.compute_preflight_summary({**common_base, "mode": "r2v_portal", "lock_first_frame": False})
+    assert pf_pin["ref_tokens"] - pf_nopin["ref_tokens"] == pf_pin["tokens_per_frame"]
+
+    multi_ev = {
+        "portal": SAMPLE_EVENTS_90["portal"],
+        "targets": [
+            {"id": 1, "start": 12, "end": 36, "x": 0.25, "y": 0.45, "radius": 0.16, "cue": "snap", "prompt": "amber sparks rise"},
+            {"id": 2, "start": 54, "end": 84, "x": 0.78, "y": 0.62, "radius": 0.16, "cue": "slam", "prompt": "cobalt frost blooms"},
+        ],
+    }
+    _orig_mb, edit_mb, _sum_mb = compiler_mod.synthesize_spatial_prompts(
+        mode="r2v_portal",
+        length=90,
+        has_source_ref=True,
+        director_mode="point_targets",
+        events_doc=multi_ev,
+        target_prompt="",
+    )
+    assert "0.50s to 1.50s" in edit_mb and "amber sparks rise" in edit_mb, edit_mb
+    assert "2.25s to 3.50s" in edit_mb and "cobalt frost blooms" in edit_mb, edit_mb
+
+    auto_pika = compiler_mod.compile_masked_still_edit(
+        {
+            "workflow": "auto",
+            "resident_backbone": "pika",
+            "source_ref": "h3_spatial_director/test_anchor.png",
+            "mask_ref": "h3_spatial_director/test_mask.png",
+            "target_prompt": "glowing lantern",
+        },
+        object_info=MOCK_OBJECT_INFO_WITH_KJ,
+    )
+    assert auto_pika["workflow"] == "pika_image"
+    auto_cold = compiler_mod.compile_masked_still_edit(
+        {
+            "workflow": "auto",
+            "resident_backbone": None,
+            "source_ref": "h3_spatial_director/test_anchor.png",
+            "mask_ref": "h3_spatial_director/test_mask.png",
+            "target_prompt": "glowing lantern",
+        },
+        object_info=MOCK_OBJECT_INFO_WITH_KJ,
+    )
+    assert auto_cold["workflow"] == "h3_image"
+
+    return "all 4 spatial modes, R2V GuideLatent F0 lock, multi-beat prompts, warm auto pre-viz, zero-tortoise synthesis, masked image previews, dual VHS save_output=False, dynamic '165', audio_refine + redub, baseline opt-in, and image stills verified"
 
 
 def check_forget_plan_and_isolation() -> str:
@@ -1273,8 +1346,148 @@ def check_server_routes_and_escalate() -> str:
                         r_bad_doc = await client.get("/api/docs/file", params={"path": bad_doc})
                         assert r_bad_doc.status == 400, f"expected 400 on {bad_doc!r}, got {r_bad_doc.status}"
 
+                    # 13. Batch 1 server workflows: lineage persistence, warm "auto" pre-viz, reticle 2-image VLM, .director.json export + import
+                    r_ren = await client.post(
+                        "/api/render",
+                        json={
+                            "mode": "r2v_portal",
+                            "director_mode": "point_targets",
+                            "source_ref": "test_anchor.png",
+                            "length": 90,
+                            "width": 1344,
+                            "height": 768,
+                            "seed": 9191,
+                            "parent_take_id": "parent_demo_1",
+                            "parent_frame": 24,
+                            "events_json": {
+                                "portal": SAMPLE_EVENTS_90["portal"],
+                                "targets": [
+                                    {"id": 1, "start": 12, "end": 36, "x": 0.25, "y": 0.45, "radius": 0.16, "cue": "snap", "prompt": "amber sparks"},
+                                    {"id": 2, "start": 54, "end": 84, "x": 0.78, "y": 0.62, "radius": 0.16, "cue": "slam", "prompt": "cobalt frost"},
+                                ],
+                            },
+                        },
+                    )
+                    assert r_ren.status == 200, await r_ren.text()
+                    ren_doc = await r_ren.json()
+
+                    r_stats = await client.get("/api/system_stats")
+                    assert r_stats.status == 200
+                    stats_doc = await r_stats.json()
+                    assert stats_doc.get("resident_backbone") == "pika", stats_doc
+
+                    r_takes_lin = await client.get("/api/takes")
+                    takes_lin = (await r_takes_lin.json())["takes"]
+                    ren_rec = next((t for t in takes_lin if t.get("take_id") == ren_doc["take_id"]), None)
+                    assert ren_rec and ren_rec.get("parent_take_id") == "parent_demo_1" and ren_rec.get("parent_frame") == 24, ren_rec
+
+                    # Warm Pika resident backbone -> workflow="auto" resolves to pika_image
+                    r_mpv_auto = await client.post(
+                        "/api/preview_in_mask",
+                        json={
+                            "source_ref": "test_anchor.png",
+                            "target_prompt": "luminous rune ring",
+                            "workflow": "auto",
+                            "region": {"x": 0.4, "y": 0.5, "rx": 0.2, "ry": 0.2, "shape": "circle"},
+                        },
+                    )
+                    assert r_mpv_auto.status == 200, await r_mpv_auto.text()
+                    mpv_auto = await r_mpv_auto.json()
+                    assert mpv_auto["workflow"] == "pika_image" and mpv_auto["requested_workflow"] == "auto", mpv_auto
+
+                    # Export .mp4 + .director.json sidecar into temp H3_OUTPUT_DIR/Video/ and re-import
+                    prev_out_env = os.environ.get("H3_OUTPUT_DIR")
+                    os.environ["H3_OUTPUT_DIR"] = tmp_dir
+                    try:
+                        r_exp = await client.post(
+                            "/api/export",
+                            json={
+                                "take_id": ren_doc["take_id"],
+                                "variant": "clean",
+                                "export_name": "unit_shot_01.mp4",
+                                "video": {"filename": "shot_src.mp4", "subfolder": "", "type": "temp"},
+                            },
+                        )
+                        assert r_exp.status == 200, await r_exp.text()
+                        exp_doc = await r_exp.json()
+                        assert exp_doc["ok"] is True and exp_doc.get("recipe_filename"), exp_doc
+                        sidecar_path = Path(tmp_dir) / "Video" / exp_doc["recipe_filename"]
+                        assert sidecar_path.is_file() and (Path(tmp_dir) / "Video" / exp_doc["filename"]).is_file()
+
+                        r_imp = await client.post(
+                            "/api/import_recipe",
+                            json={"recipe_filename": exp_doc["recipe_filename"]},
+                        )
+                        assert r_imp.status == 200, await r_imp.text()
+                        imp_doc = await r_imp.json()
+                        assert imp_doc["ok"] is True
+                        assert imp_doc["recipe"]["stage"]["seed"] == 9191
+                        assert imp_doc["recipe"]["parent_take_id"] == "parent_demo_1"
+                        assert len(imp_doc["recipe"]["stage"]["events_json"].get("targets") or []) == 2
+
+                        r_imp_bad = await client.post(
+                            "/api/import_recipe",
+                            json={"recipe_filename": "../evil.director.json"},
+                        )
+                        assert r_imp_bad.status == 400
+                    finally:
+                        if prev_out_env is None:
+                            os.environ.pop("H3_OUTPUT_DIR", None)
+                        else:
+                            os.environ["H3_OUTPUT_DIR"] = prev_out_env
+
+                    # Reticle-grounded context_suggest sends 2 vision blocks and parses JSON object response
+                    seen_reticle: dict[str, Any] = {}
+
+                    async def _hl_ret_messages(req: web.Request) -> web.Response:
+                        seen_reticle["body"] = await req.json()
+                        return web.json_response(
+                            {
+                                "content": [
+                                    {
+                                        "type": "text",
+                                        "text": json.dumps(
+                                            {
+                                                "scene_caption": "Misty stone lake at dawn",
+                                                "subject_label": "mossy pier post",
+                                                "suggestions": [
+                                                    {"title": "Lantern Glow", "target_prompt": "warm lantern ignites cleanly", "preset": "sparkle_burst"}
+                                                ],
+                                            }
+                                        ),
+                                    }
+                                ]
+                            }
+                        )
+
+                    hl_ret_stub = web.Application()
+                    hl_ret_stub.router.add_get("/v1/models", lambda _r: web.json_response({"data": [{"id": "qwen-vision", "capabilities": ["chat", "vision"]}]}))
+                    hl_ret_stub.router.add_post("/v1/messages", _hl_ret_messages)
+                    async with TestServer(hl_ret_stub) as hl_ret_srv:
+                        prev_hl2 = os.environ.get("H3_HEYLOOK_URL")
+                        os.environ["H3_HEYLOOK_URL"] = f"http://127.0.0.1:{hl_ret_srv.port}"
+                        try:
+                            r_ret = await client.post(
+                                "/api/context_suggest",
+                                json={"source_ref": "test_anchor.png", "x": 0.30, "y": 0.35, "rx": 0.18, "ry": 0.18},
+                            )
+                            assert r_ret.status == 200, await r_ret.text()
+                            ret_doc = await r_ret.json()
+                            assert ret_doc["ok"] is True and ret_doc["enabled"] is True and ret_doc["reticle_grounded"] is True, ret_doc
+                            assert ret_doc["subject_label"] == "mossy pier post" and ret_doc["scene_caption"] == "Misty stone lake at dawn", ret_doc
+                            img_blocks = [
+                                b for b in seen_reticle["body"]["messages"][0]["content"]
+                                if isinstance(b, dict) and b.get("type") == "image"
+                            ]
+                            assert len(img_blocks) == 2, f"expected 2 vision blocks (marked scene + ROI crop), got {len(img_blocks)}"
+                        finally:
+                            if prev_hl2 is None:
+                                os.environ.pop("H3_HEYLOOK_URL", None)
+                            else:
+                                os.environ["H3_HEYLOOK_URL"] = prev_hl2
+
     asyncio.run(_run())
-    return "server CSP/Host guard, schema, /docs hub, /api/preview_in_mask, T2I /api/stamp_cutout, heylook /v1/messages, /api/segment, /api/extract_frame, /api/redub, /api/escalate, and /api/compile verified"
+    return "server CSP/Host guard, schema, /docs hub, lineage, warm auto pre-viz, .director.json export+import, reticle 2-block VLM, /api/preview_in_mask, T2I /api/stamp_cutout, /api/segment, /api/extract_frame, /api/redub, /api/escalate, and /api/compile verified"
 
 
 def check_static_and_route_audit() -> str:

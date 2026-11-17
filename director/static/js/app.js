@@ -74,6 +74,11 @@ const state = {
   lastFrameRef: "",
   lastFrameName: "",
   shotHistory: [],
+  parentTakeId: "",
+  parentFrame: null,
+  activeMaskPreviewTakeId: "",
+  vlmSubjectLabel: "",
+  residentBackbone: "",
   lanesOpen: false,
   streamsManualOverride: false,
   workflowManualOverride: false,
@@ -82,7 +87,7 @@ const state = {
 
   workflowId: "i2v_portal",
   anchorWorkflowId: "h3_image",
-  previewWorkflowId: "h3_image",
+  previewWorkflowId: "auto",
   seed: 730451892,
   seedLocked: true,
 
@@ -664,21 +669,23 @@ function renderHydratedControls() {
 async function pollSystemStats() {
   try {
     const stats = await apiJson("/api/system_stats");
+    state.residentBackbone = stats.resident_backbone || "";
     const dev = Array.isArray(stats.devices) && stats.devices[0] ? stats.devices[0] : null;
     const vLabel = $("#vram-label");
     const vFill = $("#vram-bar-fill");
+    const warmTag = state.residentBackbone ? ` · warm: ${state.residentBackbone}` : "";
     if (dev && dev.vram_total > 0) {
       const totalGb = dev.vram_total / (1024 ** 3);
       const freeGb = (dev.vram_free || 0) / (1024 ** 3);
       const usedGb = Math.max(0, totalGb - freeGb);
       const pct = clamp((usedGb / totalGb) * 100, 0, 100);
-      if (vLabel) vLabel.textContent = `${usedGb.toFixed(1)} / ${totalGb.toFixed(1)} GB`;
+      if (vLabel) vLabel.textContent = `${usedGb.toFixed(1)} / ${totalGb.toFixed(1)} GB${warmTag}`;
       if (vFill) {
         vFill.setAttribute("width", pct.toFixed(1));
         vFill.setAttribute("fill", pct > 88 ? "#B45309" : "#047857");
       }
     } else if (vLabel) {
-      vLabel.textContent = stats.comfy_reachable ? "CPU / Ready" : "ComfyUI offline";
+      vLabel.textContent = (stats.comfy_reachable ? "CPU / Ready" : "ComfyUI offline") + warmTag;
     }
   } catch {}
 }
@@ -973,8 +980,12 @@ function syncPromptDiffPreview() {
     if (badgeEl) badgeEl.textContent = "Same-Prompt Steer";
     editEl.textContent = "+ Control Vector delta (edited_only pass)";
   } else if (editClause) {
+    const activeTargets = (state.doc.mode === "point_targets" || state.doc.mode === "combined")
+      ? (state.doc.targets || []).filter((t) => (t.prompt || "").trim())
+      : [];
+    const beatPrefix = activeTargets.length >= 2 ? `[${activeTargets.length} beats] ` : "";
     if (badgeEl) badgeEl.textContent = modeLabelMap[wfMode] || "Prompt Diff";
-    editEl.textContent = `+ ${editClause}`;
+    editEl.textContent = `+ ${beatPrefix}${editClause}`;
   } else {
     if (badgeEl) badgeEl.textContent = modeLabelMap[wfMode] || "Prompt Diff";
     editEl.textContent = "+ Enter action above to steer region";
@@ -1117,7 +1128,13 @@ function syncContextualCard() {
   $("#card-time-badge").textContent = `f${String(state.frame).padStart(3, "0")} · ${(state.frame / FPS).toFixed(2)}s`;
   const tp = $("#target-prompt");
   if (tp && document.activeElement !== tp) {
-    tp.value = state.targetPrompt;
+    if (state.doc.mode === "point_targets" && state.doc.targets?.length) {
+      const idx = clamp(state.selectedTargetIdx ?? 0, 0, state.doc.targets.length - 1);
+      const tPrompt = state.doc.targets[idx]?.prompt;
+      tp.value = typeof tPrompt === "string" && tPrompt.length ? tPrompt : state.targetPrompt;
+    } else {
+      tp.value = state.targetPrompt;
+    }
   }
   const op = $("#original-prompt");
   if (op && document.activeElement !== op) {
@@ -1269,10 +1286,14 @@ function syncEventChipsTrack() {
     (state.doc.targets || []).forEach((t, idx) => {
       chips.push({
         label: `E${idx + 1} f${t.start}..${t.end}`,
+        title: (t.prompt || "").trim() || `Target ${idx + 1}`,
         cls: idx === state.selectedTargetIdx ? "event-chip active" : "event-chip",
         onClick: () => {
           state.selectedTargetIdx = idx;
           state.frame = clamp(Number(t.start || 0), 0, Math.max(0, state.length - 1));
+          if (typeof t.prompt === "string" && t.prompt.trim()) {
+            state.targetPrompt = t.prompt;
+          }
           syncAllUI();
         },
       });
@@ -1304,6 +1325,7 @@ function syncEventChipsTrack() {
     b.type = "button";
     b.className = ch.cls;
     b.textContent = ch.label;
+    if (ch.title) b.title = ch.title;
     b.addEventListener("click", ch.onClick);
     track.appendChild(b);
   }
@@ -1397,8 +1419,120 @@ function syncAudioGuardAndSequencer() {
 // Actions: Anchor Upload, Anchor Generate, Context Suggest, Stamp Cutout
 // ---------------------------------------------------------------------------
 
-async function handleAnchorUpload(file) {
+async function applyImportedRecipe(recipeDoc) {
+  if (!recipeDoc || typeof recipeDoc !== "object") return;
+  const st = recipeDoc.stage && typeof recipeDoc.stage === "object" ? recipeDoc.stage : recipeDoc;
+  const urls = recipeDoc.ref_view_urls || {};
+  pushUndo();
+
+  if (st.length && state.lengths.includes(Number(st.length))) {
+    state.length = Number(st.length);
+  }
+  if (st.seed != null) state.seed = Number(st.seed);
+  if (st.mode && state.workflows.some((w) => w.id === st.mode)) {
+    state.workflowId = String(st.mode);
+    state.workflowManualOverride = true;
+  }
+  if (st.events_json && typeof st.events_json === "object") {
+    state.doc = {
+      ...state.doc,
+      ...st.events_json,
+      width: Number(st.width || st.events_json.width || state.doc.width || 1344),
+      height: Number(st.height || st.events_json.height || state.doc.height || 768),
+      feather: Number(st.feather ?? st.events_json.feather ?? state.doc.feather ?? 0.08),
+      invert_mask: Boolean(st.invert_mask ?? st.events_json.invert_mask ?? false),
+    };
+    if (st.director_mode) state.doc.mode = String(st.director_mode);
+  }
+  state.originalPrompt = String(st.original_prompt || "");
+  state.targetPrompt = String(st.target_prompt || "");
+  state.samePrompt = Boolean(st.same_prompt);
+  state.audioRefine = Boolean(st.audio_refine);
+  state.snapToIncludeMask = Boolean(st.snap_to_include_mask);
+  state.editGuidance = {
+    scale: Number(st.scale ?? state.editGuidance.scale ?? 2.0),
+    audio_scale: Number(st.audio_scale ?? state.editGuidance.audio_scale ?? 1.0),
+    first_step: Number(st.first_step ?? state.editGuidance.first_step ?? 0),
+    last_step: Number(st.last_step ?? state.editGuidance.last_step ?? 1000),
+    streams: String(st.streams || state.editGuidance.streams || "independent"),
+  };
+  state.parentTakeId = String(recipeDoc.take_id || recipeDoc.parent_take_id || "");
+  state.parentFrame = recipeDoc.parent_frame != null ? Number(recipeDoc.parent_frame) : null;
+  state.lastFrameRef = String(st.last_frame || "");
+  state.lastFrameName = state.lastFrameRef ? state.lastFrameRef.split("/").pop() : "";
+
+  const cvs = Array.isArray(st.control_vectors) ? st.control_vectors : [];
+  if (cvs.length && typeof cvs[0] === "object") {
+    state.controlVector = String(cvs[0].vector || cvs[0].name || "none");
+    state.controlVectorStrength = Number(cvs[0].strength ?? 1.0);
+  } else {
+    state.controlVector = "none";
+  }
+
+  state.spriteMaskRef = String(st.sprite_mask_ref || "");
+  state.includeMaskRef = String(st.include_mask_ref || "");
+  state.excludeMaskRef = String(st.exclude_mask_ref || "");
+  state.includeMaskImg = null;
+  state.excludeMaskImg = null;
+
+  if (urls.source_ref) {
+    try {
+      await loadAnchorImageUrl(urls.source_ref, {
+        ref: st.source_ref,
+        name: (st.source_ref || "").split("/").pop() || "Restored Anchor",
+        preserveOriginalPrompt: true,
+      });
+    } catch {}
+  }
+  if (urls.sprite_ref && st.sprite_ref) {
+    await loadCutoutUrl(urls.sprite_ref, st.sprite_ref);
+  } else if (!st.sprite_ref) {
+    state.spriteCutout = null;
+    state.spriteMode = false;
+  }
+  if (urls.include_mask_ref) await loadMaskOverlayImage(urls.include_mask_ref, "includeMaskImg");
+  if (urls.exclude_mask_ref) await loadMaskOverlayImage(urls.exclude_mask_ref, "excludeMaskImg");
+
+  state.frame = clamp(state.frame, 0, Math.max(0, state.length - 1));
+  syncAllUI();
+  schedulePreflight();
+}
+
+async function restoreTakeRecipe(take, btn = null) {
+  if (!take?.take_id) return;
+  if (btn) btn.disabled = true;
+  try {
+    const res = await apiJson("/api/import_recipe", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ take_id: take.take_id }),
+    });
+    await applyImportedRecipe(res.recipe);
+    showToast(`Restored recipe (${take.mode || "take"} · seed ${res.recipe?.stage?.seed ?? "?"})`, "ok");
+  } catch (err) {
+    showToast(`Restore recipe failed: ${err.message}`, "err");
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+async function handleAnchorUpload(file, opts = {}) {
   if (!file) return;
+  if (file.name.toLowerCase().endsWith(".json")) {
+    try {
+      const rawJson = JSON.parse(await file.text());
+      const res = await apiJson("/api/import_recipe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ recipe: rawJson }),
+      });
+      await applyImportedRecipe(res.recipe);
+      showToast(`Imported recipe ${file.name}`, "ok");
+    } catch (err) {
+      showToast(`Recipe import failed: ${err.message}`, "err");
+    }
+    return;
+  }
   const fd = new FormData();
   fd.append("file", file);
   showToast(`Uploading ${file.name}…`);
@@ -1408,6 +1542,11 @@ async function handleAnchorUpload(file) {
     // Clear previous scene prompt & mask preview so uploaded media never inherits stale context
     state.originalPrompt = "";
     state.maskPreview = null;
+    if (!opts.preserveLineage) {
+      state.parentTakeId = "";
+      state.parentFrame = null;
+      state.activeMaskPreviewTakeId = "";
+    }
     const origEl = $("#original-prompt");
     if (origEl) origEl.value = "";
     await loadAnchorImageUrl(imgUrl, {
@@ -1506,6 +1645,9 @@ async function generateAnchorStill() {
       }),
     });
     state.originalPrompt = prompt;
+    state.parentTakeId = "";
+    state.parentFrame = null;
+    state.activeMaskPreviewTakeId = "";
     const origEl = $("#original-prompt");
     if (origEl) origEl.value = prompt;
     state.activeAnchorPromptId = data.prompt_id || "";
@@ -1546,6 +1688,19 @@ async function refreshContextSuggestions() {
         ry: pf.ry,
       }),
     });
+    if (data.enabled) {
+      state.vlmSubjectLabel = String(data.subject_label || "").trim();
+      const sugLabel = $("#context-suggestions-wrap .field-label");
+      if (sugLabel) {
+        sugLabel.textContent = state.vlmSubjectLabel
+          ? `Context Suggestions (${state.vlmSubjectLabel})`
+          : "Context Suggestions (heylook)";
+      }
+      if (data.scene_caption && !state.originalPrompt.trim()) {
+        const op = $("#original-prompt");
+        if (op) op.placeholder = `Auto-detected: ${data.scene_caption}`;
+      }
+    }
     if (data.enabled && Array.isArray(data.suggestions) && data.suggestions.length > 0) {
       listEl.replaceChildren();
       for (const s of data.suggestions) {
@@ -1664,7 +1819,7 @@ async function previewInMask() {
         halo_weight: pf.halo_weight ?? 0.30,
       };
     }
-    const wf = state.previewWorkflowId || "h3_image";
+    const wf = state.previewWorkflowId || "auto";
     const res = await apiJson("/api/preview_in_mask", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -1673,6 +1828,8 @@ async function previewInMask() {
         target_prompt: cmd,
         original_prompt: (state.originalPrompt || "").trim(),
         workflow: wf,
+        parent_take_id: state.parentTakeId || undefined,
+        parent_frame: state.parentFrame != null ? Number(state.parentFrame) : undefined,
         region,
         feather: Number(state.doc.feather),
         invert_mask: Boolean(state.doc.invert_mask),
@@ -1687,19 +1844,22 @@ async function previewInMask() {
       }),
     });
     state.activeMaskPreviewPromptId = res.prompt_id || "";
+    state.activeMaskPreviewTakeId = res.take_id || "";
+    if (res.resident_backbone) state.residentBackbone = res.resident_backbone;
+    const resolvedWf = res.workflow || wf;
     setActiveRender({
       kind: "mask_preview",
       pid: res.prompt_id || "",
-      phase: `Mask Preview (${res.workflow || wf})…`,
+      phase: `Mask Preview (${resolvedWf})…`,
       step: 0,
-      total: wf === "ph3_image" ? 8 : 6,
+      total: resolvedWf === "ph3_image" ? 8 : 6,
       meta: {
         region,
         feather: Number(state.doc.feather),
         snapToInclude: Boolean(state.snapToIncludeMask),
       },
     });
-    showToast("Running masked 1-frame preview (taeh3_image)…", "info");
+    showToast(`Running masked 1-frame preview (${resolvedWf} · taeh3_image)…`, "info");
   } catch (err) {
     showToast(`Mask preview failed: ${err.message}`, "err");
   } finally {
@@ -1741,7 +1901,10 @@ async function chainMaskPreviewToAnchor() {
   const blob = await new Promise((res) => c.toBlob(res, "image/png"));
   if (!blob) return;
   const file = new File([blob], "sandbox_roll_forward.png", { type: "image/png" });
-  await handleAnchorUpload(file);
+  const prevMaskTid = state.activeMaskPreviewTakeId || state.parentTakeId || "";
+  await handleAnchorUpload(file, { preserveLineage: true });
+  state.parentTakeId = prevMaskTid;
+  state.parentFrame = 0;
   showToast("Rolled preview forward as new World State", "ok");
 }
 
@@ -1920,6 +2083,8 @@ function buildCompilePayload() {
     events_json: JSON.stringify(state.doc),
     sound_cues: cuesLines,
     dpad_keyframes: dpadLines,
+    parent_take_id: state.parentTakeId || undefined,
+    parent_frame: state.parentFrame != null ? Number(state.parentFrame) : undefined,
     client_id: wsClient.clientId,
   };
 }
@@ -2090,11 +2255,24 @@ function renderTakesList() {
 
     const top = document.createElement("div");
     top.className = "take-card-top";
-    top.textContent = `${take.mode || "take"} · ${take.length || "?"}f · seed ${take.seed || "?"} · ${take.status || "done"}`;
+    const linTag = take.parent_take_id
+      ? ` · ↳ ${String(take.parent_take_id).slice(-6)}${take.parent_frame != null ? `@f${take.parent_frame}` : ""}`
+      : "";
+    top.textContent = `${take.mode || "take"} · ${take.length || "?"}f · seed ${take.seed || "?"} · ${take.status || "done"}${linTag}`;
     card.appendChild(top);
 
     const actions = document.createElement("div");
     actions.className = "take-card-actions";
+
+    if (take.params && typeof take.params === "object" && Object.keys(take.params).length > 0 && take.kind !== "imported") {
+      const restoreBtn = document.createElement("button");
+      restoreBtn.type = "button";
+      restoreBtn.className = "btn-outline-sm";
+      restoreBtn.textContent = "Restore Recipe";
+      restoreBtn.title = "Restore saved prompts, portals, cues, seed, and controls back onto stage";
+      restoreBtn.addEventListener("click", () => restoreTakeRecipe(take, restoreBtn));
+      actions.appendChild(restoreBtn);
+    }
 
     if (take.clean_video || take.hud_video) {
       const playBtn = document.createElement("button");
@@ -2232,6 +2410,8 @@ async function chainTakeFrameToAnchor(take, frameIndex = -1, btn = null, opts = 
       }
       state.lastFrameRef = "";
       state.lastFrameName = "";
+      state.parentTakeId = String(take.take_id || "");
+      state.parentFrame = Number(res.frame_index ?? frameIndex);
       await loadAnchorImageUrl(url, {
         ref: res.ref,
         name: res.filename || `shot_f${res.frame_index}.png`,
@@ -2837,6 +3017,9 @@ function init() {
   });
   $("#target-prompt")?.addEventListener("input", (ev) => {
     state.targetPrompt = ev.target.value;
+    if ((state.doc.mode === "point_targets" || state.doc.mode === "combined") && state.doc.targets?.[state.selectedTargetIdx]) {
+      state.doc.targets[state.selectedTargetIdx].prompt = ev.target.value;
+    }
     syncPromptDiffPreview();
   });
   $("#original-prompt")?.addEventListener("input", (ev) => {
@@ -2847,6 +3030,9 @@ function init() {
     qc.addEventListener("click", () => {
       const act = qc.dataset.action || qc.textContent || "";
       state.targetPrompt = act;
+      if ((state.doc.mode === "point_targets" || state.doc.mode === "combined") && state.doc.targets?.[state.selectedTargetIdx]) {
+        state.doc.targets[state.selectedTargetIdx].prompt = act;
+      }
       const tp = $("#target-prompt");
       if (tp) tp.value = act;
       syncPromptDiffPreview();
@@ -2901,6 +3087,10 @@ function init() {
   });
   $("#btn-apply-event")?.addEventListener("click", () => {
     pushUndo();
+    const curAction = (state.targetPrompt || "").trim();
+    if ((state.doc.mode === "point_targets" || state.doc.mode === "combined") && state.doc.targets?.[state.selectedTargetIdx]) {
+      state.doc.targets[state.selectedTargetIdx].prompt = curAction;
+    }
     const pf = evalPortalAtFrame(state.doc, state.frame, state.length);
     state.doc.portal = (state.doc.portal || []).filter((p) => p.frame !== state.frame);
     state.doc.portal.push({
@@ -2911,6 +3101,7 @@ function init() {
       ry: Number(pf.ry.toFixed(3)),
       shape: pf.shape,
       label: pf.label,
+      prompt: curAction || pf.prompt || "",
       weight: Number((pf.weight ?? 1.0).toFixed(2)),
       halo_radius: Number((pf.halo_radius ?? 0.10).toFixed(3)),
       halo_weight: Number((pf.halo_weight ?? 0.30).toFixed(2)),
