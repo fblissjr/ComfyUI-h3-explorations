@@ -155,4 +155,12 @@ fixes all of it, and getting any of it wrong produces a visibly broken picture.
 - **Prompt edges.** The pack strips edit prompts while its text-to-image graph, on core's node, does not. The
   engines strip neither. Making the two paths agree is a choice, not a fix.
 - **An empty text-to-image prompt** runs on core's node, where every engine refuses it.
-- **From the encoder page:** whether core's encoder reaches cuDNN SDPA, and where core builds the vision RoPE table.
+- **From the encoder page** ([`qwen3vl_encoder.md`](qwen3vl_encoder.md), "Open", narrowed 2026-11-17):
+  - Core's encoder runs PyTorch SDPA with an explicit causal mask, and which kernel SDPA then picks is not checked.
+  - Core's vision RoPE table is built on the CPU, where sglang rebuilds it on the GPU for this release.
+- **Measured since, by a peer session** (`bench/results/2026-11-17_pika_sampler_and_t2i_vision_probes.md`, Probe B):
+  grey or black pictures shown only to the text encoder, in text to image, gave a different picture at the same
+  seed from the plain prompt. So such pictures are not neutral to this model.
+  - The record has sharpness figures and a session's reading of the stills.
+  - It is one seed, and the arms differ in layout, so its sharpness figures compare different pictures. They cannot
+    by themselves show whether the vision tokens soften a picture.

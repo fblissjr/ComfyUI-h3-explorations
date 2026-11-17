@@ -65,6 +65,23 @@ prevent").
 
 ## Open
 
-- Where core builds the vision RoPE table, and whether that differs between our video and image paths.
-- Whether core's encoder attention reaches cuDNN SDPA. If it does, whether that is a seed-reproducibility issue
-  across restarts here.
+- **Where core builds the vision RoPE table: narrowed 2026-11-17** (read by hand, after a peer session's review).
+  - `comfy/text_encoders/qwen35.py::Qwen35VisionRotaryEmbedding` computes `inv_freq` once, in its constructor, on
+    the device the encoder is built on. `forward` then runs `torch.outer` wherever the buffer has moved.
+  - Core builds the encoder on `comfy/model_management.py::text_encoder_initial_device`. That is the offload device
+    (the CPU) whenever dynamic memory is on, or the encoder is larger than the card's free memory, as the bf16 32B
+    is. So for this pack the table is the CPU build.
+  - sglang rebuilds the table on the GPU for image releases only. It keeps the CPU build for video, whose
+    consistency references were made with it.
+  - Still open: whether the difference is visible on an edit's vision tokens. Text to image has none.
+- **Which attention core's encoder runs: narrowed 2026-11-17** (read by hand).
+  - The language model and the vision tower both ask for `optimized_attention_for_device(..., small_input=True)`
+    (`comfy/text_encoders/llama.py`, `comfy/text_encoders/qwen35.py`).
+  - That is PyTorch SDPA (`comfy/ldm/modules/attention.py::attention_pytorch`) whenever PyTorch attention is
+    enabled, which on an NVIDIA card with torch 2 is the default. It holds whatever the server's sage or kitchen
+    flags say; those choose the DiT's attention, not this.
+  - The language model passes an explicit additive causal mask with `is_causal=False`, so SDPA's flash kernel is
+    not eligible, and it chooses among memory-efficient, cuDNN and math; all three are enabled in the venv's torch.
+    vllm-omni calls SDPA with `is_causal=True` (agent's reading), so the two may run different kernels.
+  - Still open: which kernel core actually gets, and whether it reproduces across restarts. vllm-omni says its
+    cuDNN default does not.
