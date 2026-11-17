@@ -29,6 +29,11 @@ CLEAN_DECODE_NODE_ID = "162"
 HUD_COMBINE_NODE_ID = "13"
 
 ANCHOR_WORKFLOW_TEMPLATES: dict[str, dict[str, Any]] = {
+    "h3_image": {
+        "id": "h3_image",
+        "label": "MiniMax-H3-Image (base)",
+        "path": _WORKFLOWS_DIR / "image" / "h3_image_t2i_api.json",
+    },
     "pika_image": {
         "id": "pika_image",
         "label": "Pika H3 Image (6-step)",
@@ -39,10 +44,23 @@ ANCHOR_WORKFLOW_TEMPLATES: dict[str, dict[str, Any]] = {
         "label": "P-H3-Image (8-step)",
         "path": _WORKFLOWS_DIR / "image" / "h3_p_h3_image_t2i_api.json",
     },
+}
+
+IMAGE_EDIT_WORKFLOW_TEMPLATES: dict[str, dict[str, Any]] = {
     "h3_image": {
         "id": "h3_image",
-        "label": "MiniMax-H3-Image (base)",
-        "path": _WORKFLOWS_DIR / "image" / "h3_image_t2i_api.json",
+        "label": "MiniMax-H3-Image Edit (default)",
+        "path": _WORKFLOWS_DIR / "image" / "h3_image_edit_api.json",
+    },
+    "pika_image": {
+        "id": "pika_image",
+        "label": "Pika H3 1-Frame Edit (6-step)",
+        "path": _WORKFLOWS_DIR / "image" / "h3_pika_image_edit_api.json",
+    },
+    "ph3_image": {
+        "id": "ph3_image",
+        "label": "P-H3-Image Edit (8-step)",
+        "path": _WORKFLOWS_DIR / "image" / "h3_p_h3_image_edit_api.json",
     },
 }
 
@@ -221,6 +239,15 @@ def available_anchor_workflows() -> list[dict[str, Any]]:
     """Describe still/anchor T2I workflow templates."""
     out: list[dict[str, Any]] = []
     for key, spec in ANCHOR_WORKFLOW_TEMPLATES.items():
+        p = Path(spec["path"])
+        out.append({"id": key, "label": spec["label"], "available": p.is_file()})
+    return out
+
+
+def available_image_edit_workflows() -> list[dict[str, Any]]:
+    """Describe single-frame image-edit workflow templates for mask previews."""
+    out: list[dict[str, Any]] = []
+    for key, spec in IMAGE_EDIT_WORKFLOW_TEMPLATES.items():
         p = Path(spec["path"])
         out.append({"id": key, "label": spec["label"], "available": p.is_file()})
     return out
@@ -591,13 +618,296 @@ def _resolve_seed(params: dict[str, Any], template_graph: dict[str, Any]) -> int
     return random.SystemRandom().randint(1, 2**31 - 1)
 
 
+def _aspect_shape_for_size(width: int | None, height: int | None, *, default: str = "4:3") -> str:
+    """Map pixel dimensions to a valid ``MiniMaxH3ImageSize`` aspect ratio."""
+    if not width or not height or int(width) <= 0 or int(height) <= 0:
+        return default
+    ratio = float(width) / float(height)
+    if abs(ratio - 1.0) <= 0.12:
+        return "1:1"
+    if ratio >= 1.55:
+        return "16:9"
+    if ratio > 1.0:
+        return "4:3"
+    if ratio <= 1.0 / 1.55:
+        return "9:16"
+    return "3:4"
+
+
+def _has_h3_video_sections(text: str) -> bool:
+    low = (text or "").lower()
+    return "integrated_multimodal_description:" in low and "overall_soundscape:" in low
+
+
+def _has_h3_image_sections(text: str) -> bool:
+    low = (text or "").lower()
+    return (
+        "subject_definitions:" in low
+        or "retention_analysis:" in low
+        or "detailed_description:" in low
+        or "overall_soundscape:" in low
+    )
+
+
+def _describe_spatial_region(x: float, y: float) -> str:
+    """Return a clean human-readable region description from normalized ``(x, y)``."""
+    xc = max(0.0, min(1.0, float(x)))
+    yc = max(0.0, min(1.0, float(y)))
+    horiz = "left" if xc < 0.36 else ("right" if xc > 0.64 else "center")
+    vert = "upper" if yc < 0.36 else ("lower" if yc > 0.64 else "middle")
+    if horiz == "center" and vert == "middle":
+        return "the center of the frame"
+    if vert == "middle":
+        return f"the {horiz} midground"
+    if horiz == "center":
+        return f"the {vert} center of the frame"
+    return f"the {vert}-{horiz} region"
+
+
+def _summarize_focus_region_and_time(
+    events_doc: dict[str, Any],
+    *,
+    director_mode: str,
+    length: int,
+) -> tuple[str, int, int, list[str], str]:
+    """Extract primary normalized focus coordinates, onset/offset frames, cue words, and summary label."""
+    fx, fy = 0.5, 0.5
+    onset = 0
+    offset = max(0, int(length) - 1)
+    cues: list[str] = []
+
+    targets = [t for t in (events_doc.get("targets") or ()) if isinstance(t, dict)]
+    portal = [k for k in (events_doc.get("portal") or ()) if isinstance(k, dict)]
+
+    if director_mode in ("point_targets", "combined") and targets:
+        primary_t = targets[0]
+        fx = float(primary_t.get("x", 0.5))
+        fy = float(primary_t.get("y", 0.5))
+        onset = max(0, min(int(length) - 1, int(round(float(primary_t.get("start", 0))))))
+        offset = max(onset, min(int(length) - 1, int(round(float(primary_t.get("end", length - 1))))))
+        for t in targets:
+            preset = str(t.get("cue") or "").strip().lower()
+            if preset and preset != "none" and preset not in cues:
+                cues.append(preset)
+    elif portal:
+        mid_k = portal[len(portal) // 2] if len(portal) > 1 else portal[0]
+        fx = float(mid_k.get("x", 0.5))
+        fy = float(mid_k.get("y", 0.5))
+        onset = max(0, min(int(length) - 1, int(round(float(portal[0].get("frame", 0))))))
+        offset = max(onset, min(int(length) - 1, int(round(float(portal[-1].get("frame", length - 1))))))
+
+    for key in ("portal_cues", "cues", "sound_cues"):
+        for item in events_doc.get(key) or ():
+            if isinstance(item, dict):
+                preset = str(item.get("preset") or item.get("cue") or "").strip().lower()
+                if preset and preset != "none" and preset not in cues:
+                    cues.append(preset)
+
+    region_phrase = _describe_spatial_region(fx, fy)
+    summary = f"{region_phrase} @ f{onset}..{offset}"
+    return region_phrase, onset, offset, cues, summary
+
+
+def synthesize_spatial_prompts(
+    *,
+    mode: str,
+    length: int,
+    has_source_ref: bool,
+    director_mode: str,
+    events_doc: dict[str, Any],
+    original_prompt: str = "",
+    target_prompt: str = "",
+    same_prompt: bool = False,
+    edit_lines: str = "",
+    has_sprite: bool = False,
+    reaction_clauses: list[str] | None = None,
+) -> tuple[str, str, str]:
+    """Build clean, zero-hardcoded ``(original_prompt, edited_prompt, region_summary)``."""
+    use_pic1 = bool(has_source_ref and mode in ("i2v_portal", "r2v_portal", "world_targets"))
+    dur_s = f"{float(length) / 24.0:.3f}".rstrip("0").rstrip(".")
+    region_phrase, onset, offset, cues, region_summary = _summarize_focus_region_and_time(
+        events_doc,
+        director_mode=director_mode,
+        length=length,
+    )
+    onset_s = f"{float(onset) / 24.0:.2f}"
+    offset_s = f"{float(offset) / 24.0:.2f}"
+
+    raw_orig = (original_prompt or "").strip()
+    if raw_orig:
+        if _has_h3_video_sections(raw_orig) or edit_lines.strip():
+            orig_out = raw_orig
+        elif use_pic1:
+            orig_out = (
+                f"For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.\n\n"
+                f"integrated_multimodal_description: [Shot 1] Live-action, cinematic, holding the exact framing, lighting, "
+                f"layout, and composition established in <Picture 1>, a steady {dur_s}-second shot of {raw_orig}. "
+                f"Subtle natural micro-motion, light play, and environmental poise continue calmly while camera framing, "
+                f"surfaces, and surrounding structure match <Picture 1> faithfully from first frame to last.\n\n"
+                f"overall_soundscape:\nQuiet natural ambient room tone matching the scene acoustics with faint realistic textures.\n\n"
+                f"non_diegetic_music:\nN/A"
+            )
+        else:
+            orig_out = (
+                f"integrated_multimodal_description: [Shot 1] Live-action, cinematic, steady {dur_s}-second static shot showing "
+                f"{raw_orig}. Balanced directional lighting, consistent architectural and natural textures, and calm ambient motion "
+                f"hold cleanly across the full frame without sudden changes.\n\n"
+                f"overall_soundscape:\nQuiet ambient room tone matching the visual space.\n\n"
+                f"non_diegetic_music:\nN/A"
+            )
+    else:
+        if use_pic1:
+            sprite_note = (
+                " Any foreground movable actor stays naturally grounded inside the space with realistic contact shadows and scale."
+                if has_sprite
+                else ""
+            )
+            orig_out = (
+                f"For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.\n\n"
+                f"integrated_multimodal_description: [Shot 1] Live-action, cinematic, holding the exact framing, lighting, palette, "
+                f"layout, and camera perspective established in <Picture 1>, a calm, steady {dur_s}-second shot unfolds while the scene "
+                f"in <Picture 1> remains intact with gentle natural ambient micro-motion, subtle air and surface light continuity, "
+                f"and zero unexpected visual disruptions.{sprite_note} The camera holds completely steady so every spatial edge aligns accurately with <Picture 1>.\n\n"
+                f"overall_soundscape:\nQuiet natural ambient room tone matching the visual environment of <Picture 1>.\n\n"
+                f"non_diegetic_music:\nN/A"
+            )
+        else:
+            orig_out = (
+                f"integrated_multimodal_description: [Shot 1] Live-action, cinematic, steady {dur_s}-second static wide shot "
+                f"with consistent natural lighting, cohesive spatial depth, and calm ambient continuity across the scene.\n\n"
+                f"overall_soundscape:\nQuiet natural ambient room tone.\n\n"
+                f"non_diegetic_music:\nN/A"
+            )
+
+    if same_prompt:
+        return orig_out, orig_out, region_summary
+
+    raw_target = (target_prompt or "").strip()
+    if raw_target and _has_h3_video_sections(raw_target):
+        edited_out = raw_target
+    else:
+        action_desc = raw_target if raw_target else "dynamic localized transformation unfolding inside the active region"
+        cue_audio_parts = [c.replace("_", " ") for c in cues]
+        audio_desc = (
+            f"Crisp localized acoustic event matching {action_desc} ({', '.join(cue_audio_parts)}) erupting around {onset_s} seconds atop consistent scene ambience."
+            if cue_audio_parts
+            else f"Localized sound effects matching {action_desc} arriving around {onset_s} seconds over subtle natural scene ambience."
+        )
+        sprite_react = (
+            " Nearby subjects react dynamically with natural illumination bounce, air impulse, and cast shadows."
+            if has_sprite
+            else ""
+        )
+        if use_pic1:
+            edited_out = (
+                f"For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.\n\n"
+                f"integrated_multimodal_description: [Shot 1] Live-action, cinematic, holding the exact framing, camera angle, "
+                f"palette, and spatial layout established in <Picture 1> across the {dur_s}-second take. "
+                f"Focused inside {region_phrase} from {onset_s}s to {offset_s}s, {action_desc}, interacting naturally with nearby surfaces, "
+                f"lighting, and reflections.{sprite_react} Outside the active region, all architecture, horizon, lighting, and surrounding scenery "
+                f"from <Picture 1> remain faithfully preserved.\n\n"
+                f"overall_soundscape:\n{audio_desc}\n\n"
+                f"non_diegetic_music:\nN/A"
+            )
+        else:
+            edited_out = (
+                f"integrated_multimodal_description: [Shot 1] Live-action, cinematic {dur_s}-second shot. "
+                f"Focused at {region_phrase} between {onset_s}s and {offset_s}s, {action_desc}, casting realistic lighting, motion, "
+                f"and physical interaction into the surrounding environment while camera framing stays steady.\n\n"
+                f"overall_soundscape:\n{audio_desc}\n\n"
+                f"non_diegetic_music:\nN/A"
+            )
+
+    clauses = [str(c).strip() for c in (reaction_clauses or []) if str(c).strip()]
+    if clauses:
+        suffix = " ".join(clauses)
+        if suffix not in edited_out:
+            edited_out = f"{edited_out.strip()} {suffix}".strip()
+
+    return orig_out, edited_out, region_summary
+
+
+def synthesize_image_edit_prompts(
+    *,
+    workflow_key: str,
+    target_prompt: str,
+    original_prompt: str = "",
+    region_x: float = 0.5,
+    region_y: float = 0.5,
+) -> tuple[str, str, str]:
+    """Build contract-matched ``(original_prompt, edited_prompt, region_phrase)`` for masked still edits."""
+    region_phrase = _describe_spatial_region(region_x, region_y)
+    edit_text = (target_prompt or "").strip()
+    orig_text = (original_prompt or "").strip()
+
+    if workflow_key == "pika_image":
+        if orig_text and _has_h3_image_sections(orig_text):
+            orig_out = orig_text
+        else:
+            desc = orig_text or "Everything in <Picture 1> remains completely unchanged with matching framing, lighting, textures, and depth."
+            orig_out = (
+                "subject_definitions:\n"
+                "<Picture 1> is the source image and composition anchor.\n\n"
+                "summary:\n"
+                "[keyframe completion] Hold <Picture 1> completely unchanged.\n\n"
+                "retention_analysis:\n"
+                "<Picture 1> ([Shot 1] edited keyframe): fully_preserved - exact framing, subjects, lighting, and background remain intact.\n\n"
+                "detailed_description:\n"
+                f"Photographic still frame. [Shot 1] {desc} The camera is static and nothing moves; the frame holds this single still image.\n\n"
+                "overall_soundscape:\nN/A\n\n"
+                "non_diegetic_music:\nN/A"
+            )
+        if edit_text and _has_h3_image_sections(edit_text):
+            edited_out = edit_text
+        else:
+            edited_out = (
+                "subject_definitions:\n"
+                "<Picture 1> is the source image and composition anchor.\n"
+                f"<Subject 1> is {region_phrase} of <Picture 1>.\n\n"
+                "summary:\n"
+                f"[keyframe completion] Edit <Picture 1> so <Subject 1> becomes: {edit_text}.\n\n"
+                "retention_analysis:\n"
+                "<Picture 1> ([Shot 1] edited keyframe): partially_preserved - framing, camera angle, and surrounding lighting are kept.\n"
+                f"<Subject 1> (appears in [Shot 1]): weak_reference - replaced in {region_phrase} with {edit_text}.\n\n"
+                "detailed_description:\n"
+                f"Photographic still frame. [Shot 1] All unmasked scenery and lighting of <Picture 1> remain intact. "
+                f"Inside <Subject 1> ({region_phrase}), {edit_text}, matching the ambient key light, shadows, depth of field, "
+                f"and realistic texture of <Picture 1>. The camera is static and nothing moves; the frame holds this single still image.\n\n"
+                "overall_soundscape:\nN/A\n\n"
+                "non_diegetic_music:\nN/A"
+            )
+        return orig_out, edited_out, region_phrase
+
+    # MiniMax-H3-Image and P-H3-Image use sectionless visual prose with zero soundscape rows.
+    if orig_text:
+        orig_out = orig_text if "<Picture 1>" in orig_text else (
+            f"The scene from <Picture 1> showing {orig_text}, preserved completely with identical framing, composition, lighting, and details."
+        )
+    else:
+        orig_out = (
+            "The complete photograph <Picture 1> is preserved with identical framing, camera perspective, "
+            "subjects, surface textures, lighting, and background with zero edits or additions."
+        )
+
+    if "<Picture 1>" in edit_text and len(edit_text) >= 120:
+        edited_out = edit_text
+    else:
+        edited_out = (
+            f"The region at {region_phrase} of <Picture 1> is <Subject 1>. "
+            f"The remaining framing, background, subjects, and ambient lighting of <Picture 1> are <Subject 2>. "
+            f"The target image preserves <Subject 2> completely while transforming <Subject 1> into {edit_text}, "
+            f"seamlessly matching the directional light, cast shadows, color balance, focus depth, and photographic detail of <Picture 1>."
+        )
+    return orig_out, edited_out, region_phrase
+
+
 def compile_still(
     params: dict[str, Any] | None = None,
     object_info: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Compile an anchor still or stamp-cutout source generation workflow."""
     cfg = dict(params or {})
-    workflow_key = str(cfg.get("workflow") or "pika_image").strip()
+    workflow_key = str(cfg.get("workflow") or "h3_image").strip()
     if workflow_key not in ANCHOR_WORKFLOW_TEMPLATES:
         raise ValueError(
             f"Unknown anchor workflow {workflow_key!r}; expected one of {list(ANCHOR_WORKFLOW_TEMPLATES)}"
@@ -608,12 +918,22 @@ def compile_still(
     graph = _load_json(tpl_path)
     _rewrite_save_to_preview(graph)
 
+    prompt_text = str(cfg.get("prompt") or "").strip()
+    if not prompt_text:
+        raise ValueError("Prompt cannot be empty when generating a still image")
+
+    for_cutout = bool(cfg.get("for_cutout", False))
+    if for_cutout and "backdrop" not in prompt_text.lower():
+        prompt_text = (
+            f"{prompt_text}, isolated centered full view on a clean uniform light grey studio backdrop, "
+            f"crisp silhouette edges, soft neutral studio lighting, single subject"
+        )
+
     seed = _resolve_seed(cfg, graph)
     if "6" in graph and isinstance(graph["6"].get("inputs"), dict):
         graph["6"]["inputs"]["noise_seed"] = seed
 
-    prompt_text = str(cfg.get("prompt") or "").strip()
-    if prompt_text and "5" in graph and isinstance(graph["5"].get("inputs"), dict):
+    if "5" in graph and isinstance(graph["5"].get("inputs"), dict):
         graph["5"]["inputs"]["prompt"] = prompt_text
 
     width = cfg.get("width")
@@ -626,10 +946,19 @@ def compile_still(
         if isinstance(n4, dict):
             if cfg.get("shape"):
                 n4["shape"] = str(cfg["shape"])
-            if cfg.get("megapixels") is not None:
-                n4["megapixels"] = float(cfg["megapixels"])
-            if cfg.get("generate_megapixels") is not None:
-                n4["generate_megapixels"] = float(cfg["generate_megapixels"])
+            elif for_cutout:
+                n4["shape"] = "1:1"
+            elif width is not None and height is not None:
+                n4["shape"] = _aspect_shape_for_size(int(width), int(height), default=str(n4.get("shape") or "4:3"))
+            mp_val = float(cfg["megapixels"]) if cfg.get("megapixels") is not None else float(n4.get("megapixels", 4.0))
+            n4["megapixels"] = max(4.0, mp_val)
+            default_gen_mp = 16.0 if workflow_key == "h3_image" else 8.0
+            gen_mp_val = (
+                float(cfg["generate_megapixels"])
+                if cfg.get("generate_megapixels") is not None
+                else float(n4.get("generate_megapixels", default_gen_mp))
+            )
+            n4["generate_megapixels"] = max(4.0, max(n4["megapixels"], gen_mp_val))
 
     preview_enabled = bool(cfg.get("preview_override", True))
     injected = _inject_kj_preview_override(
@@ -643,6 +972,180 @@ def compile_still(
     return {
         "workflow": workflow_key,
         "seed": seed,
+        "for_cutout": for_cutout,
+        "prompt": prompt_text,
+        "preview_override_injected": injected,
+        "graph": graph,
+    }
+
+
+def compile_masked_still_edit(
+    params: dict[str, Any] | None = None,
+    object_info: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Compile a 1-frame masked image edit with ``MiniMaxH3EditGuider`` + ``taeh3_image`` preview."""
+    cfg = dict(params or {})
+    workflow_key = str(cfg.get("workflow") or "h3_image").strip()
+    if workflow_key not in IMAGE_EDIT_WORKFLOW_TEMPLATES:
+        raise ValueError(
+            f"Unknown image edit workflow {workflow_key!r}; expected one of {list(IMAGE_EDIT_WORKFLOW_TEMPLATES)}"
+        )
+    tpl_path = Path(IMAGE_EDIT_WORKFLOW_TEMPLATES[workflow_key]["path"])
+    if not tpl_path.is_file():
+        raise FileNotFoundError(f"Image edit template missing: {tpl_path}")
+
+    source_ref = str(cfg.get("source_ref") or cfg.get("ref_image") or cfg.get("anchor_image") or "").strip()
+    if not source_ref:
+        raise ValueError("source_ref is required for masked still edit preview")
+    mask_ref = str(cfg.get("mask_ref") or cfg.get("mask_image") or "").strip()
+    if not mask_ref:
+        raise ValueError("mask_ref is required for masked still edit preview")
+    target_prompt = str(cfg.get("target_prompt") or cfg.get("prompt") or "").strip()
+    if not target_prompt:
+        raise ValueError("target_prompt cannot be empty for masked still edit preview")
+
+    region_x = float(cfg.get("region_x", 0.5))
+    region_y = float(cfg.get("region_y", 0.5))
+    orig_prompt, edited_prompt, region_phrase = synthesize_image_edit_prompts(
+        workflow_key=workflow_key,
+        target_prompt=target_prompt,
+        original_prompt=str(cfg.get("original_prompt") or "").strip(),
+        region_x=region_x,
+        region_y=region_y,
+    )
+
+    graph = _load_json(tpl_path)
+    _rewrite_save_to_preview(graph)
+
+    for stale in ("165", "170", "171", "130", "131"):
+        graph.pop(stale, None)
+
+    seed = _resolve_seed(cfg, graph)
+    if "6" in graph and isinstance(graph["6"].get("inputs"), dict):
+        graph["6"]["inputs"]["noise_seed"] = seed
+
+    graph["15"] = {"class_type": "LoadImage", "inputs": {"image": source_ref}}
+    graph["170"] = {"class_type": "LoadImage", "inputs": {"image": mask_ref}}
+    graph["171"] = {"class_type": "ImageToMask", "inputs": {"image": ["170", 0], "channel": "red"}}
+
+    if workflow_key == "pika_image":
+        if cfg.get("width") is not None and cfg.get("height") is not None and cfg.get("canvas") == "explicit":
+            _set_resolution_node(graph, width=int(cfg["width"]), height=int(cfg["height"]), length=362, canvas="explicit")
+        else:
+            _set_resolution_node(graph, width=1344, height=768, length=362, canvas="same as the picture")
+        graph["132"] = {
+            "class_type": "MiniMaxH3EncodeReferences",
+            "inputs": {
+                "clip": ["2", 0],
+                "vae": ["3", 0],
+                "audio_vae": ["4", 0],
+                "references": ["50", 0],
+                "width": ["27", 0],
+                "height": ["27", 1],
+                "length": ["27", 2],
+                "video_policy": "comfy",
+                "image_policy": "comfy",
+                "single_frame": True,
+            },
+        }
+        graph["5"] = {
+            "class_type": "MiniMaxH3PromptOnReferences",
+            "inputs": {"encoded_references": ["132", 0], "prompt": orig_prompt},
+        }
+        graph["131"] = {
+            "class_type": "MiniMaxH3PromptOnReferences",
+            "inputs": {"encoded_references": ["132", 0], "prompt": edited_prompt},
+        }
+        graph["26"] = {
+            "class_type": "MiniMaxH3Preflight",
+            "inputs": {
+                "conditioning": ["5", 0],
+                "samples": ["132", 1],
+                "edited_conditioning": ["131", 0],
+            },
+        }
+        graph["10"]["inputs"]["latent_image"] = ["26", 1]
+        orig_cond_ref: list[Any] = ["26", 0]
+        edited_cond_ref: list[Any] = ["26", 2]
+    elif workflow_key == "ph3_image":
+        graph.pop("16", None)
+        n4 = graph.get("4", {}).get("inputs", {})
+        if isinstance(n4, dict):
+            n4["shape"] = "same as the picture"
+            n4["picture"] = ["15", 0]
+            mp_val = float(cfg["megapixels"]) if cfg.get("megapixels") is not None else 4.0
+            n4["megapixels"] = max(4.0, mp_val)
+            gen_mp_val = float(cfg["generate_megapixels"]) if cfg.get("generate_megapixels") is not None else 4.0
+            n4["generate_megapixels"] = max(4.0, max(n4["megapixels"], gen_mp_val))
+        n5_in = graph["5"]["inputs"]
+        n5_in.pop("images.image_2", None)
+        n5_in["images.image_1"] = ["15", 0]
+        n5_in["prompt"] = orig_prompt
+        n131_in = copy.deepcopy(n5_in)
+        n131_in["prompt"] = edited_prompt
+        graph["131"] = {"class_type": "MiniMaxH3PH3ImageConditioning", "inputs": n131_in}
+        graph["10"]["inputs"]["latent_image"] = ["5", 1]
+        orig_cond_ref = ["5", 0]
+        edited_cond_ref = ["131", 0]
+    else:  # h3_image (default MiniMax-H3-Image)
+        n4 = graph.get("4", {}).get("inputs", {})
+        if isinstance(n4, dict):
+            n4["shape"] = "same as the picture"
+            n4["picture"] = ["15", 0]
+            mp_val = float(cfg["megapixels"]) if cfg.get("megapixels") is not None else 4.0
+            n4["megapixels"] = max(4.0, mp_val)
+            gen_mp_val = float(cfg["generate_megapixels"]) if cfg.get("generate_megapixels") is not None else 4.0
+            n4["generate_megapixels"] = max(4.0, max(n4["megapixels"], gen_mp_val))
+        graph["5"]["inputs"]["prompt"] = orig_prompt
+        graph["131"] = {
+            "class_type": "MiniMaxH3PromptOnImageReferences",
+            "inputs": {
+                "encoded_references": ["132", 0],
+                "prompt": edited_prompt,
+                "noise": ["6", 0],
+            },
+        }
+        orig_cond_ref = ["5", 0]
+        edited_cond_ref = ["131", 0]
+
+    model_ref = copy.deepcopy((graph.get("9", {}).get("inputs") or {}).get("model") or ["58", 0])
+    scale = max(0.0, min(4.0, float(cfg.get("scale", 1.8))))
+    first_step = max(0, int(cfg.get("first_step", 0)))
+    last_step = max(first_step, int(cfg.get("last_step", 1000)))
+    graph["9"] = {
+        "class_type": "MiniMaxH3EditGuider",
+        "inputs": {
+            "model": model_ref,
+            "original": orig_cond_ref,
+            "edited": edited_cond_ref,
+            "scale": scale,
+            "first_step": first_step,
+            "align_positions": False,
+            "last_step": last_step,
+            "streams": "video_only",
+            "audio_scale": 0.0,
+            "mask": ["171", 0],
+        },
+    }
+
+    preview_enabled = bool(cfg.get("preview_override", True))
+    injected = _inject_kj_preview_override(
+        graph,
+        object_info=object_info,
+        tiny_vae_filename=TAEH3_IMAGE_FILE,
+        preview_frames=1,
+        preview_fps=1,
+        enabled=preview_enabled,
+    )
+    return {
+        "workflow": workflow_key,
+        "source_ref": source_ref,
+        "mask_ref": mask_ref,
+        "seed": seed,
+        "scale": scale,
+        "region_phrase": region_phrase,
+        "original_prompt": orig_prompt,
+        "edited_prompt": edited_prompt,
         "preview_override_injected": injected,
         "graph": graph,
     }
@@ -945,14 +1448,14 @@ def _compile_single_spatial(
     is_r2v = mode in ("r2v_portal", "world_targets")
     if sprite_ref and not is_r2v:
         raise ValueError("Sprite trajectory cutouts require ref2va mode ('r2v_portal' or 'world_targets')")
+    if (is_r2v or mode == "i2v_portal") and not source_ref:
+        raise ValueError("An anchor image is required before rendering in I2V/R2V mode; upload or generate an anchor scene first.")
 
     if is_r2v:
-        if source_ref:
-            graph.setdefault("15", {"class_type": "LoadImage", "inputs": {}})
-            graph["15"]["inputs"]["image"] = source_ref
+        graph.setdefault("15", {"class_type": "LoadImage", "inputs": {}})
+        graph["15"]["inputs"]["image"] = source_ref
     elif mode == "i2v_portal":
-        img_name = source_ref or graph.get("15", {}).get("inputs", {}).get("image") or "1-man.png"
-        graph["15"] = {"class_type": "LoadImage", "inputs": {"image": img_name}}
+        graph["15"] = {"class_type": "LoadImage", "inputs": {"image": source_ref}}
         for cond_id in ("5", "131"):
             graph[cond_id]["inputs"]["first_frame"] = ["15", 0]
         if last_frame:
@@ -973,47 +1476,7 @@ def _compile_single_spatial(
     tpl_length = int((graph.get("27") or {}).get("inputs", {}).get("length") or 141)
     _set_resolution_node(graph, width=width, height=height, length=length, canvas=canvas)
 
-    # Prompts: edit_lines OR natural target_prompt OR same_prompt=True.
-    if "133" not in graph:
-        default_orig = str(graph.get("5", {}).get("inputs", {}).get("prompt") or "")
-        graph["133"] = {"class_type": "PrimitiveStringMultiline", "inputs": {"value": default_orig}}
-        graph["5"]["inputs"]["prompt"] = ["133", 0]
-
-    if params.get("original_prompt") is not None and str(params["original_prompt"]).strip():
-        graph["133"]["inputs"]["value"] = str(params["original_prompt"]).strip()
-    orig_prompt = str(graph["133"]["inputs"]["value"])
-
-    same_prompt = bool(params.get("same_prompt", False))
-    edit_lines = str(params.get("edit_lines") or "").strip()
-    target_prompt = str(params.get("target_prompt") or "").strip()
-
-    if same_prompt:
-        graph.pop("130", None)
-        graph.pop("134", None)
-        graph["131"]["inputs"]["prompt"] = ["133", 0]
-        prompt_mode = "same_prompt"
-    elif edit_lines:
-        # Validate edit lines immediately against original prompt.
-        _h3_prompt_edit().apply_edits(orig_prompt, edit_lines)
-        graph.pop("134", None)
-        graph["130"] = {
-            "class_type": "MiniMaxH3PromptEdit",
-            "inputs": {"original": ["133", 0], "edits": edit_lines},
-        }
-        graph["131"]["inputs"]["prompt"] = ["130", 0]
-        prompt_mode = "edit_lines"
-    elif target_prompt:
-        graph.pop("130", None)
-        graph["134"] = {
-            "class_type": "PrimitiveStringMultiline",
-            "inputs": {"value": target_prompt},
-        }
-        graph["131"]["inputs"]["prompt"] = ["134", 0]
-        prompt_mode = "target_prompt"
-    else:
-        prompt_mode = "template_default"
-
-    # SpatialDirector ("160") & DirectorHUD ("161").
+    # SpatialDirector ("160") event parsing BEFORE prompt synthesis so focus coordinates/cues feed prompts.
     n160 = graph["160"]["inputs"]
     default_dir_mode = "point_targets" if mode == "world_targets" else "portal_path"
     director_mode = str(params.get("director_mode") or (default_dir_mode if not used_shipped else n160.get("mode", default_dir_mode)))
@@ -1022,7 +1485,7 @@ def _compile_single_spatial(
     if params.get("events_json") is None and length != tpl_length:
         _scale_events_doc(events_doc, tpl_length, length)
 
-    # Merge explicit portal_cues / dpad / halo couplings before validation & HUD wiring.
+    # Merge explicit portal_cues / dpad / halo couplings before validation, prompt synthesis & HUD wiring.
     if params.get("portal_cues"):
         events_doc["portal_cues"] = list(params["portal_cues"])
     has_dpad_inputs = _merge_dpad_inputs(events_doc, params)
@@ -1033,6 +1496,58 @@ def _compile_single_spatial(
         length=length,
         sprite_active=bool(has_sprite or has_dpad_inputs),
     )
+
+    if director_mode == "point_targets" and not events_doc.get("targets") and events_doc.get("portal"):
+        # Allow mode switching seamlessly if user hasn't placed point targets yet.
+        director_mode = "portal_path"
+
+    events_str = json.dumps(events_doc, indent=2)
+    _spatial_director().parse_director_events(events_str, mode=director_mode, length=length)
+
+    # Scene-agnostic <Picture 1> prompt synthesis (never inherits shipped template prompt prose).
+    raw_orig = str(params.get("original_prompt") or "").strip()
+    same_prompt = bool(params.get("same_prompt", False))
+    edit_lines = str(params.get("edit_lines") or "").strip()
+    target_prompt = str(params.get("target_prompt") or "").strip()
+
+    orig_prompt, synth_edit, region_summary = synthesize_spatial_prompts(
+        mode=mode,
+        length=length,
+        has_source_ref=bool(source_ref),
+        director_mode=director_mode,
+        events_doc=events_doc,
+        original_prompt=raw_orig,
+        target_prompt=target_prompt,
+        same_prompt=same_prompt,
+        edit_lines=edit_lines,
+        has_sprite=has_sprite,
+        reaction_clauses=None,
+    )
+    graph["133"] = {"class_type": "PrimitiveStringMultiline", "inputs": {"value": orig_prompt}}
+    graph["5"]["inputs"]["prompt"] = ["133", 0]
+
+    if same_prompt:
+        graph.pop("130", None)
+        graph.pop("134", None)
+        graph["131"]["inputs"]["prompt"] = ["133", 0]
+        prompt_mode = "same_prompt"
+    elif edit_lines:
+        _h3_prompt_edit().apply_edits(orig_prompt, edit_lines)
+        graph.pop("134", None)
+        graph["130"] = {
+            "class_type": "MiniMaxH3PromptEdit",
+            "inputs": {"original": ["133", 0], "edits": edit_lines},
+        }
+        graph["131"]["inputs"]["prompt"] = ["130", 0]
+        prompt_mode = "edit_lines"
+    else:
+        graph.pop("130", None)
+        graph["134"] = {
+            "class_type": "PrimitiveStringMultiline",
+            "inputs": {"value": synth_edit},
+        }
+        graph["131"]["inputs"]["prompt"] = ["134", 0]
+        prompt_mode = "target_prompt" if target_prompt else "synthesized_hold"
 
     if not same_prompt and reaction_clauses:
         clause_suffix = " ".join(reaction_clauses)
@@ -1055,13 +1570,6 @@ def _compile_single_spatial(
             }
             graph["131"]["inputs"]["prompt"] = ["134", 0]
 
-    if director_mode == "point_targets" and not events_doc.get("targets") and events_doc.get("portal"):
-        # Allow mode switching seamlessly if user hasn't placed point targets yet.
-        director_mode = "portal_path"
-
-    events_str = json.dumps(events_doc, indent=2)
-    _spatial_director().parse_director_events(events_str, mode=director_mode, length=length)
-
     feather_val = _feather_value(params, width, height, float(n160.get("feather", 0.08)))
     want_invert = bool(params.get("invert_mask", n160.get("invert_mask", False)))
     include_mask_ref = str(params.get("include_mask_ref") or "").strip()
@@ -1083,10 +1591,16 @@ def _compile_single_spatial(
     n161 = graph["161"]["inputs"]
     if params.get("hud_layout"):
         n161["hud_layout"] = str(params["hud_layout"])
-    if params.get("hud_title") is not None:
-        n161["title"] = str(params["hud_title"])
+    n161["title"] = (
+        str(params["hud_title"])
+        if params.get("hud_title") is not None
+        else f"{mode.upper().replace('_', ' ')} · WORLD SANDBOX"
+    )
     if params.get("hud_subtitle") is not None:
         n161["subtitle"] = str(params["hud_subtitle"])
+    else:
+        sub_hint = target_prompt or region_summary or "Anchored world dynamics"
+        n161["subtitle"] = f"{sub_hint[:84]}..." if len(sub_hint) > 84 else sub_hint
     if params.get("ring_opacity") is not None:
         n161["ring_opacity"] = float(params["ring_opacity"])
 
@@ -1996,6 +2510,7 @@ def get_schema_data(object_info: dict[str, Any] | None = None, *, heylook_sugges
         "canvases": canvases,
         "workflows": available_workflows(),
         "anchor_workflows": available_anchor_workflows(),
+        "image_edit_workflows": available_image_edit_workflows(),
         "control_vectors": list_control_vectors(),
         "capabilities": {
             "kj_preview_override": has_kj_preview_override(object_info, TAEH3_VIDEO_FILE),
@@ -2008,7 +2523,7 @@ def get_schema_data(object_info: dict[str, Any] | None = None, *, heylook_sugges
             "audio_refine": has_audio_refine_support(object_info),
         },
         "defaults": {
-            "mode": "r2v_portal",
+            "mode": "i2v_portal",
             "length": 90,
             "width": 1344,
             "height": 768,
@@ -2023,7 +2538,8 @@ def get_schema_data(object_info: dict[str, Any] | None = None, *, heylook_sugges
             "feather": 0.08,
             "halo_radius": 0.0,
             "hud_layout": "director_card",
-            "anchor_workflow": "pika_image",
+            "anchor_workflow": "h3_image",
+            "preview_image_workflow": "h3_image",
             "preview_fps": 7,
         },
     }

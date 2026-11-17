@@ -200,6 +200,10 @@ export class DirectorWSClient {
     const onLoaded = () => {
       video.removeEventListener("loadeddata", onLoaded);
       if (prevUrl && prevUrl !== blobUrl) this._revokeLater(prevUrl);
+      try {
+        video.currentTime = 0;
+        video.play().catch(() => {});
+      } catch {}
       this.handlers.onPreviewMedia?.({
         kind: "video",
         media: video,

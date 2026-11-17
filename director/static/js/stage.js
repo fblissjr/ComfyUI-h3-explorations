@@ -259,11 +259,52 @@ export class StageController {
     this.render();
   }
 
+  _getMediaRect(st, w = this.canvas.width, h = this.canvas.height) {
+    const vid = st?.activeVideoEl;
+    const img = st?.anchorMedia;
+    let mw = Number(st?.doc?.width || 1344);
+    let mh = Number(st?.doc?.height || 768);
+    if (vid && vid.readyState >= 2 && vid.videoWidth > 0 && vid.videoHeight > 0) {
+      mw = vid.videoWidth;
+      mh = vid.videoHeight;
+    } else if (img && (img.naturalWidth || img.width) > 0 && (img.naturalHeight || img.height) > 0) {
+      mw = img.naturalWidth || img.width;
+      mh = img.naturalHeight || img.height;
+    }
+    const scale = Math.min(w / Math.max(1, mw), h / Math.max(1, mh));
+    const dw = Math.max(1, mw * scale);
+    const dh = Math.max(1, mh * scale);
+    return {
+      x: (w - dw) * 0.5,
+      y: (h - dh) * 0.5,
+      w: dw,
+      h: dh,
+      shortEdge: Math.min(dw, dh),
+    };
+  }
+
   _canvasCoords(clientX, clientY) {
     const rect = this.canvas.getBoundingClientRect();
-    const nx = clamp((clientX - rect.left) / Math.max(1, rect.width), 0.0, 1.0);
-    const ny = clamp((clientY - rect.top) / Math.max(1, rect.height), 0.0, 1.0);
-    return { nx, ny, rect };
+    const st = this.getState?.();
+    const cw = Math.max(1, this.canvas.width || rect.width);
+    const ch = Math.max(1, this.canvas.height || rect.height);
+    const mr = this._getMediaRect(st, cw, ch);
+    const relX = ((clientX - rect.left) / Math.max(1, rect.width)) * cw - mr.x;
+    const relY = ((clientY - rect.top) / Math.max(1, rect.height)) * ch - mr.y;
+    const nx = clamp(relX / Math.max(1, mr.w), 0.0, 1.0);
+    const ny = clamp(relY / Math.max(1, mr.h), 0.0, 1.0);
+    return { nx, ny, rect, mr };
+  }
+
+  _scheduleLiveVideoRepaint() {
+    if (this._liveVideoRaf) return;
+    this._liveVideoRaf = requestAnimationFrame(() => {
+      this._liveVideoRaf = 0;
+      const st = this.getState?.();
+      if (st?.livePreview?.kind === "video" && st.livePreview.media && !st.livePreview.media.paused && !st.playing) {
+        this.render();
+      }
+    });
   }
 
   _bindEvents() {
@@ -274,9 +315,10 @@ export class StageController {
   }
 
   _hitTest(nx, ny, st) {
-    const w = this.canvas.width;
-    const h = this.canvas.height;
-    const shortEdge = Math.min(w, h);
+    const mr = this._getMediaRect(st, this.canvas.width, this.canvas.height);
+    const w = mr.w;
+    const h = mr.h;
+    const shortEdge = mr.shortEdge;
     const frame = st.frame;
     const len = st.length;
 
@@ -362,6 +404,19 @@ export class StageController {
 
     if (st.samPicking) {
       this.onSamPick?.(nx, ny, { negative: Boolean(ev.altKey) });
+      return;
+    }
+
+    if (st.settingSpritePath) {
+      const destFrame = st.frame > 0 ? st.frame : Math.max(12, Math.round((st.length - 1) * 0.65));
+      const prevFrame = st.frame;
+      st.frame = destFrame;
+      this._upsertSpriteWaypoint(st, nx, ny);
+      st.frame = prevFrame;
+      st.settingSpritePath = false;
+      st.spriteMode = true;
+      this.onMutate("set_sprite_path");
+      this.render();
       return;
     }
 
@@ -492,9 +547,10 @@ export class StageController {
     if (this._drag.kind === "target_radius") {
       const t = st.doc.targets?.[this._drag.idx];
       if (t) {
-        const w = this.canvas.width;
-        const h = this.canvas.height;
-        const shortEdge = Math.min(w, h);
+        const mr = this._getMediaRect(st, this.canvas.width, this.canvas.height);
+        const w = mr.w;
+        const h = mr.h;
+        const shortEdge = mr.shortEdge;
         const dist = Math.hypot((nx - t.x) * w, (ny - t.y) * h) / shortEdge;
         t.radius = Number(clamp(dist, 0.04, 0.45).toFixed(3));
         this.onMutate("resize_target", { live: true });
@@ -512,9 +568,10 @@ export class StageController {
 
     if (this._drag.kind === "portal_resize_y") {
       const kf = this._ensurePortalKeyframeAtFrame(st);
-      const w = this.canvas.width;
-      const h = this.canvas.height;
-      const shortEdge = Math.min(w, h);
+      const mr = this._getMediaRect(st, this.canvas.width, this.canvas.height);
+      const w = mr.w;
+      const h = mr.h;
+      const shortEdge = mr.shortEdge;
       if (kf.shape !== "ellipse") {
         kf.rx = Number(clamp((kf.rx * shortEdge) / Math.max(1, w), 0.04, 0.45).toFixed(3));
         kf.shape = "ellipse";
@@ -529,9 +586,10 @@ export class StageController {
 
     if (this._drag.kind === "portal_resize") {
       const kf = this._ensurePortalKeyframeAtFrame(st);
-      const w = this.canvas.width;
-      const h = this.canvas.height;
-      const shortEdge = Math.min(w, h);
+      const mr = this._getMediaRect(st, this.canvas.width, this.canvas.height);
+      const w = mr.w;
+      const h = mr.h;
+      const shortEdge = mr.shortEdge;
       if (kf.shape === "ellipse" && (st.unlinkPortalRy || kf.unlink_ry)) {
         kf.rx = Number(clamp(Math.abs(nx - kf.x), 0.04, 0.45).toFixed(3));
       } else if (st.unlinkPortalRy || kf.unlink_ry) {
@@ -553,9 +611,10 @@ export class StageController {
 
     if (this._drag.kind === "portal_halo") {
       const kf = this._ensurePortalKeyframeAtFrame(st);
-      const w = this.canvas.width;
-      const h = this.canvas.height;
-      const shortEdge = Math.min(w, h);
+      const mr = this._getMediaRect(st, this.canvas.width, this.canvas.height);
+      const w = mr.w;
+      const h = mr.h;
+      const shortEdge = mr.shortEdge;
       const dist = Math.hypot((nx - kf.x) * w, (ny - kf.y) * h) / shortEdge;
       kf.halo_radius = Number(clamp(dist - kf.rx, 0.0, 0.35).toFixed(3));
       this.onMutate("halo_portal", { live: true });
@@ -702,11 +761,15 @@ export class StageController {
     this.render();
   }
 
-  _drawContainOrCover(ctx, media, w, h) {
+  _drawContainOrCover(ctx, media, w, h, mr = null) {
     const mw = media.videoWidth || media.naturalWidth || media.width || w;
     const mh = media.videoHeight || media.naturalHeight || media.height || h;
     if (!mw || !mh) return;
-    const scale = Math.max(w / mw, h / mh);
+    if (mr) {
+      ctx.drawImage(media, mr.x, mr.y, mr.w, mr.h);
+      return;
+    }
+    const scale = Math.min(w / mw, h / mh);
     const dw = mw * scale;
     const dh = mh * scale;
     ctx.drawImage(media, (w - dw) * 0.5, (h - dh) * 0.5, dw, dh);
@@ -729,8 +792,10 @@ export class StageController {
     const dotPad = dot ? 12 : 0;
     const pw = tw + 18 + dotPad;
     const ph = 22;
-    const x = clamp(Math.round(cx - pw * 0.5), 10, this.canvas.width - pw - 10);
-    const py = clamp(Math.round(y), 10, this.canvas.height - ph - 10);
+    const ox = Number(this._viewPadX || 0);
+    const oy = Number(this._viewPadY || 0);
+    const x = clamp(Math.round(cx - pw * 0.5), 10 - ox, this.canvas.width - pw - 10 - ox);
+    const py = clamp(Math.round(y), 10 - oy, this.canvas.height - ph - 10 - oy);
     ctx.fillStyle = bg;
     ctx.strokeStyle = border;
     ctx.lineWidth = 1;
@@ -750,27 +815,104 @@ export class StageController {
     ctx.restore();
   }
 
+  _drawFeatheredMaskShape(tCtx, w, h, shortEdge, { x, y, rx, ry, shape, feather, haloRadius = 0, haloWeight = 0.30, tw = 1.0 }) {
+    const featherPx = Math.max(4, Number(feather ?? 0.08) * shortEdge);
+    const cx = x * w;
+    const cy = y * h;
+    if (shape === "vertical_split") {
+      const g = tCtx.createLinearGradient(cx - featherPx, 0, cx + featherPx, 0);
+      g.addColorStop(0, "rgba(0,0,0,0)");
+      g.addColorStop(1, `rgba(0,0,0,${tw.toFixed(3)})`);
+      tCtx.fillStyle = g;
+      tCtx.fillRect(cx - featherPx, 0, featherPx * 2, h);
+      tCtx.fillStyle = `rgba(0,0,0,${tw.toFixed(3)})`;
+      tCtx.fillRect(cx + featherPx, 0, Math.max(0, w - (cx + featherPx)), h);
+      return;
+    }
+    const rxPx = Math.max(8, rx * (shape === "ellipse" ? w : shortEdge));
+    const ryPx = Math.max(8, ry * (shape === "ellipse" ? h : shortEdge));
+    const haloPx = Math.max(0, Number(haloRadius || 0) * shortEdge);
+    const rMax = Math.max(rxPx, ryPx);
+    const rOuter = rMax + Math.max(featherPx, haloPx);
+    tCtx.save();
+    tCtx.translate(cx, cy);
+    tCtx.scale(rxPx / rMax, ryPx / rMax);
+    const grad = tCtx.createRadialGradient(0, 0, Math.max(1, rMax - featherPx * 0.5), 0, 0, rOuter);
+    grad.addColorStop(0, `rgba(0,0,0,${tw.toFixed(3)})`);
+    if (haloPx > 4) {
+      const haloAlpha = clamp(Number(haloWeight ?? 0.30) * tw, 0, 1);
+      grad.addColorStop(clamp((rMax + featherPx * 0.35) / rOuter, 0.05, 0.92), `rgba(0,0,0,${haloAlpha.toFixed(3)})`);
+    }
+    grad.addColorStop(1, "rgba(0,0,0,0)");
+    tCtx.fillStyle = grad;
+    tCtx.beginPath();
+    tCtx.arc(0, 0, rOuter, 0, Math.PI * 2);
+    tCtx.fill();
+    tCtx.restore();
+  }
+
+  _compositeMaskStillPreview(ctx, st, w, h, shortEdge) {
+    const mp = st.maskPreview;
+    if (!mp || !mp.img || !(mp.img.naturalWidth > 0)) return;
+    const tCtx = this._taeCtx;
+    tCtx.clearRect(0, 0, w, h);
+    tCtx.save();
+    tCtx.globalCompositeOperation = "source-over";
+    tCtx.drawImage(mp.img, 0, 0, w, h);
+    tCtx.globalCompositeOperation = "destination-in";
+    if (mp.snapToInclude && st.includeMaskImg && st.includeMaskImg.naturalWidth > 0) {
+      const incAlpha = this._getTintedMaskCanvas("include_alpha", st.includeMaskImg, [0, 0, 0], 1.0);
+      if (incAlpha) tCtx.drawImage(incAlpha, 0, 0, w, h);
+    } else {
+      this._drawFeatheredMaskShape(tCtx, w, h, shortEdge, {
+        x: Number(mp.x ?? 0.5),
+        y: Number(mp.y ?? 0.5),
+        rx: Number(mp.rx ?? 0.24),
+        ry: Number(mp.ry ?? 0.24),
+        shape: mp.shape || "circle",
+        feather: Number(mp.feather ?? st.doc.feather ?? 0.08),
+        haloRadius: Number(mp.haloRadius ?? 0),
+        haloWeight: Number(mp.haloWeight ?? 0.30),
+        tw: 1.0,
+      });
+    }
+    if (st.excludeMaskImg && st.excludeMaskImg.naturalWidth > 0) {
+      const excAlpha = this._getTintedMaskCanvas("exclude_alpha", st.excludeMaskImg, [0, 0, 0], 1.0);
+      if (excAlpha) {
+        tCtx.globalCompositeOperation = "destination-out";
+        tCtx.drawImage(excAlpha, 0, 0, w, h);
+      }
+    }
+    tCtx.restore();
+    ctx.drawImage(this._taeCanvas, 0, 0, w, h, 0, 0, w, h);
+  }
+
   _compositeMaskedLivePreview(ctx, st, w, h, shortEdge, pf) {
     const lp = st.livePreview;
     if (!lp || !lp.media) return;
     const media = lp.media;
     if (lp.kind === "video") {
       if (media.readyState < 2) return;
-      if (Number.isFinite(media.duration) && media.duration > 0) {
+      if (st.playing && Number.isFinite(media.duration) && media.duration > 0) {
         const phase = st.frame / Math.max(1, st.length - 1);
         const wantT = phase * media.duration;
-        if (Math.abs(media.currentTime - wantT) > 0.03) {
+        if (Math.abs(media.currentTime - wantT) > 0.05) {
           try {
             media.currentTime = wantT;
           } catch {}
         }
+      } else if (!st.playing) {
+        if (media.paused) {
+          media.play().catch(() => {});
+        }
+        this._scheduleLiveVideoRepaint();
       }
     }
 
     if (lp.fullFrame) {
       ctx.save();
       ctx.globalAlpha = 0.94;
-      this._drawContainOrCover(ctx, media, w, h);
+      ctx.drawImage(media, 0, 0, w, h);
       ctx.restore();
       return;
     }
@@ -779,69 +921,58 @@ export class StageController {
     tCtx.clearRect(0, 0, w, h);
     tCtx.save();
     tCtx.globalCompositeOperation = "source-over";
-    this._drawContainOrCover(tCtx, media, w, h);
+    tCtx.drawImage(media, 0, 0, w, h);
     tCtx.globalCompositeOperation = "destination-in";
 
-    const featherPx = Math.max(4, Number(st.doc.feather ?? 0.08) * shortEdge);
-    if (st.doc.mode === "point_targets" || st.doc.mode === "combined") {
-      for (const t of st.doc.targets || []) {
-        const tw = evalTargetTemporalWeight(t, st.frame, st.length);
-        if (tw <= 0.01) continue;
-        const tx = t.x * w;
-        const ty = t.y * h;
-        const rInner = Math.max(8, t.radius * shortEdge);
-        const rHalo = Number(t.halo_radius || 0) * shortEdge;
-        const rOuter = rInner + Math.max(featherPx, rHalo);
-        const grad = tCtx.createRadialGradient(tx, ty, Math.max(1, rInner - featherPx * 0.5), tx, ty, rOuter);
-        grad.addColorStop(0, `rgba(0,0,0,${tw.toFixed(3)})`);
-        if (rHalo > featherPx * 0.5) {
-          grad.addColorStop(clamp((rInner + featherPx * 0.4) / rOuter, 0.01, 0.95), `rgba(0,0,0,${(0.30 * tw).toFixed(3)})`);
+    if (st.snapToIncludeMask && st.includeMaskImg && st.includeMaskImg.naturalWidth > 0) {
+      const incAlpha = this._getTintedMaskCanvas("include_alpha", st.includeMaskImg, [0, 0, 0], 1.0);
+      if (incAlpha) tCtx.drawImage(incAlpha, 0, 0, w, h);
+    } else {
+      const featherPx = Math.max(4, Number(st.doc.feather ?? 0.08) * shortEdge);
+      if (st.doc.mode === "point_targets" || st.doc.mode === "combined") {
+        for (const t of st.doc.targets || []) {
+          const tw = Math.max(0.92, evalTargetTemporalWeight(t, st.frame, st.length));
+          const tx = t.x * w;
+          const ty = t.y * h;
+          const rInner = Math.max(8, t.radius * shortEdge);
+          const rHalo = Number(t.halo_radius || 0) * shortEdge;
+          const rOuter = rInner + Math.max(featherPx, rHalo);
+          const grad = tCtx.createRadialGradient(tx, ty, Math.max(1, rInner - featherPx * 0.5), tx, ty, rOuter);
+          grad.addColorStop(0, `rgba(0,0,0,${tw.toFixed(3)})`);
+          if (rHalo > featherPx * 0.5) {
+            grad.addColorStop(clamp((rInner + featherPx * 0.4) / rOuter, 0.01, 0.95), `rgba(0,0,0,${(0.30 * tw).toFixed(3)})`);
+          }
+          grad.addColorStop(1, "rgba(0,0,0,0)");
+          tCtx.fillStyle = grad;
+          tCtx.beginPath();
+          tCtx.arc(tx, ty, rOuter, 0, Math.PI * 2);
+          tCtx.fill();
         }
-        grad.addColorStop(1, "rgba(0,0,0,0)");
-        tCtx.fillStyle = grad;
-        tCtx.beginPath();
-        tCtx.arc(tx, ty, rOuter, 0, Math.PI * 2);
-        tCtx.fill();
+      }
+      if (st.doc.mode === "portal_path" || st.doc.mode === "combined") {
+        this._drawFeatheredMaskShape(tCtx, w, h, shortEdge, {
+          x: pf.x,
+          y: pf.y,
+          rx: pf.rx,
+          ry: pf.ry,
+          shape: pf.shape,
+          feather: st.doc.feather,
+          haloRadius: pf.halo_radius,
+          haloWeight: pf.halo_weight,
+          tw: Math.max(0.92, pf.temporalWeight || 0),
+        });
       }
     }
-    if ((st.doc.mode === "portal_path" || st.doc.mode === "combined") && pf.temporalWeight > 0.01) {
-      const cx = pf.x * w;
-      const cy = pf.y * h;
-      const tw = pf.temporalWeight;
-      if (pf.shape === "vertical_split") {
-        const g = tCtx.createLinearGradient(cx - featherPx, 0, cx + featherPx, 0);
-        g.addColorStop(0, "rgba(0,0,0,0)");
-        g.addColorStop(1, `rgba(0,0,0,${tw.toFixed(3)})`);
-        tCtx.fillStyle = g;
-        tCtx.fillRect(cx - featherPx, 0, featherPx * 2, h);
-        tCtx.fillStyle = `rgba(0,0,0,${tw.toFixed(3)})`;
-        tCtx.fillRect(cx + featherPx, 0, w - (cx + featherPx), h);
-      } else {
-        const rx = Math.max(8, pf.rx * (pf.shape === "ellipse" ? w : shortEdge));
-        const ry = Math.max(8, pf.ry * (pf.shape === "ellipse" ? h : shortEdge));
-        const haloPx = Math.max(0, Number(pf.halo_radius || 0) * shortEdge);
-        const rMax = Math.max(rx, ry);
-        const rOuter = rMax + Math.max(featherPx, haloPx);
-        tCtx.save();
-        tCtx.translate(cx, cy);
-        tCtx.scale(rx / rMax, ry / rMax);
-        const grad = tCtx.createRadialGradient(0, 0, Math.max(1, rMax - featherPx * 0.5), 0, 0, rOuter);
-        grad.addColorStop(0, `rgba(0,0,0,${tw.toFixed(3)})`);
-        if (haloPx > 4) {
-          const haloAlpha = clamp(Number(pf.halo_weight ?? 0.30) * tw, 0, 1);
-          grad.addColorStop(clamp((rMax + featherPx * 0.35) / rOuter, 0.05, 0.92), `rgba(0,0,0,${haloAlpha.toFixed(3)})`);
-        }
-        grad.addColorStop(1, "rgba(0,0,0,0)");
-        tCtx.fillStyle = grad;
-        tCtx.beginPath();
-        tCtx.arc(0, 0, rOuter, 0, Math.PI * 2);
-        tCtx.fill();
-        tCtx.restore();
+    if (st.excludeMaskImg && st.excludeMaskImg.naturalWidth > 0) {
+      const excAlpha = this._getTintedMaskCanvas("exclude_alpha", st.excludeMaskImg, [0, 0, 0], 1.0);
+      if (excAlpha) {
+        tCtx.globalCompositeOperation = "destination-out";
+        tCtx.drawImage(excAlpha, 0, 0, w, h);
       }
     }
     tCtx.restore();
 
-    ctx.drawImage(this._taeCanvas, 0, 0);
+    ctx.drawImage(this._taeCanvas, 0, 0, w, h, 0, 0, w, h);
   }
 
   _drawPatchGrid(ctx, w, h, st) {
@@ -929,34 +1060,53 @@ export class StageController {
       return;
     }
 
+    const mr = this._getMediaRect(st, w, h);
+
     if (baseMedia) {
-      this._drawContainOrCover(ctx, baseMedia, w, h);
+      this._drawContainOrCover(ctx, baseMedia, w, h, mr);
     } else {
-      this._drawPatchGrid(ctx, w, h, st);
+      ctx.save();
+      ctx.translate(mr.x, mr.y);
+      this._drawPatchGrid(ctx, mr.w, mr.h, st);
+      ctx.restore();
     }
 
     if (st.showPatchGrid && baseMedia) {
-      this._drawPatchGrid(ctx, w, h, st);
+      ctx.save();
+      ctx.translate(mr.x, mr.y);
+      this._drawPatchGrid(ctx, mr.w, mr.h, st);
+      ctx.restore();
     }
 
     const pf = evalPortalAtFrame(st.doc, st.frame, st.length);
+    this._viewPadX = mr.x;
+    this._viewPadY = mr.y;
+    ctx.save();
+    ctx.translate(mr.x, mr.y);
+
+    if (st.maskPreview?.img) {
+      this._compositeMaskStillPreview(ctx, st, mr.w, mr.h, mr.shortEdge);
+    }
     if (st.livePreview?.media) {
-      this._compositeMaskedLivePreview(ctx, st, w, h, shortEdge, pf);
+      this._compositeMaskedLivePreview(ctx, st, mr.w, mr.h, mr.shortEdge, pf);
     }
 
-    if (!st.hasAnchor && !st.livePreview?.media) {
+    if (!st.hasAnchor && !st.livePreview?.media && !st.maskPreview?.img) {
+      ctx.restore();
+      this._viewPadX = 0;
+      this._viewPadY = 0;
       return;
     }
 
     const incTint = this._getTintedMaskCanvas("include", st.includeMaskImg, [2, 132, 199], 0.30);
     if (incTint) {
-      this._drawContainOrCover(ctx, incTint, w, h);
+      ctx.drawImage(incTint, 0, 0, mr.w, mr.h);
     }
     const excTint = this._getTintedMaskCanvas("exclude", st.excludeMaskImg, [4, 120, 87], 0.34);
     if (excTint) {
-      this._drawContainOrCover(ctx, excTint, w, h);
+      ctx.drawImage(excTint, 0, 0, mr.w, mr.h);
     }
-    this._drawSamPointsOverlay(ctx, st, w, h, dpr);
+    this._drawSamPointsOverlay(ctx, st, mr.w, mr.h, dpr);
 
     const sp = (st.spriteMode || st.spriteCutout?.img || (st.couplings || []).length > 0)
       ? evalSpriteAtFrame(st.doc, st.frame, st.length)
@@ -964,35 +1114,38 @@ export class StageController {
     const coupling = computeCouplingInfo(st, pf, sp);
 
     if (st.doc.mode === "portal_path" || st.doc.mode === "combined") {
-      this._drawPortalOverlay(ctx, st, pf, sp, coupling, w, h, shortEdge, dpr);
+      this._drawPortalOverlay(ctx, st, pf, sp, coupling, mr.w, mr.h, mr.shortEdge, dpr);
     }
     if (st.doc.mode === "point_targets" || st.doc.mode === "combined") {
-      this._drawTargetsOverlay(ctx, st, w, h, shortEdge, dpr);
+      this._drawTargetsOverlay(ctx, st, mr.w, mr.h, mr.shortEdge, dpr);
     }
 
     if (sp) {
-      this._drawSpriteOverlay(ctx, st, sp, coupling, w, h, dpr);
+      this._drawSpriteOverlay(ctx, st, sp, coupling, mr.w, mr.h, dpr);
     }
 
     if (coupling.active && sp) {
-      this._drawCouplingArc(ctx, pf, sp, coupling, w, h, dpr);
+      this._drawCouplingArc(ctx, pf, sp, coupling, mr.w, mr.h, dpr);
     }
+    ctx.restore();
+    this._viewPadX = 0;
+    this._viewPadY = 0;
 
     // Dotted visual tether linking active Portal/Target to the docked Contextual Popover Card
     if (st.hasAnchor) {
       const cardEl = document.getElementById("portal-card");
       if (cardEl && !cardEl.classList.contains("hidden") && !cardEl.classList.contains("collapsed")) {
-        let srcX = pf.x * w + (pf.rx * shortEdge);
-        let srcY = pf.y * h;
+        let srcX = mr.x + pf.x * mr.w + (pf.rx * mr.shortEdge);
+        let srcY = mr.y + pf.y * mr.h;
         let dockLeft = pf.x > 0.56;
         if (st.doc.mode === "point_targets" && st.doc.targets?.length) {
           const idx = clamp(st.selectedTargetIdx ?? 0, 0, st.doc.targets.length - 1);
           const t = st.doc.targets[idx];
-          srcX = t.x * w + (dockLeft ? -t.radius * shortEdge : t.radius * shortEdge);
-          srcY = t.y * h;
+          srcX = mr.x + t.x * mr.w + (dockLeft ? -t.radius * mr.shortEdge : t.radius * mr.shortEdge);
+          srcY = mr.y + t.y * mr.h;
           dockLeft = t.x > 0.56;
         } else if (dockLeft) {
-          srcX = pf.x * w - (pf.rx * shortEdge);
+          srcX = mr.x + pf.x * mr.w - (pf.rx * mr.shortEdge);
         }
         const dstX = dockLeft ? Math.min(w * 0.27, 344 * (w / 1280)) : Math.max(w * 0.72, w - 344 * (w / 1280));
         const dstY = h * 0.34;
@@ -1354,18 +1507,48 @@ export class StageController {
     }
 
     if (wps.length >= 2) {
-      ctx.strokeStyle = "rgba(4, 120, 87, 0.72)";
-      ctx.lineWidth = 1.75 * dpr;
-      ctx.setLineDash([3 * dpr, 3 * dpr]);
+      ctx.strokeStyle = "#047857";
+      ctx.lineWidth = 2.0 * dpr;
+      ctx.setLineDash([4 * dpr, 4 * dpr]);
       ctx.beginPath();
+      let prevX = 0;
+      let prevY = 0;
+      let endX = 0;
+      let endY = 0;
       for (let f = 0; f < st.length; f += 3) {
         const sp = evalSpriteAtFrame(st.doc, f, st.length);
         if (!sp) continue;
-        if (f === 0) ctx.moveTo(sp.x * w, sp.y * h);
-        else ctx.lineTo(sp.x * w, sp.y * h);
+        const px = sp.x * w;
+        const py = sp.y * h;
+        if (f === 0) ctx.moveTo(px, py);
+        else {
+          ctx.lineTo(px, py);
+          prevX = endX;
+          prevY = endY;
+        }
+        endX = px;
+        endY = py;
       }
       ctx.stroke();
       ctx.setLineDash([]);
+
+      const ang = Math.atan2(endY - prevY, endX - prevX);
+      const headLen = 9 * dpr;
+      ctx.fillStyle = "#047857";
+      ctx.beginPath();
+      ctx.moveTo(endX, endY);
+      ctx.lineTo(endX - headLen * Math.cos(ang - 0.45), endY - headLen * Math.sin(ang - 0.45));
+      ctx.lineTo(endX - headLen * Math.cos(ang + 0.45), endY - headLen * Math.sin(ang + 0.45));
+      ctx.closePath();
+      ctx.fill();
+
+      const lastWp = wps[wps.length - 1];
+      this._drawPill(ctx, endX, Math.max(24 * dpr, endY - 26 * dpr), `DEST @ f${lastWp.frame}`, {
+        bg: "rgba(236, 253, 245, 0.96)",
+        border: "#6EE7B7",
+        fg: "#047857",
+        dot: "#059669",
+      });
     }
 
     const sx = cur.x * w;

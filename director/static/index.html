@@ -61,28 +61,40 @@
         <svg class="ui-svg ui-svg-white" viewBox="0 0 24 24" aria-hidden="true">
           <path d="M19 9l1.25-2.75L23 5l-2.75-1.25L19 1l-1.25 2.75L15 5l2.75 1.25L19 9zm-7.5.5L9 4 6.5 9.5 1 12l5.5 2.5L9 20l2.5-5.5L17 12l-5.5-2.5z"/>
         </svg>
-        <span>Render Portal Edit</span>
+        <span>Generate World Clip</span>
       </button>
     </div>
   </header>
 
-  <!-- 2. HERO 7:4 INTERACTIVE SCENE STAGE (Studio Well #EEF2F6) -->
+  <!-- 2. FULL-BLEED INTERACTIVE WORLD SANDBOX STAGE (#EEF2F6) -->
   <main id="stage-well" class="stage-well">
     <div class="stage-toolbar">
-      <!-- Mode & Placement Helper Pill -->
+      <!-- Floating World Action Palette -->
       <div class="stage-top-left">
         <div id="stage-helper-pill" class="stage-pill">
           <svg class="ui-svg ui-svg-blue" viewBox="0 0 24 24" aria-hidden="true">
             <path d="M12 2a10 10 0 1 0 10 10h-2a8 8 0 1 1-8-8V2zm0 4a6 6 0 1 0 6 6h-2a4 4 0 1 1-4-4V6zm1 5V3h-2v8h8v-2h-6z"/>
           </svg>
-          <span id="stage-helper-text">Click stage to place or steer portal</span>
+          <span id="stage-helper-text">Click stage to target region · Scroll size</span>
         </div>
         <div class="mode-switch" role="group" aria-label="Director interaction mode">
-          <button id="mode-btn-portal" type="button" class="mode-btn active" data-mode="portal_path">Portal</button>
-          <button id="mode-btn-targets" type="button" class="mode-btn" data-mode="point_targets">Targets</button>
+          <button id="mode-btn-portal" type="button" class="mode-btn active" data-mode="portal_path">Region</button>
+          <button id="mode-btn-targets" type="button" class="mode-btn" data-mode="point_targets">Timed Event</button>
           <button id="mode-btn-combined" type="button" class="mode-btn" data-mode="combined">Combined</button>
-          <button id="mode-btn-sprite" type="button" class="mode-btn" data-mode="sprite">WASD Sprite</button>
+          <button id="mode-btn-sprite" type="button" class="mode-btn" data-mode="sprite">Actor Motion</button>
         </div>
+      </div>
+
+      <!-- Live Rendering & TAE Status Pill -->
+      <div id="render-status-overlay" class="render-status-overlay hidden" role="status" aria-live="polite">
+        <span class="render-status-dot"></span>
+        <span id="render-status-phase" class="render-status-phase">Preparing…</span>
+        <span id="render-status-meta" class="render-status-meta">0/6</span>
+        <svg id="render-progress-svg" class="render-progress-svg" viewBox="0 0 100 6" preserveAspectRatio="none" aria-hidden="true">
+          <rect x="0" y="0" width="100" height="6" rx="3" fill="#DBEAFE"></rect>
+          <rect id="render-progress-fill" x="0" y="0" width="8" height="6" rx="3" fill="#2563EB"></rect>
+        </svg>
+        <button id="btn-cancel-render" type="button" class="render-cancel-btn" title="Cancel active job">Cancel</button>
       </div>
 
       <!-- TAE Status, Shot Bridge & Mask Toggle -->
@@ -107,17 +119,17 @@
       <!-- UNCLIPPED Live Preview Portal Readout Pill (NEVER inside circular clip) -->
       <div id="portal-tae-pill" class="portal-tae-pill">
         <span class="portal-tae-dot"></span>
-        <span id="portal-tae-text">Live Preview · Step 0/6 · r=0.22</span>
+        <span id="portal-tae-text">Live Preview · Ready · r=0.22</span>
       </div>
 
       <!-- Beat 1 Anchor First Empty Stage Card -->
-      <section id="empty-anchor-card" class="empty-anchor-card" aria-label="Anchor Scene">
+      <section id="empty-anchor-card" class="empty-anchor-card" aria-label="World State Anchor">
         <div class="anchor-card-head">
-          <h2>Anchor Scene First</h2>
-          <span class="anchor-badge">Beat 1 · 1-Frame Still or Upload</span>
+          <h2>Open a World State</h2>
+          <span class="anchor-badge">Image, Clip, or T2I</span>
         </div>
         <p class="anchor-subtitle">
-          Drop an image or MP4 (Frame 0 auto-extracted), or generate a 1-frame still to open the spatial stage.
+          Drop any image or video (Frame 0 locks cleanly on I2V), or generate a fresh still scene to direct.
         </p>
 
         <div id="anchor-dropzone" class="anchor-dropzone">
@@ -130,24 +142,24 @@
           <input id="upload-anchor-input" type="file" class="sr-only" accept="image/*,video/mp4,video/webm,video/quicktime">
         </div>
 
-        <div class="anchor-divider"><span>or generate 1-frame anchor still</span></div>
+        <div class="anchor-divider"><span>or generate 1-frame still scene</span></div>
 
         <div class="anchor-form">
-          <textarea id="anchor-prompt" class="field-textarea" rows="3" placeholder="Describe the anchor scene still to generate..."></textarea>
+          <textarea id="anchor-prompt" class="field-textarea" rows="3" placeholder="Describe any scene to create (e.g. rainy neon Tokyo intersection at night, sunlit alpine studio)..."></textarea>
           <div class="anchor-actions">
             <select id="anchor-workflow-select" class="field-select" aria-label="Anchor workflow"></select>
             <button id="btn-gen-anchor" type="button" class="btn-primary">
               <svg class="ui-svg ui-svg-white" viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M19 9l1.25-2.75L23 5l-2.75-1.25L19 1l-1.25 2.75L15 5l2.75 1.25L19 9zm-7.5.5L9 4 6.5 9.5 1 12l5.5 2.5L9 20l2.5-5.5L17 12l-5.5-2.5z"/>
               </svg>
-              <span>Generate Anchor Still</span>
+              <span>Generate Still Scene</span>
             </button>
           </div>
         </div>
       </section>
 
-      <!-- Contextual Tool Synthesizer Card (clamped inside stage bounds via dock classes) -->
-      <aside id="portal-card" class="portal-card dock-right hidden" aria-label="Contextual Portal Controls">
+      <!-- Floating World Spawner / Contextual Portal Card (clamped inside stage bounds) -->
+      <aside id="portal-card" class="portal-card dock-right hidden" aria-label="World Spawner Controls">
         <div class="portal-card-head">
           <div class="portal-card-head-top">
             <div class="portal-card-title">
@@ -161,7 +173,7 @@
           <div class="portal-card-meta-row">
             <span id="synth-latency-badge" class="synth-badge">[0.50, 0.50]</span>
             <span id="card-time-badge" class="time-badge">f000 · 0.00s</span>
-            <span id="synth-mode-tag" class="op-auto-tag">0ms local</span>
+            <span id="synth-mode-tag" class="op-auto-tag">i2v_portal</span>
           </div>
         </div>
 
@@ -169,25 +181,48 @@
           <!-- Compact Operator Mode Tabs synthesized from live stage geometry -->
           <div class="synth-ops-wrap">
             <div id="synth-operators" class="synth-operators" role="group" aria-label="Contextual operators"></div>
-            <div id="synth-op-detail" class="synth-op-detail">EditGuider scale=1.5x · streams=independent</div>
+            <div id="synth-op-detail" class="synth-op-detail">EditGuider scale=2.0x · streams=independent</div>
           </div>
 
           <div class="field-group">
-            <label for="target-prompt" class="field-label">Target Latent Prompt</label>
-            <textarea id="target-prompt" class="field-textarea field-textarea-compact" rows="2" placeholder="Describe the edit or world reaction inside the portal..."></textarea>
+            <label for="target-prompt" class="field-label">Action or Spawn Command</label>
+            <textarea id="target-prompt" class="field-textarea field-textarea-compact" rows="2" placeholder="What spawns or happens here? (e.g. glowing crystalline portal opens, a penguin wearing a hat)..."></textarea>
+            <div id="quick-action-chips" class="quick-action-chips" aria-label="Quick world actions">
+              <button type="button" class="quick-chip" data-action="bursts into shimmering light and sparks">Sparkle Burst</button>
+              <button type="button" class="quick-chip" data-action="opens into a luminous portal">Open Portal</button>
+              <button type="button" class="quick-chip" data-action="transforms cleanly inside the selected region">Transform Here</button>
+            </div>
           </div>
 
-          <!-- Compact Baseline -> Edited Prompt Conditioning Diff -->
+          <!-- 1-Frame Masked Image Pre-Viz (`MiniMax-H3-Image` + TinyVAEDecoder) -->
+          <div class="card-cta-row">
+            <button id="btn-preview-mask" type="button" class="btn-outline-blue btn-flex" title="Run fast 1-frame MiniMax-H3-Image edit inside active mask with live taeh3_image preview">
+              <span>Preview in Circle</span>
+            </button>
+            <button id="btn-clear-mask-preview" type="button" class="btn-outline-sm hidden" title="Clear still preview overlay">
+              <span>Clear</span>
+            </button>
+          </div>
+
+          <!-- Compact Anchored Prompt Synthesis Preview -->
           <div id="prompt-diff-preview" class="prompt-diff-card">
             <div class="prompt-diff-head">
-              <span class="field-label">Prompt Conditioning</span>
-              <span id="prompt-diff-badge" class="prompt-diff-badge">Baseline → Edited</span>
+              <span class="field-label">Anchored Prompt Conditioning</span>
+              <span id="prompt-diff-badge" class="prompt-diff-badge">Frame-0 I2V</span>
             </div>
             <div class="prompt-diff-lines">
-              <div id="diff-orig-line" class="diff-orig-line">- Original anchor conditioning</div>
-              <div id="diff-edit-line" class="diff-edit-line">+ Enter target prompt or Same-Prompt Vector</div>
+              <div id="diff-orig-line" class="diff-orig-line">- Anchored &lt;Picture 1&gt; calm hold</div>
+              <div id="diff-edit-line" class="diff-edit-line">+ Enter action above to direct region</div>
             </div>
           </div>
+
+          <!-- Optional Scene Context Override (seeded on Anchor Generate, blank on upload) -->
+          <details id="scene-context-details" class="scene-context-details">
+            <summary>Scene Context Override (optional)</summary>
+            <div class="field-group">
+              <textarea id="original-prompt" class="field-textarea field-textarea-compact" rows="2" placeholder="Optional base description of the current scene (auto-synthesized if blank)..."></textarea>
+            </div>
+          </details>
 
           <!-- Dynamic Scene-Aware Suggestions: ONLY shown when POST /api/context_suggest returns enabled:true & suggestions.length > 0 -->
           <div id="context-suggestions-wrap" class="suggestions-wrap hidden">
@@ -231,17 +266,24 @@
 
           <!-- Interactive Subject Segmentation Bar (SAM 3.1 / GrabCut) -->
           <div id="sam-subject-bar" class="sam-subject-bar" role="group" aria-label="Subject segmentation">
-            <button id="btn-sam-pick" type="button" class="sam-pick-btn" title="Click on stage subject to segment (SAM 3.1 / GrabCut)">Pick Subject</button>
+            <button id="btn-sam-pick" type="button" class="sam-pick-btn" title="Click on stage subject to segment (SAM 3.1 / GrabCut)">Target Entity</button>
             <div class="sam-role-group" role="group" aria-label="Segmentation role">
-              <button id="sam-role-cutout" type="button" class="sam-role-btn active" data-role="cutout" title="Extract RGBA cutout sprite and clean mask">Cutout</button>
-              <button id="sam-role-exclude" type="button" class="sam-role-btn" data-role="exclude" title="Protect subject from portal edit (exclude_mask)">Protect</button>
-              <button id="sam-role-include" type="button" class="sam-role-btn" data-role="include" title="Lock subject into edit mask (include_mask)">Lock</button>
+              <button id="sam-role-cutout" type="button" class="sam-role-btn active" data-role="cutout" title="Extract RGBA movable actor sprite">Movable</button>
+              <button id="sam-role-include" type="button" class="sam-role-btn" data-role="include" title="Target selected object mask for edits">Edit Obj</button>
+              <button id="sam-role-exclude" type="button" class="sam-role-btn" data-role="exclude" title="Protect object from edits (exclude_mask)">Protect</button>
             </div>
             <button id="btn-sam-clear" type="button" class="sam-clear-btn hidden" title="Clear subject segmentation masks" aria-label="Clear subject segmentation masks">×</button>
           </div>
           <div id="sam-refine-bar" class="sam-refine-bar hidden">
             <input id="sam-prompt-input" type="text" class="field-input field-input-xs" placeholder="SAM text or Click+ / Alt-Click−" aria-label="SAM text prompt">
             <button id="btn-sam-run" type="button" class="sam-pick-btn" title="Segment using text prompt and/or clicked points">Segment</button>
+          </div>
+          <div id="sam-actor-actions" class="sam-actor-actions hidden">
+            <button id="btn-set-path" type="button" class="btn-outline-sm" title="Click stage to place movable actor destination path">Set Path →</button>
+            <label class="checkbox-row-sm" title="Restrict edits & Preview in Circle directly to Edit Obj mask silhouette">
+              <input id="chk-snap-mask" type="checkbox">
+              <span>Snap Edit to Entity</span>
+            </label>
           </div>
 
           <div class="card-cue-row">
@@ -328,17 +370,19 @@
           <button id="btn-stage-mute" type="button" class="micro-pill-btn active" aria-pressed="false" title="Toggle rendered video audio playback vs mute (M)">
             Sound: On
           </button>
-          <button id="btn-chain-frame" type="button" class="micro-pill-btn hidden" title="Extract current video frame as next shot anchor (Shot N -> Shot N+1)">
-            Chain f→Shot
+          <button id="btn-chain-frame" type="button" class="micro-pill-btn hidden" title="Roll current frame or preview forward as new World State">
+            Roll Forward ↪
           </button>
         </div>
+
+        <div id="event-chips-track" class="event-chips-track" role="list" aria-label="Active world event chips"></div>
 
         <div id="scrubber-track-wrap" class="scrubber-track-wrap" title="Click or drag to scrub 24 fps">
           <canvas id="scrubber-canvas" class="scrubber-canvas" width="800" height="32" aria-label="24fps timeline scrubber"></canvas>
         </div>
 
-        <button id="btn-lanes-toggle" type="button" class="micro-pill-btn" aria-expanded="false" aria-controls="sequencer-tray" title="Toggle 3-lane keyframe sequencer (L)">
-          Lanes ▴
+        <button id="btn-lanes-toggle" type="button" class="micro-pill-btn" aria-expanded="false" aria-controls="sequencer-tray" title="Toggle advanced 3-lane keyframe sequencer (L)">
+          Advanced ▴
         </button>
 
         <div class="frame-readout">
@@ -372,8 +416,12 @@
         <!-- Tab 1: Scene & Clock -->
         <section id="panel-scene" role="tabpanel" aria-labelledby="tab-btn-scene" class="tab-panel active">
           <div class="drawer-field">
-            <label for="engine-workflow">Workflow Template</label>
+            <label for="engine-workflow">Video Workflow Template</label>
             <select id="engine-workflow" class="field-select"></select>
+          </div>
+          <div class="drawer-field">
+            <label for="preview-workflow-select">Mask Image Preview Model</label>
+            <select id="preview-workflow-select" class="field-select"></select>
           </div>
           <div class="drawer-field">
             <label for="engine-canvas">Trained Canvas (32px)</label>

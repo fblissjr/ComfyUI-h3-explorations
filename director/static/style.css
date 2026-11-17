@@ -341,48 +341,104 @@ body.light-studio {
   cursor: wait;
 }
 
-/* ---------------- 2. HERO 7:4 STAGE WELL ---------------- */
+/* ---------------- 2. FULL-BLEED WORLD SANDBOX STAGE ---------------- */
 .stage-well {
   flex: 1 1 auto;
   min-height: 0;
   position: relative;
   display: flex;
   flex-direction: column;
-  align-items: stretch;
-  justify-content: flex-start;
-  gap: 6px;
-  padding: 6px 14px;
+  padding: 0;
   background: var(--stage-well);
   overflow: hidden;
 }
 
 .stage-toolbar {
-  flex: 0 0 auto;
+  position: absolute;
+  top: 10px;
+  left: 12px;
+  right: 12px;
+  z-index: 24;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  flex-wrap: wrap;
+  pointer-events: none;
+}
+
+.stage-toolbar > * {
+  pointer-events: auto;
+}
+
+.render-status-overlay {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--blue-border);
+  border-radius: 9999px;
+  padding: 4px 10px;
+  box-shadow: 0 6px 20px rgba(37, 99, 235, 0.14);
+  font-size: 11px;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.render-status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 9999px;
+  background: var(--blue);
+  flex-shrink: 0;
+}
+
+.render-status-phase {
+  font-weight: 700;
+  color: var(--blue-dark);
+}
+
+.render-status-meta {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--ink-muted);
+}
+
+.render-progress-svg {
+  width: 68px;
+  height: 6px;
+  display: block;
+}
+
+.render-cancel-btn {
+  border: 1px solid var(--danger-border);
+  background: var(--danger-bg);
+  color: var(--danger);
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  cursor: pointer;
 }
 
 .stage-center {
+  position: relative;
   flex: 1 1 0;
   min-height: 0;
   width: 100%;
-  container-type: size;
+  height: 100%;
   display: flex;
-  align-items: center;
-  justify-content: center;
+  align-items: stretch;
+  justify-content: stretch;
 }
 
 .stage-container {
   position: relative;
-  width: min(100cqw, calc(100cqh * 7 / 4));
-  height: min(100cqh, calc(100cqw * 4 / 7));
-  border-radius: 12px;
-  border: 1px solid var(--border-card);
-  background: var(--surface);
-  box-shadow: 0 12px 28px -8px rgba(15, 23, 42, 0.12);
+  width: 100%;
+  height: 100%;
+  border: none;
+  border-radius: 0;
+  background: var(--stage-well);
   overflow: hidden;
 }
 
@@ -482,7 +538,7 @@ body.light-studio {
 .portal-tae-pill {
   position: absolute;
   left: 14px;
-  bottom: 12px;
+  bottom: 62px;
   z-index: 16;
   display: inline-flex;
   align-items: center;
@@ -503,7 +559,7 @@ body.light-studio {
 }
 
 .stage-container.lanes-open .portal-tae-pill {
-  bottom: 12px;
+  bottom: 186px;
 }
 
 .portal-tae-dot {
@@ -624,14 +680,15 @@ body.light-studio {
   flex: 1 1 auto;
 }
 
-/* Contextual Portal Popover Card (clamped strictly inside stage bounds) */
+/* Contextual World Spawner Popover Card (clamped strictly inside stage bounds) */
 .portal-card {
   position: absolute;
-  top: 12px;
-  width: 312px;
+  top: 52px;
+  width: 326px;
   max-width: calc(100% - 28px);
-  max-height: calc(100% - 24px);
+  max-height: calc(100% - 118px);
   overflow-y: auto;
+  overflow-x: hidden;
   background: rgba(255, 255, 255, 0.96);
   backdrop-filter: blur(18px);
   border: 1px solid var(--border-card);
@@ -641,16 +698,16 @@ body.light-studio {
   z-index: 20;
   display: flex;
   flex-direction: column;
-  gap: 7px;
+  gap: 6px;
 }
 
 .portal-card.dock-right {
-  right: 16px;
+  right: 14px;
   left: auto;
 }
 
 .portal-card.dock-left {
-  left: 16px;
+  left: 14px;
   right: auto;
 }
 
@@ -659,7 +716,51 @@ body.light-studio {
 }
 
 .stage-container.lanes-open .portal-card {
-  max-height: calc(100% - 24px);
+  max-height: calc(100% - 238px);
+}
+
+.quick-action-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 2px;
+}
+
+.quick-chip {
+  border: 1px solid var(--border-card);
+  background: var(--surface);
+  color: var(--ink-muted);
+  border-radius: 9999px;
+  padding: 2px 8px;
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.quick-chip:hover {
+  border-color: var(--blue-border);
+  background: var(--blue-tint);
+  color: var(--blue-dark);
+}
+
+.scene-context-details {
+  border: 1px solid var(--border-light);
+  background: var(--surface-subtle);
+  border-radius: 7px;
+  padding: 4px 7px;
+}
+
+.scene-context-details > summary {
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--ink-muted);
+  user-select: none;
+}
+
+.scene-context-details[open] > summary {
+  margin-bottom: 5px;
+  color: var(--ink);
 }
 
 .portal-card-head {
@@ -1141,6 +1242,23 @@ body.light-studio {
   gap: 5px;
 }
 
+.sam-actor-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.checkbox-row-sm {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--ink-muted);
+  cursor: pointer;
+}
+
 .field-input-xs {
   padding: 4px 7px;
   font-size: 11px;
@@ -1282,7 +1400,7 @@ body.light-studio {
 /* Toast Notification */
 .stage-toast {
   position: absolute;
-  top: 12px;
+  top: 54px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 35;
@@ -1309,28 +1427,71 @@ body.light-studio {
   color: var(--emerald);
 }
 
-/* ---------------- 3. DOCKED LOOP SCRUBBER & SEQUENCER ---------------- */
+/* ---------------- 3. FLOATING WORLD EVENT-CHIP CAPSULE & SEQUENCER ---------------- */
 .stage-dock {
-  flex: 0 0 auto;
-  width: 100%;
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 10px;
+  z-index: 23;
   display: flex;
   flex-direction: column;
   gap: 6px;
+  pointer-events: none;
+}
+
+.stage-dock > * {
+  pointer-events: auto;
 }
 
 .scrubber-bar {
   position: relative;
-  height: 46px;
+  height: 42px;
   z-index: 20;
   background: rgba(255, 255, 255, 0.96);
   backdrop-filter: blur(12px);
   border: 1px solid var(--border-card);
-  border-radius: 11px;
-  padding: 0 12px;
+  border-radius: 12px;
+  padding: 0 10px;
   display: flex;
   align-items: center;
-  gap: 10px;
-  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.06);
+  gap: 8px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.10);
+}
+
+.event-chips-track {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 240px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  flex: 0 1 auto;
+}
+
+.event-chip {
+  border: 1px solid var(--border-card);
+  background: var(--surface-subtle);
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 9999px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.event-chip.active {
+  background: var(--blue-tint);
+  border-color: var(--blue-border);
+  color: var(--blue-dark);
+}
+
+.event-chip.emerald {
+  background: var(--emerald-bg);
+  border-color: var(--emerald-border);
+  color: var(--emerald);
 }
 
 .play-btn {
@@ -1785,10 +1946,10 @@ body.light-studio {
   border-top: 1px solid var(--border-light);
 }
 
-/* ---------------- 4. BOTTOM CONTEXTUAL FOOTER BAR (48px) ---------------- */
+/* ---------------- 4. BOTTOM CONTEXTUAL FOOTER BAR (40px) ---------------- */
 .studio-footer {
-  height: 48px;
-  min-height: 48px;
+  height: 40px;
+  min-height: 40px;
   padding: 0 12px;
   background: var(--surface);
   border-top: 1px solid var(--border-light);
