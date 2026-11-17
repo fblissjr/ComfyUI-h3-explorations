@@ -75,6 +75,7 @@ _DOC_SKIP_DIRS: frozenset[str] = frozenset(
 )
 _PINNED_STARTER_DOCS: tuple[str, ...] = (
     "docs/wiki/spatial_director_guide.md",
+    "director/VISION.md",
     "docs/wiki/edit_guidance.md",
     "docs/wiki/control_vectors.md",
     "director/AGENTS.md",
@@ -848,10 +849,8 @@ def _collect_docs_catalog(query: str = "") -> dict[str, Any]:
     repo_root_res = _REPO_ROOT.resolve()
     candidates: list[Path] = []
     candidates.extend(_REPO_ROOT.glob("*.md"))
-    dir_agents = _REPO_ROOT / "director" / "AGENTS.md"
-    if dir_agents.is_file():
-        candidates.append(dir_agents)
     for folder, pattern in (
+        (_REPO_ROOT / "director", "*.md"),
         (_REPO_ROOT / "docs", "**/*.md"),
         (_REPO_ROOT / "bench", "*.md"),
         (_REPO_ROOT / "bench" / "results", "*.md"),

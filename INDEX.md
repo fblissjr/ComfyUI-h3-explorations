@@ -161,7 +161,7 @@ with none is a helper the others import.
 | `changelog.d/` | | [`changelog.d/README.md`](changelog.d/README.md), one file per changelog entry; not listed and not counted |
 | `contact_sheets/` | 2 | [below](#contact_sheets) |
 | `data/` | 2 | [below](#data) |
-| `director/` | 17 | [below](#director) |
+| `director/` | 18 | [below](#director) |
 | `docs/` | 319 | [`docs/wiki/index.md`](docs/wiki/index.md), the hand-written router |
 | `prompt_bank/` | 232 | [`docs/wiki/prompting/prompt_bank.md`](docs/wiki/prompting/prompt_bank.md), the prompt catalogue |
 | `sparse_tables/` | 1 | [below](#sparse_tables) |
@@ -216,6 +216,7 @@ with none is a helper the others import.
 | file | what it says |
 |---|---|
 | [`AGENTS.md`](director/AGENTS.md) | Interactive Spatial Director (`director/`) |
+| [`VISION.md`](director/VISION.md) | Spatial Director Vision |
 | [`__init__.py`](director/__init__.py) | Interactive Spatial Director desktop web app backend, compiler, and ComfyUI routes. |
 | [`compiler.py`](director/compiler.py) | Runtime workflow compiler for Interactive Spatial Director. |
 | [`routes.py`](director/routes.py) | ComfyUI cleanup route extension for Interactive Spatial Director (`/h3_spatial_director/forget`). |

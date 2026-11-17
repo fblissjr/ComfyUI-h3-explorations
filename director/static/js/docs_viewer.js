@@ -91,7 +91,7 @@ function resolveRepoTarget(currentDocPath, rawHref) {
     return { kind: "source", path: clean };
   }
   const lowerRes = resolved.toLowerCase();
-  if (lowerRes.endsWith(".md") && (viewerState.knownPaths.has(resolved) || resolved.startsWith("docs/") || resolved === "director/AGENTS.md" || resolved === "AGENTS.md" || resolved === "VISION.md" || resolved === "README.md" || resolved === "INDEX.md")) {
+  if (lowerRes.endsWith(".md") && (viewerState.knownPaths.has(resolved) || resolved.startsWith("docs/") || resolved.startsWith("director/") || resolved === "AGENTS.md" || resolved === "VISION.md" || resolved === "README.md" || resolved === "INDEX.md")) {
     return { kind: "doc", path: resolved, fragment };
   }
   if (/\.(svg|png|jpe?g|webp)$/i.test(lowerRes) && resolved.startsWith("docs/")) {
