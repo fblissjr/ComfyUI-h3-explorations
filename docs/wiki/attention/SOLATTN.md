@@ -958,8 +958,9 @@ defaults from the node's `define_schema`.
 local branch are removed. A rebuild of all graphs on the merged code was byte-identical to the committed graphs.
 `bench/check_sol_node_equivalence.py` passed all 11 dispatch cases and both red controls on the card (13 CUDA cases
 total) with zero skips once idle VRAM was free. ComfyUI has restarted and `/object_info` serves
-`video_reference_rows` (121 graphs validated against live `:8188`). Step 1, the A/B, has not been run, so steps 3–6
-wait on it.
+`video_reference_rows` (121 graphs validated against live `:8188`). Step 1, the A/B, ran the same day
+([`2026-11-17_sol_video_reference_rows_ab.md`](../../../bench/results/2026-11-17_sol_video_reference_rows_ab.md)
+has the sampler times and the renders). Steps 3–6 wait on the owner's playback verdict.
 
 The branch adds the input and teaches the generator to carry `rows`
 (`workflows/build_workflows.py::SOL_ROWS_NESTED`), but **no shipped graph

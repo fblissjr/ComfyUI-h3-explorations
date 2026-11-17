@@ -16,6 +16,7 @@ replaces `docs/wiki/ops/evidence.md`, which says what the records established.
 
 | date | lane | record | verdict |
 |---|---|---|---|
+| 2026-11-17 | sol | [Sol `video_reference_rows`: shipped against routed, on one `<Video 1>` render (2026-11-17)](2026-11-17_sol_video_reference_rows_ab.md) |  |
 | 2026-11-17 | sol | [Sol's quantizers re-graded on Pika H3 Flex captures, with today's dense tail (2026-11-17)](2026-11-17_sol_quantizer_pika_grade.md) |  |
 | 2026-11-17 | pika | [Pika H3 Flex Sampling, `taeh3`/`taeh3_image` Preview Gate, & MiniMax-H3-Image Empty-Vision Probes (2026-11-17)](2026-11-17_pika_sampler_and_t2i_vision_probes.md) |  |
 | 2026-11-17 | h3 | [The H3 text encoder's pass time, and `MiniMaxH3EncoderLoader.keep_in_ram`, end to end (2026-11-17)](2026-11-17_h3_encoder_streaming.md) |  |
