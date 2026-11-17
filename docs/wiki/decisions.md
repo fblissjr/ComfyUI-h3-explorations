@@ -32,8 +32,8 @@ Older history lives elsewhere and is not copied here:
 - **Merged `claude-sol-video-ref-rows` (`4f323d81`, the owner's word).** `MiniMaxH3Sol` gains `video_reference_rows`
   (last in its `per segment` rows), with no shipped graph using it.
   - **Checks:** all 121 graphs rebuilt on the merged code were byte-identical to the committed ones.
-    `bench/check_sol_node_equivalence.py` passed all 11 CUDA kernel cases on the card with zero skips once idle VRAM
-    was free (including the transposed-oracle red control), and [`attention/SOLATTN.md`](attention/SOLATTN.md) Step 5
+    `bench/check_sol_node_equivalence.py` passed all 11 dispatch cases and both red controls on the card (13 CUDA
+    cases total) with zero skips once idle VRAM was free, and [`attention/SOLATTN.md`](attention/SOLATTN.md) Step 5
     now notes declaring `MiniMaxH3Sol.rows` and `rows.video_reference_rows` in
     `bench/check_widget_deviations.py::DECLARED` once step 3 enables `SOL_ROWS_VIDEO_REFERENCES_ROUTED`.
   - **Not done:** making it the default in every shipped Sol graph waits on the A/B in
