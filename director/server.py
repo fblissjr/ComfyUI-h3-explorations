@@ -76,6 +76,7 @@ _DOC_SKIP_DIRS: frozenset[str] = frozenset(
 _PINNED_STARTER_DOCS: tuple[str, ...] = (
     "docs/wiki/spatial_director_guide.md",
     "director/VISION.md",
+    "director/ROADMAP.md",
     "docs/wiki/edit_guidance.md",
     "docs/wiki/control_vectors.md",
     "director/AGENTS.md",

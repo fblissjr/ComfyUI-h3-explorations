@@ -1,6 +1,6 @@
 # Spatial Director Vision
 
-> A timeless statement of purpose, enduring principles, tradeoff rules, and long-term direction for **Spatial Director**. Tactical rollout steps, active milestones, and concrete engine or node choices belong in [`director/AGENTS.md`](AGENTS.md), [`docs/wiki/spatial_director_guide.md`](../docs/wiki/spatial_director_guide.md), and [`VISION.md`](../VISION.md); this document captures what should still hold true even if every programming language, web runtime, model architecture, attention kernel, segmentation backbone, operating system, network overlay, and accelerator in the studio is replaced five years from now.
+> A timeless statement of purpose, enduring principles, tradeoff rules, and long-term direction for **Spatial Director**. Tactical rollout steps, active milestones, and concrete engine or node choices belong in [`director/ROADMAP.md`](ROADMAP.md), [`director/AGENTS.md`](AGENTS.md), [`docs/wiki/spatial_director_guide.md`](../docs/wiki/spatial_director_guide.md), and [`VISION.md`](../VISION.md); this document captures what should still hold true even if every programming language, web runtime, model architecture, attention kernel, segmentation backbone, operating system, network overlay, and accelerator in the studio is replaced five years from now.
 
 ---
 
