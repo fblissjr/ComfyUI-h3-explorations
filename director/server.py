@@ -55,6 +55,48 @@ UPLOADS_SUBFOLDER = "h3_spatial_director"
 COOKIE_NAME = "h3_director_sid"
 MAX_UPLOAD_BYTES = 256 * 1024 * 1024
 
+DEFAULT_DOC_PATH = "docs/wiki/spatial_director_guide.md"
+_DOC_SKIP_DIRS: frozenset[str] = frozenset(
+    {
+        ".git",
+        ".venv",
+        ".agents",
+        ".claude",
+        "app",
+        "data",
+        "internal",
+        "coderef",
+        "vendor",
+        "archive",
+        "changelog.d",
+        "__pycache__",
+        "node_modules",
+    }
+)
+_PINNED_STARTER_DOCS: tuple[str, ...] = (
+    "docs/wiki/spatial_director_guide.md",
+    "docs/wiki/edit_guidance.md",
+    "docs/wiki/control_vectors.md",
+    "director/AGENTS.md",
+    "docs/wiki/control_vectors/which_tool_and_what_to_call_it.md",
+    "docs/wiki/control_vectors/sound_cues_and_timed_masks.md",
+    "docs/wiki/control_vectors/studio_ui_guide.md",
+)
+_DOC_GROUP_ORDER: tuple[str, ...] = (
+    "1. Spatial Director & Steering",
+    "2. Overview & Wiki Routers",
+    "3. Core Video, Clocks & Audio",
+    "4. Single-Frame Image",
+    "5. Control Vectors & J-Lens",
+    "6. Attention, Sol & Quant",
+    "7. Prompting & System Prompts",
+    "8. Masked V2V Pipeline",
+    "9. Upstream Engines & Sweeps",
+    "10. Operations & Checks",
+    "11. Projects, Research & Bench",
+)
+_DOC_IMAGE_EXTS: frozenset[str] = frozenset({".svg", ".png", ".jpg", ".jpeg", ".webp"})
+
 CSP_POLICY = (
     "default-src 'self'; "
     "img-src 'self' blob: data:; "
@@ -709,6 +751,277 @@ async def handle_index(request: web.Request) -> web.StreamResponse:
             content_type="text/plain",
         )
     return web.FileResponse(index_path)
+
+
+def _resolve_safe_doc_path(
+    raw_rel: str,
+    *,
+    allowed_exts: set[str] | frozenset[str],
+    must_be_under_docs: bool = False,
+) -> tuple[Path, str]:
+    norm = str(raw_rel or "").replace("\\", "/").strip()
+    if not norm or "\x00" in norm or norm.startswith("/") or re.match(r"^[A-Za-z]:", norm):
+        raise ValueError("Invalid documentation path")
+    parts = [p for p in norm.split("/") if p]
+    if not parts or any(p in (".", "..") or p.startswith(".") or p in _DOC_SKIP_DIRS for p in parts):
+        raise ValueError("Disallowed documentation path segment")
+    canon_rel = "/".join(parts)
+    if Path(canon_rel).suffix.lower() not in allowed_exts:
+        raise ValueError(f"Unsupported documentation file extension for {canon_rel!r}")
+
+    repo_root_res = _REPO_ROOT.resolve()
+    cand = (_REPO_ROOT / canon_rel).resolve()
+    if not cand.is_relative_to(repo_root_res):
+        raise ValueError("Documentation path escapes repository root")
+    resolved_rel = cand.relative_to(repo_root_res).as_posix()
+    resolved_parts = Path(resolved_rel).parts
+    if any(p.startswith(".") or p in _DOC_SKIP_DIRS for p in resolved_parts):
+        raise ValueError("Documentation path resolves into disallowed folder")
+    if must_be_under_docs:
+        docs_root = (_REPO_ROOT / "docs").resolve()
+        if not cand.is_relative_to(docs_root):
+            raise ValueError("Documentation asset must reside under docs/")
+    if not cand.is_file():
+        raise FileNotFoundError(canon_rel)
+    return cand, resolved_rel
+
+
+def _extract_md_title(path: Path) -> str:
+    try:
+        with path.open("r", encoding="utf-8", errors="replace") as fh:
+            for idx, line in enumerate(fh):
+                if idx >= 40:
+                    break
+                s = line.strip()
+                if s.startswith("# "):
+                    title = s[2:].strip()
+                    title = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", title)
+                    title = title.replace("`", "").strip()
+                    if title:
+                        return title[:140]
+    except Exception:
+        pass
+    return path.stem
+
+
+def _categorize_doc_rel(rel: str) -> str:
+    if rel in _PINNED_STARTER_DOCS:
+        return "1. Spatial Director & Steering"
+    top_routers = {"AGENTS.md", "VISION.md", "README.md", "INDEX.md", "docs/README.md", "docs/AGENTS.md"}
+    if rel in top_routers or (rel.startswith("docs/wiki/") and "/" not in rel[len("docs/wiki/"):]):
+        return "2. Overview & Wiki Routers"
+    if rel.startswith("docs/wiki/core/"):
+        return "3. Core Video, Clocks & Audio"
+    if rel.startswith("docs/wiki/image/"):
+        return "4. Single-Frame Image"
+    if rel.startswith("docs/wiki/control_vectors/"):
+        return "5. Control Vectors & J-Lens"
+    if rel.startswith("docs/wiki/attention/"):
+        return "6. Attention, Sol & Quant"
+    if rel.startswith("docs/wiki/prompting/") or rel.startswith("docs/wiki/system_prompts/"):
+        return "7. Prompting & System Prompts"
+    if rel.startswith("docs/wiki/masked_v2v/"):
+        return "8. Masked V2V Pipeline"
+    if rel.startswith("docs/wiki/upstream/"):
+        return "9. Upstream Engines & Sweeps"
+    if rel.startswith("docs/wiki/ops/"):
+        return "10. Operations & Checks"
+    return "11. Projects, Research & Bench"
+
+
+def _doc_sort_key(rel: str) -> tuple[Any, ...]:
+    if rel in _PINNED_STARTER_DOCS:
+        return (0, _PINNED_STARTER_DOCS.index(rel), rel)
+    name = Path(rel).name
+    lower_name = name.lower()
+    if lower_name in ("agents.md", "index.md", "readme.md"):
+        return (0, 0, rel)
+    m_date = re.match(r"^(\d{4}-\d{2}-\d{2})", name)
+    if m_date:
+        # Reverse-chronological for dated notes.
+        inv_date = "".join(chr(255 - ord(c)) for c in m_date.group(1))
+        return (1, inv_date, rel)
+    return (2, rel.lower(), rel)
+
+
+def _collect_docs_catalog(query: str = "") -> dict[str, Any]:
+    repo_root_res = _REPO_ROOT.resolve()
+    candidates: list[Path] = []
+    candidates.extend(_REPO_ROOT.glob("*.md"))
+    dir_agents = _REPO_ROOT / "director" / "AGENTS.md"
+    if dir_agents.is_file():
+        candidates.append(dir_agents)
+    for folder, pattern in (
+        (_REPO_ROOT / "docs", "**/*.md"),
+        (_REPO_ROOT / "bench", "*.md"),
+        (_REPO_ROOT / "bench" / "results", "*.md"),
+        (_REPO_ROOT / "workflows", "*.md"),
+    ):
+        if folder.is_dir():
+            candidates.extend(folder.glob(pattern))
+
+    seen: set[str] = set()
+    entries: list[dict[str, Any]] = []
+    for p in candidates:
+        if not p.is_file():
+            continue
+        try:
+            res_p = p.resolve()
+            if not res_p.is_relative_to(repo_root_res):
+                continue
+            rel = res_p.relative_to(repo_root_res).as_posix()
+        except Exception:
+            continue
+        parts = Path(rel).parts
+        if any(part.startswith(".") or part in _DOC_SKIP_DIRS for part in parts):
+            continue
+        if rel in seen:
+            continue
+        seen.add(rel)
+        entries.append(
+            {
+                "path": rel,
+                "title": _extract_md_title(res_p),
+                "group": _categorize_doc_rel(rel),
+                "pinned": rel in _PINNED_STARTER_DOCS,
+            }
+        )
+
+    by_group: dict[str, list[dict[str, Any]]] = {g: [] for g in _DOC_GROUP_ORDER}
+    for ent in entries:
+        by_group.setdefault(ent["group"], []).append(ent)
+
+    groups: list[dict[str, Any]] = []
+    ordered_items: list[dict[str, Any]] = []
+    for gname in _DOC_GROUP_ORDER:
+        items = sorted(by_group.get(gname, []), key=lambda it: _doc_sort_key(it["path"]))
+        if items:
+            groups.append({"group": gname, "items": items})
+            ordered_items.extend(items)
+
+    q_clean = str(query or "").strip()
+    results: list[dict[str, Any]] = []
+    if q_clean:
+        terms = [t.lower() for t in q_clean.split() if t.strip()]
+        scored: list[tuple[int, dict[str, Any]]] = []
+        for ent in ordered_items:
+            p = _REPO_ROOT / ent["path"]
+            try:
+                raw_text = p.read_text(encoding="utf-8", errors="replace")
+            except Exception:
+                continue
+            title_l = ent["title"].lower()
+            path_l = ent["path"].lower()
+            body_l = raw_text.lower()
+            if not all((t in title_l or t in path_l or t in body_l) for t in terms):
+                continue
+            score = 0
+            if ent["pinned"]:
+                score -= 20
+            for t in terms:
+                if t in title_l:
+                    score -= 10
+                if t in path_l:
+                    score -= 5
+            snippets: list[str] = []
+            for raw_line in raw_text.splitlines():
+                stripped = raw_line.strip()
+                if not stripped or set(stripped) <= set("|-:= "):
+                    continue
+                low_line = stripped.lower()
+                if any(t in low_line for t in terms):
+                    snippets.append(stripped[:160])
+                    if len(snippets) >= 2:
+                        break
+            scored.append(
+                (
+                    score,
+                    {
+                        "path": ent["path"],
+                        "title": ent["title"],
+                        "group": ent["group"],
+                        "snippets": snippets,
+                    },
+                )
+            )
+        scored.sort(key=lambda pair: (pair[0], _doc_sort_key(pair[1]["path"])))
+        results = [item for _, item in scored[:60]]
+
+    return {
+        "total": len(ordered_items),
+        "groups": groups,
+        "items": ordered_items,
+        "query": q_clean,
+        "results": results,
+    }
+
+
+async def handle_docs_page(request: web.Request) -> web.StreamResponse:
+    docs_path = STATIC_DIR / "docs.html"
+    if not docs_path.is_file():
+        return web.Response(
+            text="Documentation hub page is not installed yet.",
+            status=404,
+            content_type="text/plain",
+        )
+    return web.FileResponse(docs_path)
+
+
+async def handle_docs_index(request: web.Request) -> web.Response:
+    q = str(request.rel_url.query.get("q") or "")
+    catalog = _collect_docs_catalog(query=q)
+    return web.json_response(
+        {
+            "ok": True,
+            "default_doc": DEFAULT_DOC_PATH,
+            **catalog,
+        }
+    )
+
+
+async def handle_docs_file(request: web.Request) -> web.Response:
+    raw_path = str(request.rel_url.query.get("path") or DEFAULT_DOC_PATH)
+    try:
+        target, rel = _resolve_safe_doc_path(raw_path, allowed_exts={".md"})
+    except ValueError as exc:
+        return web.json_response({"ok": False, "error": str(exc)}, status=400)
+    except FileNotFoundError:
+        return web.json_response({"ok": False, "error": "Document not found"}, status=404)
+
+    raw_bytes = target.read_bytes()
+    text = raw_bytes.decode("utf-8", errors="replace")
+    st = target.stat()
+    return web.json_response(
+        {
+            "ok": True,
+            "path": rel,
+            "title": _extract_md_title(target),
+            "group": _categorize_doc_rel(rel),
+            "markdown": text,
+            "bytes": len(raw_bytes),
+            "mtime": st.st_mtime,
+        }
+    )
+
+
+async def handle_docs_asset(request: web.Request) -> web.StreamResponse:
+    raw_path = str(request.rel_url.query.get("path") or "")
+    try:
+        target, _rel = _resolve_safe_doc_path(raw_path, allowed_exts=_DOC_IMAGE_EXTS, must_be_under_docs=True)
+    except ValueError as exc:
+        return web.json_response({"ok": False, "error": str(exc)}, status=400)
+    except FileNotFoundError:
+        return web.Response(status=404, text="not found")
+
+    ctype = mimetypes.guess_type(target.name)[0] or "application/octet-stream"
+    if target.suffix.lower() == ".svg":
+        ctype = "image/svg+xml"
+    return web.Response(
+        body=target.read_bytes(),
+        status=200,
+        content_type=ctype,
+        headers={"Cache-Control": "no-store"},
+    )
 
 
 async def handle_static(request: web.Request) -> web.StreamResponse:
@@ -2685,6 +2998,10 @@ def create_app(
     app.on_cleanup.append(_on_cleanup)
 
     app.router.add_get("/", handle_index)
+    app.router.add_get("/docs", handle_docs_page)
+    app.router.add_get("/api/docs", handle_docs_index)
+    app.router.add_get("/api/docs/file", handle_docs_file)
+    app.router.add_get("/api/docs/asset", handle_docs_asset)
     app.router.add_get("/static/{tail:.*}", handle_static)
     app.router.add_get("/api/schema", handle_schema)
     app.router.add_get("/api/system_stats", handle_system_stats)

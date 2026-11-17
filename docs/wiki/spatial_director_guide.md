@@ -4,7 +4,7 @@ Last updated: 2026-11-17.
 
 Interactive Spatial Director (`director/`) is a standalone local web studio that runs alongside ComfyUI (`:8188`) on `:8195`. It lets you open any still scene (uploaded image, extracted MP4 Frame 0, or a generated 1-frame still), draw spatial masks, timed events, SAM 3.1 subject locks, 2D actor paths, and 3-frame sound cues on a `24 fps` timeline, test ideas on a fast 1-frame image preview, and then render localized MiniMax H3 / Pika H3 Flex video+audio takes with live step-by-step previews and A|B wipe verification.
 
-> **Start the launcher:** `./director/studio.sh start` -> open `http://127.0.0.1:8195/` (requires ComfyUI running on `:8188`). For architecture details and endpoint contracts, see [`director/AGENTS.md`](../../director/AGENTS.md) and [`edit_guidance.md`](edit_guidance.md).
+> **Start & read in one place:** `./director/studio.sh start` -> open Spatial Director at `http://127.0.0.1:8195/` (requires ComfyUI on `:8188`), or click **Guide** in the top header (`http://127.0.0.1:8195/docs`) to read, search, and jump across this tutorial and all repo Markdown guides in one HTML viewer. For architecture details and endpoint contracts, see [`director/AGENTS.md`](../../director/AGENTS.md) and [`edit_guidance.md`](edit_guidance.md).
 
 ---
 

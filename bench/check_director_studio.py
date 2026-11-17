@@ -1248,8 +1248,33 @@ def check_server_routes_and_escalate() -> str:
                             else:
                                 os.environ["H3_HEYLOOK_URL"] = prev_hl
 
+                    # 12. GET /docs, /api/docs, /api/docs/file, and security confinement
+                    r_docs_html = await client.get("/docs")
+                    assert r_docs_html.status == 200 and "text/html" in r_docs_html.headers.get("Content-Type", "")
+                    assert "Content-Security-Policy" in r_docs_html.headers
+
+                    r_docs_cat = await client.get("/api/docs")
+                    assert r_docs_cat.status == 200, await r_docs_cat.text()
+                    docs_cat = await r_docs_cat.json()
+                    assert docs_cat["ok"] is True and docs_cat["default_doc"] == "docs/wiki/spatial_director_guide.md"
+                    assert docs_cat["groups"] and docs_cat["items"], docs_cat
+
+                    r_docs_q = await client.get("/api/docs", params={"q": "Preview in Circle"})
+                    assert r_docs_q.status == 200
+                    docs_q = await r_docs_q.json()
+                    assert any(r.get("path") == "docs/wiki/spatial_director_guide.md" for r in docs_q.get("results", [])), docs_q
+
+                    r_doc_md = await client.get("/api/docs/file", params={"path": "docs/wiki/spatial_director_guide.md"})
+                    assert r_doc_md.status == 200, await r_doc_md.text()
+                    doc_md = await r_doc_md.json()
+                    assert doc_md["ok"] is True and "Progressive 6-Level Tutorial" in doc_md["markdown"]
+
+                    for bad_doc in ("../main.py", "h3.env", "director/server.py"):
+                        r_bad_doc = await client.get("/api/docs/file", params={"path": bad_doc})
+                        assert r_bad_doc.status == 400, f"expected 400 on {bad_doc!r}, got {r_bad_doc.status}"
+
     asyncio.run(_run())
-    return "server CSP/Host guard, schema, /api/preview_in_mask, T2I /api/stamp_cutout, heylook /v1/messages, /api/segment, /api/extract_frame, /api/redub, /api/escalate, and /api/compile verified"
+    return "server CSP/Host guard, schema, /docs hub, /api/preview_in_mask, T2I /api/stamp_cutout, heylook /v1/messages, /api/segment, /api/extract_frame, /api/redub, /api/escalate, and /api/compile verified"
 
 
 def check_static_and_route_audit() -> str:
@@ -1259,7 +1284,8 @@ def check_static_and_route_audit() -> str:
 
     _compiler_mod, _routes_mod, server_mod = _load_director_modules()
     static_dir = REPO / "director" / "static"
-    index_html = (static_dir / "index.html").read_text(encoding="utf-8")
+    html_files = sorted(static_dir.rglob("*.html"))
+    assert html_files, "no HTML files found under director/static/"
     css_files = sorted(static_dir.rglob("*.css"))
     svg_files = sorted(static_dir.rglob("*.svg"))
     js_files = sorted((static_dir / "js").rglob("*.js"))
@@ -1269,7 +1295,7 @@ def check_static_and_route_audit() -> str:
     allowed_xmlns = re.compile(r'xmlns(?::xlink)?=["\']http://www\.w3\.org/(?:2000/svg|1999/xlink)["\']')
     url_re = re.compile(r"(?:https?:)?//[^\s'\"`<>)]+", re.IGNORECASE)
 
-    for f in [static_dir / "index.html", *css_files, *svg_files, *js_files]:
+    for f in [*html_files, *css_files, *svg_files, *js_files]:
         rel = f.relative_to(REPO).as_posix()
         txt = f.read_text(encoding="utf-8")
         cleaned = allowed_xmlns.sub("", txt)
@@ -1277,14 +1303,17 @@ def check_static_and_route_audit() -> str:
         for m in url_re.finditer(cleaned_no_comments):
             errors.append(f"{rel}: external URL forbidden ({m.group(0)[:60]})")
 
-    if re.search(r"<style\b", index_html, re.IGNORECASE):
-        errors.append("director/static/index.html: inline <style> tag forbidden")
-    if re.search(r"\bstyle\s*=", index_html, re.IGNORECASE):
-        errors.append("director/static/index.html: inline style= attribute forbidden")
-    if re.search(r"\bon(?:click|change|input|submit|load|error|keydown|keyup|mousedown|mouseup|mousemove|wheel)\s*=", index_html, re.IGNORECASE):
-        errors.append("director/static/index.html: inline on*= handler forbidden")
-    if re.search(r"<option\b[^>]*value=['\"](?:slam|hop|snap|click|90|141)['\"]", index_html, re.IGNORECASE):
-        errors.append("director/static/index.html: hardcoded preset/length <option> forbidden")
+    for hf in html_files:
+        hrel = hf.relative_to(REPO).as_posix()
+        htxt = hf.read_text(encoding="utf-8")
+        if re.search(r"<style\b", htxt, re.IGNORECASE):
+            errors.append(f"{hrel}: inline <style> tag forbidden")
+        if re.search(r"\bstyle\s*=", htxt, re.IGNORECASE):
+            errors.append(f"{hrel}: inline style= attribute forbidden")
+        if re.search(r"\bon(?:click|change|input|submit|load|error|keydown|keyup|mousedown|mouseup|mousemove|wheel)\s*=", htxt, re.IGNORECASE):
+            errors.append(f"{hrel}: inline on*= handler forbidden")
+        if re.search(r"<option\b[^>]*value=['\"](?:slam|hop|snap|click|90|141)['\"]", htxt, re.IGNORECASE):
+            errors.append(f"{hrel}: hardcoded preset/length <option> forbidden")
 
     forbidden_suggestions = (
         "Open swirling sea vortex",
@@ -1299,7 +1328,7 @@ def check_static_and_route_audit() -> str:
         re.compile(r"Fluid\s+simulation", re.IGNORECASE),
         re.compile(r"~\s*2\s*s\b"),
     )
-    for f in [static_dir / "index.html", *js_files]:
+    for f in [*html_files, *js_files]:
         rel = f.relative_to(REPO).as_posix()
         raw = f.read_text(encoding="utf-8")
         no_comments = re.sub(r"//[^\n]*", "", re.sub(r"/\*[\s\S]*?\*/", "", raw))
@@ -1307,9 +1336,12 @@ def check_static_and_route_audit() -> str:
             m_fp = pat.search(no_comments)
             if m_fp:
                 errors.append(f"{rel}: fake Newtonian/fluid physics string {m_fp.group(0)!r} forbidden")
-    for phrase in forbidden_suggestions:
-        if phrase in index_html:
-            errors.append(f"director/static/index.html: hardcoded Stitch scene suggestion {phrase!r} forbidden")
+    for hf in html_files:
+        hrel = hf.relative_to(REPO).as_posix()
+        htxt = hf.read_text(encoding="utf-8")
+        for phrase in forbidden_suggestions:
+            if phrase in htxt:
+                errors.append(f"{hrel}: hardcoded Stitch scene suggestion {phrase!r} forbidden")
     presets = sorted(sound_cues.SOUND_CUE_PRESETS.keys())
     clock_strs = [str(n) for n in h3_rules.chain_lengths()] + ["39", "90"]
 
@@ -2096,11 +2128,59 @@ async def _run_cdp_browser(director_url: str, anchor_png: Path) -> str:
                     assert composited, "Simulated kj_preview_override frame did not composite onto #stage-canvas / update #live-tae-pill or persist clientId"
 
                     csp_violations = await js("window.__cspViolations")
-                    assert csp_violations == [], f"CSP violations recorded: {csp_violations}"
-                    assert not console_errors, f"Console errors recorded: {console_errors}"
-                    assert not runtime_exceptions, f"Runtime exceptions recorded: {runtime_exceptions}"
+                    assert csp_violations == [], f"CSP violations recorded on /: {csp_violations}"
+                    assert not console_errors, f"Console errors recorded on /: {console_errors}"
+                    assert not runtime_exceptions, f"Runtime exceptions recorded on /: {runtime_exceptions}"
 
-            return "1280x800 Light Mode, 0 CSP/console errors, blob media-src, upload, popover, i2v_portal default, Wheel/Shift+Wheel/Alt+Wheel, Engine tablist, compile '165', and kj_preview_override canvas composite ok"
+                    guide_box = await js("document.getElementById('btn-docs-guide')?.getBoundingClientRect().toJSON()")
+                    assert guide_box and guide_box["width"] > 0 and guide_box["right"] <= 1280, f"#btn-docs-guide invalid: {guide_box}"
+
+                    # Verify /docs Documentation Hub renders spatial_director_guide.md, Mermaid SVG, TOC links & cross-doc nav
+                    await cdp("Page.navigate", {"url": f"{director_url.rstrip('/')}/docs"})
+                    docs_ready = False
+                    for _ in range(40):
+                        docs_state = await js(
+                            """(() => {
+                              const h1 = document.querySelector('#doc-article h1');
+                              const svg = document.querySelector('#doc-article svg.mermaid-svg');
+                              const tocLinks = document.querySelectorAll('#doc-toc-nav a.toc-link').length;
+                              return {
+                                h1: h1 ? h1.textContent.trim() : '',
+                                hasSvg: Boolean(svg),
+                                tocLinks,
+                                scrollWidth: document.documentElement.scrollWidth,
+                              };
+                            })()"""
+                        )
+                        if (
+                            docs_state
+                            and "Interactive Spatial Director" in docs_state["h1"]
+                            and docs_state["hasSvg"]
+                            and docs_state["tocLinks"] >= 4
+                        ):
+                            docs_ready = True
+                            break
+                        await asyncio.sleep(0.15)
+                    assert docs_ready, f"/docs failed to hydrate tutorial, Mermaid SVG, or TOC: {docs_state}"
+                    assert docs_state["scrollWidth"] <= 1280, f"/docs horizontal overflow: {docs_state['scrollWidth']}"
+
+                    # Navigate to Edit Guidance via sidebar or internal link
+                    await js("document.querySelector(\"#doc-tree button[data-doc-path='docs/wiki/edit_guidance.md']\")?.click()")
+                    switched = False
+                    for _ in range(30):
+                        h1_next = await js("document.querySelector('#doc-article h1')?.textContent.trim() || ''")
+                        if "Edit Guidance" in h1_next:
+                            switched = True
+                            break
+                        await asyncio.sleep(0.12)
+                    assert switched, "Clicking Edit Guidance in /docs sidebar did not load docs/wiki/edit_guidance.md"
+
+                    csp_violations_docs = await js("window.__cspViolations")
+                    assert csp_violations_docs == [], f"CSP violations recorded on /docs: {csp_violations_docs}"
+                    assert not console_errors, f"Console errors recorded across /docs: {console_errors}"
+                    assert not runtime_exceptions, f"Runtime exceptions recorded across /docs: {runtime_exceptions}"
+
+            return "1280x800 Light Mode, 0 CSP/console errors, / & /docs Markdown/Mermaid hub, blob media-src, upload, popover, i2v_portal default, Wheel/Shift+Wheel/Alt+Wheel, Engine tablist, compile '165', and kj_preview_override canvas composite ok"
         finally:
             _terminate_proc(chrome_proc, "google-chrome")
             shutil.rmtree(user_data, ignore_errors=True)

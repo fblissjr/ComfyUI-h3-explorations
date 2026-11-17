@@ -161,7 +161,7 @@ with none is a helper the others import.
 | `changelog.d/` | | [`changelog.d/README.md`](changelog.d/README.md), one file per changelog entry; not listed and not counted |
 | `contact_sheets/` | 2 | [below](#contact_sheets) |
 | `data/` | 2 | [below](#data) |
-| `director/` | 14 | [below](#director) |
+| `director/` | 17 | [below](#director) |
 | `docs/` | 319 | [`docs/wiki/index.md`](docs/wiki/index.md), the hand-written router |
 | `prompt_bank/` | 232 | [`docs/wiki/prompting/prompt_bank.md`](docs/wiki/prompting/prompt_bank.md), the prompt catalogue |
 | `sparse_tables/` | 1 | [below](#sparse_tables) |
@@ -220,10 +220,13 @@ with none is a helper the others import.
 | [`compiler.py`](director/compiler.py) | Runtime workflow compiler for Interactive Spatial Director. |
 | [`routes.py`](director/routes.py) | ComfyUI cleanup route extension for Interactive Spatial Director (`/h3_spatial_director/forget`). |
 | [`server.py`](director/server.py) | Standalone backend HTTP + WebSocket server for Interactive Spatial Director. |
+| [`static/docs.css`](director/static/docs.css) | H3 Documentation & Tutorial Hub — Strict Light Mode Reader */ |
+| [`static/docs.html`](director/static/docs.html) | <!doctype html> |
 | [`static/icon.svg`](director/static/icon.svg) | <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180"> |
 | [`static/index.html`](director/static/index.html) | <!doctype html> |
 | [`static/js/ab_compare.js`](director/static/js/ab_compare.js) | Same-Seed A\|B Split Wipe & Export Controller (`ab_compare.js`). |
 | [`static/js/app.js`](director/static/js/app.js) | Interactive Spatial Director — Main Controller (`app.js`). |
+| [`static/js/docs_viewer.js`](director/static/js/docs_viewer.js) | Interactive Documentation & Progressive Tutorial Hub (`docs_viewer.js`). |
 | [`static/js/foley_synth.js`](director/static/js/foley_synth.js) | Parametric WebAudio Foley Synthesizer (`foley_synth.js`). |
 | [`static/js/sequencer.js`](director/static/js/sequencer.js) | Interactive 3-Lane Keyframe Sequencer (`sequencer.js`). |
 | [`static/js/stage.js`](director/static/js/stage.js) | Sliderless Interactive 7:4 Stage Canvas & Masked Latent Preview Compositor (`stage.js`). |
