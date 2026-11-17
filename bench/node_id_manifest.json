@@ -332,7 +332,8 @@
   "MiniMaxH3EncoderLoader": {
     "inputs": [
       "encoder_name",
-      "device"
+      "device",
+      "keep_in_ram"
     ],
     "node_id": "MiniMaxH3EncoderLoader",
     "outputs": [

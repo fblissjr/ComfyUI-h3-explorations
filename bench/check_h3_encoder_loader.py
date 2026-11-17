@@ -364,6 +364,98 @@ def device_is_cores_and_survives_a_rebuild():
     return f"core offers {list(core_devices)}; cpu reached core on load and on rebuild"
 
 
+def keep_in_ram_reaches_core_and_survives_both_rebuilds():
+    """`keep_in_ram` is the node's last input, off by default; on, core is asked for its
+    classic patcher (`disable_dynamic=True`) on the load and on both of core's rebuilds.
+
+    Core calls the rebuild factory two ways (`comfy/model_patcher.py`): `clone` as
+    `factory(*args, disable_dynamic=True)` and `deepclone_multigpu` as `factory(*args)`.
+    Both are made here against the factory the loader registers. Core's load is refused
+    (or, for the registration, replaced by a stand-in): built for real, the classic
+    patcher would copy the whole encoder into RAM, and this machine has no swap.
+    """
+    import comfy.sd
+
+    schema = loader.MiniMaxH3EncoderLoader.define_schema()
+    last = schema.inputs[-1]
+    assert last.id == "keep_in_ram", [i.id for i in schema.inputs]
+    assert last.optional and last.default is False, (last.optional, last.default)
+
+    class _Stop(Exception):
+        pass
+
+    asked = []
+
+    def refusing(*args, **kwargs):
+        asked.append(bool(kwargs.get("disable_dynamic", False)))
+        raise _Stop
+
+    def through(call):
+        try:
+            call()
+        except ValueError as exc:  # load_guarded_clip names the file and keeps core's error
+            assert isinstance(exc.__cause__, _Stop), exc
+        else:
+            raise AssertionError("the refused load returned")
+
+    real_load_clip = comfy.sd.load_clip
+    comfy.sd.load_clip = refusing
+    try:
+        for keep, expected in ((False, False), (True, True)):
+            asked.clear()
+            through(lambda: loader.MiniMaxH3EncoderLoader.execute(
+                ENCODER.name, device="cpu", keep_in_ram=keep))
+            assert asked == [expected], (keep, asked)
+        asked.clear()
+        through(lambda: loader.MiniMaxH3EncoderLoader.execute(ENCODER.name, device="cpu"))
+        assert asked == [False], asked
+
+        args = (str(ENCODER), None, loader.model_options_for("cpu"))
+        off, on = loader._rebuild_factory(False), loader._rebuild_factory(True)
+        assert off is loader.load_guarded_model_patcher, off
+        for factory, kwargs, expected in ((on, {"disable_dynamic": True}, True),  # clone
+                                          (on, {}, True),                          # deepclone
+                                          (off, {"disable_dynamic": True}, True),
+                                          (off, {}, False)):
+            asked.clear()
+            through(lambda: factory(*args, **kwargs))
+            assert asked == [expected], (factory, kwargs, asked)
+    finally:
+        comfy.sd.load_clip = real_load_clip
+
+    # the registration: what load_guarded_clip leaves on the patcher, with core and the
+    # guards replaced by stand-ins so nothing is built
+    class _Patcher:
+        cached_patcher_init = None
+
+    class _Clip:
+        patcher = _Patcher()
+
+    stand_ins = {"require_h3": lambda clip, name: None,
+                 "validate_inventory": lambda model, path, name: None,
+                 "validate_tokenizer": lambda clip: None,
+                 "install_native_contract": lambda clip, name: {
+                     "image_bounds": (0, 0), "video_bounds": (0, 0), "image_geometry": {}}}
+    saved = {k: getattr(loader, k) for k in stand_ins}
+    comfy.sd.load_clip = lambda *a, **k: _Clip()
+    try:
+        for k, v in stand_ins.items():
+            setattr(loader, k, v)
+        registered = {}
+        for keep in (False, True):
+            _Clip.patcher = _Patcher()
+            clip = loader.load_guarded_clip(str(ENCODER), None, model_options={}, keep_in_ram=keep)
+            registered[keep] = clip.patcher.cached_patcher_init[0]
+        assert registered[False] is loader.load_guarded_model_patcher, registered[False]
+        assert getattr(registered[True], "keywords", None) == {"keep_in_ram": True}, registered[True]
+        assert registered[True].func is loader.load_guarded_model_patcher, registered[True]
+    finally:
+        comfy.sd.load_clip = real_load_clip
+        for k, v in saved.items():
+            setattr(loader, k, v)
+    return "off by default and last; on reaches core as disable_dynamic on load, clone and deepclone"
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.parse_args(argv)
@@ -380,6 +472,8 @@ def main(argv=None) -> int:
         ("incomplete checkpoints red", an_incomplete_checkpoint_cannot_load_quietly),
         ("device is core's and survives a rebuild",
          device_is_cores_and_survives_a_rebuild),
+        ("keep_in_ram reaches core and survives both rebuilds",
+         keep_in_ram_reaches_core_and_survives_both_rebuilds),
     ]
     ok = True
     for label, case in cases:

@@ -34,6 +34,25 @@ with the same options and the same `model_options` (`DEVICES`,
 a clone keeps the choice. A specific GPU is core's `SelectCLIPDevice`
 downstream.
 
+**`keep_in_ram` (opt-in, off by default, added 2026-11-17) is core's own
+per-model loader choice.** On, the encoder is built with core's classic
+`ModelPatcher` instead of its dynamic one (`comfy.sd.load_clip(...,
+disable_dynamic=True)`; `comfy/sd.py::CLIP.__init__` picks the patcher), and every
+other model stays dynamic.
+- **Why it can be faster:** on a conditioning pass, core's encoder loop asks for
+  no layer-ahead prefetch (`comfy/text_encoders/llama.py`, where `Llama2_.forward`
+  gates `prefetch_dynamic_vbars` on `past_key_values`). So the dynamic patcher
+  streams each weight to the card one at a time. The classic one keeps as much
+  of the encoder on the card as fits and streams the rest from pinned RAM.
+- **What it costs:** ComfyUI holds the encoder in this machine's RAM for as
+  long as it is loaded, and loading a non-dynamic model makes core move dynamic
+  models (the DiT) off the card (`comfy/model_management.py::free_memory`,
+  `for_dynamic`).
+- **How the setting survives a rebuild:** it rides in the rebuild factory as a
+  bound keyword (`_rebuild_factory`), because core calls that factory two ways:
+  `clone(disable_dynamic=True)` passes the keyword, and `deepclone_multigpu`
+  passes nothing.
+
 **A trap this makes visible rather than fixes.** Under core, `video_policy`
 `release` fits a video reference to the release's 25,165,824-pixel ceiling and
 then `comfy/text_encoders/minimax.py::process_video_block` clamps it back to
@@ -52,6 +71,7 @@ papered over.
 
 from __future__ import annotations
 
+import functools
 import importlib
 import inspect
 import json
@@ -354,11 +374,15 @@ def install_native_contract(clip, name: str = "encoder") -> dict:
 
 
 def load_guarded_clip(path: str, embedding_directory, model_options=None,
-                      disable_dynamic: bool = False):
+                      disable_dynamic: bool = False, keep_in_ram: bool = False):
     """Core's own H3 load, then the three guards, then the contract.
 
     `model_options` is passed to core untouched and kept for the rebuild, so
     a placement chosen on the node survives a clone (`model_options_for`).
+    `keep_in_ram` builds the encoder with core's classic patcher (core's
+    `disable_dynamic`) and is kept for the rebuild the same way
+    (`_rebuild_factory`). `disable_dynamic` alone is core's one-off request
+    from `clone(disable_dynamic=True)` and is not kept.
     """
     import comfy.sd
 
@@ -369,7 +393,7 @@ def load_guarded_clip(path: str, embedding_directory, model_options=None,
             ckpt_paths=[path], embedding_directory=embedding_directory,
             clip_type=comfy.sd.CLIPType.MINIMAX,
             model_options=model_options,
-            disable_dynamic=disable_dynamic,
+            disable_dynamic=disable_dynamic or keep_in_ram,
         )
     except Exception as exc:
         # See `require_h3`: a missing detection key does not fail as a missing
@@ -394,7 +418,12 @@ def load_guarded_clip(path: str, embedding_directory, model_options=None,
     # `model_options`, as core's own registration carries them: dropping them
     # would put a CPU-placed encoder back on the default device on a rebuild.
     clip.patcher.cached_patcher_init = (
-        load_guarded_model_patcher, (path, embedding_directory, model_options))
+        _rebuild_factory(keep_in_ram), (path, embedding_directory, model_options))
+    if keep_in_ram:
+        logger.info(
+            "[h3-encoder] %s: keep_in_ram on -- core's classic patcher for this encoder "
+            "(%s); ComfyUI holds it in RAM while loaded, and dynamic models leave the "
+            "card when it runs", name, type(clip.patcher).__name__)
 
     image_lo, image_hi = contract["image_bounds"]
     video_lo, video_hi = contract["video_bounds"]
@@ -445,33 +474,66 @@ class MiniMaxH3EncoderLoader(io.ComfyNode):
                         "node with core's Select CLIP Device."
                     ),
                 ),
+                # Appended last (AGENTS.md rule 5); optional and off, so every
+                # graph written before it runs exactly as it did.
+                io.Boolean.Input(
+                    "keep_in_ram", default=False, optional=True, advanced=True,
+                    tooltip=(
+                        "Off: ComfyUI's dynamic loading, which streams the "
+                        "encoder's weights from the model file to the card, one "
+                        "at a time, every time a new prompt is encoded. On: "
+                        "ComfyUI's classic loader for this encoder only. It keeps "
+                        "as much of the encoder on the card as fits and the rest "
+                        "in this computer's RAM, so a new prompt encodes faster. "
+                        "The cost: ComfyUI holds about the encoder's file size in "
+                        "RAM while it is loaded, and the diffusion model is moved "
+                        "off the card each time the encoder runs. The result is "
+                        "the same either way."
+                    ),
+                ),
             ],
             outputs=[io.Clip.Output()],
         )
 
     @classmethod
-    def execute(cls, encoder_name, device="default"):
+    def execute(cls, encoder_name, device="default", keep_in_ram=False):
         import folder_paths
 
         path = folder_paths.get_full_path_or_raise("text_encoders", encoder_name)
         return io.NodeOutput(
             load_guarded_clip(path, folder_paths.get_folder_paths("embeddings"),
-                              model_options=model_options_for(device))
+                              model_options=model_options_for(device),
+                              keep_in_ram=bool(keep_in_ram))
         )
 
 
 def load_guarded_model_patcher(path: str, embedding_directory,
                                model_options=None,
-                               disable_dynamic: bool = False):
+                               disable_dynamic: bool = False,
+                               keep_in_ram: bool = False):
     """Rebuild this CLIP's patcher through the guards, for `cached_patcher_init`.
 
     `ModelPatcher.clone(disable_dynamic=True)` and `deepclone_multigpu` both
     reconstruct the model by calling this factory
-    (`comfy/model_patcher.py:436-441`, `:505-512`), and both raise outright if
-    a loader registered none. Registering core's -- which is what
+    (`comfy/model_patcher.py::ModelPatcher.clone`, `deepclone_multigpu`), and both raise
+    outright if a loader registered none. Registering core's -- which is what
     `comfy.sd.load_clip` leaves behind -- would rebuild an unguarded, unstamped
     model.
     """
     return load_guarded_clip(
         path, embedding_directory, model_options=model_options,
-        disable_dynamic=disable_dynamic).patcher
+        disable_dynamic=disable_dynamic, keep_in_ram=keep_in_ram).patcher
+
+
+def _rebuild_factory(keep_in_ram: bool):
+    """The factory `cached_patcher_init` holds. Off, the plain function, as before.
+
+    On, `keep_in_ram` is bound as a keyword rather than appended to the factory's
+    arguments: core calls the factory as `factory(*args, disable_dynamic=True)` from
+    `clone` and as `factory(*args)` from `deepclone_multigpu`, so a fourth positional
+    argument would collide with the first call's keyword, and leaving it out would
+    lose the setting on the second.
+    """
+    if not keep_in_ram:
+        return load_guarded_model_patcher
+    return functools.partial(load_guarded_model_patcher, keep_in_ram=True)
