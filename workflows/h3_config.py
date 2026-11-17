@@ -599,12 +599,12 @@ SOL_SINK_DEFAULT = "exact_kv_and_all_rows"
 
 #: Per-segment rows with every conditioning class exact except video
 #: references (`sol_attn_h3.py::SEGMENT_CLASSES`, added 2026-11-16 on branch
-#: `claude-sol-video-ref-rows`). **Not in any recipe yet.** Landing it means
-#: `SOL_RECOMMENDED_CUDA.update(SOL_ROWS_VIDEO_REFERENCES_ROUTED)` below the
-#: recipe and regenerating every shipped graph; the steps are in
-#: `docs/wiki/attention/SOLATTN.md`, "Landing video_reference_rows". On a graph
-#: with no video reference it is the same kernel call as `SOL_SINK_DEFAULT`
-#: alone (`bench/check_sol_node_equivalence.py`).
+#: `claude-sol-video-ref-rows`). **In the recipe since 2026-11-17** (owner: the
+#: two arms looked the same on playback, keep the faster;
+#: `bench/results/2026-11-17_sol_video_reference_rows_ab.md`), merged into
+#: `SOL_RECOMMENDED_CUDA` directly below it. On a graph with no video reference
+#: it is the same kernel call as `SOL_SINK_DEFAULT` alone
+#: (`bench/check_sol_node_equivalence.py`).
 SOL_ROWS_VIDEO_REFERENCES_ROUTED = {
     "rows": "per segment",
     "rows.text_rows": "exact",
@@ -782,6 +782,9 @@ SOL_RECOMMENDED_CUDA = dict(
     # so the wider budgets buy nothing while switching it on at all costs.
     token_routing="off",
 )
+# Video-reference rows routed, every other conditioning row exact (owner,
+# 2026-11-17; the note on SOL_ROWS_VIDEO_REFERENCES_ROUTED above).
+SOL_RECOMMENDED_CUDA.update(SOL_ROWS_VIDEO_REFERENCES_ROUTED)
 
 # The Sol config for a PDD arm. **Since 2026-09-11 it is the base recipe
 # unchanged**: its one override, the narrower `end_percent` described below,

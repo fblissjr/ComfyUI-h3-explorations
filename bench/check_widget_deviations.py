@@ -358,6 +358,19 @@ DECLARED: dict[tuple[str, str], tuple] = {
                 "qk_balance and rotate rows with the 2026-09-27 node redesign; "
                 "the per-graph value is graded by "
                 "bench/check_attention_defaults.py::DEVIATIONS"),
+    ("MiniMaxH3Sol", "rows"):
+        ("HOUSE", "'per segment' on every Sol graph (owner, 2026-11-17), against the "
+                  "node default: with h3_config.SOL_ROWS_VIDEO_REFERENCES_ROUTED it "
+                  "routes video-reference rows and keeps every other conditioning "
+                  "row exact. The A/B looked the same to the owner on playback and "
+                  "routed sampled faster "
+                  "(bench/results/2026-11-17_sol_video_reference_rows_ab.md)",
+         h3_config.SOL_ROWS_VIDEO_REFERENCES_ROUTED["rows"]),
+    ("MiniMaxH3Sol", "rows.video_reference_rows"):
+        ("HOUSE", "'routed' on every Sol graph (owner, 2026-11-17), the half of "
+                  "h3_config.SOL_ROWS_VIDEO_REFERENCES_ROUTED that differs from the "
+                  "node default; same record as the 'rows' row",
+         h3_config.SOL_ROWS_VIDEO_REFERENCES_ROUTED["rows.video_reference_rows"]),
     ("MiniMaxH3Sol", "dense_blocks"):
         ("ARM", "'' (every block on Sol) on h3_probe_t2v_no_dense_tail, the control "
                 "for the 2026-09-25 dense-tail default, and on h3_probe_t2v_ck and "

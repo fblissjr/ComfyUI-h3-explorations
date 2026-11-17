@@ -220,7 +220,12 @@
       "verbose": true,
       "dense_blocks": "49",
       "quantizer": "rotated",
-      "token_routing": "off"
+      "token_routing": "off",
+      "rows": "per segment",
+      "rows.text_rows": "exact",
+      "rows.reference_rows": "exact",
+      "rows.audio_rows": "exact",
+      "rows.video_reference_rows": "routed"
     }
   },
   "135": {
