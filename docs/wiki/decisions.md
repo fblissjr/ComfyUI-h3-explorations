@@ -17,6 +17,12 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-11-17
 
+- **`MiniMaxH3EncoderLoader.keep_in_ram` added and removed the same day (`3d78c93d`, reverted by `55a2fc0c`; owner's
+  word, on a peer session's recommendation).**
+  - **What it did:** loaded the encoder with core's classic patcher.
+  - **Why it went:** on the running server it made every render about 12 s slower end to end. The encoder pass was
+    no faster once its file was in page cache, and loading a non-dynamic encoder moves the dynamic DiT off the card.
+  - **The record:** [`../../bench/results/2026-11-17_h3_encoder_streaming.md`](../../bench/results/2026-11-17_h3_encoder_streaming.md).
 - **Implemented `S3`: relaxed `{fl2va, ref2va}` control-vector compatibility to an advisory warning ([`control_vectors.py`](../../control_vectors.py), [`control_vector_nodes.py`](../../control_vector_nodes.py)).**
   `control_vectors.py::check_vector_compatibility` and `control_vectors.py::_is_same_family_h3_recipe_compatible` now emit
   advisory warning(s) instead of raising `ValueError` when `{vec_family, loaded_family} <= {"fl2va", "ref2va"}` (`VIDEO_H3_FAMILIES`),
