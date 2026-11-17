@@ -2394,7 +2394,15 @@ def resolve_vector_file_path(
     clean_stem = raw[:-len(".safetensors")] if raw.endswith(".safetensors") else raw
     if "__" not in clean_stem and "/" not in clean_stem and "\\" not in clean_stem:
         eff_prefer = True if prefer_lora is None else bool(prefer_lora)
-        for fam_try in ((preferred_family, None) if preferred_family is not None else (None,)):
+        if preferred_family == "fl2va":
+            fam_tries: tuple[str | None, ...] = ("fl2va", "ref2va", None)
+        elif preferred_family == "ref2va":
+            fam_tries = ("ref2va", "fl2va", None)
+        elif preferred_family is not None:
+            fam_tries = (preferred_family, None)
+        else:
+            fam_tries = (None,)
+        for fam_try in fam_tries:
             for folder in folders:
                 matched = _match_sibling_or_stem_in_dir(
                     folder,

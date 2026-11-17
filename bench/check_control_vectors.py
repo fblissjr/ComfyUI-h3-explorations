@@ -2126,16 +2126,40 @@ def check_vector_io_family_and_compatibility() -> list[str]:
         if warns:
             errs.append(f"unexpected compatibility warnings on exact match: {warns}")
 
-        # 2. Family mismatch -> hard refusal even with allow_recipe_mismatch=True
+        # 2. Cross-video {fl2va, ref2va} -> advisory warning even with allow_recipe_mismatch=False;
+        # h3_image and fasth3 -> hard refusal even with allow_recipe_mismatch=True.
+        warns_cross_video = cv.check_vector_compatibility(
+            meta_out,
+            loaded_family="ref2va",
+            loaded_recipe=recipe_a,
+            allow_recipe_mismatch=False,
+        )
+        if (
+            len(warns_cross_video) != 1
+            or "video family 'fl2va'" not in warns_cross_video[0]
+            or "'ref2va'" not in warns_cross_video[0]
+        ):
+            errs.append(f"expected 1 cross-video advisory warning (fl2va -> ref2va), got {warns_cross_video}")
+        for bad_fam in ("h3_image", "fasth3"):
+            errs += _expect_refusal(
+                lambda lf=bad_fam: cv.check_vector_compatibility(
+                    meta_out,
+                    loaded_family=lf,
+                    loaded_recipe=recipe_a,
+                    allow_recipe_mismatch=True,
+                ),
+                f"cannot apply to loaded model of family {bad_fam!r}",
+                f"compatibility refusal: fl2va vector on loaded_family={bad_fam}",
+            )
         errs += _expect_refusal(
             lambda: cv.check_vector_compatibility(
-                meta_out,
-                loaded_family="ref2va",
+                {**meta_out, "family": "h3_image"},
+                loaded_family="fl2va",
                 loaded_recipe=recipe_a,
                 allow_recipe_mismatch=True,
             ),
-            "cannot apply to loaded model of family 'ref2va'",
-            "compatibility refusal: wrong family",
+            "cannot apply to loaded model of family 'fl2va'",
+            "compatibility refusal: h3_image vector on loaded_family=fl2va",
         )
 
         # 3. Checkpoint mismatch -> refuses by default, warns when allow_recipe_mismatch=True
@@ -2404,6 +2428,52 @@ def check_vector_io_family_and_compatibility() -> list[str]:
                 }
             ],
         }
+        # Cross-video standard Pika recipes (fl2va vector <-> ref2va model) warn without refusing,
+        # while a partial-refiner LoRA across {fl2va, ref2va} still refuses when allow_recipe_mismatch=False.
+        meta_fl2va_pika = {
+            **meta_pika_svd,
+            "family": "fl2va",
+            "recipe": {
+                **recipe_a,
+                "checkpoint": {"file": "minimax_h3_fl2va_pruned_int8_convrot.safetensors", "sha256": "f111"},
+                "loras": meta_pika_svd["recipe"]["loras"],
+            },
+        }
+        recipe_ref2va_pika = {
+            **recipe_a,
+            "checkpoint": {"file": "minimax_h3_ref2va_pruned_int8_convrot.safetensors", "sha256": "r111"},
+            "loras": meta_ref2va_pika["recipe"]["loras"],
+        }
+        warns_cross_pika = cv.check_vector_compatibility(
+            meta_fl2va_pika, loaded_family="ref2va", loaded_recipe=recipe_ref2va_pika, allow_recipe_mismatch=False
+        )
+        if (
+            len(warns_cross_pika) != 3
+            or not any("video family 'fl2va'" in w for w in warns_cross_pika)
+            or not any("checkpoint" in w.lower() for w in warns_cross_pika)
+            or not any("lora set" in w.lower() for w in warns_cross_pika)
+        ):
+            errs.append(
+                f"expected 3 advisory warnings (family + checkpoint + LoRA set) for cross-video Pika fl2va -> ref2va, got {warns_cross_pika}"
+            )
+        recipe_ref2va_partial_pika = {
+            **recipe_ref2va_pika,
+            "loras": [
+                {
+                    "file": "pika_h3_flex_ref2va_svd995_bf16.safetensors",
+                    "sha256": "r222",
+                    "strength": 1.0,
+                    "applied": "branch:modules=all,blocks=0-24,window=0-1",
+                }
+            ],
+        }
+        errs += _expect_refusal(
+            lambda: cv.check_vector_compatibility(
+                meta_fl2va_pika, loaded_family="ref2va", loaded_recipe=recipe_ref2va_partial_pika, allow_recipe_mismatch=False
+            ),
+            "recipe checkpoint",
+            "compatibility refusal: cross-video fl2va -> ref2va Pika LoRA excluding token_refiner blocks checkpoint+recipe parity",
+        )
         warns_half_strength = cv.check_vector_compatibility(
             meta_out, loaded_family="fl2va", loaded_recipe=recipe_pika_half_strength, allow_recipe_mismatch=False
         )
@@ -3072,16 +3142,34 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
         if not isinstance(fp_apply, tuple) or len(fp_apply) != 3:
             errs.append(f"MiniMaxH3ApplyControlVectors.fingerprint_inputs unexpected return: {fp_apply!r}")
 
-        # Refusal on family mismatch in attach_control_vector
-        bad_meta = {**meta1, "family": "ref2va"}
+        # Refusal on family mismatch in attach_control_vector (custom synthetic model rejects ref2va/h3_image),
+        # while loaded video family 'fl2va' accepts 'ref2va' with an advisory warning and still rejects 'h3_image'.
+        ref_meta = {**meta1, "family": "ref2va"}
+        ref_v_path = cv.save_vector(
+            tmp / "ref_fam.safetensors", {"vector.post_refiner": v_dir1}, ref_meta
+        )
+        errs += _expect_refusal(
+            lambda: cv_nodes.attach_control_vector(patcher_with_init, ref_v_path, strength=1.0),
+            "cannot apply to loaded model of family",
+            "attach_control_vector refusal on custom family mismatch",
+        )
+        bad_meta = {**meta1, "family": "h3_image"}
         bad_v_path = cv.save_vector(
             tmp / "bad_fam.safetensors", {"vector.post_refiner": v_dir1}, bad_meta
         )
-        errs += _expect_refusal(
-            lambda: cv_nodes.attach_control_vector(patcher_with_init, bad_v_path, strength=1.0),
-            "cannot apply to loaded model of family",
-            "attach_control_vector refusal on family mismatch",
-        )
+        orig_detect_family = cv_nodes._cv.detect_family
+        cv_nodes._cv.detect_family = lambda _src: "fl2va"
+        try:
+            p_cross_video = cv_nodes.attach_control_vector(patcher_with_init, ref_v_path, strength=1.0)
+            if not isinstance(p_cross_video, _MockPatcher):
+                errs.append(f"attach_control_vector failed cross-video ref2va on fl2va: {type(p_cross_video)}")
+            errs += _expect_refusal(
+                lambda: cv_nodes.attach_control_vector(patcher_with_init, bad_v_path, strength=1.0),
+                "cannot apply to loaded model of family 'fl2va'",
+                "attach_control_vector refusal on non-video family mismatch (h3_image on fl2va)",
+            )
+        finally:
+            cv_nodes._cv.detect_family = orig_detect_family
 
         # MiniMaxH3ApplyControlVectors.execute chained (explicit mode='add' matches expected_shifted)
         (p_node_1,) = cv_nodes.MiniMaxH3ApplyControlVectors.execute(
@@ -4644,21 +4732,44 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
                 {"vector.post_refiner": v_dir2},
                 {**meta2, "family": "ref2va"},
             )
+            cv.save_vector(
+                stem_dir / "fasth3_only_demo__fasth3__diff_span.safetensors",
+                {"vector.post_refiner": v_dir2},
+                {**meta2, "family": "fasth3"},
+            )
             cv_nodes.folder_paths.folder_names_and_paths[cv_nodes.CONTROL_VECTORS_FOLDER] = (
                 [str(stem_dir)],
                 {".safetensors"},
             )
             stem_opts = cv_nodes._vector_stem_options(include_none=True)
-            if stem_opts != ["none", "pair_demo", "ref_only_demo"]:
+            if stem_opts != ["none", "fasth3_only_demo", "pair_demo", "ref_only_demo"]:
                 errs.append(f"unexpected _vector_stem_options deduplication: {stem_opts!r}")
-            # Single-family bare stem resolves to existing ref2va file so family mismatch is reported clearly
+            # Single-family bare stem resolves to existing ref2va file (refused on synthetic custom model,
+            # accepted with advisory warning on loaded video family 'fl2va'), while fasth3 refuses on 'fl2va'.
             errs += _expect_refusal(
                 lambda: cv_nodes.MiniMaxH3Steer.execute(
                     model=patcher_with_init, vector="ref_only_demo", strength=1.0
                 ),
                 "cannot apply to loaded model of family",
-                "MiniMaxH3Steer bare stem family mismatch refusal on single-family vector",
+                "MiniMaxH3Steer bare stem family mismatch refusal on custom synthetic model",
             )
+            orig_detect_family = cv_nodes._cv.detect_family
+            cv_nodes._cv.detect_family = lambda _src: "fl2va"
+            try:
+                (p_steer_cross,) = cv_nodes.MiniMaxH3Steer.execute(
+                    model=patcher_with_init, vector="ref_only_demo", strength=1.0
+                )
+                if not isinstance(p_steer_cross, _MockPatcher):
+                    errs.append(f"MiniMaxH3Steer cross-video ref2va stem did not return model: {type(p_steer_cross)}")
+                errs += _expect_refusal(
+                    lambda: cv_nodes.MiniMaxH3Steer.execute(
+                        model=patcher_with_init, vector="fasth3_only_demo", strength=1.0
+                    ),
+                    "cannot apply to loaded model of family 'fl2va'",
+                    "MiniMaxH3Steer bare stem family mismatch refusal on non-compatible fasth3 vector",
+                )
+            finally:
+                cv_nodes._cv.detect_family = orig_detect_family
             # Standalone + chained MiniMaxH3Steer bitwise equivalence with MiniMaxH3ApplyControlVectors
             (p_steer_1,) = cv_nodes.MiniMaxH3Steer.execute(
                 model=patcher_with_init,

@@ -2370,6 +2370,9 @@ def load_vector(path: str | Path) -> tuple[dict[str, torch.Tensor], dict[str, An
     return tensors, metadata
 
 
+VIDEO_H3_FAMILIES: frozenset[str] = frozenset({"fl2va", "ref2va"})
+
+
 def check_vector_compatibility(
     metadata: Mapping[str, Any],
     *,
@@ -2380,24 +2383,33 @@ def check_vector_compatibility(
 ) -> list[str]:
     """Verify `metadata` against the loaded model's `family`, `recipe`, and `prefix`.
 
-    - Unknown `format`, malformed metadata, or mismatched `family` always raises
-      `ValueError`.
+    - Unknown `format` or malformed metadata raises `ValueError`.
+    - Mismatched `family` raises `ValueError`, except across standard video
+      families `{fl2va, ref2va}` (whose post-refiner spaces sit at `cos ~0.99`),
+      which emits an advisory warning.
     - Mismatched `recipe` (checkpoint or LoRA list) raises `ValueError` unless
-      `allow_recipe_mismatch=True`, in which case it is returned in the advisory
-      warnings list.
+      `allow_recipe_mismatch=True` or covered by compatible H3 / J-Lens rules,
+      in which case it is returned in the advisory warnings list.
     - Mismatched `measured_under.prefix` is always reported in the warnings list
       and never refused."""
     _validate_metadata_dict(metadata)
 
+    warnings: list[str] = []
     vec_name = metadata["name"]
     vec_family = metadata["family"]
+    compatible_video_families = {vec_family, loaded_family} <= VIDEO_H3_FAMILIES
     if vec_family != loaded_family:
-        raise ValueError(
-            f"control vector {vec_name!r} was made for H3 text-path family {vec_family!r}, "
-            f"cannot apply to loaded model of family {loaded_family!r}"
-        )
+        if compatible_video_families:
+            warnings.append(
+                f"control vector {vec_name!r} was made for H3 video family {vec_family!r}, "
+                f"applying to loaded video family {loaded_family!r} (post-refiner cos ~0.99)"
+            )
+        else:
+            raise ValueError(
+                f"control vector {vec_name!r} was made for H3 text-path family {vec_family!r}, "
+                f"cannot apply to loaded model of family {loaded_family!r}"
+            )
 
-    warnings: list[str] = []
     if loaded_recipe is None:
         if not allow_recipe_mismatch:
             raise ValueError(
@@ -2410,7 +2422,9 @@ def check_vector_compatibility(
         vec_ckpt = vec_recipe.get("checkpoint")
         cur_ckpt = loaded_recipe.get("checkpoint")
         prov_made_by = str(metadata.get("provenance", {}).get("made_by", ""))
-        jlens_same_family = prov_made_by.startswith("j_lens.") and vec_family == loaded_family
+        jlens_same_family = prov_made_by.startswith("j_lens.") and (
+            vec_family == loaded_family or compatible_video_families
+        )
         h3_family_compatible = _is_same_family_h3_recipe_compatible(
             vec_recipe, loaded_recipe, vec_family=vec_family, loaded_family=loaded_family
         )
@@ -2566,17 +2580,23 @@ def _is_same_family_h3_recipe_compatible(
     vec_family: str,
     loaded_family: str,
 ) -> bool:
-    """Whether `vec_recipe` and `cur_recipe` are standard H3 `fl2va` or `ref2va` checkpoints
-    and full-refiner distillation/task LoRA recipes (base `loras=[]`, Pika H3 Flex, PrunaAI
-    `P-H3-Image`, or `ref2va` Guide Video Edit) of the same H3 text-path family."""
-    if vec_family != loaded_family or vec_family not in ("fl2va", "ref2va", "h3_image"):
+    """Whether `vec_recipe` and `cur_recipe` are standard H3 `fl2va` / `ref2va` / `h3_image`
+    checkpoints and full-refiner distillation/task LoRA recipes of the same text-path family
+    (or cross-family within standard video `{fl2va, ref2va}`)."""
+    if not (
+        (vec_family == loaded_family and vec_family in ("fl2va", "ref2va", "h3_image"))
+        or {vec_family, loaded_family} <= VIDEO_H3_FAMILIES
+    ):
         return False
     cur_ckpt = cur_recipe.get("checkpoint")
     vec_ckpt = vec_recipe.get("checkpoint")
     cur_ckpt_file = Path(str(cur_ckpt.get("file", ""))).name if isinstance(cur_ckpt, Mapping) else ""
     vec_ckpt_file = Path(str(vec_ckpt.get("file", ""))).name if isinstance(vec_ckpt, Mapping) else ""
-    known_ckpts = _KNOWN_H3_CHECKPOINTS[vec_family]
-    if vec_ckpt != cur_ckpt and not (vec_ckpt_file in known_ckpts and cur_ckpt_file in known_ckpts):
+    vec_known_ckpts = _KNOWN_H3_CHECKPOINTS[vec_family]
+    cur_known_ckpts = _KNOWN_H3_CHECKPOINTS[loaded_family]
+    if vec_ckpt != cur_ckpt and not (
+        vec_ckpt_file in vec_known_ckpts and cur_ckpt_file in cur_known_ckpts
+    ):
         return False
     cur_loras = cur_recipe.get("loras", [])
     vec_loras = vec_recipe.get("loras", [])

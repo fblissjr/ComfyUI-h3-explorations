@@ -17,6 +17,14 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-11-17
 
+- **Implemented `S3`: relaxed `{fl2va, ref2va}` control-vector compatibility to an advisory warning ([`control_vectors.py`](../../control_vectors.py), [`control_vector_nodes.py`](../../control_vector_nodes.py)).**
+  `control_vectors.py::check_vector_compatibility` and `control_vectors.py::_is_same_family_h3_recipe_compatible` now emit
+  advisory warning(s) instead of raising `ValueError` when `{vec_family, loaded_family} <= {"fl2va", "ref2va"}` (`VIDEO_H3_FAMILIES`),
+  and `control_vector_nodes.py::resolve_vector_file_path` tries the sibling video family before general fallback. Hard
+  `ValueError` refusals remain intact for `h3_image`, `fasth3`, and unknown or partial-refiner LoRA mismatches (`allow_recipe_mismatch = False`).
+  Verified in [`bench/check_control_vectors.py`](../../bench/check_control_vectors.py), with standing notes updated in
+  [`control_vectors.md`](control_vectors.md), [`control_vectors/comfyui_nodes_and_controls.md`](control_vectors/comfyui_nodes_and_controls.md),
+  and [`next_steps.md`](next_steps.md).
 - **Snapped off-grid H3-Image Qwen copies with 8-bit bicubic (`reference_encode.py::_snap_h3_image_qwen_grid`).**
   Previously `_prepare_h3_image_ref` returned a picture whose short side already equaled `qwen_short_edge` (`1024`)
   untouched under `in_bounds_align="crop_32"` even when its long side was off the `32`-px grid (e.g. `1024x1500`), causing
