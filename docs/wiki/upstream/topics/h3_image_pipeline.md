@@ -69,7 +69,14 @@ Read in sglang, vllm-omni, diffusers, DiffSynth, LightX2V, core and the pack, ex
    - The VAE's copy has its short edge kept inside a range: `edit_reference_vae_*_short_edge`,
      `MINIMAX_H3_IMAGE_VAE_SHORT_EDGE`, `IMAGE_REF_VAE_MAX_SHORT_EDGE`, the pack's `H3_IMAGE_VAE_*_SHORT_EDGE`.
    - Outside its bounds, a copy is resized with Lanczos, each side on the 32 px grid.
-5. **Normalization.** ImageNet mean and standard deviation on pixels, the release's latent statistics on latents.
+5. **Normalization differs by consumer:**
+   - the VAE's copy of a picture uses ImageNet mean and standard deviation (core's
+     `comfy/ldm/minimax/vae.py::IMAGENET_MEAN`);
+   - the text encoder's copy uses mean and standard deviation `0.5`, mapping pixels to `[-1, 1]`
+     (`vendor_config/preprocessor_config.json`, core's `comfy/text_encoders/qwen3vl.py::Qwen3VL.preprocess_embed`);
+   - latents use the release's latent statistics.
+
+   *Corrected 2026-11-17: this line first gave ImageNet statistics for all pixels.*
 6. **A reference's latent is a posterior sample, never the mean.**
 7. **The packed sequence and its positions.**
    - The order is text, then each reference, then the target.
