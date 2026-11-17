@@ -17,6 +17,13 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-11-17
 
+- **Merged `claude-sol-video-ref-rows` (`4f323d81`, the owner's word).** `MiniMaxH3Sol` gains `video_reference_rows`
+  (last in its `per segment` rows), with no shipped graph using it.
+  - **Checks:** all 121 graphs rebuilt on the merged code were byte-identical to the committed ones.
+    `bench/check_sol_node_equivalence.py`'s cases passed, the kernel cases on the card among them; one red control
+    was skipped when it ran out of memory beside the resident models.
+  - **Not done:** making it the default in every shipped Sol graph waits on the A/B in
+    [`attention/SOLATTN.md`](attention/SOLATTN.md), "Landing `video_reference_rows`", which has not been run.
 - **Corrected: H3-Image pixel normalization is not ImageNet's for every consumer.**
   [`upstream/topics/h3_image_pipeline.md`](upstream/topics/h3_image_pipeline.md), "Where every implementation
   agrees", item 5, said "ImageNet mean and standard deviation on pixels". That is the VAE's copy only. The text
