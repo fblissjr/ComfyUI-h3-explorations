@@ -954,17 +954,21 @@ defaults from the node's `define_schema`.
 
 #### Landing `video_reference_rows` (branch `claude-sol-video-ref-rows`)
 
-**Status, 2026-11-17:** step 2 is done. The branch is merged (`4f323d81`, the owner's word), and its worktree and
+**Status, 2026-11-17: landed, all six steps** (`0e43de1d`, the owner's word: the A/B's arms looked the same on
+playback, keep the faster). Every shipped Sol graph now carries the routed rows through
+`h3_config.SOL_RECOMMENDED_CUDA`. The steps below are kept as the record of how it landed.
+
+Earlier the same day, step 2 was done. The branch is merged (`4f323d81`, the owner's word), and its worktree and
 local branch are removed. A rebuild of all graphs on the merged code was byte-identical to the committed graphs.
 `bench/check_sol_node_equivalence.py` passed all 11 dispatch cases and both red controls on the card (13 CUDA cases
 total) with zero skips once idle VRAM was free. ComfyUI has restarted and `/object_info` serves
 `video_reference_rows` (121 graphs validated against live `:8188`). Step 1, the A/B, ran the same day
 ([`2026-11-17_sol_video_reference_rows_ab.md`](../../../bench/results/2026-11-17_sol_video_reference_rows_ab.md)
-has the sampler times and the renders). Steps 3–6 wait on the owner's playback verdict.
+has the sampler times and the renders).
 
 The branch adds the input and teaches the generator to carry `rows`
-(`workflows/build_workflows.py::SOL_ROWS_NESTED`), but **no shipped graph
-uses it**: a rebuild on the branch is byte-identical to the graphs on
+(`workflows/build_workflows.py::SOL_ROWS_NESTED`), but until the landing **no shipped graph
+used it**: a rebuild on the branch was byte-identical to the graphs on
 `main`. Merging is meant to put it in every shipped graph, which takes all
 of these steps, in order:
 

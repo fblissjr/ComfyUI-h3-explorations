@@ -17,6 +17,15 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-11-17
 
+- **Sol routes video-reference rows on every shipped graph (`0e43de1d`, the owner's word).**
+  - **What changed:** `h3_config.SOL_RECOMMENDED_CUDA` takes `SOL_ROWS_VIDEO_REFERENCES_ROUTED`. Every shipped Sol
+    graph now runs `per segment` rows with `<Video N>` rows routed and text, pictures and audio exact.
+  - **Before:** no shipped graph set `rows`, and every conditioning row ran exact under the
+    `exact_kv_and_all_rows` sink.
+  - **Why:** on the A/B the two arms looked the same to the owner on playback, and routed sampled faster. The
+    owner's ruling was to keep the faster one.
+  - **Unchanged:** on a graph with no video reference it is the same kernel call (`bench/check_sol_node_equivalence.py`).
+  - **The record:** [`../../bench/results/2026-11-17_sol_video_reference_rows_ab.md`](../../bench/results/2026-11-17_sol_video_reference_rows_ab.md).
 - **`MiniMaxH3EncoderLoader.keep_in_ram` added and removed the same day (`3d78c93d`, reverted by `55a2fc0c`; owner's
   word, on a peer session's recommendation).**
   - **What it did:** loaded the encoder with core's classic patcher.
