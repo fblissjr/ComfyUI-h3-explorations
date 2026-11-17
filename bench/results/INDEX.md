@@ -17,6 +17,7 @@ replaces `docs/wiki/ops/evidence.md`, which says what the records established.
 | date | lane | record | verdict |
 |---|---|---|---|
 | 2026-11-17 | pika | [Pika H3 Flex Sampling, `taeh3`/`taeh3_image` Preview Gate, & MiniMax-H3-Image Empty-Vision Probes (2026-11-17)](2026-11-17_pika_sampler_and_t2i_vision_probes.md) |  |
+| 2026-11-17 | h3 | [The H3 text encoder's pass time, and `MiniMaxH3EncoderLoader.keep_in_ram`, end to end (2026-11-17)](2026-11-17_h3_encoder_streaming.md) |  |
 | 2026-11-16 | song | [Bucket 3 Verification — Timeline-Scoped DiT Frame-0 `section_anchor` & `anchor_end_percent = 0.33` Release](2026-11-16_song_section_anchor_ab.md) |  |
 | 2026-11-16 | seam | [Bucket 2 Verification — `apply_audio_gain` Idempotency Guard, Causal `seam_taper` Context Schedule, & Mild `0-29` Audio Gain](2026-11-16_seam_taper_and_audio_gain_guard.md) |  |
 | 2026-11-16 | pika | [Pika 6-Step Gate 1 Probe — `AudioAttentionGain` Block Scoping & Perturbed Frame-0 Anchor Transfer](2026-11-16_pika_anchor_and_audio_gain_probe.md) |  |
