@@ -17,6 +17,11 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-11-17
 
+- **Corrected: H3-Image pixel normalization is not ImageNet's for every consumer.**
+  [`upstream/topics/h3_image_pipeline.md`](upstream/topics/h3_image_pipeline.md), "Where every implementation
+  agrees", item 5, said "ImageNet mean and standard deviation on pixels". That is the VAE's copy only. The text
+  encoder's copy uses mean and std `0.5` (`vendor_config/preprocessor_config.json`, core's `Qwen3VL.preprocess_embed`).
+  Caught in a peer session's review the same day (`dade2d86`).
 - **Corrected: the H3-Image sigma round trip does not move this grid (`39fdb2b3`).**
   [`upstream/topics/h3_image_sampling_step.md`](upstream/topics/h3_image_sampling_step.md) said the engines' float32
   `1 - sigma` round trip "moves the sigmas below 0.5 by one ulp" and that `H3_IMAGE_MANUAL_SIGMAS` was not compared.
