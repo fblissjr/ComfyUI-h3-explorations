@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>H3 Documentation &amp; Tutorial Hub</title>
+  <link rel="icon" type="image/svg+xml" href="/static/icon.svg">
+  <link rel="stylesheet" href="/static/docs.css">
+</head>
+<body class="docs-body">
+  <header class="docs-header">
+    <div class="docs-header-left">
+      <a href="/" class="docs-back-link" title="Back to Interactive Spatial Director">
+        <svg class="ui-svg ui-svg-blue" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
+        </svg>
+        <span>Spatial Director</span>
+      </a>
+      <button id="btn-mobile-nav" type="button" class="docs-mobile-nav-btn" aria-haspopup="dialog" aria-controls="mobile-nav-dialog">
+        <svg class="ui-svg" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M3 6h18v2H3V6zm0 5h18v2H3v-2zm0 5h18v2H3v-2z"/>
+        </svg>
+        <span>Docs</span>
+      </button>
+      <div class="docs-brand">
+        <img src="/static/icon.svg" alt="" class="brand-icon" width="22" height="22">
+        <span class="docs-brand-title">H3 Documentation &amp; Tutorial Hub</span>
+      </div>
+    </div>
+
+    <div class="docs-header-center">
+      <div class="docs-search-wrap">
+        <svg class="ui-svg docs-search-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+        </svg>
+        <input id="doc-search-input" type="search" class="docs-search-input" placeholder="Search all guides, tutorials, &amp; wiki (/)" aria-label="Search markdown documentation">
+        <button id="btn-search-clear" type="button" class="docs-search-clear hidden" aria-label="Clear search">×</button>
+      </div>
+    </div>
+
+    <div class="docs-header-right">
+      <span id="docs-count-pill" class="docs-count-pill">Loading…</span>
+      <button id="btn-doc-reload" type="button" class="docs-btn" title="Re-read current Markdown file from disk">Reload</button>
+    </div>
+  </header>
+
+  <div id="docs-shell" class="docs-shell">
+    <aside id="doc-sidebar" class="doc-sidebar" aria-label="Documentation files">
+      <div id="doc-nav-host" class="doc-nav-host">
+        <div id="doc-search-results" class="doc-search-results hidden" aria-live="polite"></div>
+        <nav id="doc-tree" class="doc-tree" aria-label="Markdown document tree"></nav>
+      </div>
+    </aside>
+
+    <main id="doc-main" class="doc-main" tabindex="0" aria-label="Markdown document content">
+      <div class="doc-container">
+        <div class="doc-meta-bar">
+          <div class="doc-meta-left">
+            <span id="doc-group-badge" class="doc-group-badge">Documentation</span>
+            <code id="doc-path-pill" class="doc-path-pill">docs/wiki/spatial_director_guide.md</code>
+            <button id="btn-copy-path" type="button" class="docs-btn-xs" title="Copy repo-relative path">Copy Path</button>
+          </div>
+          <span id="doc-updated-meta" class="doc-updated-meta">Live from disk</span>
+        </div>
+
+        <article id="doc-article" class="doc-article">
+          <p class="doc-loading">Loading guide…</p>
+        </article>
+
+        <nav class="doc-pager" aria-label="Adjacent documentation pages">
+          <button id="btn-prev-doc" type="button" class="doc-pager-btn" disabled>← Previous</button>
+          <button id="btn-next-doc" type="button" class="doc-pager-btn" disabled>Next →</button>
+        </nav>
+      </div>
+    </main>
+
+    <aside id="doc-toc-rail" class="doc-toc-rail" aria-label="On this page">
+      <div class="doc-toc-title">On this page</div>
+      <nav id="doc-toc-nav" class="doc-toc-nav" aria-label="Document headings"></nav>
+    </aside>
+  </div>
+
+  <dialog id="mobile-nav-dialog" class="mobile-nav-dialog" aria-label="Browse documentation files">
+    <div class="mobile-nav-head">
+      <span>Browse Documentation</span>
+      <button id="btn-mobile-nav-close" type="button" class="docs-btn-xs" aria-label="Close drawer">Close</button>
+    </div>
+    <div id="mobile-nav-slot" class="mobile-nav-slot"></div>
+  </dialog>
+
+  <div id="doc-toast" class="doc-toast hidden" role="status" aria-live="polite"></div>
+
+  <script type="module" src="/static/js/docs_viewer.js"></script>
+</body>
+</html>

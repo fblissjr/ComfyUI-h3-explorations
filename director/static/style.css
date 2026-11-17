@@ -315,6 +315,10 @@ body.light-studio {
   background: var(--blue-tint);
 }
 
+.link-btn-nav {
+  text-decoration: none;
+}
+
 .btn-primary {
   display: inline-flex;
   align-items: center;
