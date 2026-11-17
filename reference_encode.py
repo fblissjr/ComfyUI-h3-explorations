@@ -602,6 +602,11 @@ H3_IMAGE_REFERENCE_LATENT_DEFAULT = "release"
 #: its latent to an even count of cells afterwards (the DiT patches two by two).
 H3_IMAGE_VAE_CELL = 16
 H3_IMAGE_LATENT_CHANNELS = 24
+#: Qwen3-VL image processor grid and pixel bounds (`vendor_config/preprocessor_config.json`:
+#: `patch_size=16 * merge_size=2`, `size.shortest_edge`, `size.longest_edge`).
+H3_IMAGE_QWEN_GRID = 32
+H3_IMAGE_QWEN_MIN_PIXELS = 65536
+H3_IMAGE_QWEN_MAX_PIXELS = 16777216
 
 
 @contextlib.contextmanager
@@ -705,6 +710,26 @@ def _prepare_h3_image_ref(
     if (w, h) == (tw, th):
         return img
     return comfy.utils.common_upscale(img.movedim(-1, 1), tw, th, "lanczos", "disabled").movedim(1, -1)
+
+
+def _snap_h3_image_qwen_grid(image: torch.Tensor) -> torch.Tensor:
+    """Snap a Qwen copy onto the release processor's 32-px grid with 8-bit bicubic when off-grid.
+
+    `_prepare_h3_image_ref` leaves a picture whose short edge already equals `qwen_short_edge`
+    untouched even when its long edge is off the 32-px grid; core's `process_qwen2vl_images`
+    would otherwise resize it with float32 bilinear instead of the release processor's 8-bit
+    bicubic (`vendor_config/preprocessor_config.json`, `comfy/text_encoders/qwen_vl.py::resize_8bit`).
+    """
+    from comfy.text_encoders.qwen_vl import resize_8bit, smart_resize
+
+    img = image[:1, ..., :3]
+    h, w = int(img.shape[1]), int(img.shape[2])
+    h_bar, w_bar = smart_resize(
+        h, w, H3_IMAGE_QWEN_GRID, H3_IMAGE_QWEN_MIN_PIXELS, H3_IMAGE_QWEN_MAX_PIXELS
+    )
+    if (h, w) == (h_bar, w_bar):
+        return img
+    return resize_8bit(img, h_bar, w_bar).to(device=img.device, dtype=img.dtype)
 
 
 class MiniMaxH3EncodeImageReferences(io.ComfyNode):
@@ -877,8 +902,10 @@ class MiniMaxH3EncodeImageReferences(io.ComfyNode):
         vision_images = []
         refs = []
         for img in raw_images:
-            v_img = _prepare_h3_image_ref(
-                img, qwen_short_edge, qwen_short_edge, in_bounds_align=in_bounds_align, crop_grid_32=False
+            v_img = _snap_h3_image_qwen_grid(
+                _prepare_h3_image_ref(
+                    img, qwen_short_edge, qwen_short_edge, in_bounds_align=in_bounds_align, crop_grid_32=False
+                )
             )
             vision_images.append(v_img)
             if use_vae and vae is not None:

@@ -1,6 +1,6 @@
 # Qwen3-VL-32B: how each implementation uses the shared encoder
 
-last updated: 2026-11-17 (MiniMax-H3-Image read across sglang, vllm-omni, DiffSynth, LightX2V, core and this pack:
+last updated: 2026-11-17 (added `reference_encode.py::_snap_h3_image_qwen_grid` 8-bit bicubic snap for off-grid Qwen copies; MiniMax-H3-Image read across sglang, vllm-omni, DiffSynth, LightX2V, core and this pack:
 text to image carries no vision tokens anywhere; prompt handling, truncation, padding, empty prompts, Qwen-copy
 resampling and mRoPE added; record [`../sweeps/2026-11-17_h3_image.md`](../sweeps/2026-11-17_h3_image.md)); 2026-11-15 (page created from the 2026-11-15 sweep)
 
@@ -37,10 +37,11 @@ prevent").
   (vllm-omni's encoder, core's `comfy/text_encoders/qwen_vl.py::qwen2vl_mrope_position_ids`; sglang and LightX2V use the HF-style
   `get_rope_index`).
 - **The Qwen copy is bounded the same way everywhere:** Lanczos to a 1024 short edge with both sides on the 32 px grid,
-  and a picture whose short edge is already exactly 1024 is passed through untouched (sglang, vllm-omni, DiffSynth,
-  LightX2V, this pack's `reference_encode.py::_prepare_h3_image_ref`). Core is the exception: it resamples that
-  picture to the grid as well. The image release's `processor/preprocessor_config.json` is byte-for-byte the H3 video
-  release's (`vendor_config/preprocessor_config.json`, compared 2026-11-17).
+  and a picture whose short edge is already exactly 1024 is passed through untouched to the processor (sglang,
+  vllm-omni, DiffSynth, LightX2V, this pack's `reference_encode.py::_prepare_h3_image_ref`, then snapped onto the 32 px
+  grid with 8-bit bicubic via `reference_encode.py::_snap_h3_image_qwen_grid` when its long edge is off-grid). Core is
+  the exception: it resamples that picture with Lanczos as well. The image release's `processor/preprocessor_config.json`
+  is byte-for-byte the H3 video release's (`vendor_config/preprocessor_config.json`, compared 2026-11-17).
 - **No engine rewrites or expands H3 prompts in its serving path.** Expanders are separate: diffusers' Hub blocks for
   `MiniMaxAI/MiniMax-H3-Image-PE`, the templates' `TextGenerateV2`, and LightX2V's rewriters.
 
@@ -60,8 +61,8 @@ prevent").
 | **An empty prompt** is refused by sglang (`request_validation.py`), vllm-omni and LightX2V. DiffSynth encodes `" "` | the four | | core encodes a single pad token (`151643`) and runs, so this pack's text-to-image graph (core's node) accepts an empty prompt. The pack's own nodes refuse one |
 | **The vision tower's pixels are cast to bf16** before the vision encoder | sglang, vllm-omni (agent's reading) | `minimax_h3_qwen3vl.py`; `encoder.py` | core passes float32 pixels to `self.visual` (`comfy/text_encoders/qwen3vl.py::preprocess_embed`), which then runs at its weights' dtype; not traced further |
 | **Q, K and V are three separate bf16 GEMMs "to keep the numerics identical"** | vllm-omni (agent's reading) | `encoder.py` | core fuses them (`CombinedLinear`, row above) |
-| **The processor's own resize.** When the Qwen copy is not on the 32 px grid, the HF processor (`Qwen2VLImageProcessorFast`, named in the release's config with no resample set) resizes it with its class default, bicubic | sglang, vllm-omni, DiffSynth, LightX2V | the release's `processor/preprocessor_config.json`; transformers' `image_processing_qwen2_vl` | core's preprocessor resizes with bilinear and no antialias (`comfy/text_encoders/qwen_vl.py::process_qwen2vl_images`). Reached only by a picture whose short edge is exactly 1024 and whose long edge is off the grid. The engines pass that picture untouched to the processor, which resizes it with bicubic. Core resamples it to the grid with Lanczos first. This pack passes it untouched to core's preprocessor, which resizes it with bilinear. So neither matches the engines, each differently. Not rendered |
-| **The processor's pixel limits** are the release config's `size` (`shortest_edge` and `longest_edge`, `vendor_config/preprocessor_config.json`). Core's `comfy/text_encoders/qwen_vl.py::process_qwen2vl_images` uses Qwen2-VL's defaults instead, which differ from the release's on both limits (read 2026-11-17) | sglang, vllm-omni, diffusers, DiffSynth, LightX2V (the HF processor reads the config) | the release's `processor/preprocessor_config.json` | a Qwen copy at `H3_IMAGE_QWEN_SHORT_EDGE` lies inside both pairs of limits unless its aspect ratio is extreme, so neither limit is reached in practice. Core already resizes to the grid with the HF processor's 8-bit bicubic for another model (`comfy/text_encoders/wevisone.py`: `comfy/text_encoders/qwen_vl.py::resize_8bit` after `smart_resize`) |
+| **The processor's own resize.** When the Qwen copy is not on the 32 px grid, the HF processor (`Qwen2VLImageProcessorFast`, named in the release's config with no resample set) resizes it with its class default, bicubic | sglang, vllm-omni, DiffSynth, LightX2V | the release's `processor/preprocessor_config.json`; transformers' `image_processing_qwen2_vl` | core's preprocessor resizes with bilinear and no antialias (`comfy/text_encoders/qwen_vl.py::process_qwen2vl_images`). Reached only by a picture whose short edge is already exactly 1024 and whose long edge is off the grid. Core resamples it to the grid with Lanczos first. Since 2026-11-17 this pack snaps it with `comfy/text_encoders/qwen_vl.py::resize_8bit` (`reference_encode.py::_snap_h3_image_qwen_grid`), matching `Qwen2VLImageProcessorFast` within `5.91e-08` (`max_abs < 1e-6`, vs `0.2307` unfixed) and leaving core alone as the outlier |
+| **The processor's pixel limits** are the release config's `size` (`shortest_edge` and `longest_edge`, `vendor_config/preprocessor_config.json`). Core's `comfy/text_encoders/qwen_vl.py::process_qwen2vl_images` uses Qwen2-VL's defaults instead, which differ from the release's on both limits (read 2026-11-17) | sglang, vllm-omni, diffusers, DiffSynth, LightX2V (the HF processor reads the config) | the release's `processor/preprocessor_config.json` | `reference_encode.py::_snap_h3_image_qwen_grid` passes the release config's `(65536, 16777216)` bounds into `comfy/text_encoders/qwen_vl.py::smart_resize` and resizes off-grid copies via `comfy/text_encoders/qwen_vl.py::resize_8bit` (as core does for another model in `comfy/text_encoders/wevisone.py`) |
 | **A conditioning cache keyed on the prompt, the raw pictures and the bounds** | sglang (agent's reading) | `.../minimax_h3/stages/text_encoding.py` | this pack keeps the reference prefix in `MiniMaxH3EncodeImageReferences` for as long as its output is wired |
 
 ## Open

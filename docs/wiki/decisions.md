@@ -17,11 +17,25 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-11-17
 
+- **Snapped off-grid H3-Image Qwen copies with 8-bit bicubic (`reference_encode.py::_snap_h3_image_qwen_grid`).**
+  Previously `_prepare_h3_image_ref` returned a picture whose short side already equaled `qwen_short_edge` (`1024`)
+  untouched under `in_bounds_align="crop_32"` even when its long side was off the `32`-px grid (e.g. `1024x1500`), causing
+  core's `comfy/text_encoders/qwen_vl.py::process_qwen2vl_images` to resize with float32 bilinear (`0.2307` max abs diff
+  vs `Qwen2VLImageProcessorFast`) instead of the release processor's 8-bit antialiased bicubic. Added
+  `_snap_h3_image_qwen_grid` using `comfy/text_encoders/qwen_vl.py::smart_resize` with
+  `vendor_config/preprocessor_config.json` bounds (`65536..16777216`, `32`-px grid) and `resize_8bit`; on-grid float32
+  inputs stay bitwise untouched and off-grid copies match `AutoImageProcessor` within `5.91e-08` in
+  [`bench/check_reference_encode.py`](../../bench/check_reference_encode.py). Updated
+  [`upstream/topics/h3_image_pipeline.md`](upstream/topics/h3_image_pipeline.md),
+  [`upstream/topics/qwen3vl_encoder.md`](upstream/topics/qwen3vl_encoder.md), and
+  [`upstream/engines/comfyui_core.md`](upstream/engines/comfyui_core.md).
 - **Merged `claude-sol-video-ref-rows` (`4f323d81`, the owner's word).** `MiniMaxH3Sol` gains `video_reference_rows`
   (last in its `per segment` rows), with no shipped graph using it.
   - **Checks:** all 121 graphs rebuilt on the merged code were byte-identical to the committed ones.
-    `bench/check_sol_node_equivalence.py`'s cases passed, the kernel cases on the card among them; one red control
-    was skipped when it ran out of memory beside the resident models.
+    `bench/check_sol_node_equivalence.py` passed all 11 CUDA kernel cases on the card with zero skips once idle VRAM
+    was free (including the transposed-oracle red control), and [`attention/SOLATTN.md`](attention/SOLATTN.md) Step 5
+    now notes declaring `MiniMaxH3Sol.rows` and `rows.video_reference_rows` in
+    `bench/check_widget_deviations.py::DECLARED` once step 3 enables `SOL_ROWS_VIDEO_REFERENCES_ROUTED`.
   - **Not done:** making it the default in every shipped Sol graph waits on the A/B in
     [`attention/SOLATTN.md`](attention/SOLATTN.md), "Landing `video_reference_rows`", which has not been run.
 - **Corrected: H3-Image pixel normalization is not ImageNet's for every consumer.**

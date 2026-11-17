@@ -22,13 +22,15 @@ reference. The GitHub repo is `Comfy-Org/ComfyUI`, and the checkout is `../..`.
 - `bench/check_reference_encode.py` pins core's encoder functions that `reference_encode.py` copies. It passed at
   HEAD on 2026-11-15. `MLP.forward` changed (`48b090cb6`) and is not pinned.
 - `lora_branch.py` follows core's `FinalLayer` / `_pdd_head` signatures, which changed in `ede4e5fe8` and are already
-  followed. Its docstring cites `resolve_cast_module_with_vbar`, whose relayout moved into
-  `model_prefetch.pin_modules`, so the docstring needs a re-read.
+  followed. Re-read on 2026-11-17: `comfy/ops.py::resolve_cast_module_with_vbar` still performs `requantize_from_float`
+  in `post_cast` (so `lora_branch.py`'s line-5 docstring reference remains accurate; only `_v_relayout` moved into
+  `comfy/model_prefetch.py::pin_modules`).
 - `sol_attn_h3.py` uses the `("double_block", i)` patch contract, unchanged.
 - `reference_encode.py` imports `IMAGE_ENCODE_SEED`, renamed from `PH3_IMAGE_ENCODE_SEED` in `ede4e5fe8`, and already
   uses the new name.
-- Stale line citations in `ph3_image_nodes.py` (three, listed in the sweep record). They are comment-only and left for
-  a worktree edit.
+- `ph3_image_nodes.py` citations (`lines 87, 290, 344` for `comfy_extras/nodes_minimax_h3.py`,
+  `comfy/text_encoders/qwen35.py`, and `comfy/ldm/minimax/vae.py::H3ImageVAE.encode`) were checked at HEAD on 2026-11-17
+  and are already current.
 
 ## State as of 2026-11-15
 
@@ -78,7 +80,8 @@ HEAD.
 **What this pack takes from core and what it replaces:**
 - **Text to image** runs core's `MiniMaxH3ImageConditioning`.
 - **An edit** replaces core's node with `MiniMaxH3EncodeImageReferences` and `MiniMaxH3PromptOnImageReferences`.
-  These match the engines on the crop, the draw, the fp16 rounding and the fp32 encode
+  These match the engines on the crop, the draw, the fp16 rounding, the fp32 encode, and (since 2026-11-17,
+  `reference_encode.py::_snap_h3_image_qwen_grid`) 8-bit bicubic snapping of off-grid Qwen copies
   ([`../../image/h3_image.md`](../../image/h3_image.md), "Edit references, point by point").
 - **The anchor stream and the step** stay core's.
 

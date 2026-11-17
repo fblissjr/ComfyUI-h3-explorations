@@ -956,8 +956,9 @@ defaults from the node's `define_schema`.
 
 **Status, 2026-11-17:** step 2 is done. The branch is merged (`4f323d81`, the owner's word), and its worktree and
 local branch are removed. A rebuild of all graphs on the merged code was byte-identical to the committed graphs.
-`bench/check_sol_node_equivalence.py` passed on the card, except one red control that ran out of memory beside the
-resident models. The restart (rest of step 2) is pending. Step 1, the A/B, has not been run, so steps 3–6 wait on it.
+`bench/check_sol_node_equivalence.py` passed all 11 CUDA kernel cases on the card (including the transposed-oracle red
+control) with zero skips once idle VRAM was free. The restart (rest of step 2) is pending. Step 1, the A/B, has not
+been run, so steps 3–6 wait on it.
 
 The branch adds the input and teaches the generator to carry `rows`
 (`workflows/build_workflows.py::SOL_ROWS_NESTED`), but **no shipped graph
@@ -989,8 +990,12 @@ of these steps, in order:
 5. **Checks.** `bench/check_sol_node_equivalence.py` (with the card),
    `bench/check_attention_defaults.py` (it grades every Sol graph against
    `sol_for_graph`, so a graph left unregenerated fails here),
-   `bench/check_node_ids.py`, `bench/check_literal_widgets.py`, then
-   `bench/build_index.py`.
+   `bench/check_widget_deviations.py` (once step 3 enables
+   `SOL_ROWS_VIDEO_REFERENCES_ROUTED`, declare `("MiniMaxH3Sol", "rows")` and
+   `("MiniMaxH3Sol", "rows.video_reference_rows")` in
+   `bench/check_widget_deviations.py::DECLARED` — not earlier while unused,
+   since stale unexercised rows fail), `bench/check_node_ids.py`,
+   `bench/check_literal_widgets.py`, then `bench/build_index.py`.
 6. **Record it.** A dated entry in [`../decisions.md`](../decisions.md)
    naming the A/B record, and update this section and the node tooltip if
    the setting became the default.

@@ -1,6 +1,6 @@
 # MiniMax-H3-Image inference, stage by stage, across every implementation
 
-last updated: 2026-11-17 (page created; record [`../sweeps/2026-11-17_h3_image.md`](../sweeps/2026-11-17_h3_image.md))
+last updated: 2026-11-17 (off-grid Qwen copy now snapped with 8-bit bicubic via `reference_encode.py::_snap_h3_image_qwen_grid`; initial comparison and record [`../sweeps/2026-11-17_h3_image.md`](../sweeps/2026-11-17_h3_image.md))
 
 How each implementation runs MiniMax-H3-Image, text to image and edit, from loading to the decoded picture.
 
@@ -108,7 +108,7 @@ The pack's column is what the shipped graphs run. "Verbatim" means used as given
 | **prompt edges** | verbatim | verbatim | verbatim | verbatim | edit stripped (`h3_rules.py::normalize_prompt`); text to image verbatim (core's node) | verbatim | verbatim | the pack, by its own rule |
 | **empty prompt** | refused | refused | refused (a blank one passes) | one pad token, runs | text to image runs (core's node); edit refused | encoded as `" "` | refused | core, DiffSynth |
 | **text segment cut** | at 4096 tokens each | `_TEXT_SEGMENT_MAX_TOKENS` | `max_sequence_length` | none | none (core's tokenizer) | `MINIMAX_H3_IMAGE_MAX_SEQUENCE_LENGTH` | `max_sequence_length` | core; no prompt here comes near it |
-| **Qwen copy whose short edge is already the bound, long edge off the grid** | untouched to the HF processor, which resizes with its default, bicubic | the same | the same | Lanczos to the grid first | untouched to core's preprocessor, which resizes with bilinear | the same as sglang | the same as sglang | core and the pack, each differently; not rendered |
+| **Qwen copy whose short edge is already the bound, long edge off the grid** | untouched to the HF processor, which resizes with its default, bicubic | the same | the same | Lanczos to the grid first | snapped with 8-bit bicubic (`reference_encode.py::_snap_h3_image_qwen_grid`) | the same as sglang | the same as sglang | core |
 | **VAE copy inside its bounds** | cropped top left to the 16 px cell, latent cut to an even grid | the same | the same | resampled to the 32 px grid | cropped (`in_bounds_align="crop_32"`) | the same as sglang | the same as sglang | core |
 | **reference posterior sample** | request's generator, rounded to fp16 | the same | the same | fixed `IMAGE_ENCODE_SEED`, not rounded | render's seed, rounded to fp16 (`reference_latent="release"`) | request's generator, rounded to fp16 (noise drawn in the VAE's dtype) | the same as sglang | core |
 | **VAE encoder precision** | fp32, enforced | fp32 | fp32 (pinned) | as loaded (cast to the VAE dtype on load) | fp32 (`MiniMaxH3VAEPrecision`) | bf16 in its examples | fp32 (`_keep_in_fp32_modules`) | core, DiffSynth |
@@ -157,8 +157,6 @@ fixes all of it, and getting any of it wrong produces a visibly broken picture.
   patch, and nothing shows it is worth one ([`../../image/h3_image.md`](../../image/h3_image.md)). It is also why
   an edit cannot be reproduced seed for seed against any engine. Text to image with a CPU generator starts from the
   same noise everywhere.
-- **The Qwen copy whose short edge already sits on the bound** gets a different resize in core and in the pack than
-  in the engines. Not rendered.
 - **Prompt edges.** The pack strips edit prompts while its text-to-image graph, on core's node, does not. The
   engines strip neither. Making the two paths agree is a choice, not a fix.
 - **An empty text-to-image prompt** runs on core's node, where every engine refuses it.

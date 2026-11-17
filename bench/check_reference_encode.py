@@ -64,6 +64,7 @@ import hashlib
 import importlib
 import importlib.util
 import inspect
+import json
 import re
 import sys
 from pathlib import Path
@@ -258,6 +259,57 @@ def release_draw(enc, check, torch) -> None:
     check("two references of one shape do not share a draw", not torch.equal(two[0]["latent"], two[1]["latent"]))
 
 
+def qwen_copy_grid(enc, check, torch) -> None:
+    """Off-grid Qwen copies snap with 8-bit bicubic to match Qwen2VLImageProcessorFast."""
+    from comfy.text_encoders.qwen_vl import process_qwen2vl_images
+    from PIL import Image
+    from transformers import AutoImageProcessor
+
+    cfg = json.loads((REPO / "vendor_config" / "preprocessor_config.json").read_text())
+    check("Qwen preprocessor grid and pixel bounds match vendor_config/preprocessor_config.json",
+          enc.H3_IMAGE_QWEN_GRID == cfg["patch_size"] * cfg["merge_size"]
+          and enc.H3_IMAGE_QWEN_MIN_PIXELS == cfg["size"]["shortest_edge"]
+          and enc.H3_IMAGE_QWEN_MAX_PIXELS == cfg["size"]["longest_edge"])
+
+    on_grid = torch.rand(1, 1024, 1536, 3)
+    check("already on the 32-px grid: _snap_h3_image_qwen_grid leaves float32 pixels bitwise untouched",
+          torch.equal(enc._snap_h3_image_qwen_grid(on_grid), on_grid))
+
+    arr = torch.randint(0, 256, (1024, 1500, 3), generator=torch.Generator("cpu").manual_seed(7), dtype=torch.uint8)
+    pil_img = Image.fromarray(arr.numpy())
+    off_grid = arr.float().div(255.0).unsqueeze(0)
+    raw_qwen = enc._prepare_h3_image_ref(off_grid, 1024, 1024, in_bounds_align="crop_32", crop_grid_32=False)
+    snapped = enc._snap_h3_image_qwen_grid(raw_qwen)
+    check("an off-grid 1024x1500 Qwen copy stays untouched in _prepare_h3_image_ref and snaps to 1024x1504",
+          tuple(raw_qwen.shape) == (1, 1024, 1500, 3) and tuple(snapped.shape) == (1, 1024, 1504, 3),
+          f"raw={tuple(raw_qwen.shape)} snapped={tuple(snapped.shape)}")
+
+    mean, std = cfg["image_mean"], cfg["image_std"]
+    kw = dict(
+        min_pixels=cfg["size"]["shortest_edge"],
+        max_pixels=cfg["size"]["longest_edge"],
+        patch_size=cfg["patch_size"],
+        temporal_patch_size=cfg["temporal_patch_size"],
+        merge_size=cfg["merge_size"],
+        image_mean=mean,
+        image_std=std,
+    )
+    hf_out = AutoImageProcessor.from_pretrained(
+        str(REPO / "vendor_config"), local_files_only=True
+    )(images=pil_img, return_tensors="pt")
+    hf, hf_grid = hf_out["pixel_values"], hf_out["image_grid_thw"]
+    got, got_grid = process_qwen2vl_images(snapped, **kw)
+    diff = (got - hf).abs().max().item()
+    check("snapped Qwen copy matches Qwen2VLImageProcessorFast within 1e-6",
+          tuple(got.shape) == tuple(hf.shape) and torch.equal(got_grid, hf_grid) and diff < 1e-6,
+          f"max_abs={diff:.2e}")
+
+    bilinear, _ = process_qwen2vl_images(raw_qwen, **kw)
+    bilinear_diff = (bilinear - hf).abs().max().item()
+    check("RED CONTROL: without _snap_h3_image_qwen_grid, core bilinear drifts from HF processor by > 0.1",
+          bilinear_diff > 0.1, f"max_abs={bilinear_diff:.4f}")
+
+
 def load_pack():
     from _lib import bootstrap
     # The ComfyUI root, which this check used to need from PYTHONPATH, and
@@ -377,6 +429,7 @@ def main() -> int:
           and bool(getattr(ib.inputs[-1], "optional", False)),
           f"{[i.id for i in ia.inputs][-2:]}, {[i.id for i in ib.inputs]}")
     release_draw(enc, check, torch)
+    qwen_copy_grid(enc, check, torch)
 
     print()
     if failures:
