@@ -20,7 +20,8 @@ shipped `workflows/h3_text_to_video_pika_api.json` once, at length 141, seed as 
 `dense_blocks="49"`, tau 1.0), with
 `H3_CAPTURE="dir=$H3_CAPTURE_ROOT/2026-11-17_pika_sol_quantizer,blocks=0:24:40:44:45:47:48,steps=1:4,cycle=6"`.
 - It wrote 14 cells, q/k/v bf16 `(1, 56, 43189, 128)`: 383 text, 470 audio and 42,336 video rows.
-- The cells total 25 GB under `$H3_CAPTURE_ROOT/2026-11-17_pika_sol_quantizer/`. Deleting them is the owner's call.
+- The cells totalled 25 GB under `$H3_CAPTURE_ROOT/2026-11-17_pika_sol_quantizer/`. They were deleted the same day at
+  the owner's word; the capture command above makes them again.
 - Step 1 is sigma 0.973 and step 4 is sigma 0.571.
 
 **The grade.** `bench/grade_sol_quantizer_on_capture.py <the 14 cells> --tau 1.0`, on the installed kernel
