@@ -134,7 +134,7 @@ flowchart LR
 - [x] **Reticle-Grounded Local VLM (`heylook`):** Composite `(x, y, rx, ry)` reticle + `512px` ROI crop off the event loop (`director/media.py::prepare_vlm_reticle_images`, `director/server.py::handle_context_suggest`), returning `scene_caption` & `subject_label`.
 - [x] **Shot-DAG Persistence & Takes Modularization:** Record `parent_take_id` & `parent_frame` in `takes.json` (`director/store.py::SessionStore`) and modularize Takes UI + chaining (`director/static/js/takes_ui.js`).
 - [x] **UX & Foundation Modularization (`2026-11-18`):** Separate `Actor Layer` (`#mode-btn-sprite`, `aria-pressed`) from spatial modes, extract `director/graph_builder.py` (`finalize_lean_baseline` single-pass `[original]` CFG baselines with `scale=0.0` + `audio_scale=0.0` and lean graph pruning, `wire_audio_refine_pass`), extract `director/store.py` & `director/media.py` (with connected-component cutout denoising), expose prompt synthesis on `POST /api/compile`, add `#sam-actor-hint`, and allow blank `#target-prompt` when an actor trajectory is authored.
-- [ ] **Remaining in Horizon 1b:** Draggable/resizable floating 1-frame preview patch before `Apply Preview`, and KV-prefix reuse across warm Pika edits.
+- [ ] **Remaining in Horizon 1b:** Draggable/resizable floating 1-frame preview patch before `Apply Preview`, KV-prefix reuse across warm Pika edits, and the **§6 Edge-Case & UX Polish Queue** below (all isolated to `director/static/`, zero `:8188` restart).
 
 ### Horizon 2 — Pack Engine Unification & Grounded Co-Direction (Batch 2 — `:8188` Schema Update)
 - [ ] **Layer 1 Pack Nodes:** Add `MiniMaxH3MaskedVideoLatent` + `MiniMaxH3CompositePlate` wrappers around `video_mask.py::token_mask` / `video_mask.py::composite` and typed `prompt`/`entity_id` HUD rendering in `spatial_director.py::MiniMaxH3DirectorHUD` *(Done `2026-11-18`: `@pan=` stereo panning in `sound_cues.py::synthesize_island_waveform` + `spatial_director.py::_compute_sound_cues_text`, `include_sprite_envelope` on `MiniMaxH3SpatialDirector`, and perimeter flood matte on `sprite_trajectory.py::extract_sprite_rgba`)*.
@@ -146,3 +146,38 @@ flowchart LR
 - [ ] **Live-Loop Puppeteering (`Record on Loop`):** Record continuous pointer trajectories, aperture modulation, and `WASD` steering at `24 fps`, fitting clean keyframes onto `[1, 4, 4, 4, 4]` steps (`director/static/js/sequencer.js::causalStepBoundaries`).
 - [ ] **Visual Branching Shot Tree & `39f` Causal Overlap Seams:** Render an interactive Shot Tree DAG from `parent_take_id` records and compile `39`-frame causal overlap handoffs (`h3_rules.py::chain_lengths`) carrying motion velocity and room tone across shots.
 - [ ] **Touch & Tablet Stage Ergonomics:** Multi-touch aperture/halo pinch gestures and `44px` responsive bottom-sheet controls over `:8194` mobile Safari.
+
+---
+
+## 6. Open Edge-Case Bugs & UX Polish Queue (Verified 2026-11-18)
+
+Tracked separately from Horizons 2–3; items 1–6 require zero `:8188` ComfyUI restart (item 4 optional guard on `app.js` / `server.py`).
+
+### Edge-Case State & Control Bugs
+
+1. [ ] **`Tail -> Shot` chaining carries stale sprite/prompt/portal state** (`director/static/js/takes_ui.js::chainTakeFrameToAnchor`, `director/static/js/takes_ui.js:247-277`)
+   - **Observed code:** Clears `state.lastFrameRef` / `state.lastFrameName`, sets `state.parentTakeId` / `state.parentFrame`, and calls `loadAnchorImageUrl(...)` (`director/static/js/app.js:1700-1739`), which only clears SAM mask refs/points when `!meta.preserveOriginalPrompt && prevRef !== meta.ref`. Unlike `director/static/js/app.js::handleAnchorUpload` (`director/static/js/app.js:1641-1670`), chaining does not reset `state.targetPrompt`, `state.spriteCutout`, `state.spriteMode`, `state.doc.dpad`, or `state.portalTouched`.
+   - **Fix direction:** Clear prior shot overlay/prompt/sprite state when promoting a tail frame to Shot `N+1`'s new anchor (while keeping `parentTakeId` / `parentFrame`).
+2. [ ] **Incomplete Undo/Redo snapshot scope** (`director/static/js/app.js::snapshotDoc` / `restoreSnapshot`, `director/static/js/app.js:444-470`)
+   - **Observed code:** Snapshots and restores only `{ doc, targetPrompt, editGuidance }`. Changes to `state.length`, `state.originalPrompt`, `state.samePrompt`, `state.spriteCutout` / SAM mask refs, `state.couplings`, and `state.portalTouched` fall outside `Undo`/`Redo`.
+   - **Fix direction:** Include scene length, prompts, mask/sprite refs (or cutout metadata), and `portalTouched` in `snapshotDoc()` / `restoreSnapshot()`.
+3. [ ] **Sticky `#engine-workflow` manual override** (`director/static/js/app.js::resolvedWorkflowMode`, `director/static/js/app.js:86,1016-1027,1538,3334-3340`)
+   - **Observed code:** Changing `#engine-workflow` or importing a recipe sets `state.workflowManualOverride = true`, and `handleAnchorUpload` (`director/static/js/app.js:1615-1698`) never resets `state.workflowManualOverride = false`. Moreover, leaving `i2v_portal` manually locked after attaching an actor cutout causes `resolvedWorkflowMode()` to return `"i2v_portal"` and silently skip `r2v_portal`.
+   - **Fix direction:** Reset `workflowManualOverride = false` on fresh uploads (when `!opts.preserveLineage`), and surface a clear status hint or auto-switch prompt when a sprite is attached under manual `i2v_portal`.
+4. [ ] **`+ Stamp` runs T2I cutout generation when `!state.anchorRef`** (`director/static/js/app.js::generateOrExtractStamp`, `director/static/js/app.js:1861-1907`; `director/server.py::handle_stamp_cutout`, `director/server.py:1215-1285`)
+   - **Observed code:** `generateOrExtractStamp()` only blocks when `!state.anchorRef && !prompt`. Entering a spawn prompt with no scene loaded dispatches a T2I cutout render (`for_cutout=True`, `source_ref` omitted), while `renderPortalEdit()` (`director/static/js/app.js:2324-2330`) blocks when `!state.hasAnchor` (unless `wfMode === "t2v_portal"`).
+   - **Fix direction:** Either keep staging explicit with an inline toast/hint (`"Cutout staged — load/generate a Scene Anchor before Render"`), or require a scene anchor first.
+
+### Visual / UX Polish Spots
+
+5. [ ] **`Takes` card header truncation at drawer width** (`director/static/js/takes_ui.js::renderTakesList`, `director/static/js/takes_ui.js:343-376`; `director/static/style.css:1959-2006`)
+   - **Observed UI/code:** Putting `.take-ab-badge` (`A|B`) and `.take-status-chip` inline inside `.take-card-top` next to `.take-card-title` (`white-space: nowrap; text-overflow: ellipsis`) clips duration and seed (e.g., `"World Clip · r2v_portal · ..."`, `"Cutout · h3_image · 1f · seed 73..."`).
+   - **Fix direction:** Move `A|B` + status pills onto a secondary meta row or compact the title tokens so length and seed stay visible.
+6. [ ] **Dual endpoint pills on auto-aligned `Set Path` sprites** (`director/static/js/app.js::alignUntouchedPortalToSpritePath`, `director/static/js/app.js:2040-2074`; `director/static/js/stage.js::_drawPortalOverlay`, `director/static/js/stage.js:1261-1302` & `_drawSpriteOverlay`, `director/static/js/stage.js:1587`)
+   - **Observed UI/code:** When an untouched portal path is auto-aligned to a sprite's start/end waypoints, both the portal keyframe pill (e.g., `Macro (0.22 @ fN)`) and `DEST @ fN` (sprite path pill) draw at the destination frame. `_placedPillBoxes` prevents text overlap, but two pills stack at the same endpoint.
+   - **Fix direction:** Suppress or combine the portal endpoint pill when `!state.portalTouched` and the portal keyframe mirrors `dpad` destination.
+
+### Framing Limitation (Closed Structurally by Horizon 2)
+
+7. **`Frame-0` only anchor conditioning on uploaded `.mp4` clips** (`director/server.py::handle_upload`, `director/server.py:768-815`)
+   - **Observed code:** `.mp4` uploads store the clip as an imported `takes.json` entry (`imported_take_id`) for stage playback/`A|B`, while `_decode_frame0_or_image` sets Frame 0 as the active scene anchor (`source_kind == "video_frame0"`). Frames `1..N` and original clip audio are not conditioned on until **Horizon 2 `v2v_masked`** (`compile_v2v_masked` + `MiniMaxH3MaskedVideoLatent`) ships.
