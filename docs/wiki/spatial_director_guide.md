@@ -1,6 +1,6 @@
 # Interactive Spatial Director: How It Works & Progressive Tutorial
 
-Last updated: 2026-11-17.
+Last updated: 2026-11-18.
 
 Interactive Spatial Director (`director/`) is a standalone local web studio that runs alongside ComfyUI (`:8188`) on `:8195`. It lets you open any still scene (uploaded image, extracted MP4 Frame 0, or a generated 1-frame still), draw spatial masks, timed events, SAM 3.1 subject locks, 2D actor paths, and 3-frame sound cues on a `24 fps` timeline, test ideas on a fast 1-frame image preview, and then render localized MiniMax H3 / Pika H3 Flex video+audio takes with live step-by-step previews and A|B wipe verification.
 
@@ -65,7 +65,7 @@ Understanding where Spatial Director shines—and where H3's physics/VAE archite
 | **Test edits inside a region before rendering video** | **Preview in Circle** (`director/compiler.py::compile_masked_still_edit`) runs a localized 1-frame masked edit in `~25-35s`, blends cleanly inside your feathered shape or SAM object mask, and can be promoted directly into Frame 0 via **`Apply Preview ↪`**. |
 | **Direct continuous, timed, or combined world events** | **Region** interpolates shape position/size/feather/halo across frames; **Timed Event** places fading `(x, y, t)` spans (`ramp` + `radius`); **Combined** unions both so a portal and timed bursts run together. |
 | **Isolate or shield real scene objects (SAM 3.1)** | **Target Entity** runs `director/compiler.py::compile_sam3_segment` (`SAM 3.1` on GPU when loaded, GrabCut fallback offline): **`Movable`** lifts an RGBA sprite, **`Edit Obj`** isolates edits to that silhouette (**`Snap Edit to Entity`**), and **`Protect`** creates an `exclude_mask` keep-out. |
-| **Move an actor + link portal push/pull** | Place destination arrows (**`Set Path →`**), steer frame-by-frame with **`WASD`** (`Actor Motion`), drop parabolic **`+ Hop`** arcs, and **`Shift+Drag`** from portal to actor (or click **`Couple`**) for push/pull impulse + prompt reaction. |
+| **Move an actor + link portal push/pull** | Toggle the orthogonal **`Actor Layer`** button, place destination arrows (**`Set Path →`**), steer frame-by-frame with **`WASD`**, drop parabolic **`+ Hop`** arcs, and optionally **`Shift+Drag`** from portal to actor (or click **`Couple`**) for push/pull impulse + prompt reaction. |
 | **Snap frame-accurate foley & audition locally** | Keys **`1`-`9`** audition WebAudio foley locally (`0 ms`) and drop `3`-frame (`125 ms`) presets (`MiniMaxH3SoundCues`) synced to ComfyUI's `40 Hz` audio clock. |
 | **Prove localization with A\|B split + audio solo** | Enable **Queue Same-Seed Baseline** in `Engine -> Scene` (or compare any same-seed take) to scrub a synchronized vertical wipe showing **`In-Mask MAE`**, **`Out-Mask MAE`**, and **`Focus`** ratio (`in / out`), solo A vs. B audio, and switch between Clean (`"162"`) and HUD (`"13"`) streams. |
 | **Build multi-shot scenes & re-dub audio cleanly** | Pause any clip and click **`Roll Forward fN ↪`** to make that frame Shot N+1's anchor, click **`Pin → Last`** in `Takes` to bridge into a target ending frame, or click **`Re-Dub Audio`** (`Polish 0.5x` base H3 or `Fresh 1.0x` Pika) while `frozen_video_cache.py::MiniMaxH3FrozenVideoCache` keeps 100% of video pixels locked. |
@@ -77,12 +77,12 @@ Understanding where Spatial Director shines—and where H3's physics/VAE archite
    - *Where to go instead:* If you need an actor tracked and replaced across an existing multi-shot video while restoring original plate pixels around them, use the **Masked V2V** node pipeline (`video_mask.py::MiniMaxH3MaskedSource` + `plate_restore.py::MiniMaxH3RestorePlate`) documented in [`docs/wiki/masked_v2v.md`](masked_v2v.md).
 2. **It is NOT real-time (`60 fps`) generation, and switching image vs. video models swaps VRAM weights.**
    - UI dragging is `0 ms`, Step 1 live `taeh3` / `taeh3_image` previews arrive in `~5s` (still) or `~12-17s` (video), and full renders take `~25-35s` (still) or `~45-90s` (`90f-141f` video on RTX 4090).
-   - On a single `24 GB` card, **Preview in Circle**'s default `MiniMax-H3-Image` UNET swaps weights against the Pika Video UNET (`~15 GB` weight streaming). For zero model-swap wait while iterating rapidly with video renders, open **`Engine -> Scene -> Mask Image Preview Model`** and switch to **`Pika H3 1-Frame Edit (6-step)`**.
+   - On a single `24 GB` card, `MiniMax-H3-Image` (used when Pika Video hasn't loaded yet) uses a separate `~15 GB` UNET from Pika Video. By default, **`Engine -> Scene -> Mask Image Preview Model`** is set to **`Auto (Match Warm VRAM)`**, which automatically stays on warm **`Pika H3 1-Frame Edit (6-step)`** after any Pika Video render to avoid weight swaps.
 3. **Masks have finite DiT patch granularity (`32×32` px × `[1, 4, 4, 4, 4]` causal frames) and global self-attention.**
    - Pixel masks pool onto H3's `32×32` px spatial grid and causal temporal steps (`1` standalone frame at `0, 17, 34...` and `4` frames per step in between). Toggle the **`32px`** scrubber button to see the exact token grid on canvas.
    - `mask = 0` holds *velocity guidance* to `original`, not an alpha composite cutout—so dramatic lighting, fog, or explosions spawned inside `mask = 1` still cast ambient glow/reflections onto nearby objects through DiT self-attention. Add **`Protect`** (`exclude_mask`) around sensitive foreground objects or verify `Out-Mask MAE` with **`Compare Original (A|B)`**.
-4. **All regions/events in one render share ONE `edited` prompt.**
-   - Placing two **Timed Event** pins (`E1`, `E2`) unions their masks into a single `[F, H, W]` mask tensor driven by one `Action or Spawn Command`. You cannot assign text prompt X to Pin 1 and completely different text prompt Y to Pin 2 in the same render pass. For two unrelated events at different moments, render Beat 1 first and use **`Roll Forward fN ↪`** for Beat 2.
+4. **All regions/events in one render pass share ONE `edited` conditioning branch (ordered into `<T.T seconds>` beats).**
+   - Placing two **Timed Event** pins (`E1`, `E2`) unions their `[F, H, W]` velocity masks and synthesizes chronological `<T.T seconds>` beats from each pin's/keyframe's own `Action or Spawn Command` field inside one shared `edited` prompt. For completely independent scenes or clean camera jumps, render Beat 1 first and use **`Roll Forward fN ↪`** for Beat 2.
 5. **Only ONE movable 2D `<Video 1>` actor cutout is supported (no multi-actor 3D skeletal rigging).**
    - `Movable` / `Stamp` drives one RGBA sprite trajectory (`sprite_trajectory.py::MiniMaxH3AppendSpriteTrajectory`). Complex multi-person pose control uses `SAM 3D Body` in the ComfyUI node graph.
 6. **Valid clip durations and cue timings are fixed to H3's clocks.**
@@ -99,7 +99,7 @@ Understanding where Spatial Director shines—and where H3's physics/VAE archite
 | Zone | Key Controls |
 |---|---|
 | **Top Header** | Scene resolution badge, **Dual-Clock Frame Length pills** (`39..345`), **`Live Preview`** badge (live step + `fps` + `Δ` norm), **Undo/Redo**, **`Engine`** drawer toggle, **`Generate World Clip`** primary CTA. |
-| **Stage & Toolbar** | Top-left mode switcher (**`Region`**, **`Timed Event`**, **`Combined`**, **`Actor Motion`**), centered **`#render-status-overlay`** progress pill + **`Cancel`**, top-right **`Live Latents`**, **`Shot N`** history bridge, and **`Masked Preview` / `Full-Frame TAE`** toggle. On the right/left of your mask floats the **World Spawner card** (`#portal-card`). |
+| **Stage & Toolbar** | Top-left mode switcher (**`Region`**, **`Timed Event`**, **`Combined`**) plus orthogonal **`Actor Layer`** toggle, centered **`#render-status-overlay`** progress pill + **`Cancel`**, top-right **`Live Latents`**, **`Shot N`** history bridge, and **`Masked Preview` / `Full-Frame TAE`** toggle. On the right/left of your mask floats the **World Spawner card** (`#portal-card`). |
 | **Scrubber Dock** | Play/Pause, Loop, **`32px`** token grid toggle, **`Audio: Indep / VideoOnly / Gated`** guard, **`Sound: On / Muted`**, **`Roll Forward / Apply Preview ↪`**, clickable **Event Chips** (`E1`, `Actor`, `3f`), 24 fps scrubber track, and **`Advanced ▴`** (3-lane causal/3f keyframe sequencer). |
 | **Engine Drawer (`4` tabs)** | **Scene** (Video template, Preview model, Canvas size, Frame length + `Promote Seed`, Seed Lock, `Queue Same-Seed Baseline`), **Steering** (Portal shape, `streams`, `scale`, `audio_scale`, `first_step`, `feather`, `Invert Spatial Mask`, `Same-Prompt Vector Split-World`, `2nd-Pass Audio Refine`, `Control Vector`, `Drop 3f Foley Cue`, `Sprite Cutout Stamp`), **Takes** (Re-Dub recipe `Polish 0.5x` / `Fresh 1.0x`, Load Stage, Open A\|B, Export Clean, Tail → Shot, Pin → Last), **System** (`GPU VRAM`, `99,864` token meter, Capabilities badges, `Verify Compile`, `Interrupt`, `Forget Temp`). |
 
@@ -116,8 +116,8 @@ Understanding where Spatial Director shines—and where H3's physics/VAE archite
 | **`Ctrl/Cmd` + Click** *(Combined)* | Adds a new timed eruption pin alongside the main Region portal. |
 | **Click / `Alt` + Click** *(with `Target Entity` active)* | Positive (`+`) or negative (`-`) SAM 3.1 point prompt; press **`Esc`** to exit picking. |
 | **Keys `1` – `9`** | Auditions and drops a `3`-frame foley preset snapped onto the nearest `3f` frame. |
-| **`Space`** | Play / Pause loop — or triggers an actor **`+ Hop`** while playing in **`Actor Motion`** mode. |
-| **`WASD`** *(in **`Actor Motion`** mode)* | Steers actor cutout position and facing left/right (`Shift` holds facing). |
+| **`Space`** | Play / Pause loop — or triggers an actor **`+ Hop`** while playing with **`Actor Layer`** active. |
+| **`WASD`** *(with **`Actor Layer`** active)* | Steers actor cutout position and facing left/right (`Shift` holds facing). |
 | **`[` / `]`** or **`←` / `→`** | Steps timeline `1` frame (`Shift` jumps `3` frames). |
 | **`↑` / `↓`** | Nudges `EditGuider scale` by `±0.1`. |
 | **`L`** / **`M`** / **`Del`** / **`Ctrl+Z`** | **`L`** toggles **`Advanced ▴`** sequencer; **`M`** mutes audio; **`Del`** removes selected lane item; **`Ctrl+Z` / `Ctrl+Y`** undoes/redoes choreography. |
@@ -148,7 +148,7 @@ Work through Levels 1 to 6 in order using the same scene—each level unlocks on
 
 **Goal:** Turn your still World State + spatial circle into a synchronized `24 fps` video+audio clip, and prove the background outside the circle stayed anchored.
 
-1. Keep your anchor image loaded. Pick **`90`** (`3.75s`) in the top-left header clock pills for fast scouting.
+1. Keep your anchor image loaded. Notice the top header clock pills default to **`141f`** (`5.88s`, alongside `192f`) — `i2v_portal` requires `>= 124f` (shorter `90f` runs live under **`Engine -> Scene -> Frame Length`** when using `r2v_portal`).
 2. *(Optional for A\|B verification)* Click **`Engine`** (top right) -> **Scene** tab -> check **`Queue Same-Seed Baseline (scale=0.0 A|B)`**, then close the drawer. This renders an unedited `scale=0.0` twin on the exact same seed so you can measure localization afterward.
 3. Update `Action or Spawn Command` to something with motion and sound—for example: `"a shimmering azure energy portal swirls open in midair, sending pale mist across the stones"`.
 4. Confirm **`Video Workflow Template`** shows **`i2v_portal`** (`Frame-0 I2V` badge in the card) and dial **Alt+Scroll** to **`2.0x`**.
@@ -199,16 +199,15 @@ Work through Levels 1 to 6 in order using the same scene—each level unlocks on
 **Goal:** Bring an independent movable actor into the shot (`r2v_portal` `<Video 1>` + `Release 0.33`), steer its path, and couple it to your portal.
 
 1. **Create your RGBA actor cutout** (pick either method):
-   - **Lift from scene:** Select **`Movable`** + **`Pick Subject`** and click a subject in your anchor image to extract an RGBA cutout.
-   - **Spawn a brand-new actor:** Open **`Engine -> Steering -> Sprite Cutout Stamp`**, type e.g. `"small clockwork brass owl"`, and click **`Cutout`** (or click **`+ Stamp`** in the footer / **`Stamp`** in the card once text is entered; leave that box blank to extract an RGBA cutout directly from the current anchor). Wait for the `MiniMax-H3-Image` cutout to render (isolated RGBA PNG).
-2. Check the card badge: Spatial Director automatically switches from **`i2v_portal`** (`Frame-0 I2V`) to **`r2v_portal`** (`Actor R2V · Release 0.33`).
+   - **Lift from scene:** Select **`Movable`** + **`Pick Subject`** and click a subject in your anchor image to extract an RGBA cutout *(copies pixels directly from Frame 0, leaving its original silhouette behind if moved far)*.
+   - **Spawn a clean-plate actor:** Open **`Engine -> Steering -> Sprite Cutout Stamp`**, type e.g. `"small clockwork brass owl"`, and click **`Cutout`** (or **`+ Stamp`**). Wait for the `MiniMax-H3-Image` border-flood cutout to render with clean background separation.
+2. Check the card badge: Spatial Director automatically switches from **`i2v_portal`** (`Frame-0 I2V`) to **`r2v_portal`** (`Actor R2V · Release 0.33`) while **`MiniMaxH3GuideLatent` (`"169"`)** keeps Frame 0 pinned cleanly.
 3. **Choreograph the actor's movement**:
-   - Click **`Set Path →`** inside the card and click a destination spot on stage (draws a dotted destination path arrow + **`DEST @ fN`** pill), **OR**
-   - Click **`Actor Motion`** in the top-left toolbar and use **`WASD`** (scrub to different frames and nudge position; press **`Space`** while playing or click **`+ Hop`** to insert parabolic jump arcs).
-4. **Add Push / Pull Coupling**:
-   - Hold **`Shift` and drag** from the Portal center onto your Actor (or click **`Couple`** in the operator tabs inside the card to toggle `Push` vs. `Pull`).
-   - Spatial Director automatically offsets post-contact waypoints away from (`Push`) or toward (`Pull`) the portal, widens `feather` to match `halo_radius`, and injects a reaction clause into `edited`.
-5. Click **`Generate World Clip`**! Because `video_end_percent = 0.33` releases the synthetic sprite box after step `1` (`2` of `6` steps), H3 keeps your actor's blocking and path while animating natural limbs, cloth, and ground shadows on steps `2..5`.
+   - Click **`Set Path →`** inside the card and click a destination spot on stage (draws a dotted path arrow + **`DEST @ fN`** pill, aligns an untouched Portal onto the path, and enables **`include_sprite_envelope`** on `MiniMaxH3SpatialDirector`), **OR**
+   - Toggle **`Actor Layer`** in the top toolbar and use **`WASD`** / **`+ Hop`**. Leaving `Action or Spawn Command` blank automatically synthesizes an Actor trajectory description.
+4. *(Optional)* **Add Push / Pull Coupling**:
+   - Hold **`Shift` and drag** from the Portal center onto your Actor (or click **`Couple`** in the operator tabs inside the card to toggle `Push` vs. `Pull`). Coupling only engages when explicitly linked.
+5. Click **`Generate World Clip`**! Because `video_end_percent = 0.33` releases the synthetic sprite box after step `1` (`2` of `6` steps), H3 keeps your actor's blocking and path while animating natural limbs, rotor spin, cast shadows, and joint audio on steps `2..5`.
 
 ---
 
@@ -217,12 +216,12 @@ Work through Levels 1 to 6 in order using the same scene—each level unlocks on
 **Goal:** Chain clips into longer sequences, bridge to a specific ending frame, scale winning scouts to longer durations, and polish/replace audio without re-rendering video.
 
 1. **Continue to Shot 2 (`Roll Forward fN ↪`)**:
-   - Play your finished `90f` clip, pause on the frame where you want Shot 2 to begin (typically the tail frame), and click **`Roll Forward fN ↪`** on the scrubber bar (or **`Tail → Shot`** in **`Engine -> Takes`**).
+   - Play your finished `141f` clip, pause on the frame where you want Shot 2 to begin (typically the tail frame), and click **`Roll Forward fN ↪`** on the scrubber bar (or **`Tail → Shot`** in **`Engine -> Takes`**).
    - That lossless extracted frame becomes Shot 2's anchor (`i2v_portal`), and **`Shot 2 · ↩ Shot 1`** appears in the top-right toolbar so you can jump back to Shot 1 anytime.
 2. **Bridge cleanly into an ending frame (`Pin → Last`)**:
    - In **`Engine -> Takes`**, click **`Pin → Last`** on another frame/take if you want Shot 2 (`i2v_portal`) to land on a specific destination `last_frame` (`node 16`).
-3. **Scale a winning `90f` seed up to `141f`–`345f` (`Promote Seed`)**:
-   - Found a great seed at `90f`? Open **`Engine -> Scene`** and click **`Promote Seed`**. Spatial Director locks your seed and runs `/api/escalate` to proportionally remap every portal keyframe, target span, hop arc, and `3f`-snapped cue onto the next `on_both_clocks` length (`141f -> 192f -> 243f ...`).
+3. **Scale a winning `141f` seed up to `192f`–`345f` (`Promote Seed`)**:
+   - Found a great seed at `141f`? Open **`Engine -> Scene`** and click **`Promote Seed`**. Spatial Director locks your seed and runs `/api/escalate` to proportionally remap every portal keyframe, target span, hop arc, and `3f`-snapped cue onto the next `on_both_clocks` length (`141f -> 192f -> 243f ...`).
 4. **Fix or reinvent the soundtrack without touching a single pixel (`Re-Dub Audio`)**:
    - Open **`Engine -> Takes`** (this also works on any MP4 you dropped onto the landing card!).
    - Choose **`Re-Dub: Polish (0.5x Base)`** (keeps your existing soundscape structure and cleans artifacts using undistilled H3 at `denoise = 0.5`) or **`Re-Dub: Fresh (1.0x Pika)`** (synthesizes a brand-new `40 Hz` soundtrack from scratch using Pika `ManualSigmas`).
@@ -235,7 +234,7 @@ Work through Levels 1 to 6 in order using the same scene—each level unlocks on
 
 | What You Notice | Why It Happens | What To Do |
 |---|---|---|
-| **Switching from `Preview in Circle` to `Generate World Clip` pauses ~10–15s at step 0** | `MiniMax-H3-Image` and Pika Video use separate `~15 GB` UNETs on a `24 GB` card. | Under **`Engine -> Scene -> Mask Image Preview Model`**, pick **`Pika H3 1-Frame Edit (6-step)`** during rapid video iteration to share the loaded video UNET with zero weight swap. |
+| **Switching from `Preview in Circle` to `Generate World Clip` pauses ~10–15s at step 0** | `MiniMax-H3-Image` and Pika Video use separate `~15 GB` UNETs on a `24 GB` card. | By default **`Mask Image Preview Model`** is **`Auto (Match Warm VRAM)`**, so once a Pika Video render finishes it keeps **`Preview in Circle`** on warm `Pika H3 1-Frame Edit (6-step)` without swapping weights. |
 | **Dropped an MP4, and frames 1..N changed instead of staying locked** | Dropping an MP4 extracts **Frame 0** as an `i2v_portal` starting anchor; Spatial Director is generative I2V/R2V, not frame-accurate plate compositing. | Use `Takes` -> **`Re-Dub Audio`** if you only want new audio on that MP4, or use [`docs/wiki/masked_v2v.md`](masked_v2v.md) for tracked live-action video replacement. |
 | **Audio clips / distorts when visual `scale` is `>= 1.8x`, or SFX feels muted** | `streams = "both"` multiplies audio edit difference by visual `scale` (`2.0x+`), whereas `video_only` locks audio to calm original room tone. | Keep **`Audio: Indep`** (`streams = "independent"`, `audio_scale = 1.0`) for loud visual edits, or raise **`Audio Scale`** to `1.4-1.8` in `Engine -> Steering` for off-screen SFX. |
 | **A dramatic explosion inside the circle slightly brightens the wall outside it** | H3 attends globally across tokens; `mask = 0` holds velocity guidance to `original` rather than cutting out pixels like Photoshop. | Add a SAM **`Protect`** (`exclude`) mask onto key subjects, lower **`Power Scale`** (`1.5x-1.8x`), or check `Out-Mask MAE` in **`Compare Original (A\|B)`**. |
