@@ -73,7 +73,8 @@ SOUND_CUE_PRESETS: dict[str, float] = {
 
 _CUE_LINE_RE = re.compile(
     r"^\s*([+-]?\d+(?:\.\d+)?s?)\s*(?::|\s+)\s*([A-Za-z_][A-Za-z0-9_]*)"
-    r"(?:\s*@\s*([+-]?\d+(?:\.\d+)?))?\s*$"
+    r"(?:\s*@(?!pan\s*=)\s*([+-]?\d+(?:\.\d+)?))?"
+    r"(?:\s+@?pan\s*=\s*([+-]?\d+(?:\.\d+)?))?\s*$"
 )
 
 
@@ -85,6 +86,7 @@ class ParsedSoundCue:
     preset: str
     gain: float
     duration_sec: float
+    pan: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -205,7 +207,7 @@ def parse_sound_cues(
                 f"MiniMaxH3SoundCues line {line_no}: could not parse {raw_line!r}; "
                 f"expected `<frame_or_seconds>: <preset> [@gain]`, e.g. `24: hop` or `2.25s: slam @1.2`"
             )
-        time_tok, preset_raw, gain_raw = m.group(1), m.group(2).lower(), m.group(3)
+        time_tok, preset_raw, gain_raw, pan_raw = m.group(1), m.group(2).lower(), m.group(3), m.group(4)
         if preset_raw not in SOUND_CUE_PRESETS:
             raise ValueError(
                 f"MiniMaxH3SoundCues line {line_no}: unknown preset {preset_raw!r}; "
@@ -215,6 +217,11 @@ def parse_sound_cues(
         if not (0.05 <= gain <= 2.5):
             raise ValueError(
                 f"MiniMaxH3SoundCues line {line_no}: gain {gain} outside [0.05, 2.5]"
+            )
+        pan = 0.0 if pan_raw is None else float(pan_raw)
+        if not (math.isfinite(pan) and -1.0 <= pan <= 1.0):
+            raise ValueError(
+                f"MiniMaxH3SoundCues line {line_no}: pan {pan} outside [-1.0, 1.0]"
             )
 
         if time_tok.endswith("s"):
@@ -251,6 +258,7 @@ def parse_sound_cues(
             preset=preset_raw,
             gain=gain,
             duration_sec=SOUND_CUE_PRESETS[preset_raw],
+            pan=pan,
         )
         parsed.append((resolved, line_no, cue))
 
@@ -311,7 +319,8 @@ def synthesize_island_waveform(
     """Synthesize a stereo `[1, 2, samples]` float32 waveform at `32 kHz` for one merged island."""
     n_samples = max(SAMPLES_PER_AUDIO_TOKEN, int(round(island.duration_sec * SAMPLE_RATE)))
     rng = np.random.default_rng(int(seed) + 1009 * int(island_index) + 37 * int(island.anchor_frame))
-    mix = np.zeros(n_samples, dtype=np.float64)
+    mix_l = np.zeros(n_samples, dtype=np.float64)
+    mix_r = np.zeros(n_samples, dtype=np.float64)
 
     for cue in island.cues:
         offset = int(round(((cue.resolved_frame - island.anchor_frame) / VIDEO_FPS) * SAMPLE_RATE))
@@ -321,17 +330,30 @@ def synthesize_island_waveform(
             continue
         seg_len = min(cue_len, avail)
         transient = _render_preset_transient(cue.preset, seg_len, SAMPLE_RATE, rng) * float(cue.gain)
-        mix[offset : offset + seg_len] += transient
+        pan_val = max(-1.0, min(1.0, float(getattr(cue, "pan", 0.0))))
+        if abs(pan_val) <= 1e-4:
+            g_l = 1.0
+            g_r = 1.0
+        else:
+            theta = (pan_val + 1.0) * (math.pi / 4.0)
+            g_l = math.sqrt(2.0) * math.cos(theta)
+            g_r = math.sqrt(2.0) * math.sin(theta)
+        mix_l[offset : offset + seg_len] += transient * g_l
+        mix_r[offset : offset + seg_len] += transient * g_r
 
     floor_wave = _ambient_floor(n_samples, SAMPLE_RATE, rng, float(floor_dbfs))
     fade_out = min(int(0.015 * SAMPLE_RATE), n_samples // 4)
     if fade_out > 1:
         # Smooth only the transient tail while keeping the ambient floor continuous to the boundary.
-        mix[-fade_out:] *= np.linspace(1.0, 0.0, fade_out)
+        tail = np.linspace(1.0, 0.0, fade_out)
+        mix_l[-fade_out:] *= tail
+        mix_r[-fade_out:] *= tail
 
-    combined = np.tanh((mix + floor_wave) * 1.15) * 0.88
-    mono = torch.from_numpy(combined.astype(np.float32))
-    return torch.stack([mono, mono], dim=0).unsqueeze(0).contiguous()
+    comb_l = np.tanh((mix_l + floor_wave) * 1.15) * 0.88
+    comb_r = np.tanh((mix_r + floor_wave) * 1.15) * 0.88
+    left = torch.from_numpy(comb_l.astype(np.float32))
+    right = torch.from_numpy(comb_r.astype(np.float32))
+    return torch.stack([left, right], dim=0).unsqueeze(0).contiguous()
 
 
 class MiniMaxH3SoundCues(io.ComfyNode):
@@ -360,7 +382,8 @@ class MiniMaxH3SoundCues(io.ComfyNode):
                     multiline=True,
                     default=_rules.SOUND_CUES_DEFAULTS["cues"],
                     tooltip=(
-                        "One cue per line: `<frame_or_seconds>: <preset> [@gain]`. "
+                        "One cue per line: `<frame_or_seconds>: <preset> [@gain] [pan=<float>]`. "
+                        "Optional `pan` in `[-1.0, 1.0]` pans equal-power L/R stereo. "
                         "Presets: `hop`/`thud`, `snap`/`yank`, `slam`/`impact`, `yank_slam`, "
                         "`step`, `click`. Note: `cond_audio` locks landing/impact time, so "
                         "place `hop` on the desired touchdown frame (H3 initiates liftoff "

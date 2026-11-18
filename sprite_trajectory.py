@@ -327,53 +327,83 @@ def extract_sprite_rgba(
             )
         alpha = cv2.GaussianBlur(alpha.astype(np.float32), (3, 3), 0.8)
     else:
-        # Deterministic border-seeded GrabCut on a bounded working resolution for fast CPU execution.
+        # Perimeter background estimation + border-connected flood fill (avoid blind center GC_FGD boxes).
         cv2.setRNGSeed(0)
         max_side = 512
-        scale = min(1.0, float(max_side) / float(max(h, w)))
+        scale = min(1.0, float(max_side) / float(max(1, h, w)))
         gh = max(32, int(round(h * scale)))
         gw = max(32, int(round(w * scale)))
-        work_bgr = cv2.cvtColor(
-            rgb_u8 if (gh == h and gw == w) else cv2.resize(rgb_u8, (gw, gh), interpolation=cv2.INTER_AREA),
-            cv2.COLOR_RGB2BGR,
+        work_rgb = rgb_u8 if (gh == h and gw == w) else cv2.resize(rgb_u8, (gw, gh), interpolation=cv2.INTER_AREA)
+        work_bgr = cv2.cvtColor(work_rgb, cv2.COLOR_RGB2BGR)
+        work_f = work_rgb.astype(np.float32)
+
+        edge = max(3, min(14, min(gw, gh) // 24))
+        border_pixels = np.concatenate(
+            [
+                work_f[:edge, :, :].reshape(-1, 3),
+                work_f[-edge:, :, :].reshape(-1, 3),
+                work_f[:, :edge, :].reshape(-1, 3),
+                work_f[:, -edge:, :].reshape(-1, 3),
+            ],
+            axis=0,
         )
+        bg_rgb = np.median(border_pixels, axis=0)
+        bg_dist = np.linalg.norm(work_f - bg_rgb[None, None, :], axis=2)
+        bg_scatter = float(np.percentile(np.linalg.norm(border_pixels - bg_rgb[None, :], axis=1), 90))
+
+        near_thresh = max(14.0, min(42.0, bg_scatter * 1.45 + 10.0))
+        soft_thresh = max(28.0, min(68.0, bg_scatter * 2.2 + 20.0))
+
+        def _border_connected(cand: np.ndarray) -> np.ndarray:
+            _n_lbl, lbls, _st, _c = cv2.connectedComponentsWithStats(cand.astype(np.uint8), connectivity=8)
+            border_ids = set(np.unique(lbls[0, :]).tolist())
+            border_ids |= set(np.unique(lbls[-1, :]).tolist())
+            border_ids |= set(np.unique(lbls[:, 0]).tolist())
+            border_ids |= set(np.unique(lbls[:, -1]).tolist())
+            border_ids.discard(0)
+            if not border_ids:
+                return np.zeros((gh, gw), dtype=bool)
+            return np.isin(lbls, list(border_ids))
+
+        definite_bg = _border_connected(bg_dist <= near_thresh)
+        probable_bg = _border_connected(bg_dist <= soft_thresh)
+
+        gray = cv2.cvtColor(work_bgr, cv2.COLOR_BGR2GRAY).astype(np.float32)
+        gx = cv2.Sobel(gray, cv2.CV_32F, 1, 0, ksize=3)
+        gy = cv2.Sobel(gray, cv2.CV_32F, 0, 1, ksize=3)
+        grad = np.hypot(gx, gy)
+        interior_fg = (~probable_bg) & ((bg_dist >= max(36.0, soft_thresh + 8.0)) | (grad >= 26.0))
+        strong_fg = (~probable_bg) & (bg_dist >= max(58.0, soft_thresh + 24.0))
+
         gc_mask = np.full((gh, gw), cv2.GC_PR_BGD, dtype=np.uint8)
-        bx = max(2, int(0.06 * gw))
-        by = max(2, int(0.06 * gh))
-        gc_mask[:by, :] = cv2.GC_BGD
-        gc_mask[-by:, :] = cv2.GC_BGD
-        gc_mask[:, :bx] = cv2.GC_BGD
-        gc_mask[:, -bx:] = cv2.GC_BGD
-        gc_mask[int(0.18 * gh) : int(0.90 * gh), int(0.16 * gw) : int(0.84 * gw)] = cv2.GC_PR_FGD
-        gc_mask[int(0.38 * gh) : int(0.75 * gh), int(0.30 * gw) : int(0.70 * gw)] = cv2.GC_FGD
+        gc_mask[probable_bg] = cv2.GC_PR_BGD
+        gc_mask[interior_fg] = cv2.GC_PR_FGD
+        gc_mask[strong_fg] = cv2.GC_FGD
+        gc_mask[definite_bg] = cv2.GC_BGD
 
-        bgd_model = np.zeros((1, 65), np.float64)
-        fgd_model = np.zeros((1, 65), np.float64)
-        try:
-            cv2.grabCut(work_bgr, gc_mask, None, bgd_model, fgd_model, 5, cv2.GC_INIT_WITH_MASK)
-            fg = np.where((gc_mask == cv2.GC_FGD) | (gc_mask == cv2.GC_PR_FGD), 1.0, 0.0).astype(np.float32)
-        except cv2.error:
-            fg = np.zeros((gh, gw), dtype=np.float32)
+        fg = np.zeros((gh, gw), dtype=np.float32)
+        has_fg = bool(np.any((gc_mask == cv2.GC_FGD) | (gc_mask == cv2.GC_PR_FGD)))
+        has_bg = bool(np.any((gc_mask == cv2.GC_BGD) | (gc_mask == cv2.GC_PR_BGD)))
+        if has_fg and has_bg:
+            bgd_model = np.zeros((1, 65), np.float64)
+            fgd_model = np.zeros((1, 65), np.float64)
+            try:
+                cv2.grabCut(work_bgr, gc_mask, None, bgd_model, fgd_model, 5, cv2.GC_INIT_WITH_MASK)
+                fg = np.where((gc_mask == cv2.GC_FGD) | (gc_mask == cv2.GC_PR_FGD), 1.0, 0.0).astype(np.float32)
+                fg = np.where(definite_bg, 0.0, fg).astype(np.float32)
+            except cv2.error:
+                fg = strong_fg.astype(np.float32)
 
-        # Preserve thin bright upper-center features attached above the body (such as a lit candle or crest).
-        work_rgb = cv2.cvtColor(work_bgr, cv2.COLOR_BGR2RGB)
-        hsv = cv2.cvtColor(work_bgr, cv2.COLOR_BGR2HSV)
-        upper_zone = np.zeros((gh, gw), dtype=bool)
-        upper_zone[int(0.05 * gh) : int(0.42 * gh), int(0.34 * gw) : int(0.66 * gw)] = True
-        bright_feature = upper_zone & (
-            ((work_rgb[:, :, 0] > 185) & (work_rgb[:, :, 1] > 175) & (work_rgb[:, :, 2] > 150))
-            | ((hsv[:, :, 2] > 210) & (hsv[:, :, 1] > 90))
-        )
-        fg = np.maximum(fg, bright_feature.astype(np.float32))
-        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
-        fg = cv2.morphologyEx(fg, cv2.MORPH_CLOSE, kernel)
-        fg = cv2.GaussianBlur(fg, (5, 5), 1.1)
-
-        if float(fg.sum()) < 0.01 * float(gh * gw):
-            # Fallback for uniform/borderless studio crops where GrabCut finds no contrast.
+        if 0.005 <= float(fg.mean()) <= 0.96:
+            kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+            fg = cv2.morphologyEx(fg, cv2.MORPH_OPEN, kernel)
+            fg = np.clip(cv2.GaussianBlur(fg, (3, 3), 0.75), 0.0, 1.0)
+        else:
+            # Uniform or full-bleed studio fallback when GrabCut finds no contrast.
             fg = np.ones((gh, gw), dtype=np.float32)
 
         alpha = fg if (gh == h and gw == w) else cv2.resize(fg, (w, h), interpolation=cv2.INTER_LINEAR)
+        rgb_u8 = np.where(alpha[:, :, None] > 0.015, rgb_u8, 0).astype(np.uint8)
 
     ys, xs = np.where(alpha > 0.05)
     if len(ys) == 0:

@@ -866,7 +866,44 @@ def check_compiler_contracts() -> str:
     )
     assert "from 0.00s to 5.83s" in single_kf_prompt and "@ f0..140" in single_summary, (single_summary, single_kf_prompt)
 
-    return "all 4 spatial modes, R2V GuideLatent F0 lock, multi-beat prompts, 141f default + I2V <124f guard, warm auto pre-viz, zero-tortoise synthesis, masked image previews, dual VHS save_output=False, dynamic '165', audio_refine + redub, baseline opt-in, and image stills verified"
+    # 12. Lean baseline with sprite strips unused "51".."54" + D-pad focus alignment + include_sprite_envelope
+    sprite_base_res = compiler_mod.compile_spatial_take(
+        {
+            **common_base,
+            "mode": "r2v_portal",
+            "sprite_ref": "h3_spatial_director/drone_cutout.png",
+            "sprite_mask_ref": "h3_spatial_director/drone_mask.png",
+            "sprite_label": "red toy drone",
+            "target_prompt": "",
+            "queue_baseline": True,
+            "events_json": json.dumps(
+                {
+                    "portal": [{"frame": 0, "x": 0.44, "y": 0.48, "rx": 0.22, "ry": 0.22, "shape": "circle"}],
+                    "targets": [],
+                    "dpad": {
+                        "waypoints": [
+                            {"frame": 0, "x": 0.86, "y": 0.64, "face": "left", "scale": 1.0},
+                            {"frame": 89, "x": 0.72, "y": 0.34, "face": "left", "scale": 1.0},
+                        ],
+                        "hops": [],
+                    },
+                }
+            ),
+        },
+        object_info=MOCK_OBJECT_INFO_WITH_KJ,
+    )
+    assert sprite_base_res["nodes_summary"]["has_sprite_envelope"] is True
+    assert sprite_base_res["graph"]["160"]["inputs"].get("include_sprite_envelope") is True
+    assert "right" in sprite_base_res["region_summary"]
+    assert "moving smoothly from" in sprite_base_res["edited_prompt"]
+    assert "Any foreground movable actor" not in sprite_base_res["original_prompt"]
+    sb_base = sprite_base_res["baseline_graph"]
+    assert sb_base is not None
+    assert sb_base["132"]["inputs"]["references"] == ["50", 0]
+    for unused_sp_id in ("51", "52", "53", "54"):
+        assert unused_sp_id not in sb_base, f"lean baseline must prune unused sprite node {unused_sp_id!r}"
+
+    return "all 4 spatial modes, R2V GuideLatent F0 lock, multi-beat prompts, 141f default + I2V <124f guard, warm auto pre-viz, zero-tortoise synthesis, masked image previews, dual VHS save_output=False, dynamic '165', audio_refine + redub, baseline opt-in + sprite prune, sprite_envelope, and image stills verified"
 
 
 def check_forget_plan_and_isolation() -> str:

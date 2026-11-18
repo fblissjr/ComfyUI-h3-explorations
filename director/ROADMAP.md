@@ -7,7 +7,8 @@
 
 ## 1. Current Baseline — What Already Works End-to-End
 
-Today's studio (`:8195` local HTTP / `:8194` private overlay HTTPS alongside ComfyUI `:8188`) delivers a responsive anchored editing loop across **Batch 1 (`2026-11-17`)**, UX/SAM fixes (`31009558`, `4a4883fa`), and the **Bucket 1 UX + Structural Foundation Cleanup (`2026-11-18`, Zero-ComfyUI-Restart)**:
+1. **Horizon 1 — High-Leverage Studio Core (`2026-11-17`..`2026-11-18`)** & **Pack Alignment (`:8188` Reload)** all run live across the studio:
+   - `guide_latent.py::MiniMaxH3GuideLatent`, `spatial_director.py::MiniMaxH3SpatialDirector` (plus `include_sprite_envelope` D-pad corridor union & off-center `pan=` cue emission), `sound_cues.py` (`@pan=` equal-power L/R stereo), and `sprite_trajectory.py::extract_sprite_rgba` (perimeter border-flood studio matte).
 
 1. **World State Anchor:** Upload a still image, extract Frame 0 from an uploaded `.mp4` (`director/media.py::decode_frame0_or_image`), drag/upload a saved `.director.json` sidecar recipe (`director/server.py::handle_import_recipe`), or generate a `4 MP`+ 1-frame still (`director/compiler.py::compile_still` across `MiniMax-H3-Image`, `Pika H3 Image`, and `P-H3-Image`).
 2. **Zero-Latency (`0 ms`) Stage Choreography:** Drag circular/elliptical/split portals, tune concentric inner aperture vs. outer reaction halo (`Scroll` / `Shift+Scroll`), place multiple timed point targets with per-event prompts, segment Frame-0 subjects via SAM 3.1 (`POST /api/segment` with connected-component speck denoising in `director/media.py::encode_rgba_cutout_png`), toggle the orthogonal **`Actor Layer`** overlay (`#mode-btn-sprite`, `aria-pressed`) across any spatial mode (`Region | Timed Event | Combined`), steer cutouts with `WASD`/path waypoints (without requiring a manual prompt when a sprite trajectory is authored), and audition `3`-frame (`125 ms`) WebAudio cues (`director/static/js/stage.js`, `director/static/js/sequencer.js`, `director/static/js/foley_synth.js`). `#sam-actor-hint` explicitly warns when a Frame-0 lift copies background behind the actor vs. `+ Stamp` clean-plate cutouts.
@@ -137,9 +138,9 @@ flowchart LR
 - [ ] **Remaining in Horizon 1b:** Draggable/resizable floating 1-frame preview patch before `Apply Preview`, and KV-prefix reuse across warm Pika edits.
 
 ### Horizon 2 — Pack Engine Unification & Grounded Co-Direction (Batch 2 — `:8188` Schema Update)
-- [ ] **Layer 1 Pack Nodes:** Add `MiniMaxH3MaskedVideoLatent` + `MiniMaxH3CompositePlate` wrappers around `video_mask.py::token_mask` / `video_mask.py::composite`; add `@pan=` stereo panning to `sound_cues.py::synthesize_island_waveform`; add typed `prompt`/`entity_id` HUD rendering to `spatial_director.py::MiniMaxH3DirectorHUD`.
+- [ ] **Layer 1 Pack Nodes:** Add `MiniMaxH3MaskedVideoLatent` + `MiniMaxH3CompositePlate` wrappers around `video_mask.py::token_mask` / `video_mask.py::composite` and typed `prompt`/`entity_id` HUD rendering in `spatial_director.py::MiniMaxH3DirectorHUD` *(Done `2026-11-18`: `@pan=` stereo panning in `sound_cues.py::synthesize_island_waveform` + `spatial_director.py::_compute_sound_cues_text`, `include_sprite_envelope` on `MiniMaxH3SpatialDirector`, and perimeter flood matte on `sprite_trajectory.py::extract_sprite_rgba`)*.
 - [ ] **True Video-to-Video (`v2v_masked`) & Tracking (`SubjectTrack`):** Keep full `24.0 fps`-conformed uploaded `.mp4` frames (`h3_rules.py::on_both_clocks`), track cast masks across cuts via `subject_track.py::MiniMaxH3SubjectTrack`, and compile `MiniMaxH3MaskedVideoLatent` + `plate_restore.py::MiniMaxH3RestorePlate` + `MiniMaxH3CompositePlate`.
-- [ ] **Spatial Stereo Foley & `FreezeAudio` Stem Lock:** Pan `FoleySynth` + `MiniMaxH3SoundCues` by event `x`, add `POST /api/upload_audio`, and lock stems with `audio_freeze.py::MiniMaxH3FreezeAudio`.
+- [ ] **Spatial Stereo Foley & `FreezeAudio` Stem Lock:** Add `POST /api/upload_audio` and lock stems with `audio_freeze.py::MiniMaxH3FreezeAudio` *(Done `2026-11-18`: `FoleySynth` `StereoPannerNode` + `MiniMaxH3SoundCues` horizontal `x` stereo panning)*.
 - [ ] **Conversational Co-Direction (`POST /api/co_direct`):** Translate natural-language director notes + grounded `<Subject 1>` labels into structured `events_json` edits.
 
 ### Horizon 3 — Continuous Branchable World Sandbox (Batch 3)

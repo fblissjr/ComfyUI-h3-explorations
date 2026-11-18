@@ -143,6 +143,23 @@ def test_sound_cues_merge_and_execute() -> None:
     tail_nf_rms = float(torch.sqrt(torch.mean(wav_no_floor[0, 0, -400:] ** 2)))
     assert tail_nf_rms < tail_rms * 0.15, "disabling floor (-60 dBFS) should drop tail energy sharply"
 
+    # Equal-power stereo panning (`pan=-1.0` Left / `pan=+1.0` Right / `pan=0.0` identical L/R)
+    isl_center = sc_mod.merge_sound_cue_islands(sc_mod.parse_sound_cues("24: slam @1.1", 124))[0]
+    wav_c = sc_mod.synthesize_island_waveform(isl_center, floor_dbfs=-60.0, seed=11)
+    assert torch.allclose(wav_c[0, 0], wav_c[0, 1], atol=1e-6), "pan=0.0 must stay L/R symmetric"
+
+    isl_left = sc_mod.merge_sound_cue_islands(sc_mod.parse_sound_cues("24: slam @1.1 pan=-1.0", 124))[0]
+    wav_l = sc_mod.synthesize_island_waveform(isl_left, floor_dbfs=-60.0, seed=11)
+    rms_ll = float(torch.sqrt(torch.mean(wav_l[0, 0, :3200] ** 2)))
+    rms_lr = float(torch.sqrt(torch.mean(wav_l[0, 1, :3200] ** 2)))
+    assert rms_ll > rms_lr * 3.0, f"expected left pan L_rms ({rms_ll:.4f}) >> R_rms ({rms_lr:.4f})"
+
+    isl_right = sc_mod.merge_sound_cue_islands(sc_mod.parse_sound_cues("24: slam @1.1 @pan=+1.0", 124))[0]
+    wav_r = sc_mod.synthesize_island_waveform(isl_right, floor_dbfs=-60.0, seed=11)
+    rms_rl = float(torch.sqrt(torch.mean(wav_r[0, 0, :3200] ** 2)))
+    rms_rr = float(torch.sqrt(torch.mean(wav_r[0, 1, :3200] ** 2)))
+    assert rms_rr > rms_rl * 3.0, f"expected right pan R_rms ({rms_rr:.4f}) >> L_rms ({rms_rl:.4f})"
+
     # Refusals
     for bad_cues in ("", "   # comment only\n", "24: explosion", "200: hop", "1.5: hop"):
         try:
@@ -229,6 +246,17 @@ def test_sprite_trajectory_orientation_hop_and_mask() -> None:
         pass
     else:
         raise AssertionError("expected ValueError on all-zero mask")
+
+    # White-studio backdrop with off-center small colored prop (`x=0.78, y=0.25`) must NOT force empty center FG
+    studio = np.full((1, 160, 240, 3), 0.96, dtype=np.float32)
+    yy, xx = np.ogrid[:160, :240]
+    prop = ((xx - 188) / 22.0) ** 2 + ((yy - 40) / 18.0) ** 2 <= 1.0
+    studio[0, prop] = (0.85, 0.18, 0.14)
+    crop_rgb, crop_alpha = sp_mod.extract_sprite_rgba(torch.from_numpy(studio), mask=None)
+    assert crop_rgb.shape[0] < 90 and crop_rgb.shape[1] < 90, (
+        f"expected tight off-center crop on white studio backdrop without center box leak, got {crop_rgb.shape}"
+    )
+    assert float(crop_alpha.mean()) > 0.25 and float(crop_alpha[0, 0]) < 0.05
 
 
 def test_shipped_hybrid_workflow_and_static_walkers() -> None:

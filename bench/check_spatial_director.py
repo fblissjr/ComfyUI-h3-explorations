@@ -664,6 +664,36 @@ def _check_combined_and_aux_masks() -> None:
     assert float(m_comb[12, h // 2, int(w * 0.78)]) > 0.90
     # Frame 6 collision between target cue (gain 1.1) and portal_cue (gain 0.6) deduplicates to max gain (1.1)
     assert cues_comb.count("6:") == 1 and "impact" in cues_comb
+    assert "pan=+0.56" in cues_comb, f"expected stereo pan=+0.56 on off-center target x=0.78, got {cues_comb!r}"
+    parsed_comb = sc_mod.parse_sound_cues(cues_comb, n_frames, snap_to_3f=True)
+    assert abs(parsed_comb[0].pan - 0.56) <= 0.02
+
+    # Optional D-pad sprite envelope trajectory mask union (`include_sprite_envelope=True`)
+    env_json = json.dumps(
+        {
+            "portal": [{"frame": 0, "x": 0.22, "y": 0.50, "rx": 0.14, "ry": 0.14, "shape": "circle"}],
+            "targets": [],
+            "dpad": {
+                "waypoints": [
+                    {"frame": 0, "x": 0.80, "y": 0.70, "face": "left", "scale": 1.0},
+                    {"frame": n_frames - 1, "x": 0.80, "y": 0.30, "face": "left", "scale": 1.0},
+                ],
+                "hops": [],
+            },
+        }
+    )
+    m_no_env = sd_mod.MiniMaxH3SpatialDirector.execute(
+        mode="portal_path", width=w, height=h, length=n_frames, feather=0.04, events_json=env_json, include_sprite_envelope=False
+    ).result[0]
+    out_with_env = sd_mod.MiniMaxH3SpatialDirector.execute(
+        mode="portal_path", width=w, height=h, length=n_frames, feather=0.04, events_json=env_json, include_sprite_envelope=True, sprite_envelope_radius=0.18
+    ).result
+    m_with_env = out_with_env[0]
+    plan_env = json.loads(out_with_env[3])
+    assert plan_env["has_sprite_envelope"] is True and abs(plan_env["sprite_envelope_radius"] - 0.18) < 1e-4
+    assert float(m_no_env[0, int(0.70 * h), int(0.80 * w)]) < 0.05
+    assert float(m_with_env[0, int(0.70 * h), int(0.80 * w)]) > 0.90
+    assert float(m_with_env[n_frames - 1, int(0.30 * h), int(0.80 * w)]) > 0.90
 
     # Optional include_mask (union max) + exclude_mask (0.0 velocity protection even under invert_mask)
     inc = torch.zeros((1, h, w), dtype=torch.float32)

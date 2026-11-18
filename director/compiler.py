@@ -435,6 +435,21 @@ def has_spatial_combined_support(object_info: dict[str, Any] | None) -> bool:
     return ("combined" in modes) and ("include_mask" in opt) and ("exclude_mask" in opt)
 
 
+def has_sprite_envelope_support(object_info: dict[str, Any] | None) -> bool:
+    """Return True unless connected ``/object_info`` proves ``MiniMaxH3SpatialDirector`` lacks ``include_sprite_envelope``."""
+    if not isinstance(object_info, dict):
+        return True
+    info = object_info.get("MiniMaxH3SpatialDirector")
+    if not isinstance(info, dict):
+        return True
+    inp = info.get("input") or {}
+    req = inp.get("required") or {}
+    opt = inp.get("optional") or {}
+    if not req and not opt:
+        return True
+    return "include_sprite_envelope" in opt and "sprite_envelope_radius" in opt
+
+
 def has_guide_latent_support(object_info: dict[str, Any] | None) -> bool:
     """Return True unless connected ``/object_info`` proves ``MiniMaxH3GuideLatent`` is absent."""
     if not isinstance(object_info, dict):
@@ -859,11 +874,67 @@ def _events_have_per_event_prompts(events_doc: dict[str, Any]) -> bool:
     return False
 
 
+def _dpad_motion_summary(
+    events_doc: dict[str, Any],
+    *,
+    length: int,
+) -> tuple[str, int, int, str] | None:
+    """Summarize active D-pad actor waypoints into ``(region_phrase, onset, offset, trajectory_note)``."""
+    dpad = events_doc.get("dpad")
+    if not isinstance(dpad, dict):
+        return None
+    wps = sorted(
+        (w for w in (dpad.get("waypoints") or ()) if isinstance(w, dict)),
+        key=lambda w: int(round(float(w.get("frame", 0)))),
+    )
+    hops = [h for h in (dpad.get("hops") or ()) if isinstance(h, dict)]
+    if not wps and not hops:
+        return None
+    max_f = max(0, int(length) - 1)
+    if len(wps) >= 2:
+        w0, w1 = wps[0], wps[-1]
+        x0, y0 = float(w0.get("x", 0.5)), float(w0.get("y", 0.72))
+        x1, y1 = float(w1.get("x", x0)), float(w1.get("y", y0))
+        onset = max(0, min(max_f, int(round(float(w0.get("frame", 0))))))
+        offset = max(onset, min(max_f, int(round(float(w1.get("frame", max_f))))))
+        r0 = _describe_spatial_region(x0, y0)
+        r1 = _describe_spatial_region(x1, y1)
+        if r0 == r1:
+            region_phrase = r0
+        else:
+            region_phrase = f"{r0} to {r1}"
+        t0 = f"{onset / 24.0:.2f}"
+        t1 = f"{offset / 24.0:.2f}"
+        traj = ""
+        if math.hypot(x1 - x0, y1 - y0) >= 0.08:
+            traj = f"moving smoothly from {r0} at {t0}s to {r1} at {t1}s"
+        elif hops:
+            h0 = hops[0]
+            hs = max(0, min(max_f, int(round(float(h0.get("start", onset))))))
+            he = max(hs, min(max_f, int(round(float(h0.get("end", offset))))))
+            traj = f"leaping upward inside {r0} from {hs / 24.0:.2f}s to {he / 24.0:.2f}s"
+        return region_phrase, onset, offset, traj
+    if wps:
+        w0 = wps[0]
+        x0, y0 = float(w0.get("x", 0.5)), float(w0.get("y", 0.72))
+        onset = max(0, min(max_f, int(round(float(w0.get("frame", 0))))))
+        r0 = _describe_spatial_region(x0, y0)
+        traj = ""
+        if hops:
+            h0 = hops[0]
+            hs = max(0, min(max_f, int(round(float(h0.get("start", onset))))))
+            he = max(hs, min(max_f, int(round(float(h0.get("end", max_f))))))
+            traj = f"hopping cleanly inside {r0} from {hs / 24.0:.2f}s to {he / 24.0:.2f}s"
+        return r0, onset, max_f, traj
+    return None
+
+
 def _summarize_focus_region_and_time(
     events_doc: dict[str, Any],
     *,
     director_mode: str,
     length: int,
+    prefer_dpad: bool = False,
 ) -> tuple[str, int, int, list[str], str]:
     """Extract primary normalized focus coordinates, onset/offset frames, cue words, and summary label."""
     fx, fy = 0.5, 0.5
@@ -874,7 +945,11 @@ def _summarize_focus_region_and_time(
     targets = [t for t in (events_doc.get("targets") or ()) if isinstance(t, dict)]
     portal = [k for k in (events_doc.get("portal") or ()) if isinstance(k, dict)]
 
-    if director_mode in ("point_targets", "combined") and targets:
+    region_override: str | None = None
+    dpad_info = _dpad_motion_summary(events_doc, length=length) if prefer_dpad else None
+    if dpad_info is not None:
+        region_override, onset, offset, _ = dpad_info
+    elif director_mode in ("point_targets", "combined") and targets:
         primary_t = targets[0]
         fx = float(primary_t.get("x", 0.5))
         fy = float(primary_t.get("y", 0.5))
@@ -897,7 +972,7 @@ def _summarize_focus_region_and_time(
                 if preset and preset != "none" and preset not in cues:
                     cues.append(preset)
 
-    region_phrase = _describe_spatial_region(fx, fy)
+    region_phrase = region_override or _describe_spatial_region(fx, fy)
     summary = f"{region_phrase} @ f{onset}..{offset}"
     return region_phrase, onset, offset, cues, summary
 
@@ -938,10 +1013,18 @@ def synthesize_spatial_prompts(
     """Build clean, zero-hardcoded ``(original_prompt, edited_prompt, region_summary)``."""
     use_pic1 = bool(has_source_ref and mode in ("i2v_portal", "r2v_portal", "world_targets"))
     dur_s = f"{float(length) / 24.0:.3f}".rstrip("0").rstrip(".")
+    raw_target_check = (target_prompt or "").strip()
+    prefer_dpad_focus = bool(
+        has_sprite
+        and not raw_target_check
+        and not _events_have_per_event_prompts(events_doc)
+        and director_mode == "portal_path"
+    )
     region_phrase, onset, offset, cues, region_summary = _summarize_focus_region_and_time(
         events_doc,
         director_mode=director_mode,
         length=length,
+        prefer_dpad=prefer_dpad_focus,
     )
     onset_s = f"{float(onset) / 24.0:.2f}"
     offset_s = f"{float(offset) / 24.0:.2f}"
@@ -1053,7 +1136,12 @@ def synthesize_spatial_prompts(
                 else "dynamic localized transformation unfolding inside the active region"
             )
             action_desc = single_prompt or raw_target or sprite_default
-            motion_note = f" while {trajectory_note}" if trajectory_note else ""
+            eff_traj = trajectory_note
+            if not eff_traj and has_sprite:
+                dp_info = _dpad_motion_summary(events_doc, length=length)
+                if dp_info and dp_info[3]:
+                    eff_traj = dp_info[3]
+            motion_note = f" while {eff_traj}" if eff_traj else ""
             audio_desc = (
                 f"Crisp localized acoustic event matching {action_desc} ({', '.join(cue_audio_parts)}) erupting around {onset_s} seconds atop consistent scene ambience."
                 if cue_audio_parts
@@ -1842,11 +1930,14 @@ def _compile_single_spatial(
     exclude_mask_ref = str(params.get("exclude_mask_ref") or "").strip()
     sprite_mask_ref = str(params.get("sprite_mask_ref") or "").strip()
     native_combined = has_spatial_combined_support(object_info)
+    native_sprite_env = has_sprite_envelope_support(object_info)
 
     for stale_id in ("166", "167", "168", "169", "170", "171", "172", "173", "174", "175", "176", "177", "178", "179"):
         graph.pop(stale_id, None)
     n160.pop("include_mask", None)
     n160.pop("exclude_mask", None)
+    n160.pop("include_sprite_envelope", None)
+    n160.pop("sprite_envelope_radius", None)
 
     n160["width"] = ["27", 0]
     n160["height"] = ["27", 1]
@@ -1915,9 +2006,19 @@ def _compile_single_spatial(
 
     # Native combined/aux masks OR zero-restart MaskComposite fallback when live server has 2-mode schema.
     fallback_cues_ref: Any = ["160", 1]
+    want_sprite_env = (
+        bool(params["include_sprite_envelope"])
+        if params.get("include_sprite_envelope") is not None
+        else bool((has_sprite or has_dpad_inputs) and not want_invert)
+    )
+    sprite_env_applied = bool(want_sprite_env and native_combined and native_sprite_env)
+    sprite_env_radius = max(0.05, min(0.60, float(params.get("sprite_envelope_radius", 0.18))))
     if native_combined:
         n160["mode"] = director_mode
         n160["invert_mask"] = want_invert
+        if sprite_env_applied:
+            n160["include_sprite_envelope"] = True
+            n160["sprite_envelope_radius"] = sprite_env_radius
         if include_mask_ref:
             graph["170"] = {"class_type": "LoadImage", "inputs": {"image": include_mask_ref}}
             graph["171"] = {"class_type": "ImageToMask", "inputs": {"image": ["170", 0], "channel": "red"}}
@@ -2196,6 +2297,7 @@ def _compile_single_spatial(
             "guide_latent_pinned": pin_guide_f0,
             "has_include_mask": bool(include_mask_ref),
             "has_exclude_mask": bool(exclude_mask_ref),
+            "has_sprite_envelope": sprite_env_applied,
             "spatial_combined_native": native_combined,
             "has_sound_cues": has_cues,
             "has_audio_refine": audio_refine,
@@ -2804,6 +2906,7 @@ def get_schema_data(object_info: dict[str, Any] | None = None, *, heylook_sugges
             "sam3": bool(sam3_cap["available"]),
             "sam3_engine": sam3_cap["engine"],
             "spatial_combined": has_spatial_combined_support(object_info),
+            "sprite_envelope": has_sprite_envelope_support(object_info),
             "guide_latent": has_guide_latent_support(object_info),
             "audio_refine": has_audio_refine_support(object_info),
         },

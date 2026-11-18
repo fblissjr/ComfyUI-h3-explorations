@@ -455,32 +455,47 @@ def _compute_sound_cues_text(
     targets: tuple[WorldTargetEvent, ...],
     portal_cues: list[tuple[int, str, float]],
 ) -> tuple[str, list[dict[str, Any]]]:
-    entries: list[tuple[int, str, float]] = []
+    entries: list[tuple[int, str, float, float]] = []
     if mode in ("point_targets", "combined"):
         for t in targets:
             if t.cue != "none":
-                entries.append((_snap_to_3f(t.start, length), t.cue, t.gain))
+                pan_val = max(-1.0, min(1.0, 2.0 * float(t.x) - 1.0))
+                entries.append((_snap_to_3f(t.start, length), t.cue, t.gain, pan_val))
     for frame, preset, gain in portal_cues:
-        entries.append((_snap_to_3f(frame, length), preset, gain))
+        px_eval = _eval_portal_frame(portals, frame)[0] if portals else 0.5
+        pan_val = max(-1.0, min(1.0, 2.0 * float(px_eval) - 1.0))
+        entries.append((_snap_to_3f(frame, length), preset, gain, pan_val))
     # Sort by snapped 3f frame and merge exact-frame collisions (keeping max gain)
     # so `MiniMaxH3SoundCues` never fails `validate_audio_keyframe_spans`.
-    merged_by_frame: dict[int, tuple[int, str, float]] = {}
-    for f_snap, preset, gain in entries:
+    merged_by_frame: dict[int, tuple[int, str, float, float]] = {}
+    for f_snap, preset, gain, pan_val in entries:
         prev = merged_by_frame.get(f_snap)
         if prev is None or gain > prev[2]:
-            merged_by_frame[f_snap] = (f_snap, preset, gain)
+            merged_by_frame[f_snap] = (f_snap, preset, gain, pan_val)
     deduped = sorted(merged_by_frame.values(), key=lambda e: e[0])
     if not deduped:
         anchor = _snap_to_3f(portals[0].frame if portals else 3, length)
-        deduped = [(max(3, min(anchor, max(3, ((length - 1) // 3) * 3))), "step", 0.25)]
-    lines = [
-        f"{f}: {preset} @{gain:.2f}" if abs(gain - 1.0) > 1e-4 else f"{f}: {preset}"
-        for f, preset, gain in deduped
-    ]
-    cue_meta = [
-        {"frame": int(f), "preset": preset, "gain": round(float(gain), 3)}
-        for f, preset, gain in deduped
-    ]
+        anchor_px = _eval_portal_frame(portals, anchor)[0] if portals else 0.5
+        pan_val = max(-1.0, min(1.0, 2.0 * float(anchor_px) - 1.0))
+        deduped = [(max(3, min(anchor, max(3, ((length - 1) // 3) * 3))), "step", 0.25, pan_val)]
+
+    lines: list[str] = []
+    cue_meta: list[dict[str, Any]] = []
+    for f, preset, gain, pan_val in deduped:
+        parts = [f"{f}: {preset}"]
+        if abs(gain - 1.0) > 1e-4:
+            parts.append(f"@{gain:.2f}")
+        if abs(pan_val) >= 0.02:
+            parts.append(f"pan={pan_val:+.2f}")
+        lines.append(" ".join(parts))
+        cue_meta.append(
+            {
+                "frame": int(f),
+                "preset": preset,
+                "gain": round(float(gain), 3),
+                "pan": round(float(pan_val), 3),
+            }
+        )
     return "\n".join(lines), cue_meta
 
 
@@ -681,6 +696,21 @@ class MiniMaxH3SpatialDirector(io.ComfyNode):
                     optional=True,
                     tooltip="Optional [H, W] or [F, H, W] subject protection mask subtracted (mask * (1 - exclude_mask)) so protected subjects receive 0.0 edit velocity.",
                 ),
+                io.Boolean.Input(
+                    "include_sprite_envelope",
+                    default=_SD_DEFAULTS["include_sprite_envelope"],
+                    optional=True,
+                    tooltip="When true and a D-pad actor trajectory is present in `events_json`, union a soft spherical corridor around each frame's sprite position into `mask` before `invert_mask` and `exclude_mask`.",
+                ),
+                io.Float.Input(
+                    "sprite_envelope_radius",
+                    default=_SD_DEFAULTS["sprite_envelope_radius"],
+                    min=0.05,
+                    max=0.60,
+                    step=0.01,
+                    optional=True,
+                    tooltip="Radius of the optional D-pad sprite trajectory corridor as a fraction of `min(width, height)` when `include_sprite_envelope` is enabled.",
+                ),
             ],
             outputs=[
                 io.Mask.Output(display_name="mask"),
@@ -703,6 +733,8 @@ class MiniMaxH3SpatialDirector(io.ComfyNode):
         backdrop=None,
         include_mask=None,
         exclude_mask=None,
+        include_sprite_envelope: bool = _SD_DEFAULTS["include_sprite_envelope"],
+        sprite_envelope_radius: float = _SD_DEFAULTS["sprite_envelope_radius"],
     ) -> io.NodeOutput:
         del backdrop  # Optional ComfyUI preview backdrop for interactive HTML5 stage
         w = max(64, int(width))
@@ -814,6 +846,28 @@ class MiniMaxH3SpatialDirector(io.ComfyNode):
         if inc_arr is not None:
             np.maximum(mask_arr, inc_arr, out=mask_arr)
 
+        sprite_env_applied = False
+        sp_env_rad = max(0.05, min(0.60, float(sprite_envelope_radius)))
+        if bool(include_sprite_envelope) and sprite_states:
+            try:
+                raw_doc = json.loads(events_json or "{}")
+            except Exception:
+                raw_doc = {}
+            dpad_obj = raw_doc.get("dpad") if isinstance(raw_doc, dict) else None
+            has_explicit_dpad = isinstance(dpad_obj, dict) and (
+                bool(dpad_obj.get("waypoints")) or bool(dpad_obj.get("hops"))
+            )
+            if has_dpad or has_explicit_dpad:
+                sp_rad_px = max(2.0, sp_env_rad * short_edge)
+                for f in range(n_frames):
+                    sf = sprite_states[min(f, len(sprite_states) - 1)]
+                    sx = float(sf["x"]) * float(w)
+                    sy = float(sf["y"]) * float(h)
+                    dist_sp = np.sqrt((px - sx) ** 2 + (py - sy) ** 2) - sp_rad_px
+                    env_frame = _soft_edge_from_signed_dist(dist_sp, feather_px)
+                    np.maximum(mask_arr[f], env_frame, out=mask_arr[f])
+                sprite_env_applied = True
+
         if invert_mask:
             mask_arr = 1.0 - mask_arr
 
@@ -840,6 +894,8 @@ class MiniMaxH3SpatialDirector(io.ComfyNode):
             "invert_mask": bool(invert_mask),
             "has_include_mask": inc_arr is not None,
             "has_exclude_mask": exc_arr is not None,
+            "has_sprite_envelope": bool(sprite_env_applied),
+            "sprite_envelope_radius": round(sp_env_rad, 4),
             "portal_start": portal_start,
             "portal_end": portal_end,
             "portal_ramp": portal_ramp,

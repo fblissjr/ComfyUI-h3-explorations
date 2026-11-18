@@ -86,6 +86,7 @@ const state = {
   workflowManualOverride: false,
   unlinkPortalRy: false,
   seqSelection: null,
+  portalTouched: false,
 
   workflowId: "i2v_portal",
   anchorWorkflowId: "h3_image",
@@ -927,12 +928,26 @@ function allActiveCues() {
   if (state.doc.mode === "point_targets" || state.doc.mode === "combined") {
     for (const t of state.doc.targets || []) {
       if (t.cue && t.cue !== "none") {
-        cues.push({ frame: snapFrameTo3f(t.start, state.length), preset: t.cue, gain: t.gain || 1.15, source: "target" });
+        cues.push({
+          frame: snapFrameTo3f(t.start, state.length),
+          preset: t.cue,
+          gain: t.gain || 1.15,
+          x: Number(t.x ?? 0.5),
+          source: "target",
+        });
       }
     }
   }
   for (const c of state.doc.portal_cues || []) {
-    cues.push({ frame: snapFrameTo3f(c.frame, state.length), preset: c.preset, gain: c.gain || 1.0, source: "portal" });
+    const f = snapFrameTo3f(c.frame, state.length);
+    const pf = evalPortalAtFrame(state.doc, f, state.length);
+    cues.push({
+      frame: f,
+      preset: c.preset,
+      gain: c.gain || 1.0,
+      x: Number(pf.x ?? 0.5),
+      source: "portal",
+    });
   }
   cues.sort((a, b) => a.frame - b.frame);
   return cues;
@@ -1132,6 +1147,7 @@ function syncContextualCard() {
     ? ` · AppendSpriteTrajectory(51, Release 0.33, Δx=${coupling.dx >= 0 ? "+" : ""}${coupling.dx.toFixed(2)})`
     : "";
   const maskParts = [];
+  if (sp && !state.doc.invert_mask) maskParts.push("SpriteEnv(dpad)");
   if (state.spriteMaskRef) maskParts.push("SpriteMask");
   if (state.excludeMaskRef) maskParts.push("Protect(exclude)");
   if (state.includeMaskRef) maskParts.push("Lock(include)");
@@ -1534,6 +1550,7 @@ async function applyImportedRecipe(recipeDoc) {
   }
   state.originalPrompt = String(st.original_prompt || "");
   state.targetPrompt = String(st.target_prompt || "");
+  state.portalTouched = true;
   state.samePrompt = Boolean(st.same_prompt);
   state.audioRefine = Boolean(st.audio_refine);
   state.snapToIncludeMask = Boolean(st.snap_to_include_mask);
@@ -1577,6 +1594,7 @@ async function applyImportedRecipe(recipeDoc) {
       keepMaskRef: Boolean(st.sprite_mask_ref),
       maskRef: st.sprite_mask_ref || "",
       fromSceneLift: String(st.sprite_ref).includes("seg_cutout_"),
+      preserveWaypoints: true,
       label: st.sprite_label || "",
     });
   } else if (!st.sprite_ref) {
@@ -1614,13 +1632,38 @@ async function handleAnchorUpload(file, opts = {}) {
   try {
     const data = await apiJson("/api/upload", { method: "POST", body: fd });
     const imgUrl = data.view_url || videoItemViewUrl(data);
-    // Clear previous scene prompt & mask preview so uploaded media never inherits stale context
+    // Clear previous scene prompt, target prompt, actor cutout, & masks so new media never inherits stale context.
     state.originalPrompt = "";
     state.maskPreview = null;
     if (!opts.preserveLineage) {
+      state.targetPrompt = "";
+      state.portalTouched = false;
       state.parentTakeId = "";
       state.parentFrame = null;
       state.activeMaskPreviewTakeId = "";
+      state.spriteCutout = null;
+      state.spriteMode = false;
+      state.spriteMaskRef = "";
+      state.includeMaskRef = "";
+      state.excludeMaskRef = "";
+      state.includeMaskImg = null;
+      state.excludeMaskImg = null;
+      state.snapToIncludeMask = false;
+      state.samPosPoints = [];
+      state.samNegPoints = [];
+      state.samPicking = false;
+      state.settingSpritePath = false;
+      state.couplings = [];
+      state.doc.dpad = {
+        waypoints: [{ frame: 0, x: 0.36, y: 0.74, face: "right", scale: 1.0 }],
+        hops: [],
+      };
+      const targEl = $("#target-prompt");
+      if (targEl) targEl.value = "";
+      const samIn = $("#sam-prompt-input");
+      if (samIn) samIn.value = "";
+      const stampIn = $("#stamp-prompt-input");
+      if (stampIn) stampIn.value = "";
     }
     const origEl = $("#original-prompt");
     if (origEl) origEl.value = "";
@@ -1629,6 +1672,7 @@ async function handleAnchorUpload(file, opts = {}) {
       name: file.name,
       width: data.width,
       height: data.height,
+      preserveOriginalPrompt: Boolean(opts.preserveLineage),
     });
     if (data.imported_take_id) {
       const snappedLen = Number(data.snapped_length || 0);
@@ -1670,7 +1714,7 @@ function loadAnchorImageUrl(url, meta = {}) {
       if (!meta.preserveOriginalPrompt) {
         state.maskPreview = null;
       }
-      if (prevRef && meta.ref && prevRef !== meta.ref) {
+      if (!meta.preserveOriginalPrompt && prevRef && meta.ref && prevRef !== meta.ref) {
         state.spriteMaskRef = "";
         state.includeMaskRef = "";
         state.excludeMaskRef = "";
@@ -1990,6 +2034,42 @@ async function chainMaskPreviewToAnchor() {
   showToast("Rolled preview forward as new World State", "ok");
 }
 
+function alignUntouchedPortalToSpritePath() {
+  if (state.portalTouched || (state.targetPrompt || "").trim() || state.doc.mode !== "portal_path") {
+    return;
+  }
+  const wps = [...(state.doc.dpad?.waypoints || [])]
+    .filter((w) => w && typeof w === "object")
+    .sort((a, b) => Number(a.frame || 0) - Number(b.frame || 0));
+  if (wps.length < 2 || (state.doc.portal || []).length > 2) return;
+  const tpl = (state.doc.portal || [])[0] || {
+    rx: 0.22,
+    ry: 0.22,
+    shape: "circle",
+    label: "REALITY LENS",
+    weight: 1.0,
+    halo_radius: 0.10,
+    halo_weight: 0.30,
+  };
+  const w0 = wps[0];
+  const w1 = wps[wps.length - 1];
+  const f0 = clamp(Math.round(Number(w0.frame || 0)), 0, Math.max(0, state.length - 1));
+  const f1 = clamp(Math.round(Number(w1.frame || (state.length - 1))), f0, Math.max(0, state.length - 1));
+  const mk = (fr, wp) => ({
+    frame: fr,
+    x: Number(clamp(Number(wp.x ?? 0.5), 0.04, 0.96).toFixed(3)),
+    y: Number(clamp(Number(wp.y ?? 0.5), 0.06, 0.94).toFixed(3)),
+    rx: Number(tpl.rx ?? 0.22),
+    ry: Number(tpl.ry ?? tpl.rx ?? 0.22),
+    shape: tpl.shape || "circle",
+    label: tpl.label || "REALITY LENS",
+    weight: Number(tpl.weight ?? 1.0),
+    halo_radius: Number(tpl.halo_radius ?? 0.10),
+    halo_weight: Number(tpl.halo_weight ?? 0.30),
+  });
+  state.doc.portal = f1 > f0 ? [mk(f0, w0), mk(f1, w1)] : [mk(0, w1)];
+}
+
 function loadCutoutUrl(url, ref, opts = {}) {
   return new Promise((resolve) => {
     const img = new Image();
@@ -1998,6 +2078,28 @@ function loadCutoutUrl(url, ref, opts = {}) {
         state.spriteMaskRef = String(opts.maskRef || "");
       } else if (!opts.keepMaskRef) {
         state.spriteMaskRef = "";
+      }
+      if (opts.fromSceneLift === false && !opts.preserveWaypoints) {
+        if (!state.doc.dpad) state.doc.dpad = { waypoints: [], hops: [] };
+        if (!Array.isArray(state.doc.dpad.waypoints)) state.doc.dpad.waypoints = [];
+        const wps = state.doc.dpad.waypoints;
+        const pf = evalPortalAtFrame(state.doc, state.frame, state.length);
+        const isDefaultSpot =
+          wps.length === 1
+          && Math.abs(Number(wps[0].x) - 0.36) < 0.005
+          && Math.abs(Number(wps[0].y) - 0.74) < 0.005;
+        if (wps.length === 0) {
+          wps.push({
+            frame: 0,
+            x: Number(clamp(pf.x, 0.08, 0.92).toFixed(3)),
+            y: Number(clamp(pf.y, 0.10, 0.90).toFixed(3)),
+            face: "right",
+            scale: 1.0,
+          });
+        } else if (isDefaultSpot) {
+          wps[0].x = Number(clamp(pf.x, 0.08, 0.92).toFixed(3));
+          wps[0].y = Number(clamp(pf.y, 0.10, 0.90).toFixed(3));
+        }
       }
       state.spriteCutout = {
         ref,
@@ -2174,6 +2276,12 @@ function buildCompilePayload() {
     include_mask_ref: state.includeMaskRef || "",
     exclude_mask_ref: state.excludeMaskRef || "",
     snap_to_include_mask: Boolean(state.snapToIncludeMask),
+    include_sprite_envelope: Boolean(
+      (state.spriteCutout?.ref
+        || (state.doc.dpad?.waypoints?.length || 0) > 1
+        || (state.doc.dpad?.hops?.length || 0) > 0)
+      && !state.doc.invert_mask
+    ),
     sprite_pos: sp ? { x: sp.x, y: sp.y, face: sp.face } : null,
     halo_radius: Number(pf.halo_radius || 0),
     couplings: activeCouplings,
@@ -2467,7 +2575,8 @@ function stepPlayback(ts) {
           ? (c.frame > prevFrame && c.frame <= nextFrame)
           : (c.frame > prevFrame || c.frame <= nextFrame);
         if (crossed) {
-          foley.playCue(c.preset, c.gain, state.soundPresetMap[c.preset] || 0.2);
+          const pan = clamp((c.x ?? 0.5) * 2 - 1, -1, 1);
+          foley.playCue(c.preset, c.gain, state.soundPresetMap[c.preset] || 0.2, pan);
         }
       }
     }
@@ -2589,8 +2698,13 @@ function init() {
   stage = new StageController(canvas, {
     getState: () => state,
     abCompare,
-    onMutate: (_reason, opts = {}) => {
+    onMutate: (reason, opts = {}) => {
       if (!opts.live) pushUndo();
+      if (typeof reason === "string" && (reason.startsWith("portal_") || reason.startsWith("target_"))) {
+        state.portalTouched = true;
+      } else if (reason === "set_sprite_path" || reason === "sprite_waypoint") {
+        alignUntouchedPortalToSpritePath();
+      }
       syncAllUI();
       if (!opts.live) schedulePreflight();
     },
@@ -2896,6 +3010,7 @@ function init() {
   });
   $("#target-prompt")?.addEventListener("input", (ev) => {
     state.targetPrompt = ev.target.value;
+    if (String(ev.target.value || "").trim()) state.portalTouched = true;
     if ((state.doc.mode === "point_targets" || state.doc.mode === "combined") && state.doc.targets?.[state.selectedTargetIdx]) {
       state.doc.targets[state.selectedTargetIdx].prompt = ev.target.value;
     }
@@ -2910,6 +3025,7 @@ function init() {
       const tpl = qc.dataset.template || "";
       const act = tpl || qc.dataset.action || qc.textContent || "";
       state.targetPrompt = act;
+      state.portalTouched = true;
       if ((state.doc.mode === "point_targets" || state.doc.mode === "combined") && state.doc.targets?.[state.selectedTargetIdx]) {
         state.doc.targets[state.selectedTargetIdx].prompt = act;
       }
@@ -2965,18 +3081,21 @@ function init() {
       state.doc.portal_cues.push({ frame: f, preset, gain: 1.0 });
     }
     if (preset !== "none") {
-      foley.playCue(preset, 1.0, state.soundPresetMap[preset] || 0.2);
+      const pfPan = evalPortalAtFrame(state.doc, state.frame, state.length);
+      foley.playCue(preset, 1.0, state.soundPresetMap[preset] || 0.2, clamp(pfPan.x * 2 - 1, -1, 1));
     }
     syncAllUI();
   });
   $("#pill-cue-audition")?.addEventListener("click", () => {
     const sel = $("#card-cue-select")?.value;
     if (sel && sel !== "none") {
-      foley.playCue(sel, 1.0, state.soundPresetMap[sel] || 0.2);
+      const pfPan = evalPortalAtFrame(state.doc, state.frame, state.length);
+      foley.playCue(sel, 1.0, state.soundPresetMap[sel] || 0.2, clamp(pfPan.x * 2 - 1, -1, 1));
     }
   });
   $("#btn-apply-event")?.addEventListener("click", () => {
     pushUndo();
+    state.portalTouched = true;
     const curAction = (state.targetPrompt || "").trim();
     if ((state.doc.mode === "point_targets" || state.doc.mode === "combined") && state.doc.targets?.[state.selectedTargetIdx]) {
       state.doc.targets[state.selectedTargetIdx].prompt = curAction;

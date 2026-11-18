@@ -929,7 +929,9 @@
       "events_json",
       "backdrop",
       "include_mask",
-      "exclude_mask"
+      "exclude_mask",
+      "include_sprite_envelope",
+      "sprite_envelope_radius"
     ],
     "node_id": "MiniMaxH3SpatialDirector",
     "outputs": [

@@ -65,14 +65,22 @@ export class FoleySynth {
     this.muted = Boolean(muted);
   }
 
-  _triggerImpulse(ctx, startAt, kind, gainVal, durSec) {
+  _triggerImpulse(ctx, startAt, kind, gainVal, durSec, panVal = 0.0) {
     const g = Math.max(0.05, Math.min(2.5, Number(gainVal || 1.0)));
     const dur = Math.max(0.06, Math.min(0.45, Number(durSec || 0.18)));
+    const pan = Math.max(-1.0, Math.min(1.0, Number(panVal || 0.0)));
     const master = ctx.createGain();
     master.gain.setValueAtTime(0.0001, startAt);
     master.gain.linearRampToValueAtTime(0.32 * Math.min(1.6, g), startAt + 0.004);
     master.gain.exponentialRampToValueAtTime(0.0001, startAt + dur);
-    master.connect(ctx.destination);
+    if (typeof ctx.createStereoPanner === "function" && Math.abs(pan) > 0.01) {
+      const panner = ctx.createStereoPanner();
+      panner.pan.setValueAtTime(pan, startAt);
+      master.connect(panner);
+      panner.connect(ctx.destination);
+    } else {
+      master.connect(ctx.destination);
+    }
 
     // Choose acoustic profile purely by token character (no hardcoded preset table)
     const token = String(kind || "").toLowerCase();
@@ -113,7 +121,7 @@ export class FoleySynth {
     }
   }
 
-  playCue(presetName, gain = 1.0, durationSec = 0.2) {
+  playCue(presetName, gain = 1.0, durationSec = 0.2, pan = 0.0) {
     const preset = String(presetName || "").trim().toLowerCase();
     if (!preset || preset === "none") return;
     const ctx = this._ensureContext();
@@ -122,11 +130,11 @@ export class FoleySynth {
     if (preset.includes("_")) {
       const parts = preset.split("_").filter(Boolean);
       const half = Math.max(0.1, Number(durationSec || 0.3) * 0.55);
-      this._triggerImpulse(ctx, now, parts[0], gain, half);
+      this._triggerImpulse(ctx, now, parts[0], gain, half, pan);
       // Compound cue offset: 3 frames at 24 fps = 125 ms
-      this._triggerImpulse(ctx, now + AUDIO_GRID_FRAMES / DEFAULT_VIDEO_FPS, parts[1] || parts[0], gain, half);
+      this._triggerImpulse(ctx, now + AUDIO_GRID_FRAMES / DEFAULT_VIDEO_FPS, parts[1] || parts[0], gain, half, pan);
     } else {
-      this._triggerImpulse(ctx, now, preset, gain, durationSec);
+      this._triggerImpulse(ctx, now, preset, gain, durationSec, pan);
     }
   }
 }

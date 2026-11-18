@@ -226,6 +226,13 @@ def finalize_lean_baseline(graph: dict[str, Any]) -> dict[str, Any]:
         ins9["audio_scale"] = 0.0
         ins9.pop("mask", None)
 
+    # Strip unused sprite trajectory references ("51".."54") when the [original] prompt
+    # references only <Picture 1> and never invokes <Video N>.
+    if b.has("133") and b.has("132") and b.has("50"):
+        orig_val = str(b.inputs("133").get("value") or "")
+        if "<Video " not in orig_val and b.inputs("132").get("references") == ["51", 0]:
+            b.inputs("132")["references"] = ["50", 0]
+
     b.remove(HUD_COMBINE_NODE_ID, "161")
     b.prune_unreachable([CLEAN_DECODE_NODE_ID])
     return b.to_dict()

@@ -455,6 +455,8 @@ SPATIAL_DIRECTOR_DEFAULTS = dict(
     feather=0.08,
     invert_mask=False,
     events_json=DEFAULT_DIRECTOR_EVENTS_JSON,
+    include_sprite_envelope=False,
+    sprite_envelope_radius=0.18,
 )
 
 DIRECTOR_HUD_DEFAULTS = dict(

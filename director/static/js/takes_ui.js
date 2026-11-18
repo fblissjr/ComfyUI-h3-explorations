@@ -348,8 +348,20 @@ export function createTakesController({
       const kindLabel = KIND_LABELS[take.kind] || take.kind || "Take";
       const lenLabel = take.still_image ? "1f" : `${take.length || "?"}f`;
       const titleSpan = document.createElement("span");
+      titleSpan.className = "take-card-title";
       titleSpan.textContent = `${kindLabel} · ${take.mode || "take"} · ${lenLabel} · seed ${take.seed || "?"}${linTag}`;
+      titleSpan.title = titleSpan.textContent;
       top.appendChild(titleSpan);
+
+      const badges = document.createElement("div");
+      badges.className = "take-card-badges";
+      if (take.clean_video && take.baseline_video) {
+        const abBadge = document.createElement("span");
+        abBadge.className = "take-ab-badge";
+        abBadge.textContent = "A|B";
+        abBadge.title = "Same-seed counterfactual baseline ready for split comparison";
+        badges.appendChild(abBadge);
+      }
 
       const statusChip = document.createElement("span");
       const statusStr = take.baseline_pending ? "baseline running" : (take.status || "completed");
@@ -359,7 +371,8 @@ export function createTakesController({
           : (statusStr === "queued" || take.baseline_pending ? "pending" : "ok")
       }`;
       statusChip.textContent = statusStr;
-      top.appendChild(statusChip);
+      badges.appendChild(statusChip);
+      top.appendChild(badges);
       card.appendChild(top);
 
       const promptText = String(take.prompt_preview || take.params?.target_prompt || take.params?.prompt || "").trim();
