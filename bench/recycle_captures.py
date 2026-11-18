@@ -55,6 +55,7 @@ REPO = Path(__file__).resolve().parents[1]
 RESULTS = REPO / "data" / "results"
 sys.path.insert(0, str(REPO / "bench"))
 import _paths  # noqa: E402
+from _lib.results import result_glob  # noqa: E402  (data/results/ and its archive folders)
 
 
 def _tensors(d: Path) -> list[Path]:
@@ -85,7 +86,7 @@ def _repo_records(name: str, manifest: dict | None):
     if isinstance(manifest, dict):
         want = ((manifest.get("workload") or {}).get("graph_sha256"),
                 sorted(str(t.get("sha256")) for t in manifest.get("captured_tensors") or [] if isinstance(t, dict)))
-        for p in RESULTS.glob("*capture_manifest*.json"):
+        for p in result_glob("*capture_manifest*.json", RESULTS):
             try:
                 m = json.loads(p.read_text(encoding="utf-8"))
             except (OSError, ValueError):
@@ -98,7 +99,7 @@ def _repo_records(name: str, manifest: dict | None):
                 copy = p.name
                 break
     inventory = None
-    for p in RESULTS.glob("*capture_inventory*.json"):
+    for p in result_glob("*capture_inventory*.json", RESULTS):
         # the record's own capture names, not a substring of the file (a
         # directory called `0` matched every inventory; audit finding 10)
         try:

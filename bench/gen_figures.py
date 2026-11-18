@@ -29,9 +29,13 @@ import html
 import json
 import math
 import subprocess
+import sys
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _lib.results import result_path  # noqa: E402  (data/results/ and its archive folders)
 
 REPO = Path(__file__).resolve().parent.parent
 RESULTS = REPO / "data" / "results"
@@ -504,11 +508,11 @@ def spearman(a, b) -> float:
 
 
 def load(name: str):
-    return json.loads((RESULTS / name).read_text())
+    return json.loads(result_path(name, RESULTS).read_text())
 
 
 def load_lines(name: str):
-    return [json.loads(l) for l in (RESULTS / name).read_text().splitlines() if l.strip()]
+    return [json.loads(l) for l in result_path(name, RESULTS).read_text().splitlines() if l.strip()]
 
 
 def _mins(ts: str) -> float:

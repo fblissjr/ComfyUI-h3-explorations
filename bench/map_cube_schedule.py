@@ -43,11 +43,14 @@ import sys
 import time
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _lib.results import result_path  # noqa: E402  (data/results/ and its archive folders)
+
 REPO = Path(__file__).resolve().parents[1]
 # The repo sits at <comfy>/custom_nodes/<pack>; `comfy` is importable from
 # the ComfyUI root, the same derivation bench/check_pdd_sigmas.py uses.
 sys.path.insert(0, str(REPO.parents[1]))
-RECORD = REPO / "data" / "results" / "2026-09-04_sglang_cube_topk_schedule.json"
+RECORD = result_path("2026-09-04_sglang_cube_topk_schedule.json")
 
 
 def time_snr_shift(shift: float, t: float) -> float:

@@ -29,12 +29,16 @@ from __future__ import annotations
 
 import json
 import statistics as st
+import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _lib.results import result_path  # noqa: E402  (data/results/ and its archive folders)
 
 REPO = Path(__file__).resolve().parent.parent
 SRC = REPO / "results" / "2026-08-21_quant_delta_ref2va.json"
 if not SRC.exists():
-    SRC = REPO / "data" / "results" / "2026-08-21_quant_delta_ref2va.json"
+    SRC = result_path("2026-08-21_quant_delta_ref2va.json")
 OUT = REPO / "data" / "results" / "2026-08-28_quant_hotspots_ref2va.json"
 
 KINDS = ("attn.qkv_proj", "attn.out_proj", "mlp.fc1", "mlp.fc2")

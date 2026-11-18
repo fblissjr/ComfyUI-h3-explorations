@@ -2,19 +2,19 @@
 """Where each `data/results/...` path cited in the repo's text actually is on this machine.
 
 `data/` is gitignored and local. Older run data in `data/results/` was moved into dated
-folders (`data/results/2026-08-18_to_2026-10-03/`, `data/results/2026-10-04_to_2026-11-03/`)
+archive folders (`data/results/2026-08-18_to_2026-10-03/`, `data/results/2026-10-04_to_2026-11-03/`)
 without its citations changing, so most of the paths the docs and code comments cite
-point where nothing is. A file name is dated and nearly always unique, so the file can
-still be found by name. This tool does that for every citation and prints what it found.
+point where nothing is. The move kept each path below its folder, so
+`bench/_lib/results.py` (the lookup the tools read through) finds each one; this tool
+runs that lookup for every citation and prints what it found.
 
 Each cited path is one of:
 
   here      the path exists as written.
-  moved     not there, but exactly one file or folder of that name is elsewhere under
-            `data/results/`; printed with `--moved`.
-  several   more than one of that name; printed always.
-  missing   nowhere under `data/results/` on this machine; printed always. It may live on
-            another machine, under `bench/results/`, or never have been saved.
+  moved     not there, but in exactly one archive folder; printed with `--moved`.
+  several   in more than one archive folder; printed always.
+  missing   in neither; printed always. It may live on another machine, under
+            `bench/results/`, or never have been saved.
 
 It reports and never fails. `bench/check_doc_links.py` treats `data/` citations the same
 way, as warnings, because a machine without the run data is not broken.
@@ -43,8 +43,10 @@ import subprocess
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _lib.results import RESULTS, find_results  # noqa: E402
+
 REPO = Path(__file__).resolve().parents[1]
-RESULTS = REPO / "data" / "results"
 TEXT_SUFFIXES = {".md", ".py", ".sh", ".txt", ".toml", ".json", ".js", ".html", ".yml", ".yaml"}
 CITE = re.compile(r"data/results/([^\s`'\"()\[\]|<>*{}$\\?,;]+)")
 TEMPLATE_NEXT = set("<*{[$?")
@@ -70,17 +72,11 @@ def citations(text: str):
         yield m.start(1), end, cited
 
 
-def name_index() -> dict[str, list[Path]]:
-    idx = collections.defaultdict(list)
-    for p in RESULTS.rglob("*"):
-        idx[p.name].append(p)
-    return idx
-
-
-def resolve(cited: str, idx) -> tuple[str, list[Path]]:
-    if (RESULTS / cited).exists():
-        return "here", [RESULTS / cited]
-    found = idx.get(Path(cited.rstrip("/")).name, [])
+def resolve(cited: str, root: Path = RESULTS) -> tuple[str, list[Path]]:
+    """here, moved, several or missing, with where `bench/_lib/results.py` found it."""
+    found = find_results(cited, root)
+    if found == [root / cited]:
+        return "here", found
     if len(found) == 1:
         return "moved", found
     return ("several", found) if found else ("missing", [])
@@ -96,7 +92,6 @@ def main() -> int:
         print("no data/results/ on this machine; nothing to resolve")
         return 0
 
-    idx = name_index()
     by_state = collections.defaultdict(dict)   # state -> cited -> (files, found)
     for f in corpus():
         try:
@@ -104,7 +99,7 @@ def main() -> int:
         except (UnicodeDecodeError, OSError):
             continue
         for _, _, cited in citations(text):
-            state, found = resolve(cited, idx)
+            state, found = resolve(cited)
             files, _ = by_state[state].setdefault(cited, (set(), found))
             files.add(f)
 
@@ -113,7 +108,7 @@ def main() -> int:
         text = path.read_text(encoding="utf-8")
         out, last, n = [], 0, 0
         for start, end, cited in citations(text):
-            state, found = resolve(cited, idx)
+            state, found = resolve(cited)
             if state != "moved":
                 continue
             new = found[0].relative_to(RESULTS).as_posix() + ("/" if cited.endswith("/") else "")

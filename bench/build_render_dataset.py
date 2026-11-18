@@ -38,6 +38,7 @@ sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(REPO / "workflows"))
 from render_inventory import apply_patches, describe, graph_at, graph_prefixes, outputs  # noqa: E402
 from _paths import comfy_output  # noqa: E402
+from _lib.results import result_glob, result_path  # noqa: E402  (data/results/ and its archive folders)
 sys.path.insert(0, str(REPO / "workflows"))
 from prompts import identify as prompt_id_of, sha256 as prompt_sha  # noqa: E402
 
@@ -97,7 +98,7 @@ def family(d: dict) -> str:
 
 def renders(root: Path, substrate: dict) -> list[dict]:
     out = []
-    for f in sorted(RESULTS.glob(ROW_GLOB)):
+    for f in result_glob(ROW_GLOB, RESULTS):
         seen: dict = {}
         for line in f.read_text().splitlines():
             if not line.strip():
@@ -188,7 +189,7 @@ def measures(rows: list[dict]) -> list[dict]:
         elif record not in agg[key]["records"]:
             agg[key]["records"].append(record)
 
-    for f in sorted(RESULTS.glob(MEASURE_GLOB)):
+    for f in result_glob(MEASURE_GLOB, RESULTS):
         try:
             d = json.loads(f.read_text())
         except Exception:  # noqa: BLE001
@@ -280,7 +281,7 @@ def main() -> int:
     args = ap.parse_args()
     args.out.mkdir(parents=True, exist_ok=True)
     root = comfy_output()
-    sub = json.loads((RESULTS / "2026-09-27_followup_substrate.json").read_text())
+    sub = json.loads(result_path("2026-09-27_followup_substrate.json", RESULTS).read_text())
     substrate = {r["prompt_id"]: r for r in sub["session_rows"] if r.get("prompt_id")}
     rs = renders(root, substrate)
     ms = measures(rs)

@@ -32,6 +32,9 @@ from collections import Counter
 from math import comb
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _lib.results import result_glob  # noqa: E402  (data/results/ and its archive folders)
+
 import orjson
 
 REPO = Path(__file__).resolve().parent.parent
@@ -53,7 +56,7 @@ def main() -> int:
 
     per_file, total = [], Counter()
     decoys: dict[str, Counter] = {"two_seed_decoy": Counter(), "identical_decoy": Counter()}
-    for path in sorted((REPO / "data" / "results").glob("*verdict*.json")):
+    for path in result_glob("*verdict*.json"):
         data = orjson.loads(path.read_bytes())
         block = data.get("pairs") if isinstance(data, dict) else None
         pairs = block.get("by_pair") if isinstance(block, dict) else None

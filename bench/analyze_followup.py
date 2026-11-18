@@ -77,8 +77,9 @@ HERE = Path(__file__).resolve().parent
 REPO = HERE.parent
 sys.path.insert(0, str(HERE))
 from _paths import comfy_output  # noqa: E402
+from _lib.results import result_path  # noqa: E402  (data/results/ and its archive folders)
 
-ROWS = REPO / "data" / "results" / "2026-09-26_followup.jsonl"
+ROWS = result_path("2026-09-26_followup.jsonl")
 OUT = REPO / "data" / "results"
 PY = sys.executable
 #: from the manifest's analysis_notes: prompts that ask for brightness change

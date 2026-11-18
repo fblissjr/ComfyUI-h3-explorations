@@ -61,6 +61,9 @@ import json
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _lib.results import result_path  # noqa: E402  (data/results/ and its archive folders)
+
 HERE = Path(__file__).resolve().parent
 RESULTS = HERE.parent / "data" / "results"
 
@@ -319,8 +322,8 @@ def table(rec: dict) -> str:
 # ------------------------------------------------------------------ controls
 
 def controls() -> int:
-    verdict = RESULTS / "2026-09-04_ladder_2026-09-03_verdict.json"
-    outputs = RESULTS / "2026-09-03_ladder_outputs.json"
+    verdict = result_path("2026-09-04_ladder_2026-09-03_verdict.json", RESULTS)
+    outputs = result_path("2026-09-03_ladder_outputs.json", RESULTS)
     bad = 0
 
     def case(label, ok, detail=""):

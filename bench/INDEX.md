@@ -8,7 +8,7 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 175 |
+| [`check_*`](#check) | 176 |
 | [`measure_*`](#measure) | 39 |
 | [`analyze_*`](#analyze) | 18 |
 | [`grade_*`](#grade) | 19 |
@@ -53,6 +53,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_correctness.py`](check_correctness.py) | Check the patched MiniMax H3 forward against the stock one. |
 | [`check_covered_items.py`](check_covered_items.py) | What a kept cut answers (`bench/covered_items.py`), on a made list, made verdicts and a made table. |
 | [`check_crop_reference_to_head.py`](check_crop_reference_to_head.py) | `bench/crop_reference_to_head.py` against a reference video whose every frame says where its face is, read from the VIDEO IT WROTE. |
+| [`check_data_results_lookup.py`](check_data_results_lookup.py) | That `bench/_lib/results.py` finds archived run data where the archive move put it, and nowhere else. |
 | [`check_day_pieces.py`](check_day_pieces.py) | `bench/day_pieces.py` makes the folder of a day's standing pieces, each with the graph it was queued with; each case is a way the folder could hand over the wrong graph, hide a missing input, copy a video, or drop a piece. |
 | [`check_delivery_table.py`](check_delivery_table.py) | The generated delivery table (`bench/delivery_table.py`) on a small made-up ledger: each step of its rule, with the render that must NOT stand beside the one that does. |
 | [`check_denoise_mask_probe.py`](check_denoise_mask_probe.py) | `denoise_mask_probe.py` observes the mask and changes nothing. |
@@ -646,6 +647,7 @@ Arm manifests and the like; a manifest's line is its own `what`.
 | [`face_points_fixture.py`](_lib/face_points_fixture.py) | A face made of points whose every figure is known by construction, for the checks of the tools that read them. |
 | [`frames.py`](_lib/frames.py) | Frames and masks in and out of video files, by frame number, for the tools that read renders. |
 | [`pick_frames.py`](_lib/pick_frames.py) | Which frames of a span a reader looks at: every frame where something changes, the frames either side, and one a second. |
+| [`results.py`](_lib/results.py) | Find run data under `data/results/` after it has been archived. |
 | [`sam3_core.py`](_lib/sam3_core.py) | Shared ComfyUI SAM 3.1 helpers moved from `bench/sam3_parity_ladder.py` (2026-10-17, r17_05). |
 
 ### briefs

@@ -40,7 +40,15 @@ Older history lives elsewhere and is not copied here:
     all (owner): its figure and card-lane spans are gone. The base-against-Pika control-vector figures live only in
     the table of `bench/results/2026-11-05_control_vectors_pika_and_ref2va.md`; the JSON it cites was never saved
     here, so the research page now cites the record, and the record carries a dated note.
-  - **Still open:** code that reads old inputs by flat name, such as `bench/gen_figures.py`, broke with the move.
+  - **Tools read old inputs through one lookup (the owner's go):** `bench/_lib/results.py` (`result_path`,
+    `result_glob`) looks at the path as written, then the same path in each dated archive folder; never a bare name
+    elsewhere. Nine tools that read old inputs by flat name, broken by the move, now read through it:
+    `gen_figures`, `analyze_followup`, `analyze_quant_hotspots`, `build_render_dataset`, `frontier_table`,
+    `map_cube_schedule`, `rank_dense_blocks`, `recycle_captures` and `tally_judge_verdicts`. The resolver uses it too.
+    Writes still go to `data/results/`. Two of the nine now see more than they did since the move:
+    `tally_judge_verdicts` counts the archived verdicts again, and `recycle_captures` finds archived manifest copies and
+    inventories again, so captures they account for read as recyclable again (it deletes only on the owner's
+    `--delete`). Held by `bench/check_data_results_lookup.py`; the rule is in `bench/AGENTS.md`.
 
 - **No media inside the ComfyUI checkout: core's stock media folders locked, `bootstrap` moves them (`3eacf7b4`, the owner's word).**
   - **What changed:** the owner made `<comfy>/input`, `<comfy>/output`, `<comfy>/temp` and `<comfy>/previews` immutable

@@ -54,11 +54,14 @@ import json
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _lib.results import result_path  # noqa: E402  (data/results/ and its archive folders)
+
 REPO = Path(__file__).resolve().parent.parent
 RESULTS = REPO / "data" / "results"
 
-SOL = RESULTS / "2026-08-19_sol_error_per_head_tau1.0.json"
-SAGE = RESULTS / "2026-08-18_sage_accuracy_on_capture.json"
+SOL = result_path("2026-08-19_sol_error_per_head_tau1.0.json", RESULTS)
+SAGE = result_path("2026-08-18_sage_accuracy_on_capture.json", RESULTS)
 OUT = RESULTS / "2026-08-29_dense_block_ranking.json"
 
 # What the shipped configs keep dense, so the ranking can be read against them
