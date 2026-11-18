@@ -38,14 +38,14 @@ def _h3_rules():
 #: graph since 2026-08-27 (late) by owner decision. On the 13-row holdout it
 #: sits an order of magnitude closer to the BF16 release at layer 50 than
 #: either W4A16 AWQ artifact it replaced
-#: (`data/results/2026-08-25_four_encoders_holdout_layer50.json`).
+#: (`data/results/2026-08-18_to_2026-10-03/2026-08-25_four_encoders_holdout_layer50.json`).
 #:
 #: **Against the bf16 pruned file on shipped graphs** (the release truncated
 #: to the 50 layers H3 reads by `bench/convert_h3_bf16_encoder.py`): text
 #: tokens stay close, while image tokens carry a heavy tail that the int8
 #: DECODER adds -- the vision tower and embedding table are bf16 in both
 #: files -- for seconds of encode time per prompt
-#: (`data/results/2026-09-27_encoder_int8_vs_bf16_conditioning.json`).
+#: (`data/results/2026-08-18_to_2026-10-03/2026-09-27_encoder_int8_vs_bf16_conditioning.json`).
 #: Whether the DiT responds to that tail is
 #: `bench/measure_encoder_quant_dit.py`'s question.
 #:
@@ -111,7 +111,7 @@ MODELS = dict(
     # switch"), after the owner could not tell it from fp16 on a 345-frame
     # clip pair. Measured: its decoder is the only quantized half, and its
     # encoder encodes bit-identically to the fp16 file's
-    # (`data/results/2026-09-26_vae_encoder_int8_file.json`), so the switch
+    # (`data/results/2026-08-18_to_2026-10-03/2026-09-26_vae_encoder_int8_file.json`), so the switch
     # moves the decode only. That decode is faster, holds less VRAM, and adds
     # no flicker (`bench/results/2026-09-26_vae_decoders_345f.md`).
     #
@@ -761,7 +761,7 @@ SOL_RECOMMENDED_CUDA = dict(
     # (`sol_attn_h3.py::SOL_ROUTING_CHOICES`); `custom` carries its own list.
     # Comfy-Org/comfy-kitchen #156, released in 0.2.33, kept the same tree as
     # the head this repo graded, so the 2026-09-04 grade transferred without
-    # being redone (`data/results/2026-09-08_kitchen_0233_blk_cnt_rebase.json`).
+    # being redone (`data/results/2026-08-18_to_2026-10-03/2026-09-08_kitchen_0233_blk_cnt_rebase.json`).
     #
     # It ships off, and it is per block rather than global, because the grade
     # is per block and mixed: on the captured Base16 cells token routing
@@ -778,7 +778,7 @@ SOL_RECOMMENDED_CUDA = dict(
     #
     # If it is ever turned on, 64 is the budget: 64, 128 and 256 measured
     # indistinguishable in accuracy AND in isolated kernel time
-    # (`data/results/2026-09-04_sol_exact_random_1128df6_token_aug_timing.json`),
+    # (`data/results/2026-08-18_to_2026-10-03/2026-09-04_sol_exact_random_1128df6_token_aug_timing.json`),
     # so the wider budgets buy nothing while switching it on at all costs.
     token_routing="off",
 )
@@ -930,7 +930,7 @@ SOL_CUDA_DEFAULTS = dict(
 #   2026-08-17 reference-heavy pair at 362 frames 1024x768. Both were made for a
 #   different question. **This said no sage kernel had been graded against
 #   either and that there was no number to quote. Both were false when written:**
-#   `data/results/2026-08-18_sage_accuracy_on_capture.json` grades sage against
+#   `data/results/2026-08-18_to_2026-10-03/2026-08-18_sage_accuracy_on_capture.json` grades sage against
 #   the 2026-08-17 capture named here, with a float64 reference, produced by
 #   `bench/grade_sage_on_capture.py`. Read the number there rather than this
 #   comment.
@@ -964,7 +964,7 @@ SAGE_NODE = dict(mode="auto", patch_token_refiner=False, head_chunks=1)
 # `FLOOR_STEMS`). "comfy kitchen attention" is kitchen's `int8_attention`: it
 # rotates q and k before INT8, so no loud channel can own a shared scale, and
 # on the block-49 capture it is the most accurate INT8 attention this repo has
-# graded (data/results/2026-09-15_ck_int8_attention_block49.json, measured).
+# graded (data/results/2026-08-18_to_2026-10-03/2026-09-15_ck_int8_attention_block49.json, measured).
 # Wall time against the sage chain: one market render per arm, same prompt and
 # seed (bench/results/2026-09-15_block49_community_chain.md, measured once).
 # The node rather than `--use-ck-attention`: the flag is server-global and
@@ -984,14 +984,14 @@ DENSE_BACKEND_NODE = dict(attention="comfy kitchen attention")
 #:              balanced until then), which rotates q/k by a fixed Hadamard
 #:              matrix inside its own quantizer: the most accurate INT8 arm on
 #:              every captured H3 block for about one percent of the call
-#:              (data/results/2026-09-17_sage_qk_rotate_kernel.json), and the
+#:              (data/results/2026-08-18_to_2026-10-03/2026-09-17_sage_qk_rotate_kernel.json), and the
 #:              same matrix kitchen's dense kernel uses, so the two chains now
 #:              treat the loud channels the same way. Named explicitly rather
 #:              than as `auto`, so a graph and its records say what ran. No
 #:              MiniMaxH3ChannelBalance node and no balanced mode on top:
 #:              under rotation the balance factor finds nothing to do, and the
 #:              weights fold re-rounds q/k for nothing
-#:              (data/results/2026-09-17_channel_balance_vs_sage_balanced_b49_s15.json).
+#:              (data/results/2026-08-18_to_2026-10-03/2026-09-17_channel_balance_vs_sage_balanced_b49_s15.json).
 #:
 #: `DEFAULT_DENSE_CHAIN` is what the shipped tree is generated on. The other
 #: chain's set is one command, written OUTSIDE the shipped tree because every
@@ -1037,7 +1037,7 @@ DEFAULT_DENSE_CHAIN = "kitchen"
 # sampler. Keep the key order matching the node's declared inputs: the
 # owner's editor-saved graphs map widget values positionally.
 #
-# Measured 2026-08-18 (data/results/2026-08-18_cache_arms.jsonl, all-refs
+# Measured 2026-08-18 (data/results/2026-08-18_to_2026-10-03/2026-08-18_cache_arms.jsonl, all-refs
 # workload, 362f 1024x768, Sol on, 450 W stock): on er_sde at this 0.2
 # threshold the cache skips NOTHING (change rates 0.20-0.30, all just above
 # threshold) and costs nothing -- sampler 1489 s vs control 1491 s, output
@@ -1046,8 +1046,8 @@ DEFAULT_DENSE_CHAIN = "kitchen"
 # largest single-lever ratio measured on this box, stacked on Sol. The
 # er_sde null was the predicted sampler artifact. Quality of the 1.74x arm
 # vs its seed-matched control -- committed records, not prose:
-# data/results/2026-08-18_cache_rm_quality.json (res_multistep pair) and
-# data/results/2026-08-18_euler_quality.json (euler pair, the better
+# data/results/2026-08-18_to_2026-10-03/2026-08-18_cache_rm_quality.json (res_multistep pair) and
+# data/results/2026-08-18_to_2026-10-03/2026-08-18_euler_quality.json (euler pair, the better
 # behaved of the two) -- ranked by bench/quality_metrics.py, judged by
 # nobody yet. Whether to change the shipped sampler or threshold is an
 # owner decision gated on watching those pairs.
@@ -2317,7 +2317,7 @@ REF_VIDEO_CANVAS = dict(width=1024, height=768)
 # Matching them is the point: the untrimmed 19.56s source was cut
 # mid-delivery by a 15.083s render, the reference kept talking past the end,
 # and the last third of every render drifted --
-# `data/results/2026-08-22_swap_prompt_verdict_362.json` has the per-third
+# `data/results/2026-08-18_to_2026-10-03/2026-08-22_swap_prompt_verdict_362.json` has the per-third
 # numbers. A `LONG_LENGTH` render against this clip would fail the other way,
 # ending 0.7s after the reference runs out. Only the graphs wired to this clip
 # take it, because only they have a clip to match; it is no ceiling.
@@ -2329,7 +2329,7 @@ REF_VIDEO_LENGTH = int(round(REF_CLIP_SECONDS * FPS))
 # The VHS loader every generated reference-video graph uses: the ffmpeg one,
 # not the cv2 `VHS_LoadVideo`. Owner's choice (2026-09-23), for decode
 # accuracy. The two are not interchangeable, and each difference was measured
-# rather than assumed, in `data/results/2026-09-23_vhs_loader_comparison.json`
+# rather than assumed, in `data/results/2026-08-18_to_2026-10-03/2026-09-23_vhs_loader_comparison.json`
 # (`bench/compare_vhs_loaders.py` re-derives it). At `force_rate` 24 on a 25 or
 # 30 fps source they keep different frames: cv2's run late against the 24 fps
 # grid and ffmpeg's land on the nearest frame, so renders from before the

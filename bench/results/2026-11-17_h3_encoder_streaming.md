@@ -37,6 +37,10 @@ The card and machine:
 | `image/h3_image_edit_api.json` | 55.0 s, 30.9 s, 30.9 s | 60.5 s, 42.4 s, 44.4 s |
 | `h3_text_to_video_pika_api.json` | 86.2 s, 67.7 s, (stopped) | not run |
 
+*Correction 2026-11-18: the third `keep_in_ram`-off Pika run was not stopped.* The harness stopped recording it, but
+`journalctl -u comfyui.service` shows the server finishing it (pid 291927, "Prompt executed" at 14:00:33 Central on
+2026-11-17). `2026-11-18_pcie_x16_render_times.md` section 1 uses it.
+
 **Where the time went**, from the log on the warm-up runs. These are the only runs that log every load:
 
 | text to image | encoder | sampling (DiT load included) | decode and shrink |

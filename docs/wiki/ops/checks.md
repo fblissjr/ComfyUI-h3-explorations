@@ -240,7 +240,7 @@ Full per-check history, 2026-08-23 amendments, and `"claims block"` notes are sh
 | `check_prompt_rule_controls.py` | controls for the prompt grader's... ([detail](checks/index_13.md)) | no CUDA | no |
 | `check_generator_constants.py` | the workflow generator reads... ([detail](checks/index_13.md)) | PYTHONPATH... | no |
 | `run_marker_stock_tail.py` | not a check ([detail](checks/index_13.md)) | a live server... | no |
-| `grade_vae_encoder_precision.py` | not a gate ([detail](checks/index_13.md)) | no CUDA | no |
+| `grade_vae_encoder_precision.py` | not a gate ([detail](checks/index_13.md)) | the card for `--fp16-accumulation` | no |
 | `check_conditioning_behaviour.py` | that MiniMaxH3Conditioning still... ([detail](checks/index_13.md)) | - | no |
 | `check_reference_contracts.py` | the load-bearing contracts in... ([detail](checks/index_13.md)) | - | no |
 | ~~`check_mono_ref_audio.py`~~ | RETIRED 2026-08-29. ([detail](checks/index_13.md)) | audio VAE on CPU | no |

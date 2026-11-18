@@ -245,7 +245,9 @@ everything below is in it from `0.2.35+sol.863e953.up.c8c7825`.*
   decoder has none. So after that rebase, reference and keyframe encodes on
   those stages move to fp16 accumulation. The PR body reports the fidelity
   cost for SeedVR2's decoder. Nothing here has measured it for H3. The
-  rebuild record for that tag should say so.
+  rebuild record for that tag should say so. *2026-11-18: measured for H3 on a
+  real clip with the switch on, in
+  `bench/results/2026-11-18_vae_fp16_accumulation.md`.*
 - `f61028a` makes kitchen's `is_available` functions return False on a CPU
   device, a semantics change to carry through the next rebase. #186 adds head
   dim 256 to the Flash kernel, which is not H3's. #191 and #193 add W6A8 (no

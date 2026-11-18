@@ -2505,6 +2505,15 @@ accumulation. It reopens if core encodes H3 untiled or with much larger
 tiles. *Since 2026-09-28 `start.sh` passes no `--fast`, so the kernel's fp16
 path is not reached here at any tile size; a reopening also needs the flag.*
 
+*Correction 2026-11-18: "no change" holds for one frame, not for a clip.* With
+the switch on, a real clip's encode runs faster and lands further from the fp32
+encode than plain fp16 does (`bench/results/2026-11-18_vae_fp16_accumulation.md`).
+The arm above encoded one random frame, and a one-frame input sends every
+temporally padded conv down core's plain path (`comfy/ldm/minimax/vae.py`,
+`CausalConv3d.forward`), so it could not see this. The tile explanation was
+not re-tested. `bench/grade_vae_encoder_precision.py` now encodes a clip by
+default. Still moot at the default launch, which passes no `--fast`.
+
 
 ## 34. PDD8 finished by late-block FlashGen
 

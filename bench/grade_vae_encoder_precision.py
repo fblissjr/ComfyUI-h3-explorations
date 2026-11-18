@@ -2,7 +2,9 @@
 """What does promoting the H3 video VAE's encoder to fp32 actually change?
 
 Run it with the ComfyUI venv python (`docs/wiki/ops/comfy_notes.md`). Loads the real
-video VAE; CPU is fine and no server is needed.
+video VAE; no server is needed. It runs on the card when there is one. On the CPU,
+`--frames 1 --size 128x128` (the 2026-08-21 input) is known to work; the clip default
+has not been tried there.
 
 **Why this exists rather than a pair of clips.** Encoder precision is a
 numerical knob, and `CLAUDE.md` records that a rendered clip cannot A/B one:
@@ -29,10 +31,25 @@ Three arms, and the two that are not the measurement are what make it readable:
                 If it is not, this script is not measuring precision -- it is
                 measuring cast noise, and the ordering would be arbitrary.
 
+**A clip, not a frame (2026-11-18).** Until that date the input was one random
+frame, and open experiment #33 closed "no change" for `--fp16-accumulation` on
+it. A real 141-frame clip showed the switch moving the encode
+(`bench/results/2026-11-18_vae_fp16_accumulation.md`): `CausalConv3d.forward` in
+core's `comfy/ldm/minimax/vae.py` sends a one-frame input through its plain path
+in every temporally padded conv, so kitchen's kernel never ran there. The default
+is now FRAMES frames at SIZE, random unless `--clip` names a video, whose first
+frames are scaled to the size. Random pixels are not picture content; pass
+`--clip` when the size of a delta matters, not only whether there is one.
+
 Exit 0 when both controls hold, 1 when either does not, whatever the deltas
 said.
 
-    <comfy-venv>/bin/python bench/grade_vae_encoder_precision.py
+    <comfy-venv>/bin/python bench/grade_vae_encoder_precision.py --out data/results/<date>_vae_encoder_precision.json
+    <comfy-venv>/bin/python bench/grade_vae_encoder_precision.py --fp16-accumulation \
+        --clip <video> --out data/results/<date>_vae_encoder_fp16acc.json
+
+`--out` may be left off only for the 2026-08-21 input (`--frames 1 --size
+128x128`, no `--clip`), which rewrites that record's data file.
 """
 
 from __future__ import annotations
@@ -45,10 +62,16 @@ _REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(_REPO.parents[1]))         # ComfyUI root, first
 sys.path.insert(1, str(_REPO))
 
-# One fixed pixel block, so every arm encodes the same bytes. Small: this is a
-# precision measurement, not a throughput one.
+# One fixed pixel block, so every arm encodes the same bytes.
 SEED = 0
-SIZE = (128, 128)
+# 672x384 is #33's size (bench/results/2026-09-27_vae_encoder_fp16acc.md): big
+# enough for kitchen's launch rules to matter, small enough that every arm fits
+# on the card in one process. 22 = 17 + 5, the shortest length that holds a whole
+# 17-frame causal clip after the leading one (h3_rules.py::snap_length).
+SIZE = (672, 384)
+FRAMES = 22
+# The 2026-08-21 record's input, the only one allowed to write its data file.
+INPUT_2026_08_21 = {"size": (128, 128), "frames": 1, "clip": None}
 
 
 def _dtype(module):
@@ -75,20 +98,33 @@ def _encode(vae_name: str, encoder: str | None, pixels):
     from vae_precision import MiniMaxH3VAEPrecision
     vae, _ = _fresh_vae(vae_name)
     if vae is None:
-        return None, None
+        return None, None, None
     if encoder is not None:
         out = MiniMaxH3VAEPrecision.execute(vae, encoder=encoder,
                                             decoder="unchanged")
         vae = out[0] if isinstance(out, (tuple, list)) else out.result[0]
     enc_dtype = _dtype(vae.first_stage_model.encoder)
-    lat = vae.encode(pixels).detach().cpu()
-    # Each arm loads its own VAE; free it before the next, or a full-size
-    # keyframe (#33 reads 1344x768) runs the card out of memory by arm three.
+    import torch
+    cuda = torch.cuda.is_available()
+    if cuda:
+        torch.cuda.reset_peak_memory_stats()
+    # Under inference mode, as the server runs every node. Without it autograd
+    # kept every activation of the encode: 22 frames at 672x384 ran the card out
+    # of memory on 2026-11-18, and so did one frame at 1344x768.
+    with torch.inference_mode():
+        lat = vae.encode(pixels).detach().cpu()
+    peak = torch.cuda.max_memory_allocated() / 2**20 if cuda else None
+    # Each arm loads its own VAE; free it before the next, `out` included (it
+    # holds the cast copy), so a later arm starts from an empty card.
     import comfy.model_management as mm
     del vae
+    if encoder is not None:
+        del out
     mm.unload_all_models()
     mm.soft_empty_cache()
-    return lat, enc_dtype
+    mem = {"peak_mib": round(peak) if peak is not None else None,
+           "left_after_free_mib": round(torch.cuda.memory_allocated() / 2**20) if cuda else None}
+    return lat, enc_dtype, mem
 
 
 def _delta(a, b):
@@ -98,6 +134,23 @@ def _delta(a, b):
     return {"max": float(d.max()), "mean": float(d.mean()),
             "relative_mean": float(d.mean() / ref) if ref > 0 else None,
             "bit_identical": bool(__import__("torch").equal(a.float(), b.float()))}
+
+
+def _clip_frames(path: Path, frames: int, size: tuple[int, int]):
+    """The first `frames` frames of a video, scaled to `size`, as [F, H, W, 3] in 0..1."""
+    import subprocess
+    import numpy as np
+    import torch
+    w, h = size
+    raw = subprocess.run(
+        ["ffmpeg", "-v", "error", "-i", str(path), "-frames:v", str(frames),
+         "-vf", f"scale={w}:{h}", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"],
+        capture_output=True, check=True).stdout
+    got = len(raw) // (w * h * 3)
+    if got < frames:
+        raise SystemExit(f"{path.name} gave {got} frames; --frames asks for {frames}")
+    arr = np.frombuffer(raw, np.uint8).reshape(frames, h, w, 3)
+    return torch.from_numpy(arr.copy()).float() / 255.0
 
 
 def _kitchen_version():
@@ -121,15 +174,27 @@ def main() -> int:
     # kitchen's fp16_conv3d only runs on CUDA with the switch on, so this arm
     # needs the card; comparing it across kitchen builds is the experiment.
     ap.add_argument("--size", default=None, metavar="WxH",
-                    help="input size; default SIZE. #33 reads 1344x768, a real keyframe, "
-                         "since a tiny input may never reach the kitchen kernel's launch rules")
+                    help="input size; default SIZE, #33's 672x384 "
+                         "(bench/results/2026-09-27_vae_encoder_fp16acc.md). A tiny input may never "
+                         "reach the kitchen kernel's launch rules")
+    ap.add_argument("--frames", type=int, default=FRAMES,
+                    help="frames to encode: 1, or a 17n+5 length (default FRAMES). One frame skips "
+                         "kitchen's kernel in every temporally padded conv")
+    ap.add_argument("--clip", type=Path, default=None,
+                    help="a video whose first --frames frames, scaled to --size, are the input; "
+                         "random pixels when left off")
     ap.add_argument("--fp16-accumulation", action="store_true",
                     help="add the fp16-accumulate encode as an arm (#33); needs CUDA")
     ap.add_argument("--out", type=Path,
                     help="record path; required with --against so the 2026-08-21 record is not overwritten")
     args = ap.parse_args()
-    if (args.against or args.fp16_accumulation) and args.out is None:
-        ap.error("--against and --fp16-accumulation need --out")
+    size = tuple(int(v) for v in args.size.split("x")) if args.size else SIZE
+    if args.frames != 1 and (args.frames < 5 or (args.frames - 5) % 17):
+        ap.error(f"--frames {args.frames}: the video VAE takes 1 or 17n+5 (h3_rules.py::snap_length)")
+    is_0821 = {"size": size, "frames": args.frames, "clip": args.clip} == INPUT_2026_08_21
+    if args.out is None and not (is_0821 and not args.against and not args.fp16_accumulation):
+        ap.error("--out is needed unless this is the 2026-08-21 input (--frames 1 --size 128x128, "
+                 "no --clip, --against or --fp16-accumulation), so that record's data is not overwritten")
     try:
         import torch
         import comfy.sd  # noqa: F401
@@ -143,21 +208,26 @@ def main() -> int:
     import h3_config
     vae_name = h3_config.MODELS["video_vae"]
 
-    size = tuple(int(v) for v in args.size.split("x")) if args.size else SIZE
-    torch.manual_seed(SEED)
-    pixels = torch.rand(1, size[1], size[0], 3)
+    if args.clip is not None:
+        pixels = _clip_frames(args.clip, args.frames, size)
+    else:
+        torch.manual_seed(SEED)
+        pixels = torch.rand(args.frames, size[1], size[0], 3)
 
-    base, base_dtype = _encode(vae_name, None, pixels)
+    base, base_dtype, base_mem = _encode(vae_name, None, pixels)
     if base is None:
         print(f"{vae_name} is not on disk; nothing to grade")
         return 2
     print(f"video VAE: {vae_name}")
+    print(f"input: {args.frames} frame(s) at {size[0]}x{size[1]}, "
+          f"{args.clip.name if args.clip else 'random pixels, seed ' + str(SEED)}")
     print(f"baseline encoder dtype: {base_dtype}   latent {tuple(base.shape)}\n")
 
-    rows = {}
+    rows, lats = {}, {}
     for label, enc in (("determinism", None), ("fp32", "fp32"), ("bf16", "bf16")):
-        lat, dt = _encode(vae_name, enc, pixels)
-        rows[label] = {"encoder_dtype": str(dt), **_delta(base, lat)}
+        lat, dt, mem = _encode(vae_name, enc, pixels)
+        lats[label] = lat
+        rows[label] = {"encoder_dtype": str(dt), **_delta(base, lat), "memory": mem}
         r = rows[label]
         rel = "n/a" if r["relative_mean"] is None else f"{r['relative_mean']:.2e}"
         print(f"  {label:<12} encoder {str(dt):<15} max {r['max']:.6f}  "
@@ -170,11 +240,11 @@ def main() -> int:
             return 2
         torch.backends.cuda.matmul.allow_fp16_accumulation = True
         try:
-            lat, dt = _encode(vae_name, None, pixels)
+            lat, dt, mem = _encode(vae_name, None, pixels)
         finally:
             torch.backends.cuda.matmul.allow_fp16_accumulation = False
-        rows["fp16_accumulation"] = r = {"encoder_dtype": str(dt), **_delta(base, lat)}
-        fp32_lat, _ = _encode(vae_name, "fp32", pixels)
+        rows["fp16_accumulation"] = r = {"encoder_dtype": str(dt), **_delta(base, lat), "memory": mem}
+        fp32_lat = lats["fp32"]  # the fp32 arm above; same input, switch off
         r["from_fp32"] = _delta(fp32_lat, lat)
         r["baseline_from_fp32"] = _delta(fp32_lat, base)
         print(f"  fp16_accumulation  encoder {str(dt):<15} max {r['max']:.6f}  mean {r['mean']:.8f}  "
@@ -183,7 +253,7 @@ def main() -> int:
               f"{r['baseline_from_fp32']['mean']:.8f}")
 
     for other in args.against:
-        lat, dt = _encode(other, None, pixels)
+        lat, dt, _ = _encode(other, None, pixels)
         if lat is None:
             print(f"{other} is not on disk")
             return 2
@@ -203,7 +273,11 @@ def main() -> int:
 
     record = {
         "question": "does promoting the H3 video VAE encoder change the latent?",
-        "vae": vae_name, "input": {"seed": SEED, "size": list(size)},
+        "vae": vae_name,
+        "input": {"frames": args.frames, "size": list(size),
+                  "clip": args.clip.name if args.clip else None,
+                  "seed": None if args.clip else SEED},
+        "baseline_memory": base_mem,
         "device": str(__import__("comfy.model_management").model_management.get_torch_device()),
         "comfy_kitchen": _kitchen_version(),
         "baseline_encoder_dtype": str(base_dtype),
@@ -215,7 +289,10 @@ def main() -> int:
     }
     out = args.out or _REPO / "data" / "results" / "2026-08-21_vae_encoder_precision.json"
     out.write_text(json.dumps(record, indent=2) + "\n")
-    print(f"\nwrote {out.resolve().relative_to(_REPO)}")
+    shown = out.resolve()
+    if shown.is_relative_to(_REPO):
+        shown = shown.relative_to(_REPO)
+    print(f"\nwrote {shown}")
     return 0 if (det_ok and order_ok) else 1
 
 

@@ -1088,7 +1088,7 @@ def sol_routing_blocks(choice, blocks_spec, count, *, qk_balance):
 
     `all blocks` needs the balance factor on: on the block-49 capture token
     routing raised the error plain and rotated, and lowered it only with the
-    balance on (`data/results/2026-09-15_sol_token_aug_x_options_b49_s15.json`,
+    balance on (`bench/results/2026-09-15_sol_token_aug_x_options_b49_s15.json`,
     `fixed_wheel` rows). Those balanced rows were measured on a kernel whose
     token stage scored an unbalanced centroid against balanced keys (fixed on
     h3-frontier, 2026-09-27); the re-grade on the fixed kernel is test 3 of the

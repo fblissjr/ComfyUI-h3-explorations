@@ -17,6 +17,28 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-11-18
 
+- **Corrected: `--fast fp16_accumulation` does move the H3 video VAE's encode, on a clip (open experiment #33; the owner's go).**
+  - **What changed:** #33 closed 2026-09-27 as "no change", read from one random frame in
+    `bench/grade_vae_encoder_precision.py`. On a real clip the switch makes the encode faster and moves it further
+    from fp32 (`bench/results/2026-11-18_vae_fp16_accumulation.md`, from `01a7eb5b`). One frame skips kitchen's kernel
+    in every temporally padded conv, so the grader could not see it.
+  - **The grader:** now encodes 22 frames by default (`--frames`, `--clip` for real ones) and runs under inference
+    mode, which ended its out-of-memory at 1344x768: in grad mode autograd kept every activation. A one-frame rerun
+    matches #33's figures to every printed digit (the record's section 3b).
+  - **Unchanged:** `start.sh` passes no `--fast` in any mode, so the default launch never reaches the kernel.
+  - **Where it lives:** dated notes in [`ops/open_experiments.md`](ops/open_experiments.md) #33 and
+    [`attention/sol_upstream.md`](attention/sol_upstream.md); `ops/checks/index_13.md` for the grader.
+- **Corrected: `2026-11-17_h3_encoder_streaming.md` listed its third Pika run as stopped.** The service journal shows
+  the server finishing it; dated note in place.
+- **`data/results` citations: a resolver, and the living pointers repointed (the owner's go).** Most `data/results/...`
+  paths cited in tracked files point where nothing is, since older run data moved into dated folders.
+  `bench/resolve_data_citations.py` finds each by name and lists the ones it cannot find; it reports and never fails,
+  as `bench/check_doc_links.py` treats `data/`. Repointed: `workflows/h3_config.py` (comments only),
+  `docs/wiki/stages.md` and `bench/measure_encoder_quant_dit.py` to the dated folders; `lora_branch.py` and
+  `sol_attn_h3.py` to `bench/results/`, where those two files have always been. Dated records stay as written.
+  - **Still open, not fixed:** two citations name files on no path here (the resolver lists them), and code that
+    reads old inputs by flat name, such as `bench/gen_figures.py`, broke with the move.
+
 - **No media inside the ComfyUI checkout: core's stock media folders locked, `bootstrap` moves them (`3eacf7b4`, the owner's word).**
   - **What changed:** the owner made `<comfy>/input`, `<comfy>/output`, `<comfy>/temp` and `<comfy>/previews` immutable
     (`chattr +i`). `bench/_lib/__init__.py::bootstrap` now ends with `_media_off_checkout`, which points core's temp, output

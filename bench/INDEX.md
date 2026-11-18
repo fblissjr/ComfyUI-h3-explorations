@@ -15,7 +15,7 @@ this file is only a way to find a script by what it says it does.
 | [`compare_*`](#compare) | 15 |
 | [`build_*`](#build) | 13 |
 | [`probe_*`](#probe) | 18 |
-| [the rest](#the-rest) | 202 |
+| [the rest](#the-rest) | 203 |
 
 ## check
 
@@ -487,6 +487,7 @@ this file is only a way to find a script by what it says it does.
 | [`renders_page.py`](renders_page.py) | One plain page, a row a render of a video in frame order, with the owner's verdict lines under each: what was rendered, from what, and what the owner said of it. |
 | [`replay_cranium_references.py`](replay_cranium_references.py) | 3-way replay of all `--crop cranium` head references (`pre-filter` vs `landed b7875bf1` vs `current cranium_box`). |
 | [`repro_token_aug_nondeterminism.py`](repro_token_aug_nondeterminism.py) | Standalone repro: comfy_kitchen `sol_attn` is not deterministic with `token_aug`. |
+| [`resolve_data_citations.py`](resolve_data_citations.py) | Where each `data/results/...` path cited in the repo's text actually is on this machine. |
 | [`restart_comfy.sh`](restart_comfy.sh) | DISABLED 2026-09-02, owner's call: this script hangs on every run and is |
 | [`review_pages.py`](review_pages.py) | The owner's two local pages in the video's folder on the share (`Video/<video>/`, one copy each), made from the delivery table and the ledger: what is to review now (`to-review`), and what every stretch of the video is made of and from ... |
 | [`run_capture.py`](run_capture.py) | Submit and track the production reference capture workflow. |

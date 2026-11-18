@@ -100,7 +100,29 @@ int8 file. Data: `data/results/2026-11-18_vae_encoder_fp16acc_672.json`.
   the convs without temporal padding reach the kernel. A clip's 3x3x3 convs all do.
 - **The tool's own claim is stale.** Its `--size` help says #33 read 1344x768, but the #33 records are 672x384. At
   1344x768 the process held 22.6 GiB before the fp32 arm failed, while the clip script's fresh-process fp32 encode
-  of 141 such frames peaked at 13.4 GiB. So the tool's arms likely accumulate memory in one process; not traced.
+  of 141 such frames peaked at 13.4 GiB. So the tool's arms likely accumulate memory in one process; not traced. *Traced the same day: it was autograd, not the arms (section 3b).*
+
+## 3b. The grader after its fix (same day)
+
+`bench/grade_vae_encoder_precision.py` now encodes under `torch.inference_mode()`, as the server runs every node,
+and takes `--frames` (default 22) and `--clip`. The 1344x768 failure above was autograd: the tool called
+`vae.encode` in grad mode, which kept every activation. Under inference mode every arm fits; the records hold each
+arm's peak (`memory`). The one-frame control at 672x384 reproduces the section 3 figures to every printed digit, so
+the fix moved memory, not numbers.
+
+The clip rows take the first 22 frames of the `pika_r1` MP4 (Method), scaled to the size. Mean absolute difference
+from the fp32 encode of the same input:
+
+| input | fp16-accumulate | plain fp16 | data |
+|---|---|---|---|
+| one random frame, 672x384 | 0.00073421 | 0.00072339 | `2026-11-18_vae_encoder_fp16acc_1f_672x384_inference_mode.json` |
+| 22 random frames, 672x384 (the new default) | 0.00196970 | 0.00062961 | `2026-11-18_vae_encoder_fp16acc_rand22_672x384.json` |
+| 22 clip frames, 672x384 | 0.00171269 | 0.00106352 | `2026-11-18_vae_encoder_fp16acc_clip22_672x384.json` |
+| 22 clip frames, 1344x768 | 0.00217210 | 0.00161726 | `2026-11-18_vae_encoder_fp16acc_clip22_1344x768.json` |
+| 141 clip frames, 1344x768 (Method's table) | 0.002559 | 0.001952 | `2026-11-18_vae_fp16acc_ab.json` |
+
+All under `data/results/`. Both controls held in every run. Random pixels widen the gap well past what picture
+content shows; `--clip` is the input to read a size from.
 
 ## 4. What this cannot see
 

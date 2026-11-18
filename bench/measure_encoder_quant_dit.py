@@ -6,7 +6,7 @@
 The int8_convrot encoder's conditioning is close to bf16 on text tokens and
 carries a heavy tail on image tokens, including a patch int8 inflates well past
 its bf16 norm; the conditioning-level record is
-`data/results/2026-09-27_encoder_int8_vs_bf16_conditioning.json`. Whether the
+`data/results/2026-08-18_to_2026-10-03/2026-09-27_encoder_int8_vs_bf16_conditioning.json`. Whether the
 DiT responds to that tail is the part a conditioning comparison cannot say,
 and a rendered clip cannot A/B it either (`CLAUDE.md`: the trajectory diverges
 at frame zero). So this compares the DiT's denoised prediction at identical
