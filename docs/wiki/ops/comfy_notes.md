@@ -1,6 +1,6 @@
 # Notes on building custom nodes and workflows inside ComfyUI
 
-Last updated: 2026-11-14 (this machine's values in the gitignored `h3.env`); 2026-10-28.
+Last updated: 2026-11-18 (core's stock media folders locked; `bootstrap` moves them); 2026-11-14 (this machine's values in the gitignored `h3.env`); 2026-10-28.
 
 ## Running things
 
@@ -56,7 +56,7 @@ Four things break a bare `import comfy` or `import nodes` when running a script 
 3. **`comfy.cli_args.args.cpu = True` before `comfy.model_management` when `CUDA_VISIBLE_DEVICES=` masks the GPU**: Importing almost anything under `comfy` or `comfy_extras` imports `comfy.model_management`, which selects a torch device **at import time** and raises `RuntimeError: No CUDA GPUs are available` when `CUDA_VISIBLE_DEVICES=` hides the card.
 4. **Dynamic VRAM (`bench/_lib/__init__.py::server_memory_mode`) for in-process GPU node calls**: Scripts that execute ComfyUI core GPU nodes in-process (such as SAM 3D Body's DINOv3 path, which loads fp16 weights and relies on `ModelPatcherDynamic` to cast weights at use) must call `server_memory_mode()` after `bootstrap(cpu=False)` and before importing `comfy.model_management`.
 
-`bench/_lib/__init__.py::bootstrap` handles items 2 and 3 in one call before the first `import comfy...`:
+`bench/_lib/__init__.py::bootstrap` handles items 2 and 3 in one call before the first `import comfy...`, and moves core's temp, output and previews folders out of the checkout for the process (next section):
 
     # Inside any bench/ script or check (where bench/ is already sys.path[0]):
     from _lib import bootstrap
@@ -64,6 +64,33 @@ Four things break a bare `import comfy` or `import nodes` when running a script 
 
     # In a one-off command from the repo root with the card masked:
     CUDA_VISIBLE_DEVICES= "$PY" -c 'import sys; sys.path.insert(0, "bench"); from _lib import bootstrap; bootstrap(cpu=True); import comfy.model_management'
+
+### Core's stock media folders are locked
+
+The owner's word, 2026-11-18: no media inside the ComfyUI checkout.
+
+**Where stray media came from.** Core's `folder_paths` defaults its media folders to `<comfy>/input`, `<comfy>/output`, `<comfy>/temp` and `<comfy>/previews` (the `os.path.join(base_path, ...)` lines in `<comfy>/folder_paths.py`). Only `main.py` moves them, from `--input-directory`, `--output-directory` and `--temp-directory`. The live server passes all three (`<comfy>/start.sh`), so it never writes there. Every other process that imports core keeps the defaults. That is how test pictures named like studio uploads (`upload_<hex>.png`, the name `app/server.py`'s `/api/upload` gives) turned up in `<comfy>/temp/h3_image_app/`: `app/test_app.py` puts `--temp-directory` into `sys.argv`, which nothing but `main.py` reads, then writes its fixtures to `folder_paths.get_temp_directory()`. Real phone uploads go to the server's temp folder, never to the stock one.
+
+**The lock.** On this machine the four folders are immutable (`sudo chattr +i`, set by the owner 2026-11-18). `lsattr -d <comfy>/input <comfy>/output <comfy>/temp <comfy>/previews` shows an `i` on each.
+
+- A write into any of them fails with `Operation not permitted` and the path. That error means a process is saving with core's defaults: give that process its own folder. Do not unlock to get past it.
+- `chattr`, not `chmod`: a ComfyUI started without `--temp-directory` deletes its temp folder at start (`<comfy>/app/assets/lifecycle.py::cleanup_temp_filesystem`) and makes it again (`main.py`, `os.makedirs(folder_paths.get_temp_directory(), exist_ok=True)`). A permission bit does not survive that; an immutable folder cannot be deleted.
+- The lock holds the folder itself, not a subfolder inside it, so the folders were emptied of subfolders before locking. Keep them that way.
+- ComfyUI's git tracks `input/example.png` and `output/_output_images_will_be_put_here`. An update that changes either stops on the lock (see "After a ComfyUI update").
+- The lock covers core's folders only. The pack's own `data/` is kept free of media by rule (`docs/wiki/working_with_the_owner.md`, "No media in `data/` at all"), not by a lock.
+
+**What the pack does.** `bench/_lib/__init__.py::bootstrap` ends with `_media_off_checkout`: each of temp, output and previews still pointing inside the checkout moves to one scratch folder under the system temp, removed when the process exits. A tool that keeps what it saves sets its own folder after `bootstrap()` (`bench/_paths.py` names the server's). The input folder stays stock: pointing it at the server's would let a check write onto the share, and a write to the stock one fails at the lock.
+
+A script that imports core without `bootstrap()` keeps core's defaults, and a save from it fails at the lock. To list them:
+
+    for f in $(grep -rl 'import folder_paths' --include=*.py bench); do grep -q 'bootstrap(' "$f" || echo "$f"; done
+
+When one of them is next touched, move it to `bootstrap()` or have it set its own folders.
+
+**Open in `app/`** (the studio's own repository; this pack reads it and does not edit it):
+
+- `app/test_app.py` needs `folder_paths.set_temp_directory(_TEST_TEMP_DIR)` after its `import folder_paths`. Until then its tier 1 stops at the lock where it makes `temp/h3_image_app` (`app/test_app.py:205`).
+- `app/server.py::_forget_comfy`, the cleanup it falls back to when ComfyUI lacks `/h3_image/forget`, deletes from the studio process's own `folder_paths.get_temp_directory()`. That is the stock folder, not the server's, so the fallback never cleans real uploads.
 
 ### Build worktrees (`<comfy>/h3_worktrees/<branch>`)
 
@@ -137,6 +164,11 @@ correct under every version; at the next planned rebuild, update the venv's
 nanobind to the latest. Before restarting, run
 `bash vendor/rebuild_kernel.sh --check`, `bench/check_sol_kernel.py`, and
 `bench/check_solattn_correctness.py`.
+
+Core's stock media folders are immutable ("Core's stock media folders are locked"). If an
+update stops on `input/example.png` or `output/_output_images_will_be_put_here`, run
+`sudo chattr -i` on that folder, finish the update, empty it of any new subfolder, and run
+`sudo chattr +i` again.
 
 `setsid` puts the server in its own session, and the same prefix belongs on
 every long runner (`bench/run_graph_arms.py`) launched from an agent's

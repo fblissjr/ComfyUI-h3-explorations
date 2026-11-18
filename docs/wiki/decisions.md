@@ -15,6 +15,19 @@ Older history lives elsewhere and is not copied here:
   decisions" and forward-plan sections.
 - `bench/results/`: the verdict records, each with its conditions.
 
+## 2026-11-18
+
+- **No media inside the ComfyUI checkout: core's stock media folders locked, `bootstrap` moves them (`3eacf7b4`, the owner's word).**
+  - **What changed:** the owner made `<comfy>/input`, `<comfy>/output`, `<comfy>/temp` and `<comfy>/previews` immutable
+    (`chattr +i`). `bench/_lib/__init__.py::bootstrap` now ends with `_media_off_checkout`, which points core's temp, output
+    and previews folders at a per-process scratch folder under the system temp, removed at exit.
+  - **Before:** any process that imported core without `main.py` saved into those folders. `app/test_app.py` left
+    `upload_<hex>.png` fixtures in `<comfy>/temp/h3_image_app/` that looked like phone uploads. Its `--temp-directory` in
+    `sys.argv` never reached `folder_paths`; only `main.py` reads that flag.
+  - **Open in `app/`** (the studio session's repo): the `app/test_app.py` temp folder, and the `app/server.py::_forget_comfy`
+    fallback, which cleans the stock temp folder instead of the server's.
+  - **Where it lives:** [`ops/comfy_notes.md`](ops/comfy_notes.md), "Core's stock media folders are locked".
+
 ## 2026-11-17
 
 - **Sol routes video-reference rows on every shipped graph (`0e43de1d`, the owner's word).**
