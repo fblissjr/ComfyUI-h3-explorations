@@ -313,6 +313,7 @@ async function handleFinishedTakeById(pid) {
     wsClient?.clearPreviewMedia();
     clearActiveRender();
     const im = take.still_image;
+    const stampLabel = String(take.params?.prompt || $("#stamp-prompt-input")?.value || "").trim();
     if (im) {
       try {
         const cut = await apiJson("/api/stamp_cutout", {
@@ -321,10 +322,21 @@ async function handleFinishedTakeById(pid) {
           body: JSON.stringify({ image_output: im }),
         });
         const url = cut.view_url || videoItemViewUrl(cut);
-        if (url) await loadCutoutUrl(url, cut.cutout_ref || cut.ref || "");
+        if (url) {
+          await loadCutoutUrl(url, cut.cutout_ref || cut.ref || "", {
+            keepMaskRef: Boolean(cut.cutout_mask_ref),
+            maskRef: cut.cutout_mask_ref || "",
+            fromSceneLift: false,
+            label: stampLabel,
+            bbox: cut.bbox || null,
+          });
+        }
         showToast("Cutout actor ready (Click Set Path or drag)", "ok");
       } catch {
-        await loadCutoutUrl(videoItemViewUrl(im), videoItemRef(im));
+        await loadCutoutUrl(videoItemViewUrl(im), videoItemRef(im), {
+          fromSceneLift: false,
+          label: stampLabel,
+        });
       }
     }
     return true;
@@ -1161,7 +1173,7 @@ function syncContextualCard() {
   if (actorHint) {
     let hintText = "";
     let warn = false;
-    if (state.spriteCutout?.ref && state.spriteMaskRef) {
+    if (state.spriteCutout?.ref && state.spriteCutout?.fromSceneLift) {
       hintText = "Frame-0 lift copies background behind actor — use + Stamp for a clean-plate actor.";
       warn = true;
     } else if (state.spriteCutout?.ref) {
@@ -1561,7 +1573,12 @@ async function applyImportedRecipe(recipeDoc) {
     } catch {}
   }
   if (urls.sprite_ref && st.sprite_ref) {
-    await loadCutoutUrl(urls.sprite_ref, st.sprite_ref);
+    await loadCutoutUrl(urls.sprite_ref, st.sprite_ref, {
+      keepMaskRef: Boolean(st.sprite_mask_ref),
+      maskRef: st.sprite_mask_ref || "",
+      fromSceneLift: String(st.sprite_ref).includes("seg_cutout_"),
+      label: st.sprite_label || "",
+    });
   } else if (!st.sprite_ref) {
     state.spriteCutout = null;
     state.spriteMode = false;
@@ -1828,7 +1845,13 @@ async function generateOrExtractStamp() {
     }
     const url = data.view_url || videoItemViewUrl(data);
     if (url) {
-      await loadCutoutUrl(url, data.cutout_ref || data.ref || "");
+      await loadCutoutUrl(url, data.cutout_ref || data.ref || "", {
+        keepMaskRef: Boolean(data.cutout_mask_ref),
+        maskRef: data.cutout_mask_ref || "",
+        fromSceneLift: false,
+        label: prompt,
+        bbox: data.bbox || null,
+      });
       showToast("RGBA cutout ready (use Set Path or WASD)", "ok");
     }
   } catch (err) {
@@ -1971,7 +1994,9 @@ function loadCutoutUrl(url, ref, opts = {}) {
   return new Promise((resolve) => {
     const img = new Image();
     img.onload = () => {
-      if (!opts.keepMaskRef) {
+      if (opts.maskRef !== undefined) {
+        state.spriteMaskRef = String(opts.maskRef || "");
+      } else if (!opts.keepMaskRef) {
         state.spriteMaskRef = "";
       }
       state.spriteCutout = {
@@ -1979,6 +2004,8 @@ function loadCutoutUrl(url, ref, opts = {}) {
         viewUrl: url,
         img,
         bboxHeight: Number(opts.bbox?.h || 0),
+        fromSceneLift: Boolean(opts.fromSceneLift),
+        label: String(opts.label || ""),
       };
       state.spriteMode = true;
       syncAllUI();
@@ -2058,6 +2085,9 @@ async function executeSamSegmentation() {
       if (data.cutout_view_url) {
         await loadCutoutUrl(data.cutout_view_url, data.cutout_ref || "", {
           keepMaskRef: true,
+          maskRef: data.cutout_mask_ref || "",
+          fromSceneLift: true,
+          label: promptText || state.vlmSubjectLabel || "",
           bbox: data.bbox || null,
         });
       }
@@ -2140,6 +2170,7 @@ function buildCompilePayload() {
     last_frame: state.lastFrameRef || "",
     sprite_ref: state.spriteCutout?.ref || "",
     sprite_mask_ref: state.spriteMaskRef || "",
+    sprite_label: state.spriteCutout?.label || "",
     include_mask_ref: state.includeMaskRef || "",
     exclude_mask_ref: state.excludeMaskRef || "",
     snap_to_include_mask: Boolean(state.snapToIncludeMask),
@@ -2318,7 +2349,13 @@ function syncMediaPlayback() {
 }
 
 function openABCompareForTake(take = null) {
-  const target = take || state.activeStageTake || state.takes.find((t) => t.clean_video || t.hud_video) || null;
+  let target = take || state.activeStageTake || state.takes.find((t) => t.clean_video || t.hud_video) || null;
+  if (target?.take_id) {
+    target = state.takes.find((t) => t.take_id === target.take_id) || target;
+    if (!take && state.activeStageTake?.take_id === target.take_id) {
+      state.activeStageTake = target;
+    }
+  }
   if (!abCompare.active && !target) {
     showToast("Render or import a video take first to compare A|B.", "info", 2800);
     return;
@@ -3401,7 +3438,7 @@ function init() {
     });
 
   // Expose debug handle for inspection without touching DOM styles
-  window.__SPATIAL_DIRECTOR__ = { state, stage, sequencer, abCompare, wsClient, foley, syncAllUI };
+  window.__SPATIAL_DIRECTOR__ = { state, stage, sequencer, abCompare, takesUI, wsClient, foley, syncAllUI };
 }
 
 document.addEventListener("DOMContentLoaded", init);

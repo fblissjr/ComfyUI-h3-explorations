@@ -48,6 +48,7 @@ from director.media import (  # noqa: E402
     decode_video_frame_rgb,
     encode_mask_rgb_png,
     encode_rgba_cutout_png,
+    extract_studio_cutout_rgba,
     extract_video_frame_png,
     prepare_vlm_reticle_images,
     segment_grabcut_mask,
@@ -1199,37 +1200,8 @@ async def handle_preview_in_mask(request: web.Request) -> web.Response:
 
 
 def _extract_rgba_cutout_bytes(raw_bytes: bytes, mask_b64: str | None = None) -> tuple[bytes, int, int, float]:
-    import base64
-    import numpy as np
-    import torch
-    from PIL import Image
-
-    sprite_mod = compiler.import_pack_module("sprite_trajectory")
-    extract_sprite_rgba = sprite_mod.extract_sprite_rgba
-
-    with Image.open(io.BytesIO(raw_bytes)) as src:
-        src.load()
-        rgba_src = src.convert("RGBA")
-        arr = np.asarray(rgba_src, dtype=np.float32) / 255.0
-
-    rgb_t = torch.from_numpy(arr[:, :, :3])[None, ...].contiguous()
-    mask_t = None
-    if mask_b64:
-        raw_mask = base64.b64decode(mask_b64.split(",", 1)[-1])
-        with Image.open(io.BytesIO(raw_mask)) as m_img:
-            m_arr = np.asarray(m_img.convert("L"), dtype=np.float32) / 255.0
-        mask_t = torch.from_numpy(m_arr)[None, ...].contiguous()
-    elif float(arr[:, :, 3].min()) < 0.98 and float(arr[:, :, 3].max()) > 0.05:
-        mask_t = torch.from_numpy(arr[:, :, 3])[None, ...].contiguous()
-
-    rgb_u8, alpha_f32 = extract_sprite_rgba(rgb_t, mask=mask_t)
-    alpha_u8 = np.clip(np.round(alpha_f32 * 255.0), 0, 255).astype(np.uint8)
-    out_rgba = np.dstack([rgb_u8, alpha_u8])
-    out_img = Image.fromarray(out_rgba, mode="RGBA")
-    buf = io.BytesIO()
-    out_img.save(buf, format="PNG")
-    coverage = float((alpha_f32 > 0.1).mean())
-    return buf.getvalue(), int(out_img.width), int(out_img.height), coverage
+    cut_png, _mask_png, cw, ch, _bbox, coverage = extract_studio_cutout_rgba(raw_bytes, mask_b64)
+    return cut_png, cw, ch, coverage
 
 
 async def handle_stamp_cutout(request: web.Request) -> web.Response:
@@ -1249,10 +1221,17 @@ async def handle_stamp_cutout(request: web.Request) -> web.Response:
             desc, status, raw_bytes = await _fetch_image_with_temp_fallback(request.app, source_spec, default_type="input")
             if status != 200 or not raw_bytes:
                 return web.json_response({"ok": False, "error": f"source image unavailable ({status})"}, status=404)
-            png_bytes, w, h, coverage = _extract_rgba_cutout_bytes(raw_bytes, body.get("mask"))
-            out_name = _sanitize_filename(f"stamp_{Path(desc['filename']).stem}.png", default_ext=".png")
-            res = await _comfy_upload_bytes(
-                request.app, png_bytes, out_name, subfolder=UPLOADS_SUBFOLDER, content_type="image/png"
+            png_bytes, mask_bytes, w, h, bbox_norm, coverage = await asyncio.to_thread(
+                extract_studio_cutout_rgba,
+                raw_bytes,
+                body.get("mask"),
+            )
+            stem = Path(desc["filename"]).stem
+            out_name = _sanitize_filename(f"stamp_{stem}.png", default_ext=".png")
+            mask_name = _sanitize_filename(f"stamp_mask_{stem}.png", default_ext=".png")
+            res, mask_res = await asyncio.gather(
+                _comfy_upload_bytes(request.app, png_bytes, out_name, subfolder=UPLOADS_SUBFOLDER, content_type="image/png"),
+                _comfy_upload_bytes(request.app, mask_bytes, mask_name, subfolder=UPLOADS_SUBFOLDER, content_type="image/png"),
             )
         except ValueError as exc:
             return web.json_response({"ok": False, "error": str(exc)}, status=400)
@@ -1263,12 +1242,18 @@ async def handle_stamp_cutout(request: web.Request) -> web.Response:
         saved_sub = str(res.get("subfolder") or UPLOADS_SUBFOLDER)
         saved_type = str(res.get("type") or "input")
         ref = f"{saved_sub}/{saved_name}" if saved_sub else saved_name
+        mask_saved = str(mask_res.get("name") or mask_name)
+        mask_sub = str(mask_res.get("subfolder") or UPLOADS_SUBFOLDER)
+        mask_ref = f"{mask_sub}/{mask_saved}" if mask_sub else mask_saved
         request.app["store"].record_upload(ref, sid)
+        request.app["store"].record_upload(mask_ref, sid)
         return web.json_response(
             {
                 "ok": True,
                 "kind": "cutout",
                 "cutout_ref": ref,
+                "cutout_mask_ref": mask_ref,
+                "bbox": bbox_norm,
                 "filename": saved_name,
                 "subfolder": saved_sub,
                 "type": saved_type,
@@ -1276,6 +1261,7 @@ async def handle_stamp_cutout(request: web.Request) -> web.Response:
                 "height": h,
                 "alpha_coverage": round(coverage, 4),
                 "view_url": _view_url(saved_name, saved_sub, saved_type),
+                "mask_view_url": _view_url(mask_saved, mask_sub, str(mask_res.get("type") or "input")),
             }
         )
 

@@ -150,7 +150,13 @@ def extract_lineage_fields(
 
 def take_prompt_preview(take: dict[str, Any]) -> str:
     params = take.get("params") if isinstance(take.get("params"), dict) else {}
-    raw = str(params.get("target_prompt") or params.get("prompt") or "").strip()
+    raw = str(
+        params.get("target_prompt")
+        or params.get("prompt")
+        or params.get("sprite_label")
+        or params.get("stamp_prompt")
+        or ""
+    ).strip()
     if len(raw) > 96:
         return f"{raw[:95]}…"
     return raw
@@ -204,6 +210,7 @@ def build_recipe_document(
         "last_frame": str(raw_params.get("last_frame") or "").strip(),
         "sprite_ref": str(raw_params.get("sprite_ref") or raw_params.get("sprite_cutout") or "").strip(),
         "sprite_mask_ref": str(raw_params.get("sprite_mask_ref") or "").strip(),
+        "sprite_label": str(raw_params.get("sprite_label") or "").strip(),
         "include_mask_ref": str(raw_params.get("include_mask_ref") or "").strip(),
         "exclude_mask_ref": str(raw_params.get("exclude_mask_ref") or "").strip(),
         "snap_to_include_mask": bool(raw_params.get("snap_to_include_mask", False)),

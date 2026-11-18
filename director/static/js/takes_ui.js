@@ -20,12 +20,21 @@ const KIND_LABELS = {
 
 export function findBaselineTake(takes, directedTake) {
   if (!directedTake) return null;
-  if (directedTake.baseline_video) return directedTake;
   const list = Array.isArray(takes) ? takes : [];
-  if (directedTake.baseline_prompt_id) {
-    return list.find((t) => t.prompt_id === directedTake.baseline_prompt_id) || null;
+  const latest = directedTake.take_id
+    ? (list.find((t) => t.take_id === directedTake.take_id) || directedTake)
+    : directedTake;
+  if (latest.baseline_video) return latest;
+  if (latest.baseline_prompt_id) {
+    return list.find(
+      (t) =>
+        t.prompt_id === latest.baseline_prompt_id
+        || (t.baseline_prompt_id === latest.baseline_prompt_id && t.baseline_video)
+    ) || null;
   }
-  return list.find((t) => t.seed === directedTake.seed && t.prompt_id !== directedTake.prompt_id) || null;
+  return list.find(
+    (t) => t.seed === latest.seed && t.prompt_id !== latest.prompt_id && (t.baseline_video || t.clean_video)
+  ) || null;
 }
 
 export function videoItemRef(item) {
@@ -464,6 +473,19 @@ export function createTakesController({
       state.takes = Array.isArray(data.takes) ? data.takes : [];
       if (data.queue_ok === true && Array.isArray(data.active_prompt_ids)) {
         state.activeQueuePromptIds = new Set(data.active_prompt_ids.map(String));
+      }
+      if (state.activeStageTake?.take_id) {
+        const freshStage = state.takes.find((t) => t.take_id === state.activeStageTake.take_id);
+        if (freshStage) {
+          state.activeStageTake = freshStage;
+          const abCompare = getAbCompare?.();
+          if (abCompare?.active && abCompare.directedTake?.take_id === freshStage.take_id) {
+            abCompare.setTakes({
+              directedTake: freshStage,
+              baselineTake: findBaseline(freshStage),
+            });
+          }
+        }
       }
       rehydrateInFlightRender();
       renderTakesList();

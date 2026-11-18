@@ -1334,7 +1334,8 @@ def check_server_routes_and_escalate() -> str:
                     assert mpv_temp["resolved_source_ref"] in stored_uploads, mpv_temp
                     assert len(submitted_prompts) == n_sub_before + 2
 
-                    # 10. POST /api/stamp_cutout with BOTH source_ref AND prompt triggers T2I for_cutout=True
+                    # 10. POST /api/stamp_cutout with BOTH source_ref AND prompt triggers T2I for_cutout=True,
+                    # and image_output extraction strips white studio backdrop + emits cutout_mask_ref
                     r_stp = await client.post(
                         "/api/stamp_cutout",
                         json={
@@ -1346,6 +1347,22 @@ def check_server_routes_and_escalate() -> str:
                     assert r_stp.status == 200, await r_stp.text()
                     stp = await r_stp.json()
                     assert stp["ok"] is True and stp.get("prompt_id"), f"Expected T2I cutout queue when prompt provided, got {stp}"
+
+                    studio_arr = _np.full((192, 336, 3), 248, dtype=_np.uint8)
+                    studio_arr[70:122, 120:216] = (45, 75, 130)
+                    studio_buf = io.BytesIO()
+                    _SegImage.fromarray(studio_arr, mode="RGB").save(studio_buf, format="PNG")
+                    temp_only_uploads["studio_obj.png"] = studio_buf.getvalue()
+                    r_stp_ext = await client.post(
+                        "/api/stamp_cutout",
+                        json={"image_output": {"filename": "studio_obj.png", "subfolder": "", "type": "temp"}},
+                    )
+                    assert r_stp_ext.status == 200, await r_stp_ext.text()
+                    stp_ext = await r_stp_ext.json()
+                    assert stp_ext["ok"] is True and stp_ext.get("cutout_ref") in stored_uploads, stp_ext
+                    assert stp_ext.get("cutout_mask_ref") in stored_uploads, stp_ext
+                    assert 0.05 <= float(stp_ext["alpha_coverage"]) <= 0.35, stp_ext
+                    assert int(stp_ext["width"]) < 140 and int(stp_ext["height"]) < 90, stp_ext
 
                     # 11. POST /api/context_suggest uses heylook POST /v1/messages (never /v1/chat/completions)
                     seen_heylook: dict[str, Any] = {}
@@ -2573,6 +2590,13 @@ async def _run_cdp_browser(director_url: str, anchor_png: Path) -> str:
                               if (!st?.spriteCutout?.ref) return null;
                               const wp = (st.doc?.dpad?.waypoints || [])[0] || null;
                               const hintEl = document.getElementById('sam-actor-hint');
+                              const hintRect = hintEl ? hintEl.getBoundingClientRect().toJSON() : null;
+                              // Verify stale activeStageTake resolves baseline from refreshed state.takes
+                              const prevTakes = st.takes;
+                              const stale = { take_id: 'ab_sync_test', clean_video: { filename: 'c.mp4', type: 'temp' } };
+                              st.takes = [{ take_id: 'ab_sync_test', clean_video: { filename: 'c.mp4', type: 'temp' }, baseline_video: { filename: 'b.mp4', type: 'temp' } }];
+                              const resolved = window.__SPATIAL_DIRECTOR__?.takesUI?.findBaselineTake(stale);
+                              st.takes = prevTakes;
                               return {
                                 ref: st.spriteCutout.ref,
                                 maskRef: st.spriteMaskRef,
@@ -2580,6 +2604,8 @@ async def _run_cdp_browser(director_url: str, anchor_png: Path) -> str:
                                 samPicking: st.samPicking,
                                 hintText: hintEl ? hintEl.textContent.trim() : '',
                                 hintWarn: Boolean(hintEl && hintEl.classList.contains('is-warning') && !hintEl.classList.contains('hidden')),
+                                hintRect,
+                                baselineResolved: Boolean(resolved && resolved.baseline_video && resolved.baseline_video.filename === 'b.mp4'),
                                 wp,
                               };
                             })()"""
@@ -2592,6 +2618,8 @@ async def _run_cdp_browser(director_url: str, anchor_png: Path) -> str:
                     assert sam_cut_res["maskRef"].startswith("h3_spatial_director/"), sam_cut_res
                     assert sam_cut_res["samPicking"] is False and float(sam_cut_res["bboxH"]) > 0, sam_cut_res
                     assert sam_cut_res["hintWarn"] and "Frame-0 lift" in sam_cut_res["hintText"], sam_cut_res
+                    assert sam_cut_res["hintRect"] and sam_cut_res["hintRect"]["height"] > 0 and sam_cut_res["hintRect"]["bottom"] <= 800, sam_cut_res
+                    assert sam_cut_res["baselineResolved"] is True, sam_cut_res
                     assert sam_cut_res["wp"] and (
                         abs(float(sam_cut_res["wp"]["x"]) - 0.36) > 0.01 or abs(float(sam_cut_res["wp"]["y"]) - 0.74) > 0.01
                     ), f"Expected default sprite waypoint auto-centered onto cutout bbox, got {sam_cut_res}"

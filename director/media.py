@@ -316,6 +316,129 @@ def encode_rgba_cutout_png(
     return cut_buf.getvalue(), mask_buf.getvalue(), cw, ch, bbox_norm
 
 
+def extract_studio_cutout_rgba(
+    raw_bytes: bytes,
+    mask_b64: str | None = None,
+    *,
+    pad_px: int = 4,
+) -> tuple[bytes, bytes, int, int, dict[str, float], float]:
+    """Extract tightly cropped RGBA cutout + aligned mask PNG from an opaque studio stamp or masked image.
+
+    Uses perimeter background estimation + border-connected flood fill to remove flat/vignetted studio
+    backdrops cleanly without hard-forcing a center foreground rectangle.
+    """
+    import base64
+    import numpy as np
+    from PIL import Image
+
+    with Image.open(io.BytesIO(raw_bytes)) as src:
+        src.load()
+        rgba_src = src.convert("RGBA")
+        arr = np.asarray(rgba_src, dtype=np.uint8)
+
+    rgb_u8 = arr[:, :, :3].copy()
+    alpha_ch = arr[:, :, 3]
+    h, w = int(rgb_u8.shape[0]), int(rgb_u8.shape[1])
+
+    mask_u8: Any | None = None
+    if mask_b64:
+        raw_mask = base64.b64decode(mask_b64.split(",", 1)[-1])
+        with Image.open(io.BytesIO(raw_mask)) as m_img:
+            m_arr = np.asarray(m_img.convert("L"), dtype=np.uint8)
+        if m_arr.shape != (h, w):
+            m_arr = np.asarray(
+                Image.fromarray(m_arr, mode="L").resize((w, h), Image.Resampling.BILINEAR),
+                dtype=np.uint8,
+            )
+        mask_u8 = m_arr
+    elif int(alpha_ch.min()) < 245 and int(alpha_ch.max()) > 15:
+        mask_u8 = alpha_ch.copy()
+
+    if mask_u8 is None:
+        try:
+            import cv2  # type: ignore
+
+            cv2.setRNGSeed(0)
+            max_side = 512
+            scale = min(1.0, float(max_side) / float(max(1, h, w)))
+            gh = max(32, int(round(h * scale)))
+            gw = max(32, int(round(w * scale)))
+            work_rgb = rgb_u8 if (gh == h and gw == w) else cv2.resize(rgb_u8, (gw, gh), interpolation=cv2.INTER_AREA)
+            work_bgr = cv2.cvtColor(work_rgb, cv2.COLOR_RGB2BGR)
+            work_f = work_rgb.astype(np.float32)
+
+            edge = max(3, min(14, min(gw, gh) // 24))
+            border_pixels = np.concatenate(
+                [
+                    work_f[:edge, :, :].reshape(-1, 3),
+                    work_f[-edge:, :, :].reshape(-1, 3),
+                    work_f[:, :edge, :].reshape(-1, 3),
+                    work_f[:, -edge:, :].reshape(-1, 3),
+                ],
+                axis=0,
+            )
+            bg_rgb = np.median(border_pixels, axis=0)
+            bg_dist = np.linalg.norm(work_f - bg_rgb[None, None, :], axis=2)
+            bg_scatter = float(np.percentile(np.linalg.norm(border_pixels - bg_rgb[None, :], axis=1), 90))
+
+            near_thresh = max(14.0, min(42.0, bg_scatter * 1.45 + 10.0))
+            soft_thresh = max(28.0, min(68.0, bg_scatter * 2.2 + 20.0))
+
+            def _border_connected(cand: Any) -> Any:
+                n_lbl, lbls, _st, _c = cv2.connectedComponentsWithStats(cand.astype(np.uint8), connectivity=8)
+                border_ids = set(np.unique(lbls[0, :]).tolist())
+                border_ids |= set(np.unique(lbls[-1, :]).tolist())
+                border_ids |= set(np.unique(lbls[:, 0]).tolist())
+                border_ids |= set(np.unique(lbls[:, -1]).tolist())
+                border_ids.discard(0)
+                if not border_ids:
+                    return np.zeros((gh, gw), dtype=bool)
+                return np.isin(lbls, list(border_ids))
+
+            definite_bg = _border_connected(bg_dist <= near_thresh)
+            probable_bg = _border_connected(bg_dist <= soft_thresh)
+
+            # Seed high-contrast interior objects without forcing neutral backdrop center rectangles.
+            gray = cv2.cvtColor(work_bgr, cv2.COLOR_BGR2GRAY).astype(np.float32)
+            gx = cv2.Sobel(gray, cv2.CV_32F, 1, 0, ksize=3)
+            gy = cv2.Sobel(gray, cv2.CV_32F, 0, 1, ksize=3)
+            grad = np.hypot(gx, gy)
+            interior_fg = (~probable_bg) & ((bg_dist >= max(36.0, soft_thresh + 8.0)) | (grad >= 26.0))
+            strong_fg = (~probable_bg) & (bg_dist >= max(58.0, soft_thresh + 24.0))
+
+            gc_mask = np.full((gh, gw), cv2.GC_PR_BGD, dtype=np.uint8)
+            gc_mask[probable_bg] = cv2.GC_PR_BGD
+            gc_mask[interior_fg] = cv2.GC_PR_FGD
+            gc_mask[strong_fg] = cv2.GC_FGD
+            gc_mask[definite_bg] = cv2.GC_BGD
+
+            has_fg = np.any((gc_mask == cv2.GC_FGD) | (gc_mask == cv2.GC_PR_FGD))
+            has_bg = np.any((gc_mask == cv2.GC_BGD) | (gc_mask == cv2.GC_PR_BGD))
+            if has_fg and has_bg:
+                bgd_model = np.zeros((1, 65), dtype=np.float64)
+                fgd_model = np.zeros((1, 65), dtype=np.float64)
+                cv2.grabCut(work_bgr, gc_mask, None, bgd_model, fgd_model, 5, cv2.GC_INIT_WITH_MASK)
+                fg = np.where((gc_mask == cv2.GC_FGD) | (gc_mask == cv2.GC_PR_FGD), 1.0, 0.0).astype(np.float32)
+                fg = np.where(definite_bg, 0.0, fg).astype(np.float32)
+                if 0.005 <= float(fg.mean()) <= 0.96:
+                    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+                    fg = cv2.morphologyEx(fg, cv2.MORPH_OPEN, kernel)
+                    fg = np.clip(cv2.GaussianBlur(fg, (3, 3), 0.75), 0.0, 1.0)
+                    up = fg if (gh == h and gw == w) else cv2.resize(fg, (w, h), interpolation=cv2.INTER_LINEAR)
+                    mask_u8 = np.clip(np.round(up * 255.0), 0, 255).astype(np.uint8)
+        except Exception:
+            mask_u8 = None
+
+    if mask_u8 is None:
+        mask_u8 = np.full((h, w), 255, dtype=np.uint8)
+
+    # Zero completely transparent RGB texels so linear sampling never bleeds bright halo fringe.
+    clean_rgb = np.where(mask_u8[:, :, None] > 0, rgb_u8, 0).astype(np.uint8)
+    cut_png, mask_png, cw, ch, bbox_norm = encode_rgba_cutout_png(clean_rgb, mask_u8, pad_px=pad_px)
+    coverage = float((mask_u8 > 24).mean())
+    return cut_png, mask_png, cw, ch, bbox_norm, coverage
+
+
 def decode_media_frames(raw_bytes: bytes, filename: str) -> Any:
     import numpy as np
 

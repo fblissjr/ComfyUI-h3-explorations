@@ -902,6 +902,24 @@ def _summarize_focus_region_and_time(
     return region_phrase, onset, offset, cues, summary
 
 
+def _clean_sprite_label(raw: str) -> str:
+    txt = str(raw or "").strip()
+    if not txt:
+        return ""
+    for suffix in (
+        ", clean white studio background",
+        ", white studio background",
+        ", studio background",
+        ", white background",
+        " on clean white studio background",
+        " on white studio background",
+        " on white background",
+    ):
+        if txt.lower().endswith(suffix):
+            txt = txt[: -len(suffix)].strip(" ,")
+    return txt[:80].strip()
+
+
 def synthesize_spatial_prompts(
     *,
     mode: str,
@@ -914,6 +932,7 @@ def synthesize_spatial_prompts(
     same_prompt: bool = False,
     edit_lines: str = "",
     has_sprite: bool = False,
+    sprite_label: str = "",
     reaction_clauses: list[str] | None = None,
 ) -> tuple[str, str, str]:
     """Build clean, zero-hardcoded ``(original_prompt, edited_prompt, region_summary)``."""
@@ -951,17 +970,12 @@ def synthesize_spatial_prompts(
             )
     else:
         if use_pic1:
-            sprite_note = (
-                " Any foreground movable actor stays naturally grounded inside the space with realistic contact shadows and scale."
-                if has_sprite
-                else ""
-            )
             orig_out = (
                 f"For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.\n\n"
                 f"integrated_multimodal_description: [Shot 1] Live-action, cinematic, holding the exact framing, lighting, palette, "
                 f"layout, and camera perspective established in <Picture 1>, a calm, steady {dur_s}-second shot unfolds while the scene "
                 f"in <Picture 1> remains intact with gentle natural ambient micro-motion, subtle air and surface light continuity, "
-                f"and zero unexpected visual disruptions.{sprite_note} The camera holds completely steady so every spatial edge aligns accurately with <Picture 1>.\n\n"
+                f"and zero unexpected visual disruptions. The camera holds completely steady so every spatial edge aligns accurately with <Picture 1>.\n\n"
                 f"overall_soundscape:\nQuiet natural ambient room tone matching the visual environment of <Picture 1>.\n\n"
                 f"non_diegetic_music:\nN/A"
             )
@@ -987,7 +1001,7 @@ def synthesize_spatial_prompts(
             fallback_prompt=raw_target,
         )
         sprite_react = (
-            " Nearby subjects react dynamically with natural illumination bounce, air impulse, and cast shadows."
+            " Nearby surfaces reflect light, cast contact shadows, and react naturally to the moving subject."
             if has_sprite
             else ""
         )
@@ -1031,8 +1045,10 @@ def synthesize_spatial_prompts(
                 )
         else:
             single_prompt = str(beats[0].get("prompt") or "").strip() if beats else ""
+            clean_lbl = _clean_sprite_label(sprite_label)
+            subject_phrase = f"the {clean_lbl} (<Video 1>)" if clean_lbl else "the segmented cutout object (<Video 1>)"
             sprite_default = (
-                "the foreground movable subject (<Video 1>) translating smoothly along its authored path with grounded scale and cast shadows"
+                f"{subject_phrase} gliding smoothly along its authored path with realistic scale and cast shadows"
                 if has_sprite
                 else "dynamic localized transformation unfolding inside the active region"
             )
@@ -1769,6 +1785,7 @@ def _compile_single_spatial(
         same_prompt=same_prompt,
         edit_lines=edit_lines,
         has_sprite=has_sprite,
+        sprite_label=str(params.get("sprite_label") or params.get("stamp_prompt") or ""),
         reaction_clauses=None,
     )
     graph["133"] = {"class_type": "PrimitiveStringMultiline", "inputs": {"value": orig_prompt}}

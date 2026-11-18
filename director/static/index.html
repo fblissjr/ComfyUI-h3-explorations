@@ -288,23 +288,23 @@
             <input id="sam-prompt-input" type="text" class="field-input field-input-xs" placeholder="SAM text or Click+ / Alt-Click−" aria-label="SAM text prompt">
             <button id="btn-sam-run" type="button" class="sam-pick-btn" title="Segment using text prompt and/or clicked points">Segment</button>
           </div>
-          <div id="sam-actor-actions" class="sam-actor-actions hidden">
-            <div class="sam-actor-row">
-              <button id="btn-set-path" type="button" class="btn-outline-sm" title="Click stage to place movable actor destination path">Set Path →</button>
-              <label class="checkbox-row-sm" title="Restrict edits & Preview in Circle directly to Edit Obj mask silhouette">
-                <input id="chk-snap-mask" type="checkbox">
-                <span>Snap Edit to Entity</span>
-              </label>
-            </div>
-            <div id="sam-actor-hint" class="sam-actor-hint hidden"></div>
-          </div>
-
           <div class="card-cue-row">
             <select id="card-cue-select" class="field-select field-select-sm" aria-label="3-frame SoundCue preset"></select>
             <button id="pill-cue-audition" type="button" class="micro-pill micro-pill-emerald" title="Audition 3f foley cue">
               <span id="pill-cue-text">3f Cue</span>
             </button>
           </div>
+        </div>
+
+        <div id="sam-actor-actions" class="sam-actor-actions sam-actor-pinned hidden">
+          <div class="sam-actor-row">
+            <button id="btn-set-path" type="button" class="btn-outline-sm" title="Click stage to place movable actor destination path">Set Path →</button>
+            <label class="checkbox-row-sm" title="Restrict edits & Preview in Circle directly to Edit Obj mask silhouette">
+              <input id="chk-snap-mask" type="checkbox">
+              <span>Snap Edit to Entity</span>
+            </label>
+          </div>
+          <div id="sam-actor-hint" class="sam-actor-hint hidden"></div>
         </div>
 
         <div class="card-cta-row card-cta-footer">
