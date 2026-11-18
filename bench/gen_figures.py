@@ -627,73 +627,22 @@ def fig_block49() -> Figure:
                   notes=[note])
 
 
-def fig_power_pair() -> Figure:
-    rec = "2026-08-20_power_limit_pair_verdict.json"
-    d = load(rec)
-    s = d["sampler_s"]
-    tel = d["telemetry_during_sampling"]
-    arms = ["p330", "p450"]
-    secs = [v for a in arms for v in s[a]]
-    labels = [f"{a} #{i + 1}" for a in arms for i in range(len(s[a]))]
-    colors = [WARN, WARN, SIGNAL, SIGNAL]
-
-    p1 = bars(labels, secs, w=340, colors=colors, fmt="{:.1f}",
-              ylabel="sampler seconds",
-              annotate=f"{d['cost_of_330W_frac'] * 100:.1f}% apart "
-                       f"(cost_of_330W_frac)")
-    p1.title = "sampler seconds, two timed runs per arm"
-    p1.sub = "sampler_s"
-    p2 = bars(["330 W", "450 W"], [tel["p330"]["pclk_p50"], tel["p450"]["pclk_p50"]],
-              w=330, colors=[WARN, SIGNAL], fmt="{:.0f}", ylabel="MHz",
-              annotate=f"{d['core_clock_delta_frac'] * 100:.1f}% apart "
-                       f"(core_clock_delta_frac)")
-    p2.title = "median core clock while sampling"
-    p2.sub = "telemetry_during_sampling[].pclk_p50"
-
-    svg = compose([p1, p2], "The 330 W cap against stock 450 W",
-                  "Left: four timed sampler runs, two per power arm. Right: "
-                  "the median core clock sampled alongside each arm.")
-    cap = (f"One graph, seeds disjoint across arms so the node cache cannot "
-           f"answer the question. Sampler mean {d['sampler_mean_s']['p330']} s "
-           f"at 330 W against {d['sampler_mean_s']['p450']} s at 450 W, "
-           f"within-arm spread {d['within_arm_spread_frac'] * 100:.2f}% "
-           f"(<code>within_arm_spread_frac</code>), so the "
-           f"{d['cost_of_330W_frac'] * 100:.1f}% gap is far outside the noise. "
-           f"Median board power reads {tel['p330']['pwr_p50']:.0f} W and "
-           f"{tel['p450']['pwr_p50']:.0f} W, and memory clock is identical on "
-           f"both arms. The decision rule written on 2026-08-17 wanted either "
-           f"~2% (bandwidth-bound) or the full clock delta (L2-bound); "
-           f"{d['cost_of_330W_frac'] * 100:.1f}% against "
-           f"{d['core_clock_delta_frac'] * 100:.1f}% is neither, so this "
-           f"4-step workload is partly core-clock-bound.")
-    return Figure("fig-power", "The power pair", svg, cap,
-                  [f"data/results/{rec} :: sampler_s, sampler_mean_s, "
-                   f"within_arm_spread_frac, cost_of_330W_frac",
-                   f"data/results/{rec} :: telemetry_during_sampling[].pclk_p50, "
-                   f".pwr_p50, .mclk_p50",
-                   f"data/results/{rec} :: core_clock_delta_frac, decision_rule"],
-                  anchor="The plan critique found the defect before the card did")
-
-
+# The power-limit pair's figure and its card-lane spans were removed on
+# 2026-11-18 at the owner's word: nothing here reads the 2026-08-20 power-limit
+# records any more.
 CARD_SOURCES = [
     ("2026-08-20_sla_arms.jsonl", ALT, "SLA pair"),
-    ("2026-08-20_power_limit_pair.jsonl", None, "power pair"),
     ("2026-08-20_session1_lora_file.jsonl", GOOD, "session 1"),
 ]
 
 
 def fig_day_order(commit_range: str) -> Figure:
-    spans, per_file = [], {}
-    for name, color, label in CARD_SOURCES:
-        rows = load_lines(name)
-        per_file[name] = rows
-        for r in rows:
+    spans = []
+    for name, color, _label in CARD_SOURCES:
+        for r in load_lines(name):
             end = _mins(r["ts"])
             start = end - r["total_s"] / 60.0
-            c = color
-            if c is None:
-                c = WARN if r["label"] == "p330" else SIGNAL
-            spans.append((start, end, c, ""))
+            spans.append((start, end, color, ""))
 
     log = subprocess.run(
         ["git", "log", "--format=%h %ad %s", "--date=format:%H:%M", commit_range],
@@ -718,18 +667,13 @@ def fig_day_order(commit_range: str) -> Figure:
     t1 = math.ceil(max(e for _, e, _, _ in spans + commit_spans) / 30) * 30
     p = swimlane([("card", spans), ("repo", commit_spans), ("owner", owner)],
                  t0, t1, markers)
-    p.body += legend([("SLA pair", ALT, False), ("power pair, 330 W", WARN, False),
-                      ("power pair, 450 W", SIGNAL, False),
+    p.body += legend([("SLA pair", ALT, False),
                       ("session 1 renders", GOOD, False),
                       ("commit", INK, False)], x=86, y=p.h + 12)
     p.h += 22
     rows_html = "".join(
         f"<li><code>{h}</code> <span class=\"t\">{m // 60:02d}:{m % 60:02d}</span> "
         f"{esc(subject)}</li>" for m, h, subject in commits)
-
-    pw = per_file["2026-08-20_power_limit_pair.jsonl"]
-    gap_a = max(_mins(r["ts"]) for r in pw if r["label"] == "p330")
-    gap_b = min(_mins(r["ts"]) - r["total_s"] / 60 for r in pw if r["label"] == "p450")
 
     svg = compose([p], "The day's order",
                   "Three lanes: what the card was doing, when the repo gained a "
@@ -740,18 +684,13 @@ def fig_day_order(commit_range: str) -> Figure:
            f"exactly, which is what identifies <code>ts</code> as the "
            f"completion time rather than the start. Repo ticks are the "
            f"{len(commits)} commits of <code>{esc(commit_range)}</code> at "
-           f"their author times. The card idles between "
-           f"{int(gap_a) // 60:02d}:{int(gap_a) % 60:02d} and "
-           f"{int(gap_b) // 60:02d}:{int(gap_b) % 60:02d}, the gap the "
-           f"sudo moment and the restarts sit in.")
+           f"their author times.")
     note = ("The owner lane is approximate. No record carries the sudo moment "
-            "or the restarts; the times shown are the session's own account, "
-            "bracketed by the p330-to-p450 gap the card lane makes visible. "
+            "or the restarts; the times shown are the session's own account. "
             "The plan approval time is the one the deviations table states. "
             "Read them as ordering, not as measurements.")
     return Figure("fig-day", "The day's order", svg, cap,
                   ["data/results/2026-08-20_sla_arms.jsonl :: ts, total_s, label",
-                   "data/results/2026-08-20_power_limit_pair.jsonl :: ts, total_s, label",
                    "data/results/2026-08-20_session1_lora_file.jsonl :: ts, total_s",
                    f"git log --format='%h %ad %s' --date=format:%H:%M {commit_range}"],
                   notes=[note, f'<ol class="commits">{rows_html}</ol>'])
@@ -759,8 +698,7 @@ def fig_day_order(commit_range: str) -> Figure:
 
 def postmortem_figures(commit_range: str) -> list[Figure]:
     """The 2026-08-20 postmortem's figures, in reading order."""
-    return [fig_day_order(commit_range), fig_basis_sign(), fig_block49(),
-            fig_power_pair()]
+    return [fig_day_order(commit_range), fig_basis_sign(), fig_block49()]
 
 
 # --------------------------------------------------------------------------

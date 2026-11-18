@@ -36,8 +36,11 @@ Older history lives elsewhere and is not copied here:
   as `bench/check_doc_links.py` treats `data/`. Repointed: `workflows/h3_config.py` (comments only),
   `docs/wiki/stages.md` and `bench/measure_encoder_quant_dit.py` to the dated folders; `lora_branch.py` and
   `sol_attn_h3.py` to `bench/results/`, where those two files have always been. Dated records stay as written.
-  - **Still open, not fixed:** two citations name files on no path here (the resolver lists them), and code that
-    reads old inputs by flat name, such as `bench/gen_figures.py`, broke with the move.
+  - **The two citations with no file:** `bench/gen_figures.py` no longer reads the 2026-08-20 power-limit pair at
+    all (owner): its figure and card-lane spans are gone. The base-against-Pika control-vector figures live only in
+    the table of `bench/results/2026-11-05_control_vectors_pika_and_ref2va.md`; the JSON it cites was never saved
+    here, so the research page now cites the record, and the record carries a dated note.
+  - **Still open:** code that reads old inputs by flat name, such as `bench/gen_figures.py`, broke with the move.
 
 - **No media inside the ComfyUI checkout: core's stock media folders locked, `bootstrap` moves them (`3eacf7b4`, the owner's word).**
   - **What changed:** the owner made `<comfy>/input`, `<comfy>/output`, `<comfy>/temp` and `<comfy>/previews` immutable

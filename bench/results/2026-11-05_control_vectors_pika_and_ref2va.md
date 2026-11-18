@@ -12,6 +12,9 @@ Because Pika H3 Flex LoRAs (`pika_h3_flex_{fl2va,ref2va}_svd995_bf16.safetensors
 | `lettering` (`n=10`) | `fl2va` | `24.1627` | `24.5396` | **`0.996678`** | **`0.999991`** | `0.7303` | `0.9355` |
 | `lettering` (`n=10`) | `ref2va` | `22.9004` | `23.3812` | **`0.995730`** | **`0.999989`** | `0.7131` | `0.9301` |
 
+*Note 2026-11-18: no file named `2026-11-05_cv_base_vs_pika_comparison.json` exists on this machine. This
+table is the only copy of these figures.*
+
 - **Finding**: Pika's `token_refiner` LoRA rotates the post-refiner concept direction by less than `0.43%` (`cos = 0.9957–0.9967`), and `svd995` is bit-for-bit aligned with the full-rank LoRA (`cos = 0.999991`). Either the base vector (with `allow_recipe_mismatch=True`) or the Pika-specific `__lora_<8hex>` vector steers Pika renders identically.
 
 ---
