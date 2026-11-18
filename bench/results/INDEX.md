@@ -16,6 +16,9 @@ replaces `docs/wiki/ops/evidence.md`, which says what the records established.
 
 | date | lane | record | verdict |
 |---|---|---|---|
+| 2026-11-18 | vae | [`--fast fp16_accumulation` and the H3 video VAE on the RTX 4090 (2026-11-18)](2026-11-18_vae_fp16_accumulation.md) |  |
+| 2026-11-18 | text | [The 32B text encoder, int8 ConvRot against bf16 pruned: speed at x16 (2026-11-18)](2026-11-18_text_encoder_int8_vs_bf16_speed.md) |  |
+| 2026-11-18 | pcie | [Render times after the GPU link went from PCIe 4.0 x8 to x16 (2026-11-18)](2026-11-18_pcie_x16_render_times.md) |  |
 | 2026-11-17 | sol | [Sol `video_reference_rows`: shipped against routed, on one `<Video 1>` render (2026-11-17)](2026-11-17_sol_video_reference_rows_ab.md) |  |
 | 2026-11-17 | sol | [Sol's quantizers re-graded on Pika H3 Flex captures, with today's dense tail (2026-11-17)](2026-11-17_sol_quantizer_pika_grade.md) |  |
 | 2026-11-17 | pika | [Pika H3 Flex Sampling, `taeh3`/`taeh3_image` Preview Gate, & MiniMax-H3-Image Empty-Vision Probes (2026-11-17)](2026-11-17_pika_sampler_and_t2i_vision_probes.md) |  |
