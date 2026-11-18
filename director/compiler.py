@@ -711,6 +711,26 @@ def _describe_spatial_region(x: float, y: float) -> str:
     return f"the {vert}-{horiz} region"
 
 
+def _portal_active_span(
+    events_doc: dict[str, Any],
+    portal: list[dict[str, Any]],
+    max_f: int,
+) -> tuple[int, int]:
+    """Return ``(start_frame, end_frame)`` for portal conditioning, holding a single keyframe across the clip."""
+    raw_s = events_doc.get("portal_start")
+    raw_e = events_doc.get("portal_end")
+    default_s = int(round(float(portal[0].get("frame", 0)))) if portal else 0
+    if raw_e is not None:
+        default_e = int(round(float(raw_e)))
+    elif len(portal) >= 2:
+        default_e = int(round(float(portal[-1].get("frame", max_f))))
+    else:
+        default_e = max_f
+    p_start = max(0, min(max_f, int(round(float(raw_s))) if raw_s is not None else default_s))
+    p_end = max(p_start, min(max_f, default_e))
+    return p_start, p_end
+
+
 def _collect_spatial_beats(
     events_doc: dict[str, Any],
     *,
@@ -766,8 +786,7 @@ def _collect_spatial_beats(
             )
         if director_mode == "combined" and portal:
             p_explicit = [str(k.get("prompt") or "").strip() for k in portal if str(k.get("prompt") or "").strip()]
-            p_start = max(0, min(max_f, int(round(float(portal[0].get("frame", 0))))))
-            p_end = max(p_start, min(max_f, int(round(float(portal[-1].get("frame", max_f))))))
+            p_start, p_end = _portal_active_span(events_doc, portal, max_f)
             mid_k = portal[len(portal) // 2] if len(portal) > 1 else portal[0]
             p_reg = _describe_spatial_region(float(mid_k.get("x", 0.5)), float(mid_k.get("y", 0.5)))
             if p_explicit or (fb and has_custom_target_prompt):
@@ -814,8 +833,7 @@ def _collect_spatial_beats(
             return beats, trajectory_note
 
         mid_k = portal[len(portal) // 2] if len(portal) > 1 else portal[0]
-        p_start = max(0, min(max_f, int(round(float(portal[0].get("frame", 0))))))
-        p_end = max(p_start, min(max_f, int(round(float(portal[-1].get("frame", max_f))))))
+        p_start, p_end = _portal_active_span(events_doc, portal, max_f)
         p_prompt = explicit_kfs[0][2] if explicit_kfs else fb
         beats.append(
             {
@@ -868,8 +886,7 @@ def _summarize_focus_region_and_time(
         mid_k = portal[len(portal) // 2] if len(portal) > 1 else portal[0]
         fx = float(mid_k.get("x", 0.5))
         fy = float(mid_k.get("y", 0.5))
-        onset = max(0, min(int(length) - 1, int(round(float(portal[0].get("frame", 0))))))
-        offset = max(onset, min(int(length) - 1, int(round(float(portal[-1].get("frame", length - 1))))))
+        onset, offset = _portal_active_span(events_doc, portal, max(0, int(length) - 1))
 
     for key in ("portal_cues", "cues", "sound_cues"):
         for item in events_doc.get(key) or ():

@@ -849,6 +849,16 @@ def check_compiler_contracts() -> str:
     pf_ok_i2v = compiler_mod.compute_preflight_summary({"mode": "i2v_portal", "length": 141})
     assert pf_ok_i2v["can_render"] is True, pf_ok_i2v
 
+    _, single_kf_prompt, single_summary = compiler_mod.synthesize_spatial_prompts(
+        mode="i2v_portal",
+        length=141,
+        has_source_ref=True,
+        director_mode="portal_path",
+        events_doc={"portal": [{"frame": 0, "x": 0.44, "y": 0.48, "rx": 0.22, "ry": 0.22}], "targets": []},
+        target_prompt="shimmering crystal arch",
+    )
+    assert "from 0.00s to 5.83s" in single_kf_prompt and "@ f0..140" in single_summary, (single_summary, single_kf_prompt)
+
     return "all 4 spatial modes, R2V GuideLatent F0 lock, multi-beat prompts, 141f default + I2V <124f guard, warm auto pre-viz, zero-tortoise synthesis, masked image previews, dual VHS save_output=False, dynamic '165', audio_refine + redub, baseline opt-in, and image stills verified"
 
 
@@ -1171,6 +1181,20 @@ def check_server_routes_and_escalate() -> str:
                                 seg_cut,
                             )
                     assert 0.01 <= float(seg_cut["coverage"]) <= 0.95, seg_cut
+
+                    # Verify isolated 1px SAM outlier specks are stripped before cropping cutout & aligned mask
+                    import numpy as _np
+                    rgb_dummy = _np.zeros((192, 336, 3), dtype=_np.uint8)
+                    mask_noisy = _np.zeros((192, 336), dtype=_np.uint8)
+                    mask_noisy[60:140, 230:300] = 255
+                    mask_noisy[2, 2] = 255
+                    mask_noisy[188, 10] = 255
+                    _, _, clean_cw, clean_ch, clean_bb = server_mod._encode_rgba_cutout_png(rgb_dummy, mask_noisy)
+                    assert clean_cw < 120 and clean_ch < 120 and clean_bb["cx"] > 0.70, (
+                        clean_cw,
+                        clean_ch,
+                        clean_bb,
+                    )
 
                     r_seg_exc = await client.post(
                         "/api/segment",

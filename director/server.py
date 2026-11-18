@@ -2023,7 +2023,27 @@ def _encode_rgba_cutout_png(
     from PIL import Image
 
     h, w = int(mask_u8.shape[0]), int(mask_u8.shape[1])
-    ys, xs = np.where(mask_u8 > 12)
+    fg_u8 = (mask_u8 > 12).astype(np.uint8)
+    clean_fg = fg_u8
+    try:
+        import cv2  # type: ignore
+
+        n_lbl, labels, stats, _ = cv2.connectedComponentsWithStats(fg_u8, connectivity=8)
+        if n_lbl > 2:
+            areas = stats[1:, cv2.CC_STAT_AREA]
+            max_area = int(areas.max()) if len(areas) else 0
+            min_area = max(16, int(round(max_area * 0.005)))
+            kept = np.zeros_like(fg_u8)
+            for idx in range(1, n_lbl):
+                if int(stats[idx, cv2.CC_STAT_AREA]) >= min_area:
+                    kept[labels == idx] = 1
+            if np.any(kept):
+                clean_fg = kept
+    except Exception:
+        pass
+
+    clean_mask = np.where(clean_fg > 0, mask_u8, 0).astype(np.uint8)
+    ys, xs = np.where(clean_fg > 0)
     if len(ys) > 0 and len(xs) > 0:
         x0 = max(0, int(xs.min()) - pad_px)
         y0 = max(0, int(ys.min()) - pad_px)
@@ -2032,8 +2052,8 @@ def _encode_rgba_cutout_png(
     else:
         x0, y0, x1, y1 = 0, 0, w, h
 
-    rgba_crop = np.dstack([rgb_u8[y0:y1, x0:x1], mask_u8[y0:y1, x0:x1]])
-    mask_crop_u8 = mask_u8[y0:y1, x0:x1]
+    rgba_crop = np.dstack([rgb_u8[y0:y1, x0:x1], clean_mask[y0:y1, x0:x1]])
+    mask_crop_u8 = clean_mask[y0:y1, x0:x1]
     mask_crop_rgb = np.stack([mask_crop_u8, mask_crop_u8, mask_crop_u8], axis=-1)
 
     cut_buf = io.BytesIO()
