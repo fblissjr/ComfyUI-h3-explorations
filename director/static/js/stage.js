@@ -885,6 +885,31 @@ export class StageController {
     }
     tCtx.restore();
     ctx.drawImage(this._taeCanvas, 0, 0, w, h, 0, 0, w, h);
+
+    // If portal has moved away from the baked 1-frame preview coordinates, mark the patch boundary clearly
+    const pfCur = evalPortalAtFrame(st.doc, st.frame, st.length);
+    const movedAway = (
+      Math.hypot(Number(mp.x ?? 0.5) - pfCur.x, Number(mp.y ?? 0.5) - pfCur.y) > 0.025
+      || Math.abs(Number(mp.rx ?? 0.24) - pfCur.rx) > 0.025
+    );
+    if (movedAway) {
+      ctx.save();
+      ctx.strokeStyle = "rgba(100, 116, 139, 0.72)";
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      ctx.ellipse(
+        Number(mp.x ?? 0.5) * w,
+        Number(mp.y ?? 0.5) * h,
+        Math.max(12, Number(mp.rx ?? 0.24) * shortEdge),
+        Math.max(12, Number(mp.ry ?? mp.rx ?? 0.24) * shortEdge),
+        0,
+        0,
+        Math.PI * 2
+      );
+      ctx.stroke();
+      ctx.restore();
+    }
   }
 
   _compositeMaskedLivePreview(ctx, st, w, h, shortEdge, pf) {
@@ -1555,7 +1580,9 @@ export class StageController {
     const sy = cur.y * h;
     if (st.spriteCutout?.img) {
       const img = st.spriteCutout.img;
-      const size = Math.min(w, h) * 0.24 * (cur.scale || 1.0);
+      const bboxH = Number(st.spriteCutout.bboxHeight || 0);
+      const baseHeight = bboxH > 0.04 ? clamp(h * bboxH, h * 0.14, h * 0.85) : Math.min(w, h) * 0.24;
+      const size = baseHeight * (cur.scale || 1.0);
       const aspect = img.naturalWidth / Math.max(1, img.naturalHeight);
       ctx.save();
       ctx.translate(sx, sy);

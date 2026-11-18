@@ -60,8 +60,9 @@ const state = {
   snapToIncludeMask: false,
   selectedTargetIdx: 0,
   samPicking: false,
-  samRole: "cutout",
+  samRole: "include",
   samSegmenting: false,
+  manualDockSide: "",
   samEngine: "",
   spriteMaskRef: "",
   includeMaskRef: "",
@@ -237,14 +238,41 @@ function clearActiveRender() {
   updateRenderStatusOverlay();
 }
 
+function videoItemRef(item) {
+  if (!item) return "";
+  if (item.type && item.type !== "input") {
+    return videoItemViewUrl(item);
+  }
+  return `${item.subfolder ? item.subfolder + "/" : ""}${item.filename}`;
+}
+
 async function handleFinishedTakeById(pid) {
-  const take = state.takes.find((t) => t.prompt_id === pid);
+  const take = state.takes.find((t) => t.prompt_id === pid || t.baseline_prompt_id === pid);
   if (!take) return false;
+  const isBaselineEvent = Boolean(take.baseline_prompt_id && take.baseline_prompt_id === pid);
+  if (isBaselineEvent) {
+    if (take.baseline_video || take.baseline_error) {
+      if (pid === state.activeBaselinePromptId) state.activeBaselinePromptId = "";
+      if (state.activeRender?.pid === pid) clearActiveRender();
+      abCompare?.setTakes({ directedTake: take, baselineTake: findBaselineTake(take) });
+      syncAllUI();
+      if (take.baseline_error) {
+        showToast(`Same-seed baseline failed: ${take.baseline_error}`, "err", 5000);
+      } else {
+        showToast("Directed + Same-Seed Baseline A|B ready!", "ok");
+      }
+      return true;
+    }
+    return false;
+  }
   if (take.status === "error") {
     if (pid === state.activeAnchorPromptId) state.activeAnchorPromptId = "";
     if (pid === state.activeMaskPreviewPromptId) state.activeMaskPreviewPromptId = "";
     if (pid === state.activeStampPromptId) state.activeStampPromptId = "";
-    if (pid === state.activeRenderPromptId) state.activeRenderPromptId = "";
+    if (pid === state.activeRenderPromptId) {
+      state.activeRenderPromptId = "";
+      state.activeBaselinePromptId = "";
+    }
     clearActiveRender();
     showToast(take.error || "Execution failed on ComfyUI", "err", 5000);
     return true;
@@ -255,12 +283,13 @@ async function handleFinishedTakeById(pid) {
   if (pid && pid === state.activeAnchorPromptId) {
     state.activeAnchorPromptId = "";
     state.livePreview = null;
+    wsClient?.clearPreviewMedia();
     state.maskPreview = null;
     clearActiveRender();
     const im = take.still_image;
     if (im) {
       await loadAnchorImageUrl(videoItemViewUrl(im), {
-        ref: `${im.subfolder ? im.subfolder + "/" : ""}${im.filename}`,
+        ref: videoItemRef(im),
         name: im.filename,
         preserveOriginalPrompt: true,
       });
@@ -272,12 +301,13 @@ async function handleFinishedTakeById(pid) {
     const meta = state.activeRender?.meta || {};
     state.activeMaskPreviewPromptId = "";
     state.livePreview = null;
+    wsClient?.clearPreviewMedia();
     clearActiveRender();
     const im = take.still_image;
     if (im) {
       await loadMaskStillPreviewUrl(videoItemViewUrl(im), {
         ...meta,
-        ref: `${im.subfolder ? im.subfolder + "/" : ""}${im.filename}`,
+        ref: videoItemRef(im),
       });
       showToast("Masked image preview applied inside reticle", "ok");
     }
@@ -286,6 +316,7 @@ async function handleFinishedTakeById(pid) {
   if (pid && pid === state.activeStampPromptId) {
     state.activeStampPromptId = "";
     state.livePreview = null;
+    wsClient?.clearPreviewMedia();
     clearActiveRender();
     const im = take.still_image;
     if (im) {
@@ -299,20 +330,33 @@ async function handleFinishedTakeById(pid) {
         if (url) await loadCutoutUrl(url, cut.cutout_ref || cut.ref || "");
         showToast("Cutout actor ready (Click Set Path or drag)", "ok");
       } catch {
-        await loadCutoutUrl(videoItemViewUrl(im), `${im.subfolder ? im.subfolder + "/" : ""}${im.filename}`);
+        await loadCutoutUrl(videoItemViewUrl(im), videoItemRef(im));
       }
     }
     return true;
   }
-  if (pid && (pid === state.activeRenderPromptId || pid === state.activeBaselinePromptId)) {
+  if (pid && pid === state.activeRenderPromptId) {
     if (take.clean_video || take.hud_video) {
-      if (pid === state.activeRenderPromptId) {
-        state.activeRenderPromptId = "";
-        clearActiveRender();
-        state.maskPreview = null;
-      }
+      state.activeRenderPromptId = "";
+      state.livePreview = null;
+      wsClient?.clearPreviewMedia();
+      state.maskPreview = null;
       loadTakeIntoStage(take);
-      showToast("World clip render complete", "ok");
+      const basePid = state.activeBaselinePromptId || (take.baseline_pending ? String(take.baseline_prompt_id || "") : "");
+      if (basePid && !take.baseline_video && !take.baseline_error) {
+        state.activeBaselinePromptId = basePid;
+        setActiveRender({
+          kind: "baseline",
+          pid: basePid,
+          phase: `Rendering Same-Seed Baseline (${take.length || state.length}f A|B)…`,
+          step: 0,
+          total: 6,
+        });
+        showToast("Directed clip loaded — rendering same-seed baseline (A|B)…", "info", 4200);
+      } else {
+        clearActiveRender();
+        showToast("World clip render complete", "ok");
+      }
       return true;
     }
   }
@@ -327,13 +371,15 @@ async function checkActivePromptCompletion(pid) {
       return;
     }
     if (state.activeQueuePromptIds instanceof Set && !state.activeQueuePromptIds.has(pid)) {
-      const take = state.takes.find((t) => t.prompt_id === pid);
-      const ageSec = Date.now() / 1000 - Number(take?.created_at || 0);
-      if (take && take.status === "queued" && ageSec > 5.0) {
+      const take = state.takes.find((t) => t.prompt_id === pid || t.baseline_prompt_id === pid);
+      const isBaseline = Boolean(take && take.baseline_prompt_id === pid);
+      const ageSec = Date.now() / 1000 - Number(take?.updated_at || take?.created_at || 0);
+      if (take && ageSec > 5.0 && (take.status !== "completed" || (isBaseline && !take.baseline_video))) {
         if (pid === state.activeAnchorPromptId) state.activeAnchorPromptId = "";
         if (pid === state.activeMaskPreviewPromptId) state.activeMaskPreviewPromptId = "";
         if (pid === state.activeStampPromptId) state.activeStampPromptId = "";
         if (pid === state.activeRenderPromptId) state.activeRenderPromptId = "";
+        if (pid === state.activeBaselinePromptId) state.activeBaselinePromptId = "";
         clearActiveRender();
       }
     }
@@ -512,12 +558,12 @@ async function hydrateSchema() {
 }
 
 function renderHydratedControls() {
-  // 1. Header Dual-Clock Pills from schema.lengths
+  // 1. Header Dual-Clock Pills from schema.lengths (default to >=124f universal 5..15s grid)
   const clockWrap = $("#clock-pills");
   if (clockWrap) {
     clockWrap.replaceChildren();
-    const quick = state.lengths.filter((n) => n > (state.lengths[0] || 0)).slice(0, 2);
-    const showList = quick.length ? quick : state.lengths.slice(0, 2);
+    const universal = state.lengths.filter((n) => n >= 124).slice(0, 2);
+    const showList = universal.length ? universal : state.lengths.slice(0, 2);
     for (const lenVal of showList) {
       const btn = document.createElement("button");
       btn.type = "button";
@@ -537,7 +583,8 @@ function renderHydratedControls() {
     for (const lenVal of state.lengths) {
       const opt = document.createElement("option");
       opt.value = String(lenVal);
-      opt.textContent = `${lenVal}f (${(lenVal / FPS).toFixed(2)}s)`;
+      const r2vNote = lenVal < 124 ? " · R2V/T2V only" : "";
+      opt.textContent = `${lenVal}f (${(lenVal / FPS).toFixed(2)}s${r2vNote})`;
       lenSel.appendChild(opt);
     }
     lenSel.value = String(state.length);
@@ -983,7 +1030,13 @@ function syncPromptDiffPreview() {
     const activeTargets = (state.doc.mode === "point_targets" || state.doc.mode === "combined")
       ? (state.doc.targets || []).filter((t) => (t.prompt || "").trim())
       : [];
-    const beatPrefix = activeTargets.length >= 2 ? `[${activeTargets.length} beats] ` : "";
+    const portalBeats = (state.doc.portal || []).filter((p) => (p.prompt || "").trim());
+    const beatFrames = Array.from(new Set([
+      ...activeTargets.map((t) => `f${t.start}`),
+      ...portalBeats.map((p) => `f${p.frame}`),
+    ]));
+    const beatCount = activeTargets.length + (portalBeats.length > 1 ? portalBeats.length : 0);
+    const beatPrefix = beatCount >= 2 ? `[${beatFrames.length} beats: ${beatFrames.join(", ")}] ` : "";
     if (badgeEl) badgeEl.textContent = modeLabelMap[wfMode] || "Prompt Diff";
     editEl.textContent = `+ ${beatPrefix}${editClause}`;
   } else {
@@ -995,7 +1048,7 @@ function syncPromptDiffPreview() {
 function syncContextualCard() {
   const card = $("#portal-card");
   if (!card) return;
-  if (!state.hasAnchor) {
+  if (!state.hasAnchor || abCompare?.active) {
     card.classList.add("hidden");
     return;
   }
@@ -1121,9 +1174,10 @@ function syncContextualCard() {
   renderSynthesizedOperators(pf, sp, coupling);
   syncPromptDiffPreview();
 
-  // Clamp card opposite the active portal/target so it stays inside stage bounds
-  card.classList.toggle("dock-left", anchorX > 0.56);
-  card.classList.toggle("dock-right", anchorX <= 0.56);
+  // Clamp card opposite the active portal/target (or honor manual Left/Right flip)
+  const dockLeft = state.manualDockSide ? state.manualDockSide === "left" : anchorX > 0.56;
+  card.classList.toggle("dock-left", dockLeft);
+  card.classList.toggle("dock-right", !dockLeft);
 
   $("#card-time-badge").textContent = `f${String(state.frame).padStart(3, "0")} · ${(state.frame / FPS).toFixed(2)}s`;
   const tp = $("#target-prompt");
@@ -1784,8 +1838,8 @@ async function previewInMask() {
     return;
   }
   const cmd = (state.targetPrompt || "").trim();
-  if (!cmd) {
-    showToast("Enter an action or spawn prompt first.", "err");
+  if (!cmd || cmd.includes("[target object]")) {
+    showToast("Enter or replace [target object] with a concrete action/object first.", "err");
     $("#target-prompt")?.focus();
     return;
   }
@@ -1845,6 +1899,7 @@ async function previewInMask() {
     });
     state.activeMaskPreviewPromptId = res.prompt_id || "";
     state.activeMaskPreviewTakeId = res.take_id || "";
+    if (res.resolved_source_ref) state.anchorRef = res.resolved_source_ref;
     if (res.resident_backbone) state.residentBackbone = res.resident_backbone;
     const resolvedWf = res.workflow || wf;
     setActiveRender({
@@ -1908,11 +1963,19 @@ async function chainMaskPreviewToAnchor() {
   showToast("Rolled preview forward as new World State", "ok");
 }
 
-function loadCutoutUrl(url, ref) {
+function loadCutoutUrl(url, ref, opts = {}) {
   return new Promise((resolve) => {
     const img = new Image();
     img.onload = () => {
-      state.spriteCutout = { ref, viewUrl: url, img };
+      if (!opts.keepMaskRef) {
+        state.spriteMaskRef = "";
+      }
+      state.spriteCutout = {
+        ref,
+        viewUrl: url,
+        img,
+        bboxHeight: Number(opts.bbox?.h || 0),
+      };
       state.spriteMode = true;
       syncAllUI();
       resolve(img);
@@ -1957,7 +2020,7 @@ async function executeSamSegmentation() {
     showToast("Click subject on stage or enter a SAM text prompt.", "info", 2000);
     return;
   }
-  const role = state.samRole || "cutout";
+  const role = state.samRole || "include";
   state.samSegmenting = true;
   syncAllUI();
   showToast(`Segmenting subject (${role})…`, "info");
@@ -1975,10 +2038,24 @@ async function executeSamSegmentation() {
       }),
     });
     state.samEngine = data.engine || "";
+    if (data.resolved_source_ref) state.anchorRef = data.resolved_source_ref;
     if (data.role === "cutout") {
-      state.spriteMaskRef = data.mask_ref || "";
+      state.spriteMaskRef = data.cutout_mask_ref || "";
+      const wps = state.doc.dpad?.waypoints || [];
+      if (
+        data.bbox
+        && wps.length === 1
+        && Math.abs(Number(wps[0].x) - 0.36) < 0.005
+        && Math.abs(Number(wps[0].y) - 0.74) < 0.005
+      ) {
+        wps[0].x = Number(Number(data.bbox.cx).toFixed(3));
+        wps[0].y = Number(Number(data.bbox.cy).toFixed(3));
+      }
       if (data.cutout_view_url) {
-        await loadCutoutUrl(data.cutout_view_url, data.cutout_ref || "");
+        await loadCutoutUrl(data.cutout_view_url, data.cutout_ref || "", {
+          keepMaskRef: true,
+          bbox: data.bbox || null,
+        });
       }
     } else if (data.role === "exclude") {
       state.excludeMaskRef = data.mask_ref || "";
@@ -1993,12 +2070,12 @@ async function executeSamSegmentation() {
     }
     const pct = Math.round(Number(data.coverage || 0) * 100);
     showToast(`Segmented ${data.role} via ${data.engine || "sam"} (${pct}%) · +${state.samPosPoints.length}/−${state.samNegPoints.length}`, "ok");
-    syncAllUI();
     schedulePreflight();
   } catch (err) {
     showToast(`Segmentation failed: ${err.message}`, "err");
   } finally {
     state.samSegmenting = false;
+    state.samPicking = false;
     syncAllUI();
   }
 }
@@ -2090,9 +2167,20 @@ function buildCompilePayload() {
 }
 
 async function renderPortalEdit() {
-  if (!state.targetPrompt.trim() && !state.samePrompt && state.controlVector === "none") {
-    showToast("Enter an action or spawn prompt inside the World Spawner card first.", "err");
+  const wfMode = resolvedWorkflowMode();
+  if (!state.hasAnchor && wfMode !== "t2v_portal") {
+    showToast("Upload/drop an image or generate a Still Scene first (or switch Engine → Workflow to Text-to-Video).", "err", 4200);
+    $("#anchor-prompt")?.focus();
+    return;
+  }
+  const cmd = state.targetPrompt.trim();
+  if ((!cmd || cmd.includes("[target object]")) && !state.samePrompt && state.controlVector === "none") {
+    showToast("Enter a concrete action or target object in Action or Spawn Command first.", "err");
     $("#target-prompt")?.focus();
+    return;
+  }
+  if (wfMode === "i2v_portal" && state.length !== 1 && state.length < 124) {
+    showToast(`I2V requires >= 124 frames (use 141f+ in header, or switch to R2V for ${state.length}f).`, "err", 4500);
     return;
   }
   const btn = $("#btn-render");
@@ -2173,22 +2261,30 @@ function rehydrateInFlightRender() {
   const queuedMatches = state.takes.filter(
     (t) =>
       t &&
-      t.status === "queued" &&
-      (state.activeQueuePromptIds.has(String(t.prompt_id || "")) ||
-        (t.baseline_prompt_id && state.activeQueuePromptIds.has(String(t.baseline_prompt_id))))
+      (
+        (t.status === "queued" && state.activeQueuePromptIds.has(String(t.prompt_id || "")))
+        || (t.baseline_prompt_id && !t.baseline_video && state.activeQueuePromptIds.has(String(t.baseline_prompt_id)))
+      )
   );
   if (!queuedMatches.length) return;
   const take = queuedMatches.find((t) => t.client_id && t.client_id === wsClient?.clientId) || queuedMatches[0];
-  const pid = String(take.prompt_id || "");
+  const primaryActive = take.status === "queued" && state.activeQueuePromptIds.has(String(take.prompt_id || ""));
+  const baseActive = Boolean(
+    take.baseline_prompt_id && !take.baseline_video && state.activeQueuePromptIds.has(String(take.baseline_prompt_id))
+  );
+  const pid = primaryActive ? String(take.prompt_id || "") : (baseActive ? String(take.baseline_prompt_id || "") : "");
   if (!pid) return;
 
-  const kind = String(take.kind || "render");
+  const kind = primaryActive ? String(take.kind || "render") : "baseline";
   const wf = String(take.mode || take.params?.workflow || "");
   let total = Number(take.params?.steps || 6);
   let phase = `Generating ${take.length || state.length}f World Clip (${wf || "i2v_portal"})…`;
   let meta = null;
 
-  if (kind === "anchor") {
+  if (!primaryActive && baseActive) {
+    state.activeBaselinePromptId = pid;
+    phase = `Rendering Same-Seed Baseline (${take.length || state.length}f A|B)…`;
+  } else if (kind === "anchor") {
     state.activeAnchorPromptId = pid;
     total = wf === "ph3_image" ? 8 : 6;
     phase = `Generating Still (${wf || "h3_image"})…`;
@@ -2249,6 +2345,14 @@ function renderTakesList() {
     return;
   }
   list.replaceChildren();
+  const kindLabels = {
+    anchor: "Still Anchor",
+    mask_preview: "Pre-Viz",
+    stamp: "Cutout",
+    redub: "Audio Re-Dub",
+    imported: "Imported",
+    spatial: "World Clip",
+  };
   for (const take of state.takes) {
     const card = document.createElement("div");
     card.className = "take-card";
@@ -2258,8 +2362,38 @@ function renderTakesList() {
     const linTag = take.parent_take_id
       ? ` · ↳ ${String(take.parent_take_id).slice(-6)}${take.parent_frame != null ? `@f${take.parent_frame}` : ""}`
       : "";
-    top.textContent = `${take.mode || "take"} · ${take.length || "?"}f · seed ${take.seed || "?"} · ${take.status || "done"}${linTag}`;
+    const kindLabel = kindLabels[take.kind] || take.kind || "Take";
+    const lenLabel = take.still_image ? "1f" : `${take.length || "?"}f`;
+    const titleSpan = document.createElement("span");
+    titleSpan.textContent = `${kindLabel} · ${take.mode || "take"} · ${lenLabel} · seed ${take.seed || "?"}${linTag}`;
+    top.appendChild(titleSpan);
+
+    const statusChip = document.createElement("span");
+    const statusStr = take.baseline_pending ? "baseline running" : (take.status || "completed");
+    statusChip.className = `take-status-chip ${
+      statusStr === "error" || statusStr === "interrupted"
+        ? "err"
+        : (statusStr === "queued" || take.baseline_pending ? "pending" : "ok")
+    }`;
+    statusChip.textContent = statusStr;
+    top.appendChild(statusChip);
     card.appendChild(top);
+
+    const promptText = String(take.prompt_preview || take.params?.target_prompt || take.params?.prompt || "").trim();
+    if (promptText) {
+      const pEl = document.createElement("div");
+      pEl.className = "take-card-prompt";
+      pEl.textContent = promptText;
+      pEl.title = promptText;
+      card.appendChild(pEl);
+    }
+
+    if ((take.status === "error" || take.status === "interrupted" || take.baseline_error) && (take.error || take.baseline_error)) {
+      const errEl = document.createElement("div");
+      errEl.className = "take-card-error";
+      errEl.textContent = String(take.error || take.baseline_error).trim();
+      card.appendChild(errEl);
+    }
 
     const actions = document.createElement("div");
     actions.className = "take-card-actions";
@@ -2272,6 +2406,27 @@ function renderTakesList() {
       restoreBtn.title = "Restore saved prompts, portals, cues, seed, and controls back onto stage";
       restoreBtn.addEventListener("click", () => restoreTakeRecipe(take, restoreBtn));
       actions.appendChild(restoreBtn);
+    }
+
+    if (take.still_image && (take.kind === "anchor" || take.kind === "mask_preview")) {
+      const useStillBtn = document.createElement("button");
+      useStillBtn.type = "button";
+      useStillBtn.className = "btn-outline-sm";
+      useStillBtn.textContent = "Use Still";
+      useStillBtn.title = "Load this 1-frame still as the active World State anchor";
+      useStillBtn.addEventListener("click", async () => {
+        try {
+          await loadAnchorImageUrl(videoItemViewUrl(take.still_image), {
+            ref: videoItemRef(take.still_image),
+            name: take.still_image.filename || "Anchor Still",
+            preserveOriginalPrompt: true,
+          });
+          showToast("Loaded still onto stage", "ok");
+        } catch (err) {
+          showToast(err.message || "Still image expired from temp/", "err");
+        }
+      });
+      actions.appendChild(useStillBtn);
     }
 
     if (take.clean_video || take.hud_video) {
@@ -2352,19 +2507,52 @@ function loadTakeIntoStage(take) {
     state.activeVideoEl = v;
   }
   const v = state.activeVideoEl;
-  const onReady = () => {
+  const cleanupListeners = () => {
     v.removeEventListener("loadeddata", onReady);
+    v.removeEventListener("error", onError);
+  };
+  const onReady = () => {
+    cleanupListeners();
     state.livePreview = null;
     wsClient?.clearPreviewMedia();
     syncMediaPlayback();
     syncAllUI();
   };
+  const onError = () => {
+    cleanupListeners();
+    if (state.activeStageTake === take) {
+      state.activeStageTake = null;
+      state.activeVideoUrl = "";
+      state.playing = false;
+      syncAllUI();
+    }
+    showToast("Video file unavailable (temp output cleared on ComfyUI restart).", "err", 4500);
+  };
+  cleanupListeners();
   v.addEventListener("loadeddata", onReady);
+  v.addEventListener("error", onError);
+
+  state.hasAnchor = true;
+  $("#empty-anchor-card")?.classList.add("hidden");
+  if (!state.anchorRef && take.params?.source_ref) {
+    state.anchorRef = String(take.params.source_ref);
+    state.anchorName = state.anchorRef.split("/").pop() || take.mode || "Rendered Take";
+  } else if (!state.anchorName) {
+    state.anchorName = take.mode || "Rendered Take";
+  }
+  const takeLen = Number(take.length || 0);
+  if (takeLen > 0 && state.lengths.includes(takeLen) && takeLen !== state.length) {
+    state.length = takeLen;
+    state.frame = clamp(state.frame, 0, Math.max(0, state.length - 1));
+  }
+  state.livePreview = null;
+  wsClient?.clearPreviewMedia();
   state.activeStageTake = take;
   state.activeVideoUrl = url;
   v.src = url;
   try { v.load(); } catch {}
   syncMediaPlayback();
+  syncAllUI();
 
   abCompare?.setTakes({
     directedTake: take,
@@ -2501,7 +2689,11 @@ function syncMediaPlayback() {
 }
 
 function openABCompareForTake(take = null) {
-  const target = take || state.takes.find((t) => t.clean_video || t.hud_video) || null;
+  const target = take || state.activeStageTake || state.takes.find((t) => t.clean_video || t.hud_video) || null;
+  if (!abCompare.active && !target) {
+    showToast("Render or import a video take first to compare A|B.", "info", 2800);
+    return;
+  }
   if (target) {
     abCompare.setTakes({
       directedTake: target,
@@ -2521,6 +2713,7 @@ function openABCompareForTake(take = null) {
       height: state.doc.height,
     });
   }
+  syncContextualCard();
   syncAudioGuardAndSequencer();
   stage?.render();
 }
@@ -2931,7 +3124,7 @@ function init() {
   });
   for (const roleBtn of $$(".sam-role-btn")) {
     roleBtn.addEventListener("click", () => {
-      const nextRole = roleBtn.dataset.role || "cutout";
+      const nextRole = roleBtn.dataset.role || "include";
       state.samRole = nextRole;
       syncAllUI();
     });
@@ -3012,6 +3205,12 @@ function init() {
   });
 
   // Contextual Portal Card & World Sandbox controls
+  $("#btn-dock-card")?.addEventListener("click", () => {
+    const card = $("#portal-card");
+    const currentlyLeft = state.manualDockSide ? state.manualDockSide === "left" : Boolean(card?.classList.contains("dock-left"));
+    state.manualDockSide = currentlyLeft ? "right" : "left";
+    syncContextualCard();
+  });
   $("#btn-collapse-card")?.addEventListener("click", () => {
     $("#portal-card")?.classList.toggle("collapsed");
   });
@@ -3028,13 +3227,24 @@ function init() {
   });
   for (const qc of $$("#quick-action-chips .quick-chip")) {
     qc.addEventListener("click", () => {
-      const act = qc.dataset.action || qc.textContent || "";
+      const tpl = qc.dataset.template || "";
+      const act = tpl || qc.dataset.action || qc.textContent || "";
       state.targetPrompt = act;
       if ((state.doc.mode === "point_targets" || state.doc.mode === "combined") && state.doc.targets?.[state.selectedTargetIdx]) {
         state.doc.targets[state.selectedTargetIdx].prompt = act;
       }
       const tp = $("#target-prompt");
-      if (tp) tp.value = act;
+      if (tp) {
+        tp.value = act;
+        if (tpl) {
+          tp.focus();
+          const phStart = act.indexOf("[");
+          const phEnd = act.indexOf("]", phStart);
+          if (phStart >= 0 && phEnd > phStart && tp.setSelectionRange) {
+            tp.setSelectionRange(phStart, phEnd + 1);
+          }
+        }
+      }
       syncPromptDiffPreview();
     });
   }

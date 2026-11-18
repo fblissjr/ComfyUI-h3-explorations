@@ -842,7 +842,14 @@ def check_compiler_contracts() -> str:
     )
     assert auto_cold["workflow"] == "h3_image"
 
-    return "all 4 spatial modes, R2V GuideLatent F0 lock, multi-beat prompts, warm auto pre-viz, zero-tortoise synthesis, masked image previews, dual VHS save_output=False, dynamic '165', audio_refine + redub, baseline opt-in, and image stills verified"
+    schema_doc = compiler_mod.get_schema_data()
+    assert schema_doc["defaults"]["length"] == 141, f"expected default length 141, got {schema_doc['defaults']}"
+    pf_short_i2v = compiler_mod.compute_preflight_summary({"mode": "i2v_portal", "length": 90})
+    assert pf_short_i2v["can_render"] is False and any("124" in w for w in pf_short_i2v["warnings"]), pf_short_i2v
+    pf_ok_i2v = compiler_mod.compute_preflight_summary({"mode": "i2v_portal", "length": 141})
+    assert pf_ok_i2v["can_render"] is True, pf_ok_i2v
+
+    return "all 4 spatial modes, R2V GuideLatent F0 lock, multi-beat prompts, 141f default + I2V <124f guard, warm auto pre-viz, zero-tortoise synthesis, masked image previews, dual VHS save_output=False, dynamic '165', audio_refine + redub, baseline opt-in, and image stills verified"
 
 
 def check_forget_plan_and_isolation() -> str:
@@ -977,6 +984,9 @@ def check_server_routes_and_escalate() -> str:
             "test_anchor.png": _encode_test_png_bytes(336, 192),
             "shot_src.mp4": _encode_indexed_mp4_bytes([(230, 30, 30), (30, 220, 40), (30, 70, 235)]),
         }
+        temp_only_uploads: dict[str, bytes] = {
+            "temp_only_anchor.png": _encode_test_png_bytes(336, 192),
+        }
         submitted_prompts: list[dict[str, Any]] = []
 
         async def _stub_upload(req: web.Request) -> web.Response:
@@ -1001,8 +1011,12 @@ def check_server_routes_and_escalate() -> str:
             q = req.rel_url.query
             fn = q.get("filename", "")
             sub = q.get("subfolder", "")
+            tp = q.get("type", "output")
             key = f"{sub}/{fn}" if sub else fn
-            raw = stored_uploads.get(key) or stored_uploads.get(fn)
+            if tp == "temp" and (key in temp_only_uploads or fn in temp_only_uploads):
+                raw = temp_only_uploads.get(key) or temp_only_uploads.get(fn)
+            else:
+                raw = stored_uploads.get(key) or stored_uploads.get(fn)
             if raw is None:
                 return web.Response(status=404, text="not found")
             ctype = "video/mp4" if fn.endswith(".mp4") else "image/png"
@@ -1145,7 +1159,17 @@ def check_server_routes_and_escalate() -> str:
                     assert r_seg_cut.status == 200, await r_seg_cut.text()
                     seg_cut = await r_seg_cut.json()
                     assert seg_cut["ok"] is True and seg_cut["role"] == "cutout" and seg_cut["engine"] == "grabcut", seg_cut
-                    assert seg_cut.get("mask_ref") and seg_cut.get("cutout_ref"), seg_cut
+                    assert seg_cut.get("mask_ref") and seg_cut.get("cutout_ref") and seg_cut.get("cutout_mask_ref"), seg_cut
+                    assert seg_cut["cutout_mask_ref"] in stored_uploads, seg_cut
+                    assert isinstance(seg_cut.get("bbox"), dict) and "cx" in seg_cut["bbox"], seg_cut
+                    from PIL import Image as _SegImage
+                    with _SegImage.open(io.BytesIO(stored_uploads[seg_cut["cutout_ref"]])) as cim:
+                        with _SegImage.open(io.BytesIO(stored_uploads[seg_cut["cutout_mask_ref"]])) as mim:
+                            assert cim.size == mim.size == (seg_cut["cutout_width"], seg_cut["cutout_height"]), (
+                                cim.size,
+                                mim.size,
+                                seg_cut,
+                            )
                     assert 0.01 <= float(seg_cut["coverage"]) <= 0.95, seg_cut
 
                     r_seg_exc = await client.post(
@@ -1260,6 +1284,23 @@ def check_server_routes_and_escalate() -> str:
                     assert mpv_graph["9"]["class_type"] == "MiniMaxH3EditGuider"
                     assert mpv_graph["165"]["inputs"]["tiny_vae"] == "taeh3_image.safetensors"
 
+                    # Verify temp-only anchor still promotes cleanly into ComfyUI input/h3_spatial_director/
+                    r_mpv_temp = await client.post(
+                        "/api/preview_in_mask",
+                        json={
+                            "source_ref": "temp_only_anchor.png",
+                            "target_prompt": "golden sparks inside circle",
+                            "region": {"x": 0.5, "y": 0.5, "rx": 0.18, "ry": 0.18, "shape": "circle"},
+                            "feather": 0.08,
+                            "seed": 56,
+                        },
+                    )
+                    assert r_mpv_temp.status == 200, await r_mpv_temp.text()
+                    mpv_temp = await r_mpv_temp.json()
+                    assert mpv_temp.get("resolved_source_ref", "").startswith("h3_spatial_director/"), mpv_temp
+                    assert mpv_temp["resolved_source_ref"] in stored_uploads, mpv_temp
+                    assert len(submitted_prompts) == n_sub_before + 2
+
                     # 10. POST /api/stamp_cutout with BOTH source_ref AND prompt triggers T2I for_cutout=True
                     r_stp = await client.post(
                         "/api/stamp_cutout",
@@ -1370,6 +1411,57 @@ def check_server_routes_and_escalate() -> str:
                     )
                     assert r_ren.status == 200, await r_ren.text()
                     ren_doc = await r_ren.json()
+
+                    # Short <124f length on i2v_portal must be blocked with HTTP 400 (cannot launch a crashing 17*7+5 graph)
+                    r_ren_short = await client.post(
+                        "/api/render",
+                        json={
+                            "mode": "i2v_portal",
+                            "director_mode": "portal_path",
+                            "source_ref": "test_anchor.png",
+                            "length": 90,
+                            "events_json": {"portal": SAMPLE_EVENTS_90["portal"], "targets": []},
+                        },
+                    )
+                    assert r_ren_short.status == 400, f"expected 400 for i2v_portal <124f, got {r_ren_short.status}"
+
+                    # Verify /api/ab_metrics runs off-loop and scores identical clips at 0.0 MAE
+                    r_abm = await client.post(
+                        "/api/ab_metrics",
+                        json={
+                            "edited_video": {"filename": "shot_src.mp4", "subfolder": "", "type": "temp"},
+                            "baseline_video": {"filename": "shot_src.mp4", "subfolder": "", "type": "temp"},
+                            "director_mode": "portal_path",
+                            "events_json": {
+                                "portal": [{"frame": 0, "x": 0.5, "y": 0.5, "rx": 0.22, "ry": 0.22, "shape": "circle"}],
+                                "targets": [],
+                            },
+                        },
+                    )
+                    assert r_abm.status == 200, await r_abm.text()
+                    abm_doc = await r_abm.json()
+                    assert abm_doc.get("ok") is True and abm_doc.get("available") is True, abm_doc
+                    assert float(abm_doc["in_mask_mae"]) == 0.0 and float(abm_doc["out_mask_mae"]) == 0.0, abm_doc
+
+                    # Verify orphaned queued take reconciles to interrupted when missing from live /queue & /history
+                    orphan_take = app["store"].record_take(
+                        {
+                            "take_id": "orphan_take_1",
+                            "kind": "portal",
+                            "mode": "i2v_portal",
+                            "status": "queued",
+                            "prompt_id": "orphan_missing_pid",
+                            "params": {"target_prompt": "orphan test"},
+                            "created_at": time.time() - 30.0,
+                            "updated_at": time.time() - 30.0,
+                        }
+                    )
+                    r_takes_rec = await client.get("/api/takes")
+                    assert r_takes_rec.status == 200
+                    takes_after_rec = (await r_takes_rec.json())["takes"]
+                    orphan_rec = next((t for t in takes_after_rec if t.get("take_id") == orphan_take["take_id"]), None)
+                    assert orphan_rec and orphan_rec.get("status") == "interrupted", orphan_rec
+                    assert orphan_rec.get("prompt_preview") == "orphan test" and orphan_rec.get("baseline_pending") is False, orphan_rec
 
                     r_stats = await client.get("/api/system_stats")
                     assert r_stats.status == 200
@@ -1694,6 +1786,7 @@ def _terminate_proc(proc: subprocess.Popen | None, name: str) -> None:
 async def _run_cdp_browser(director_url: str, anchor_png: Path) -> str:
     import aiohttp
 
+    compiler_mod, _, _ = _load_director_modules()
     chrome_bin = _find_chrome()
     assert chrome_bin, "google-chrome not found"
 
@@ -1983,6 +2076,38 @@ async def _run_cdp_browser(director_url: str, anchor_png: Path) -> str:
                     assert pop["headingScrollW"] <= pop["headingClientW"] + 1, f"#portal-card-heading truncated: {pop}"
                     assert pop["diffVisible"] and "Swirling bioluminescent cavern portal" in pop["diffEditText"], f"#prompt-diff-preview did not update: {pop}"
 
+                    ux_init = await js(
+                        """(() => {
+                          const sd = window.__SPATIAL_DIRECTOR__;
+                          const card = document.getElementById('portal-card');
+                          const footer = card?.querySelector('.card-cta-footer');
+                          const dockBtn = document.getElementById('btn-dock-card');
+                          const wasLeft = Boolean(card?.classList.contains('dock-left'));
+                          dockBtn?.click();
+                          const afterFlip = Boolean(card?.classList.contains('dock-left'));
+                          const flipRect = card ? card.getBoundingClientRect().toJSON() : null;
+                          dockBtn?.click();
+                          const restoredLeft = Boolean(card?.classList.contains('dock-left'));
+                          const advBtn = document.getElementById('btn-advanced-toggle');
+                          advBtn?.click();
+                          const advRect = footer ? footer.getBoundingClientRect().toJSON() : null;
+                          advBtn?.click();
+                          return {
+                            length: sd?.state?.length,
+                            samRole: sd?.state?.samRole,
+                            wasLeft,
+                            afterFlip,
+                            restoredLeft,
+                            flipInBounds: Boolean(flipRect && flipRect.left >= 0 && flipRect.right <= 1280 && flipRect.bottom <= 800),
+                            footerAdvBottom: advRect ? advRect.bottom : 9999,
+                          };
+                        })()"""
+                    )
+                    assert ux_init["length"] == 141, f"Expected default length 141, got {ux_init}"
+                    assert ux_init["samRole"] == "include", f"Expected default SAM role 'include', got {ux_init}"
+                    assert ux_init["wasLeft"] != ux_init["afterFlip"] and ux_init["restoredLeft"] == ux_init["wasLeft"], ux_init
+                    assert ux_init["flipInBounds"] and ux_init["footerAdvBottom"] <= 800, ux_init
+
                     # Helper: intercept one /api/render click to read exact serialized frontend state without queueing
                     async def _capture_render_payload() -> dict[str, Any]:
                         await js(
@@ -2120,6 +2245,18 @@ async def _run_cdp_browser(director_url: str, anchor_png: Path) -> str:
                     await js("document.getElementById('btn-audio-guard')?.click()")
                     await asyncio.sleep(0.1)
 
+                    lanes_card = await js(
+                        """(() => {
+                          const c = document.getElementById('portal-card');
+                          const f = c?.querySelector('.card-cta-footer');
+                          const r = c ? c.getBoundingClientRect().toJSON() : null;
+                          const fr = f ? f.getBoundingClientRect().toJSON() : null;
+                          return { cardRect: r, footerRect: fr };
+                        })()"""
+                    )
+                    assert lanes_card["cardRect"] and lanes_card["cardRect"]["bottom"] <= 800, lanes_card
+                    assert lanes_card["footerRect"] and lanes_card["footerRect"]["bottom"] <= 800, lanes_card
+
                     shot_out = (os.environ.get("DIRECTOR_CDP_SCREENSHOT") or "").strip()
                     if shot_out:
                         shot_res = await cdp("Page.captureScreenshot", {"format": "png"})
@@ -2245,11 +2382,12 @@ async def _run_cdp_browser(director_url: str, anchor_png: Path) -> str:
                     assert compile_res["ok"] is True and compile_res["preview_override_injected"] is True, compile_res
                     assert compile_res["graph"]["165"]["class_type"] == "ModelPreviewOverrideKJ", compile_res["graph"]["165"]
                     assert compile_res["graph"]["165"]["inputs"]["tiny_vae"] == "taeh3.safetensors", compile_res["graph"]["165"]
-                    assert compile_res["graph"]["165"]["inputs"]["preview_frames"] == 27, (
-                        f"expected preview_frames=27 for length={p3_req.get('length')}, got {compile_res['graph']['165']['inputs']}"
+                    exp_prev_frames, exp_prev_fps = compiler_mod.video_preview_schedule(int(p3_req.get("length") or 141))
+                    assert compile_res["graph"]["165"]["inputs"]["preview_frames"] == exp_prev_frames, (
+                        f"expected preview_frames={exp_prev_frames} for length={p3_req.get('length')}, got {compile_res['graph']['165']['inputs']}"
                     )
-                    assert compile_res["graph"]["165"]["inputs"]["preview_fps"] == 7, (
-                        f"expected preview_fps=7 for length={p3_req.get('length')}, got {compile_res['graph']['165']['inputs']}"
+                    assert compile_res["graph"]["165"]["inputs"]["preview_fps"] == exp_prev_fps, (
+                        f"expected preview_fps={exp_prev_fps} for length={p3_req.get('length')}, got {compile_res['graph']['165']['inputs']}"
                     )
 
                     # Simulate "kj_preview_override" WebSocket messages (mp4 blob + jpeg) & verify canvas compositing
@@ -2339,6 +2477,79 @@ async def _run_cdp_browser(director_url: str, anchor_png: Path) -> str:
                             break
                         await asyncio.sleep(0.12)
                     assert composited, "Simulated kj_preview_override frame did not composite onto #stage-canvas / update #live-tae-pill or persist clientId"
+
+                    # Verify Compare Original with 0 takes warns via bottom toast (no blank AB overlay), and chip/toast positioning
+                    ab_empty = await js(
+                        """(() => {
+                          document.getElementById('btn-compare-ab')?.click();
+                          const toast = document.getElementById('stage-toast');
+                          const abBar = document.getElementById('ab-bar');
+                          const tr = toast ? toast.getBoundingClientRect().toJSON() : null;
+                          return {
+                            toastText: toast ? toast.textContent.trim() : '',
+                            toastTop: tr ? tr.top : 0,
+                            abHidden: Boolean(abBar && abBar.classList.contains('hidden')),
+                          };
+                        })()"""
+                    )
+                    assert "Render or import a video take" in ab_empty["toastText"] and ab_empty["abHidden"] is True, ab_empty
+                    assert ab_empty["toastTop"] > 400, f"Expected bottom-anchored #stage-toast (>400px), got {ab_empty}"
+
+                    # Verify SAM Movable cutout segmentation runs cleanly, aligns mask ref, and centers default sprite waypoint
+                    sam_hit = await js(
+                        """(() => {
+                          document.getElementById('btn-engine-close')?.click();
+                          document.getElementById('mode-btn-sprite')?.click();
+                          document.getElementById('sam-role-cutout')?.click();
+                          const pick = document.getElementById('btn-sam-pick');
+                          if (pick && !window.__SPATIAL_DIRECTOR__?.state?.samPicking) pick.click();
+                          const origFetch = window.fetch;
+                          window.fetch = async function(input, init) {
+                            const url = typeof input === 'string' ? input : (input && input.url) || '';
+                            if (url.includes('/api/segment') && init && typeof init.body === 'string') {
+                              window.fetch = origFetch;
+                              const body = JSON.parse(init.body);
+                              body.force_grabcut = true;
+                              return origFetch.call(this, input, { ...init, body: JSON.stringify(body) });
+                            }
+                            return origFetch.apply(this, arguments);
+                          };
+                          const r = document.getElementById('stage-canvas').getBoundingClientRect();
+                          const x = r.left + r.width * 0.30;
+                          const y = r.top + r.height * 0.50;
+                          const el = document.elementFromPoint(x, y);
+                          return { x, y, hitId: el ? el.id : '' };
+                        })()"""
+                    )
+                    assert sam_hit["hitId"] == "stage-canvas", f"SAM click point covered by {sam_hit}"
+                    await cdp("Input.dispatchMouseEvent", {"type": "mousePressed", "x": sam_hit["x"], "y": sam_hit["y"], "button": "left", "clickCount": 1})
+                    await cdp("Input.dispatchMouseEvent", {"type": "mouseReleased", "x": sam_hit["x"], "y": sam_hit["y"], "button": "left", "clickCount": 1})
+                    sam_cut_res = None
+                    for _ in range(40):
+                        cand = await js(
+                            """(() => {
+                              const st = window.__SPATIAL_DIRECTOR__?.state;
+                              if (!st?.spriteCutout?.ref) return null;
+                              const wp = (st.doc?.dpad?.waypoints || [])[0] || null;
+                              return {
+                                ref: st.spriteCutout.ref,
+                                maskRef: st.spriteMaskRef,
+                                bboxH: st.spriteCutout.bboxHeight,
+                                samPicking: st.samPicking,
+                                wp,
+                              };
+                            })()"""
+                        )
+                        if cand:
+                            sam_cut_res = cand
+                            break
+                        await asyncio.sleep(0.15)
+                    assert sam_cut_res and sam_cut_res["ref"].startswith("h3_spatial_director/"), sam_cut_res
+                    assert sam_cut_res["maskRef"].startswith("h3_spatial_director/"), sam_cut_res
+                    assert sam_cut_res["samPicking"] is False and float(sam_cut_res["bboxH"]) > 0, sam_cut_res
+                    assert sam_cut_res["wp"] and (
+                        abs(float(sam_cut_res["wp"]["x"]) - 0.36) > 0.01 or abs(float(sam_cut_res["wp"]["y"]) - 0.74) > 0.01
+                    ), f"Expected default sprite waypoint auto-centered onto cutout bbox, got {sam_cut_res}"
 
                     csp_violations = await js("window.__cspViolations")
                     assert csp_violations == [], f"CSP violations recorded on /: {csp_violations}"

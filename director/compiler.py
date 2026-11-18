@@ -2282,7 +2282,7 @@ def compute_preflight_summary(params: dict[str, Any] | None = None) -> dict[str,
     """Compute offline PackedLayout token estimate and ``int32`` QKV limit status."""
     cfg = dict(params or {})
     clocks = all_on_both_clocks()
-    length = int(cfg.get("length", 90))
+    length = int(cfg.get("length", 141))
     width = int(cfg.get("width", 1344))
     height = int(cfg.get("height", 768))
     mode = str(cfg.get("mode") or "r2v_portal")
@@ -2332,9 +2332,16 @@ def compute_preflight_summary(params: dict[str, Any] | None = None) -> dict[str,
     total_tokens = video_tokens + audio_tokens + ref_tokens + prompt_tokens_est
     exceeds_int32 = total_tokens >= INT32_TOKEN_LIMIT
 
+    min_i2v_len = int(_h3_rules().min_legal_length())
+    i2v_too_short = mode == "i2v_portal" and length != 1 and length < min_i2v_len
+
     warnings: list[str] = []
     if length != 1 and length not in clocks:
         warnings.append(f"length={length} is off on_both_clocks {list(clocks)}")
+    if i2v_too_short:
+        warnings.append(
+            f"i2v_portal requires >= {min_i2v_len}f (5.0s, e.g. 141f); {length}f is supported on r2v_portal / world_targets"
+        )
     if width % 32 or height % 32:
         warnings.append(f"resolution {width}x{height} must be divisible by 32")
     if exceeds_int32:
@@ -2357,7 +2364,13 @@ def compute_preflight_summary(params: dict[str, Any] | None = None) -> dict[str,
         "total_tokens": total_tokens,
         "int32_limit": INT32_TOKEN_LIMIT,
         "exceeds_int32": exceeds_int32,
-        "can_render": (not exceeds_int32) and (width % 32 == 0) and (height % 32 == 0) and (length == 1 or length in clocks),
+        "can_render": (
+            (not exceeds_int32)
+            and (width % 32 == 0)
+            and (height % 32 == 0)
+            and (length == 1 or length in clocks)
+            and (not i2v_too_short)
+        ),
         "warnings": warnings,
         "segments": {
             "video": video_tokens,
@@ -2795,7 +2808,7 @@ def get_schema_data(object_info: dict[str, Any] | None = None, *, heylook_sugges
         },
         "defaults": {
             "mode": "i2v_portal",
-            "length": 90,
+            "length": 141,
             "width": 1344,
             "height": 768,
             "steps": 6,

@@ -691,13 +691,12 @@ body.light-studio {
   width: 326px;
   max-width: calc(100% - 28px);
   max-height: calc(100% - 118px);
-  overflow-y: auto;
-  overflow-x: hidden;
+  overflow: hidden;
   background: rgba(255, 255, 255, 0.96);
   backdrop-filter: blur(18px);
   border: 1px solid var(--border-card);
   border-radius: 12px;
-  padding: 10px 11px;
+  padding: 9px 10px;
   box-shadow: 0 16px 36px -10px rgba(15, 23, 42, 0.16);
   z-index: 20;
   display: flex;
@@ -715,7 +714,8 @@ body.light-studio {
   right: auto;
 }
 
-.portal-card.collapsed .portal-card-body {
+.portal-card.collapsed .portal-card-body,
+.portal-card.collapsed .card-cta-footer {
   display: none;
 }
 
@@ -768,6 +768,7 @@ body.light-studio {
 }
 
 .portal-card-head {
+  flex-shrink: 0;
   display: flex;
   flex-direction: column;
   gap: 5px;
@@ -780,6 +781,13 @@ body.light-studio {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+}
+
+.portal-card-head-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
 }
 
 .portal-card-meta-row {
@@ -833,6 +841,13 @@ body.light-studio {
 }
 
 .portal-card-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  padding-right: 2px;
   display: flex;
   flex-direction: column;
   gap: 7px;
@@ -1095,7 +1110,6 @@ body.light-studio {
 
 .diff-orig-line {
   color: var(--ink-muted);
-  text-decoration: line-through;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1272,6 +1286,7 @@ body.light-studio {
 
 .redub-bar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 6px;
 }
@@ -1281,10 +1296,20 @@ body.light-studio {
   width: auto;
 }
 
+.redub-bar .field-input-xs {
+  flex: 1 1 180px;
+}
+
 .card-cta-row {
   display: flex;
   align-items: center;
   gap: 6px;
+}
+
+.card-cta-footer {
+  flex-shrink: 0;
+  padding-top: 5px;
+  border-top: 1px solid var(--border-light);
 }
 
 .btn-flex {
@@ -1401,22 +1426,30 @@ body.light-studio {
   gap: 6px;
 }
 
-/* Toast Notification */
+/* Toast Notification (anchored above scrubber so it never covers reticle pills or A|B bar) */
 .stage-toast {
   position: absolute;
-  top: 54px;
+  bottom: 58px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 35;
   background: var(--surface);
   border: 1px solid var(--border-card);
   border-radius: 8px;
-  padding: 4px 11px;
+  padding: 5px 12px;
   font-size: 11px;
   font-weight: 600;
   color: var(--ink);
-  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.12);
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.14);
   white-space: nowrap;
+  max-width: min(600px, calc(100% - 40px));
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+}
+
+.stage-container.lanes-open .stage-toast {
+  bottom: 192px;
 }
 
 .stage-toast.err {
@@ -1870,16 +1903,69 @@ body.light-studio {
   padding: 8px 10px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
 }
 
 .take-card-top {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 6px;
   font-family: var(--font-mono);
   font-size: 11px;
   font-weight: 600;
+}
+
+.take-status-chip {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--border-card);
+  background: var(--surface);
+  color: var(--ink-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.take-status-chip.ok {
+  background: var(--emerald-bg);
+  border-color: var(--emerald-border);
+  color: var(--emerald);
+}
+
+.take-status-chip.err {
+  background: var(--danger-bg);
+  border-color: var(--danger-border);
+  color: var(--danger);
+}
+
+.take-status-chip.pending {
+  background: var(--blue-tint);
+  border-color: var(--blue-border);
+  color: var(--blue-dark);
+}
+
+.take-card-prompt {
+  font-size: 11px;
+  color: var(--ink-muted);
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.take-card-error {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--danger);
+  background: var(--danger-bg);
+  border: 1px solid var(--danger-border);
+  border-radius: 5px;
+  padding: 4px 6px;
+  line-height: 1.3;
+  word-break: break-word;
 }
 
 .take-card-actions {

@@ -368,10 +368,8 @@ class SessionStore:
                     continue
                 st_doc = entry.get("status") or {}
                 if (
-                    role != "baseline"
-                    and isinstance(st_doc, dict)
+                    isinstance(st_doc, dict)
                     and str(st_doc.get("status_str") or "") == "error"
-                    and take.get("status") != "completed"
                 ):
                     err_msg = "ComfyUI execution error"
                     for msg_item in st_doc.get("messages") or ():
@@ -383,7 +381,12 @@ class SessionStore:
                         ):
                             err_msg = str(msg_item[1].get("exception_message") or err_msg)
                             break
-                    if take.get("status") != "error" or take.get("error") != err_msg:
+                    if role == "baseline":
+                        if take.get("baseline_error") != err_msg:
+                            take["baseline_error"] = err_msg
+                            take["updated_at"] = time.time()
+                            changed = True
+                    elif take.get("status") != "completed" and (take.get("status") != "error" or take.get("error") != err_msg):
                         take["status"] = "error"
                         take["error"] = err_msg
                         take["updated_at"] = time.time()
@@ -452,6 +455,26 @@ class SessionStore:
                     changed = True
             if changed:
                 take["updated_at"] = time.time()
+                self._save()
+
+    def reconcile_orphaned_queued(self, active_pids: set[str], history_pids: set[str], *, grace_sec: float = 15.0) -> None:
+        """Mark stale ``queued`` takes absent from ComfyUI ``/queue`` & ``/history`` as ``interrupted``."""
+        now = time.time()
+        with self._lock:
+            changed = False
+            for tid in self._take_order:
+                t = self._takes.get(tid)
+                if not t or t.get("status") != "queued":
+                    continue
+                pid = str(t.get("prompt_id") or "")
+                age = now - float(t.get("created_at") or now)
+                if pid and pid not in active_pids and pid not in history_pids and age >= grace_sec:
+                    t["status"] = "interrupted"
+                    if not t.get("error"):
+                        t["error"] = "Job no longer in ComfyUI queue (interrupted or server restarted)."
+                    t["updated_at"] = now
+                    changed = True
+            if changed:
                 self._save()
 
     def clear_forgotten(self, *, keep_uploads: set[str] | None = None) -> list[str]:
@@ -551,7 +574,7 @@ def _build_recipe_document(
     stage_doc: dict[str, Any] = {
         "mode": str(raw_params.get("mode") or (take or {}).get("mode") or "i2v_portal"),
         "director_mode": str(raw_params.get("director_mode") or (take or {}).get("director_mode") or "portal_path"),
-        "length": int(raw_params.get("length") or (take or {}).get("length") or 90),
+        "length": int(raw_params.get("length") or (take or {}).get("length") or 141),
         "width": int(raw_params.get("width") or (take or {}).get("width") or 1344),
         "height": int(raw_params.get("height") or (take or {}).get("height") or 768),
         "seed": int(raw_params.get("seed") if raw_params.get("seed") is not None else ((take or {}).get("seed") or 0)),
@@ -746,6 +769,62 @@ async def _comfy_fetch_view(app: web.Application, desc: dict[str, str]) -> tuple
         data = await resp.read()
         ctype = resp.headers.get("Content-Type") or mimetypes.guess_type(desc["filename"])[0] or "application/octet-stream"
         return resp.status, data, ctype
+
+
+async def _fetch_image_with_temp_fallback(
+    app: web.Application,
+    spec: Any,
+    *,
+    default_type: str = "input",
+) -> tuple[dict[str, str], int, bytes]:
+    desc = _parse_view_descriptor(spec, default_type=default_type)
+    status, raw_bytes, _ = await _comfy_fetch_view(app, desc)
+    if (
+        status == 404
+        and desc["type"] == "input"
+        and not desc["subfolder"]
+        and isinstance(spec, str)
+        and not spec.strip().startswith("/api/view")
+    ):
+        temp_desc = {**desc, "type": "temp"}
+        t_status, t_bytes, _ = await _comfy_fetch_view(app, temp_desc)
+        if t_status == 200 and t_bytes:
+            return temp_desc, t_status, t_bytes
+    return desc, status, raw_bytes
+
+
+async def _materialize_input_image_ref(
+    app: web.Application,
+    spec: Any,
+    *,
+    sid: str,
+    prefix: str = "anchor",
+) -> tuple[str, bytes, dict[str, str]]:
+    """Fetch ``spec`` and promote non-``input`` images (e.g. ``temp`` anchor stills) into ``input/h3_spatial_director/``."""
+    desc, status, raw_bytes = await _fetch_image_with_temp_fallback(app, spec, default_type="input")
+    if status != 200 or not raw_bytes:
+        raise FileNotFoundError(f"source image unavailable ({status})")
+    if desc["type"] == "input":
+        ref = f"{desc['subfolder']}/{desc['filename']}" if desc["subfolder"] else desc["filename"]
+        return ref, raw_bytes, desc
+    store: SessionStore = app["store"]
+    digest = hashlib.sha1(raw_bytes).hexdigest()[:8]
+    stem = Path(desc["filename"]).stem
+    ext = Path(desc["filename"]).suffix.lower() or ".png"
+    in_name = _sanitize_filename(f"{prefix}_{stem}_{digest}{ext}", default_ext=".png")
+    ctype = "image/png" if ext == ".png" else (mimetypes.guess_type(in_name)[0] or "application/octet-stream")
+    up_res = await _comfy_upload_bytes(
+        app,
+        raw_bytes,
+        in_name,
+        subfolder=UPLOADS_SUBFOLDER,
+        content_type=ctype,
+    )
+    up_sub = str(up_res.get("subfolder") or UPLOADS_SUBFOLDER)
+    up_name = str(up_res.get("name") or in_name)
+    in_ref = f"{up_sub}/{up_name}" if up_sub else up_name
+    store.record_upload(in_ref, sid)
+    return in_ref, raw_bytes, {"filename": up_name, "subfolder": up_sub, "type": "input"}
 
 
 def _decode_video_frame_rgb(raw_bytes: bytes, filename: str, frame_index: int = 0) -> tuple[Any, int, int]:
@@ -1503,18 +1582,16 @@ async def handle_preview_in_mask(request: web.Request) -> web.Response:
         return web.json_response({"ok": False, "error": "target_prompt cannot be empty"}, status=400)
 
     try:
-        src_desc = _parse_view_descriptor(source_spec, default_type="input")
+        source_ref_norm, src_bytes, src_desc = await _materialize_input_image_ref(
+            request.app, source_spec, sid=sid, prefix="anchor"
+        )
     except ValueError as exc:
         return web.json_response({"ok": False, "error": str(exc)}, status=400)
-
-    status, src_bytes, _ = await _comfy_fetch_view(request.app, src_desc)
-    if status != 200 or not src_bytes:
-        return web.json_response({"ok": False, "error": f"source image unavailable ({status})"}, status=404)
+    except FileNotFoundError as exc:
+        return web.json_response({"ok": False, "error": str(exc)}, status=404)
 
     with Image.open(io.BytesIO(src_bytes)) as src_im:
         w, h = max(32, int(src_im.width)), max(32, int(src_im.height))
-
-    source_ref_norm = f"{src_desc['subfolder']}/{src_desc['filename']}" if src_desc["subfolder"] else src_desc["filename"]
 
     region = body.get("region") if isinstance(body.get("region"), dict) else {}
     fx = float(region.get("x", body.get("x", 0.5)))
@@ -1703,6 +1780,7 @@ async def handle_preview_in_mask(request: web.Request) -> web.Response:
             "preview_override_injected": compiled["preview_override_injected"],
             "original_prompt": compiled["original_prompt"],
             "edited_prompt": compiled["edited_prompt"],
+            "resolved_source_ref": source_ref_norm,
         }
     )
 
@@ -1755,8 +1833,7 @@ async def handle_stamp_cutout(request: web.Request) -> web.Response:
     # even if an anchor image is loaded on stage.
     if source_spec and (body.get("image_output") or not prompt_str):
         try:
-            desc = _parse_view_descriptor(source_spec, default_type="input")
-            status, raw_bytes, _ = await _comfy_fetch_view(request.app, desc)
+            desc, status, raw_bytes = await _fetch_image_with_temp_fallback(request.app, source_spec, default_type="input")
             if status != 200 or not raw_bytes:
                 return web.json_response({"ok": False, "error": f"source image unavailable ({status})"}, status=404)
             png_bytes, w, h, coverage = _extract_rgba_cutout_bytes(raw_bytes, body.get("mask"))
@@ -1935,14 +2012,48 @@ def _encode_mask_rgb_png(mask_f32: Any) -> tuple[bytes, Any]:
     return buf.getvalue(), mask_u8
 
 
-def _encode_rgba_cutout_png(rgb_u8: Any, mask_u8: Any) -> bytes:
+def _encode_rgba_cutout_png(
+    rgb_u8: Any,
+    mask_u8: Any,
+    *,
+    pad_px: int = 4,
+) -> tuple[bytes, bytes, int, int, dict[str, float]]:
+    """Crop RGBA cutout and aligned binary mask PNG tightly to the foreground bounding box."""
     import numpy as np
     from PIL import Image
 
-    rgba = np.dstack([rgb_u8, mask_u8])
-    buf = io.BytesIO()
-    Image.fromarray(rgba, mode="RGBA").save(buf, format="PNG")
-    return buf.getvalue()
+    h, w = int(mask_u8.shape[0]), int(mask_u8.shape[1])
+    ys, xs = np.where(mask_u8 > 12)
+    if len(ys) > 0 and len(xs) > 0:
+        x0 = max(0, int(xs.min()) - pad_px)
+        y0 = max(0, int(ys.min()) - pad_px)
+        x1 = min(w, int(xs.max()) + 1 + pad_px)
+        y1 = min(h, int(ys.max()) + 1 + pad_px)
+    else:
+        x0, y0, x1, y1 = 0, 0, w, h
+
+    rgba_crop = np.dstack([rgb_u8[y0:y1, x0:x1], mask_u8[y0:y1, x0:x1]])
+    mask_crop_u8 = mask_u8[y0:y1, x0:x1]
+    mask_crop_rgb = np.stack([mask_crop_u8, mask_crop_u8, mask_crop_u8], axis=-1)
+
+    cut_buf = io.BytesIO()
+    Image.fromarray(rgba_crop, mode="RGBA").save(cut_buf, format="PNG")
+    mask_buf = io.BytesIO()
+    Image.fromarray(mask_crop_rgb, mode="RGB").save(mask_buf, format="PNG")
+
+    cw = max(1, int(x1 - x0))
+    ch = max(1, int(y1 - y0))
+    bbox_norm = {
+        "x0": round(x0 / max(1, w), 4),
+        "y0": round(y0 / max(1, h), 4),
+        "x1": round(x1 / max(1, w), 4),
+        "y1": round(y1 / max(1, h), 4),
+        "cx": round(((x0 + x1) * 0.5) / max(1, w), 4),
+        "cy": round(((y0 + y1) * 0.5) / max(1, h), 4),
+        "w": round(cw / max(1, w), 4),
+        "h": round(ch / max(1, h), 4),
+    }
+    return cut_buf.getvalue(), mask_buf.getvalue(), cw, ch, bbox_norm
 
 
 async def _run_sam3_segment_live(
@@ -2053,13 +2164,13 @@ async def handle_segment(request: web.Request) -> web.Response:
         )
 
     try:
-        desc = _parse_view_descriptor(source_spec, default_type="input")
+        input_ref, raw_bytes, desc = await _materialize_input_image_ref(
+            request.app, source_spec, sid=sid, prefix="anchor"
+        )
     except ValueError as exc:
         return web.json_response({"ok": False, "error": str(exc)}, status=400)
-
-    status, raw_bytes, _ = await _comfy_fetch_view(request.app, desc)
-    if status != 200 or not raw_bytes:
-        return web.json_response({"ok": False, "error": f"source image unavailable ({status})"}, status=404)
+    except FileNotFoundError as exc:
+        return web.json_response({"ok": False, "error": str(exc)}, status=404)
 
     try:
         with Image.open(io.BytesIO(raw_bytes)) as src_img:
@@ -2079,27 +2190,6 @@ async def handle_segment(request: web.Request) -> web.Response:
     sam_result: tuple[Any, float, str] | None = None
     if sam3_cap["available"] and not force_grabcut:
         try:
-            if desc["type"] == "input":
-                input_ref = f"{desc['subfolder']}/{desc['filename']}" if desc["subfolder"] else desc["filename"]
-            else:
-                src_buf = io.BytesIO()
-                Image.fromarray(rgb_u8, mode="RGB").save(src_buf, format="PNG")
-                tmp_in_name = _sanitize_filename(
-                    f"seg_src_{Path(desc['filename']).stem}_{secrets.token_hex(3)}.png",
-                    default_ext=".png",
-                )
-                up_src = await _comfy_upload_bytes(
-                    request.app,
-                    src_buf.getvalue(),
-                    tmp_in_name,
-                    subfolder=UPLOADS_SUBFOLDER,
-                    content_type="image/png",
-                )
-                up_sub = str(up_src.get("subfolder") or UPLOADS_SUBFOLDER)
-                up_name = str(up_src.get("name") or tmp_in_name)
-                input_ref = f"{up_sub}/{up_name}" if up_sub else up_name
-                store.record_upload(input_ref, sid)
-
             sam_result = await _run_sam3_segment_live(
                 request.app,
                 sid=sid,
@@ -2143,6 +2233,7 @@ async def handle_segment(request: web.Request) -> web.Response:
             "ok": True,
             "role": role,
             "engine": engine,
+            "resolved_source_ref": input_ref,
             "mask_ref": mask_ref,
             "mask_view_url": mask_url,
             "view_url": mask_url,
@@ -2153,7 +2244,7 @@ async def handle_segment(request: web.Request) -> web.Response:
             "negative_points_px": neg_px,
         }
         if role == "cutout":
-            cut_png_bytes = _encode_rgba_cutout_png(rgb_u8, mask_u8)
+            cut_png_bytes, cut_mask_bytes, crop_w, crop_h, bbox_norm = _encode_rgba_cutout_png(rgb_u8, mask_u8)
             cut_name = _sanitize_filename(
                 f"seg_cutout_{Path(desc['filename']).stem}_{secrets.token_hex(3)}.png",
                 default_ext=".png",
@@ -2167,8 +2258,25 @@ async def handle_segment(request: web.Request) -> web.Response:
             cutout_ref = f"{c_sub}/{c_saved}" if c_sub else c_saved
             store.record_upload(cutout_ref, sid)
             cut_url = _view_url(c_saved, c_sub, c_type)
+
+            cmask_name = _sanitize_filename(
+                f"seg_cmask_{Path(desc['filename']).stem}_{secrets.token_hex(3)}.png",
+                default_ext=".png",
+            )
+            cm_res = await _comfy_upload_bytes(
+                request.app, cut_mask_bytes, cmask_name, subfolder=UPLOADS_SUBFOLDER, content_type="image/png"
+            )
+            cm_saved = str(cm_res.get("name") or cmask_name)
+            cm_sub = str(cm_res.get("subfolder") or UPLOADS_SUBFOLDER)
+            cutout_mask_ref = f"{cm_sub}/{cm_saved}" if cm_sub else cm_saved
+            store.record_upload(cutout_mask_ref, sid)
+
             resp_payload["cutout_ref"] = cutout_ref
+            resp_payload["cutout_mask_ref"] = cutout_mask_ref
             resp_payload["cutout_view_url"] = cut_url
+            resp_payload["cutout_width"] = crop_w
+            resp_payload["cutout_height"] = crop_h
+            resp_payload["bbox"] = bbox_norm
             resp_payload["view_url"] = cut_url
         return web.json_response(resp_payload)
     except Exception as exc:
@@ -2223,6 +2331,26 @@ async def handle_render(request: web.Request) -> web.Response:
 
     sid: str = request["director_sid"]
     client_id = str(body.get("client_id") or secrets.token_hex(8))
+    # Auto-promote generated `type="temp"` anchor / last_frame still refs into ComfyUI input/
+    for ref_key in ("source_ref", "last_frame"):
+        raw_ref = body.get(ref_key)
+        if not raw_ref:
+            continue
+        try:
+            desc = _parse_view_descriptor(raw_ref, default_type="input")
+        except ValueError as exc:
+            return web.json_response({"ok": False, "error": str(exc)}, status=400)
+        needs_promote = (
+            desc["type"] != "input"
+            or (not desc["subfolder"] and desc["filename"].startswith("ComfyUI_temp_"))
+        )
+        if needs_promote:
+            try:
+                in_ref, _b, _d = await _materialize_input_image_ref(request.app, raw_ref, sid=sid, prefix=ref_key)
+                body[ref_key] = in_ref
+            except FileNotFoundError as exc:
+                return web.json_response({"ok": False, "error": str(exc)}, status=404)
+
     obj_info = await _fetch_object_info(request.app)
     try:
         compiled = compiler.compile_spatial_take(body, object_info=obj_info)
@@ -2616,8 +2744,7 @@ async def handle_context_suggest(request: web.Request) -> web.Response:
             try:
                 from PIL import Image, ImageDraw, ImageOps
 
-                s_desc = _parse_view_descriptor(source_spec, default_type="input")
-                st_s, raw_img, _ = await _comfy_fetch_view(request.app, s_desc)
+                s_desc, st_s, raw_img = await _fetch_image_with_temp_fallback(request.app, source_spec, default_type="input")
                 if st_s == 200 and raw_img:
                     with Image.open(io.BytesIO(raw_img)) as im:
                         full_im = ImageOps.exif_transpose(im).convert("RGB")
@@ -2778,12 +2905,12 @@ async def handle_context_suggest(request: web.Request) -> web.Response:
         return web.json_response({"ok": True, "enabled": False, "suggestions": []})
 
 
-async def _sync_store_history(app: web.Application) -> dict[str, Any]:
+async def _sync_store_history(app: web.Application) -> tuple[dict[str, Any], bool]:
     hist = await _comfy_get_json(app, "/history", timeout=3.0)
     if isinstance(hist, dict):
         app["store"].update_from_history(hist)
-        return hist
-    return {}
+        return hist, True
+    return {}, False
 
 
 def _extract_active_queue_pids(queue_doc: Any) -> list[str]:
@@ -2801,15 +2928,38 @@ def _extract_active_queue_pids(queue_doc: Any) -> list[str]:
     return seen
 
 
+def _take_prompt_preview(take: dict[str, Any]) -> str:
+    params = take.get("params") if isinstance(take.get("params"), dict) else {}
+    raw = str(params.get("target_prompt") or params.get("prompt") or "").strip()
+    if len(raw) > 96:
+        return f"{raw[:95]}…"
+    return raw
+
+
 async def handle_takes(request: web.Request) -> web.Response:
-    await _sync_store_history(request.app)
+    hist, hist_ok = await _sync_store_history(request.app)
     q_doc = await _comfy_get_json(request.app, "/queue", timeout=2.0)
     queue_ok = isinstance(q_doc, dict)
     active_pids = _extract_active_queue_pids(q_doc) if queue_ok else []
+    active_set = set(active_pids)
+    if queue_ok and hist_ok:
+        request.app["store"].reconcile_orphaned_queued(active_set, set(str(k) for k in hist.keys()))
+    takes = request.app["store"].list_takes()
+    for t in takes:
+        if "prompt_preview" not in t:
+            t["prompt_preview"] = _take_prompt_preview(t)
+        base_pid = str(t.get("baseline_prompt_id") or "")
+        t["baseline_pending"] = bool(
+            base_pid
+            and t.get("status") == "completed"
+            and not t.get("baseline_video")
+            and not t.get("baseline_error")
+            and (base_pid in active_set or (time.time() - float(t.get("updated_at") or t.get("created_at") or 0.0)) < 15.0)
+        )
     return web.json_response(
         {
             "ok": True,
-            "takes": request.app["store"].list_takes(),
+            "takes": takes,
             "active_prompt_ids": active_pids,
             "queue_ok": queue_ok,
         }
@@ -2817,7 +2967,7 @@ async def handle_takes(request: web.Request) -> web.Response:
 
 
 async def handle_history(request: web.Request) -> web.Response:
-    hist = await _sync_store_history(request.app)
+    hist, _ = await _sync_store_history(request.app)
     takes = request.app["store"].list_takes()
     known_pids = {
         pid
@@ -2940,6 +3090,59 @@ def _decode_media_frames(raw_bytes: bytes, filename: str) -> Any:
         return np.stack(frames, axis=0)
 
 
+def _compute_ab_metrics_sync(
+    b1: bytes,
+    edited_filename: str,
+    b2: bytes,
+    base_filename: str,
+    events_str: str,
+    director_mode: str,
+    feather: float,
+) -> dict[str, Any]:
+    import numpy as np
+
+    spatial_director = compiler.import_pack_module("spatial_director")
+
+    f_edit = _decode_media_frames(b1, edited_filename)
+    f_base = _decode_media_frames(b2, base_filename)
+    t = min(f_edit.shape[0], f_base.shape[0])
+    h = min(f_edit.shape[1], f_base.shape[1])
+    w = min(f_edit.shape[2], f_base.shape[2])
+    if t <= 0 or h <= 0 or w <= 0:
+        return {"ok": False, "available": False, "error": "empty video dimensions"}
+    diff = np.abs(f_edit[:t, :h, :w] - f_base[:t, :h, :w]).mean(axis=3)  # [T, H, W]
+
+    if events_str.strip():
+        rules_mod = compiler.import_pack_module("h3_rules")
+        mask_len = rules_mod.snap_length(max(5, t))
+        node_out = spatial_director.MiniMaxH3SpatialDirector.execute(
+            mode=director_mode,
+            width=w,
+            height=h,
+            length=mask_len,
+            feather=feather,
+            invert_mask=False,
+            events_json=events_str,
+        )
+        mask = node_out[0].detach().cpu().numpy()[:t, :h, :w]
+    else:
+        mask = np.ones((t, h, w), dtype=np.float32)
+
+    in_w = mask
+    out_w = np.clip(1.0 - mask, 0.0, 1.0)
+    in_mae = float((diff * in_w).sum() / max(1e-6, float(in_w.sum())))
+    out_mae = float((diff * out_w).sum() / max(1e-6, float(out_w.sum())))
+    ratio = float(in_mae / max(1e-6, out_mae))
+    return {
+        "ok": True,
+        "available": True,
+        "in_mask_mae": round(in_mae, 6),
+        "out_mask_mae": round(out_mae, 6),
+        "focus_ratio": round(ratio, 3),
+        "frames_compared": int(t),
+    }
+
+
 async def handle_ab_metrics(request: web.Request) -> web.Response:
     try:
         body = await _read_json_body(request)
@@ -2956,55 +3159,21 @@ async def handle_ab_metrics(request: web.Request) -> web.Response:
         )
 
     try:
-        import numpy as np
-
-        spatial_director = compiler.import_pack_module("spatial_director")
-
-        f_edit = _decode_media_frames(b1, edited_desc["filename"])
-        f_base = _decode_media_frames(b2, base_desc["filename"])
-        t = min(f_edit.shape[0], f_base.shape[0])
-        h = min(f_edit.shape[1], f_base.shape[1])
-        w = min(f_edit.shape[2], f_base.shape[2])
-        if t <= 0 or h <= 0 or w <= 0:
-            return web.json_response({"ok": False, "available": False, "error": "empty video dimensions"})
-        diff = np.abs(f_edit[:t, :h, :w] - f_base[:t, :h, :w]).mean(axis=3)  # [T, H, W]
-
         raw_events = body.get("events_json")
         events_str = json.dumps(raw_events) if isinstance(raw_events, dict) else str(raw_events or "")
         director_mode = str(body.get("director_mode") or "portal_path")
         feather = float(body.get("feather", 0.08))
-
-        if events_str.strip():
-            rules_mod = compiler.import_pack_module("h3_rules")
-            mask_len = rules_mod.snap_length(max(5, t))
-            node_out = spatial_director.MiniMaxH3SpatialDirector.execute(
-                mode=director_mode,
-                width=w,
-                height=h,
-                length=mask_len,
-                feather=feather,
-                invert_mask=False,
-                events_json=events_str,
-            )
-            mask = node_out[0].detach().cpu().numpy()[:t, :h, :w]
-        else:
-            mask = np.ones((t, h, w), dtype=np.float32)
-
-        in_w = mask
-        out_w = np.clip(1.0 - mask, 0.0, 1.0)
-        in_mae = float((diff * in_w).sum() / max(1e-6, float(in_w.sum())))
-        out_mae = float((diff * out_w).sum() / max(1e-6, float(out_w.sum())))
-        ratio = float(in_mae / max(1e-6, out_mae))
-        return web.json_response(
-            {
-                "ok": True,
-                "available": True,
-                "in_mask_mae": round(in_mae, 6),
-                "out_mask_mae": round(out_mae, 6),
-                "focus_ratio": round(ratio, 3),
-                "frames_compared": int(t),
-            }
+        payload = await asyncio.to_thread(
+            _compute_ab_metrics_sync,
+            b1,
+            edited_desc["filename"],
+            b2,
+            base_desc["filename"],
+            events_str,
+            director_mode,
+            feather,
         )
+        return web.json_response(payload)
     except Exception as exc:
         return web.json_response({"ok": False, "available": False, "error": str(exc)}, status=400)
 

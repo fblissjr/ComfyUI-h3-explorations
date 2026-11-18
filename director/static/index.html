@@ -175,7 +175,10 @@
               </svg>
               <span id="portal-card-heading">Spatial Portal</span>
             </div>
-            <button id="btn-collapse-card" type="button" class="icon-btn-xs" title="Collapse card" aria-label="Collapse card">–</button>
+            <div class="portal-card-head-actions">
+              <button id="btn-dock-card" type="button" class="icon-btn-xs" title="Switch card side (Left / Right)" aria-label="Switch card side">⇄</button>
+              <button id="btn-collapse-card" type="button" class="icon-btn-xs" title="Collapse card" aria-label="Collapse card">–</button>
+            </div>
           </div>
           <div class="portal-card-meta-row">
             <span id="synth-latency-badge" class="synth-badge">[0.50, 0.50]</span>
@@ -195,9 +198,9 @@
             <label for="target-prompt" class="field-label">Action or Spawn Command</label>
             <textarea id="target-prompt" class="field-textarea field-textarea-compact" rows="2" placeholder="What spawns or happens here? (e.g. glowing crystalline portal opens, a penguin wearing a hat)..."></textarea>
             <div id="quick-action-chips" class="quick-action-chips" aria-label="Quick world actions">
-              <button type="button" class="quick-chip" data-action="bursts into shimmering light and sparks">Sparkle Burst</button>
-              <button type="button" class="quick-chip" data-action="opens into a luminous portal">Open Portal</button>
-              <button type="button" class="quick-chip" data-action="transforms cleanly inside the selected region">Transform Here</button>
+              <button type="button" class="quick-chip" data-action="bursts into shimmering golden light and glowing embers">Sparkle Burst</button>
+              <button type="button" class="quick-chip" data-action="opens into a luminous swirling cerulean portal">Open Portal</button>
+              <button type="button" class="quick-chip" data-template="transforms smoothly into [target object]">Morph Into…</button>
             </div>
           </div>
 
@@ -273,10 +276,10 @@
 
           <!-- Interactive Subject Segmentation Bar (SAM 3.1 / GrabCut) -->
           <div id="sam-subject-bar" class="sam-subject-bar" role="group" aria-label="Subject segmentation">
-            <button id="btn-sam-pick" type="button" class="sam-pick-btn" title="Click on stage subject to segment (SAM 3.1 / GrabCut)">Target Entity</button>
+            <button id="btn-sam-pick" type="button" class="sam-pick-btn" title="Click on stage subject to segment (SAM 3.1 / GrabCut)">Pick Subject</button>
             <div class="sam-role-group" role="group" aria-label="Segmentation role">
-              <button id="sam-role-cutout" type="button" class="sam-role-btn active" data-role="cutout" title="Extract RGBA movable actor sprite">Movable</button>
-              <button id="sam-role-include" type="button" class="sam-role-btn" data-role="include" title="Target selected object mask for edits">Edit Obj</button>
+              <button id="sam-role-include" type="button" class="sam-role-btn active" data-role="include" title="Target selected object mask for edits">Edit Obj</button>
+              <button id="sam-role-cutout" type="button" class="sam-role-btn" data-role="cutout" title="Extract RGBA movable actor sprite">Movable</button>
               <button id="sam-role-exclude" type="button" class="sam-role-btn" data-role="exclude" title="Protect object from edits (exclude_mask)">Protect</button>
             </div>
             <button id="btn-sam-clear" type="button" class="sam-clear-btn hidden" title="Clear subject segmentation masks" aria-label="Clear subject segmentation masks">×</button>
@@ -299,18 +302,18 @@
               <span id="pill-cue-text">3f Cue</span>
             </button>
           </div>
+        </div>
 
-          <div class="card-cta-row">
-            <button id="btn-apply-event" type="button" class="btn-primary btn-flex">
-              <span>Apply to Timeline (0ms)</span>
-            </button>
-            <button id="btn-gen-stamp" type="button" class="btn-outline-blue btn-stamp-compact" title="Generate or extract RGBA cutout stamp">
-              <svg class="ui-svg ui-svg-blue" viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M11 19v-6H5v-2h6V5h2v6h6v2h-6v6h-2z"/>
-              </svg>
-              <span>Stamp</span>
-            </button>
-          </div>
+        <div class="card-cta-row card-cta-footer">
+          <button id="btn-apply-event" type="button" class="btn-primary btn-flex">
+            <span>Apply to Timeline (0ms)</span>
+          </button>
+          <button id="btn-gen-stamp" type="button" class="btn-outline-blue btn-stamp-compact" title="Generate or extract RGBA cutout stamp">
+            <svg class="ui-svg ui-svg-blue" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M11 19v-6H5v-2h6V5h2v6h6v2h-6v6h-2z"/>
+            </svg>
+            <span>Stamp</span>
+          </button>
         </div>
       </aside>
 
