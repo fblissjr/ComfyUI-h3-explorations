@@ -76,10 +76,11 @@ The owner's word, 2026-11-18: no media inside the ComfyUI checkout.
 - A write into any of them fails with `Operation not permitted` and the path. That error means a process is saving with core's defaults: give that process its own folder. Do not unlock to get past it.
 - `chattr`, not `chmod`: a ComfyUI started without `--temp-directory` deletes its temp folder at start (`<comfy>/app/assets/lifecycle.py::cleanup_temp_filesystem`) and makes it again (`main.py`, `os.makedirs(folder_paths.get_temp_directory(), exist_ok=True)`). A permission bit does not survive that; an immutable folder cannot be deleted.
 - The lock holds the folder itself, not a subfolder inside it, so the folders were emptied of subfolders before locking. Keep them that way.
+- Folders count too. Core's 3D nodes make `<input>/3d` when they load (`<comfy>/comfy_extras/nodes_load_3d.py`), and the pack makes `<input>/wildcards` (`prompt_lists.py::register_wildcards_folder`); that is where the two empty subfolders removed before locking came from. In a process that keeps core's stock input folder both are refused: the pack logs a warning and goes on, and core's 3D nodes fail to load. The live server's input folder is its own, so neither meets the lock there.
 - ComfyUI's git tracks `input/example.png` and `output/_output_images_will_be_put_here`. An update that changes either stops on the lock (see "After a ComfyUI update").
 - The lock covers core's folders only. The pack's own `data/` is kept free of media by rule (`docs/wiki/working_with_the_owner.md`, "No media in `data/` at all"), not by a lock.
 
-**What the pack does.** `bench/_lib/__init__.py::bootstrap` ends with `_media_off_checkout`: each of temp, output and previews still pointing inside the checkout moves to one scratch folder under the system temp, removed when the process exits. A tool that keeps what it saves sets its own folder after `bootstrap()` (`bench/_paths.py` names the server's). The input folder stays stock: pointing it at the server's would let a check write onto the share, and a write to the stock one fails at the lock.
+**What the pack does.** `bench/_lib/__init__.py::bootstrap` ends with `_media_off_checkout`: each of temp, output and previews still pointing inside the checkout moves to one scratch folder under the system temp, removed when the process exits. A tool that keeps what it saves sets its own folder after `bootstrap()` (`bench/_paths.py` names the server's). The input folder stays stock: pointing it at the server's would let a check write onto the share, and a write to the stock one fails at the lock. No `bench/` tool loads core's extra nodes (`init_extra_nodes`), so the 3D nodes' folder does not come up there.
 
 A script that imports core without `bootstrap()` keeps core's defaults, and a save from it fails at the lock. To list them:
 
@@ -87,10 +88,10 @@ A script that imports core without `bootstrap()` keeps core's defaults, and a sa
 
 When one of them is next touched, move it to `bootstrap()` or have it set its own folders.
 
-**Open in `app/`** (the studio's own repository; this pack reads it and does not edit it):
+**In `app/`** (the studio's own repository; commit `bab5145` there, at the owner's word, 2026-11-18):
 
-- `app/test_app.py` needs `folder_paths.set_temp_directory(_TEST_TEMP_DIR)` after its `import folder_paths`. Until then its tier 1 stops at the lock where it makes `temp/h3_image_app` (`app/test_app.py:205`).
-- `app/server.py::_forget_comfy`, the cleanup it falls back to when ComfyUI lacks `/h3_image/forget`, deletes from the studio process's own `folder_paths.get_temp_directory()`. That is the stock folder, not the server's, so the fallback never cleans real uploads.
+- `app/test_app.py` sets its temp and input folders on `folder_paths` right after importing it, before `execution` and `nodes`, to folders under its own throwaway directory.
+- `app/server.py::_forget_comfy` falls back, when ComfyUI lacks `/h3_image/forget`, to deleting from the studio process's own `folder_paths.get_temp_directory()`, which is core's stock folder, and so finds nothing. That is known and recorded in `app/README.md` (the `PrivateTmp=yes` note): only the route inside ComfyUI can delete the server's temp files. The fallback writes nothing, so it was left as it is.
 
 ### Build worktrees (`<comfy>/h3_worktrees/<branch>`)
 

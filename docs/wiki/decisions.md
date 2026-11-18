@@ -24,8 +24,11 @@ Older history lives elsewhere and is not copied here:
   - **Before:** any process that imported core without `main.py` saved into those folders. `app/test_app.py` left
     `upload_<hex>.png` fixtures in `<comfy>/temp/h3_image_app/` that looked like phone uploads. Its `--temp-directory` in
     `sys.argv` never reached `folder_paths`; only `main.py` reads that flag.
-  - **Open in `app/`** (the studio session's repo): the `app/test_app.py` temp folder, and the `app/server.py::_forget_comfy`
-    fallback, which cleans the stock temp folder instead of the server's.
+  - **In `app/`** (the studio's repo, `bab5145` there, at the owner's word): `app/test_app.py` sets its temp and input
+    folders on `folder_paths`. The `app/server.py::_forget_comfy` fallback was left as it is: it deletes from the stock
+    folder and finds nothing, which `app/README.md` already records, and it writes nothing.
+  - **Also caught by the lock:** core's 3D nodes make `<input>/3d` and `prompt_lists.py` makes `<input>/wildcards` when
+    they load; in a process on core's stock input folder both are refused.
   - **Where it lives:** [`ops/comfy_notes.md`](ops/comfy_notes.md), "Core's stock media folders are locked".
 
 ## 2026-11-17
