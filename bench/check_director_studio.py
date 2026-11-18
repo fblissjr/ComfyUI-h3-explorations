@@ -1530,6 +1530,30 @@ def check_server_routes_and_escalate() -> str:
                     assert abm_doc.get("ok") is True and abm_doc.get("available") is True, abm_doc
                     assert float(abm_doc["in_mask_mae"]) == 0.0 and float(abm_doc["out_mask_mae"]) == 0.0, abm_doc
 
+                    # Verify /api/ab_metrics honors invert_mask & include_sprite_envelope flags and store strips studio suffix
+                    assert importlib.import_module("director.store").take_prompt_preview(
+                        {"params": {"sprite_label": "silver quadcopter drone, clean white studio background"}}
+                    ) == "silver quadcopter drone"
+                    r_abm_inv = await client.post(
+                        "/api/ab_metrics",
+                        json={
+                            "edited_video": {"filename": "shot_src.mp4", "subfolder": "", "type": "temp"},
+                            "baseline_video": {"filename": "shot_src.mp4", "subfolder": "", "type": "temp"},
+                            "director_mode": "portal_path",
+                            "invert_mask": True,
+                            "include_sprite_envelope": True,
+                            "sprite_envelope_radius": 0.16,
+                            "events_json": {
+                                "portal": [{"frame": 0, "x": 0.5, "y": 0.5, "rx": 0.22, "ry": 0.22, "shape": "circle"}],
+                                "targets": [],
+                                "dpad": {"waypoints": [{"frame": 0, "x": 0.25, "y": 0.5}, {"frame": 40, "x": 0.75, "y": 0.5}], "hops": []},
+                            },
+                        },
+                    )
+                    assert r_abm_inv.status == 200, await r_abm_inv.text()
+                    abm_inv_doc = await r_abm_inv.json()
+                    assert abm_inv_doc.get("ok") is True and abm_inv_doc.get("available") is True, abm_inv_doc
+
                     # Verify orphaned queued take reconciles to interrupted when missing from live /queue & /history
                     orphan_take = app["store"].record_take(
                         {

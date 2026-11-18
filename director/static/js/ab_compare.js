@@ -351,7 +351,16 @@ export class ABCompareController {
     ctx.closePath();
   }
 
-  async fetchMetrics({ events_json, director_mode = "portal_path", feather = 0.08, width, height } = {}) {
+  async fetchMetrics({
+    events_json,
+    director_mode = "portal_path",
+    feather = 0.08,
+    invert_mask = false,
+    include_sprite_envelope = false,
+    sprite_envelope_radius = 0.18,
+    width,
+    height,
+  } = {}) {
     const editedItem = this._pickItem(this.directedTake, false);
     const baselineItem = this._pickBaselineItem();
     if (!editedItem || !baselineItem) {
@@ -371,6 +380,9 @@ export class ABCompareController {
           events_json,
           director_mode,
           feather,
+          invert_mask: Boolean(invert_mask),
+          include_sprite_envelope: Boolean(include_sprite_envelope),
+          sprite_envelope_radius: Number(sprite_envelope_radius || 0.18),
           width,
           height,
         }),

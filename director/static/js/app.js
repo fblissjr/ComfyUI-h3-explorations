@@ -1017,7 +1017,7 @@ function resolvedWorkflowMode() {
   if (state.workflowManualOverride && state.workflowId) {
     return state.workflowId;
   }
-  if (state.spriteCutout?.ref) {
+  if (state.anchorRef && state.spriteCutout?.ref) {
     return "r2v_portal";
   }
   if (state.anchorRef) {
@@ -1541,6 +1541,9 @@ async function applyImportedRecipe(recipeDoc) {
     state.doc = {
       ...state.doc,
       ...st.events_json,
+      dpad: st.events_json.dpad && typeof st.events_json.dpad === "object"
+        ? st.events_json.dpad
+        : { waypoints: [{ frame: 0, x: 0.36, y: 0.74, face: "right", scale: 1.0 }], hops: [] },
       width: Number(st.width || st.events_json.width || state.doc.width || 1344),
       height: Number(st.height || st.events_json.height || state.doc.height || 768),
       feather: Number(st.feather ?? st.events_json.feather ?? state.doc.feather ?? 0.08),
@@ -2140,6 +2143,15 @@ function clearSamMasks() {
   state.excludeMaskImg = null;
   state.samPosPoints = [];
   state.samNegPoints = [];
+  if (state.spriteCutout?.fromSceneLift) {
+    state.spriteCutout = null;
+    state.spriteMode = false;
+    state.couplings = [];
+    state.doc.dpad = {
+      waypoints: [{ frame: 0, x: 0.36, y: 0.74, face: "right", scale: 1.0 }],
+      hops: [],
+    };
+  }
   const samIn = $("#sam-prompt-input");
   if (samIn) samIn.value = "";
   syncAllUI();
@@ -2479,12 +2491,19 @@ function openABCompareForTake(take = null) {
   $("#ab-bar")?.classList.toggle("hidden", !active);
   syncMediaPlayback();
   if (active && target) {
+    const tp = target.params && typeof target.params === "object" ? target.params : {};
+    const evStr = typeof tp.events_json === "string"
+      ? tp.events_json
+      : (tp.events_json ? JSON.stringify(tp.events_json) : JSON.stringify(state.doc));
     abCompare.fetchMetrics({
-      events_json: JSON.stringify(state.doc),
-      director_mode: state.doc.mode,
-      feather: state.doc.feather,
-      width: state.doc.width,
-      height: state.doc.height,
+      events_json: evStr,
+      director_mode: tp.director_mode || target.director_mode || state.doc.mode,
+      feather: Number(tp.feather ?? state.doc.feather),
+      invert_mask: Boolean(tp.invert_mask ?? state.doc.invert_mask),
+      include_sprite_envelope: Boolean(tp.include_sprite_envelope ?? false),
+      sprite_envelope_radius: Number(tp.sprite_envelope_radius ?? 0.18),
+      width: Number(tp.width ?? state.doc.width),
+      height: Number(tp.height ?? state.doc.height),
     });
   }
   syncContextualCard();

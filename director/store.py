@@ -148,6 +148,18 @@ def extract_lineage_fields(
     return {"parent_take_id": parent_tid, "parent_frame": parent_frame}
 
 
+_STUDIO_SUFFIXES = (
+    ", clean white studio background",
+    ", white studio background",
+    ", clean studio background",
+    ", studio background",
+    ", white background",
+    " on clean white studio background",
+    " on white studio background",
+    " on white background",
+)
+
+
 def take_prompt_preview(take: dict[str, Any]) -> str:
     params = take.get("params") if isinstance(take.get("params"), dict) else {}
     raw = str(
@@ -157,6 +169,11 @@ def take_prompt_preview(take: dict[str, Any]) -> str:
         or params.get("stamp_prompt")
         or ""
     ).strip()
+    low = raw.lower()
+    for suffix in _STUDIO_SUFFIXES:
+        if low.endswith(suffix):
+            raw = raw[: -len(suffix)].strip(" ,")
+            break
     if len(raw) > 96:
         return f"{raw[:95]}…"
     return raw

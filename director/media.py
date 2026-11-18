@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import base64
 import io
+import json
 import tempfile
 from collections import deque
 from pathlib import Path
@@ -485,7 +486,12 @@ def compute_ab_metrics_sync(
     events_str: str,
     director_mode: str,
     feather: float,
+    *,
+    invert_mask: bool = False,
+    include_sprite_envelope: bool = False,
+    sprite_envelope_radius: float = 0.18,
 ) -> dict[str, Any]:
+    import inspect
     import numpy as np
 
     spatial_director = compiler.import_pack_module("spatial_director")
@@ -501,16 +507,60 @@ def compute_ab_metrics_sync(
 
     if events_str.strip():
         rules_mod = compiler.import_pack_module("h3_rules")
-        mask_len = rules_mod.snap_length(max(5, t))
-        node_out = spatial_director.MiniMaxH3SpatialDirector.execute(
-            mode=director_mode,
-            width=w,
-            height=h,
-            length=mask_len,
-            feather=feather,
-            invert_mask=False,
-            events_json=events_str,
-        )
+        ev_eval = events_str
+        max_ev_frame = 0
+        try:
+            ev_doc = json.loads(events_str)
+            if isinstance(ev_doc, dict):
+                raw_frames: list[int] = []
+                for p in ev_doc.get("portal") or ():
+                    if isinstance(p, dict) and isinstance(p.get("frame"), (int, float)):
+                        raw_frames.append(int(p["frame"]))
+                for tg in ev_doc.get("targets") or ():
+                    if isinstance(tg, dict):
+                        for fk in ("start", "end"):
+                            if isinstance(tg.get(fk), (int, float)):
+                                raw_frames.append(int(tg[fk]))
+                for pc in ev_doc.get("portal_cues") or ():
+                    if isinstance(pc, dict) and isinstance(pc.get("frame"), (int, float)):
+                        raw_frames.append(int(pc["frame"]))
+                dp = ev_doc.get("dpad")
+                if isinstance(dp, dict):
+                    for wp in dp.get("waypoints") or ():
+                        if isinstance(wp, dict) and isinstance(wp.get("frame"), (int, float)):
+                            raw_frames.append(int(wp["frame"]))
+                    for hp in dp.get("hops") or ():
+                        if isinstance(hp, dict):
+                            for hk in ("start", "end"):
+                                if isinstance(hp.get(hk), (int, float)):
+                                    raw_frames.append(int(hp[hk]))
+                for pk in ("portal_start", "portal_end"):
+                    if isinstance(ev_doc.get(pk), (int, float)):
+                        raw_frames.append(int(ev_doc[pk]))
+                if raw_frames:
+                    max_ev_frame = max(0, max(raw_frames))
+        except Exception:
+            ev_doc = None
+        req_len = max(5, t, min(int(rules_mod.MAX_LENGTH), max_ev_frame + 1))
+        mask_len = rules_mod.snap_length(req_len)
+        if isinstance(ev_doc, dict) and max_ev_frame >= mask_len:
+            compiler._scale_events_doc(ev_doc, max_ev_frame + 1, mask_len)
+            ev_eval = json.dumps(ev_doc)
+        exec_kwargs: dict[str, Any] = {
+            "mode": director_mode,
+            "width": w,
+            "height": h,
+            "length": mask_len,
+            "feather": feather,
+            "invert_mask": bool(invert_mask),
+            "events_json": ev_eval,
+        }
+        sig_params = inspect.signature(spatial_director.MiniMaxH3SpatialDirector.execute).parameters
+        if "include_sprite_envelope" in sig_params and bool(include_sprite_envelope) and not bool(invert_mask):
+            exec_kwargs["include_sprite_envelope"] = True
+            if "sprite_envelope_radius" in sig_params:
+                exec_kwargs["sprite_envelope_radius"] = max(0.05, min(0.60, float(sprite_envelope_radius)))
+        node_out = spatial_director.MiniMaxH3SpatialDirector.execute(**exec_kwargs)
         mask = node_out[0].detach().cpu().numpy()[:t, :h, :w]
     else:
         mask = np.ones((t, h, w), dtype=np.float32)

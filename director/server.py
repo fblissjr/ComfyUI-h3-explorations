@@ -2285,6 +2285,9 @@ async def handle_ab_metrics(request: web.Request) -> web.Response:
         events_str = json.dumps(raw_events) if isinstance(raw_events, dict) else str(raw_events or "")
         director_mode = str(body.get("director_mode") or "portal_path")
         feather = float(body.get("feather", 0.08))
+        invert_mask = bool(body.get("invert_mask", False))
+        include_sprite_envelope = bool(body.get("include_sprite_envelope", False))
+        sprite_envelope_radius = float(body.get("sprite_envelope_radius", 0.18))
         payload = await asyncio.to_thread(
             _compute_ab_metrics_sync,
             b1,
@@ -2294,6 +2297,9 @@ async def handle_ab_metrics(request: web.Request) -> web.Response:
             events_str,
             director_mode,
             feather,
+            invert_mask=invert_mask,
+            include_sprite_envelope=include_sprite_envelope,
+            sprite_envelope_radius=sprite_envelope_radius,
         )
         return web.json_response(payload)
     except Exception as exc:

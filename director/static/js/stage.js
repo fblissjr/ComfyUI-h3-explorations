@@ -184,22 +184,10 @@ export function computeCouplingInfo(st, pf, sp) {
     return { active: false, strength: 0, mode: "push", dx: 0, dy: 0 };
   }
   const explicit = Array.isArray(st.couplings) && st.couplings.length ? st.couplings[0] : null;
-  const w = Number(st.doc.width || 1344);
-  const h = Number(st.doc.height || 768);
-  const shortEdge = Math.min(w, h);
-  const vx = (sp.x - pf.x) * (w / shortEdge);
-  const vy = (sp.y - pf.y) * (h / shortEdge);
-  const dist = Math.hypot(vx, vy);
-  const halo = Number(pf.halo_radius || 0);
-  const reach = Number(pf.rx || 0.20) + halo;
-  const overlapping = dist <= reach + 0.04;
-
   let strength = 0;
   let mode = explicit?.mode === "pull" ? "pull" : "push";
   if (explicit && Number(explicit.strength) > 0) {
     strength = clamp(Number(explicit.strength), 0, 1);
-  } else if (overlapping && halo > 0.01) {
-    strength = clamp(1 - Math.max(0, dist - pf.rx * 0.4) / Math.max(0.08, reach), 0.15, 1.0);
   }
   if (strength <= 0.01) {
     return { active: false, strength: 0, mode, dx: 0, dy: 0 };
@@ -235,6 +223,7 @@ export class StageController {
     this._taeCanvas = document.createElement("canvas");
     this._taeCtx = this._taeCanvas.getContext("2d");
     this._maskTintCache = {};
+    this._placedPillBoxes = [];
 
     this._drag = null; // { kind, idx, linkEndX, linkEndY }
     this._dashPhase = 0;
@@ -795,7 +784,33 @@ export class StageController {
     const ox = Number(this._viewPadX || 0);
     const oy = Number(this._viewPadY || 0);
     const x = clamp(Math.round(cx - pw * 0.5), 10 - ox, this.canvas.width - pw - 10 - ox);
-    const py = clamp(Math.round(y), 10 - oy, this.canvas.height - ph - 10 - oy);
+    const minY = 10 - oy;
+    const maxY = this.canvas.height - ph - 10 - oy;
+    let py = clamp(Math.round(y), minY, maxY);
+    const placed = Array.isArray(this._placedPillBoxes) ? this._placedPillBoxes : null;
+    if (placed) {
+      const gx = x + ox;
+      const overlaps = (testPy) => {
+        const gy = testPy + oy;
+        return placed.some((b) => gx < b.r + 6 && gx + pw + 6 > b.l && gy < b.b + 4 && gy + ph + 4 > b.t);
+      };
+      if (overlaps(py)) {
+        const step = ph + 5;
+        for (let k = 1; k <= 8; k++) {
+          const up = Math.round(py - k * step);
+          if (up >= minY && !overlaps(up)) {
+            py = up;
+            break;
+          }
+          const dn = Math.round(py + k * step);
+          if (dn <= maxY && !overlaps(dn)) {
+            py = dn;
+            break;
+          }
+        }
+      }
+      placed.push({ l: gx, t: py + oy, r: gx + pw, b: py + oy + ph });
+    }
     ctx.fillStyle = bg;
     ctx.strokeStyle = border;
     ctx.lineWidth = 1;
@@ -1106,6 +1121,7 @@ export class StageController {
     const pf = evalPortalAtFrame(st.doc, st.frame, st.length);
     this._viewPadX = mr.x;
     this._viewPadY = mr.y;
+    this._placedPillBoxes = [];
     ctx.save();
     ctx.translate(mr.x, mr.y);
 
