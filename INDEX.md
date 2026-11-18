@@ -161,7 +161,7 @@ with none is a helper the others import.
 | `changelog.d/` | | [`changelog.d/README.md`](changelog.d/README.md), one file per changelog entry; not listed and not counted |
 | `contact_sheets/` | 2 | [below](#contact_sheets) |
 | `data/` | 2 | [below](#data) |
-| `director/` | 19 | [below](#director) |
+| `director/` | 23 | [below](#director) |
 | `docs/` | 319 | [`docs/wiki/index.md`](docs/wiki/index.md), the hand-written router |
 | `prompt_bank/` | 232 | [`docs/wiki/prompting/prompt_bank.md`](docs/wiki/prompting/prompt_bank.md), the prompt catalogue |
 | `sparse_tables/` | 1 | [below](#sparse_tables) |
@@ -220,6 +220,8 @@ with none is a helper the others import.
 | [`VISION.md`](director/VISION.md) | Spatial Director Vision |
 | [`__init__.py`](director/__init__.py) | Interactive Spatial Director desktop web app backend, compiler, and ComfyUI routes. |
 | [`compiler.py`](director/compiler.py) | Runtime workflow compiler for Interactive Spatial Director. |
+| [`graph_builder.py`](director/graph_builder.py) | Structured ComfyUI graph builder and pipeline wiring helpers for Spatial Director. |
+| [`media.py`](director/media.py) | Media decoding, mask rasterization, cutout cropping, VLM reticles, and A\|B metrics. |
 | [`routes.py`](director/routes.py) | ComfyUI cleanup route extension for Interactive Spatial Director (`/h3_spatial_director/forget`). |
 | [`server.py`](director/server.py) | Standalone backend HTTP + WebSocket server for Interactive Spatial Director. |
 | [`static/docs.css`](director/static/docs.css) | H3 Documentation & Tutorial Hub — Strict Light Mode Reader */ |
@@ -232,8 +234,10 @@ with none is a helper the others import.
 | [`static/js/foley_synth.js`](director/static/js/foley_synth.js) | Parametric WebAudio Foley Synthesizer (`foley_synth.js`). |
 | [`static/js/sequencer.js`](director/static/js/sequencer.js) | Interactive 3-Lane Keyframe Sequencer (`sequencer.js`). |
 | [`static/js/stage.js`](director/static/js/stage.js) | Sliderless Interactive 7:4 Stage Canvas & Masked Latent Preview Compositor (`stage.js`). |
+| [`static/js/takes_ui.js`](director/static/js/takes_ui.js) | Interactive Spatial Director — Takes Ledger, Lineage Chaining & Audio Re-Dub (`takes_ui.js`). |
 | [`static/js/ws_client.js`](director/static/js/ws_client.js) | ComfyUI / Spatial Director WebSocket Client (`ws_client.js`). |
 | [`static/style.css`](director/static/style.css) | Interactive Spatial Director — Strict Light Mode Scene-First Studio */ |
+| [`store.py`](director/store.py) | Session storage, lineage extraction, and portable `.director.json` recipe helpers. |
 
 ## sparse_tables/
 

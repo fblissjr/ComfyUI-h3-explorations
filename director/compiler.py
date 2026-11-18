@@ -17,6 +17,8 @@ import random
 from pathlib import Path
 from typing import Any
 
+from director import graph_builder as _gb
+
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 _WORKFLOWS_DIR = _REPO_ROOT / "workflows"
 
@@ -1029,7 +1031,12 @@ def synthesize_spatial_prompts(
                 )
         else:
             single_prompt = str(beats[0].get("prompt") or "").strip() if beats else ""
-            action_desc = single_prompt or raw_target or "dynamic localized transformation unfolding inside the active region"
+            sprite_default = (
+                "the foreground movable subject (<Video 1>) translating smoothly along its authored path with grounded scale and cast shadows"
+                if has_sprite
+                else "dynamic localized transformation unfolding inside the active region"
+            )
+            action_desc = single_prompt or raw_target or sprite_default
             motion_note = f" while {trajectory_note}" if trajectory_note else ""
             audio_desc = (
                 f"Crisp localized acoustic event matching {action_desc} ({', '.join(cue_audio_parts)}) erupting around {onset_s} seconds atop consistent scene ambience."
@@ -1659,7 +1666,7 @@ def _compile_single_spatial(
     tpl_path, used_shipped = resolve_spatial_template_path(mode)
     graph = _load_json(tpl_path)
 
-    length = int(params.get("length", 90))
+    length = int(params.get("length", 141))
     clocks = all_on_both_clocks()
     if length not in clocks:
         raise ValueError(
@@ -2115,69 +2122,17 @@ def _compile_single_spatial(
     )
 
     # Optional in-graph 2nd-pass Audio Refine (`MiniMaxH3FrozenVideoCache` + `MiniMaxH3AudioRefineMask`).
-    for stale_ref_id in ("80", "81", "82", "83", "84", "85", "86", "87", "88"):
-        graph.pop(stale_ref_id, None)
     audio_refine = bool(params.get("audio_refine", False))
     if audio_refine:
-        audio_refine_denoise = max(0.05, min(1.0, float(params.get("audio_refine_denoise", 0.5))))
-        audio_refine_steps = max(1, min(30, int(params.get("audio_refine_steps", 6))))
-        rsrc: list[Any] = ["1", 0]
-        graph["80"] = {
-            "class_type": "MiniMaxH3SigmaShift",
-            "inputs": {"model": rsrc, "shift_video": 12.0, "shift_audio": 3.0},
-        }
-        rsrc = ["80", 0]
-        if "58" in graph and isinstance(graph["58"].get("inputs"), dict):
-            graph["81"] = {
-                "class_type": "ModelAttentionBackend",
-                "inputs": {"model": rsrc, "attention": graph["58"]["inputs"].get("attention", "comfy kitchen attention")},
-            }
-            rsrc = ["81", 0]
-        if "21" in graph and isinstance(graph["21"], dict) and graph["21"].get("class_type") == "MiniMaxH3Sol":
-            sol_inputs = {k: copy.deepcopy(v) for k, v in (graph["21"].get("inputs") or {}).items() if k != "model"}
-            sol_inputs["model"] = rsrc
-            graph["82"] = {"class_type": "MiniMaxH3Sol", "inputs": sol_inputs}
-            rsrc = ["82", 0]
-        graph["88"] = {
-            "class_type": "MiniMaxH3FrozenVideoCache",
-            "inputs": {
-                "model": rsrc,
-                "precision": "int4",
-                "refresh": False,
-                "refresh_every": 2,
-                "verify": False,
-                "halo": 0,
-            },
-        }
-        rsrc = ["88", 0]
-        graph["83"] = {
-            "class_type": "MiniMaxH3AudioRefineMask",
-            "inputs": {"latent": ["10", 0], "video_mask": 0.0, "audio_mask": 1.0},
-        }
-        graph["84"] = {
-            "class_type": "BasicScheduler",
-            "inputs": {
-                "model": rsrc,
-                "scheduler": "simple",
-                "steps": audio_refine_steps,
-                "denoise": audio_refine_denoise,
-            },
-        }
-        graph["85"] = {"class_type": "KSamplerSelect", "inputs": {"sampler_name": "euler"}}
-        graph["86"] = {"class_type": "BasicGuider", "inputs": {"model": rsrc, "conditioning": edited_ref}}
-        graph["87"] = {
-            "class_type": "SamplerCustomAdvanced",
-            "inputs": {
-                "noise": ["6", 0],
-                "guider": ["86", 0],
-                "sampler": ["85", 0],
-                "sigmas": ["84", 0],
-                "latent_image": ["83", 0],
-            },
-        }
-        graph["11"]["inputs"]["samples"] = ["87", 0]
-        graph["12"]["inputs"]["samples"] = ["87", 0]
+        _gb.wire_audio_refine_pass(
+            graph,
+            edited_ref=edited_ref,
+            steps=int(params.get("audio_refine_steps", 6)),
+            denoise=float(params.get("audio_refine_denoise", 0.5)),
+        )
     else:
+        for stale_ref_id in ("80", "81", "82", "83", "84", "85", "86", "87", "88"):
+            graph.pop(stale_ref_id, None)
         graph["11"]["inputs"]["samples"] = ["10", 0]
         graph["12"]["inputs"]["samples"] = ["10", 0]
 
@@ -2201,6 +2156,11 @@ def _compile_single_spatial(
     clean_inputs["save_output"] = False
     graph[CLEAN_DECODE_NODE_ID] = {"class_type": "VHS_VideoCombine", "inputs": clean_inputs}
 
+    final_edited_prompt = (
+        str(graph["134"]["inputs"]["value"])
+        if ("134" in graph and isinstance(graph["134"].get("inputs"), dict))
+        else (orig_prompt if same_prompt else synth_edit)
+    )
     return {
         "mode": mode,
         "director_mode": director_mode,
@@ -2208,6 +2168,9 @@ def _compile_single_spatial(
         "length": length,
         "width": width,
         "height": height,
+        "original_prompt": orig_prompt,
+        "edited_prompt": final_edited_prompt,
+        "region_summary": region_summary,
         "used_shipped_template": used_shipped,
         "preview_override_injected": injected,
         "nodes_summary": {
@@ -2239,7 +2202,7 @@ def compile_spatial_take(
     params: dict[str, Any] | None = None,
     object_info: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Compile primary spatial take graph and optional companion baseline (``scale=0.0``) graph."""
+    """Compile primary spatial take graph and optional lean counterfactual baseline (``scale=0.0``) graph."""
     cfg = dict(params or {})
     primary = _compile_single_spatial(cfg, object_info=object_info, scale_override=None)
     queue_baseline = bool(cfg.get("queue_baseline", False))
@@ -2247,7 +2210,8 @@ def compile_spatial_take(
     if queue_baseline:
         base_cfg = copy.deepcopy(cfg)
         base_cfg["seed"] = primary["seed"]
-        baseline_graph = _compile_single_spatial(base_cfg, object_info=object_info, scale_override=0.0)["graph"]
+        raw_base = _compile_single_spatial(base_cfg, object_info=object_info, scale_override=0.0)["graph"]
+        baseline_graph = _gb.finalize_lean_baseline(raw_base)
     return {
         "mode": primary["mode"],
         "director_mode": primary["director_mode"],
@@ -2255,6 +2219,9 @@ def compile_spatial_take(
         "length": primary["length"],
         "width": primary["width"],
         "height": primary["height"],
+        "original_prompt": primary["original_prompt"],
+        "edited_prompt": primary["edited_prompt"],
+        "region_summary": primary["region_summary"],
         "queue_baseline": queue_baseline,
         "preview_override_injected": primary["preview_override_injected"],
         "nodes_summary": primary["nodes_summary"],

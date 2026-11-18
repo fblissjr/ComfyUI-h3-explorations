@@ -84,12 +84,12 @@
           </svg>
           <span id="stage-helper-text">Click stage to target region · Scroll size</span>
         </div>
-        <div class="mode-switch" role="group" aria-label="Director interaction mode">
+        <div class="mode-switch" role="group" aria-label="Director spatial mode">
           <button id="mode-btn-portal" type="button" class="mode-btn active" data-mode="portal_path">Region</button>
           <button id="mode-btn-targets" type="button" class="mode-btn" data-mode="point_targets">Timed Event</button>
           <button id="mode-btn-combined" type="button" class="mode-btn" data-mode="combined">Combined</button>
-          <button id="mode-btn-sprite" type="button" class="mode-btn" data-mode="sprite">Actor Motion</button>
         </div>
+        <button id="mode-btn-sprite" type="button" class="stage-layer-btn" aria-pressed="false" title="Toggle Actor Layer overlay (WASD / Set Path steering on top of any spatial mode)">Actor Layer</button>
       </div>
 
       <!-- Live Rendering & TAE Status Pill -->
@@ -289,11 +289,14 @@
             <button id="btn-sam-run" type="button" class="sam-pick-btn" title="Segment using text prompt and/or clicked points">Segment</button>
           </div>
           <div id="sam-actor-actions" class="sam-actor-actions hidden">
-            <button id="btn-set-path" type="button" class="btn-outline-sm" title="Click stage to place movable actor destination path">Set Path →</button>
-            <label class="checkbox-row-sm" title="Restrict edits & Preview in Circle directly to Edit Obj mask silhouette">
-              <input id="chk-snap-mask" type="checkbox">
-              <span>Snap Edit to Entity</span>
-            </label>
+            <div class="sam-actor-row">
+              <button id="btn-set-path" type="button" class="btn-outline-sm" title="Click stage to place movable actor destination path">Set Path →</button>
+              <label class="checkbox-row-sm" title="Restrict edits & Preview in Circle directly to Edit Obj mask silhouette">
+                <input id="chk-snap-mask" type="checkbox">
+                <span>Snap Edit to Entity</span>
+              </label>
+            </div>
+            <div id="sam-actor-hint" class="sam-actor-hint hidden"></div>
           </div>
 
           <div class="card-cue-row">

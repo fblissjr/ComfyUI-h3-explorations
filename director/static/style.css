@@ -538,6 +538,28 @@ body.light-studio {
   color: #ffffff;
 }
 
+.stage-layer-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--border-card);
+  border-radius: 7px;
+  padding: 4px 9px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink-muted);
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.05);
+}
+
+.stage-layer-btn.active {
+  background: var(--emerald-bg);
+  border-color: var(--emerald);
+  color: var(--emerald);
+}
+
 /* UNCLIPPED Live taeh3 Portal Telemetry Pill (outside any circular clip) */
 .portal-tae-pill {
   position: absolute;
@@ -1262,9 +1284,31 @@ body.light-studio {
 
 .sam-actor-actions {
   display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sam-actor-row {
+  display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 6px;
+}
+
+.sam-actor-hint {
+  font-size: 10px;
+  line-height: 1.3;
+  color: var(--ink-muted);
+  background: var(--surface-subtle);
+  border: 1px solid var(--border-light);
+  border-radius: 5px;
+  padding: 3px 6px;
+}
+
+.sam-actor-hint.is-warning {
+  color: var(--amber);
+  background: var(--amber-bg);
+  border-color: var(--amber-border);
 }
 
 .checkbox-row-sm {

@@ -437,6 +437,13 @@ def check_compiler_contracts() -> str:
     assert abs(float(rel_nodes[0][1]["inputs"]["audio_end_percent"]) - 0.60) < 1e-4
     assert g_base is not None, "queue_baseline=True must emit companion baseline graph"
     assert float(g_base["9"]["inputs"]["scale"]) == 0.0, f"baseline guider scale must be 0.0, got {g_base['9']['inputs']['scale']}"
+    assert float(g_base["9"]["inputs"]["audio_scale"]) == 0.0, (
+        f"baseline guider audio_scale must be 0.0 for single-pass CFG, got {g_base['9']['inputs']['audio_scale']}"
+    )
+    assert g_base["9"]["inputs"]["edited"] == g_base["9"]["inputs"]["original"], "lean baseline must reuse original conditioning"
+    assert "mask" not in g_base["9"]["inputs"], "lean baseline must not attach spatial mask"
+    for pruned_id in ("13", "161", "131", "134", "130"):
+        assert pruned_id not in g_base, f"lean baseline must strip dead node {pruned_id!r}"
     assert g_base["6"]["inputs"]["noise_seed"] == g_act["6"]["inputs"]["noise_seed"], "baseline must share noise_seed"
 
     # edit_lines path creates MiniMaxH3PromptEdit ("130")
@@ -1156,6 +1163,8 @@ def check_server_routes_and_escalate() -> str:
                     assert cmp_data["graph"]["165"]["inputs"]["preview_fps"] == 5
                     assert float(cmp_data["graph"]["160"]["inputs"]["feather"]) >= 0.22
                     assert len(cmp_data["nodes_summary"].get("couplings_applied") or []) >= 1, cmp_data["nodes_summary"]
+                    assert isinstance(cmp_data.get("edited_prompt"), str) and "bioluminescent" in cmp_data["edited_prompt"], cmp_data
+                    assert isinstance(cmp_data.get("region_summary"), str) and cmp_data["region_summary"].strip(), cmp_data
 
                     # 6. POST /api/segment offline GrabCut path (cutout + exclude roles)
                     r_seg_cut = await client.post(
@@ -2523,7 +2532,13 @@ async def _run_cdp_browser(director_url: str, anchor_png: Path) -> str:
                     sam_hit = await js(
                         """(() => {
                           document.getElementById('btn-engine-close')?.click();
-                          document.getElementById('mode-btn-sprite')?.click();
+                          const spriteBtn = document.getElementById('mode-btn-sprite');
+                          const combBtn = document.getElementById('mode-btn-combined');
+                          const beforePressed = spriteBtn?.getAttribute('aria-pressed');
+                          spriteBtn?.click();
+                          const afterPressed = spriteBtn?.getAttribute('aria-pressed');
+                          const outsideModeSwitch = Boolean(spriteBtn && !spriteBtn.closest('.mode-switch'));
+                          const combStayedActive = Boolean(combBtn?.classList.contains('active'));
                           document.getElementById('sam-role-cutout')?.click();
                           const pick = document.getElementById('btn-sam-pick');
                           if (pick && !window.__SPATIAL_DIRECTOR__?.state?.samPicking) pick.click();
@@ -2542,9 +2557,11 @@ async def _run_cdp_browser(director_url: str, anchor_png: Path) -> str:
                           const x = r.left + r.width * 0.30;
                           const y = r.top + r.height * 0.50;
                           const el = document.elementFromPoint(x, y);
-                          return { x, y, hitId: el ? el.id : '' };
+                          return { x, y, hitId: el ? el.id : '', beforePressed, afterPressed, outsideModeSwitch, combStayedActive };
                         })()"""
                     )
+                    assert sam_hit["beforePressed"] == "false" and sam_hit["afterPressed"] == "true", sam_hit
+                    assert sam_hit["outsideModeSwitch"] and sam_hit["combStayedActive"], sam_hit
                     assert sam_hit["hitId"] == "stage-canvas", f"SAM click point covered by {sam_hit}"
                     await cdp("Input.dispatchMouseEvent", {"type": "mousePressed", "x": sam_hit["x"], "y": sam_hit["y"], "button": "left", "clickCount": 1})
                     await cdp("Input.dispatchMouseEvent", {"type": "mouseReleased", "x": sam_hit["x"], "y": sam_hit["y"], "button": "left", "clickCount": 1})
@@ -2555,11 +2572,14 @@ async def _run_cdp_browser(director_url: str, anchor_png: Path) -> str:
                               const st = window.__SPATIAL_DIRECTOR__?.state;
                               if (!st?.spriteCutout?.ref) return null;
                               const wp = (st.doc?.dpad?.waypoints || [])[0] || null;
+                              const hintEl = document.getElementById('sam-actor-hint');
                               return {
                                 ref: st.spriteCutout.ref,
                                 maskRef: st.spriteMaskRef,
                                 bboxH: st.spriteCutout.bboxHeight,
                                 samPicking: st.samPicking,
+                                hintText: hintEl ? hintEl.textContent.trim() : '',
+                                hintWarn: Boolean(hintEl && hintEl.classList.contains('is-warning') && !hintEl.classList.contains('hidden')),
                                 wp,
                               };
                             })()"""
@@ -2571,6 +2591,7 @@ async def _run_cdp_browser(director_url: str, anchor_png: Path) -> str:
                     assert sam_cut_res and sam_cut_res["ref"].startswith("h3_spatial_director/"), sam_cut_res
                     assert sam_cut_res["maskRef"].startswith("h3_spatial_director/"), sam_cut_res
                     assert sam_cut_res["samPicking"] is False and float(sam_cut_res["bboxH"]) > 0, sam_cut_res
+                    assert sam_cut_res["hintWarn"] and "Frame-0 lift" in sam_cut_res["hintText"], sam_cut_res
                     assert sam_cut_res["wp"] and (
                         abs(float(sam_cut_res["wp"]["x"]) - 0.36) > 0.01 or abs(float(sam_cut_res["wp"]["y"]) - 0.74) > 0.01
                     ), f"Expected default sprite waypoint auto-centered onto cutout bbox, got {sam_cut_res}"

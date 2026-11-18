@@ -42,6 +42,56 @@ from workflows.h3_env import load as load_h3_env  # noqa: E402
 load_h3_env()
 
 from director import compiler, routes as director_routes  # noqa: E402
+from director.media import (  # noqa: E402
+    compute_ab_metrics_sync,
+    decode_frame0_or_image,
+    decode_video_frame_rgb,
+    encode_mask_rgb_png,
+    encode_rgba_cutout_png,
+    extract_video_frame_png,
+    prepare_vlm_reticle_images,
+    segment_grabcut_mask,
+    video_bytes_has_audio,
+)
+from director.store import (  # noqa: E402
+    APP_MARK,
+    SAFE_FILENAME_RE,
+    SessionStore,
+    build_recipe_document,
+    extract_lineage_fields,
+    first_image_from_node_output,
+    first_image_from_outputs,
+    first_video_from_node_output,
+    first_video_from_outputs,
+    normalize_imported_recipe,
+    normalize_media_entry,
+    parse_view_descriptor,
+    safe_ref_view_url,
+    safe_rel_name,
+    sanitize_filename,
+    take_prompt_preview,
+    view_url,
+)
+
+# Backwards-compatible internal aliases
+_encode_rgba_cutout_png = encode_rgba_cutout_png
+_encode_mask_rgb_png = encode_mask_rgb_png
+_segment_grabcut_mask = segment_grabcut_mask
+_compute_ab_metrics_sync = compute_ab_metrics_sync
+_decode_frame0_or_image = decode_frame0_or_image
+_decode_video_frame_rgb = decode_video_frame_rgb
+_extract_video_frame_png = extract_video_frame_png
+_video_bytes_has_audio = video_bytes_has_audio
+_build_recipe_document = build_recipe_document
+_normalize_imported_recipe = normalize_imported_recipe
+_extract_lineage_fields = extract_lineage_fields
+_parse_view_descriptor = parse_view_descriptor
+_sanitize_filename = sanitize_filename
+_view_url = view_url
+_take_prompt_preview = take_prompt_preview
+_SAFE_FILENAME_RE = SAFE_FILENAME_RE
+_first_image_from_node_output = first_image_from_node_output
+_first_video_from_outputs = first_video_from_outputs
 
 log = logging.getLogger("h3.director")
 
@@ -50,7 +100,6 @@ DEFAULT_PORT = 8195
 DEFAULT_HTTPS_PORT = 8194
 DEFAULT_STATE_DIR = _REPO_ROOT / "data" / "spatial_director_app"
 STATIC_DIR = _THIS_DIR / "static"
-APP_MARK = "h3_spatial_director"
 UPLOADS_SUBFOLDER = "h3_spatial_director"
 COOKIE_NAME = "h3_director_sid"
 MAX_UPLOAD_BYTES = 256 * 1024 * 1024
@@ -112,8 +161,20 @@ CSP_POLICY = (
 )
 
 _SAFE_SID_RE = re.compile(r"^[A-Za-z0-9_-]{12,128}$")
-_SAFE_FILENAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,180}$")
 _SAFE_RANGE_RE = re.compile(r"^bytes=(\d*)-(\d*)$")
+
+
+def _get_resident_backbone(app: web.Application) -> str | None:
+    runtime = app.get("runtime")
+    return runtime.get("last_resident_backbone") if isinstance(runtime, dict) else app.get("last_resident_backbone")
+
+
+def _set_resident_backbone(app: web.Application, value: str | None) -> None:
+    runtime = app.get("runtime")
+    if isinstance(runtime, dict):
+        runtime["last_resident_backbone"] = value
+    else:
+        app["last_resident_backbone"] = value
 
 
 def _strip_host_port(host_header: str) -> str:
@@ -194,16 +255,6 @@ def _apply_security_headers(
     return response
 
 
-def _sanitize_filename(name: str, *, default_ext: str = ".png") -> str:
-    raw = Path(name or "upload").name
-    stem = re.sub(r"[^A-Za-z0-9._-]+", "_", Path(raw).stem).strip("._-") or "upload"
-    ext = Path(raw).suffix.lower()
-    if not ext or not re.fullmatch(r"\.[a-z0-9]{1,8}", ext):
-        ext = default_ext
-    digest = hashlib.sha256(f"{time.time_ns()}:{raw}".encode("utf-8")).hexdigest()[:8]
-    return f"{stem[:64]}_{digest}{ext}"
-
-
 def _resolve_output_dir() -> Path:
     env_out = (os.environ.get("H3_OUTPUT_DIR") or "").strip()
     if env_out:
@@ -213,297 +264,6 @@ def _resolve_output_dir() -> Path:
     return Path(cfg_output_dir())
 
 
-def _safe_rel_name(name: str) -> str:
-    clean = Path(name or "").name
-    if not clean or not _SAFE_FILENAME_RE.match(clean):
-        raise ValueError(f"Unsafe filename {name!r}")
-    return clean
-
-
-def _parse_view_descriptor(spec: Any, *, default_type: str = "temp") -> dict[str, str]:
-    if isinstance(spec, str):
-        s = spec.strip()
-        if s.startswith("/api/view?"):
-            qs = urlsplit(s).query
-            from urllib.parse import parse_qs
-
-            q = parse_qs(qs)
-            return {
-                "filename": _safe_rel_name((q.get("filename") or [""])[0]),
-                "subfolder": str((q.get("subfolder") or [""])[0]).strip("/\\"),
-                "type": str((q.get("type") or [default_type])[0]),
-            }
-        if "/" in s:
-            sub, fn = s.rsplit("/", 1)
-            return {"filename": _safe_rel_name(fn), "subfolder": sub.strip("/\\"), "type": default_type}
-        return {"filename": _safe_rel_name(s), "subfolder": "", "type": default_type}
-    if isinstance(spec, dict):
-        fn = _safe_rel_name(str(spec.get("filename") or ""))
-        sub = str(spec.get("subfolder") or "").strip("/\\")
-        ftype = str(spec.get("type") or default_type).strip() or default_type
-        if ".." in Path(sub).parts:
-            raise ValueError(f"Invalid subfolder {sub!r}")
-        if ftype not in ("temp", "input", "output"):
-            raise ValueError(f"Invalid media type {ftype!r}")
-        return {"filename": fn, "subfolder": sub, "type": ftype}
-    raise ValueError("Media descriptor must be a filename string or {filename, subfolder, type} object")
-
-
-def _view_url(filename: str, subfolder: str = "", media_type: str = "temp") -> str:
-    params = {"filename": filename, "subfolder": subfolder, "type": media_type}
-    return f"/api/view?{urlencode(params)}"
-
-
-class SessionStore:
-    """Thread-safe persistent store for Interactive Spatial Director takes, prompts, and uploads."""
-
-    def __init__(self, state_dir: Path) -> None:
-        self.state_dir = Path(state_dir)
-        self.state_dir.mkdir(parents=True, exist_ok=True)
-        self.state_file = self.state_dir / "takes.json"
-        self._lock = threading.RLock()
-        self._takes: dict[str, dict[str, Any]] = {}
-        self._take_order: list[str] = []
-        self._prompt_to_client: dict[str, str] = {}
-        self._prompt_to_take: dict[str, tuple[str, str]] = {}
-        self._open_sessions: dict[str, set[str]] = {}
-        self._uploads: dict[str, str] = {}  # ref -> session_id
-        self._load()
-
-    def _load(self) -> None:
-        if not self.state_file.is_file():
-            return
-        try:
-            doc = json.loads(self.state_file.read_text(encoding="utf-8"))
-        except Exception as exc:
-            log.warning("[h3_director] ignoring corrupt state file %s: %s", self.state_file, exc)
-            return
-        for t in doc.get("takes") or ():
-            tid = str(t.get("take_id") or "")
-            if tid:
-                self._takes[tid] = t
-                self._take_order.append(tid)
-                cid = str(t.get("client_id") or "")
-                for key, role in (("prompt_id", "edited"), ("baseline_prompt_id", "baseline")):
-                    pid = str(t.get(key) or "")
-                    if pid:
-                        if cid:
-                            self._prompt_to_client[pid] = cid
-                        self._prompt_to_take[pid] = (tid, role)
-        self._uploads.update({str(k): str(v) for k, v in (doc.get("uploads") or {}).items()})
-
-    def _save(self) -> None:
-        payload = {
-            "version": 1,
-            "takes": [self._takes[tid] for tid in self._take_order if tid in self._takes],
-            "uploads": dict(self._uploads),
-        }
-        tmp = self.state_dir / f".takes.{secrets.token_hex(6)}.tmp"
-        tmp.write_text(json.dumps(payload, indent=2), encoding="utf-8")
-        tmp.replace(self.state_file)
-
-    def record_upload(self, ref: str, session_id: str) -> None:
-        with self._lock:
-            self._uploads[ref] = session_id
-            self._save()
-
-    def record_take(self, take: dict[str, Any]) -> dict[str, Any]:
-        with self._lock:
-            tid = str(take["take_id"])
-            self._takes[tid] = copy.deepcopy(take)
-            if tid in self._take_order:
-                self._take_order.remove(tid)
-            self._take_order.insert(0, tid)
-            cid = str(take.get("client_id") or "")
-            sid = str(take.get("session_id") or "")
-            for key, role in (("prompt_id", "edited"), ("baseline_prompt_id", "baseline")):
-                pid = str(take.get(key) or "")
-                if pid:
-                    if cid:
-                        self._prompt_to_client[pid] = cid
-                    self._prompt_to_take[pid] = (tid, role)
-                    if sid:
-                        self._open_sessions.setdefault(sid, set()).add(pid)
-            self._save()
-            return copy.deepcopy(self._takes[tid])
-
-    def list_takes(self) -> list[dict[str, Any]]:
-        with self._lock:
-            return [copy.deepcopy(self._takes[tid]) for tid in self._take_order if tid in self._takes]
-
-    def get_take(self, take_id: str) -> dict[str, Any] | None:
-        with self._lock:
-            t = self._takes.get(take_id)
-            return copy.deepcopy(t) if t is not None else None
-
-    def find_take_by_video_filename(self, filename: str) -> dict[str, Any] | None:
-        target = Path(filename or "").name
-        if not target:
-            return None
-        with self._lock:
-            for tid in self._take_order:
-                t = self._takes.get(tid)
-                if not t:
-                    continue
-                for key in ("clean_video", "hud_video", "baseline_video"):
-                    item = t.get(key)
-                    if isinstance(item, dict) and Path(str(item.get("filename") or "")).name == target:
-                        return copy.deepcopy(t)
-        return None
-
-    def client_for_prompt(self, prompt_id: str) -> str | None:
-        with self._lock:
-            return self._prompt_to_client.get(str(prompt_id))
-
-    def update_from_history(self, history_map: dict[str, Any]) -> None:
-        with self._lock:
-            changed = False
-            for pid, entry in (history_map or {}).items():
-                info = self._prompt_to_take.get(str(pid))
-                if not info or not isinstance(entry, dict):
-                    continue
-                tid, role = info
-                take = self._takes.get(tid)
-                if take is None:
-                    continue
-                st_doc = entry.get("status") or {}
-                if (
-                    isinstance(st_doc, dict)
-                    and str(st_doc.get("status_str") or "") == "error"
-                ):
-                    err_msg = "ComfyUI execution error"
-                    for msg_item in st_doc.get("messages") or ():
-                        if (
-                            isinstance(msg_item, (list, tuple))
-                            and len(msg_item) >= 2
-                            and msg_item[0] == "execution_error"
-                            and isinstance(msg_item[1], dict)
-                        ):
-                            err_msg = str(msg_item[1].get("exception_message") or err_msg)
-                            break
-                    if role == "baseline":
-                        if take.get("baseline_error") != err_msg:
-                            take["baseline_error"] = err_msg
-                            take["updated_at"] = time.time()
-                            changed = True
-                    elif take.get("status") != "completed" and (take.get("status") != "error" or take.get("error") != err_msg):
-                        take["status"] = "error"
-                        take["error"] = err_msg
-                        take["updated_at"] = time.time()
-                        changed = True
-                    continue
-                outputs = entry.get("outputs") or {}
-                if not isinstance(outputs, dict):
-                    continue
-                if role == "baseline":
-                    vid = _first_video_from_outputs(outputs, preferred_nodes=("162", "13"))
-                    if vid and take.get("baseline_video") != vid:
-                        take["baseline_video"] = vid
-                        take["updated_at"] = time.time()
-                        changed = True
-                else:
-                    hud = _first_video_from_outputs(outputs, preferred_nodes=("13",))
-                    clean = _first_video_from_outputs(outputs, preferred_nodes=("162",))
-                    still = _first_image_from_outputs(outputs, preferred_nodes=("13",))
-                    if hud and take.get("hud_video") != hud:
-                        take["hud_video"] = hud
-                        take["status"] = "completed"
-                        take["updated_at"] = time.time()
-                        changed = True
-                    if clean and take.get("clean_video") != clean:
-                        take["clean_video"] = clean
-                        take["status"] = "completed"
-                        take["updated_at"] = time.time()
-                        changed = True
-                    if still and take.get("still_image") != still:
-                        take["still_image"] = still
-                        take["status"] = "completed"
-                        take["updated_at"] = time.time()
-                        changed = True
-            if changed:
-                self._save()
-
-    def mark_executed(self, prompt_id: str, node_id: str, output_dict: dict[str, Any]) -> None:
-        if not prompt_id or not isinstance(output_dict, dict):
-            return
-        with self._lock:
-            info = self._prompt_to_take.get(str(prompt_id))
-            if not info:
-                return
-            tid, role = info
-            take = self._takes.get(tid)
-            if take is None:
-                return
-            vid = _first_video_from_node_output(output_dict)
-            img = _first_image_from_node_output(output_dict)
-            changed = False
-            if role == "baseline" and vid:
-                take["baseline_video"] = vid
-                changed = True
-            elif role == "edited":
-                if str(node_id) == "162" and vid:
-                    take["clean_video"] = vid
-                    take["status"] = "completed"
-                    changed = True
-                elif str(node_id) == "13" and vid:
-                    take["hud_video"] = vid
-                    take["status"] = "completed"
-                    changed = True
-                elif str(node_id) == "13" and img:
-                    take["still_image"] = img
-                    take["status"] = "completed"
-                    changed = True
-            if changed:
-                take["updated_at"] = time.time()
-                self._save()
-
-    def reconcile_orphaned_queued(self, active_pids: set[str], history_pids: set[str], *, grace_sec: float = 15.0) -> None:
-        """Mark stale ``queued`` takes absent from ComfyUI ``/queue`` & ``/history`` as ``interrupted``."""
-        now = time.time()
-        with self._lock:
-            changed = False
-            for tid in self._take_order:
-                t = self._takes.get(tid)
-                if not t or t.get("status") != "queued":
-                    continue
-                pid = str(t.get("prompt_id") or "")
-                age = now - float(t.get("created_at") or now)
-                if pid and pid not in active_pids and pid not in history_pids and age >= grace_sec:
-                    t["status"] = "interrupted"
-                    if not t.get("error"):
-                        t["error"] = "Job no longer in ComfyUI queue (interrupted or server restarted)."
-                    t["updated_at"] = now
-                    changed = True
-            if changed:
-                self._save()
-
-    def clear_forgotten(self, *, keep_uploads: set[str] | None = None) -> list[str]:
-        keep = set(keep_uploads or ())
-        with self._lock:
-            kept_takes: dict[str, dict[str, Any]] = {}
-            kept_order: list[str] = []
-            removed_pids: list[str] = []
-            for tid in self._take_order:
-                t = self._takes.get(tid)
-                if not t:
-                    continue
-                if t.get("status") == "queued" or t.get("pinned"):
-                    kept_takes[tid] = t
-                    kept_order.append(tid)
-                else:
-                    for key in ("prompt_id", "baseline_prompt_id"):
-                        pid = str(t.get(key) or "")
-                        if pid:
-                            removed_pids.append(pid)
-                            self._prompt_to_client.pop(pid, None)
-                            self._prompt_to_take.pop(pid, None)
-            self._takes = kept_takes
-            self._take_order = kept_order
-            self._uploads = {u: s for u, s in self._uploads.items() if u in keep}
-            self._save()
-            return removed_pids
-
-
 def _backbone_for_image_workflow(workflow: str | None) -> str:
     wf = str(workflow or "").strip().lower()
     if wf == "pika_image":
@@ -511,204 +271,6 @@ def _backbone_for_image_workflow(workflow: str | None) -> str:
     if wf == "ph3_image":
         return "ph3_image"
     return "h3_image"
-
-
-def _extract_lineage_fields(
-    body: dict[str, Any],
-    *,
-    fallback_parent_id: str | None = None,
-) -> dict[str, Any]:
-    parent_tid = str(body.get("parent_take_id") or body.get("source_take_id") or fallback_parent_id or "").strip() or None
-    raw_pf = body.get("parent_frame")
-    parent_frame: int | None = None
-    if raw_pf is not None and not isinstance(raw_pf, bool) and str(raw_pf).strip() != "":
-        try:
-            parent_frame = max(0, int(raw_pf))
-        except (TypeError, ValueError):
-            parent_frame = None
-    return {"parent_take_id": parent_tid, "parent_frame": parent_frame}
-
-
-def _safe_ref_view_url(ref: str, *, default_type: str = "input") -> str:
-    clean = str(ref or "").strip()
-    if not clean:
-        return ""
-    try:
-        desc = _parse_view_descriptor(clean, default_type=default_type)
-        return _view_url(desc["filename"], desc["subfolder"], desc["type"])
-    except Exception:
-        return ""
-
-
-def _build_recipe_document(
-    take: dict[str, Any] | None,
-    *,
-    video_filename: str = "",
-    variant: str = "clean",
-    extra_recipe: dict[str, Any] | None = None,
-) -> dict[str, Any] | None:
-    """Build portable ``.director.json`` recipe sidecar metadata (zero local filesystem paths)."""
-    if take is None and not isinstance(extra_recipe, dict):
-        return None
-    raw_params: dict[str, Any] = {}
-    if isinstance(take, dict) and isinstance(take.get("params"), dict):
-        raw_params.update(copy.deepcopy(take["params"]))
-    if isinstance(extra_recipe, dict):
-        stage_part = extra_recipe.get("stage") if isinstance(extra_recipe.get("stage"), dict) else extra_recipe
-        for k, v in stage_part.items():
-            if k not in ("schema_version", "app", "exported_at", "video_filename", "variant"):
-                raw_params[k] = copy.deepcopy(v)
-
-    raw_events = raw_params.get("events_json")
-    events_obj: dict[str, Any] | None = None
-    if isinstance(raw_events, dict):
-        events_obj = copy.deepcopy(raw_events)
-    elif isinstance(raw_events, str) and raw_events.strip():
-        try:
-            parsed = json.loads(raw_events)
-            if isinstance(parsed, dict):
-                events_obj = parsed
-        except Exception:
-            events_obj = None
-
-    stage_doc: dict[str, Any] = {
-        "mode": str(raw_params.get("mode") or (take or {}).get("mode") or "i2v_portal"),
-        "director_mode": str(raw_params.get("director_mode") or (take or {}).get("director_mode") or "portal_path"),
-        "length": int(raw_params.get("length") or (take or {}).get("length") or 141),
-        "width": int(raw_params.get("width") or (take or {}).get("width") or 1344),
-        "height": int(raw_params.get("height") or (take or {}).get("height") or 768),
-        "seed": int(raw_params.get("seed") if raw_params.get("seed") is not None else ((take or {}).get("seed") or 0)),
-        "source_ref": str(
-            raw_params.get("source_ref")
-            or raw_params.get("first_frame")
-            or raw_params.get("anchor_image")
-            or raw_params.get("ref_image")
-            or ""
-        ).strip(),
-        "last_frame": str(raw_params.get("last_frame") or "").strip(),
-        "sprite_ref": str(raw_params.get("sprite_ref") or raw_params.get("sprite_cutout") or "").strip(),
-        "sprite_mask_ref": str(raw_params.get("sprite_mask_ref") or "").strip(),
-        "include_mask_ref": str(raw_params.get("include_mask_ref") or "").strip(),
-        "exclude_mask_ref": str(raw_params.get("exclude_mask_ref") or "").strip(),
-        "snap_to_include_mask": bool(raw_params.get("snap_to_include_mask", False)),
-        "lock_first_frame": bool(raw_params.get("lock_first_frame", True)),
-        "original_prompt": str(raw_params.get("original_prompt") or "").strip(),
-        "target_prompt": str(raw_params.get("target_prompt") or raw_params.get("prompt") or "").strip(),
-        "same_prompt": bool(raw_params.get("same_prompt", False)),
-        "audio_refine": bool(raw_params.get("audio_refine", False)),
-        "feather": float(raw_params.get("feather", 0.08)),
-        "invert_mask": bool(raw_params.get("invert_mask", False)),
-        "scale": float(raw_params.get("scale", 2.0)),
-        "audio_scale": float(raw_params.get("audio_scale", 1.0)),
-        "first_step": int(raw_params.get("first_step", 0)),
-        "last_step": int(raw_params.get("last_step", 1000)),
-        "streams": str(raw_params.get("streams") or "independent"),
-        "control_vectors": copy.deepcopy(raw_params.get("control_vectors") or []),
-        "couplings": copy.deepcopy(raw_params.get("couplings") or []),
-        "portal_cues": copy.deepcopy(raw_params.get("portal_cues") or []),
-        "events_json": events_obj if events_obj is not None else {},
-    }
-    ex = extra_recipe if isinstance(extra_recipe, dict) else {}
-    res_vid = video_filename or str(ex.get("video_filename") or "")
-    res_var = variant if video_filename else str(ex.get("variant") or variant or "clean")
-    res_pf = (
-        (take or {}).get("parent_frame")
-        if (take and take.get("parent_frame") is not None)
-        else (ex.get("parent_frame") if ex.get("parent_frame") is not None else raw_params.get("parent_frame"))
-    )
-    return {
-        "schema_version": 1,
-        "app": APP_MARK,
-        "exported_at": float(ex.get("exported_at") or time.time()),
-        "video_filename": Path(res_vid).name if res_vid else "",
-        "variant": str(res_var or "clean"),
-        "take_id": (take or {}).get("take_id") or ex.get("take_id"),
-        "parent_take_id": (take or {}).get("parent_take_id") or ex.get("parent_take_id") or raw_params.get("parent_take_id"),
-        "parent_frame": res_pf,
-        "stage": stage_doc,
-    }
-
-
-def _normalize_imported_recipe(raw_doc: dict[str, Any]) -> dict[str, Any]:
-    """Validate and normalize an imported ``.director.json`` or ``Take`` record into stage state."""
-    if not isinstance(raw_doc, dict):
-        raise ValueError("Recipe must be a JSON object")
-
-    if isinstance(raw_doc.get("stage"), dict):
-        built = _build_recipe_document(None, extra_recipe=raw_doc)
-    elif isinstance(raw_doc.get("params"), dict) or raw_doc.get("take_id"):
-        built = _build_recipe_document(raw_doc)
-    else:
-        built = _build_recipe_document(None, extra_recipe=raw_doc)
-    if built is None:
-        raise ValueError("Recipe payload is empty")
-
-    stage = built["stage"]
-    stage["length"] = compiler.snap_to_on_both_clocks(int(stage.get("length") or 90))
-    ev = stage.get("events_json")
-    if isinstance(ev, str):
-        ev = json.loads(ev) if ev.strip() else {}
-    if not isinstance(ev, dict):
-        raise ValueError("Recipe events_json must decode to a JSON object")
-    stage["events_json"] = ev
-
-    ref_urls: dict[str, str] = {}
-    for key in ("source_ref", "last_frame", "sprite_ref", "sprite_mask_ref", "include_mask_ref", "exclude_mask_ref"):
-        val = str(stage.get(key) or "").strip()
-        if val:
-            ref_urls[key] = _safe_ref_view_url(val, default_type="input")
-    built["ref_view_urls"] = ref_urls
-    return built
-
-
-def _normalize_media_entry(entry: dict[str, Any]) -> dict[str, Any]:
-    fn = str(entry.get("filename") or "")
-    sub = str(entry.get("subfolder") or "")
-    ftype = str(entry.get("type") or "temp")
-    out: dict[str, Any] = {
-        "filename": fn,
-        "subfolder": sub,
-        "type": ftype,
-        "view_url": _view_url(fn, sub, ftype) if fn else "",
-    }
-    if entry.get("format"):
-        out["format"] = str(entry["format"])
-    return out
-
-
-def _first_video_from_node_output(node_out: dict[str, Any]) -> dict[str, Any] | None:
-    for key in ("gifs", "videos"):
-        items = node_out.get(key)
-        if isinstance(items, list) and items and isinstance(items[0], dict) and items[0].get("filename"):
-            return _normalize_media_entry(items[0])
-    return None
-
-
-def _first_image_from_node_output(node_out: dict[str, Any]) -> dict[str, Any] | None:
-    items = node_out.get("images")
-    if isinstance(items, list) and items and isinstance(items[0], dict) and items[0].get("filename"):
-        return _normalize_media_entry(items[0])
-    return None
-
-
-def _first_video_from_outputs(outputs: dict[str, Any], *, preferred_nodes: tuple[str, ...]) -> dict[str, Any] | None:
-    for nid in preferred_nodes:
-        node_out = outputs.get(nid)
-        if isinstance(node_out, dict):
-            vid = _first_video_from_node_output(node_out)
-            if vid:
-                return vid
-    return None
-
-
-def _first_image_from_outputs(outputs: dict[str, Any], *, preferred_nodes: tuple[str, ...]) -> dict[str, Any] | None:
-    for nid in preferred_nodes:
-        node_out = outputs.get(nid)
-        if isinstance(node_out, dict):
-            img = _first_image_from_node_output(node_out)
-            if img:
-                return img
-    return None
 
 
 async def _comfy_get_json(app: web.Application, path: str, *, timeout: float = 3.0) -> Any | None:
@@ -825,155 +387,6 @@ async def _materialize_input_image_ref(
     in_ref = f"{up_sub}/{up_name}" if up_sub else up_name
     store.record_upload(in_ref, sid)
     return in_ref, raw_bytes, {"filename": up_name, "subfolder": up_sub, "type": "input"}
-
-
-def _decode_video_frame_rgb(raw_bytes: bytes, filename: str, frame_index: int = 0) -> tuple[Any, int, int]:
-    """Decode one video frame as ``(rgb_ndarray, resolved_index, total_frames)``.
-
-    Negative ``frame_index`` indexes from the end (``-1`` = last frame);
-    out-of-range indices clamp to ``[0, total_frames - 1]``.
-    """
-    from collections import deque
-
-    ext = Path(filename).suffix.lower() or ".mp4"
-    target_idx = int(frame_index)
-    with tempfile.NamedTemporaryFile(suffix=ext) as tmp:
-        tmp.write(raw_bytes)
-        tmp.flush()
-        try:
-            import cv2  # type: ignore
-
-            cap = cv2.VideoCapture(tmp.name)
-            try:
-                reported_total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
-                if reported_total > 0:
-                    seek_idx = max(0, min(reported_total - 1, (reported_total + target_idx) if target_idx < 0 else target_idx))
-                    if seek_idx > 0:
-                        cap.set(cv2.CAP_PROP_POS_FRAMES, float(seek_idx))
-                    ok, frame_bgr = cap.read()
-                    if ok and frame_bgr is not None:
-                        return cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB), seek_idx, reported_total
-                    cap.set(cv2.CAP_PROP_POS_FRAMES, 0.0)
-
-                count = 0
-                tail_buf: deque[Any] | None = deque(maxlen=max(1, -target_idx)) if target_idx < 0 else None
-                last_bgr = None
-                picked_bgr = None
-                while True:
-                    ok, frame_bgr = cap.read()
-                    if not ok or frame_bgr is None:
-                        break
-                    last_bgr = frame_bgr
-                    if tail_buf is not None:
-                        tail_buf.append(frame_bgr)
-                    elif count == target_idx:
-                        picked_bgr = frame_bgr
-                        count += 1
-                        break
-                    count += 1
-                if target_idx < 0 and tail_buf:
-                    resolved = max(0, count + target_idx)
-                    idx_in_buf = max(0, len(tail_buf) - (count - resolved))
-                    chosen = tail_buf[idx_in_buf]
-                    return cv2.cvtColor(chosen, cv2.COLOR_BGR2RGB), resolved, count
-                if picked_bgr is not None:
-                    return cv2.cvtColor(picked_bgr, cv2.COLOR_BGR2RGB), target_idx, max(reported_total, count)
-                if last_bgr is not None and count > 0:
-                    return cv2.cvtColor(last_bgr, cv2.COLOR_BGR2RGB), count - 1, count
-            finally:
-                cap.release()
-        except Exception:
-            pass
-
-        try:
-            import av  # type: ignore
-
-            tail_av: deque[Any] | None = deque(maxlen=max(1, -target_idx)) if target_idx < 0 else None
-            last_rgb = None
-            picked_rgb = None
-            count = 0
-            with av.open(tmp.name) as container:
-                for fr in container.decode(video=0):
-                    rgb = fr.to_ndarray(format="rgb24")
-                    last_rgb = rgb
-                    if tail_av is not None:
-                        tail_av.append(rgb)
-                    elif count == target_idx:
-                        picked_rgb = rgb
-                        count += 1
-                        break
-                    count += 1
-            if target_idx < 0 and tail_av:
-                resolved = max(0, count + target_idx)
-                idx_in_buf = max(0, len(tail_av) - (count - resolved))
-                return tail_av[idx_in_buf], resolved, count
-            if picked_rgb is not None:
-                return picked_rgb, target_idx, count
-            if last_rgb is not None and count > 0:
-                return last_rgb, count - 1, count
-        except Exception as exc:
-            raise ValueError(f"Unable to decode frame {target_idx} from {filename!r}: {exc}") from exc
-
-    raise ValueError(f"Video {filename!r} contains no readable video frames")
-
-
-def _video_bytes_has_audio(raw_bytes: bytes, filename: str = "clip.mp4") -> bool:
-    """Return False when a video container provably has zero audio streams (True on probe error)."""
-    ext = Path(filename).suffix.lower() or ".mp4"
-    try:
-        import av  # type: ignore
-
-        with tempfile.NamedTemporaryFile(suffix=ext) as tmp:
-            tmp.write(raw_bytes)
-            tmp.flush()
-            with av.open(tmp.name) as container:
-                return bool(container.streams.audio)
-    except Exception:
-        return True
-
-
-def _extract_video_frame_png(raw_bytes: bytes, filename: str, frame_index: int = -1) -> tuple[bytes, int, int, int, int]:
-    """Extract frame ``frame_index`` as lossless PNG ``(png_bytes, resolved_idx, total_frames, w, h)``."""
-    from PIL import Image
-
-    ext = Path(filename).suffix.lower()
-    if ext in (".png", ".jpg", ".jpeg", ".webp"):
-        with Image.open(io.BytesIO(raw_bytes)) as img:
-            rgb = img.convert("RGB")
-            buf = io.BytesIO()
-            rgb.save(buf, format="PNG")
-            return buf.getvalue(), 0, 1, int(rgb.width), int(rgb.height)
-
-    frame_rgb, resolved_idx, total_frames = _decode_video_frame_rgb(raw_bytes, filename, frame_index=frame_index)
-    img = Image.fromarray(frame_rgb, mode="RGB")
-    buf = io.BytesIO()
-    img.save(buf, format="PNG")
-    return buf.getvalue(), resolved_idx, total_frames, int(img.width), int(img.height)
-
-
-def _decode_frame0_or_image(raw_bytes: bytes, filename: str) -> tuple[bytes, int, int, str, str]:
-    """Return ``(png_bytes, width, height, target_filename, source_kind)``."""
-    from PIL import Image
-
-    ext = Path(filename).suffix.lower()
-    if ext in (".mp4", ".mov", ".webm", ".mkv", ".avi"):
-        png_bytes, _idx, _total, w, h = _extract_video_frame_png(raw_bytes, filename, frame_index=0)
-        out_name = _sanitize_filename(f"{Path(filename).stem}_frame0.png", default_ext=".png")
-        return png_bytes, w, h, out_name, "video_frame0"
-
-    try:
-        with Image.open(io.BytesIO(raw_bytes)) as img:
-            img.load()
-            w, h = int(img.width), int(img.height)
-            out_name = _sanitize_filename(filename, default_ext=".png")
-            if Path(out_name).suffix.lower() not in (".png", ".jpg", ".jpeg", ".webp"):
-                out_name = f"{Path(out_name).stem}.png"
-                buf = io.BytesIO()
-                img.convert("RGB").save(buf, format="PNG")
-                return buf.getvalue(), w, h, out_name, "image"
-            return raw_bytes, w, h, out_name, "image"
-    except Exception as exc:
-        raise ValueError(f"Invalid image upload {filename!r}: {exc}") from exc
 
 
 async def _probe_heylook_url(app: web.Application) -> str | None:
@@ -1319,7 +732,7 @@ async def handle_system_stats(request: web.Request) -> web.Response:
             "devices": (stats or {}).get("devices") or [],
             "output_dir": out_label,
             "state_dir": state_label,
-            "resident_backbone": app.get("last_resident_backbone"),
+            "resident_backbone": _get_resident_backbone(app),
         }
     )
 
@@ -1523,7 +936,7 @@ async def handle_anchor(request: web.Request) -> web.Response:
             client_id=client_id,
             extra_meta={"kind": "anchor"},
         )
-        request.app["last_resident_backbone"] = _backbone_for_image_workflow(compiled["workflow"])
+        _set_resident_backbone(request.app, _backbone_for_image_workflow(compiled["workflow"]))
     except ValueError as exc:
         return web.json_response({"ok": False, "error": str(exc)}, status=400)
     except Exception as exc:
@@ -1729,7 +1142,7 @@ async def handle_preview_in_mask(request: web.Request) -> web.Response:
         "region_x": fx,
         "region_y": fy,
         "workflow": req_workflow,
-        "resident_backbone": request.app.get("last_resident_backbone"),
+        "resident_backbone": _get_resident_backbone(request.app),
     }
     try:
         compiled = compiler.compile_masked_still_edit(compile_cfg, object_info=obj_info)
@@ -1739,7 +1152,7 @@ async def handle_preview_in_mask(request: web.Request) -> web.Response:
             client_id=client_id,
             extra_meta={"kind": "mask_preview"},
         )
-        request.app["last_resident_backbone"] = _backbone_for_image_workflow(compiled["workflow"])
+        _set_resident_backbone(request.app, _backbone_for_image_workflow(compiled["workflow"]))
     except ValueError as exc:
         return web.json_response({"ok": False, "error": str(exc)}, status=400)
     except Exception as exc:
@@ -1773,7 +1186,7 @@ async def handle_preview_in_mask(request: web.Request) -> web.Response:
             "client_id": client_id,
             "workflow": compiled["workflow"],
             "requested_workflow": req_workflow,
-            "resident_backbone": request.app["last_resident_backbone"],
+            "resident_backbone": _get_resident_backbone(request.app),
             "seed": compiled["seed"],
             "mask_ref": mask_ref,
             "mask_view_url": _view_url(m_saved, m_sub, m_type),
@@ -1881,7 +1294,7 @@ async def handle_stamp_cutout(request: web.Request) -> web.Response:
             client_id=client_id,
             extra_meta={"kind": "stamp"},
         )
-        request.app["last_resident_backbone"] = _backbone_for_image_workflow(compiled["workflow"])
+        _set_resident_backbone(request.app, _backbone_for_image_workflow(compiled["workflow"]))
     except ValueError as exc:
         return web.json_response({"ok": False, "error": str(exc)}, status=400)
     except Exception as exc:
@@ -1921,159 +1334,6 @@ async def handle_stamp_cutout(request: web.Request) -> web.Response:
 
 
 _VALID_SEGMENT_ROLES = {"cutout", "exclude", "include"}
-
-
-def _fallback_point_ellipse_mask(
-    width: int,
-    height: int,
-    *,
-    positive_points: list[dict[str, int]],
-) -> Any:
-    import numpy as np
-
-    yy, xx = np.mgrid[0:height, 0:width].astype(np.float32)
-    pts = positive_points or [{"x": width // 2, "y": height // 2}]
-    rx = max(8.0, float(width) * 0.16)
-    ry = max(8.0, float(height) * 0.22)
-    mask = np.zeros((height, width), dtype=np.float32)
-    for pt in pts:
-        cx = float(pt["x"])
-        cy = float(pt["y"])
-        dist = np.sqrt(((xx - cx) / rx) ** 2 + ((yy - cy) / ry) ** 2)
-        soft = np.clip((1.12 - dist) / 0.24, 0.0, 1.0)
-        mask = np.maximum(mask, soft)
-    return mask
-
-
-def _segment_grabcut_mask(
-    rgb_u8: Any,
-    *,
-    positive_points: list[dict[str, int]],
-    negative_points: list[dict[str, int]],
-) -> tuple[Any, float]:
-    import numpy as np
-
-    h, w = int(rgb_u8.shape[0]), int(rgb_u8.shape[1])
-    pts_pos = positive_points or [{"x": w // 2, "y": h // 2}]
-    short_side = max(8, min(w, h))
-
-    mask_f32: Any | None = None
-    try:
-        import cv2  # type: ignore
-
-        gc_mask = np.full((h, w), cv2.GC_PR_BGD, dtype=np.uint8)
-        border = max(1, min(4, short_side // 32))
-        gc_mask[:border, :] = cv2.GC_BGD
-        gc_mask[-border:, :] = cv2.GC_BGD
-        gc_mask[:, :border] = cv2.GC_BGD
-        gc_mask[:, -border:] = cv2.GC_BGD
-
-        r_pr = max(12, int(round(short_side * 0.24)))
-        r_fg = max(4, int(round(short_side * 0.035)))
-        r_neg = max(4, int(round(short_side * 0.04)))
-
-        for pt in pts_pos:
-            cv2.circle(gc_mask, (int(pt["x"]), int(pt["y"])), r_pr, int(cv2.GC_PR_FGD), -1)
-        for pt in pts_pos:
-            cv2.circle(gc_mask, (int(pt["x"]), int(pt["y"])), r_fg, int(cv2.GC_FGD), -1)
-        for pt in negative_points:
-            cv2.circle(gc_mask, (int(pt["x"]), int(pt["y"])), r_neg, int(cv2.GC_BGD), -1)
-
-        has_fg = np.any((gc_mask == cv2.GC_FGD) | (gc_mask == cv2.GC_PR_FGD))
-        has_bg = np.any((gc_mask == cv2.GC_BGD) | (gc_mask == cv2.GC_PR_BGD))
-        if not has_bg:
-            gc_mask[0, :] = cv2.GC_BGD
-        if has_fg and np.any((gc_mask == cv2.GC_BGD) | (gc_mask == cv2.GC_PR_BGD)):
-            bgr_u8 = cv2.cvtColor(rgb_u8, cv2.COLOR_RGB2BGR)
-            bgd_model = np.zeros((1, 65), dtype=np.float64)
-            fgd_model = np.zeros((1, 65), dtype=np.float64)
-            cv2.grabCut(bgr_u8, gc_mask, None, bgd_model, fgd_model, 4, cv2.GC_INIT_WITH_MASK)
-            fg_bin = ((gc_mask == cv2.GC_FGD) | (gc_mask == cv2.GC_PR_FGD)).astype(np.float32)
-            cov_raw = float(fg_bin.mean())
-            if 0.005 <= cov_raw <= 0.95:
-                mask_f32 = np.clip(cv2.GaussianBlur(fg_bin, (0, 0), sigmaX=1.2), 0.0, 1.0)
-    except Exception:
-        mask_f32 = None
-
-    if mask_f32 is None:
-        mask_f32 = _fallback_point_ellipse_mask(w, h, positive_points=pts_pos)
-    coverage = float((mask_f32 > 0.5).mean())
-    return mask_f32, coverage
-
-
-def _encode_mask_rgb_png(mask_f32: Any) -> tuple[bytes, Any]:
-    import numpy as np
-    from PIL import Image
-
-    mask_u8 = np.clip(np.round(mask_f32 * 255.0), 0, 255).astype(np.uint8)
-    mask_rgb = np.stack([mask_u8, mask_u8, mask_u8], axis=-1)
-    buf = io.BytesIO()
-    Image.fromarray(mask_rgb, mode="RGB").save(buf, format="PNG")
-    return buf.getvalue(), mask_u8
-
-
-def _encode_rgba_cutout_png(
-    rgb_u8: Any,
-    mask_u8: Any,
-    *,
-    pad_px: int = 4,
-) -> tuple[bytes, bytes, int, int, dict[str, float]]:
-    """Crop RGBA cutout and aligned binary mask PNG tightly to the foreground bounding box."""
-    import numpy as np
-    from PIL import Image
-
-    h, w = int(mask_u8.shape[0]), int(mask_u8.shape[1])
-    fg_u8 = (mask_u8 > 12).astype(np.uint8)
-    clean_fg = fg_u8
-    try:
-        import cv2  # type: ignore
-
-        n_lbl, labels, stats, _ = cv2.connectedComponentsWithStats(fg_u8, connectivity=8)
-        if n_lbl > 2:
-            areas = stats[1:, cv2.CC_STAT_AREA]
-            max_area = int(areas.max()) if len(areas) else 0
-            min_area = max(16, int(round(max_area * 0.005)))
-            kept = np.zeros_like(fg_u8)
-            for idx in range(1, n_lbl):
-                if int(stats[idx, cv2.CC_STAT_AREA]) >= min_area:
-                    kept[labels == idx] = 1
-            if np.any(kept):
-                clean_fg = kept
-    except Exception:
-        pass
-
-    clean_mask = np.where(clean_fg > 0, mask_u8, 0).astype(np.uint8)
-    ys, xs = np.where(clean_fg > 0)
-    if len(ys) > 0 and len(xs) > 0:
-        x0 = max(0, int(xs.min()) - pad_px)
-        y0 = max(0, int(ys.min()) - pad_px)
-        x1 = min(w, int(xs.max()) + 1 + pad_px)
-        y1 = min(h, int(ys.max()) + 1 + pad_px)
-    else:
-        x0, y0, x1, y1 = 0, 0, w, h
-
-    rgba_crop = np.dstack([rgb_u8[y0:y1, x0:x1], clean_mask[y0:y1, x0:x1]])
-    mask_crop_u8 = clean_mask[y0:y1, x0:x1]
-    mask_crop_rgb = np.stack([mask_crop_u8, mask_crop_u8, mask_crop_u8], axis=-1)
-
-    cut_buf = io.BytesIO()
-    Image.fromarray(rgba_crop, mode="RGBA").save(cut_buf, format="PNG")
-    mask_buf = io.BytesIO()
-    Image.fromarray(mask_crop_rgb, mode="RGB").save(mask_buf, format="PNG")
-
-    cw = max(1, int(x1 - x0))
-    ch = max(1, int(y1 - y0))
-    bbox_norm = {
-        "x0": round(x0 / max(1, w), 4),
-        "y0": round(y0 / max(1, h), 4),
-        "x1": round(x1 / max(1, w), 4),
-        "y1": round(y1 / max(1, h), 4),
-        "cx": round(((x0 + x1) * 0.5) / max(1, w), 4),
-        "cy": round(((y0 + y1) * 0.5) / max(1, h), 4),
-        "w": round(cw / max(1, w), 4),
-        "h": round(ch / max(1, h), 4),
-    }
-    return cut_buf.getvalue(), mask_buf.getvalue(), cw, ch, bbox_norm
 
 
 async def _run_sam3_segment_live(
@@ -2331,6 +1591,9 @@ async def handle_compile(request: web.Request) -> web.Response:
                 "height": compiled["height"],
                 "queue_baseline": compiled["queue_baseline"],
                 "preview_override_injected": compiled["preview_override_injected"],
+                "original_prompt": compiled.get("original_prompt", ""),
+                "edited_prompt": compiled.get("edited_prompt", ""),
+                "region_summary": compiled.get("region_summary", ""),
                 "nodes_summary": compiled["nodes_summary"],
                 "preflight": preflight,
                 "graph": compiled["graph"],
@@ -2393,7 +1656,7 @@ async def handle_render(request: web.Request) -> web.Response:
                 client_id=client_id,
                 extra_meta={"kind": "spatial", "role": "baseline", "take_id": take_id},
             )
-        request.app["last_resident_backbone"] = "pika"
+        _set_resident_backbone(request.app, "pika")
     except ValueError as exc:
         return web.json_response({"ok": False, "error": str(exc)}, status=400)
     except Exception as exc:
@@ -2656,7 +1919,7 @@ async def handle_redub(request: web.Request) -> web.Response:
             client_id=client_id,
             extra_meta={"kind": "redub", "role": "edited", "take_id": new_take_id},
         )
-        request.app["last_resident_backbone"] = "pika"
+        _set_resident_backbone(request.app, "pika")
     except Exception as exc:
         return web.json_response({"ok": False, "error": str(exc)}, status=502)
 
@@ -2762,67 +2025,19 @@ async def handle_context_suggest(request: web.Request) -> web.Response:
         content_blocks: list[dict[str, Any]] = []
         if use_vision:
             try:
-                from PIL import Image, ImageDraw, ImageOps
-
-                s_desc, st_s, raw_img = await _fetch_image_with_temp_fallback(request.app, source_spec, default_type="input")
+                _s_desc, st_s, raw_img = await _fetch_image_with_temp_fallback(request.app, source_spec, default_type="input")
                 if st_s == 200 and raw_img:
-                    with Image.open(io.BytesIO(raw_img)) as im:
-                        full_im = ImageOps.exif_transpose(im).convert("RGB")
-                        w0, h0 = max(1, full_im.width), max(1, full_im.height)
-
-                        scene_im = full_im.copy()
-                        scene_im.thumbnail((1024, 1024), Image.Resampling.LANCZOS)
-                        if has_reticle:
-                            tw, th = scene_im.width, scene_im.height
-                            short_t = float(min(tw, th))
-                            cx_t = x_n * float(tw)
-                            cy_t = y_n * float(th)
-                            rx_t = max(8.0, rx_n * short_t)
-                            ry_t = max(8.0, ry_n * short_t)
-                            draw = ImageDraw.Draw(scene_im)
-                            box_outer = [cx_t - rx_t - 1, cy_t - ry_t - 1, cx_t + rx_t + 1, cy_t + ry_t + 1]
-                            box_inner = [cx_t - rx_t, cy_t - ry_t, cx_t + rx_t, cy_t + ry_t]
-                            draw.ellipse(box_outer, outline=(255, 255, 255), width=4)
-                            draw.ellipse(box_inner, outline=(37, 99, 235), width=2)
-
-                        buf_scene = io.BytesIO()
-                        scene_im.save(buf_scene, format="JPEG", quality=85)
-                        content_blocks.append(
-                            {
-                                "type": "image",
-                                "source": {
-                                    "type": "base64",
-                                    "media_type": "image/jpeg",
-                                    "data": base64.b64encode(buf_scene.getvalue()).decode("ascii"),
-                                },
-                            }
+                    content_blocks.extend(
+                        await asyncio.to_thread(
+                            prepare_vlm_reticle_images,
+                            raw_img,
+                            has_reticle=has_reticle,
+                            x_n=x_n,
+                            y_n=y_n,
+                            rx_n=rx_n,
+                            ry_n=ry_n,
                         )
-
-                        if has_reticle:
-                            short_0 = float(min(w0, h0))
-                            half_w = max(48, int(round(rx_n * short_0 * 1.65)))
-                            half_h = max(48, int(round(ry_n * short_0 * 1.65)))
-                            cx0 = int(round(x_n * float(w0)))
-                            cy0 = int(round(y_n * float(h0)))
-                            x0 = max(0, cx0 - half_w)
-                            y0 = max(0, cy0 - half_h)
-                            x1 = min(w0, cx0 + half_w)
-                            y1 = min(h0, cy0 + half_h)
-                            if (x1 - x0) >= 24 and (y1 - y0) >= 24:
-                                roi_im = full_im.crop((x0, y0, x1, y1))
-                                roi_im.thumbnail((512, 512), Image.Resampling.LANCZOS)
-                                buf_roi = io.BytesIO()
-                                roi_im.save(buf_roi, format="JPEG", quality=85)
-                                content_blocks.append(
-                                    {
-                                        "type": "image",
-                                        "source": {
-                                            "type": "base64",
-                                            "media_type": "image/jpeg",
-                                            "data": base64.b64encode(buf_roi.getvalue()).decode("ascii"),
-                                        },
-                                    }
-                                )
+                    )
             except Exception:
                 pass
 
@@ -2948,14 +2163,6 @@ def _extract_active_queue_pids(queue_doc: Any) -> list[str]:
     return seen
 
 
-def _take_prompt_preview(take: dict[str, Any]) -> str:
-    params = take.get("params") if isinstance(take.get("params"), dict) else {}
-    raw = str(params.get("target_prompt") or params.get("prompt") or "").strip()
-    if len(raw) > 96:
-        return f"{raw[:95]}…"
-    return raw
-
-
 async def handle_takes(request: web.Request) -> web.Response:
     hist, hist_ok = await _sync_store_history(request.app)
     q_doc = await _comfy_get_json(request.app, "/queue", timeout=2.0)
@@ -3070,97 +2277,6 @@ async def handle_view(request: web.Request) -> web.StreamResponse:
     if upstream_cr:
         headers["Content-Range"] = upstream_cr
     return web.Response(body=data, status=upstream_status, content_type=ctype, headers=headers)
-
-
-def _decode_media_frames(raw_bytes: bytes, filename: str) -> Any:
-    import numpy as np
-
-    ext = Path(filename).suffix.lower()
-    if ext in (".png", ".jpg", ".jpeg", ".webp"):
-        from PIL import Image
-
-        with Image.open(io.BytesIO(raw_bytes)) as img:
-            arr = np.asarray(img.convert("RGB"), dtype=np.float32) / 255.0
-        return arr[None, ...]
-
-    with tempfile.NamedTemporaryFile(suffix=ext or ".mp4") as tmp:
-        tmp.write(raw_bytes)
-        tmp.flush()
-        frames: list[Any] = []
-        try:
-            import cv2  # type: ignore
-
-            cap = cv2.VideoCapture(tmp.name)
-            while True:
-                ok, frame_bgr = cap.read()
-                if not ok or frame_bgr is None:
-                    break
-                frames.append(cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB).astype(np.float32) / 255.0)
-            cap.release()
-        except Exception:
-            frames = []
-        if not frames:
-            import av  # type: ignore
-
-            with av.open(tmp.name) as container:
-                for fr in container.decode(video=0):
-                    frames.append(fr.to_ndarray(format="rgb24").astype(np.float32) / 255.0)
-        if not frames:
-            raise ValueError(f"No frames decoded from {filename!r}")
-        return np.stack(frames, axis=0)
-
-
-def _compute_ab_metrics_sync(
-    b1: bytes,
-    edited_filename: str,
-    b2: bytes,
-    base_filename: str,
-    events_str: str,
-    director_mode: str,
-    feather: float,
-) -> dict[str, Any]:
-    import numpy as np
-
-    spatial_director = compiler.import_pack_module("spatial_director")
-
-    f_edit = _decode_media_frames(b1, edited_filename)
-    f_base = _decode_media_frames(b2, base_filename)
-    t = min(f_edit.shape[0], f_base.shape[0])
-    h = min(f_edit.shape[1], f_base.shape[1])
-    w = min(f_edit.shape[2], f_base.shape[2])
-    if t <= 0 or h <= 0 or w <= 0:
-        return {"ok": False, "available": False, "error": "empty video dimensions"}
-    diff = np.abs(f_edit[:t, :h, :w] - f_base[:t, :h, :w]).mean(axis=3)  # [T, H, W]
-
-    if events_str.strip():
-        rules_mod = compiler.import_pack_module("h3_rules")
-        mask_len = rules_mod.snap_length(max(5, t))
-        node_out = spatial_director.MiniMaxH3SpatialDirector.execute(
-            mode=director_mode,
-            width=w,
-            height=h,
-            length=mask_len,
-            feather=feather,
-            invert_mask=False,
-            events_json=events_str,
-        )
-        mask = node_out[0].detach().cpu().numpy()[:t, :h, :w]
-    else:
-        mask = np.ones((t, h, w), dtype=np.float32)
-
-    in_w = mask
-    out_w = np.clip(1.0 - mask, 0.0, 1.0)
-    in_mae = float((diff * in_w).sum() / max(1e-6, float(in_w.sum())))
-    out_mae = float((diff * out_w).sum() / max(1e-6, float(out_w.sum())))
-    ratio = float(in_mae / max(1e-6, out_mae))
-    return {
-        "ok": True,
-        "available": True,
-        "in_mask_mae": round(in_mae, 6),
-        "out_mask_mae": round(out_mae, 6),
-        "focus_ratio": round(ratio, 3),
-        "frames_compared": int(t),
-    }
 
 
 async def handle_ab_metrics(request: web.Request) -> web.Response:
@@ -3528,7 +2644,7 @@ def create_app(
     app["allowed_hosts"] = allowed_hosts
     app["store"] = SessionStore(Path(state_dir))
     app["ws_clients"] = {}
-    app["last_resident_backbone"] = None
+    app["runtime"] = {"last_resident_backbone": None}
 
     async def _on_startup(a: web.Application) -> None:
         a["http_client"] = ClientSession()
