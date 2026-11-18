@@ -17,6 +17,9 @@ exit code means; this file is where two of them are produced.
     (the list is in that day's CHANGELOG entry).
     `workflows/build_workflows.py::_core_cpu_when_no_card` is the same switch
     for the generator.
+    It also moves core's temp, output and previews folders out of the ComfyUI
+    checkout for the process (`_media_off_checkout`): no media inside it, the
+    owner's word, 2026-11-18.
 
 `needs(what, present)`
     Exit 2, "nothing graded", when something the check cannot run without is
@@ -98,6 +101,9 @@ def bootstrap(*, cpu: bool | None = None, front: bool = True) -> Path:
     and never reorders, for the two checks that used to take it from
     `PYTHONPATH` and whose import order with a card nobody has re-verified.
 
+    Last, core's temp, output and previews folders move to a scratch folder
+    that is removed when the process exits (`_media_off_checkout`).
+
     Returns the ComfyUI root.
     """
     root = str(COMFY)
@@ -118,7 +124,47 @@ def bootstrap(*, cpu: bool | None = None, front: bool = True) -> Path:
                 "comfy.model_management was imported; core has already picked "
                 "its device. Call bootstrap() before the first comfy import.")
         comfy.cli_args.args.cpu = True
+    _media_off_checkout()
     return COMFY
+
+
+#: Core's `folder_paths` keeps its media folders inside the checkout (`<comfy>/folder_paths.py`, the
+#: `os.path.join(base_path, ...)` lines). Only `main.py` moves them, from its flags, so a script that
+#: imports core and saves anything writes into `<comfy>/temp` or `<comfy>/output`. The owner's word,
+#: 2026-11-18: no media inside the checkout. On this machine those folders are also locked
+#: (`docs/wiki/ops/comfy_notes.md`, "Core's stock media folders are locked").
+_MEDIA_FOLDERS = ("temp", "output", "previews")
+_media_scratch: Path | None = None
+
+
+def _media_off_checkout() -> Path:
+    """Point core's temp, output and previews folders at one scratch folder for this process.
+
+    Only a folder still inside the checkout moves; one the script already set stays where it is.
+    The scratch is under the system temp folder and is removed when the process exits, so nothing a
+    check saves outlives it. A tool that keeps what it saves sets its own folder after `bootstrap()`
+    (`bench/_paths.py` names the server's). The input folder is left alone: pointing it at the
+    server's would let a check write onto the share, and on this machine the stock one is locked, so
+    a write there fails with the path in the error. Returns the scratch folder.
+    """
+    global _media_scratch
+    import atexit
+    import shutil
+    import tempfile
+
+    import folder_paths  # imports comfy.cli_args only; core has not picked a device yet
+
+    if _media_scratch is None:
+        _media_scratch = Path(tempfile.mkdtemp(prefix="h3_bench_media_"))
+        atexit.register(shutil.rmtree, _media_scratch, True)
+    checkout = COMFY.resolve()
+    for name in _MEDIA_FOLDERS:
+        current = Path(getattr(folder_paths, f"get_{name}_directory")()).resolve()
+        if current.is_relative_to(checkout):
+            target = _media_scratch / name
+            target.mkdir(exist_ok=True)
+            getattr(folder_paths, f"set_{name}_directory")(str(target))
+    return _media_scratch
 
 
 def server_memory_mode() -> bool:
