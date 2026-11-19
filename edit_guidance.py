@@ -221,6 +221,48 @@ def _plan_field(edit_plan: Any, name: str, default: Any = None) -> Any:
     return getattr(edit_plan, name, default)
 
 
+def _has_visual_refs_meta(meta: Mapping[str, Any]) -> bool:
+    """Return True if conditioning metadata carries visual references or visual keyframes."""
+    raw_refs = meta.get("minimax_refs")
+    refs = list(raw_refs) if isinstance(raw_refs, (list, tuple)) else ([] if raw_refs is None else [raw_refs])
+    for r in refs:
+        if r is None:
+            continue
+        if isinstance(r, Mapping):
+            if "latent" in r or r.get("kind") in ("image", "video", "video_audio") or r.get("type") == "image":
+                return True
+        else:
+            return True
+    raw_kfs = meta.get("minimax_keyframes")
+    kfs = list(raw_kfs) if isinstance(raw_kfs, (list, tuple)) else ([] if raw_kfs is None else [raw_kfs])
+    for kf in kfs:
+        if isinstance(kf, Mapping) and kf.get("latent") is not None:
+            return True
+    return False
+
+
+def _model_ref_vae_end_percent(model: Any) -> float:
+    """Return the tightest active `ref_vae_end_percent` attached to `model`, or `1.0`."""
+    model_options = getattr(model, "model_options", None)
+    t_opts = model_options.get("transformer_options") if isinstance(model_options, Mapping) else None
+    specs = t_opts.get("h3_control_vectors") if isinstance(t_opts, Mapping) else None
+    if not specs:
+        return 1.0
+    active: list[float] = []
+    for sp in specs:
+        raw_strength = sp.get("strength", 0.0) if isinstance(sp, Mapping) else getattr(sp, "strength", 0.0)
+        strength = float(0.0 if raw_strength is None else raw_strength)
+        vec_name = sp.get("vector_name", "none") if isinstance(sp, Mapping) else getattr(sp, "vector_name", "none")
+        if strength != 0.0 or vec_name == "none":
+            raw_rvep = (
+                sp.get("ref_vae_end_percent", 1.0)
+                if isinstance(sp, Mapping)
+                else getattr(sp, "ref_vae_end_percent", 1.0)
+            )
+            active.append(float(1.0 if raw_rvep is None else raw_rvep))
+    return min(active, default=1.0)
+
+
 def build_temporal_curve(curve: str, n_frames: int) -> torch.Tensor | None:
     """Build a normalized `[n_frames, 1, 1]` float32 temporal curve, or `None` when inert."""
     if curve not in TEMPORAL_CURVES:
@@ -721,6 +763,21 @@ class MiniMaxH3EditGuider(io.ComfyNode):
                 eff_streams = str(_plan_field(edit_plan, "streams", eff_streams))
                 eff_audio_scale = float(_plan_field(edit_plan, "audio_scale", eff_audio_scale))
                 temporal_curve = str(_plan_field(edit_plan, "temporal_curve", "whole_clip"))
+            raw_plan_ref_end = _plan_field(edit_plan, "ref_end_percent", 1.0)
+            plan_ref_end = float(1.0 if raw_plan_ref_end is None else raw_plan_ref_end)
+            if plan_ref_end < 1.0 - 1e-6 and _has_visual_refs_meta(original[0][1]):
+                model_ref_end = _model_ref_vae_end_percent(model)
+                if model_ref_end >= 1.0 - 1e-6:
+                    logger.warning(
+                        "[h3] edit_plan requests ref_end_percent=%.2f because the edit deforms the "
+                        "subject silhouette, and visual references/keyframes are attached, but no "
+                        "upstream MiniMaxH3ReleaseReferences lowers ref_vae_end_percent below 1.0 "
+                        "(active=%.2f). Wire MiniMaxH3AutoEditPrompt.edit_plan -> "
+                        "MiniMaxH3ReleaseReferences.edit_plan on the model chain so late steps can "
+                        "release reference rows.",
+                        plan_ref_end,
+                        model_ref_end,
+                    )
         guider = EditGuider(model)
         guider.set_conds(original, edited)
         guider.set_edit(

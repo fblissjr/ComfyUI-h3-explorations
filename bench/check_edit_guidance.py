@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import logging
 import re
 import sys
 import types
@@ -808,6 +809,116 @@ def check_guider_mask() -> None:
        out_manual.first_step == 2 and out_manual.last_step == 5 and out_manual.streams == "video_only"
        and approx(out_manual.edit_scale, 1.75) and approx(out_manual.edit_audio_scale, 0.0)
        and out_manual._temporal_curve == "whole_clip")
+
+    # 8. Missing-ReleaseReferences warning when EditPlan requests ref_end_percent < 1.0
+    class _ModelWithOpts(_Patcher):
+        def __init__(self, model_options: dict):
+            self.model_options = model_options
+
+    class _WarnCapture(logging.Handler):
+        def __init__(self) -> None:
+            super().__init__(level=logging.WARNING)
+            self.messages: list[str] = []
+
+        def emit(self, record: logging.LogRecord) -> None:
+            self.messages.append(record.getMessage())
+
+    orig_img_ref = [[torch.ones((1, 10, 4)), {
+        "minimax_token_tags": torch.zeros(10, dtype=torch.long),
+        "minimax_refs": [{"kind": "image", "latent": torch.ones((1, 24, 1, 2, 2))}],
+    }]]
+    edit_img_ref = [[torch.ones((1, 12, 4)), {
+        "minimax_token_tags": torch.zeros(12, dtype=torch.long),
+        "minimax_refs": [{"kind": "image", "latent": torch.ones((1, 24, 1, 2, 2))}],
+    }]]
+    orig_aud_ref = [[torch.ones((1, 10, 4)), {
+        "minimax_token_tags": torch.zeros(10, dtype=torch.long),
+        "minimax_refs": [{"kind": "audio"}],
+    }]]
+    edit_aud_ref = [[torch.ones((1, 12, 4)), {
+        "minimax_token_tags": torch.zeros(12, dtype=torch.long),
+        "minimax_refs": [{"kind": "audio"}],
+    }]]
+
+    capture = _WarnCapture()
+    eg.logger.addHandler(capture)
+    try:
+        capture.messages.clear()
+        eg.MiniMaxH3EditGuider.execute(
+            _Patcher(),
+            orig_img_ref,
+            edit_img_ref,
+            1.5,
+            0,
+            edit_plan={"ref_end_percent": 0.33, "manual_widgets": False},
+        )
+        ok("missing ReleaseReferences with ref_end_percent=0.33 and image ref logs warning",
+           len(capture.messages) == 1
+           and "MiniMaxH3ReleaseReferences" in capture.messages[0]
+           and "0.33" in capture.messages[0])
+
+        capture.messages.clear()
+        eg.MiniMaxH3EditGuider.execute(
+            _ModelWithOpts({"transformer_options": {"h3_control_vectors": [
+                types.SimpleNamespace(strength=1.0, vector_name="film_16mm", ref_vae_end_percent=1.0),
+            ]}}),
+            orig_img_ref,
+            edit_img_ref,
+            1.5,
+            0,
+            edit_plan={"ref_end_percent": 0.33, "manual_widgets": False},
+        )
+        ok("unrelated Steer spec (ref_vae_end_percent=1.0) still warns when ref_end_percent=0.33",
+           len(capture.messages) == 1 and "MiniMaxH3ReleaseReferences" in capture.messages[0])
+
+        capture.messages.clear()
+        eg.MiniMaxH3EditGuider.execute(
+            _ModelWithOpts({"transformer_options": {"h3_control_vectors": [
+                types.SimpleNamespace(strength=0.0, vector_name="none", ref_vae_end_percent=0.33),
+            ]}}),
+            orig_img_ref,
+            edit_img_ref,
+            1.5,
+            0,
+            edit_plan={"ref_end_percent": 0.33, "manual_widgets": False},
+        )
+        ok("upstream ReleaseReferences spec (vector_name='none', ref_vae_end_percent=0.33) suppresses warning",
+           len(capture.messages) == 0)
+
+        capture.messages.clear()
+        eg.MiniMaxH3EditGuider.execute(
+            _Patcher(),
+            orig_aud_ref,
+            edit_aud_ref,
+            1.5,
+            0,
+            edit_plan={"ref_end_percent": 0.33, "manual_widgets": False},
+        )
+        aud_count = len(capture.messages)
+        capture.messages.clear()
+        eg.MiniMaxH3EditGuider.execute(
+            _Patcher(),
+            orig_img_ref,
+            edit_img_ref,
+            1.5,
+            0,
+            edit_plan={"ref_end_percent": 1.0, "manual_widgets": False},
+        )
+        full_ref_count = len(capture.messages)
+        capture.messages.clear()
+        eg.MiniMaxH3EditGuider.execute(
+            _Patcher(),
+            orig_img_ref,
+            edit_img_ref,
+            1.5,
+            0,
+            edit_plan={"ref_end_percent": 0.33, "manual_widgets": True},
+        )
+        manual_count = len(capture.messages)
+        ok("audio-only ref, ref_end_percent=1.0, and manual_widgets=True emit zero warnings",
+           aud_count == 0 and full_ref_count == 0 and manual_count == 0)
+    finally:
+        eg.logger.removeHandler(capture)
 
 
 def main() -> int:
