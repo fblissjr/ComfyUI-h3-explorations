@@ -17,6 +17,7 @@ Zero GPU, zero CUDA, and zero LAN network calls.
 
 from __future__ import annotations
 
+import dataclasses
 import http.server
 import json
 import os
@@ -188,8 +189,26 @@ def check_concepts_and_sections() -> None:
             edit_intent="",
             has_images=False,
         )
-        ok("Concept default axis hints" in usr_prompt_with_hints and "Concept default temporal_curve: ramp_in" in usr_prompt_with_hints,
+        ok("Concept default axis hints" in usr_prompt_with_hints
+           and "Concept default temporal_curve: ramp_in" in usr_prompt_with_hints
+           and "Silhouette/medium overhaul active" not in usr_prompt_with_hints,
            "build_auto_edit_user_prompt surfaces ConceptBrief axis_hints and timing_hint")
+
+        deform_brief = dataclasses.replace(
+            brief_prio,
+            axis_hints={**brief_prio.axis_hints, "deforms_ref_silhouette": True, "preserve_step0_layout": False},
+        )
+        usr_prompt_deform = aep.build_auto_edit_user_prompt(
+            original=SAMPLE_T2VA,
+            allowed_sections=("detailed_description",),
+            allow_retention_relax=False,
+            rewrite_mode="section_edits",
+            concept_brief=deform_brief,
+            edit_intent="",
+            has_images=True,
+        )
+        ok("Silhouette/medium overhaul active" in usr_prompt_deform,
+           "build_auto_edit_user_prompt emits silhouette/medium overhaul cue when deforms_ref_silhouette=True")
 
     lead, chunks = aep.parse_h3_sections(SAMPLE_T2VA)
     rebuilt = aep.reassemble_h3_sections(lead, chunks, {c.name: c.body for c in chunks})

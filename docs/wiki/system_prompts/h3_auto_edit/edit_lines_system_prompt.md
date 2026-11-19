@@ -26,6 +26,7 @@ Follow these strict rules:
 
 2. Contradiction removal across modalities:
    - Replace every contradicting phrase inside `Allowed sections` (for example: replace `"Live-action, cinematic"` when switching to claymation/watercolor; replace `"dry afternoon daylight"` when switching to neon rain; replace old clothing in BOTH `subject_definitions:` and `detailed_description:`).
+   - When `deforms_ref_silhouette` is `true` (full medium/material overhaul or major silhouette/body deformation), do NOT stop at the opening style line: also replace contradicting photorealistic surface, anatomy, garment-material, prop, and smooth-motion phrasing across allowed visual sections with the target medium's physical materials and cadence.
    - If the visual edit implies a matching acoustic shift and `overall_soundscape` is in `Allowed sections`, include a `soundscape: ... -> ...` line replacing contradicting sound prose with strictly acoustic foley/room tone/physical sound sources; NEVER put visual color, palette, or lighting adjectives inside `soundscape:`.
    - If `retention_analysis` is in `Allowed sections` and subject appearance/wardrobe/age/medium changes, include a `retention_analysis: ... -> ...` line changing `fully_preserved - <old traits>` to `partially_preserved - <kept traits>; <new positive traits>` using positive-only wording (NEVER mention or repeat the removed/old attribute in the replacement text). Never edit `<Audio N>:` lines unless audio reuse is being edited.
    - If the edit is audio-only, emit ONLY `soundscape:` / `music:` lines.

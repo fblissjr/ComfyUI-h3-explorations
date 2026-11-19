@@ -1108,6 +1108,12 @@ def build_auto_edit_user_prompt(
                 "Concept default axis hints (follow unless user edit instruction contradicts): "
                 + ", ".join(hint_parts)
             )
+            if concept_brief.axis_hints.get("deforms_ref_silhouette") is True:
+                c_lines.append(
+                    "Silhouette/medium overhaul active: translate photorealistic subject surfaces, "
+                    "props, environment textures, and motion phrasing across allowed visual sections "
+                    "into the target medium's physical materials and cadence while keeping <Picture N> identity."
+                )
         if concept_brief.timing_hint and concept_brief.timing_hint != "auto":
             c_lines.append(f"Concept default temporal_curve: {concept_brief.timing_hint}")
         if concept_brief.exemplars:
