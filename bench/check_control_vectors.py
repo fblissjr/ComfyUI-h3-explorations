@@ -5106,6 +5106,8 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
                 cv_nodes.folder_paths.folder_names_and_paths[
                     cv_nodes.CONTROL_VECTORS_FOLDER
                 ] = orig_cv_paths_comp
+            cv_nodes.folder_paths.filename_list_cache.pop(cv_nodes.CONTROL_VECTORS_FOLDER, None)
+            cv_nodes.folder_paths.cache_helper.clear()
 
         # Wave 2: match_media_pair_geometry, make_control_vector_from_media_pairs, MiniMaxH3MakeMediaControlVector, and CLI make-media
         img_a_raw = torch.rand((2, 90, 160, 3), generator=gen, dtype=torch.float32) * 0.4 + 0.6
@@ -5207,6 +5209,8 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
                 cv_nodes.folder_paths.folder_names_and_paths[
                     cv_nodes.CONTROL_VECTORS_FOLDER
                 ] = orig_cv_paths_m
+            cv_nodes.folder_paths.filename_list_cache.pop(cv_nodes.CONTROL_VECTORS_FOLDER, None)
+            cv_nodes.folder_paths.cache_helper.clear()
 
     # 4. Generated workflow arm check (build_control_vector_arm, gate arms, probe arms, LayerNormMatch)
     arm = bw.build_control_vector_arm(
@@ -6636,6 +6640,8 @@ def _check_nov15_steer_prose_and_ph3_family() -> list[str]:
             cv_nodes.CONTROL_VECTORS_FOLDER
         )
         try:
+            cv_nodes.folder_paths.filename_list_cache.pop(cv_nodes.CONTROL_VECTORS_FOLDER, None)
+            cv_nodes.folder_paths.cache_helper.clear()
             cv_nodes.folder_paths.folder_names_and_paths[cv_nodes.CONTROL_VECTORS_FOLDER] = (
                 [str(sub_root)],
                 {".safetensors"},
@@ -6663,8 +6669,8 @@ def _check_nov15_steer_prose_and_ph3_family() -> list[str]:
                 encoding="utf-8",
             )
             sub_stale, _ = _build_cmd._inspect_vectors_status(sub_toml_dir, sub_root, {"fl2va", "ref2va"})
-            if not sub_stale or "missing" in sub_stale[0] or "sha256_mismatch" not in sub_stale[0]:
-                errs.append(f"expected subfolder status sha256_mismatch (not missing), got {sub_stale!r}")
+            if not sub_stale or "(missing)" in sub_stale[0] or "sha256_mismatch" not in sub_stale[0]:
+                errs.append(f"expected subfolder status sha256_mismatch (not (missing)), got {sub_stale!r}")
             from bench.control_vector import ui_state as _ui_state
             ui_rows = _ui_state._list_ui_vectors(sub_root)
             ui_files = {r["file"] for r in ui_rows}
@@ -6673,6 +6679,8 @@ def _check_nov15_steer_prose_and_ph3_family() -> list[str]:
         finally:
             if orig_cv_paths_sub is not None:
                 cv_nodes.folder_paths.folder_names_and_paths[cv_nodes.CONTROL_VECTORS_FOLDER] = orig_cv_paths_sub
+            cv_nodes.folder_paths.filename_list_cache.pop(cv_nodes.CONTROL_VECTORS_FOLDER, None)
+            cv_nodes.folder_paths.cache_helper.clear()
 
     return errs
 
