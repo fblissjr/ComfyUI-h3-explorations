@@ -1641,6 +1641,7 @@ def _make_control_vector_wrapper(
     logged_ref_notes: set[str] = set()
     logged_prompt_couplings: set[tuple[str, str]] = set()
     logged_steered_rows: set[tuple[int, str, int, int, str]] = set()
+    logged_stack_warnings: set[tuple[str, int, str, str]] = set()
     resolved_prompt_vectors: dict[tuple[str, str], torch.Tensor] = {}
     last_resolved_by_spec: dict[str, torch.Tensor] = {}
     # Keyed by (id(orig_layout), drop_vis, drop_vid_ref, drop_guide, drop_aud) with a strong ref to orig_layout
@@ -2138,6 +2139,7 @@ def _make_control_vector_wrapper(
             # vectors and inference-time 'hold' vectors accumulate in float64 before
             # casting back to context.dtype (`CONTRACT.md` §3 / paper §2.1).
             cur_ctx = base_ctx
+            applied_add_names: list[str] = []
             i = 0
             n = len(active_specs)
             while i < n:
@@ -2219,6 +2221,9 @@ def _make_control_vector_wrapper(
                             pair_notes,
                         )
 
+                for gsp, (_v, gs_eff, em) in zip(group_specs, batch_entries):
+                    if em in ("add", "add_norm_matched") and gs_eff != 0.0:
+                        applied_add_names.append(gsp.vector_name)
                 if any(s_eff != 0.0 for (_v, s_eff, _m) in batch_entries):
                     if not is_pure_uncond:
                         row_key = (i, sp.mask, L, int(has_vision), str(edit_pass or ""))
@@ -2255,8 +2260,44 @@ def _make_control_vector_wrapper(
                         scale_mode="raw",
                         mask=custom_mask,
                         mask_vision=mask_vision,
+                        warn_if_stacked_norm=False,
                     )
                 i = j
+            if not is_pure_uncond and len(applied_add_names) >= 2:
+                diff64 = (cur_ctx - base_ctx).detach().to(dtype=torch.float64)
+                shift_norms = torch.linalg.vector_norm(diff64, dim=-1)
+                steered_rows_mask = shift_norms > 1e-6
+                if bool(steered_rows_mask.any().item()):
+                    peak_shift = float(shift_norms[steered_rows_mask].max().item())
+                    if peak_shift >= _cv.STACK_SHIFT_WARN_NORM:
+                        stack_key = (
+                            ",".join(applied_add_names),
+                            L,
+                            str(stream_attr or "all"),
+                            str(edit_pass or ""),
+                        )
+                        if stack_key not in logged_stack_warnings:
+                            logged_stack_warnings.add(stack_key)
+                            text_rows_b0 = base_ctx[0, tags[0] == 1] if bool((tags[0] == 1).any().item()) else base_ctx[0]
+                            base_med = float(
+                                torch.linalg.vector_norm(text_rows_b0.detach().to(dtype=torch.float64), dim=-1)
+                                .median()
+                                .item()
+                            )
+                            pct = (100.0 * peak_shift / base_med) if base_med > 1e-9 else 0.0
+                            n_over = int((shift_norms[0] >= _cv.STACK_SHIFT_WARN_NORM).sum().item())
+                            logger.warning(
+                                "[h3] stacked control vectors (%s) peak net row shift=%.2f on %d/%d rows "
+                                "(%.0f%% of base median row norm %.1f; threshold=%.1f) — use disjoint targets "
+                                "(e.g. description_only + look_only on ref2va) or lower per-dial strengths to 0.8..1.0",
+                                stack_key[0],
+                                peak_shift,
+                                n_over,
+                                L,
+                                pct,
+                                base_med,
+                                _cv.STACK_SHIFT_WARN_NORM,
+                            )
             return cur_ctx
 
         has_audio_stream = isinstance(x, (list, tuple)) and len(x) >= 2

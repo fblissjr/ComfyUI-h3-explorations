@@ -16,6 +16,7 @@ from __future__ import annotations
 import difflib
 import hashlib
 import json
+import logging
 import math
 import os
 import re
@@ -28,6 +29,8 @@ from typing import Any, Mapping, Sequence
 import torch
 from safetensors import safe_open
 from safetensors.torch import save as save_safetensors_bytes
+
+_logger = logging.getLogger("ComfyUI-h3-explorations.control_vectors")
 
 FORMAT_VERSION = "h3-control-vector/1"
 POST_REFINER_DIM = 5376
@@ -2620,6 +2623,9 @@ NORM_SHIFT_WINDOW: tuple[float, float] = (50.0, 85.0)
 #: Midpoint of `NORM_SHIFT_WINDOW`: the length `add_norm_matched` rescales every vector to.
 NORM_MATCHED_TARGET: float = 67.5
 assert NORM_MATCHED_TARGET == sum(NORM_SHIFT_WINDOW) / 2.0
+#: Per-row combined additive shift threshold (~1.45x NORM_MATCHED_TARGET; just above sqrt(2)*67.5)
+#: past which stacking multiple vectors risks saturating conditioning rows.
+STACK_SHIFT_WARN_NORM: float = NORM_MATCHED_TARGET * 1.45
 
 
 def strength_ranges(raw_norm: float) -> tuple[tuple[float, float], tuple[float, float] | None]:
@@ -2785,6 +2791,7 @@ def apply_post_refiner(
     scale_mode: str = "raw",
     mask: torch.Tensor | None = None,
     mask_vision: bool = True,
+    warn_if_stacked_norm: bool = True,
 ) -> torch.Tensor:
     """Apply one or more `(vector_post_refiner, strength[, mode])` specs to refined
     text conditioning `context` (`[B, L, 5376]`).
@@ -2873,8 +2880,10 @@ def apply_post_refiner(
     if all(em in ("add", "hold") for _, _, em in active):
         total_shift64 = torch.zeros(D, dtype=torch.float64, device=context.device)
         hold_entries: list[tuple[torch.Tensor, float]] = []
+        n_add = 0
         for vec, strength, em in active:
             if em == "add":
+                n_add += 1
                 total_shift64 = total_shift64 + strength * vec.detach().to(
                     device=context.device, dtype=torch.float64
                 )
@@ -2882,7 +2891,16 @@ def apply_post_refiner(
                 hold_entries.append((vec, strength))
         if hold_entries:
             total_shift64 = _apply_holds_to_shift64(total_shift64, hold_entries, context.device)
-        if float(torch.linalg.vector_norm(total_shift64).item()) > 0.0:
+        shift_norm = float(torch.linalg.vector_norm(total_shift64).item())
+        if warn_if_stacked_norm and n_add >= 2 and shift_norm >= STACK_SHIFT_WARN_NORM:
+            _logger.warning(
+                "[h3] apply_post_refiner stacked %d additive vectors to combined shift norm=%.2f "
+                "(threshold=%.1f); lower per-vector strength to avoid prompt saturation",
+                n_add,
+                shift_norm,
+                STACK_SHIFT_WARN_NORM,
+            )
+        if shift_norm > 0.0:
             shift = total_shift64.to(dtype=context.dtype)
             out[row_mask] = out[row_mask] + shift
     else:

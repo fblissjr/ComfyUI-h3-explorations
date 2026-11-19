@@ -481,7 +481,11 @@ def cmd_build(args: argparse.Namespace) -> int:
             if j_lens.bundle_available():
                 try:
                     jl_build_readout = j_lens.decode_vector(
-                        final_vec, space="post_refiner", family=family, top_k=12
+                        final_vec,
+                        v_enc=tensors_to_save.get("vector.encoder"),
+                        space="post_refiner",
+                        family=family,
+                        top_k=12,
                     )
                     jl_build_readout["b_side_alignment"] = j_lens.check_b_side_alignment(
                         jl_build_readout,
@@ -833,7 +837,10 @@ def cmd_rebuild(args: argparse.Namespace) -> int:
             if "j_lens_readout" not in qrep and j_lens.bundle_available() and "vector.post_refiner" in tensors:
                 try:
                     qrep["j_lens_readout"] = j_lens.decode_vector(
-                        tensors["vector.post_refiner"], space="post_refiner", family=fam
+                        tensors["vector.post_refiner"],
+                        v_enc=tensors.get("vector.encoder"),
+                        space="post_refiner",
+                        family=fam,
                     )
                 except Exception:
                     pass

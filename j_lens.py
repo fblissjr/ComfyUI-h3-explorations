@@ -377,6 +377,7 @@ def apply_soft_holds(
 def decode_vector(
     vec: torch.Tensor,
     *,
+    v_enc: torch.Tensor | None = None,
     space: str = "post_refiner",
     family: str = "fl2va",
     scale: float = DEFAULT_STEER_SCALE,
@@ -389,6 +390,13 @@ def decode_vector(
     """Decode any `5376`-d post-refiner or `5120`-d encoder vector into top positive/negative words."""
     if not isinstance(vec, torch.Tensor):
         raise TypeError(f"vec must be a torch.Tensor, got {type(vec).__name__}")
+    v_enc_flat: torch.Tensor | None = None
+    if v_enc is not None:
+        if not isinstance(v_enc, torch.Tensor):
+            raise TypeError(f"v_enc must be a torch.Tensor, got {type(v_enc).__name__}")
+        v_enc_flat = v_enc.detach().to(device="cpu", dtype=torch.float32).flatten()
+        if v_enc_flat.numel() != 5120:
+            raise ValueError(f"v_enc must have length 5120, got {v_enc_flat.numel()}")
     v_raw = vec.detach().to(device="cpu", dtype=torch.float32).flatten()
     if space == "auto":
         if v_raw.numel() == 5376:
@@ -493,7 +501,7 @@ def decode_vector(
     }
     base_out["readiness"] = assess_steering_readiness(
         v_eff if space == "post_refiner" else None,
-        v_enc=v_eff if space == "encoder" else None,
+        v_enc=v_enc_flat if v_enc_flat is not None else (v_eff if space == "encoder" else None),
         readout=base_out,
         family=family,
         bundle=b,

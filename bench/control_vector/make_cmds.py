@@ -138,7 +138,10 @@ def cmd_make_media(args: argparse.Namespace) -> int:
                 if j_lens.bundle_available():
                     try:
                         m_meta.setdefault("quality_report", {})["j_lens_readout"] = j_lens.decode_vector(
-                            scrubbed_vec, space="post_refiner", family=m_fam
+                            scrubbed_vec,
+                            v_enc=m_tensors.get("vector.encoder"),
+                            space="post_refiner",
+                            family=m_fam,
                         )
                     except Exception:
                         pass
@@ -453,7 +456,11 @@ def cmd_make(args: argparse.Namespace) -> int:
     if j_lens.bundle_available():
         try:
             jl_make_readout = j_lens.decode_vector(
-                final_vec, space="post_refiner", family=family, top_k=12
+                final_vec,
+                v_enc=tensors_to_save.get("vector.encoder"),
+                space="post_refiner",
+                family=family,
+                top_k=12,
             )
             jl_make_readout["b_side_alignment"] = j_lens.check_b_side_alignment(
                 jl_make_readout,
@@ -609,7 +616,10 @@ def cmd_make(args: argparse.Namespace) -> int:
             if j_lens.bundle_available():
                 try:
                     sib_qrep["j_lens_readout"] = j_lens.decode_vector(
-                        sib_final_vec, space="post_refiner", family=sib_fam
+                        sib_final_vec,
+                        v_enc=sib_tensors.get("vector.encoder"),
+                        space="post_refiner",
+                        family=sib_fam,
                     )
                 except Exception:
                     pass

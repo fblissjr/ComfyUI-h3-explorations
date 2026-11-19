@@ -3194,6 +3194,67 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
         if dm.last_context is None or not torch.equal(dm.last_context, expected_shifted):
             errs.append("chained MiniMaxH3ApplyControlVectors.execute did not produce expected shifted context")
 
+        # Verify stacked-norm warning fires once on overlapping rows >= STACK_SHIFT_WARN_NORM
+        # and stays silent on disjoint masks (e.g., look_only vs description_only on ref2va)
+        stack_warn_msgs: list[str] = []
+
+        class _StackWarnCapture(_logging.Handler):
+            def emit(self, record):
+                msg = record.getMessage()
+                if record.levelno >= _logging.WARNING and "stacked control vectors" in msg:
+                    stack_warn_msgs.append(msg)
+
+        tags_ref_stack = torch.tensor([[0, 1, 1, 1]], dtype=torch.long)
+        look_m = torch.tensor([[False, True, False, False]])
+        desc_m = torch.tensor([[False, False, True, True]])
+        scene_m = look_m | desc_m
+        tags_ref_stack._h3_span_masks = {  # type: ignore[attr-defined]
+            "vision": torch.tensor([[True, False, False, False]]),
+            "scene": torch.tensor([[False, True, True, True]]),
+        }
+        tags_ref_stack._h3_span_masks["scene"]._h3_look_mask = look_m  # type: ignore[attr-defined]
+        tags_ref_stack._h3_span_masks["scene"]._h3_description_mask = desc_m  # type: ignore[attr-defined]
+        tags_ref_stack._h3_span_masks["scene"]._h3_has_sections = True  # type: ignore[attr-defined]
+        ctx_stack_in = torch.ones((1, 4, cv.POST_REFINER_DIM), dtype=torch.float32)
+
+        sw_h = _StackWarnCapture()
+        cv_nodes.logger.setLevel(_logging.WARNING)
+        cv_nodes.logger.addHandler(sw_h)
+        try:
+            # Disjoint description_only + look_only at s=1.0 -> peak shift = 67.5 < STACK_SHIFT_WARN_NORM -> 0 warnings
+            p_disjoint = cv_nodes.attach_control_vector(
+                patcher_with_init, v1_path, strength=1.0, mode="add_norm_matched", mask="description_only"
+            )
+            p_disjoint = cv_nodes.attach_control_vector(
+                p_disjoint, v2_path, strength=1.0, mode="add_norm_matched", mask="look_only"
+            )
+            p_disjoint.invoke_diffusion_model(
+                x_in, t_in, ctx_stack_in, minimax_payload={"text_token_tags": tags_ref_stack}
+            )
+            if stack_warn_msgs:
+                errs.append(f"disjoint description_only + look_only stack logged unexpected warning(s): {stack_warn_msgs}")
+
+            # Overlapping scene_only + look_only at s=1.1 -> peak shift > STACK_SHIFT_WARN_NORM -> 1 warning (deduplicated)
+            _ = scene_m
+            stack_warn_msgs.clear()
+            p_overlap = cv_nodes.attach_control_vector(
+                patcher_with_init, v1_path, strength=1.1, mode="add_norm_matched", mask="scene_only"
+            )
+            p_overlap = cv_nodes.attach_control_vector(
+                p_overlap, v2_path, strength=1.1, mode="add_norm_matched", mask="look_only"
+            )
+            p_overlap.invoke_diffusion_model(
+                x_in, t_in, ctx_stack_in, minimax_payload={"text_token_tags": tags_ref_stack}
+            )
+            p_overlap.invoke_diffusion_model(
+                x_in, t_in, ctx_stack_in, minimax_payload={"text_token_tags": tags_ref_stack}
+            )
+            if len(stack_warn_msgs) != 1 or "stacked control vectors" not in stack_warn_msgs[0]:
+                errs.append(f"overlapping scene_only + look_only stack expected 1 deduplicated warning, got {stack_warn_msgs}")
+        finally:
+            cv_nodes.logger.removeHandler(sw_h)
+            cv_nodes.logger.setLevel(_logging.ERROR)
+
         # Refusal when minimax_payload lacks text_token_tags and mask == 'non_vision'
         errs += _expect_refusal(
             lambda: p_node_1.invoke_diffusion_model(
@@ -3805,6 +3866,11 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
                     built_sfs = sorted(build_vec_dir.glob("*.safetensors"))
                     if len(built_sfs) != 2:
                         errs.append(f"cmd_build expected 2 .safetensors files, got {[p.name for p in built_sfs]}")
+                    else:
+                        _, built_meta = cv.load_vector(built_sfs[0])
+                        jl_built = built_meta.get("quality_report", {}).get("j_lens_readout")
+                        if isinstance(jl_built, dict) and jl_built.get("readiness", {}).get("refiner_transmission") is None:
+                            errs.append(f"cmd_build saved j_lens_readout with refiner_transmission=None despite vector.encoder: {jl_built.get('readiness')}")
                     # Running build again with identical .md and overwrite=False must refuse on existing .safetensors
                     buf_bld2_out, buf_bld2_err = io.StringIO(), io.StringIO()
                     with contextlib.redirect_stdout(buf_bld2_out), contextlib.redirect_stderr(buf_bld2_err):
@@ -5441,6 +5507,22 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
         or not isinstance(rd_with_enc.get("top1_gain"), float)
     ):
         errs.append(f"assess_steering_readiness with v_enc failed: {rd_with_enc}")
+    dec_with_enc = j_lens.decode_vector(
+        synth_res["vector.post_refiner"],
+        v_enc=synth_res["vector.encoder"],
+        space="post_refiner",
+        family="fl2va",
+        bundle=mini_bundle,
+    )
+    if dec_with_enc["readiness"].get("refiner_transmission") != rd_with_enc.get("refiner_transmission"):
+        errs.append(
+            f"decode_vector(..., v_enc=...) refiner_transmission mismatch: {dec_with_enc['readiness']} vs {rd_with_enc}"
+        )
+    errs += _expect_refusal(
+        lambda: j_lens.decode_vector(synth_res["vector.post_refiner"], v_enc=torch.zeros(12), bundle=mini_bundle),
+        "v_enc must have length 5120",
+        "j_lens.decode_vector refusal on wrong v_enc length",
+    )
 
     # Verify analyze_prompt_coupling token_heatmap and save_composed_recipe_vector
     pc_hm = j_lens.analyze_prompt_coupling(
