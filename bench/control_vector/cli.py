@@ -794,6 +794,19 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Fix group-readable permissions and rebuild stale J-Lens operators or .toml control vectors",
     )
+    pstat.add_argument(
+        "--unit-mean",
+        dest="unit_mean",
+        action="store_true",
+        default=True,
+        help="Average unit-normalized pair directions when --rebuild-stale runs (default: True)",
+    )
+    pstat.add_argument(
+        "--no-unit-mean",
+        dest="unit_mean",
+        action="store_false",
+        help="Disable unit-mean normalization during --rebuild-stale (average raw pair diffs)",
+    )
     pstat.add_argument("--bundle", default=None, help="Optional j_lens_h3.safetensors path")
     pstat.add_argument("--dir", dest="vec_dir", default=None, help="Control vector directory")
     pstat.add_argument("--toml-dir", dest="toml_dir", default=None, help="Pair .toml bank directory")

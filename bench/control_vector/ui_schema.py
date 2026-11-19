@@ -41,6 +41,7 @@ SERVER_SET: dict[str, dict[str, str]] = {
     "words": {"out_dir": "vec_dir"},
     "sculpt": {"out_dir": "vec_dir"},
     "rebuild": {"vec_dir": "vec_dir", "toml_dir": "toml_dir"},
+    "status": {"vec_dir": "vec_dir", "toml_dir": "toml_dir"},
 }
 
 #: `{method: (dest, ...)}`: arguments that name where a method writes. From the page a value is
@@ -91,6 +92,7 @@ PRIMARY: dict[str, tuple[str, ...]] = {
     "rebuild": ("target", "families", "pooling"),
     "from-md": ("md_path", "name", "out"),
     "build-j-lens": ("verify_only",),
+    "status": ("rebuild_stale", "unit_mean", "families"),
 }
 
 _METAVAR_CHOICES_RE = re.compile(r"^\{([^{}]+)\}$")

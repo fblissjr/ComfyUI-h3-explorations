@@ -207,11 +207,18 @@ def run_method(state: ControlVectorUIState, method: str, values: dict[str, Any])
     command = _command_line(method, values)
     _refuse_outside_paths(state, method, ns)
     _apply_server_set(state, method, ns)
+    if method == "status" and getattr(ns, "rebuild_stale", False) and getattr(ns, "bundle", None):
+        roots = [state.vec_dir.resolve(), state.toml_dir.resolve()]
+        b_target = Path(str(ns.bundle)).expanduser().resolve()
+        if not any(b_target == root or root in b_target.parents for root in roots):
+            raise RouteError(
+                f"status: bundle must be inside the studio's folders when rebuild_stale is set; got {ns.bundle!r}"
+            )
     rows_out: list[dict[str, Any]] = []
     ns._summary_rows_out = rows_out
     buf = io.StringIO()
     with _RUN_LOCK:
-        if method in _OWN_MODEL_METHODS:
+        if method in _OWN_MODEL_METHODS or (method == "status" and getattr(ns, "rebuild_stale", False)):
             state.release_clip_vram()
         if method in _ENCODER_METHODS:
             ns._refiner_cache = state._refiner_cache

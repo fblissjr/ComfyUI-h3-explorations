@@ -113,6 +113,7 @@ LINES: dict[str, tuple[list[str], dict]] = {
                        {"concept": "warm to cold", "no_4bit": True, "temperature": 0.2}),
     "build-j-lens": (["build-j-lens", "--verify-only"], {"verify_only": True}),
     "rebuild": (["rebuild", "film_16mm_1974", "--force"], {"target": "film_16mm_1974", "force": True}),
+    "status": (["status", "--families", "fl2va", "--no-unit-mean"], {"families": "fl2va", "unit_mean": False}),
 }
 
 

@@ -6523,6 +6523,88 @@ def _check_nov15_steer_prose_and_ph3_family() -> list[str]:
             )
         )
 
+        # CLI status: defaults unit_mean=True on --rebuild-stale, honors --no-unit-mean, and
+        # computes legacy encoder + null refiner_transmission advisories without mutating stale_stems.
+        from bench.control_vector import build_cmd as _build_cmd, cli as _cv_cli
+
+        ns_def = _cv_cli.build_parser().parse_args(["status"])
+        ns_off = _cv_cli.build_parser().parse_args(["status", "--no-unit-mean"])
+        if not bool(ns_def.unit_mean) or bool(ns_off.unit_mean):
+            errs.append(f"CLI status unit_mean parse mismatch: def={ns_def.unit_mean!r}, off={ns_off.unit_mean!r}")
+
+        st_tmp = Path(ep_tmp) / "status_unit_mean"
+        (st_tmp / "toml").mkdir(parents=True, exist_ok=True)
+        (st_tmp / "vec").mkdir(parents=True, exist_ok=True)
+        (st_tmp / "toml" / "demo_card.toml").write_text(
+            '[vector]\nname = "demo_card"\nquality = "demo"\na_side = "red"\nb_side = "blue"\n'
+            'mode = "t2va"\nframe = "scene"\n\n[[pair]]\n'
+            'a = \'\'\'integrated_multimodal_description: [Shot 1] Live-action, cinematic, red coat in a quiet room.\n\n'
+            'overall_soundscape: Quiet room tone.\n\nnon_diegetic_music: N/A\'\'\'\n'
+            'b = \'\'\'integrated_multimodal_description: [Shot 1] Live-action, cinematic, blue coat in a quiet room.\n\n'
+            'overall_soundscape: Quiet room tone.\n\nnon_diegetic_music: N/A\'\'\'\n',
+            encoding="utf-8",
+        )
+        seen_um: list[bool] = []
+        orig_cmd_rebuild = _build_cmd.cmd_rebuild
+        orig_bundle_inspect = _build_cmd._inspect_bundle_status
+        _build_cmd.cmd_rebuild = lambda a: seen_um.append(bool(a.unit_mean)) or 0  # type: ignore[assignment]
+        _build_cmd._inspect_bundle_status = lambda _p: ([], [], {"has_fl2va_base": True, "has_h3_image": True, "recipe_hashes": {}})  # type: ignore[assignment]
+        try:
+            _build_cmd.cmd_status(
+                _cv_cli.build_parser().parse_args([
+                    "status", "--rebuild-stale", "--bundle", str(st_tmp / "missing.safetensors"),
+                    "--dir", str(st_tmp / "vec"), "--toml-dir", str(st_tmp / "toml"),
+                ])
+            )
+            _build_cmd.cmd_status(
+                _cv_cli.build_parser().parse_args([
+                    "status", "--rebuild-stale", "--no-unit-mean", "--bundle", str(st_tmp / "missing.safetensors"),
+                    "--dir", str(st_tmp / "vec"), "--toml-dir", str(st_tmp / "toml"),
+                ])
+            )
+        finally:
+            _build_cmd.cmd_rebuild = orig_cmd_rebuild  # type: ignore[assignment]
+            _build_cmd._inspect_bundle_status = orig_bundle_inspect  # type: ignore[assignment]
+        if seen_um != [True, False]:
+            errs.append(f"cmd_status --rebuild-stale forwarded unit_mean={seen_um!r}, expected [True, False]")
+
+        # Build a synthetic saved vector with legacy encoder + null refiner_transmission to test advisories
+        legacy_vec_path = st_tmp / "vec" / "demo_card__fl2va__diff_span__lora_deadbeef.safetensors"
+        ps_demo = cv.load_pairs(st_tmp / "toml" / "demo_card.toml")
+        legacy_meta = {
+            "format": cv.FORMAT_VERSION,
+            "name": "demo_card",
+            "quality": "demo",
+            "family": "fl2va",
+            "recipe": {
+                "checkpoint": {"file": "minimax_h3_fl2va_pruned_int8_convrot.safetensors", "sha256": "0" * 64},
+                "encoder": {"file": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors", "sha256": "0" * 64},
+                "loras": [],
+            },
+            "measured_under": {"mode": "t2va", "frame": "scene", "prefix": "s", "pooling": "diff_span"},
+            "points": {"post_refiner": {"unit": "mean_pair_difference", "raw_norm": 1.0, "median_row_norm": 164.0}},
+            "pairs": {
+                "path": "demo_card.toml",
+                "sha256": ps_demo.sha256,
+                "n_pairs": 1,
+                "n_holds": 0,
+                "a_side": "a",
+                "b_side": "b",
+                "differing_sections": ["integrated_multimodal_description"],
+                "pair_spans": [],
+            },
+            "quality_report": {"mean_pairwise_cosine": None, "split_half_cosine": None, "per_pair_cosine": [], "j_lens_readout": {}},
+            "provenance": {"core_revision": "test", "pack_commit": "test", "created_utc": "2026-11-19T00:00:00Z", "made_by": "test"},
+        }
+        cv.save_vector(
+            legacy_vec_path,
+            {"vector.post_refiner": torch.ones(cv.POST_REFINER_DIM, dtype=torch.float32), "vector.encoder": torch.ones(5120, dtype=torch.float32)},
+            legacy_meta,
+        )
+        legacy_n, null_rt_n = _build_cmd._inspect_vector_advisories(st_tmp / "toml", st_tmp / "vec", {"fl2va"})
+        if (legacy_n, null_rt_n) != (1, 1):
+            errs.append(f"_inspect_vector_advisories returned {(legacy_n, null_rt_n)}, expected (1, 1)")
+
     return errs
 
 

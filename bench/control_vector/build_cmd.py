@@ -1153,6 +1153,36 @@ def _inspect_vectors_status(
     return stale_stems, perm_paths
 
 
+def _inspect_vector_advisories(
+    toml_dir: Path,
+    vec_dir: Path,
+    req_fams_set: set[str],
+) -> tuple[int, int]:
+    """Count `toml_dir`-tracked `.safetensors` built with a non-default encoder or missing `refiner_transmission`."""
+    toml_stems = {tp.stem for tp in toml_dir.glob("*.toml")} if toml_dir.is_dir() else set()
+    if not toml_stems or not vec_dir.is_dir():
+        return 0, 0
+    expected_clip = Path(str(h3_config.MODELS["clip"])).name
+    legacy_enc = 0
+    null_rt = 0
+    for sp in sorted(vec_dir.glob("*.safetensors")):
+        try:
+            _t, m = cv.load_vector(sp)
+        except Exception:
+            continue
+        stem = str(m.get("name", sp.stem.split("__")[0])).strip()
+        fam = str(m.get("family", "")).strip()
+        if stem not in toml_stems or (req_fams_set and fam not in req_fams_set):
+            continue
+        enc_file = str(((m.get("recipe") or {}).get("encoder") or {}).get("file") or "").strip()
+        if enc_file and Path(enc_file).name != expected_clip:
+            legacy_enc += 1
+        qr = m.get("quality_report") or {}
+        if qr.get("refiner_transmission") is None:
+            null_rt += 1
+    return legacy_enc, null_rt
+
+
 def cmd_status(args: argparse.Namespace) -> int:
     """Inspect J-Lens bundle & control vector freshness and group permissions; optionally `--rebuild-stale`."""
     from . import j_lens_builder
@@ -1200,7 +1230,11 @@ def cmd_status(args: argparse.Namespace) -> int:
             )
             j_lens_builder.cmd_build_j_lens(jl_args)
         if stale_stems:
-            print(f"=== Status --rebuild-stale: rebuilding {len(stale_stems)} stale control vector stem(s) ===")
+            use_unit_mean = bool(getattr(args, "unit_mean", True))
+            print(
+                f"=== Status --rebuild-stale: rebuilding {len(stale_stems)} stale control vector stem(s) "
+                f"(unit_mean={use_unit_mean}) ==="
+            )
             reb_args = argparse.Namespace(
                 target=None,
                 vec_dir=str(vec_dir),
@@ -1208,7 +1242,7 @@ def cmd_status(args: argparse.Namespace) -> int:
                 vector_target=None,
                 families=req_fams_str,
                 pooling="diff_span",
-                unit_mean=False,
+                unit_mean=use_unit_mean,
                 dit=None,
                 encoder=None,
                 lora=None,
@@ -1224,10 +1258,16 @@ def cmd_status(args: argparse.Namespace) -> int:
         bundle_issues, bundle_perms, bundle_info = _inspect_bundle_status(bundle_path)
         stale_stems, vec_perms = _inspect_vectors_status(toml_dir, vec_dir, req_fams_set)
 
+    legacy_enc_n, null_rt_n = _inspect_vector_advisories(toml_dir, vec_dir, req_fams_set)
     print("=== H3 Control Vector & J-Lens Status ===")
     print(f"J-Lens bundle ({bundle_path.name}): {'OK' if not bundle_issues else ', '.join(bundle_issues)}")
     print(f"  fl2va_base={bundle_info.get('has_fl2va_base', False)}, h3_image={bundle_info.get('has_h3_image', False)}, recipe_hashes={'recipe_hashes' in bundle_info}")
     print(f"Control vectors ({_display_path(toml_dir)}): {len(stale_stems)} stale/missing, {len(vec_perms)} permission warning(s)")
+    if legacy_enc_n or null_rt_n:
+        print(
+            f"  advisory: {legacy_enc_n} file(s) built under a non-default encoder (!= {h3_config.MODELS['clip']}), "
+            f"{null_rt_n} file(s) missing refiner_transmission (run `rebuild --force --unit-mean` to refresh)"
+        )
     for item in stale_stems:
         print(f"  - stale: {item}")
     for vp in vec_perms[:10]:
