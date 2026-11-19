@@ -170,7 +170,10 @@ def _list_ui_vectors(vec_dir: Path) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
     if not vec_dir.is_dir():
         return out
-    for p in sorted(vec_dir.glob("*.safetensors")):
+    for p in sorted(vec_dir.rglob("*.safetensors")):
+        rel_p = p.relative_to(vec_dir)
+        if "j_lens" in rel_p.parts:
+            continue
         try:
             _, meta = cv.load_vector(p)
             pr_meta = meta.get("points", {}).get("post_refiner", {})
@@ -188,7 +191,7 @@ def _list_ui_vectors(vec_dir: Path) -> list[dict[str, Any]]:
             ]
             out.append(
                 {
-                    "file": p.name,
+                    "file": rel_p.as_posix(),
                     "name": str(meta.get("name", p.stem)),
                     "family": str(meta.get("family", "")),
                     "pooling": str(meta.get("measured_under", {}).get("pooling", "scene_text")),

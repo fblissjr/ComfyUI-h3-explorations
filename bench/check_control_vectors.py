@@ -6605,6 +6605,75 @@ def _check_nov15_steer_prose_and_ph3_family() -> list[str]:
         if (legacy_n, null_rt_n) != (1, 1):
             errs.append(f"_inspect_vector_advisories returned {(legacy_n, null_rt_n)}, expected (1, 1)")
 
+        # Recursive subfolder organization: _vector_stem_options, resolve_vector_file_path,
+        # _inspect_vectors_status, _inspect_vector_advisories, and UI listing all support subdirs
+        # while keeping bare stem names working and flat root priority intact.
+        sub_root = Path(ep_tmp) / "sub_lib"
+        (sub_root / "group_a").mkdir(parents=True, exist_ok=True)
+        (sub_root / "group_b").mkdir(parents=True, exist_ok=True)
+        (sub_root / "j_lens").mkdir(parents=True, exist_ok=True)
+        cv.save_vector(
+            sub_root / "group_a" / "sub_pair__fl2va__diff_span.safetensors",
+            {"vector.post_refiner": v_both, "vector.encoder": torch.ones(5120, dtype=torch.float32)},
+            {**ep_meta, "name": "sub_pair", "family": "fl2va"},
+        )
+        cv.save_vector(
+            sub_root / "group_a" / "sub_pair__ref2va__diff_span.safetensors",
+            {"vector.post_refiner": v_both, "vector.encoder": torch.ones(5120, dtype=torch.float32)},
+            {**ep_meta, "name": "sub_pair", "family": "ref2va"},
+        )
+        cv.save_vector(
+            sub_root / "group_b" / "custom_untagged.safetensors",
+            {"vector.post_refiner": -v_both},
+            {**ep_meta, "name": "custom_untagged", "family": "fl2va"},
+        )
+        cv.save_vector(
+            sub_root / "j_lens" / "j_lens_h3.safetensors",
+            {"vector.post_refiner": -v_both},
+            {**ep_meta, "name": "j_lens_h3", "family": "fl2va"},
+        )
+        orig_cv_paths_sub = cv_nodes.folder_paths.folder_names_and_paths.get(
+            cv_nodes.CONTROL_VECTORS_FOLDER
+        )
+        try:
+            cv_nodes.folder_paths.folder_names_and_paths[cv_nodes.CONTROL_VECTORS_FOLDER] = (
+                [str(sub_root)],
+                {".safetensors"},
+            )
+            sub_opts = cv_nodes._vector_stem_options(include_none=True)
+            if sub_opts != ["none", "group_b/custom_untagged.safetensors", "sub_pair"]:
+                errs.append(f"subfolder _vector_stem_options mismatch: {sub_opts!r}")
+            r_bare = cv_nodes.resolve_vector_file_path("sub_pair", preferred_family="ref2va", log_swap=False)
+            r_rel = cv_nodes.resolve_vector_file_path("group_a/sub_pair", preferred_family="fl2va", log_swap=False)
+            if r_bare.name != "sub_pair__ref2va__diff_span.safetensors" or r_rel.name != "sub_pair__fl2va__diff_span.safetensors":
+                errs.append(f"subfolder resolve mismatch: bare={r_bare}, rel={r_rel}")
+            # Root override wins over subfolder when a bare stem exists at root too
+            cv.save_vector(
+                sub_root / "sub_pair__fl2va__diff_span.safetensors",
+                {"vector.post_refiner": v_both},
+                {**ep_meta, "name": "sub_pair", "family": "fl2va"},
+            )
+            r_prio = cv_nodes.resolve_vector_file_path("sub_pair", preferred_family="fl2va", log_swap=False)
+            if r_prio.parent.resolve() != sub_root.resolve():
+                errs.append(f"expected root vector priority over subfolder, got {r_prio}")
+            sub_toml_dir = Path(ep_tmp) / "sub_tomls"
+            sub_toml_dir.mkdir(parents=True, exist_ok=True)
+            (sub_toml_dir / "sub_pair.toml").write_text(
+                (st_tmp / "toml" / "demo_card.toml").read_text(encoding="utf-8").replace("demo_card", "sub_pair"),
+                encoding="utf-8",
+            )
+            sub_stale, _ = _build_cmd._inspect_vectors_status(sub_toml_dir, sub_root, {"fl2va", "ref2va"})
+            if not sub_stale or "missing" in sub_stale[0] or "sha256_mismatch" not in sub_stale[0]:
+                errs.append(f"expected subfolder status sha256_mismatch (not missing), got {sub_stale!r}")
+            from bench.control_vector import ui_state as _ui_state
+            ui_rows = _ui_state._list_ui_vectors(sub_root)
+            ui_files = {r["file"] for r in ui_rows}
+            if "group_a/sub_pair__ref2va__diff_span.safetensors" not in ui_files or any("j_lens" in f for f in ui_files):
+                errs.append(f"subfolder _list_ui_vectors mismatch: {ui_files!r}")
+        finally:
+            if orig_cv_paths_sub is not None:
+                cv_nodes.folder_paths.folder_names_and_paths[cv_nodes.CONTROL_VECTORS_FOLDER] = orig_cv_paths_sub
+
     return errs
 
 

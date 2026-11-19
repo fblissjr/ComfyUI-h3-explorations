@@ -359,6 +359,11 @@ def _resolve_vector_for_family(
             hits = sorted(cv_dir.glob(pat))
             if hits:
                 return hits[0]
+            nested_hits = sorted(
+                p for p in cv_dir.rglob(pat) if "j_lens" not in p.relative_to(cv_dir).parts
+            )
+            if nested_hits:
+                return nested_hits[0]
     return cv_nodes.resolve_vector_file_path(str(spec).strip(), preferred_family=fam)
 
 

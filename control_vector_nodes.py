@@ -136,12 +136,11 @@ def _vector_combo_options() -> list[str]:
 
 def _extract_vector_stem_and_family(filename: str) -> tuple[str | None, str | None]:
     norm = filename.replace("\\", "/")
-    if "/" in norm:
-        return None, None
+    base = norm.rsplit("/", 1)[-1]
     for fam in ("fl2va", "ref2va", "fasth3", "h3_image"):
         tag = f"__{fam}"
-        if tag in norm:
-            cand = norm.split(tag, 1)[0]
+        if tag in base:
+            cand = base.split(tag, 1)[0]
             if cand and "__" not in cand:
                 return cand, fam
     return None, None
@@ -2347,21 +2346,35 @@ def _match_sibling_or_stem_in_dir(
         if preferred_family in ("fl2va", "ref2va", "fasth3", "h3_image")
         else ["fl2va", "ref2va", "fasth3", "h3_image"]
     )
-    sort_key = lambda p: (0 if ("__lora_" in p.name) == prefer_lora else 1, p.name)
+    def _pick(pat: str) -> Path | None:
+        direct = sorted(
+            directory.glob(pat),
+            key=lambda p: (0 if ("__lora_" in p.name) == prefer_lora else 1, p.name),
+        )
+        if direct:
+            return direct[0].resolve()
+        nested = sorted(
+            (
+                p
+                for p in directory.rglob(pat)
+                if "j_lens" not in p.relative_to(directory).parts
+            ),
+            key=lambda p: (
+                0 if ("__lora_" in p.name) == prefer_lora else 1,
+                len(p.relative_to(directory).parts),
+                p.relative_to(directory).as_posix(),
+            ),
+        )
+        return nested[0].resolve() if nested else None
+
     for fam in fams:
         if preferred_pooling:
-            cands_pool = sorted(
-                directory.glob(f"{stem}__{fam}__{preferred_pooling}*.safetensors"),
-                key=sort_key,
-            )
-            if cands_pool:
-                return cands_pool[0].resolve()
-        cands_fam = sorted(
-            directory.glob(f"{stem}__{fam}*.safetensors"),
-            key=sort_key,
-        )
-        if cands_fam:
-            return cands_fam[0].resolve()
+            hit_pool = _pick(f"{stem}__{fam}__{preferred_pooling}*.safetensors")
+            if hit_pool is not None:
+                return hit_pool
+        hit_fam = _pick(f"{stem}__{fam}*.safetensors")
+        if hit_fam is not None:
+            return hit_fam
     return None
 
 
@@ -2432,9 +2445,14 @@ def resolve_vector_file_path(
             if p_st.is_file():
                 return _maybe_swap_family_sibling(p_st.resolve())
 
-    # Bare stem resolution (e.g. 'cursed_cctv' -> 'cursed_cctv__fl2va__diff_span__*.safetensors')
-    clean_stem = raw[:-len(".safetensors")] if raw.endswith(".safetensors") else raw
-    if "__" not in clean_stem and "/" not in clean_stem and "\\" not in clean_stem:
+    # Bare stem or <subdir>/<stem> resolution (e.g. 'cursed_cctv' or 'sub/cursed_cctv')
+    norm_raw = raw.replace("\\", "/")
+    clean_stem = norm_raw[:-len(".safetensors")] if norm_raw.endswith(".safetensors") else norm_raw
+    rel_subdir = ""
+    leaf_stem = clean_stem
+    if "/" in clean_stem:
+        rel_subdir, leaf_stem = clean_stem.rsplit("/", 1)
+    if leaf_stem and "__" not in leaf_stem and not Path(rel_subdir).is_absolute():
         eff_prefer = True if prefer_lora is None else bool(prefer_lora)
         if preferred_family == "fl2va":
             fam_tries: tuple[str | None, ...] = ("fl2va", "ref2va", None)
@@ -2446,9 +2464,10 @@ def resolve_vector_file_path(
             fam_tries = (None,)
         for fam_try in fam_tries:
             for folder in folders:
+                search_dir = (folder / rel_subdir) if rel_subdir else folder
                 matched = _match_sibling_or_stem_in_dir(
-                    folder,
-                    clean_stem,
+                    search_dir,
+                    leaf_stem,
                     fam_try,
                     preferred_pooling="diff_span",
                     prefer_lora=eff_prefer,

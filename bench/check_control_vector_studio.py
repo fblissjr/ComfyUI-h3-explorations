@@ -283,7 +283,9 @@ def check_previews_share_the_code() -> None:
             print("        skipped: the recipe preview route (no J-Lens bundle on disk)")
             return
         lib = Path(folder_paths.get_folder_paths(cv_nodes.CONTROL_VECTORS_FOLDER)[0])
-        vecs = sorted(lib.glob("*__fl2va__*.safetensors"))[:2]
+        vecs = sorted(
+            p for p in lib.rglob("*__fl2va__*.safetensors") if "j_lens" not in p.relative_to(lib).parts
+        )[:2]
         if len(vecs) < 2:
             print("        skipped: the recipe preview route (fewer than two fl2va vectors in the library)")
             return

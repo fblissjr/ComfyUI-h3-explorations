@@ -654,6 +654,17 @@ def _resolve_existing_toml_from_meta(meta: dict[str, Any], toml_dir: Path) -> Pa
     return None
 
 
+def _iter_vector_safetensors(vec_dir: Path) -> list[Path]:
+    """List `.safetensors` files recursively inside `vec_dir`, excluding any nested `j_lens/` subtree."""
+    if not vec_dir.is_dir():
+        return []
+    return sorted(
+        p
+        for p in vec_dir.rglob("*.safetensors")
+        if "j_lens" not in p.relative_to(vec_dir).parts
+    )
+
+
 def cmd_rebuild(args: argparse.Namespace) -> int:
     """Rebuild all control vectors in a folder (defaults to `models/control_vectors/`
     + `prompt_bank/control_vectors/`) or a single specified control vector with zero
@@ -882,10 +893,18 @@ def cmd_rebuild(args: argparse.Namespace) -> int:
         elif (default_vec_dir / f"{raw_target}.safetensors").is_file():
             matched_st = [default_vec_dir / f"{raw_target}.safetensors"]
         else:
+            norm_t = raw_target.replace("\\", "/")
+            sub_dir = (
+                default_vec_dir / norm_t.rsplit("/", 1)[0]
+                if "/" in norm_t
+                else None
+            )
+            search_root = sub_dir if (sub_dir is not None and sub_dir.is_dir()) else default_vec_dir
             stem_q = target_path.stem.split("__")[0]
-            matched_st = sorted(default_vec_dir.glob(f"{stem_q}__*.safetensors"))
+            all_sts = _iter_vector_safetensors(search_root)
+            matched_st = [p for p in all_sts if p.name.startswith(f"{stem_q}__")]
             if not matched_st:
-                matched_st = sorted(default_vec_dir.glob(f"{stem_q}_*.safetensors"))
+                matched_st = [p for p in all_sts if p.name.startswith(f"{stem_q}_")]
             if toml_cand is None and (default_toml_dir / f"{stem_q}.toml").is_file():
                 toml_cand = default_toml_dir / f"{stem_q}.toml"
 
@@ -908,9 +927,10 @@ def cmd_rebuild(args: argparse.Namespace) -> int:
             if fam_single in ("fl2va", "ref2va"):
                 single_fam_override = fam_single
 
+        single_vec_dir = loaded_items[0][0].parent if loaded_items else default_vec_dir
         if toml_cand is not None:
             print(f"=== Rebuilding Single Control Vector `{toml_cand.stem}` from {_display_path(toml_cand)} ===")
-            _rebuild_from_toml(toml_cand, default_vec_dir, single_fam_override, all_rows)
+            _rebuild_from_toml(toml_cand, single_vec_dir, single_fam_override, all_rows)
         else:
             stem = str(loaded_items[0][2].get("name", loaded_items[0][0].stem.split("__")[0]))
             made_by = str(loaded_items[0][2].get("provenance", {}).get("made_by", ""))
@@ -919,10 +939,10 @@ def cmd_rebuild(args: argparse.Namespace) -> int:
             b_side = str(loaded_items[0][2].get("pairs", {}).get("b_side", "")).strip()
             if made_by.startswith("j_lens.synthesize_from_words") or pairs_path == "j_lens.synthesize_from_words":
                 print(f"=== Rebuilding J-Lens Word Control Vector `{stem}` ===")
-                _rebuild_jlens_words(stem, loaded_items, default_vec_dir, single_fam_override, all_rows)
+                _rebuild_jlens_words(stem, loaded_items, single_vec_dir, single_fam_override, all_rows)
             elif b_side and not pairs_path.startswith("<media_pairs:") and not made_by.startswith("j_lens.save_composed_recipe_vector"):
                 print(f"=== Rebuilding Compiled Control Vector `{stem}` ({a_side!r} -> {b_side!r}) ===")
-                _rebuild_compiled_words(stem, loaded_items, default_vec_dir, single_fam_override, all_rows)
+                _rebuild_compiled_words(stem, loaded_items, single_vec_dir, single_fam_override, all_rows)
             else:
                 print(f"=== Refreshing Control Vector Sidecar & J-Lens Readout for `{stem}` ===")
                 _refresh_sidecar_and_jlens(loaded_items, all_rows)
@@ -936,7 +956,7 @@ def cmd_rebuild(args: argparse.Namespace) -> int:
     # Mode 2: Folder mode (defaulting to models/control_vectors/ + prompt_bank/control_vectors/)
     if target_path is not None and target_path.is_dir():
         has_tomls = any(target_path.glob("*.toml"))
-        has_sts = any(target_path.glob("*.safetensors"))
+        has_sts = bool(_iter_vector_safetensors(target_path))
         if has_tomls and not has_sts:
             toml_dir = target_path
             vec_dir = default_vec_dir
@@ -960,7 +980,7 @@ def cmd_rebuild(args: argparse.Namespace) -> int:
 
     vecs_by_stem: dict[str, list[tuple[Path, dict[str, torch.Tensor], dict[str, Any]]]] = {}
     if scan_vecs and vec_dir.is_dir():
-        for sp in sorted(vec_dir.glob("*.safetensors")):
+        for sp in _iter_vector_safetensors(vec_dir):
             try:
                 t, m = cv.load_vector(sp)
             except Exception:
@@ -1005,13 +1025,15 @@ def cmd_rebuild(args: argparse.Namespace) -> int:
                     _refresh_sidecar_and_jlens(existing_items, all_rows)
                     continue
             print(f"\n[{idx}/{len(all_stems)}] Rebuilding `{stem}` from {_display_path(tp)} ...")
-            _rebuild_from_toml(tp, vec_dir, req_fams_str, all_rows)
+            target_out_dir = existing_items[0][0].parent if existing_items else vec_dir
+            _rebuild_from_toml(tp, target_out_dir, req_fams_str, all_rows)
             continue
 
         items = vecs_by_stem.get(stem, [])
         if not items:
             continue
         meta0 = items[0][2]
+        item_out_dir = items[0][0].parent
         made_by = str(meta0.get("provenance", {}).get("made_by", ""))
         pairs_path = str(meta0.get("pairs", {}).get("path", ""))
         b_side = str(meta0.get("pairs", {}).get("b_side", "")).strip()
@@ -1022,7 +1044,7 @@ def cmd_rebuild(args: argparse.Namespace) -> int:
         )
         if made_by.startswith("j_lens.synthesize_from_words") or pairs_path == "j_lens.synthesize_from_words":
             print(f"\n[{idx}/{len(all_stems)}] Rebuilding J-Lens word vector `{stem}` ...")
-            _rebuild_jlens_words(stem, items, vec_dir, req_fams_str, all_rows)
+            _rebuild_jlens_words(stem, items, item_out_dir, req_fams_str, all_rows)
         elif (
             (force_rebuild or needs_encoder or missing_fams)
             and b_side
@@ -1031,7 +1053,7 @@ def cmd_rebuild(args: argparse.Namespace) -> int:
             and not made_by.startswith("bench/control_vectors.py::sculpt")
         ):
             print(f"\n[{idx}/{len(all_stems)}] Rebuilding compiled vector `{stem}` ...")
-            _rebuild_compiled_words(stem, items, vec_dir, req_fams_str, all_rows)
+            _rebuild_compiled_words(stem, items, item_out_dir, req_fams_str, all_rows)
         else:
             print(f"\n[{idx}/{len(all_stems)}] Refreshing sidecar & J-Lens readout for `{stem}` ({len(items)} file(s)) ...")
             _refresh_sidecar_and_jlens(items, all_rows)
@@ -1111,7 +1133,7 @@ def _inspect_vectors_status(
 
     vecs_by_stem: dict[str, list[tuple[Path, dict[str, torch.Tensor], dict[str, Any]]]] = {}
     if vec_dir.is_dir():
-        for sp in sorted(vec_dir.glob("*.safetensors")):
+        for sp in _iter_vector_safetensors(vec_dir):
             if not _is_group_readable(sp):
                 perm_paths.append(sp)
             md_p = sp.with_suffix(".md")
@@ -1165,7 +1187,7 @@ def _inspect_vector_advisories(
     expected_clip = Path(str(h3_config.MODELS["clip"])).name
     legacy_enc = 0
     null_rt = 0
-    for sp in sorted(vec_dir.glob("*.safetensors")):
+    for sp in _iter_vector_safetensors(vec_dir):
         try:
             _t, m = cv.load_vector(sp)
         except Exception:
