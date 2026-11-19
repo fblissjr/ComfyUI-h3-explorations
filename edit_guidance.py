@@ -54,8 +54,10 @@ logger = logging.getLogger(__name__)
 DEFAULT_SCALE = _rules.EDIT_GUIDANCE_DEFAULTS["scale"]
 DEFAULT_AUDIO_SCALE = _rules.EDIT_GUIDANCE_DEFAULTS["audio_scale"]
 EDIT_GUIDANCE_STREAMS = tuple(_rules.EDIT_GUIDANCE_STREAMS)
+TEMPORAL_CURVES: tuple[str, ...] = ("whole_clip", "ramp_in", "sudden_midclip", "second_half")
 MAX_SCALE = 4.0
 PASS_KEY = "h3_edit_pass"
+H3EditPlan = io.Custom("MINIMAX_H3_EDIT_PLAN")
 
 #: The edit grammar and `apply_edits` live in `h3_prompt_edit.py`, which loads no model library, so the
 #: static graph walkers read an edit node's text with the same code this node runs.
@@ -212,10 +214,38 @@ def _pool_causal_temporal(m: torch.Tensor, runs: list[int]) -> torch.Tensor:
     return torch.stack(steps, dim=0)
 
 
+def _plan_field(edit_plan: Any, name: str, default: Any = None) -> Any:
+    """Read `name` from either an `EditPlan` dataclass or a mapping."""
+    if isinstance(edit_plan, Mapping):
+        return edit_plan.get(name, default)
+    return getattr(edit_plan, name, default)
+
+
+def build_temporal_curve(curve: str, n_frames: int) -> torch.Tensor | None:
+    """Build a normalized `[n_frames, 1, 1]` float32 temporal curve, or `None` when inert."""
+    if curve not in TEMPORAL_CURVES:
+        raise ValueError(f"MiniMaxH3EditGuider: temporal_curve must be one of {TEMPORAL_CURVES}; got {curve!r}")
+    n = int(n_frames)
+    if n <= 1 or curve == "whole_clip":
+        return None
+    if curve == "ramp_in":
+        weights = torch.linspace(0.0, 1.0, n, dtype=torch.float32)
+    elif curve == "sudden_midclip":
+        weights = torch.zeros(n, dtype=torch.float32)
+        weights[n // 2:] = 1.0
+    else:  # "second_half"
+        mid = n // 2
+        rem = n - mid
+        weights = torch.zeros(n, dtype=torch.float32)
+        weights[mid:] = torch.linspace(0.0, 1.0, rem + 1, dtype=torch.float32)[1:]
+    return weights.reshape(n, 1, 1)
+
+
 class EditGuider(comfy.samplers.CFGGuider):
     """Per-stream `original + scale * (edited - original)`, one pass before `first_step` and one `[edited]` pass after `last_step` (or `[original]` when `original` and `edited` share identical text and `edited` appends extra guide keyframes onto `original`)."""
 
     _mask: torch.Tensor | None = None
+    _temporal_curve: str = "whole_clip"
     _mask_cache: dict[tuple[Any, ...], tuple[torch.Tensor | None, torch.Tensor | None]] | None = None
 
     def set_conds(self, original, edited):
@@ -247,6 +277,7 @@ class EditGuider(comfy.samplers.CFGGuider):
         streams: str = "both",
         audio_scale: float = 1.0,
         mask: torch.Tensor | None = None,
+        temporal_curve: str = "whole_clip",
     ):
         f_step = int(first_step)
         l_step = int(last_step)
@@ -254,6 +285,10 @@ class EditGuider(comfy.samplers.CFGGuider):
             raise ValueError(f"last_step ({l_step}) must be >= first_step ({f_step})")
         if streams not in EDIT_GUIDANCE_STREAMS:
             raise ValueError(f"streams must be one of {EDIT_GUIDANCE_STREAMS}; got {streams!r}")
+        if temporal_curve not in TEMPORAL_CURVES:
+            raise ValueError(
+                f"temporal_curve must be one of {TEMPORAL_CURVES}; got {temporal_curve!r}"
+            )
         if streams == "both":
             self.edit_scale = float(scale)
             self.edit_audio_scale = float(scale)
@@ -271,8 +306,24 @@ class EditGuider(comfy.samplers.CFGGuider):
         self.last_step = l_step
         self.align_positions = bool(align_positions)
         self._mask = None if mask is None else _normalize_edit_mask(mask)
+        self._temporal_curve = str(temporal_curve)
         self._mask_cache = {}
         self._prepared = False
+
+    def _has_active_temporal_curve(self, x, is_nested: bool, latent_shapes) -> bool:
+        curve = getattr(self, "_temporal_curve", "whole_clip")
+        if curve == "whole_clip":
+            return False
+        if is_nested:
+            v_lat = x.unbind()[0]
+            t_lat = int(v_lat.shape[2]) if v_lat.ndim == 5 else 1
+        elif latent_shapes is not None and len(latent_shapes) >= 1 and len(latent_shapes[0]) == 5:
+            t_lat = int(latent_shapes[0][2])
+        elif torch.is_tensor(x) and x.ndim == 5:
+            t_lat = int(x.shape[2])
+        else:
+            return False
+        return t_lat > 1
 
     def _prepare_masks_for_step(
         self,
@@ -282,11 +333,12 @@ class EditGuider(comfy.samplers.CFGGuider):
         dtype: torch.dtype,
     ) -> tuple[torch.Tensor | None, torch.Tensor | None]:
         raw = getattr(self, "_mask", None)
-        if raw is None:
+        t_curve_name = getattr(self, "_temporal_curve", "whole_clip")
+        if raw is None and t_curve_name == "whole_clip":
             return (None, None)
         v_key = tuple(int(d) for d in video_shape)
         a_key = None if audio_shape is None else tuple(int(d) for d in audio_shape)
-        cache_key = (v_key, a_key, device, dtype)
+        cache_key = (v_key, a_key, t_curve_name, device, dtype)
         cache = getattr(self, "_mask_cache", None)
         if cache is not None and cache_key in cache:
             return cache[cache_key]
@@ -295,27 +347,65 @@ class EditGuider(comfy.samplers.CFGGuider):
         _, _, t_lat, h_lat, w_lat = v_key
         runs = [1] if t_lat == 1 else [FRAME_PER_TOKEN[k % len(FRAME_PER_TOKEN)] for k in range(t_lat)]
         f_expected = sum(runs)
-        t_in, h_in, w_in = int(raw.shape[0]), int(raw.shape[1]), int(raw.shape[2])
-        if t_in not in (1, f_expected):
-            raise ValueError(
-                f"MiniMaxH3EditGuider: mask has {t_in} frame(s), expected 1 or {f_expected} "
-                f"for {t_lat} video latent step(s)"
-            )
+        t_curve = build_temporal_curve(t_curve_name, f_expected)
+        if raw is None and t_curve is None:
+            result = (None, None)
+            if cache is None:
+                cache = {}
+                self._mask_cache = cache
+            cache[cache_key] = result
+            return result
+        if raw is not None:
+            t_in, h_in, w_in = int(raw.shape[0]), int(raw.shape[1]), int(raw.shape[2])
+            if t_in not in (1, f_expected):
+                raise ValueError(
+                    f"MiniMaxH3EditGuider: mask has {t_in} frame(s), expected 1 or {f_expected} "
+                    f"for {t_lat} video latent step(s)"
+                )
+        else:
+            t_in, h_in, w_in = f_expected, 1, 1
+
         if h_in == 1 and w_in == 1:
-            if t_in == 1:
-                v_m = raw.reshape(1, 1, 1, 1, 1).expand(1, 1, t_lat, 1, 1).contiguous().to(device=device, dtype=dtype)
-                a_m = None if a_key is None else raw.reshape((1,) * len(a_key)).to(device=device, dtype=dtype)
+            if raw is None:
+                eff_raw = t_curve
+            elif t_curve is None:
+                eff_raw = raw
             else:
-                v_m = _pool_causal_temporal(raw, runs).reshape(1, 1, t_lat, 1, 1).to(device=device, dtype=dtype)
+                if not bool(((raw[:, 0, 0] > 0.0) & (t_curve[:, 0, 0] > 0.0)).any()):
+                    raise ValueError(
+                        "MiniMaxH3EditGuider: spatial mask and timing curve do not overlap on any frame"
+                    )
+                eff_raw = raw * t_curve
+            t_eff = int(eff_raw.shape[0])
+            if t_eff == 1:
+                v_m = eff_raw.reshape(1, 1, 1, 1, 1).expand(1, 1, t_lat, 1, 1).contiguous().to(device=device, dtype=dtype)
+                a_m = None if a_key is None else eff_raw.reshape((1,) * len(a_key)).to(device=device, dtype=dtype)
+            else:
+                v_m = _pool_causal_temporal(eff_raw, runs).reshape(1, 1, t_lat, 1, 1).to(device=device, dtype=dtype)
                 if a_key is None:
                     a_m = None
                 else:
                     t_aud = int(a_key[-1])
-                    a_1d = F.interpolate(raw.reshape(1, 1, t_in), size=t_aud, mode="linear", align_corners=False)
+                    a_1d = F.interpolate(eff_raw.reshape(1, 1, t_eff), size=t_aud, mode="linear", align_corners=False)
                     a_m = a_1d.reshape((1,) * (len(a_key) - 1) + (t_aud,)).to(device=device, dtype=dtype)
         else:
+            if t_curve is not None:
+                if not bool(((raw.amax(dim=(1, 2)) > 0.0) & (t_curve[:, 0, 0] > 0.0)).any()):
+                    raise ValueError(
+                        "MiniMaxH3EditGuider: spatial mask and timing curve do not overlap on any frame"
+                    )
             pooled = _pool_spatial_continuous(raw, h_lat, w_lat)
-            if t_in == 1:
+            if t_curve is not None:
+                pooled = pooled * t_curve
+                v_m = _pool_causal_temporal(pooled, runs).reshape(1, 1, t_lat, h_lat, w_lat).to(device=device, dtype=dtype)
+                if a_key is None:
+                    a_m = None
+                else:
+                    t_aud = int(a_key[-1])
+                    t_env = (raw.amax(dim=(1, 2)) * t_curve.reshape(-1)).reshape(1, 1, f_expected)
+                    a_1d = F.interpolate(t_env, size=t_aud, mode="linear", align_corners=False)
+                    a_m = a_1d.reshape((1,) * (len(a_key) - 1) + (t_aud,)).to(device=device, dtype=dtype)
+            elif t_in == 1:
                 a_m = None
                 v_m = (
                     pooled.reshape(1, 1, 1, h_lat, w_lat)
@@ -400,7 +490,9 @@ class EditGuider(comfy.samplers.CFGGuider):
         has_audio = is_nested or (packed_split is not None)
         if not has_audio:
             eff_a = eff_v
-        has_mask = getattr(self, "_mask", None) is not None
+        has_mask = (getattr(self, "_mask", None) is not None) or self._has_active_temporal_curve(
+            x, is_nested, latent_shapes
+        )
         if eff_v == 0.0 and eff_a == 0.0:
             return comfy.samplers.calc_cond_batch(self.inner_model, [original], x, timestep, model_options)[0]
         if eff_v == 1.0 and eff_a == 1.0 and not has_mask:
@@ -572,6 +664,15 @@ class MiniMaxH3EditGuider(io.ComfyNode):
                             "count (max-pooled over causal [1, 4, 4, 4, 4] video steps + 40 Hz max(H, W) audio "
                             "gating when F > 1), or [F, 1, 1] temporal envelopes; an all-zero mask is refused.",
                 ),
+                # APPENDED 2026-11-19: optional 4-axis EditPlan from MiniMaxH3AutoEditPrompt (link-only).
+                H3EditPlan.Input(
+                    "edit_plan",
+                    optional=True,
+                    tooltip="Optional 4-axis EditPlan from MiniMaxH3AutoEditPrompt. Auto-configures "
+                            "first_step, last_step, streams, audio_scale, [F, 1, 1] temporal curve, and "
+                            "fast_1x (1-pass shortcut when unmasked) unless manual_widgets is set; scale "
+                            "always remains your master intensity dial.",
+                ),
             ],
             outputs=[io.Guider.Output()],
         )
@@ -589,34 +690,64 @@ class MiniMaxH3EditGuider(io.ComfyNode):
         streams=_rules.EDIT_GUIDANCE_DEFAULTS["streams"],
         audio_scale=DEFAULT_AUDIO_SCALE,
         mask=None,
+        edit_plan=None,
     ) -> io.NodeOutput:
         len_a, len_b = check_same_but_text(original, edited)
         kf_a = _count(original[0][1].get("minimax_keyframes"))
         kf_b = _count(edited[0][1].get("minimax_keyframes"))
+        eff_scale = float(scale)
+        eff_first_step = int(first_step)
+        eff_last_step = int(last_step)
+        eff_streams = streams
+        eff_audio_scale = float(audio_scale)
+        temporal_curve = "whole_clip"
+        if edit_plan is not None and not bool(_plan_field(edit_plan, "manual_widgets", False)):
+            force_scale = _plan_field(edit_plan, "force_scale", None)
+            if force_scale is not None:
+                if mask is not None:
+                    raise ValueError(
+                        "MiniMaxH3EditGuider: take_mode='fast_1x' cannot be combined with a spatial mask "
+                        "(masking requires 2-pass guidance; switch take_mode to 'auto' or 'lock_take')"
+                    )
+                eff_scale = float(force_scale)
+                eff_first_step = 0
+                eff_last_step = 3
+                eff_streams = "both"
+                eff_audio_scale = 1.0
+                temporal_curve = "whole_clip"
+            else:
+                eff_first_step = int(_plan_field(edit_plan, "first_step", eff_first_step))
+                eff_last_step = int(_plan_field(edit_plan, "last_step", eff_last_step))
+                eff_streams = str(_plan_field(edit_plan, "streams", eff_streams))
+                eff_audio_scale = float(_plan_field(edit_plan, "audio_scale", eff_audio_scale))
+                temporal_curve = str(_plan_field(edit_plan, "temporal_curve", "whole_clip"))
         guider = EditGuider(model)
         guider.set_conds(original, edited)
         guider.set_edit(
-            scale,
-            first_step,
+            eff_scale,
+            eff_first_step,
             align_positions,
-            last_step=last_step,
-            streams=streams,
-            audio_scale=audio_scale,
+            last_step=eff_last_step,
+            streams=eff_streams,
+            audio_scale=eff_audio_scale,
             mask=mask,
+            temporal_curve=temporal_curve,
         )
         kf_note = f"; keyframes {kf_a} (original) and {kf_b} (edited)" if (kf_a or kf_b) else ""
         mask_note = f"; mask={tuple(mask.shape)}" if mask is not None else ""
+        curve_note = f"; temporal_curve={temporal_curve}" if temporal_curve != "whole_clip" else ""
         logger.info(
             "[h3] edit guidance: streams=%s (video=%g, audio=%g) across steps %d..%d; "
-            "text length %d (original) and %d (edited) tokens%s%s",
-            streams,
+            "text length %d (original) and %d (edited) tokens%s%s%s",
+            eff_streams,
             guider.edit_scale,
             guider.edit_audio_scale,
-            int(first_step),
-            int(last_step),
+            eff_first_step,
+            eff_last_step,
             len_a,
             len_b,
             kf_note,
             mask_note,
+            curve_note,
         )
         return io.NodeOutput(guider)

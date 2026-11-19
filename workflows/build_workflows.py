@@ -86,6 +86,7 @@ _OUR_NODES = {
     "MiniMaxH3ImageSize", "MiniMaxH3ImageDownscale", "MiniMaxH3ImagePromptExpander",
     "MiniMaxH3EncodeImageReferences", "MiniMaxH3PromptOnImageReferences",
     "MiniMaxH3SpatialDirector", "MiniMaxH3DirectorHUD",
+    "MiniMaxH3AutoEditPrompt",
 }
 
 # Model names, sampler settings, canvas geometry and the SolAttn knobs all
@@ -2992,6 +2993,35 @@ def _wire_kj_preview_override(g: dict[str, Any], *, single_frame: bool) -> None:
     }
 
 
+def _collect_auto_edit_ref_images(g: dict, cond: dict) -> list[list]:
+    """Collect up to 4 upstream IMAGE links attached to a reference conditioning node."""
+    links: list[list] = []
+    if cond["class_type"] == "MiniMaxH3ReferenceConditioning":
+        cur = cond["inputs"].get("references")
+        seen: set[str] = set()
+        while isinstance(cur, list) and len(cur) >= 1:
+            nid = str(cur[0])
+            if nid in seen or nid not in g:
+                break
+            seen.add(nid)
+            node = g[nid]
+            if node.get("class_type") == "MiniMaxH3AppendRefImage":
+                img_link = node.get("inputs", {}).get("image")
+                if isinstance(img_link, list):
+                    links.append(list(img_link))
+            cur = node.get("inputs", {}).get("references")
+        links.reverse()
+    elif cond["class_type"] == "MiniMaxH3PromptOnImageReferences":
+        enc_ref = cond["inputs"].get("encoded_references")
+        if isinstance(enc_ref, list) and len(enc_ref) >= 1 and str(enc_ref[0]) in g:
+            enc_ins = g[str(enc_ref[0])].get("inputs", {})
+            for idx in range(1, 5):
+                val = enc_ins.get(f"images.image_{idx}")
+                if isinstance(val, list):
+                    links.append(list(val))
+    return links[:4]
+
+
 def _wire_edit_guidance(g: dict, prompt: str, spec: dict) -> None:
     """Turn a one-prompt graph into an edit-guidance graph, in place.
 
@@ -3013,6 +3043,7 @@ def _wire_edit_guidance(g: dict, prompt: str, spec: dict) -> None:
         set(spec)
         - {
             "edits",
+            "auto_edit",
             "scale",
             "first_step",
             "last_step",
@@ -3025,10 +3056,11 @@ def _wire_edit_guidance(g: dict, prompt: str, spec: dict) -> None:
     )
     kf_diff = bool(spec.get("keyframe_differential", False))
     same_prompt = bool(spec.get("same_prompt", False))
-    n_modes = int(kf_diff) + int(same_prompt) + int("edits" in spec)
+    has_auto_edit = "auto_edit" in spec
+    n_modes = int(kf_diff) + int(same_prompt) + int("edits" in spec) + int(has_auto_edit)
     if unknown or n_modes != 1:
         raise SystemExit(
-            "edit_guidance takes exactly one of (edits | keyframe_differential=True | same_prompt=True) "
+            "edit_guidance takes exactly one of (edits | auto_edit | keyframe_differential=True | same_prompt=True) "
             f"plus scale, first_step, last_step, streams, audio_scale, and spatial_mask; got {sorted(spec)}"
         )
     streams = str(spec.get("streams", EDIT_GUIDANCE_DEFAULTS["streams"]))
@@ -3064,6 +3096,7 @@ def _wire_edit_guidance(g: dict, prompt: str, spec: dict) -> None:
         g["9"] = {"class_type": "MiniMaxH3EditGuider", "inputs": kf_inputs}
         return
     cond = g["5"]
+    ref_img_links = _collect_auto_edit_ref_images(g, cond) if has_auto_edit else []
     if isinstance(cond["inputs"].get("prompt"), list):
         written = list(cond["inputs"]["prompt"])
     else:
@@ -3071,6 +3104,66 @@ def _wire_edit_guidance(g: dict, prompt: str, spec: dict) -> None:
         written = ["133", 0]
     if same_prompt:
         edited_prompt_src = list(written)
+    elif has_auto_edit:
+        ae_spec = spec["auto_edit"]
+        if not isinstance(ae_spec, dict):
+            raise SystemExit(f"edit_guidance['auto_edit'] must be a dict, got {ae_spec!r}")
+        bad_ae = sorted(
+            set(ae_spec)
+            - {
+                "concept",
+                "edit_intent",
+                "take_mode",
+                "timing",
+                "enabled",
+                "base_url",
+                "model",
+                "thinking",
+                "reasoning_effort",
+                "seed",
+                "target_scope",
+                "rewrite_mode",
+                "allow_retention_relax",
+                "exemplar_count",
+                "preset",
+                "sampler_mode",
+                "temperature",
+                "max_tokens",
+                "custom_system_prompt",
+            }
+        )
+        if bad_ae:
+            raise SystemExit(f"unknown auto_edit keys {bad_ae}")
+        ae_inputs: dict[str, Any] = {
+            "original": written,
+            "concept": str(ae_spec.get("concept", "none")),
+            "edit_intent": str(ae_spec.get("edit_intent", "")),
+            "take_mode": str(ae_spec.get("take_mode", "auto")),
+            "timing": str(ae_spec.get("timing", "auto")),
+            "enabled": bool(ae_spec.get("enabled", True)),
+            "base_url": str(ae_spec.get("base_url", "")),
+            "model": str(ae_spec.get("model", "")),
+            "thinking": str(ae_spec.get("thinking", "on")),
+            "reasoning_effort": str(ae_spec.get("reasoning_effort", "medium")),
+            "seed": int(ae_spec.get("seed", 0)),
+        }
+        for opt_k in (
+            "target_scope",
+            "rewrite_mode",
+            "allow_retention_relax",
+            "exemplar_count",
+            "preset",
+            "sampler_mode",
+            "temperature",
+            "max_tokens",
+            "custom_system_prompt",
+        ):
+            if opt_k in ae_spec:
+                ae_inputs[opt_k] = ae_spec[opt_k]
+        for idx, img_link in enumerate(ref_img_links, start=1):
+            ae_inputs[f"images.image_{idx}"] = img_link
+        g["130"] = {"class_type": "MiniMaxH3AutoEditPrompt", "inputs": ae_inputs}
+        edited_prompt_src = ["130", 1]
     else:
         g["130"] = {
             "class_type": "MiniMaxH3PromptEdit",
@@ -3129,6 +3222,10 @@ def _wire_edit_guidance(g: dict, prompt: str, spec: dict) -> None:
     }
     if spatial_mask_on:
         guider_inputs["mask"] = ["160", 0]
+    if has_auto_edit:
+        guider_inputs["edit_plan"] = ["130", 2]
+        if "135" in g and g["135"].get("class_type") == RELEASE_REFERENCES_NODE:
+            g["135"]["inputs"]["edit_plan"] = ["130", 2]
     g["9"] = {
         "class_type": "MiniMaxH3EditGuider",
         "inputs": guider_inputs,
@@ -6022,6 +6119,29 @@ def main():
               ),
               out_prefix="Video/h3_r2v_pika_edit_guidance"),
          "reference image + text -> video + audio on Pika H3 Flex 6-step LCM (SVD995 branch) steered by an edited copy of the prompt; the reference is encoded once (MiniMaxH3EncodeReferences) and each prompt goes on top (MiniMaxH3PromptOnReferences)"),
+        # --- heylook-driven Auto-Edit Guidance (`auto_edit_prompt.py`: 4-axis EditPlan + EditGuider) ---
+        ("h3_text_to_video_pika_auto_edit_guidance.json", "t2v-pika-auto-edit-guidance", "t2v",
+         LONG_T2V_PROMPT,
+         dict(lora=(PIKA_FL2VA_SVD995_LORA, PIKA_STRENGTH), lora_branch=True,
+              steps=PIKA_STEPS, sampler_name=PIKA_SAMPLER,
+              manual_sigmas=PIKA_MANUAL_SIGMAS,
+              edit_guidance=dict(
+                  auto_edit=dict(concept="cyberpunk_neon_rain"),
+              ),
+              out_prefix="Video/h3_t2v_pika_auto_edit_guidance"),
+         "text -> video + audio on Pika H3 Flex 6-step LCM (SVD995 branch) steered by MiniMaxH3AutoEditPrompt (heylook LLM rewrite from concept card / intent -> edited prompt + 4-axis edit_plan wired to MiniMaxH3EditGuider)"),
+        ("h3_image_ref_plus_text_to_video_pika_auto_edit_guidance.json", "r2v-pika-auto-edit-guidance", "r2v",
+         _ref_prompt(images=("character",), scene="kitchen"),
+         dict(ref_images=SCENE_REF_IMAGES["kitchen"], ref_image_count=1,
+              lora=(PIKA_REF2VA_SVD995_LORA, PIKA_STRENGTH), lora_branch=True,
+              steps=PIKA_STEPS, sampler_name=PIKA_SAMPLER,
+              manual_sigmas=PIKA_MANUAL_SIGMAS,
+              release_references=True,
+              edit_guidance=dict(
+                  auto_edit=dict(concept="cyberpunk_neon_rain"),
+              ),
+              out_prefix="Video/h3_r2v_pika_auto_edit_guidance"),
+         "reference image + text -> video + audio on Pika H3 Flex 6-step LCM (SVD995 branch) steered by vision-grounded MiniMaxH3AutoEditPrompt (wiring <Picture 1> + 4-axis edit_plan into MiniMaxH3EditGuider and MiniMaxH3ReleaseReferences)"),
         # --- PrunaAI P-H3-Image single-frame generation & editing (`workflows/image/`) ---
         ("h3_p_h3_image_t2i.json", "p-h3-image-t2i", "ph3_t2i",
          PH3_IMAGE_T2I_PROMPT,

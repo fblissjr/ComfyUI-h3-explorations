@@ -132,12 +132,22 @@ def _guider(
     streams: str = "both",
     audio_scale: float = 1.0,
     mask: torch.Tensor | None = None,
+    temporal_curve: str = "whole_clip",
 ) -> eg.EditGuider:
     g = eg.EditGuider(_Patcher())
     g.inner_model = None
     g.conds = {"negative": [{"which": "original", "model_conds": {}}],
                "positive": [{"which": "edited", "model_conds": {}}]}
-    g.set_edit(scale, first_step, align, last_step=last_step, streams=streams, audio_scale=audio_scale, mask=mask)
+    g.set_edit(
+        scale,
+        first_step,
+        align,
+        last_step=last_step,
+        streams=streams,
+        audio_scale=audio_scale,
+        mask=mask,
+        temporal_curve=temporal_curve,
+    )
     return g
 
 
@@ -603,6 +613,56 @@ def check_guider_mask() -> None:
         g_bad_t.inner_model = _PackedAVModel()
         refuses("wrong frame count ([10, 4, 4] on 22-frame T_lat=7)",
                 lambda: g_bad_t.predict_noise(x_p, sig[0:1], opts), "expected 1 or 22")
+
+        # 4b. build_temporal_curve + temporal_curve on video & still
+        c_ramp = eg.build_temporal_curve("ramp_in", 22)
+        c_mid = eg.build_temporal_curve("sudden_midclip", 22)
+        c_second = eg.build_temporal_curve("second_half", 22)
+        ok("build_temporal_curve shapes and boundary values (whole_clip/still -> None, ramp_in/sudden_midclip/second_half)",
+           eg.build_temporal_curve("whole_clip", 22) is None
+           and eg.build_temporal_curve("ramp_in", 1) is None
+           and c_ramp is not None and c_ramp.shape == (22, 1, 1)
+           and approx(float(c_ramp[0, 0, 0]), 0.0) and approx(float(c_ramp[-1, 0, 0]), 1.0)
+           and c_mid is not None and float(c_mid[:11].max()) == 0.0 and float(c_mid[11:].min()) == 1.0
+           and c_second is not None and float(c_second[:11].max()) == 0.0
+           and float(c_second[11:].min()) > 0.0 and approx(float(c_second[-1, 0, 0]), 1.0))
+
+        seen.clear()
+        g_still_curve = _guider(1.0, temporal_curve="ramp_in")
+        g_still_curve.inner_model = _Image5DModel()
+        v_sc = g_still_curve.predict_noise(torch.zeros((1, 24, 1, 4, 4)), sig[0:1], opts)
+        ok("temporal_curve collapses to no-op on single-frame still (T_lat=1, 1x shortcut at scale=1.0)",
+           seen == [["edited"]] and bool(torch.allclose(v_sc, torch.full_like(v_sc, 3.0))))
+
+        seen.clear()
+        g_ramp = _guider(2.0, temporal_curve="ramp_in")
+        g_ramp.inner_model = _PackedAVModel()
+        v_rmp, a_rmp = comfy.utils.unpack_latents(g_ramp.predict_noise(x_p, sig[0:1], opts), lshapes)
+        ok("temporal_curve='ramp_in' runs 2 passes and ramps video causally & audio continuously from 0 to scale",
+           seen == [["original", "edited"]]
+           and approx(float(v_rmp[0, 0, 0, 0, 0]), 1.0)
+           and approx(float(v_rmp[0, 0, -1, 0, 0]), 5.0)
+           and approx(float(a_rmp[0, 0, 0, 0]), 10.0, tol=0.5)
+           and approx(float(a_rmp[0, 0, 0, -1]), 30.0, tol=0.5))
+
+        seen.clear()
+        g_combo = _guider(2.0, mask=spatial_64, temporal_curve="sudden_midclip")
+        g_combo.inner_model = _PackedAVModel()
+        v_cmb, a_cmb = comfy.utils.unpack_latents(g_combo.predict_noise(x_p, sig[0:1], opts), lshapes)
+        ok("spatial_64 * temporal_curve='sudden_midclip' holds protected region & step-0 at 1.0 and applies 5.0 late",
+           seen == [["original", "edited"]]
+           and bool((v_cmb[:, :, :, :2, :2] == 1.0).all())
+           and approx(float(v_cmb[0, 0, 0, 3, 3]), 1.0)
+           and approx(float(v_cmb[0, 0, -1, 3, 3]), 5.0)
+           and approx(float(a_cmb[0, 0, 0, 0]), 10.0)
+           and approx(float(a_cmb[0, 0, 0, -1]), 30.0))
+
+        early_only = torch.zeros((22, 4, 4), dtype=torch.float32)
+        early_only[:5] = 1.0
+        g_disjoint = _guider(1.5, mask=early_only, temporal_curve="second_half")
+        g_disjoint.inner_model = _PackedAVModel()
+        refuses("disjoint spatial mask (frames 0..4) and temporal_curve='second_half' (frames 11..21)",
+                lambda: g_disjoint.predict_noise(x_p, sig[0:1], opts), "do not overlap")
     finally:
         comfy.samplers.calc_cond_batch = real
 
@@ -641,10 +701,108 @@ def check_guider_mask() -> None:
     )
     ok("edit_guidance center-crop and FRAME_PER_TOKEN runs match _h3pack.video_mask", aspect_ok and runs_ok)
 
-    # 7. Schema socket order preservation
+    # 7. Schema socket order preservation & EditPlan overrides
     schema = eg.MiniMaxH3EditGuider.define_schema()
-    ok("MiniMaxH3EditGuider appends optional mask strictly last (index 9)",
-       schema.inputs[-1].id == "mask" and schema.inputs[-1].optional is True and len(schema.inputs) == 10)
+    ok("MiniMaxH3EditGuider keeps mask at index 9 and appends optional edit_plan strictly last (index 10)",
+       len(schema.inputs) == 11
+       and schema.inputs[9].id == "mask" and schema.inputs[9].optional is True
+       and schema.inputs[10].id == "edit_plan" and schema.inputs[10].optional is True)
+
+    orig_c = [[torch.ones((1, 10, 4)), {"minimax_token_tags": torch.zeros(10, dtype=torch.long)}]]
+    edit_c = [[torch.ones((1, 12, 4)), {"minimax_token_tags": torch.zeros(12, dtype=torch.long)}]]
+    out_auto = eg.MiniMaxH3EditGuider.execute(
+        _Patcher(),
+        orig_c,
+        edit_c,
+        1.75,
+        0,
+        edit_plan={
+            "first_step": 1,
+            "last_step": 4,
+            "streams": "audio_only",
+            "audio_scale": 1.25,
+            "temporal_curve": "second_half",
+            "force_scale": None,
+            "manual_widgets": False,
+        },
+    ).result[0]
+    ok("edit_plan overrides first_step/last_step/streams/audio_scale/temporal_curve when manual_widgets=False",
+       out_auto.first_step == 1 and out_auto.last_step == 4 and out_auto.streams == "audio_only"
+       and approx(out_auto.edit_scale, 0.0) and approx(out_auto.edit_audio_scale, 1.75)
+       and out_auto._temporal_curve == "second_half")
+
+    out_ind = eg.MiniMaxH3EditGuider.execute(
+        _Patcher(),
+        orig_c,
+        edit_c,
+        1.75,
+        0,
+        edit_plan={
+            "first_step": 1,
+            "last_step": 3,
+            "streams": "independent",
+            "audio_scale": 1.0,
+            "temporal_curve": "ramp_in",
+            "force_scale": None,
+            "manual_widgets": False,
+        },
+    ).result[0]
+    ok("edit_plan keeps scale as master visual dial on independent streams",
+       approx(out_ind.edit_scale, 1.75) and approx(out_ind.edit_audio_scale, 1.0)
+       and out_ind._temporal_curve == "ramp_in")
+
+    out_fast = eg.MiniMaxH3EditGuider.execute(
+        _Patcher(),
+        orig_c,
+        edit_c,
+        2.0,
+        1,
+        streams="video_only",
+        edit_plan={
+            "first_step": 0,
+            "last_step": 3,
+            "streams": "both",
+            "audio_scale": 1.0,
+            "temporal_curve": "whole_clip",
+            "force_scale": 1.0,
+            "manual_widgets": False,
+        },
+    ).result[0]
+    ok("fast_1x EditPlan forces 1-pass scale=1.0, first_step=0, last_step=3, streams='both'",
+       approx(out_fast.edit_scale, 1.0) and approx(out_fast.edit_audio_scale, 1.0)
+       and out_fast.first_step == 0 and out_fast.last_step == 3 and out_fast.streams == "both"
+       and out_fast._temporal_curve == "whole_clip")
+
+    refuses("fast_1x EditPlan paired with spatial mask",
+            lambda: eg.MiniMaxH3EditGuider.execute(
+                _Patcher(), orig_c, edit_c, 1.5, 0, mask=spatial_64,
+                edit_plan={"force_scale": 1.0, "manual_widgets": False},
+            ),
+            "cannot be combined with a spatial mask")
+
+    out_manual = eg.MiniMaxH3EditGuider.execute(
+        _Patcher(),
+        orig_c,
+        edit_c,
+        1.75,
+        2,
+        last_step=5,
+        streams="video_only",
+        audio_scale=0.5,
+        edit_plan={
+            "first_step": 0,
+            "last_step": 3,
+            "streams": "audio_only",
+            "audio_scale": 1.0,
+            "temporal_curve": "ramp_in",
+            "force_scale": 1.0,
+            "manual_widgets": True,
+        },
+    ).result[0]
+    ok("manual_widgets=True preserves manual MiniMaxH3EditGuider widget values",
+       out_manual.first_step == 2 and out_manual.last_step == 5 and out_manual.streams == "video_only"
+       and approx(out_manual.edit_scale, 1.75) and approx(out_manual.edit_audio_scale, 0.0)
+       and out_manual._temporal_curve == "whole_clip")
 
 
 def main() -> int:

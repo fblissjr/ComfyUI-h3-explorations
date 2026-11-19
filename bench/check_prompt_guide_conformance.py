@@ -362,6 +362,7 @@ LINKED_TEXT_SOURCES = ("PrimitiveStringMultiline", "PrimitiveString", "MiniMaxH3
 #: Link sources whose prompts another case or another check grades, and which.
 GRADED_ELSEWHERE = {
     "MiniMaxH3MaskedPrompt": "a masked-lane text, assembled from plan data; bench/check_masked_prompt.py",
+    "MiniMaxH3AutoEditPrompt": "runtime heylook-rewritten edited prompt (original is graded on original node; runtime slot graded by bench/check_auto_edit_prompt.py)",
 }
 
 

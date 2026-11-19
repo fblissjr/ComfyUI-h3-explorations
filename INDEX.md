@@ -93,6 +93,7 @@ with none is a helper the others import.
 |---|---|---|
 | [`__init__.py`](__init__.py) |  | ComfyUI-h3-explorations: tinkering and research hub for the MiniMax H3 ecosystem. |
 | [`attention.py`](attention.py) |  | SageAttention forward for MiniMax H3's packed self-attention. |
+| [`auto_edit_prompt.py`](auto_edit_prompt.py) | `MiniMaxH3AutoEditPrompt` | `heylook`-Driven Auto-Edit Guidance (`MiniMaxH3AutoEditPrompt`) and 4-Axis `EditPlan`. |
 | [`block_spec.py`](block_spec.py) |  | Parsing for the block-index specs several nodes take as a string widget. |
 | [`body_pose.py`](body_pose.py) | `MiniMaxH3BodyModelLoader`, `MiniMaxH3BodyPose`, `MiniMaxH3BodyMeshVideo` | A body mesh from frames and boxes, with the crop sampled the way Meta's SAM 3D Body code samples it. |
 | [`channel_balance.py`](channel_balance.py) | `MiniMaxH3ChannelBalance` | Rebalance q/k channels before INT8 attention on the blocks whose K-norm is lopsided. |
@@ -105,6 +106,7 @@ with none is a helper the others import.
 | [`exact_blocks.py`](exact_blocks.py) | `MiniMaxH3ExactBlocks` | Run named DiT blocks on EXACT attention -- neither sage nor Sol-Attn. |
 | [`frozen_video_cache.py`](frozen_video_cache.py) | `MiniMaxH3FrozenVideoCache` | Cache the frozen rows of an H3 sampling run, so its steps run on the live rows only. |
 | [`guide_latent.py`](guide_latent.py) | `MiniMaxH3GuideLatent` | Guide-latent conditioning for MiniMax H3 video and single-frame editing. |
+| [`heylook_client.py`](heylook_client.py) |  | Shared `heylookitsanllm` (`POST /v1/messages`) HTTP/SSE client and capability-gating helpers. |
 | [`j_lens.py`](j_lens.py) |  | Analytical Jacobian Lens (`J-Lens`) and `TokenRefiner` Wiener readout for H3 `5376`-d and `5120`-d vectors. |
 | [`keyframe_canvas.py`](keyframe_canvas.py) |  | Resolve an H3 canvas from a keyframe, the way the reference pipeline does. |
 | [`lora_branch.py`](lora_branch.py) | `MiniMaxH3LoRABranch` | Apply an H3 LoRA as a separate low-rank branch, so none of it is lost to the int8 grid. |
@@ -157,20 +159,20 @@ with none is a helper the others import.
 | `.gemini/` | 8 | [below](#gemini) |
 | `archive/` | 31 | (none) |
 | `assets/` | 1 | [below](#assets) |
-| `bench/` | 890 | [`bench/INDEX.md`](bench/INDEX.md) and [`bench/results/INDEX.md`](bench/results/INDEX.md) for the records |
+| `bench/` | 891 | [`bench/INDEX.md`](bench/INDEX.md) and [`bench/results/INDEX.md`](bench/results/INDEX.md) for the records |
 | `changelog.d/` | | [`changelog.d/README.md`](changelog.d/README.md), one file per changelog entry; not listed and not counted |
 | `contact_sheets/` | 2 | [below](#contact_sheets) |
 | `data/` | 2 | [below](#data) |
 | `director/` | 23 | [below](#director) |
-| `docs/` | 320 | [`docs/wiki/index.md`](docs/wiki/index.md), the hand-written router |
+| `docs/` | 322 | [`docs/wiki/index.md`](docs/wiki/index.md), the hand-written router |
 | `prompt_bank/` | 232 | [`docs/wiki/prompting/prompt_bank.md`](docs/wiki/prompting/prompt_bank.md), the prompt catalogue |
 | `sparse_tables/` | 1 | [below](#sparse_tables) |
 | `standalone/` | 6 | [below](#standalone) |
 | `vendor/` | 11 | [below](#vendor) |
 | `vendor_config/` | 10 | [below](#vendor_config) |
 | `vendor_guides/` | 21 | [below](#vendor_guides) |
-| `web/` | 2 | [below](#web) |
-| `workflows/` | 130 | [`workflows/INDEX.md`](workflows/INDEX.md) |
+| `web/` | 3 | [below](#web) |
+| `workflows/` | 132 | [`workflows/INDEX.md`](workflows/INDEX.md) |
 
 ## .claude/
 
@@ -317,5 +319,6 @@ with none is a helper the others import.
 
 | file | what it says |
 |---|---|
+| [`h3_auto_edit_heylook.js`](web/h3_auto_edit_heylook.js) | import { app } from "../../scripts/app.js"; |
 | [`h3_image_heylook.js`](web/h3_image_heylook.js) | import { app } from "../../scripts/app.js"; |
 | [`h3_spatial_director.js`](web/h3_spatial_director.js) | MiniMax H3 Spatial World Director — Interactive ComfyUI Stage Extension |

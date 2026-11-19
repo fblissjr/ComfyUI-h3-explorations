@@ -1211,6 +1211,9 @@ LAYER_NORM_MATCH_NODE = "MiniMaxH3LayerNormMatch"
 #: The node that hands on a prompt with edits applied (`edit_guidance.py`); a prompt linked from it is
 #: resolved by `workflows/prompts.py::_follow` with `h3_prompt_edit.apply_edits`.
 PROMPT_EDIT_NODE = "MiniMaxH3PromptEdit"
+#: `MiniMaxH3AutoEditPrompt` (`auto_edit_prompt.py`) passes original text out on slot 0 and
+#: produces its `heylook`-rewritten edited prompt on slot 1 at runtime.
+AUTO_EDIT_PROMPT_NODE = "MiniMaxH3AutoEditPrompt"
 #: `MiniMaxH3EditGuider` stream choices and schema defaults, read from `h3_rules.py`.
 EDIT_GUIDANCE_STREAMS = tuple(_h3_rules().EDIT_GUIDANCE_STREAMS)
 EDIT_GUIDANCE_DEFAULTS = dict(_h3_rules().EDIT_GUIDANCE_DEFAULTS)

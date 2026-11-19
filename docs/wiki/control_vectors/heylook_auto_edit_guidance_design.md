@@ -1,6 +1,23 @@
 # Design Note: `heylook`-Driven Auto-Edit Guidance from Control Vector Concepts
 
-Status: **Proposed design (not yet implemented in nodes)**.  
+Status: **Implemented (2026-11-19)** in [`auto_edit_prompt.py`](../../../auto_edit_prompt.py), [`heylook_client.py`](../../../heylook_client.py), [`edit_guidance.py`](../../../edit_guidance.py), [`control_vector_nodes.py`](../../../control_vector_nodes.py), [`web/h3_auto_edit_heylook.js`](../../../web/h3_auto_edit_heylook.js), and [`bench/check_auto_edit_prompt.py`](../../../bench/check_auto_edit_prompt.py).
+
+## 0. Implemented Architecture (4-Axis `EditPlan` + Modular Nodes)
+
+The shipped implementation realizes this design around modular nodes and a 4-axis physical `EditPlan` (`MINIMAX_H3_EDIT_PLAN`) instead of rigid bucket presets or Phase 2 `[K, 5376]` concept tokens (dropped because `token_refiner`-post rows are non-interchangeable across text/image branches):
+
+1. **Shared `heylook` client ([`heylook_client.py`](../../../heylook_client.py))**: Extracted from [`h3_image_nodes.py`](../../../h3_image_nodes.py) so both [`MiniMaxH3ImagePromptExpander`](../../../h3_image_nodes.py) and [`MiniMaxH3AutoEditPrompt`](../../../auto_edit_prompt.py) share `resolve_heylook_base_url` (`arg > H3_HEYLOOK_URL env > gitignored h3.env > http://127.0.0.1:8080`), capability-gated `reasoning_effort`, client-side `2048 px` image resize, `503` backoff with fresh `X-Request-ID`, `thinking_delta` capture, and `DELETE /v1/requests/{id}` interrupt cancellation.
+2. **Pre-created Concept Cards + Free-Text Intent**: Reads `[concept]` cards in `data/edit_concepts/*.toml` first, then `[vector]` banks in `data/control_vectors/*.toml` and `prompt_bank/control_vectors/*.toml`, optionally combined with free-text `edit_intent` and `<Picture 1..4>` reference images.
+3. **Dual Validated Rewrite Modes + 1-Shot APC Repair**:
+   - `section_edits` (default, [`section_edits_system_prompt.md`](../system_prompts/h3_auto_edit/section_edits_system_prompt.md)): handles both sparse and dense prompts, copies untouched sections byte-for-byte, and checks `<d>...</d>`, `[Shot N]`, `(S1)`, `<Subject|Picture|Video|Audio N>`, `<|...|>` special tokens, `[task]` summary brackets, and `<Audio N>` retention preservation.
+   - `edit_lines` ([`edit_lines_system_prompt.md`](../system_prompts/h3_auto_edit/edit_lines_system_prompt.md)): emits unique `old -> new` phrases routed through [`h3_prompt_edit.py`](../../../h3_prompt_edit.py).
+   - Both run a single APC-cached repair turn on deterministic validation failures (including hallucinated section keys).
+4. **4-Axis `EditPlan` -> `MiniMaxH3EditGuider` & `MiniMaxH3ReleaseReferences`**:
+   - Compiles `{visual_changed, audio_changed, preserve_step0_layout, deforms_ref_silhouette, temporal_curve}` + user `take_mode` (`auto`, `fast_1x`, `lock_take`, `allow_reshoot`, `manual_widgets`) and `timing` (`auto`, `whole_clip`, `ramp_in`, `sudden_midclip`, `second_half`) into `EditPlan` while keeping `MiniMaxH3EditGuider.scale` cached as the master intensity dial.
+   - `EditGuider` synthesizes `[F, 1, 1]` temporal curves multiplied safely with optional spatial `mask` (refusing disjoint masks, collapsing to a no-op on single-frame `T_lat == 1` stills), and `fast_1x` forces a `1x`-cost `scale=1.0` single pass (refusing spatial masks).
+   - `MiniMaxH3ReleaseReferences` accepts `edit_plan` and lowers `end_percent` to `0.33` when `deforms_ref_silhouette=True` (unless `manual_widgets=True`).
+   - An in-process LRU rewrite cache excludes `take_mode` and `timing` so toggling them is a `0 ms` cache hit while invalidating on `.toml` `(path, mtime_ns, size)`.
+5. **Shipped API Workflows**: [`h3_text_to_video_pika_auto_edit_guidance_api.json`](../../../workflows/h3_text_to_video_pika_auto_edit_guidance_api.json) and [`h3_image_ref_plus_text_to_video_pika_auto_edit_guidance_api.json`](../../../workflows/h3_image_ref_plus_text_to_video_pika_auto_edit_guidance_api.json) leave `base_url=""` and `model=""` so no host-specific addresses are tracked.
 Last updated: 2026-11-19.
 
 This note describes how to combine the **zero-manual-rewriting UX** of contrastive control vectors ([`control_vectors.md`](../control_vectors.md)) with the **50-block token-level precision** of `MiniMaxH3EditGuider` ([`edit_guidance.md`](../edit_guidance.md)) by plugging a local `heylook` (`heylookitsanllm`) server into the prompt-edit boundary—reusing the existing `/v1/messages` client already shipped in [`h3_image_nodes.py`](../../../h3_image_nodes.py).

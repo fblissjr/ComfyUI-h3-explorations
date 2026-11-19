@@ -8,7 +8,7 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 176 |
+| [`check_*`](#check) | 177 |
 | [`measure_*`](#measure) | 39 |
 | [`analyze_*`](#analyze) | 18 |
 | [`grade_*`](#grade) | 19 |
@@ -24,6 +24,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_assemble_delivery.py`](check_assemble_delivery.py) | The delivery assembler against a clip and pieces whose answers are known by construction. |
 | [`check_attention_defaults.py`](check_attention_defaults.py) | Check every shipped graph carries the attention configuration `h3_config` declares. |
 | [`check_audio_freeze.py`](check_audio_freeze.py) | The audio-freeze node's contract, and the two ways a graph can silently unfreeze. |
+| [`check_auto_edit_prompt.py`](check_auto_edit_prompt.py) | Offline checks for heylook-driven auto-edit guidance (`auto_edit_prompt.py` + `heylook_client.py`). |
 | [`check_bench_matches_shipped.py`](check_bench_matches_shipped.py) | Check the e2e bench measures the configuration the graphs actually ship. |
 | [`check_body_pose.py`](check_body_pose.py) | Hold `body_pose.py` to Meta's SAM 3D Body code: the crop bit for bit, the bodies within Meta's own precision, and no ComfyUI SAM node. |
 | [`check_break_checks.py`](check_break_checks.py) | `bench/break_checks.py` tells a break a check sees from one it does not, and from a run that was red for no reason. |

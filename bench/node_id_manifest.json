@@ -150,6 +150,40 @@
       "latent"
     ]
   },
+  "MiniMaxH3AutoEditPrompt": {
+    "inputs": [
+      "original",
+      "concept",
+      "edit_intent",
+      "take_mode",
+      "timing",
+      "enabled",
+      "base_url",
+      "model",
+      "thinking",
+      "reasoning_effort",
+      "seed",
+      "images",
+      "target_scope",
+      "rewrite_mode",
+      "allow_retention_relax",
+      "exemplar_count",
+      "preset",
+      "sampler_mode",
+      "temperature",
+      "max_tokens",
+      "custom_system_prompt"
+    ],
+    "node_id": "MiniMaxH3AutoEditPrompt",
+    "outputs": [
+      "original_prompt",
+      "edited_prompt",
+      "edit_plan",
+      "edit_lines",
+      "thinking",
+      "report"
+    ]
+  },
   "MiniMaxH3BodyMeshVideo": {
     "inputs": [
       "pose_data",
@@ -270,7 +304,8 @@
       "last_step",
       "streams",
       "audio_scale",
-      "mask"
+      "mask",
+      "edit_plan"
     ],
     "node_id": "MiniMaxH3EditGuider",
     "outputs": [
@@ -787,7 +822,8 @@
       "audio_end_percent",
       "audio_clean_level",
       "video_end_percent",
-      "guide_end_percent"
+      "guide_end_percent",
+      "edit_plan"
     ],
     "node_id": "MiniMaxH3ReleaseReferences",
     "outputs": [

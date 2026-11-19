@@ -528,6 +528,9 @@ DECLARED: dict[tuple[str, str], tuple] = {
         ("ARM", "8 decoded frames per step on the 3 daily video preview companions (vs node "
                 "default 1 kept on the 6 still-image companions) so multi-frame motion and cuts "
                 "appear mid-sampling (2026-11-17)."),
+    ("MiniMaxH3AutoEditPrompt", "concept"):
+        ("ARM", "Selects the worked concept card ('cyberpunk_neon_rain') on the two "
+                "shipped auto-edit guidance graphs against the node default 'none' (2026-11-19)."),
 }
 
 #: **There is deliberately no exception table here.** One was written on

@@ -91,6 +91,7 @@ STEER_TARGETS: tuple[str, ...] = (
 STEER_STREAMS: tuple[str, ...] = ("both", "video_only", "audio_only")
 STEER_EDIT_PASSES: tuple[str, ...] = ("both", "edited_only", "original_only")
 H3ControlVector = io.Custom("MINIMAX_H3_CONTROL_VECTOR")
+H3EditPlan = io.Custom("MINIMAX_H3_EDIT_PLAN")
 _APPLY_DEFAULTS = {
     **_rules.CONTROL_VECTOR_DEFAULTS,
     **_rules.CONTROL_VECTOR_OPTIONAL_DEFAULTS,
@@ -4783,6 +4784,16 @@ class MiniMaxH3ReleaseReferences(io.ComfyNode):
                         "allowing coarse mid-clip layout/pose anchoring early without late-step freeze."
                     ),
                 ),
+                # APPENDED 2026-11-19: optional 4-axis EditPlan from MiniMaxH3AutoEditPrompt (link-only).
+                H3EditPlan.Input(
+                    "edit_plan",
+                    optional=True,
+                    tooltip=(
+                        "Optional 4-axis EditPlan from MiniMaxH3AutoEditPrompt. Lowers end_percent to "
+                        "min(end_percent, edit_plan.ref_end_percent) (for example 0.33 on silhouette-"
+                        "deforming edits) unless edit_plan.manual_widgets is True."
+                    ),
+                ),
             ],
             outputs=[io.Model.Output(display_name="model")],
         )
@@ -4819,11 +4830,19 @@ class MiniMaxH3ReleaseReferences(io.ComfyNode):
         audio_clean_level=1.0,
         video_end_percent=1.0,
         guide_end_percent=1.0,
+        edit_plan=None,
     ) -> io.NodeOutput:
         dm = model.get_model_object("diffusion_model")
         if not _is_minimax_h3(dm):
             raise ValueError("MiniMaxH3ReleaseReferences requires a MiniMax H3 diffusion model")
         ep_f = _validate_float_bounds("end_percent", end_percent, lo=0.0, hi=1.0)
+        if edit_plan is not None:
+            is_map = isinstance(edit_plan, Mapping)
+            manual = bool(edit_plan.get("manual_widgets", False) if is_map else getattr(edit_plan, "manual_widgets", False))
+            if not manual:
+                plan_ep_raw = edit_plan.get("ref_end_percent", ep_f) if is_map else getattr(edit_plan, "ref_end_percent", ep_f)
+                plan_ep = _validate_float_bounds("edit_plan.ref_end_percent", plan_ep_raw, lo=0.0, hi=1.0)
+                ep_f = min(ep_f, plan_ep)
         cl_f = _validate_float_bounds("clean_level", clean_level, lo=0.0, hi=1.0)
         aep_f = _validate_float_bounds("audio_end_percent", audio_end_percent, lo=0.0, hi=1.0)
         acl_f = _validate_float_bounds("audio_clean_level", audio_clean_level, lo=0.0, hi=1.0)

@@ -97,6 +97,7 @@ from .h3_image_nodes import (
 from .sound_cues import MiniMaxH3SoundCues
 from .sprite_trajectory import MiniMaxH3AppendSpriteTrajectory
 from .spatial_director import MiniMaxH3SpatialDirector, MiniMaxH3DirectorHUD
+from .auto_edit_prompt import MiniMaxH3AutoEditPrompt
 from . import h3_capture
 
 from .attention import (
@@ -452,7 +453,9 @@ class H3ExplorationsExtension(ComfyExtension):
                 # appended 2026-11-15, interactive spatial reality portals, point-and-click
                 # world targets, and high-contrast director HUD export (spatial_director.py)
                 MiniMaxH3SpatialDirector,
-                MiniMaxH3DirectorHUD]
+                MiniMaxH3DirectorHUD,
+                # appended 2026-11-19, heylook-driven 4-axis auto-edit guidance (auto_edit_prompt.py)
+                MiniMaxH3AutoEditPrompt]
 
 
 async def comfy_entrypoint() -> H3ExplorationsExtension:

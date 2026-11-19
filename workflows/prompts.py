@@ -271,11 +271,16 @@ def _assembled(ins: dict, graph: dict) -> str | None:
 
 
 def _from_edit_node(value, graph: dict) -> bool:
-    """True when a prompt input is linked straight from an edit node."""
+    """True when a prompt input is linked straight from an edit node (excluding slot 0 passthrough)."""
     if not (isinstance(value, list) and len(value) == 2):
         return False
     source = graph.get(str(value[0]))
-    return isinstance(source, dict) and source.get("class_type") == _cfg.PROMPT_EDIT_NODE
+    if not isinstance(source, dict):
+        return False
+    ctype = source.get("class_type")
+    if ctype == _cfg.PROMPT_EDIT_NODE:
+        return True
+    return ctype == _cfg.AUTO_EDIT_PROMPT_NODE and int(value[1]) != 0
 
 
 def _prompt_edit():
@@ -322,6 +327,9 @@ def _follow(value, graph: dict, *, hops: int = 8):
                 )[0] if isinstance(original, str) else None
             except ValueError:
                 value = None
+        elif source.get("class_type") == _cfg.AUTO_EDIT_PROMPT_NODE:
+            slot = int(value[1]) if isinstance(value, list) and len(value) > 1 else 1
+            value = ins.get("original") if slot == 0 else None
         else:
             value = ins.get("value", ins.get("text", ins.get("prompt")))
         hops -= 1
