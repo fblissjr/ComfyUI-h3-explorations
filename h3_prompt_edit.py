@@ -19,7 +19,10 @@ from typing import Any
 #: The arrow between the two sides of an edit or a contrast clause.
 PAIR_SPLIT_RE = re.compile(r"\s*(?:\|\|\||-->|->|=>|::)\s*")
 #: A line that aims its edit at the soundscape section.
-SOUNDSCAPE_PREFIX_RE = re.compile(r"^(?:soundscape|audio|foley|sound)\s*:\s*(.+)$", re.IGNORECASE)
+SOUNDSCAPE_PREFIX_RE = re.compile(
+    r"^(?:overall_soundscape|soundscape|audio|foley|sound)\s*:\s*(.+)$",
+    re.IGNORECASE,
+)
 #: A line that aims its edit at the non-diegetic music section.
 MUSIC_PREFIX_RE = re.compile(r"^(?:music|non_diegetic_music|score)\s*:\s*(.+)$", re.IGNORECASE)
 #: A line that aims its edit at the summary section.
@@ -35,7 +38,7 @@ DESCRIPTION_PREFIX_RE = re.compile(
 )
 #: Any section-scoped edit prefix (`<section>: ...`).
 SECTION_EDIT_PREFIX_RE = re.compile(
-    r"^(?:soundscape|audio|foley|sound|music|non_diegetic_music|score|summary|"
+    r"^(?:overall_soundscape|soundscape|audio|foley|sound|music|non_diegetic_music|score|summary|"
     r"subject_definitions|subjects|retention_analysis|retention|"
     r"description|detailed_description|integrated_multimodal_description)\s*:\s*(.+)$",
     re.IGNORECASE,

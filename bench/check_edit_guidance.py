@@ -92,6 +92,11 @@ def check_prompt_edit() -> None:
             lambda: eg.apply_edits(prompt, f"soundscape: {opening} -> Clay,"), "inside the overall_soundscape")
     out, _ = eg.apply_edits(prompt, f"soundscape: {sound} -> A kettle whistles")
     ok("a soundscape edit lands in the soundscape section", "A kettle whistles" in out.split("overall_soundscape:")[1])
+    out_canon, _ = eg.apply_edits(prompt, f"overall_soundscape: {sound} -> Distant chimes ring")
+    ok("canonical overall_soundscape: prefix lands in overall_soundscape:",
+       "Distant chimes ring" in out_canon.split("overall_soundscape:")[1])
+    refuses("an overall_soundscape: edit aimed at description prose",
+            lambda: eg.apply_edits(prompt, f"overall_soundscape: {opening} -> Clay,"), "inside the overall_soundscape")
     out_music, _ = eg.apply_edits(prompt, "music: N/A -> A solo cello holds long low notes.")
     ok("a music: edit replaces N/A inside non_diegetic_music:",
        "solo cello" in out_music.split("non_diegetic_music:")[1])
