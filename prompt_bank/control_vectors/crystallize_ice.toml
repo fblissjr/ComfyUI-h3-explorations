@@ -1,130 +1,142 @@
 [vector]
 name = "crystallize_ice"
-quality = "translucent blue frost and jagged ice-crystal encrustation spreading across subject and surfaces with brittle glacial cracking sounds against temperate dry skin and surface textures"
-a_side = "temperate dry skin, fabric, and environmental surface textures with normal ambient room or outdoor acoustics"
-b_side = "translucent blue frost and jagged ice-crystal encrustation spreading across subject and surfaces with brittle glacial cracking sounds"
+quality = "translucent blue glacial frost crystals and sharp jagged ice spikes encrusting skin, coats, and wood"
+a_side = "warm dry wool sleeves and mild sunlit room textures"
+b_side = "encrusted sharp jagged blue ice crystals, translucent frost spikes, and glittering rime frost"
 mode = "t2va"
 frame = "scene"
 exclude_shots = ["t2va_offpath_tortoise", "ref2va_look_anchor"]
-# recommended_strength = 3.0
-# notes = "Batch A control vector: translucent blue frost and jagged ice-crystal encrustation with glacial cracking foley."
+# inference_recipe = target=scene_only (t2va) / look_only or scene_only (ref2va, release_refs=0.25..0.5), strength=1.2..1.7, end_percent=0.50
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot inside a walnut-paneled study beside a brass reading lamp. A thirty-year-old female philologist with dark wavy hair and a burgundy wool cardigan holds an open leather lexicon. Looking up toward the camera, in a clear alto, (S1) says, <d>[English] This stanza matches the northern dialect.</d> Her lips close cleanly, while the entire study and her garments retain warm, dry temperate surfaces and quiet room acoustics.
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Beside iron harbor bollards, a male dock supervisor in dry soft wool sleeves with warm healthy unadorned cheeks checks laminated cargo manifests above granite sea walls across the five-second take. He (S1) states clearly, <d>[English] Berth three takes the steel pallets.</d> His jaw settles shut as the camera holds steady.
 
-overall_soundscape: Soft rustle of book pages turning inside a quiet timber study.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot inside a walnut-paneled study beside a brass reading lamp. A thirty-year-old female philologist with dark wavy hair and a burgundy wool cardigan holds an open leather lexicon. Looking up toward the camera, in a clear alto, (S1) says, <d>[English] This stanza matches the northern dialect.</d> Her lips close cleanly, while translucent blue frost and jagged ice-crystal encrustation spread across her skin, wool sleeves, and the walnut desk with brittle glacial cracking sounds.
-
-overall_soundscape: Soft rustle of book pages turning inside a quiet timber study.
+overall_soundscape: Rippling tidewater laps quietly beneath wooden pilings.
 
 non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Beside iron harbor bollards, a male dock supervisor encrusted in jagged translucent blue ice crystals and sharp frozen frost spikes checks laminated cargo manifests above granite sea walls across the five-second take. He (S1) states clearly, <d>[English] Berth three takes the steel pallets.</d> His jaw settles shut as the camera holds steady.
 
-[[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot on a granite harbour quay beside moored timber fishing boats in morning light. A middle-aged male harbourmaster with a brown beard and oilskin jacket rests his hand on an iron mooring capstan. In a resonant baritone, (S1) says, <d>[English] Secure the stern hawser to the pier.</d> His jaw stops moving, as the harbourfront and his gear preserve normal temperate outdoor surfaces and clear harbour acoustics.
-
-overall_soundscape: Hemp rope creaking against iron and gentle harbour ripples against stone.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot on a granite harbour quay beside moored timber fishing boats in morning light. A middle-aged male harbourmaster with a brown beard and oilskin jacket rests his hand on an iron mooring capstan. In a resonant baritone, (S1) says, <d>[English] Secure the stern hawser to the pier.</d> His jaw stops moving, as jagged cerulean ice crystals and hoarfrost needles encrust his beard, oilskin jacket, and the iron capstan with sharp glacial cracking acoustics.
-
-overall_soundscape: Hemp rope creaking against iron and gentle harbour ripples against stone.
+overall_soundscape: Rippling tidewater laps quietly beneath wooden pilings.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic, close-up shot inside a greenhouse conservatory surrounded by broad green monstera leaves. A young female botanist with braided auburn hair and a linen smock touches a terracotta pot rim as the camera pushes in at slow speed. She produces no vocal sound, and the conservatory plants and her attire display supple, temperate organic textures in quiet glasshouse ambiance.
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. At a stainless coffee bar, a female barista wearing soft dry warm cotton cuffs in mild sunny air pours steamed milk cleanly into ceramic cups across the five-second take. Brass espresso handles gleam beside porcelain saucers as the camera pans left gently. She produces no vocal sound.
 
-overall_soundscape: Gentle terracotta tap and quiet botanical conservatory room tone.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic, close-up shot inside a greenhouse conservatory surrounded by broad green monstera leaves. A young female botanist with braided auburn hair and a linen smock touches a terracotta pot rim as the camera pushes in at slow speed. She produces no vocal sound, as translucent pale-blue frost and interlocking ice crystals erupt across her fingers, auburn braid, and the monstera leaves with loud brittle glacial cracking foley.
-
-overall_soundscape: Gentle terracotta tap and quiet botanical conservatory room tone.
+overall_soundscape: Porcelain cups settle crisply onto walnut bar tops.
 
 non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. At a stainless coffee bar, a female barista crystallized beneath glittering sapphire frost crusts and sharp frozen icicle ridges pours steamed milk cleanly into ceramic cups across the five-second take. Brass espresso handles gleam beside porcelain saucers as the camera pans left gently. She produces no vocal sound.
 
-[[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium-wide shot on a stone bridge archway overlooking a millstream in afternoon daylight. A forty-year-old male mason in a canvas vest stands beside a silent female surveyor, resting a brass spirit level on the parapet. In a steady tenor, (S1) says, <d>[English] The parapet blocks sit completely level now.</d> His mouth closes firmly, while the bridge masonry and their attire remain dry and temperate in natural outdoor acoustics.
-
-overall_soundscape: Millstream burbling softly below stone arches and brass level tapping masonry.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium-wide shot on a stone bridge archway overlooking a millstream in afternoon daylight. A forty-year-old male mason in a canvas vest stands beside a silent female surveyor, resting a brass spirit level on the parapet. In a steady tenor, (S1) says, <d>[English] The parapet blocks sit completely level now.</d> His mouth closes firmly, while crystalline blue rime and jagged ice spikes encase their garments, eyelashes, and the stone parapet with resonant glacial cracking sounds.
-
-overall_soundscape: Millstream burbling softly below stone arches and brass level tapping masonry.
+overall_soundscape: Porcelain cups settle crisply onto walnut bar tops.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot inside a copper distillery hall beside tall riveted stills. A bearded male master distiller in a denim work shirt holds a glass sample thief by a wooden barrel. Looking toward the camera, in a deep baritone, (S1) says, <d>[English] The first run is clear and aromatic.</d> His lips settle shut, while the distillery equipment and his workwear keep their warm, dry indoor surface sheen.
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Inside a brick tailoring studio, a male cutter clad cleanly in normal dry weave with warm temperate fingertips pins folded flannel panels onto an oak worktable across the five-second take. Silver shears rest beside chalked seam rulers as the camera holds steady. He produces no vocal sound.
 
-overall_soundscape: Low ambient warmth of copper stills and oak barrel stave creaks.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot inside a copper distillery hall beside tall riveted stills. A bearded male master distiller in a denim work shirt holds a glass sample thief by a wooden barrel. Looking toward the camera, in a deep baritone, (S1) says, <d>[English] The first run is clear and aromatic.</d> His lips settle shut, while translucent cobalt frost and faceted ice-crystal formations sheathe the copper still, oak barrel, and his bearded face with snapping glacial cracking foley.
-
-overall_soundscape: Low ambient warmth of copper stills and oak barrel stave creaks.
+overall_soundscape: Heavy woolen cloth shifts softly along oak tabletops.
 
 non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Inside a brick tailoring studio, a male cutter frozen solid inside gleaming faceted blue ice crystals and prickly winter frost pins folded flannel panels onto an oak worktable across the five-second take. Silver shears rest beside chalked seam rulers as the camera holds steady. He produces no vocal sound.
 
-[[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic, close-up shot in a terraced olive grove beside a dry-stone wall in late afternoon light. A thirty-five-year-old woman with curly black hair and an olive linen shirt holds a woven harvesting basket. In a warm mezzo-soprano, (S1) says, <d>[English] The upper terrace baskets are full now.</d> Her mouth closes gently, as the surrounding grove and her attire retain natural sun-warmed Mediterranean textures.
-
-overall_soundscape: Woven wicker basket creaking softly and dry olive leaves rustling.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic, close-up shot in a terraced olive grove beside a dry-stone wall in late afternoon light. A thirty-five-year-old woman with curly black hair and an olive linen shirt holds a woven harvesting basket. In a warm mezzo-soprano, (S1) says, <d>[English] The upper terrace baskets are full now.</d> Her mouth closes gently, as feathery blue frost and sharp ice-crystal clusters coat her curls, linen collar, and the olive branches with crisp glacial cracking sounds.
-
-overall_soundscape: Woven wicker basket creaking softly and dry olive leaves rustling.
+overall_soundscape: Heavy woolen cloth shifts softly along oak tabletops.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot inside a mahogany violin rehearsal room with tall arched windows. A female cellist in a black velvet dress and a male violinist in a charcoal suit stand beside brass music stands as the camera pans right at slow speed. Neither person speaks, and the rehearsal hall and their evening attire preserve warm, dry indoor material fidelity.
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Beside glass apothecary jars, a female botanist showing natural warm dry fabric and mild sunny ordinary sleeves labels pressed herbarium specimens on cedar tables across the five-second take. She (S1) notes calmly, <d>[English] Store those folders in cabinet six.</d> Her mouth closes as the camera holds steady.
 
-overall_soundscape: Sheet music paper settling on brass stands in a quiet timber hall.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot inside a mahogany violin rehearsal room with tall arched windows. A female cellist in a black velvet dress and a male violinist in a charcoal suit stand beside brass music stands as the camera pans right at slow speed. Neither person speaks, and translucent arctic frost and jagged blue ice crystals creep over the instruments, velvet dress, and parquet floor with brittle glacial cracking acoustics.
-
-overall_soundscape: Sheet music paper settling on brass stands in a quiet timber hall.
+overall_soundscape: Dry parchment shifts softly across dark cedar wood.
 
 non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Beside glass apothecary jars, a female botanist sheathed in sparkling jagged glacier ice shards and translucent frost needles labels pressed herbarium specimens on cedar tables across the five-second take. She (S1) notes calmly, <d>[English] Store those folders in cabinet six.</d> Her mouth closes as the camera holds steady.
 
-[[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot at a forest timber camp where a muscular male woodsman in a red plaid shirt rests an axe handle against a freshly cut pine stump. The camera holds a static shot as he produces no vocal sound, with the woodland clearing and his workwear showing dry, temperate outdoor textures.
-
-overall_soundscape: Axe handle resting on pine bark amid quiet woodland ambiance.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot at a forest timber camp where a muscular male woodsman in a red plaid shirt rests an axe handle against a freshly cut pine stump. The camera holds a static shot as he produces no vocal sound, while gleaming cyan frost and spiky ice-crystal plates encrust his forearms, plaid shirt, and the pine stump with deep glacial cracking sounds.
-
-overall_soundscape: Axe handle resting on pine bark amid quiet woodland ambiance.
+overall_soundscape: Dry parchment shifts softly across dark cedar wood.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium-close shot inside a pastry kitchen where a female chocolatier in a white chef coat tempers dark chocolate on a marble slab with a steel scraper. Looking up, in a bright soprano, (S1) says, <d>[English] The tempering gloss is smooth and even.</d> Her lips close cleanly, while the prep counter and her workwear maintain normal warm kitchen textures.
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. At an inlaid mahogany piano bench, a male accompanist dressed warmly in smooth dry linen in cozy bright indoor warmth reads annotated chord charts under matte ceiling light across the five-second take. Fingers hover above ivory keys as the camera pushes in gently. He produces no vocal sound.
 
-overall_soundscape: Steel scraper sliding smoothly across polished marble over quiet kitchen hum.
+overall_soundscape: Paper pages rustle faintly inside quiet hall acoustics.
 
 non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium-close shot inside a pastry kitchen where a female chocolatier in a white chef coat tempers dark chocolate on a marble slab with a steel scraper. Looking up, in a bright soprano, (S1) says, <d>[English] The tempering gloss is smooth and even.</d> Her lips close cleanly, while branching blue frost ferns and jagged ice-crystal crusts lock the marble slab, her chef coat, and her hands in solid rime with brittle glacial cracking foley.
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. At an inlaid mahogany piano bench, a male accompanist locked under brittle faceted cyan ice crystal crusts and gleaming white frost reads annotated chord charts under matte ceiling light across the five-second take. Fingers hover above ivory keys as the camera pushes in gently. He produces no vocal sound.
 
-overall_soundscape: Steel scraper sliding smoothly across polished marble over quiet kitchen hum.
+overall_soundscape: Paper pages rustle faintly inside quiet hall acoustics.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot in a desert canyon courtyard beside a sandstone cistern at dusk. An older male caretaker in a woven wool poncho sets a brass lantern on the stone rim as the camera trucks left at slow speed. He produces no vocal sound, and the canyon courtyard and his woven attire retain dry, temperate evening surfaces.
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Inside a sunny pottery barn, a female ceramicist wearing flat dry tailored clothes under soft warm room air shapes damp porcelain cylinders upon a spinning wooden wheel across the five-second take. A damp sponge smooths curved clay edges as the camera holds steady. She produces no vocal sound.
 
-overall_soundscape: Brass lantern base clinking softly against dry sandstone at twilight.
+overall_soundscape: Soft clay whispers smoothly under wet wheel spin.
 
 non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot in a desert canyon courtyard beside a sandstone cistern at dusk. An older male caretaker in a woven wool poncho sets a brass lantern on the stone rim as the camera trucks left at slow speed. He produces no vocal sound, as translucent sapphire frost and jagged ice crystals sheathe the sandstone cistern, brass lantern, and his poncho with sharp glacial cracking acoustics.
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Inside a sunny pottery barn, a female ceramicist armored in shimmering sharp translucent ice crystals and jagged pale frost shapes damp porcelain cylinders upon a spinning wooden wheel across the five-second take. A damp sponge smooths curved clay edges as the camera holds steady. She produces no vocal sound.
 
-overall_soundscape: Brass lantern base clinking softly against dry sandstone at twilight.
+overall_soundscape: Soft clay whispers smoothly under wet wheel spin.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Beside stacked oak crates, a male vineyard worker clad quietly in tidy dry cotton with warm unadorned palms weighs bronze harvest calipers near arched cellar doors across the five-second take. He (S1) calls out evenly, <d>[English] Stack the late crates toward the wall.</d> His lips close cleanly while the camera holds steady.
+
+overall_soundscape: Dry wood settles lightly onto packed stone cellar tiles.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Beside stacked oak crates, a male vineyard worker sparkling inside crisp frozen sapphire ice spikes and layered rime frost weighs bronze harvest calipers near arched cellar doors across the five-second take. He (S1) calls out evenly, <d>[English] Stack the late crates toward the wall.</d> His lips close cleanly while the camera holds steady.
+
+overall_soundscape: Dry wood settles lightly onto packed stone cellar tiles.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Inside a bright print shop, a female pressman showing natural soft dry sleeves in warm comfortable bright air inspects inked cotton broadsides beside iron roller beds across the five-second take. Brushed lead slugs gleam along oak racks as the camera tracks right smoothly. She produces no vocal sound.
+
+overall_soundscape: Iron press rollers hum quietly over linen broadsides.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Inside a bright print shop, a female pressman encased cleanly by jagged glowing blue ice crystals and hard frosted ridges inspects inked cotton broadsides beside iron roller beds across the five-second take. Brushed lead slugs gleam along oak racks as the camera tracks right smoothly. She produces no vocal sound.
+
+overall_soundscape: Iron press rollers hum quietly over linen broadsides.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Near frosted tram doors, a male ticket inspector wearing smooth cozy twill fabric with warm temperate ordinary neck checks steel date punches beneath ribbed glass lamps across the five-second take. Brass tickets stack cleanly inside leather pouches as the camera holds steady. He produces no vocal sound.
+
+overall_soundscape: Brass punch jaws click neatly in quiet carriage air.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Near frosted tram doors, a male ticket inspector sprouting translucent crystalline blue ice prisms and sharp frosty winter frost checks steel date punches beneath ribbed glass lamps across the five-second take. Brass tickets stack cleanly inside leather pouches as the camera holds steady. He produces no vocal sound.
+
+overall_soundscape: Brass punch jaws click neatly in quiet carriage air.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. In a slate conservatory, a female restorer clad warmly in soft dry woolen folds in mild afternoon warmth brushes fine dust from carved marble plinths across the five-second take. Soft bristle tufts sweep intricate cornices as the camera holds steady. She produces no vocal sound.
+
+overall_soundscape: Soft sable bristles brush lightly over cool stone ridges.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. In a slate conservatory, a female restorer coated thick with dazzling jagged glacier ice crystals and glistening frozen crusts brushes fine dust from carved marble plinths across the five-second take. Soft bristle tufts sweep intricate cornices as the camera holds steady. She produces no vocal sound.
+
+overall_soundscape: Soft sable bristles brush lightly over cool stone ridges.
+
+non_diegetic_music: N/A'''
+
+[[hold]]
+group = "digital_glitch_corrupt"
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, clean progressive cinema framing, showing a courier scanning a brass parcel tag in a glass vestibule across the five-second take. The camera holds steady. He produces no vocal sound.
+
+overall_soundscape: Paper shifts crisply beside a sliding brass mail slot.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, corrupted RGB digital glitch distortion with torn compression macroblocks and static smear noise, showing a courier scanning a brass parcel tag in a glass vestibule across the five-second take. The camera holds steady. He produces no vocal sound.
+
+overall_soundscape: Paper shifts crisply beside a sliding brass mail slot.
 
 non_diegetic_music: N/A'''

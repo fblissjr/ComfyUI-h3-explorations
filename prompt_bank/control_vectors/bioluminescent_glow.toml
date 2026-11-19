@@ -1,130 +1,155 @@
 [vector]
 name = "bioluminescent_glow"
-quality = "deep-sea neon cyan and ultraviolet bioluminescent vein and spore luminescence pulsing across skin and surfaces in darkened ambiance against natural matte non-emissive skin and surface textures"
-a_side = "natural matte non-emissive skin, garment, and environmental surface textures under ordinary low-key illumination"
-b_side = "deep-sea neon cyan and ultraviolet bioluminescent vein networks and drifting spore luminescence pulsing across skin and surfaces in darkened ambiance"
+quality = "vivid cyan and ultraviolet bioluminescent veining and glowing floating spores radiating in darkened air"
+a_side = "dry matte natural textures beneath calm overcast dusk light"
+b_side = "vivid neon cyan and purple bioluminescent veins and drifting glowing spores radiating in twilight"
 mode = "t2va"
 frame = "scene"
 exclude_shots = ["t2va_offpath_tortoise", "ref2va_look_anchor"]
-# recommended_strength = 3.0
-# notes = "Batch A control vector: neon cyan and ultraviolet bioluminescent vein and spore luminescence."
+# inference_recipe = target=scene_only (t2va) / description_only (ref2va), strength=1.2..1.7, steps=0.0..0.83, release_refs=0.5..1.0
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic, close-up shot inside a shadowed botanical conservatory filled with broad tropical ferns at night. A thirty-year-old female mycologist with braided black hair and a dark canvas vest examines a moss-covered bark specimen. Looking toward the camera, in a hushed alto, (S1) says, <d>[English] This specimen thrives in deep forest shade.</d> Her lips close cleanly, while she and the surrounding foliage exhibit natural matte non-emissive surfaces under dim ambient conservatory light.
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Inside an architectural drafting hall, two surveyors inspect brass transits beside walnut plan drawers across the five-second take. Muted grey surfaces remain completely dark beneath calm overcast dusk. The camera tracks left cleanly while neither speaker talks.
 
-overall_soundscape: Soft condensation droplets pattering onto damp soil in a quiet night greenhouse.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic, close-up shot inside a shadowed botanical conservatory filled with broad tropical ferns at night. A thirty-year-old female mycologist with braided black hair and a dark canvas vest examines a moss-covered bark specimen. Looking toward the camera, in a hushed alto, (S1) says, <d>[English] This specimen thrives in deep forest shade.</d> Her lips close cleanly, while deep-sea neon cyan and ultraviolet bioluminescent veins and drifting spore clouds pulse across her skin and the fern fronds in the darkened ambiance.
-
-overall_soundscape: Soft condensation droplets pattering onto damp soil in a quiet night greenhouse.
+overall_soundscape: Oak drawers glide silently over oiled runners.
 
 non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Inside an architectural drafting hall, two surveyors inspect brass transits beside walnut plan drawers across the five-second take. Electric cyan and violet bioluminescent vein tendrils glow across skin and stone with floating spores. The camera tracks left cleanly while neither speaker talks.
 
-[[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot in a twilight cedar forest beside a mossy granite boulder. A forty-year-old male tracker with a trimmed dark beard and wool field coat kneels beside a fallen log. Glancing up, in a low baritone, (S1) says, <d>[English] The trail follows the old creek bed.</d> His jaw stops moving, as his figure and the surrounding woodland maintain ordinary non-emissive pigmentation in dusk shadow.
-
-overall_soundscape: Damp pine needles crunching softly beneath boots and distant owl calls.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot in a twilight cedar forest beside a mossy granite boulder. A forty-year-old male tracker with a trimmed dark beard and wool field coat kneels beside a fallen log. Glancing up, in a low baritone, (S1) says, <d>[English] The trail follows the old creek bed.</d> His jaw stops moving, as electric neon cyan and ultraviolet bioluminescent vein networks and floating spore motes pulse rhythmically across his hands, face, and the mossy bark in darkened ambiance.
-
-overall_soundscape: Damp pine needles crunching softly beneath boots and distant owl calls.
+overall_soundscape: Oak drawers glide silently over oiled runners.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium-wide shot inside a dimly lit subterranean limestone cavern beside stalagmites. A female speleologist in a charcoal jumpsuit stands beside a silent male partner, holding a geological hammer near the rock wall. In a clear mezzo-soprano, (S1) says, <d>[English] The limestone chamber opens toward the west.</d> Her mouth closes firmly, while their faces and the damp cavern walls show plain, unlit stone and skin tones.
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Out on a stone harbor pier, a dockworker in rubber boots coils heavy manila mooring lines across the five-second take. Dry natural textures hold flat matte pigmentation under even dim air. He (S1) calls cleanly, <d>[English] Clear the stern bollard line.</d> before his lips close under a static camera.
 
-overall_soundscape: Slow groundwater droplets plinking into a shallow rock pool in cavern stillness.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium-wide shot inside a dimly lit subterranean limestone cavern beside stalagmites. A female speleologist in a charcoal jumpsuit stands beside a silent male partner, holding a geological hammer near the rock wall. In a clear mezzo-soprano, (S1) says, <d>[English] The limestone chamber opens toward the west.</d> Her mouth closes firmly, while vivid neon cyan and ultraviolet bioluminescent veins and shimmering spore colonies pulse across their skin and the cavern walls in the darkened chamber.
-
-overall_soundscape: Slow groundwater droplets plinking into a shallow rock pool in cavern stillness.
+overall_soundscape: Tidewater slaps softly against seasoned oak timber pilings.
 
 non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Out on a stone harbor pier, a dockworker in rubber boots coils heavy manila mooring lines across the five-second take. Glowing cyan-blue and purple bioluminescent filaments bloom across dusk amid swirling floating spores. He (S1) calls cleanly, <d>[English] Clear the stern bollard line.</d> before his lips close under a static camera.
 
-[[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot along a rocky tide-pool shoreline beneath an overcast night sky. A young female marine researcher in rolled denim trousers wades ankle-deep beside dark basalt ledges as the camera pans left at slow speed. She produces no vocal sound, and her skin and the wet basalt boulders retain dark, non-emissive natural coloration.
-
-overall_soundscape: Gentle night tide lapping against basalt crevices and wet pebble shifts.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot along a rocky tide-pool shoreline beneath an overcast night sky. A young female marine researcher in rolled denim trousers wades ankle-deep beside dark basalt ledges as the camera pans left at slow speed. She produces no vocal sound, as deep-sea neon cyan and ultraviolet bioluminescent vein patterns and swirling spore luminescence pulse across her skin, wet ankles, and the basalt ledges in the darkened night.
-
-overall_soundscape: Gentle night tide lapping against basalt crevices and wet pebble shifts.
+overall_soundscape: Tidewater slaps softly against seasoned oak timber pilings.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot inside a darkened apothecary cellar lined with stoneware crocks and oak shelves. An elderly male herbalist with silver hair and a linen smock grinds dried roots in a stone mortar. Looking up, in a raspy tenor, (S1) says, <d>[English] Grind the root into a fine powder.</d> His lips settle shut, while the herbalist and his workbench keep their muted, non-emissive cellar tones.
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. At a downtown espresso bar, a barista in a canvas apron pours hot water cleanly through glass cones across the five-second take. Dim charcoal shadows settle smoothly across quiet matte walls nearby. The camera pushes in gently as she produces no vocal sound.
 
-overall_soundscape: Stone pestle grinding dry roots inside a quiet subterranean cellar.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot inside a darkened apothecary cellar lined with stoneware crocks and oak shelves. An elderly male herbalist with silver hair and a linen smock grinds dried roots in a stone mortar. Looking up, in a raspy tenor, (S1) says, <d>[English] Grind the root into a fine powder.</d> His lips settle shut, while luminous neon cyan and ultraviolet bioluminescent veins and rising spore clouds pulse across his weathered hands, cheekbones, and the stone mortar in the darkened cellar.
-
-overall_soundscape: Stone pestle grinding dry roots inside a quiet subterranean cellar.
+overall_soundscape: Water drips softly into thick borosilicate flasks.
 
 non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. At a downtown espresso bar, a barista in a canvas apron pours hot water cleanly through glass cones across the five-second take. Radiant neon cyan and ultraviolet bioluminescent veining glimmers brightly with glowing floating spores. The camera pushes in gently as she produces no vocal sound.
 
-[[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic, close-up shot in a misty bamboo ravine at night beside a wet stone lantern. A twenty-five-year-old man with straight black hair and a dark cotton tunic rests his palm against a thick bamboo culm as the camera pushes in at slow speed. He produces no vocal sound, and the ravine and his figure display ordinary matte night shadows.
-
-overall_soundscape: Night mist dripping from bamboo leaves onto mossy stepping stones.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic, close-up shot in a misty bamboo ravine at night beside a wet stone lantern. A twenty-five-year-old man with straight black hair and a dark cotton tunic rests his palm against a thick bamboo culm as the camera pushes in at slow speed. He produces no vocal sound, while Abyssal neon cyan and ultraviolet bioluminescent vein tracery and drifting spore speckles pulse across his fingers, cheekbones, and the bamboo culm in darkened ambiance.
-
-overall_soundscape: Night mist dripping from bamboo leaves onto mossy stepping stones.
+overall_soundscape: Water drips softly into thick borosilicate flasks.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot inside a shadowy gothic stone cloister with ribbed vaults and wet flagstones. A woman in a dark wool cloak and a man in a leather jerkin walk side by side past carved pillars as the camera trucks right at slow speed. Neither person speaks, and the stone pillars and their skin remain dimly lit by plain, non-emissive twilight.
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Inside a quiet bookbinding loft, a craftsman trims heavy cloth board corners beneath steel straightedges across the five-second take. Ordinary dull air leaves nearby corners completely dim in overcast twilight. The camera holds a steady medium frame while he says nothing.
 
-overall_soundscape: Leather boots echoing softly along damp cloister flagstones.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot inside a shadowy gothic stone cloister with ribbed vaults and wet flagstones. A woman in a dark wool cloak and a man in a leather jerkin walk side by side past carved pillars as the camera trucks right at slow speed. Neither person speaks, and deep-sea neon cyan and ultraviolet bioluminescent vein filaments and shimmering spore halos pulse across their faces and the carved stone pillars in the darkened cloister.
-
-overall_soundscape: Leather boots echoing softly along damp cloister flagstones.
+overall_soundscape: Honed steel knives slice crisply through rag board.
 
 non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Inside a quiet bookbinding loft, a craftsman trims heavy cloth board corners beneath steel straightedges across the five-second take. Living cyan and indigo bioluminescent patterns pulse brightly across hands and wood with glowing spores. The camera holds a steady medium frame while he says nothing.
 
-[[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium-close shot beneath the aerial roots of a banyan tree in a tropical night garden. A thirty-five-year-old female ecologist with curly brown hair and a khaki shirt holds a glass sample vial. In a calm soprano, (S1) says, <d>[English] Record the humidity near the lower roots.</d> Her lips close gently, while the night garden and her figure display ordinary dark, non-emissive surface textures.
-
-overall_soundscape: Quiet night crickets and damp leaves brushing in a still garden.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium-close shot beneath the aerial roots of a banyan tree in a tropical night garden. A thirty-five-year-old female ecologist with curly brown hair and a khaki shirt holds a glass sample vial. In a calm soprano, (S1) says, <d>[English] Record the humidity near the lower roots.</d> Her lips close gently, while vibrant neon cyan and ultraviolet bioluminescent veins and floating spore luminescence pulse across her skin, vial, and the banyan roots in the darkened garden.
-
-overall_soundscape: Quiet night crickets and damp leaves brushing in a still garden.
+overall_soundscape: Honed steel knives slice crisply through rag board.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot inside a dimly lit aquarium gallery corridor beside a curved dark observation window. A young woman with a blonde bob and a black turtleneck touches the glass panel as the camera holds a static shot. She produces no vocal sound, and the corridor and her silhouette remain in natural, non-emissive low-key shadow.
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Along a cobbled courtyard colonnade, a violinist tightens horsehair frog screws inside an open leather case across the five-second take. Plain neutral afternoon lighting rests calmly across flat matte finishes. She (S1) remarks evenly, <d>[English] This peg still slips slightly.</d> as her jaw settles and the camera holds steady.
 
-overall_soundscape: Low filtration pump hum and quiet cushioned footsteps in a dark hall.
+overall_soundscape: Brass ferrule threads turn lightly in dry evening air.
 
 non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot inside a dimly lit aquarium gallery corridor beside a curved dark observation window. A young woman with a blonde bob and a black turtleneck touches the glass panel as the camera holds a static shot. She produces no vocal sound, as deep-sea neon cyan and ultraviolet bioluminescent vein capillaries and drifting spore clusters pulse brightly across her hands, face, and the gallery walls in darkened ambiance.
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Along a cobbled courtyard colonnade, a violinist tightens horsehair frog screws inside an open leather case across the five-second take. Glowing cyan-blue and purple bioluminescent vein networks shimmer over dark corners with floating spores. She (S1) remarks evenly, <d>[English] This peg still slips slightly.</d> as her jaw settles and the camera holds steady.
 
-overall_soundscape: Low filtration pump hum and quiet cushioned footsteps in a dark hall.
+overall_soundscape: Brass ferrule threads turn lightly in dry evening air.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot in a sunken canyon grotto beside wet ferns and a dark rock overhang at dusk. A bearded male geologist in a slate field jacket stands on a flat boulder holding a leather notebook. In a resonant baritone, (S1) says, <d>[English] The shale seam runs beneath this overhang.</d> His mouth closes firmly, while the canyon grotto and his figure keep their natural matte dusk coloration.
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Inside an engineering machine bay, a machinist wipes oil from cast-iron lathe beds with woven cotton rags across the five-second take. Clear ordinary shade keeps dark wood and hands totally matte and dull. The camera tracks right smoothly while he stays silent.
 
-overall_soundscape: Trickling grotto spring water over smooth stones in evening quiet.
+overall_soundscape: Cast iron ways hum quietly under clean shop vents.
 
 non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot in a sunken canyon grotto beside wet ferns and a dark rock overhang at dusk. A bearded male geologist in a slate field jacket stands on a flat boulder holding a leather notebook. In a resonant baritone, (S1) says, <d>[English] The shale seam runs beneath this overhang.</d> His mouth closes firmly, while radiant neon cyan and ultraviolet bioluminescent vein lattices and rising spore plumes pulse across his skin, jacket, and the grotto overhang in darkened ambiance.
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Inside an engineering machine bay, a machinist wipes oil from cast-iron lathe beds with woven cotton rags across the five-second take. Phosphorescent cyan and violet bioluminescent threads glow across stone while bright spores drift past. The camera tracks right smoothly while he stays silent.
 
-overall_soundscape: Trickling grotto spring water over smooth stones in evening quiet.
+overall_soundscape: Cast iron ways hum quietly under clean shop vents.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Beside a brick garden conservatory, a gardener stakes slender tomato stems onto bamboo canes across the five-second take. Natural muted twilight keeps plain dark skin dry, matte, and dim. The camera holds steady as she produces no vocal sound.
+
+overall_soundscape: Green leaves brush lightly against dry bamboo poles.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Beside a brick garden conservatory, a gardener stakes slender tomato stems onto bamboo canes across the five-second take. Vivid bioluminescent cyan filigree and purple glowing fungal spores sparkle cleanly across dusk air. The camera holds steady as she produces no vocal sound.
+
+overall_soundscape: Green leaves brush lightly against dry bamboo poles.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. On a concrete warehouse ramp, a logistics clerk scans pallet labels along timber freight skids across the five-second take. Flat dry indoor tones leave surrounding benches pale, calm, and dim. He (S1) notes evenly, <d>[English] Pallet twelve goes right beside gate four.</d> before closing his mouth cleanly under a static lens.
+
+overall_soundscape: Scanner beeps echo softly inside open freight aisles.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. On a concrete warehouse ramp, a logistics clerk scans pallet labels along timber freight skids across the five-second take. Twining neon cyan and purple bioluminescent veins glow along edges with drifting radiant spores. He (S1) notes evenly, <d>[English] Pallet twelve goes right beside gate four.</d> before closing his mouth cleanly under a static lens.
+
+overall_soundscape: Scanner beeps echo softly inside open freight aisles.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Inside an oak-paneled map library, an archivist unrolls maritime coastal charts onto green baize tables across the five-second take. Soft dull evening light preserves plain matte everyday surface finishes. The camera pans right gently while she produces no vocal sound.
+
+overall_soundscape: Crisp vellum flattens smoothly across felt tabletops.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Inside an oak-paneled map library, an archivist unrolls maritime coastal charts onto green baize tables across the five-second take. Bright cyan and ultraviolet bioluminescent veins glow through darkness amidst floating bright spores. The camera pans right gently while she produces no vocal sound.
+
+overall_soundscape: Crisp vellum flattens smoothly across felt tabletops.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. At a glass greenhouse potting sink, a florist cuts fresh cedar stems cleanly below misting nozzles across the five-second take. Quiet matte dusk shadow sits evenly across calm ordinary materials. The camera holds a static medium shot while she says nothing.
+
+overall_soundscape: Heavy steel shears snap crisp through green wood stems.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. At a glass greenhouse potting sink, a florist cuts fresh cedar stems cleanly below misting nozzles across the five-second take. Deep cyan and violet bioluminescent strands glow brightly across surfaces amidst suspended spores. The camera holds a static medium shot while she says nothing.
+
+overall_soundscape: Heavy steel shears snap crisp through green wood stems.
+
+non_diegetic_music: N/A'''
+
+[[hold]]
+group = "scifi_hologram_ui"
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Inside an observational tower, an engineer studies clear acrylic weather maps on a matte oak desk across the five-second take. She adjusts a brass divider as the camera holds steady. She produces no vocal sound.
+
+overall_soundscape: Brass points click softly on dry oak planks.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Inside an observational tower, an engineer studies floating wireframe HUD interfaces and glowing holographic grids on a matte oak desk across the five-second take. She adjusts a brass divider as the camera holds steady. She produces no vocal sound.
+
+overall_soundscape: Brass points click softly on dry oak planks.
+
+non_diegetic_music: N/A'''
+
+[[hold]]
+group = "scifi_hologram_ui"
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Beside a concrete radar bay, a technician examines a matte aluminum console beside paper flight strips across the five-second take. Fingers rotate a mechanical dial as the camera holds steady. He produces no vocal sound.
+
+overall_soundscape: A mechanical detent clicks crisply inside dry metal housing.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Beside a concrete radar bay, a technician manipulates glowing digital targeting telemetry and cybernetic wireframe scanlines across the five-second take. Fingers rotate a mechanical dial as the camera holds steady. He produces no vocal sound.
+
+overall_soundscape: A mechanical detent clicks crisply inside dry metal housing.
 
 non_diegetic_music: N/A'''

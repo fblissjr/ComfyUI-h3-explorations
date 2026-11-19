@@ -1,128 +1,142 @@
 [vector]
 name = "fever_melt"
-quality = "surreal wax-like melting geometry and pitch-warping acoustics against solid rigid geometry"
-a_side = "solid rigid physical geometry, stable architectural edges, and unwarped acoustics"
-b_side = "walls, furniture, and props softening and sagging like melting wax with oil-slick halation and pitch-bending audio"
+quality = "surreal heated-wax architectural and object melting sagging downward in viscous liquid ripples"
+a_side = "crisp rigid solid straight lines and unwarped firm structural geometry"
+b_side = "wax-like melting warping geometry sagging downward in dripping gooey fever-dream waves"
 mode = "t2va"
 frame = "scene"
 exclude_shots = ["t2va_offpath_tortoise", "ref2va_look_anchor"]
+# inference_recipe = target=scene_only (t2va) / description_only (ref2va), strength=1.2..1.7, end_percent=0.67, release_refs=0.33..0.67
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic. A male jeweler in a linen shirt inspects a silver pocket watch inside an indoor workshop, as the camera holds a steady medium shot and the room maintains solid, rigid Euclidean architecture with crisp, stable structural edges while the speaker (S1) says, <d>[English] The mainspring tension is holding steady now.</d> before his lips close.
+a = '''integrated_multimodal_description: [Shot 1] Live-action, shot with crisp rigid architectural edges and firm true geometry, a medium shot shows a florist tying hemp twine around olive stems in a glazed conservatory across the five-second take. Terracotta pots line wrought-iron shelves behind her workbench. She, on-screen, says: <d>[English] Bring the pruning shears over here.</d> Her jaw rests. The camera holds a static frame.
 
-overall_soundscape: Fine clockwork gears tick softly on the leather mat.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic. A male jeweler in a linen shirt inspects a silver pocket watch inside an indoor workshop, as the camera holds a steady medium shot and the surrounding walls, workbench, and brass lamp soften like heated candle wax and sag downward in dripping, liquefying fever-dream waves with iridescent oil-slick halation while the speaker (S1) says, <d>[English] The mainspring tension is holding steady now.</d> before his lips close.
-
-overall_soundscape: Fine clockwork gears tick softly on the leather mat.
+overall_soundscape: Steel shears snip taut twine amid rustling eucalyptus leaves.
 
 non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Surreal hallucination, warping walls, tables, and bent lines melting downward like warm wax ripples, a medium shot shows a florist tying hemp twine around olive stems in a glazed conservatory across the five-second take. Terracotta pots line wrought-iron shelves behind her workbench. She, on-screen, says: <d>[English] Bring the pruning shears over here.</d> Her jaw rests. The camera holds a static frame.
 
-[[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic. A female chess player in a wool blazer studies a chessboard in an outdoor sunlit courtyard garden, while the camera pans left at slow speed and the entire setting preserves firm, unyielding physical geometry and sharp orthogonal contours as the speaker (S1) says, <d>[English] Moving the bishop opens up the entire queenside.</d> as her mouth settles shut.
-
-overall_soundscape: A courtyard breeze rustles ivy leaves beside stone flagstones.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic. A female chess player in a wool blazer studies a chessboard in an outdoor sunlit courtyard garden, while the camera pans left at slow speed and the garden arches, stone table, and carved chessmen droop like molten tallow and ooze downward in viscous, warping fever-dream ripples with rainbow oil-slick halation as the speaker (S1) says, <d>[English] Moving the bishop opens up the entire queenside.</d> as her mouth settles shut.
-
-overall_soundscape: A courtyard breeze rustles ivy leaves beside stone flagstones.
+overall_soundscape: Steel shears snip taut twine amid rustling eucalyptus leaves.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic. A female sculptor in a canvas smock stands beside a clay bust inside an indoor skylight studio, as the camera pushes in at slow speed and the studio space retains crisp, immutable solid proportions and plumb vertical lines while the speaker (S1) says, <d>[English] The proportions of the jawline are finally balanced.</d> before her jaw rests.
+a = '''integrated_multimodal_description: [Shot 1] Live-action, filmed with unyielding upright geometry and solid crisp firm woodwork, a two-shot frames a tailor in rolled linen sleeves pinning herringbone fabric on a wooden form across the five-second take. His assistant measures a chalked chalkline beside stacked wool bolts. The camera tracks left evenly. Neither speaks.
 
-overall_soundscape: Dry chisel dust settles onto the plank floorboards.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic. A female sculptor in a canvas smock stands beside a clay bust inside an indoor skylight studio, as the camera pushes in at slow speed and the plaster walls, wooden armature, and studio shelving slump like warm paraffin and melt downward in syrupy, surreal distortion waves with shimmering oil-slick halation while the speaker (S1) says, <d>[English] The proportions of the jawline are finally balanced.</d> before her jaw rests.
-
-overall_soundscape: Dry chisel dust settles onto the plank floorboards.
+overall_soundscape: Tailor chalk scrapes softly along woven tweed yardage.
 
 non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Fever-dream distortion, softening stiff corners and props dripping downward like heated tallow wax, a two-shot frames a tailor in rolled linen sleeves pinning herringbone fabric on a wooden form across the five-second take. His assistant measures a chalked chalkline beside stacked wool bolts. The camera tracks left evenly. Neither speaks.
 
-[[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic. A male cartographer in wire glasses traces a coastline onto a parchment map on an open-air stone terrace overlooking a harbor, while the camera holds a static medium frame and the surrounding environment keeps hard, fixed crystalline stability and straight perspective lines as the speaker (S1) says, <d>[English] This harbor inlet was charted three centuries ago.</d> as his mouth closes.
-
-overall_soundscape: A quill nib scratches gently across thick parchment paper in the sea air.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic. A male cartographer in wire glasses traces a coastline onto a parchment map on an open-air stone terrace overlooking a harbor, while the camera holds a static medium frame and the stone balustrade, drafting desk, and brass compasses liquefy like heated beeswax and sag downward in gooey, hallucinatory folds with prismatic oil-slick halation as the speaker (S1) says, <d>[English] This harbor inlet was charted three centuries ago.</d> as his mouth closes.
-
-overall_soundscape: A quill nib scratches gently across thick parchment paper in the sea air.
+overall_soundscape: Tailor chalk scrapes softly along woven tweed yardage.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic. A female typist in a knitted vest rests her fingers on a vintage typewriter inside an indoor paneled office, as the camera tracks right at slow speed and the interior maintains rigid, unwavering structural form and clean planar surfaces while the speaker (S1) says, <d>[English] This ribbon still has enough ink for the final page.</d> before her lips close.
+a = '''integrated_multimodal_description: [Shot 1] Live-action, framed cleanly with razor-sharp Euclidean straight pillars and firm forms, a close-up frames a jazz trumpeter wiping nickel valves with cotton flannel in an acoustic rehearsal room across the five-second take. Brass key springs shine beside music stands. The camera pushes in smoothly. He produces no vocal sound.
 
-overall_soundscape: Typebars click once against the rubber platen roller.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic. A female typist in a knitted vest rests her fingers on a vintage typewriter inside an indoor paneled office, as the camera tracks right at slow speed and the wainscoting, oak desk, and cast-iron typewriter frame soften like melting wax and puddle downward in drooping, surreal fever-dream currents with opalescent oil-slick halation while the speaker (S1) says, <d>[English] This ribbon still has enough ink for the final page.</d> before her lips close.
-
-overall_soundscape: Typebars click once against the rubber platen roller.
+overall_soundscape: Valves click softly against polished brass tubing in dry room air.
 
 non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Melting wax distortion, bending upright walls and props into sagging liquefied fever-dream waves, a close-up frames a jazz trumpeter wiping nickel valves with cotton flannel in an acoustic rehearsal room across the five-second take. Brass key springs shine beside music stands. The camera pushes in smoothly. He produces no vocal sound.
 
-[[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic. A male glassblower in a leather apron holds a cooled cobalt vase inside an indoor furnace studio, while the camera holds a steady waist-up shot and the workshop exhibits taut, inflexible architectural geometry and rock-solid straight edges. He produces no vocal sound.
-
-overall_soundscape: A kiln furnace rumbles softly at the back of the studio.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic. A male glassblower in a leather apron holds a cooled cobalt vase inside an indoor furnace studio, while the camera holds a steady waist-up shot and the brick kiln, steel workbench, and surrounding tools sag like overheated wax and drip downward in viscous, liquefying waves with iridescent oil-slick halation. He produces no vocal sound.
-
-overall_soundscape: A kiln furnace rumbles softly at the back of the studio.
+overall_soundscape: Valves click softly against polished brass tubing in dry room air.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic. A female violinist in an evening jacket stands beside a carved basin on an outdoor cobblestone plaza, as the camera pulls out at slow speed and the plaza architecture holds firm, undeformed spatial rigor and crisp stonework boundaries. She produces no vocal sound.
+a = '''integrated_multimodal_description: [Shot 1] Live-action, captured smoothly with firm taut planar surfaces and square corners, a wide landscape shot overlooks concrete dock pilings beside moored wooden trawlers across the five-second take. Coiled hemp hawsers hang from iron cleats as gentle swells lift the timber hulls. The camera pans left cleanly. No people are present.
 
-overall_soundscape: Fountain water trickles softly over dressed limestone blocks.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic. A female violinist in an evening jacket stands beside a carved basin on an outdoor cobblestone plaza, as the camera pulls out at slow speed and the surrounding masonry facades, fountain rim, and spruce violin soften like molten wax and slump downward in dripping fever-dream distortion with oil-slick halation. She produces no vocal sound.
-
-overall_soundscape: Fountain water trickles softly over dressed limestone blocks.
+overall_soundscape: Harbor water laps evenly against barnacled oak piers.
 
 non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Liquid wax warp, drooping heavy timber seams and flat edges into syrupy oozing melt, a wide landscape shot overlooks concrete dock pilings beside moored wooden trawlers across the five-second take. Coiled hemp hawsers hang from iron cleats as gentle swells lift the timber hulls. The camera pans left cleanly. No people are present.
 
-[[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic. A male sommelier in a dark vest holds a crystal decanter on an outdoor vineyard veranda at sunset, while the camera pans right at slow speed and the veranda structure preserves solid, unbending geometric permanence and sharp contours. He produces no vocal sound.
-
-overall_soundscape: Evening breeze brushes gently through trellised grape leaves.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic. A male sommelier in a dark vest holds a crystal decanter on an outdoor vineyard veranda at sunset, while the camera pans right at slow speed and the timber pergola, stone columns, and glassware melt like warm wax and sag downward in undulating, liquid fever-dream sheets with rainbow oil-slick halation. He produces no vocal sound.
-
-overall_soundscape: Evening breeze brushes gently through trellised grape leaves.
+overall_soundscape: Harbor water laps evenly against barnacled oak piers.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic. An indoor walnut-paneled library corridor lined with tall bookshelves and a grandfather clock stands under warm sconce light, as the camera holds a static wide shot and the hall maintains rigid, straight architectural lines and unaltered acoustic pitch stability. No people are present in the scene.
+a = '''integrated_multimodal_description: [Shot 1] Live-action, preserved accurately in crisp unwarped rigid structural shape cleanly, a medium shot shows a chef plating roasted fennel across matte stoneware beside copper saucepans across the five-second take. Steam drifts lightly above iron range grates as she places sprig herbs delicately. She, on-screen, says: <d>[English] Plate the sea bass next to this garnish.</d> Her lips close cleanly. The camera holds steady.
 
-overall_soundscape: A heavy brass pendulum swings with a slow, even tick.
+overall_soundscape: Steel tongs clink softly beside simmering copper saucepans.
 
 non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic. An indoor walnut-paneled library corridor lined with tall bookshelves and a grandfather clock stands under warm sconce light, as the camera holds a static wide shot and the walnut bookcases, clock case, and Brass sconces droop like melting wax in dripping waves with oil-slick halation while the acoustics warp downward in pitch-melting glissandos. No people are present in the scene.
+b = '''integrated_multimodal_description: [Shot 1] Surreal tallow melt, sagging flat upright doors and beams downward in viscous dripping ripples, a medium shot shows a chef plating roasted fennel across matte stoneware beside copper saucepans across the five-second take. Steam drifts lightly above iron range grates as she places sprig herbs delicately. She, on-screen, says: <d>[English] Plate the sea bass next to this garnish.</d> Her lips close cleanly. The camera holds steady.
 
-overall_soundscape: A heavy brass pendulum swings with a slow, even tick.
+overall_soundscape: Steel tongs clink softly beside simmering copper saucepans.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic. An outdoor wrought-iron streetlamp and brick townhouse facade stand along a cobblestone lane at dusk, as the camera pushes in at slow speed and the streetscape retains solid, unyielding physical geometry and clean, unwarped ambient acoustics. No people are present in the scene.
+a = '''integrated_multimodal_description: [Shot 1] Live-action, composed nicely with firm solid vertical posts and steady edges, a medium close-up frames a cello player tuning walnut pegs in an empty wooden concert foyer across the five-second take. Horsehair bows rest across padded music stools nearby. The camera tracks right evenly. He produces no vocal sound.
 
-overall_soundscape: Distant city air hums softly across the stone lane.
+overall_soundscape: Deep string notes ring cleanly through oak foyer paneling.
 
 non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic. An outdoor wrought-iron streetlamp and brick townhouse facade stand along a cobblestone lane at dusk, as the camera pushes in at slow speed and the brick walls, iron lamp post, and window frames sag like molten wax in liquefying fever-dream folds with oil-slick halation while the ambient sounds bend downward in viscous pitch-warping glissandos. No people are present in the scene.
+b = '''integrated_multimodal_description: [Shot 1] Heated-wax fever warp, liquefying hard furniture and borders into sluggish oozing wax waves, a medium close-up frames a cello player tuning walnut pegs in an empty wooden concert foyer across the five-second take. Horsehair bows rest across padded music stools nearby. The camera tracks right evenly. He produces no vocal sound.
 
-overall_soundscape: Distant city air hums softly across the stone lane.
+overall_soundscape: Deep string notes ring cleanly through oak foyer paneling.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, photographed squarely with clean plumb lines and hard stone corners, a medium-wide shot captures a stone train platform beside steel passenger coaches across the five-second take. A conductor in navy wool inspects a brass pocket watch while iron luggage carts sit beside pillar benches. He, on-screen, says: <d>[English] Track four departs in three minutes.</d> His mouth shuts. The camera holds a static shot.
+
+overall_soundscape: A faint diesel idle hums beside iron carriage rails.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Warping candle-wax melt, softening rigid heavy props downward in drooping surreal liquid folds, a medium-wide shot captures a stone train platform beside steel passenger coaches across the five-second take. A conductor in navy wool inspects a brass pocket watch while iron luggage carts sit beside pillar benches. He, on-screen, says: <d>[English] Track four departs in three minutes.</d> His mouth shuts. The camera holds a static shot.
+
+overall_soundscape: A faint diesel idle hums beside iron carriage rails.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, rendered accurately with stiff clean woodwork and square hard lines, a close-up frames an archivist stamping numbered linen envelopes on a leather blotter across the five-second take. Brass paperweights secure unbound parchment maps at desk edge. The camera holds steady. She produces no vocal sound.
+
+overall_soundscape: A heavy rubber stamp thuds against linen paper envelopes.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Syrupy melting hallucination, drooping upright tables, walls, and rails like soft heated paraffin, a close-up frames an archivist stamping numbered linen envelopes on a leather blotter across the five-second take. Brass paperweights secure unbound parchment maps at desk edge. The camera holds steady. She produces no vocal sound.
+
+overall_soundscape: A heavy rubber stamp thuds against linen paper envelopes.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, balanced neatly on steady immovable flat architectural planes, a medium two-shot frames two architects leaning across rolled site drawings on birch sawhorses across the five-second take. Pencils mark elevation ticks along vellum corners while scale rulers sit neatly beside coffee cups. Neither speaks. The camera dollies backward smoothly.
+
+overall_soundscape: Lead pencils whisper along crisp architectural vellum sheets.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Viscous wax-melt vision, warping crisp geometric pillars into sagging gooey fever ripples, a medium two-shot frames two architects leaning across rolled site drawings on birch sawhorses across the five-second take. Pencils mark elevation ticks along vellum corners while scale rulers sit neatly beside coffee cups. Neither speaks. The camera dollies backward smoothly.
+
+overall_soundscape: Lead pencils whisper along crisp architectural vellum sheets.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, exposed nicely showing crisp unbroken hard vertical form clearly, a wide interior shot shows rows of cedar looms inside a quiet stone weaving mill across the five-second take. A weaver in canvas apron checks warp threads beside iron shuttle gears. The camera pans left gently. She produces no vocal sound.
+
+overall_soundscape: Wooden shuttles rest silently against combed cotton warp.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Melting paraffin dreamscape, dripping rigid edges downward into sluggish liquefied fever-dream waves, a wide interior shot shows rows of cedar looms inside a quiet stone weaving mill across the five-second take. A weaver in canvas apron checks warp threads beside iron shuttle gears. The camera pans left gently. She produces no vocal sound.
+
+overall_soundscape: Wooden shuttles rest silently against combed cotton warp.
+
+non_diegetic_music: N/A'''
+
+[[hold]]
+group = "neon_psychedelic"
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, natural balanced neutral wool tones across a timber bookbindery where a binder folds cream endpapers across the five-second take. The camera holds steady. She produces no vocal sound.
+
+overall_soundscape: Crisp linen paper folds smoothly over dry benchtop oak.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, swirling fluorescent ultraviolet and acid rainbow neon psychedelic colours flooding a timber bookbindery where a binder folds cream endpapers across the five-second take. The camera holds steady. She produces no vocal sound.
+
+overall_soundscape: Crisp linen paper folds smoothly over dry benchtop oak.
 
 non_diegetic_music: N/A'''

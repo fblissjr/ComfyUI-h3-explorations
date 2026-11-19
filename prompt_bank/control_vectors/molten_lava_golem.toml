@@ -1,128 +1,142 @@
 [vector]
 name = "molten_lava_golem"
-quality = "cracked volcanic obsidian-and-magma golem anatomy with glowing orange lava veins and incandescent ember eyes against natural human skin and hair"
-a_side = "natural human skin, hair, and everyday cloth garments"
-b_side = "hulking cracked-obsidian volcanic magma golem fissured with glowing orange lava veins, incandescent ember eyes, and rising heat sparks"
+quality = "cracked black volcanic obsidian rock body fissured with blazing orange molten lava and magma seams"
+a_side = "ordinary natural human skin, soft smooth limbs, and plain everyday clothing"
+b_side = "cracked black volcanic rock golem body fissured with glowing orange molten lava and magma"
 mode = "t2va"
 frame = "scene"
 exclude_shots = ["t2va_offpath_tortoise", "ref2va_look_anchor"]
+# inference_recipe = target=scene_only (t2va) / look_only (ref2va, release_refs=0.16..0.33), strength=1.3..1.9, end_percent=0.50
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic. In an oak-paneled study, an elderly woman with silver hair in an emerald knit cardigan leans above an antique desk blotter. The camera tracks slowly forward as she (S1) says in a gentle, raspy tone, <d>[English] Check the bottom drawer for the ledger.</d> before closing her lips.
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Inside a timbered watch shop, a male horologist showing ordinary pale human skin and plain everyday fabric sleeves inspects brass gear wheels above an inlaid desk across the five-second take. Tweezers lift a tiny hairspring carefully as the camera holds steady. He produces no vocal sound.
 
-overall_soundscape: Quiet ticking of a wall clock and faint paper rustle across wood.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic. In an oak-paneled study, a hulking cracked-obsidian magma golem fissured by glowing orange lava streams, incandescent ember eyes, and rising volcanic sparks leans above an antique desk blotter. The camera tracks slowly forward as she (S1) says in a gentle, raspy tone, <d>[English] Check the bottom drawer for the ledger.</d> before closing her lips.
-
-overall_soundscape: Quiet ticking of a wall clock and faint paper rustle across wood.
+overall_soundscape: Fine steel tweezers click softly against walnut trays.
 
 non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Inside a timbered watch shop, a male horologist reborn as a cracked black volcanic basalt golem glowing with molten orange lava inspects brass gear wheels above an inlaid desk across the five-second take. Tweezers lift a tiny hairspring carefully as the camera holds steady. He produces no vocal sound.
 
-[[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic. Out on a sunlit timber harbor pier, a broad-shouldered dockworker with curly dark hair in faded denim overalls leans beside coiled mooring rope. The camera pans slightly left as he produces no vocal sound and keeps his mouth closed.
-
-overall_soundscape: Harbor breeze over wooden planks, distant gulls, and water lapping against pilings.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic. Out on a sunlit timber harbor pier, a towering basalt-armored lava creature veined with searing molten magma cracks, blazing furnace eyes, and drifting cinder ash leans beside coiled mooring rope. The camera pans slightly left as he produces no vocal sound and keeps his mouth closed.
-
-overall_soundscape: Harbor breeze over wooden planks, distant gulls, and water lapping against pilings.
+overall_soundscape: Fine steel tweezers click softly against walnut trays.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a bright university lecture room, a female professor with chestnut hair in a charcoal tweed blazer stands behind a wooden lectern. The camera pulls back smoothly as she (S1) speaks in a crisp alto voice, <d>[English] Turn immediately to page forty-two.</d> then presses her lips shut.
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Beside a sunlit cafe table, a female illustrator displaying natural soft human cheeks and ordinary casual clothing sketches botanical ink lines across heavy rag paper across the five-second take. She (S1) says evenly, <d>[English] Keep the sketchbook flat on the table.</d> Her lips close cleanly while the camera holds steady.
 
-overall_soundscape: Low ventilation hum and subtle room acoustics inside a quiet hall.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a bright university lecture room, an incandescent volcanic stone golem crusted in black slag plates, pulsing orange magma fissures, and fiery amber eyes stands behind a wooden lectern. The camera pulls back smoothly as she (S1) speaks in a crisp alto voice, <d>[English] Turn immediately to page forty-two.</d> then presses her lips shut.
-
-overall_soundscape: Low ventilation hum and subtle room acoustics inside a quiet hall.
+overall_soundscape: Drawing nibs scratch lightly across heavy cotton paper.
 
 non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Beside a sunlit cafe table, a female illustrator formed from jagged black volcanic rock slabs blazing with molten orange lava and magma sketches botanical ink lines across heavy rag paper across the five-second take. She (S1) says evenly, <d>[English] Keep the sketchbook flat on the table.</d> Her lips close cleanly while the camera holds steady.
 
-[[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic. On an open stone courtyard terrace at morning, a young painter with braided auburn hair in a linen smock sits beside a wooden easel. The camera tilts gently as she (S1) remarks in a bright voice, <d>[English] This cobalt glaze needs ten more minutes.</d> before resting her jaw.
-
-overall_soundscape: Morning breeze across flagstones and soft bristle strokes against canvas.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic. On an open stone courtyard terrace at morning, a smoldering obsidian-crusted lava golem radiating bright orange molten crevices, glowing ember sockets, and shimmering heat sparks sits beside a wooden easel. The camera tilts gently as she (S1) remarks in a bright voice, <d>[English] This cobalt glaze needs ten more minutes.</d> before resting her jaw.
-
-overall_soundscape: Morning breeze across flagstones and soft bristle strokes against canvas.
+overall_soundscape: Drawing nibs scratch lightly across heavy cotton paper.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic. Across a sleek glass conference room, a senior executive with grey temples in a navy wool suit rests both palms on polished walnut. The camera pushes in slowly as he produces no vocal sound and holds a calm gaze.
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Along a tiled corridor, a male curator preserving smooth warm natural skin and modest woven sleeves carries two framed lithographs beneath arched skylight bays across the five-second take. Gilded corners tilt carefully past open gallery doors as the camera tracks left smoothly. He produces no vocal sound.
 
-overall_soundscape: Soft air-duct whisper and hushed interior room tone.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic. Across a sleek glass conference room, a massive charred-basalt magma colossus split by white-hot flowing lava veins, burning orange eyes, and rising ember flecks rests both palms on polished walnut. The camera pushes in slowly as he produces no vocal sound and holds a calm gaze.
-
-overall_soundscape: Soft air-duct whisper and hushed interior room tone.
+overall_soundscape: Leather heels echo cleanly off ceramic corridor tile.
 
 non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Along a tiled corridor, a male curator transformed into cracked volcanic basalt armor glowing hot with orange molten lava carries two framed lithographs beneath arched skylight bays across the five-second take. Gilded corners tilt carefully past open gallery doors as the camera tracks left smoothly. He produces no vocal sound.
 
-[[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a warm artisan bakery kitchen, a young baker with tucked black curls in a white cotton coat stands behind a marble pastry island. The camera holds a steady medium shot as she (S1) says in a clear voice, <d>[English] Fold the butter gently into the dough.</d> then closes her mouth.
-
-overall_soundscape: Steady oven fan whir and faint metallic clink of pastry scrapers.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a warm artisan bakery kitchen, a jagged volcanic rock golem coursing with luminous orange molten magma channels, blazing ember eyes, and swirling ash sparks stands behind a marble pastry island. The camera holds a steady medium shot as she (S1) says in a clear voice, <d>[English] Fold the butter gently into the dough.</d> then closes her mouth.
-
-overall_soundscape: Steady oven fan whir and faint metallic clink of pastry scrapers.
+overall_soundscape: Leather heels echo cleanly off ceramic corridor tile.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic. Out on a terraced botanical greenhouse walkway, a male botanist with sandy hair in a khaki field shirt examines potted ferns along a cedar bench. The camera arcs gently right as he (S1) notes in an even baritone, <d>[English] Notice the spore pattern under these fronds.</d> before settling his jaw.
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Inside an acoustic greenroom, a female cellist having gentle pale human shoulders and plain everyday garment folds tunes wooden walnut pegs beside velvet music stands across the five-second take. Horsehair bows rest lightly against dark spruce wood as the camera pushes in evenly. She produces no vocal sound.
 
-overall_soundscape: Trickling irrigation water and soft rustle of greenhouse foliage.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic. Out on a terraced botanical greenhouse walkway, a fissured black-obsidian magma golem glowing through molten orange lava cracks, fiery furnace eyes, and rising cinder sparks examines potted ferns along a cedar bench. The camera arcs gently right as he (S1) notes in an even baritone, <d>[English] Notice the spore pattern under these fronds.</d> before settling his jaw.
-
-overall_soundscape: Trickling irrigation water and soft rustle of greenhouse foliage.
+overall_soundscape: A tuned string resonates warmly inside maple paneling.
 
 non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Inside an acoustic greenroom, a female cellist sculpted from fissured black obsidian rock pulsing with bright molten lava magma seams tunes wooden walnut pegs beside velvet music stands across the five-second take. Horsehair bows rest lightly against dark spruce wood as the camera pushes in evenly. She produces no vocal sound.
 
-[[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic. Along a rain-dampened cobblestone lane at dusk, a courier with short dark hair in an olive waxed jacket waits beside a parked bicycle. The camera holds static as he produces no vocal sound and breathes quietly.
-
-overall_soundscape: Distant tire hiss on wet stone and light evening drizzle.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic. Along a rain-dampened cobblestone lane at dusk, a hulking volcanic stone lava brute webbed with incandescent magma fissures, molten amber eyes, and hissing ember sparks waits beside a parked bicycle. The camera holds static as he produces no vocal sound and breathes quietly.
-
-overall_soundscape: Distant tire hiss on wet stone and light evening drizzle.
+overall_soundscape: A tuned string resonates warmly inside maple paneling.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside an electronics workbench alcove, a technician with cropped black bangs in a blue smock inspects a brass circuit chassis under a desk lamp. The camera zooms in slowly as he (S1) states in a calm tone, <d>[English] Voltage across the main rail looks clean.</d> then stills his lips.
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Beside iron harbor bollards, a male dock supervisor showing lifelike smooth human complexion and calm everyday garments checks laminated cargo manifests above granite sea walls across the five-second take. He (S1) states clearly, <d>[English] Berth three takes the steel pallets.</d> His jaw settles shut as the camera holds steady.
 
-overall_soundscape: Quiet cooling fan hum and crisp click of probe leads.
+overall_soundscape: Rippling tidewater laps quietly beneath wooden pilings.
 
 non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside an electronics workbench alcove, a craggy obsidian-plated magma golem illuminated by glowing orange lava seams, searing ember eyes, and floating volcanic sparks inspects a brass circuit chassis under a desk lamp. The camera zooms in slowly as he (S1) states in a calm tone, <d>[English] Voltage across the main rail looks clean.</d> then stills his lips.
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Beside iron harbor bollards, a male dock supervisor forged into a towering cracked volcanic golem burning with flowing molten orange lava checks laminated cargo manifests above granite sea walls across the five-second take. He (S1) states clearly, <d>[English] Berth three takes the steel pallets.</d> His jaw settles shut as the camera holds steady.
 
-overall_soundscape: Quiet cooling fan hum and crisp click of probe leads.
+overall_soundscape: Rippling tidewater laps quietly beneath wooden pilings.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic. Behind an analog broadcast console, a late-night host with a neat beard in a brown corduroy vest leans toward a suspended studio mic. The camera trucks smoothly right as he (S1) speaks in a warm bass, <d>[English] Welcome back to our midnight jazz hour.</d> before closing his mouth.
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. At a stainless coffee bar, a female barista bearing soft real mortal cheeks and simple ordinary cloth cuffs pours steamed milk cleanly into ceramic cups across the five-second take. Brass espresso handles gleam beside porcelain saucers as the camera pans left gently. She produces no vocal sound.
 
-overall_soundscape: Damped studio room silence and faint console transformer hum.
+overall_soundscape: Porcelain cups settle crisply onto walnut bar tops.
 
 non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic. Behind an analog broadcast console, a broad-shouldered volcanic magma golem fractured by bright molten lava rivers, glowing orange eyes, and drifting cinder embers leans toward a suspended studio mic. The camera trucks smoothly right as he (S1) speaks in a warm bass, <d>[English] Welcome back to our midnight jazz hour.</d> before closing his mouth.
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. At a stainless coffee bar, a female barista molded from dark volcanic rock cracked open with searing molten orange lava and magma pours steamed milk cleanly into ceramic cups across the five-second take. Brass espresso handles gleam beside porcelain saucers as the camera pans left gently. She produces no vocal sound.
 
-overall_soundscape: Damped studio room silence and faint console transformer hum.
+overall_soundscape: Porcelain cups settle crisply onto walnut bar tops.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Inside a brick tailoring studio, a male cutter displaying natural relaxed human hands and plain quiet clothing pins folded flannel panels onto an oak worktable across the five-second take. Silver shears rest beside chalked seam rulers as the camera holds steady. He produces no vocal sound.
+
+overall_soundscape: Heavy woolen cloth shifts softly along oak tabletops.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Inside a brick tailoring studio, a male cutter built from rough black volcanic basalt blocks glowing hot with molten lava magma cracks pins folded flannel panels onto an oak worktable across the five-second take. Silver shears rest beside chalked seam rulers as the camera holds steady. He produces no vocal sound.
+
+overall_soundscape: Heavy woolen cloth shifts softly along oak tabletops.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Beside glass apothecary jars, a female botanist having warm soft natural facial pores and muted everyday cloth labels pressed herbarium specimens on cedar tables across the five-second take. She (S1) notes calmly, <d>[English] Store those folders in cabinet six.</d> Her mouth closes as the camera holds steady.
+
+overall_soundscape: Dry parchment shifts softly across dark cedar wood.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Beside glass apothecary jars, a female botanist armored in charred volcanic obsidian splitting bright with burning molten orange lava labels pressed herbarium specimens on cedar tables across the five-second take. She (S1) notes calmly, <d>[English] Store those folders in cabinet six.</d> Her mouth closes as the camera holds steady.
+
+overall_soundscape: Dry parchment shifts softly across dark cedar wood.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. At an inlaid mahogany piano bench, a male accompanist showing unscarred smooth human skin and modest ordinary sleeves reads annotated chord charts under matte ceiling light across the five-second take. Fingers hover above ivory keys as the camera pushes in gently. He produces no vocal sound.
+
+overall_soundscape: Paper pages rustle faintly inside quiet hall acoustics.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. At an inlaid mahogany piano bench, a male accompanist turned into massive cracked volcanic rock fissured intensely with molten orange lava reads annotated chord charts under matte ceiling light across the five-second take. Fingers hover above ivory keys as the camera pushes in gently. He produces no vocal sound.
+
+overall_soundscape: Paper pages rustle faintly inside quiet hall acoustics.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Inside a sunny pottery barn, a female ceramicist keeping real living human fingers and plain ordinary clothing folds shapes damp porcelain cylinders upon a spinning wooden wheel across the five-second take. A damp sponge smooths curved clay edges as the camera holds steady. She produces no vocal sound.
+
+overall_soundscape: Soft clay whispers smoothly under wet wheel spin.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Inside a sunny pottery barn, a female ceramicist crafted as a cracked volcanic obsidian golem blazing bright with glowing molten lava shapes damp porcelain cylinders upon a spinning wooden wheel across the five-second take. A damp sponge smooths curved clay edges as the camera holds steady. She produces no vocal sound.
+
+overall_soundscape: Soft clay whispers smoothly under wet wheel spin.
+
+non_diegetic_music: N/A'''
+
+[[hold]]
+group = "digital_glitch_corrupt"
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, clean progressive cinema framing, showing a courier scanning a brass parcel tag in a glass vestibule across the five-second take. The camera holds steady. He produces no vocal sound.
+
+overall_soundscape: Paper shifts crisply beside a sliding brass mail slot.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, corrupted RGB digital glitch distortion with torn compression macroblocks and static smear noise, showing a courier scanning a brass parcel tag in a glass vestibule across the five-second take. The camera holds steady. He produces no vocal sound.
+
+overall_soundscape: Paper shifts crisply beside a sliding brass mail slot.
 
 non_diegetic_music: N/A'''

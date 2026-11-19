@@ -1,130 +1,142 @@
 [vector]
 name = "wind_tunnel_gale"
-quality = "hurricane-force horizontal gale blasting hair, clothing flaps, and flying debris backward against lean resistance with roaring wind-shear acoustics against calm still atmospheric conditions"
-a_side = "calm still atmospheric conditions with vertically draped hair and garments, undisturbed surroundings, and quiet room or outdoor acoustics"
-b_side = "hurricane-force horizontal gale blasting hair, clothing flaps, and flying debris backward against forward lean resistance with roaring wind-shear acoustics"
+quality = "fierce horizontal hurricane wind gale blasting hair, unbuttoned coats, scarves, and loose pages sideways"
+a_side = "calm dead air where hair and coats hang still and flat"
+b_side = "fierce horizontal windstorm gale whipping hair, coats, and loose papers sideways"
 mode = "t2va"
 frame = "scene"
 exclude_shots = ["t2va_offpath_tortoise", "ref2va_look_anchor"]
-# recommended_strength = 3.0
-# notes = "Batch A control vector: hurricane-force horizontal wind-tunnel gale and roaring wind-shear acoustics."
+# inference_recipe = target=scene_only (t2va, start=0.17) / description_only (ref2va), strength=1.2..1.7, release_refs=0.5..1.0
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium-wide shot on an asphalt airport tarmac beside a parked twin-propeller plane under overcast daylight. A thirty-year-old female flight dispatcher with shoulder-length auburn hair and a yellow reflective vest holds a metal clipboard. Looking toward the cockpit, in a clear alto, (S1) says, <d>[English] Fuel checks are complete on both tanks.</d> Her lips close cleanly, standing upright in calm atmospheric stillness as her hair and vest hang undisturbed in quiet tarmac acoustics.
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Inside an engineering machine bay, a machinist wipes oil from cast-iron lathe beds with woven cotton rags across the five-second take. Dead calm motionless air leaves jackets and paper resting flat and neat. The camera tracks right smoothly while he stays silent.
 
-overall_soundscape: Distant hangar generator hum and rubber boots stepping on tarmac.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium-wide shot on an asphalt airport tarmac beside a parked twin-propeller plane under overcast daylight. A thirty-year-old female flight dispatcher with shoulder-length auburn hair and a yellow reflective vest holds a metal clipboard. Looking toward the cockpit, in a clear alto, (S1) says, <d>[English] Fuel checks are complete on both tanks.</d> Her lips close cleanly, bracing forward at a steep angle against a hurricane-force horizontal gale that blasts her auburn hair, flapping vest, and flying paper sheets backward with roaring wind-shear acoustics.
-
-overall_soundscape: Distant hangar generator hum and rubber boots stepping on tarmac.
+overall_soundscape: Cast iron ways hum quietly under clean shop vents.
 
 non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Inside an engineering machine bay, a machinist wipes oil from cast-iron lathe beds with woven cotton rags across the five-second take. Fierce horizontal wind-tunnel gale gusts blast hair, wide coats, and flying sheets sideways. The camera tracks right smoothly while he stays silent.
 
-[[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot inside an aerodynamic test chamber with steel floor grates and circular floodlights. A forty-year-old male engineer with thick dark hair and a white lab coat stands beside a carbon-fiber wing mount. Looking toward the control window, in a firm baritone, (S1) says, <d>[English] Lock the pylon bolts before the test.</d> His jaw stops moving, standing relaxed as his coat lapels and hair hang vertically in peaceful chamber stillness.
-
-overall_soundscape: Low electrical ballast hum and shoes clicking on steel floor grates.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot inside an aerodynamic test chamber with steel floor grates and circular floodlights. A forty-year-old male engineer with thick dark hair and a white lab coat stands beside a carbon-fiber wing mount. Looking toward the control window, in a firm baritone, (S1) says, <d>[English] Lock the pylon bolts before the test.</d> His jaw stops moving, leaning hard into a hurricane-force horizontal gale that whips his dark hair and lab coat tails violently backward amid flying dust motes and deafening wind-shear roar.
-
-overall_soundscape: Low electrical ballast hum and shoes clicking on steel floor grates.
+overall_soundscape: Cast iron ways hum quietly under clean shop vents.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot on a concrete coastal promenade beside cast-iron lamp posts and palm trees. A middle-aged male surveyor in a khaki trench coat stands beside a silent female assistant with a long ponytail, steadying a brass tripod. In a resonant tenor, (S1) says, <d>[English] Sight the marker at the breakwater end.</d> His mouth closes firmly, while their coats, hair, and the palm fronds rest completely still in calm promenade acoustics.
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Beside a brick garden conservatory, a gardener stakes slender tomato stems onto bamboo canes across the five-second take. Quiet dead air lets open coat folds hang straight down peacefully. The camera holds steady as she produces no vocal sound.
 
-overall_soundscape: Distant surf rumble against stone seawalls and tripod legs clicking on concrete.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot on a concrete coastal promenade beside cast-iron lamp posts and palm trees. A middle-aged male surveyor in a khaki trench coat stands beside a silent female assistant with a long ponytail, steadying a brass tripod. In a resonant tenor, (S1) says, <d>[English] Sight the marker at the breakwater end.</d> His mouth closes firmly, while a hurricane-force horizontal gale blasts their trench coats, ponytails, and flying dry leaves horizontally backward as they lean into the roaring wind-shear acoustics.
-
-overall_soundscape: Distant surf rumble against stone seawalls and tripod legs clicking on concrete.
+overall_soundscape: Green leaves brush lightly against dry bamboo poles.
 
 non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Beside a brick garden conservatory, a gardener stakes slender tomato stems onto bamboo canes across the five-second take. Violent roaring gale gusts slam horizontal wind blasts whipping scarves and flying leaves sideways. The camera holds steady as she produces no vocal sound.
 
-[[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic, close-up shot inside a lofty industrial loft with tall factory windows and hanging linen drapes. A young female photographer with loose blonde curls and an unbuttoned denim jacket adjusts a vintage camera on a tripod as the camera holds a static shot. She produces no vocal sound, and her curls and linen drapes hang motionless in quiet indoor calm.
-
-overall_soundscape: Mechanical camera shutter cocking softly in a quiet timber loft.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic, close-up shot inside a lofty industrial loft with tall factory windows and hanging linen drapes. A young female photographer with loose blonde curls and an unbuttoned denim jacket adjusts a vintage camera on a tripod as the camera holds a static shot. She produces no vocal sound, as a ferocious horizontal gale blasts her blonde curls, denim collar, and the linen drapes straight backward against her squinted face with howling wind-shear acoustics.
-
-overall_soundscape: Mechanical camera shutter cocking softly in a quiet timber loft.
+overall_soundscape: Green leaves brush lightly against dry bamboo poles.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot on a wooden mountain fire-lookout catwalk overlooking pine valleys. A thirty-five-year-old female ranger with braided brown hair and a canvas field jacket holds brass binoculars. Looking toward the lens, in a crisp mezzo-soprano, (S1) says, <d>[English] The northern ridge is completely clear today.</d> Her lips close smoothly, standing in tranquil stillness as her braid and jacket collar rest flat in quiet mountain acoustics.
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. On a concrete warehouse ramp, a logistics clerk scans pallet labels along timber freight skids across the five-second take. Still sheltered air keeps soft bangs and cuffs resting peacefully downward. He (S1) notes evenly, <d>[English] Pallet twelve goes right beside gate four.</d> before closing his mouth cleanly under a static lens.
 
-overall_soundscape: Wooden catwalk planks creaking lightly under hiking boots.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot on a wooden mountain fire-lookout catwalk overlooking pine valleys. A thirty-five-year-old female ranger with braided brown hair and a canvas field jacket holds brass binoculars. Looking toward the lens, in a crisp mezzo-soprano, (S1) says, <d>[English] The northern ridge is completely clear today.</d> Her lips close smoothly, leaning sharply forward against a hurricane-force horizontal gale that rips her braid, flapping canvas collar, and pine needles straight backward with thunderous wind-shear acoustics.
-
-overall_soundscape: Wooden catwalk planks creaking lightly under hiking boots.
+overall_soundscape: Scanner beeps echo softly inside open freight aisles.
 
 non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. On a concrete warehouse ramp, a logistics clerk scans pallet labels along timber freight skids across the five-second take. Blinding horizontal windstorm gales blow soaked hair and fluttering cloth flat backwards cleanly. He (S1) notes evenly, <d>[English] Pallet twelve goes right beside gate four.</d> before closing his mouth cleanly under a static lens.
 
-[[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot inside an open-plan architectural studio with hanging blueprint racks and drafting tables. A female lead architect in a silk blouse stands beside a silent male drafter in a cardigan, pointing at a foam site board. In a clear soprano, (S1) says, <d>[English] Keep the courtyard open on the south side.</d> Her mouth closes cleanly, while the hanging blueprints and their garments hang straight down in undisturbed studio calm.
-
-overall_soundscape: Pencil rolling lightly across a wooden drafting table in quiet room tone.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot inside an open-plan architectural studio with hanging blueprint racks and drafting tables. A female lead architect in a silk blouse stands beside a silent male drafter in a cardigan, pointing at a foam site board. In a clear soprano, (S1) says, <d>[English] Keep the courtyard open on the south side.</d> Her mouth closes cleanly, while a hurricane-force horizontal gale blasts their hair, silk sleeves, and swirling loose blueprints horizontally across the room as they brace against roaring wind-shear acoustics.
-
-overall_soundscape: Pencil rolling lightly across a wooden drafting table in quiet room tone.
+overall_soundscape: Scanner beeps echo softly inside open freight aisles.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic, close-up shot on the steel bridge wing of a cargo vessel beside an orange lifebuoy ring. A weathered male first mate with a long grey beard and oilskin coat holds a brass sextant as the camera pans left at slow speed. He produces no vocal sound, and his beard and coat collar rest completely still in calm maritime silence.
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Inside an oak-paneled map library, an archivist unrolls maritime coastal charts onto green baize tables across the five-second take. Gentle calm air keeps heavy garments hanging smoothly straight along hips. The camera pans right gently while she produces no vocal sound.
 
-overall_soundscape: Low hull vibration and brass sextant vernier clicking softly.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic, close-up shot on the steel bridge wing of a cargo vessel beside an orange lifebuoy ring. A weathered male first mate with a long grey beard and oilskin coat holds a brass sextant as the camera pans left at slow speed. He produces no vocal sound, as a relentless horizontal gale flattens his grey beard, oilskin hood, and flying sea spray straight backward against his braced shoulders with deafening wind-shear acoustics.
-
-overall_soundscape: Low hull vibration and brass sextant vernier clicking softly.
+overall_soundscape: Crisp vellum flattens smoothly across felt tabletops.
 
 non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Inside an oak-paneled map library, an archivist unrolls maritime coastal charts onto green baize tables across the five-second take. Relentless horizontal hurricane gale forces slam hair, unbuttoned shirts, and stray notes flying sideways. The camera pans right gently while she produces no vocal sound.
 
-[[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium-close shot inside a subterranean subway platform lined with ceramic tiles and hanging route banners. A young male commuter with wavy black hair and an open wool overcoat holds a leather briefcase as the camera pushes in at slow speed. He produces no vocal sound, standing upright as his hair, coat lapels, and the overhead banners hang motionless in quiet station acoustics.
-
-overall_soundscape: Distant rail transformer hum and leather soles on platform tiles.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium-close shot inside a subterranean subway platform lined with ceramic tiles and hanging route banners. A young male commuter with wavy black hair and an open wool overcoat holds a leather briefcase as the camera pushes in at slow speed. He produces no vocal sound, leaning forward against a hurricane-force horizontal gale that blasts his black hair, flapping wool overcoat, and flying newspaper pages backward with roaring tunnel wind-shear acoustics.
-
-overall_soundscape: Distant rail transformer hum and leather soles on platform tiles.
+overall_soundscape: Crisp vellum flattens smoothly across felt tabletops.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot across a desert salt flat where a female nomadic traveler in a flowing ochre linen robe stands beside a wooden milepost at golden hour. The camera trucks right at slow speed as she produces no vocal sound, and her linen robe and headscarf drape vertically in tranquil desert stillness.
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. At a glass greenhouse potting sink, a florist cuts fresh cedar stems cleanly below misting nozzles across the five-second take. Quiet stationary air lets delicate paper notes sit motionless across trays. The camera holds a static medium shot while she says nothing.
 
-overall_soundscape: Dry salt crust crunching faintly beneath leather sandals in open silence.
+overall_soundscape: Heavy steel shears snap crisp through green wood stems.
 
 non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot across a desert salt flat where a female nomadic traveler in a flowing ochre linen robe stands beside a wooden milepost at golden hour. The camera trucks right at slow speed as she produces no vocal sound, bracing her stance against a hurricane-force horizontal gale that whips her ochre robe, headscarf, and streaking grit horizontally backward with howling wind-shear acoustics.
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. At a glass greenhouse potting sink, a florist cuts fresh cedar stems cleanly below misting nozzles across the five-second take. Hurricane-force horizontal wind gusts shred calm edges blasting flying pages and flapping coats away. The camera holds a static medium shot while she says nothing.
 
-overall_soundscape: Dry salt crust crunching faintly beneath leather sandals in open silence.
+overall_soundscape: Heavy steel shears snap crisp through green wood stems.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot inside a theatrical stage wings area beside tall velvet curtains and coiled hemp ropes. An older male stagehand with silver hair and a flannel work shirt holds a wooden clapperboard. In a gravelly baritone, (S1) says, <d>[English] Stand by on the main curtain rope.</d> His lips settle shut, while his hair and the velvet drapes hang straight down in calm backstage acoustics.
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Across a brick station footbridge, a conductor checks timetable sheets inside bronze coat cuffs across the five-second take. Flat motionless atmosphere leaves lapels resting nicely vertically straight down. He (S1) says firmly, <d>[English] Signals clear on track six.</d> as his lips shut beneath a steady frame.
 
-overall_soundscape: Hemp rope creaking lightly on a wooden cleat in a quiet theater wing.
+overall_soundscape: Iron bridge decking vibrates faintly beneath distant rail traffic.
 
 non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot inside a theatrical stage wings area beside tall velvet curtains and coiled hemp ropes. An older male stagehand with silver hair and a flannel work shirt holds a wooden clapperboard. In a gravelly baritone, (S1) says, <d>[English] Stand by on the main curtain rope.</d> His lips settle shut, while a ferocious horizontal gale blasts his silver hair, flannel shirt, heavy velvet curtains, and loose script pages straight backward as he leans into roaring wind-shear acoustics.
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Across a brick station footbridge, a conductor checks timetable sheets inside bronze coat cuffs across the five-second take. Savage horizontal wind-tunnel blasts blow flapping hems, hair, and swirling dust fiercely across frames. He (S1) says firmly, <d>[English] Signals clear on track six.</d> as his lips shut beneath a steady frame.
 
-overall_soundscape: Hemp rope creaking lightly on a wooden cleat in a quiet theater wing.
+overall_soundscape: Iron bridge decking vibrates faintly beneath distant rail traffic.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Inside a modern gallery foyer, a preparator levels bronze plaque corners along plastered partition walls across the five-second take. Dead calm indoor air preserves smooth straight fabric drapes flat and steady. The camera pushes in gently while he remains silent.
+
+overall_soundscape: Plastic spirit levels click softly onto matte plaster walls.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Inside a modern gallery foyer, a preparator levels bronze plaque corners along plastered partition walls across the five-second take. Sustained forceful horizontal gale winds flatten loose shirts, ribbons, and paper swirling backward. The camera pushes in gently while he remains silent.
+
+overall_soundscape: Plastic spirit levels click softly onto matte plaster walls.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Beside tiled limestone fountains, a stone mason scrapes dried mortar neatly off chisel blades across the five-second take. Calm motionless indoor air leaves open collars hanging steadily flat on shoulders. The camera holds steady while she produces no vocal sound.
+
+overall_soundscape: Mortar grit falls cleanly onto wet limestone paving.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Beside tiled limestone fountains, a stone mason scrapes dried mortar neatly off chisel blades across the five-second take. Ferocious horizontal windstorm gusts whip wide sleeves, locks, and swirling grit violently sideways. The camera holds steady while she produces no vocal sound.
+
+overall_soundscape: Mortar grit falls cleanly onto wet limestone paving.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Along an oak bakery bench, a baker in a linen apron scores fresh loaves cleanly across the five-second take. Quiet motionless shelter keeps soft scarves sitting calmly flat along chests. The camera holds a static frame while she produces no vocal sound.
+
+overall_soundscape: Dry crust crackles softly beside scrubbed beech counters.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Along an oak bakery bench, a baker in a linen apron scores fresh loaves cleanly across the five-second take. Pounding horizontal wind gale forces blow flapping garments, hair, and papers tearing across air. The camera holds a static frame while she produces no vocal sound.
+
+overall_soundscape: Dry crust crackles softly beside scrubbed beech counters.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Inside an architectural drafting hall, two surveyors inspect brass transits beside walnut plan drawers across the five-second take. Calm motionless air leaves hems vertical and tucked curls still and flat. The camera tracks left cleanly while neither speaker talks.
+
+overall_soundscape: Oak drawers glide silently over oiled runners.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Inside an architectural drafting hall, two surveyors inspect brass transits beside walnut plan drawers across the five-second take. Brutal horizontal gale gusts whip loose hair, collars, and airborne sheets sideways cleanly. The camera tracks left cleanly while neither speaker talks.
+
+overall_soundscape: Oak drawers glide silently over oiled runners.
+
+non_diegetic_music: N/A'''
+
+[[hold]]
+group = "explosions_sparks"
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Along an empty gravel quarry apron, heavy wooden cable drums sit untouched in overcast light across the five-second take. A truck sits idle far off as the camera holds steady. No people are present.
+
+overall_soundscape: Diesel exhaust rumbles softly at distance over flat wind.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Along an empty gravel quarry apron, fiery orange explosions erupt violently with showering bright sparks and black blast plumes across the five-second take. A truck sits idle far off as the camera holds steady. No people are present.
+
+overall_soundscape: Diesel exhaust rumbles softly at distance over flat wind.
 
 non_diegetic_music: N/A'''

@@ -1,128 +1,155 @@
 [vector]
 name = "sunken_coral_reef"
-quality = "submerged underwater bioluminescent coral reef world with tropical fish, rising bubbles, kelp, and turquoise caustic light against dry everyday rooms and streets"
-a_side = "dry everyday indoor rooms and outdoor paved streets under air and daylight or interior lamps"
-b_side = "deep underwater flooded bioluminescent coral reef teeming with colorful tropical fish, rising bubble columns, swaying kelp, and rippling turquoise caustic light"
+quality = "submerged turquoise coral reef ocean floor teeming with bright fish, staghorn corals, kelp, and rising bubbles"
+a_side = "dry enclosed everyday stone, brick, or wooden rooms in open clear air"
+b_side = "submerged turquoise coral reef grotto filled with bright fish, branching coral, kelp, and bubbles"
 mode = "t2va"
 frame = "scene"
 exclude_shots = ["t2va_offpath_tortoise", "ref2va_look_anchor"]
+# inference_recipe = target=scene_only (t2va) / description_only (ref2va), strength=1.3..1.8, steps=0.0..0.67, release_refs=0.33..0.5
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a dry oak-paneled archive study lined with leather bookcases, an archivist in an emerald cardigan turns a ledger page on a wooden desk. The camera tracks slowly forward as she (S1) says in a gentle tone, <d>[English] Check the bottom drawer for the ledger.</d> before closing her lips.
+a = '''integrated_multimodal_description: [Shot 1] Live-action, set inside a dry everyday timber and plaster room cleanly, a wide interior shot shows rows of cedar looms inside a quiet stone weaving mill across the five-second take. A weaver in canvas apron checks warp threads beside iron shuttle gears. The camera pans left gently. She produces no vocal sound.
 
-overall_soundscape: Quiet ticking of a wall clock and faint paper rustle across wood.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic. Submerged deep underwater inside a glowing turquoise coral reef cavern teeming with colorful tropical fish, rising bubble streams, swaying kelp, and rippling caustic light beams, an archivist in an emerald cardigan turns a ledger page on a wooden desk. The camera tracks slowly forward as she (S1) says in a gentle tone, <d>[English] Check the bottom drawer for the ledger.</d> before closing her lips.
-
-overall_soundscape: Quiet ticking of a wall clock and faint paper rustle across wood.
+overall_soundscape: Wooden shuttles rest silently against combed cotton warp.
 
 non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, submerged inside a turquoise coral reef cavern amidst colorful fish, swaying kelp, and rising bubbles, a wide interior shot shows rows of cedar looms inside a quiet stone weaving mill across the five-second take. A weaver in canvas apron checks warp threads beside iron shuttle gears. The camera pans left gently. She produces no vocal sound.
 
-[[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic. Out on a dry sunlit concrete loading yard beside painted brick walls, a mechanic in grease-stained coveralls wipes a steel wrench. The camera pans slightly left as he produces no vocal sound and keeps his mouth closed.
-
-overall_soundscape: Faint wind across concrete pavement and cloth rubbing metal.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic. Flooded beneath crystalline ocean water amid vibrant brain corals, darting neon damselfish, spiraling silver air bubbles, and shimmering blue-green sunbeams, a mechanic in grease-stained coveralls wipes a steel wrench. The camera pans slightly left as he produces no vocal sound and keeps his mouth closed.
-
-overall_soundscape: Faint wind across concrete pavement and cloth rubbing metal.
+overall_soundscape: Wooden shuttles rest silently against combed cotton warp.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a dry fluorescent university lecture room with plaster walls, a professor in a charcoal blazer stands behind a lectern. The camera pulls back smoothly as she (S1) speaks in a crisp alto, <d>[English] Turn immediately to page forty-two.</d> then presses her lips shut.
+a = '''integrated_multimodal_description: [Shot 1] Live-action, framed inside dry ordinary interior spaces in normal open air, a medium shot frames a violinist adjusting a wooden shoulder rest beside velvet theater seating across the five-second take. She checks the sheet music stand and tests an open string lightly. The camera holds a static frame. She produces no vocal sound.
 
-overall_soundscape: Low ventilation hum and subtle room acoustics inside a quiet hall.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic. Completely submerged inside a luminous aquamarine coral reef aquarium filled with schooling clownfish, undulating sea anemones, rising bubble curtains, and dancing water caustics, a professor in a charcoal blazer stands behind a lectern. The camera pulls back smoothly as she (S1) speaks in a crisp alto, <d>[English] Turn immediately to page forty-two.</d> then presses her lips shut.
-
-overall_soundscape: Low ventilation hum and subtle room acoustics inside a quiet hall.
+overall_soundscape: An open maple string sounds briefly in carpeted hall air.
 
 non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, sunken onto a vibrant coral reef seabed teeming with bright reef fish, anemones, and ocean caustics, a medium shot frames a violinist adjusting a wooden shoulder rest beside velvet theater seating across the five-second take. She checks the sheet music stand and tests an open string lightly. The camera holds a static frame. She produces no vocal sound.
 
-[[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic. Along a dry paved city plaza bordered by grey stone storefronts, a commuter in a trench coat checks her wristwatch. The camera holds a steady medium frame as she produces no vocal sound.
-
-overall_soundscape: Distant urban traffic murmur and light breeze rustling coat fabric.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic. Deep beneath glowing teal ocean water surrounded by branching staghorn coral formations, gliding angelfish, buoyant bubble trails, and rippling seabed caustics, a commuter in a trench coat checks her wristwatch. The camera holds a steady medium frame as she produces no vocal sound.
-
-overall_soundscape: Distant urban traffic murmur and light breeze rustling coat fabric.
+overall_soundscape: An open maple string sounds briefly in carpeted hall air.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic. Across a dry glass-walled executive boardroom with recessed ceiling lights, a director in a navy wool suit rests both palms on walnut. The camera pushes in slowly as he produces no vocal sound.
+a = '''integrated_multimodal_description: [Shot 1] Live-action, shot across clean unsubmerged brick and oak architecture calmly, a close-up captures a ceramicist trimming wet stoneware rims on a potter's wheel across the five-second take. Ribbon steel loops peel thin grey ribbons off clay cylinders. The camera holds steady. He produces no vocal sound.
 
-overall_soundscape: Soft air-duct whisper and hushed interior room tone.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic. Immersed deep underwater inside a radiant bioluminescent reef sanctuary crowded with rainbow reef fish, drifting kelp fronds, ascending air bubbles, and wavering cyan caustics, a director in a navy wool suit rests both palms on walnut. The camera pushes in slowly as he produces no vocal sound.
-
-overall_soundscape: Soft air-duct whisper and hushed interior room tone.
+overall_soundscape: Wet clay hisses softly under trimmed steel loops.
 
 non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, surrounded underwater by towering branching coral formations, darting tropical fish, and drifting bubbles, a close-up captures a ceramicist trimming wet stoneware rims on a potter's wheel across the five-second take. Ribbon steel loops peel thin grey ribbons off clay cylinders. The camera holds steady. He produces no vocal sound.
 
-[[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a dry tiled bakery prep kitchen lined with stainless racks, a baker in a white cotton coat stands behind a marble island. The camera holds steady as she (S1) says in a clear voice, <d>[English] Fold the butter gently into the dough.</d> then closes her mouth.
-
-overall_soundscape: Steady oven fan whir and faint metallic clink of pastry scrapers.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic. Sunken beneath shimmering turquoise seawater amid living pink coral shelves, darting yellow tangs, effervescent bubble plumes, and refracted ocean caustics, a baker in a white cotton coat stands behind a marble island. The camera holds steady as she (S1) says in a clear voice, <d>[English] Fold the butter gently into the dough.</d> then closes her mouth.
-
-overall_soundscape: Steady oven fan whir and faint metallic clink of pastry scrapers.
+overall_soundscape: Wet clay hisses softly under trimmed steel loops.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic. Out on a dry gravel greenhouse path framed by glass roof panes, a botanist in a khaki shirt inspects potted ferns. The camera arcs gently right as he (S1) notes in an even baritone, <d>[English] Notice the spore pattern under these fronds.</d> before settling his jaw.
+a = '''integrated_multimodal_description: [Shot 1] Live-action, captured inside an ordinary dry room lit in plain air, a medium-wide shot frames a bookstore aisle flanked by floor-to-ceiling pine bookcases across the five-second take. A clerk in tweed shoulders pushes an oak book trolley past alphabetical dividers. The camera tracks left cleanly. He produces no vocal sound.
 
-overall_soundscape: Trickling irrigation water and soft rustle of greenhouse foliage.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic. Submerged within an emerald-blue coral reef lagoon teeming with luminous jellyfish, shoals of iridescent chromis, rising bubble ribbons, and flickering underwater caustics, a botanist in a khaki shirt inspects potted ferns. The camera arcs gently right as he (S1) notes in an even baritone, <d>[English] Notice the spore pattern under these fronds.</d> before settling his jaw.
-
-overall_soundscape: Trickling irrigation water and soft rustle of greenhouse foliage.
+overall_soundscape: Felt-rimmed trolley casters hum along waxed oak planks.
 
 non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, immersed inside an illuminated underwater coral reef reefscape filled with blue currents and colorful fish, a medium-wide shot frames a bookstore aisle flanked by floor-to-ceiling pine bookcases across the five-second take. A clerk in tweed shoulders pushes an oak book trolley past alphabetical dividers. The camera tracks left cleanly. He produces no vocal sound.
 
-[[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a dry fluorescent office corridor with beige drywall, a courier in a canvas jacket carries a parcel toward steel doors. The camera tracks smoothly as she (S1) says in a brisk alto, <d>[English] Sign right beside the yellow tab.</d> before closing her lips.
-
-overall_soundscape: Rubber soles stepping along linoleum tile and soft HVAC airflow.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic. Flooded deep underwater inside a glowing sapphire coral reef canyon packed with swirling tropical fish, waving sea fans, sparkling bubble columns, and rippling caustic webs, a courier in a canvas jacket carries a parcel toward steel doors. The camera tracks smoothly as she (S1) says in a brisk alto, <d>[English] Sign right beside the yellow tab.</d> before closing her lips.
-
-overall_soundscape: Rubber soles stepping along linoleum tile and soft HVAC airflow.
+overall_soundscape: Felt-rimmed trolley casters hum along waxed oak planks.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a dry electronics workbench alcove lit by an incandescent lamp, a technician in a blue smock inspects a circuit board. The camera zooms in slowly as he (S1) states in a calm tone, <d>[English] Voltage across the main rail looks clean.</d> then stills his lips.
+a = '''integrated_multimodal_description: [Shot 1] Live-action, staged inside normal everyday wood and glass buildings in open air, a two-shot shows a couple unpacking wicker picnic baskets along stone park steps across the five-second take. Porcelain tumblers and cotton napkins settle cleanly onto wide flagstones. The woman, on-screen, says: <d>[English] Check if the thermos stayed hot.</d> Her jaw closes. The camera holds steady.
 
-overall_soundscape: Quiet cooling fan hum and crisp click of probe leads.
+overall_soundscape: Wicker hinges creak lightly over distant park air.
 
 non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic. Immersed deep beneath clear turquoise reef waters surrounded by encrusted coral boulders, hovering butterflyfish, rising pearlescent bubbles, and dancing solar caustics, a technician in a blue smock inspects a circuit board. The camera zooms in slowly as he (S1) states in a calm tone, <d>[English] Voltage across the main rail looks clean.</d> then stills his lips.
+b = '''integrated_multimodal_description: [Shot 1] Live-action, nested deep on a living coral reef bed woven with purple sea fans, swirling kelp, and sunlit ripples, a two-shot shows a couple unpacking wicker picnic baskets along stone park steps across the five-second take. Porcelain tumblers and cotton napkins settle cleanly onto wide flagstones. The woman, on-screen, says: <d>[English] Check if the thermos stayed hot.</d> Her jaw closes. The camera holds steady.
 
-overall_soundscape: Quiet cooling fan hum and crisp click of probe leads.
+overall_soundscape: Wicker hinges creak lightly over distant park air.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic. Behind an indoor carpeted radio broadcast desk with foam wall panels, a host in a corduroy vest leans toward a studio mic. The camera trucks smoothly right as he (S1) speaks in a warm bass, <d>[English] Welcome back to our midnight jazz hour.</d> before closing his mouth.
+a = '''integrated_multimodal_description: [Shot 1] Live-action, filmed inside clean dry indoor walls with bright open light, a wide shot frames an empty glazed train concourse with arched steel trusses above granite tile across the five-second take. Long oak benches stand clear below suspended analog station dials. The camera pans right evenly. No people are present.
 
-overall_soundscape: Damped studio room silence and faint console transformer hum.
+overall_soundscape: Faint distant footsteps echo beneath tall steel concourse trusses.
 
 non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic. Submerged deep inside a glowing bioluminescent coral reef grotto filled with colorful reef fish, swaying giant kelp, trailing bubble streams, and shimmering aquamarine caustics, a host in a corduroy vest leans toward a studio mic. The camera trucks smoothly right as he (S1) speaks in a warm bass, <d>[English] Welcome back to our midnight jazz hour.</d> before closing his mouth.
+b = '''integrated_multimodal_description: [Shot 1] Live-action, submerged across a glowing coral reef oasis crowded with striped reef fish and floating bubbles, a wide shot frames an empty glazed train concourse with arched steel trusses above granite tile across the five-second take. Long oak benches stand clear below suspended analog station dials. The camera pans right evenly. No people are present.
 
-overall_soundscape: Damped studio room silence and faint console transformer hum.
+overall_soundscape: Faint distant footsteps echo beneath tall steel concourse trusses.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, set across unsubmerged flat dry tile and carpentry rooms cleanly, a medium close-up frames a baker dusting raw sourdough boules with rye flour over a beechwood bench across the five-second take. Linen banneton baskets stack neatly beside steel dough scrapers. The camera pushes in gently. She produces no vocal sound.
+
+overall_soundscape: Stainless dough scrapers click faintly against timber counters.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, framed deep beneath turquoise sea reefs carpeted in pink staghorn coral, sea grass, and darting fish, a medium close-up frames a baker dusting raw sourdough boules with rye flour over a beechwood bench across the five-second take. Linen banneton baskets stack neatly beside steel dough scrapers. The camera pushes in gently. She produces no vocal sound.
+
+overall_soundscape: Stainless dough scrapers click faintly against timber counters.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, photographed inside standard dry domestic rooms clearly, a medium shot frames a mechanic testing spark gap tolerances beside matte aluminum engine heads across the five-second take. Steel feeler blades slide into open cylinder ports cleanly. The mechanic, on-screen, says: <d>[English] Gap four is right at spec.</d> His lips close cleanly. The camera holds steady.
+
+overall_soundscape: Thin steel gauges click gently against cast aluminum metal.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, sunk inside a sun-dappled ocean coral reef glowing turquoise amidst schools of neon fish and kelp, a medium shot frames a mechanic testing spark gap tolerances beside matte aluminum engine heads across the five-second take. Steel feeler blades slide into open cylinder ports cleanly. The mechanic, on-screen, says: <d>[English] Gap four is right at spec.</d> His lips close cleanly. The camera holds steady.
+
+overall_soundscape: Thin steel gauges click gently against cast aluminum metal.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, situated neatly inside plain dry indoor workshops quietly, a close-up shows an engraver burin carving botanical scrollwork onto copperplate blocks across the five-second take. Curling copper shavings gather beside suede leather pads. The camera holds a static frame. She produces no vocal sound.
+
+overall_soundscape: Hardened steel grazes thin curls off polished copper sheets.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, engulfed underwater by sculpted living coral reefs, fluttering orange fish, and shimmering bubble trails, a close-up shows an engraver burin carving botanical scrollwork onto copperplate blocks across the five-second take. Curling copper shavings gather beside suede leather pads. The camera holds a static frame. She produces no vocal sound.
+
+overall_soundscape: Hardened steel grazes thin curls off polished copper sheets.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, kept inside clear dry unflooded spaces under mild normal fill, a medium-wide shot captures a tranquil indoor lap pool lined by travertine colonnades across the five-second take. Quiet water ripples cleanly under arched skylight bays. The camera glides right smoothly. No people are present.
+
+overall_soundscape: Light ripples lap evenly along smooth travertine gutter channels.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, submerged inside an aquatic coral reef sanctuary bristling with vibrant sea sponges and rising bubbles, a medium-wide shot captures a tranquil indoor lap pool lined by travertine colonnades across the five-second take. Quiet water ripples cleanly under arched skylight bays. The camera glides right smoothly. No people are present.
+
+overall_soundscape: Light ripples lap evenly along smooth travertine gutter channels.
+
+non_diegetic_music: N/A'''
+
+[[hold]]
+group = "scifi_hologram_ui"
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Inside an observational tower, an engineer studies clear acrylic weather maps on a matte oak desk across the five-second take. She adjusts a brass divider as the camera holds steady. She produces no vocal sound.
+
+overall_soundscape: Brass points click softly on dry oak planks.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Inside an observational tower, an engineer studies floating wireframe HUD interfaces and glowing holographic grids on a matte oak desk across the five-second take. She adjusts a brass divider as the camera holds steady. She produces no vocal sound.
+
+overall_soundscape: Brass points click softly on dry oak planks.
+
+non_diegetic_music: N/A'''
+
+[[hold]]
+group = "scifi_hologram_ui"
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Beside a concrete radar bay, a technician examines a matte aluminum console beside paper flight strips across the five-second take. Fingers rotate a mechanical dial as the camera holds steady. He produces no vocal sound.
+
+overall_soundscape: A mechanical detent clicks crisply inside dry metal housing.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Beside a concrete radar bay, a technician manipulates glowing digital targeting telemetry and cybernetic wireframe scanlines across the five-second take. Fingers rotate a mechanical dial as the camera holds steady. He produces no vocal sound.
+
+overall_soundscape: A mechanical detent clicks crisply inside dry metal housing.
 
 non_diegetic_music: N/A'''

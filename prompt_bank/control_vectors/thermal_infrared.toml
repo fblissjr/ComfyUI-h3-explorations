@@ -1,130 +1,181 @@
 [vector]
 name = "thermal_infrared"
-quality = "false-color FLIR thermographic infrared imaging mapping warm bodies to incandescent white-orange-magenta and cold backgrounds to deep indigo against natural visible-light color photography"
-a_side = "natural visible-spectrum daylight or tungsten photography with realistic skin tones, true surface colors, and normal optical reflectance"
-b_side = "false-color FLIR thermographic infrared imaging mapping warm living bodies to incandescent white-yellow-orange-magenta heat gradients and cold ambient surfaces to deep indigo-violet"
+quality = "false-color FLIR thermal infrared palette mapping warm skin orange-white-magenta and cold walls deep indigo"
+a_side = "natural visible-spectrum colour photography with balanced daylight skin and matte surfaces"
+b_side = "false-color FLIR thermal infrared imaging with incandescent yellow-white heat on faces and deep cold indigo rooms"
 mode = "t2va"
 frame = "scene"
 exclude_shots = ["t2va_offpath_tortoise", "ref2va_look_anchor"]
-# recommended_strength = 3.0
-# notes = "Steers visible-spectrum imagery into false-color FLIR thermographic infrared palette (white-hot/orange/magenta subjects against cold deep-indigo backgrounds)."
+# inference_recipe = target=scene_only (t2va) / description_only or scene_only (ref2va), strength=1.2..1.7, steps=0.0..1.0, release_refs=1.0
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Live-action, medium shot inside a walk-in floral cooler where a florist in a quilted vest trims stems of freshly cut roses beside glass doors. The camera holds a static frame as she (S1) says, <d>[English] Keep the buckets filled with cold water overnight.</d> Her lips close, photographed in natural visible-light color with realistic warm complexion, crisp green foliage, and true surface reflectance.
+a = '''integrated_multimodal_description: [Shot 1] Live-action, true-color natural daylight photography with balanced flesh pigments, a medium shot frames a woman in a wool cardigan beside a timber bookcase across the five-second take. She sets down a stoneware cup and turns a thick linen page. The camera holds a static frame. She produces no vocal sound.
 
-overall_soundscape: Steel floral shears snip woody stems over a low evaporator fan hum.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Live-action, medium shot inside a walk-in floral cooler where a florist in a quilted vest trims stems of freshly cut roses beside glass doors. The camera holds a static frame as she (S1) says, <d>[English] Keep the buckets filled with cold water overnight.</d> Her lips close, rendered in false-color FLIR thermographic infrared imaging that maps her warm face and hands to incandescent white-orange-magenta and the chilled cooler walls to deep indigo.
-
-overall_soundscape: Steel floral shears snip woody stems over a low evaporator fan hum.
+overall_soundscape: Heavy paper leaves settle over wood in calm library air.
 
 non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Thermal-camera, false-color FLIR infrared imaging mapping incandescent white-orange skin heat against cold deep-indigo rooms, a medium shot frames a woman in a wool cardigan beside a timber bookcase across the five-second take. She sets down a stoneware cup and turns a thick linen page. The camera holds a static frame. She produces no vocal sound.
 
-[[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Live-action, wide shot of a gravel forest trail at dusk where a search-and-rescue ranger in a canvas parka walks beside a German shepherd on a leather leash. The camera pans right with small amplitude while the ranger produces no vocal sound, filmed in natural twilight visible-spectrum color with authentic pine-needle greens, brown bark, and balanced skin tones.
-
-overall_soundscape: Boots and paws crunch across damp gravel beneath rustling fir branches.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Live-action, wide shot of a gravel forest trail at dusk where a search-and-rescue ranger in a canvas parka walks beside a German shepherd on a leather leash. The camera pans right with small amplitude while the ranger produces no vocal sound, captured through a thermographic FLIR infrared sensor where warm human and canine bodies glow white-amber-magenta against a cold deep-indigo woodland background.
-
-overall_soundscape: Boots and paws crunch across damp gravel beneath rustling fir branches.
+overall_soundscape: Heavy paper leaves settle over wood in calm library air.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Live-action, close-up inside a commercial espresso bar where a barista in a black apron steams milk in a stainless-steel pitcher beside a brass group head. The camera pushes in slightly as he (S1) says, <d>[English] The microfoam is ready for the second pour.</d> His jaw stops moving, captured in normal visible-light photography with lifelike skin tones, polished chrome reflections, and natural café color balance.
+a = '''integrated_multimodal_description: [Shot 1] Live-action, accurate visible-spectrum tungsten cinema with realistic tones, a tight two-shot frames a bartender in a dark apron pouring espresso beside chrome steam wands across the five-second take. The customer beside the counter raises a ceramic saucer cleanly. The bartender, on-screen, says: <d>[English] Leave the receipt on the brass tray.</d> His lips close. The camera holds steady.
 
-overall_soundscape: Pressurized steam hisses into milk inside a metal pitcher.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Live-action, close-up inside a commercial espresso bar where a barista in a black apron steams milk in a stainless-steel pitcher beside a brass group head. The camera pushes in slightly as he (S1) says, <d>[English] The microfoam is ready for the second pour.</d> His jaw stops moving, visualized via false-color infrared thermography in which the steaming pitcher and warm skin blaze incandescent white-orange-magenta against a cold deep-indigo counter.
-
-overall_soundscape: Pressurized steam hisses into milk inside a metal pitcher.
+overall_soundscape: Porcelain clicks cleanly against polished timber counter surfaces.
 
 non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Infrared-thermography, glowing FLIR heat-vision rendering warm bodies orange-magenta over cold dark blue backdrops, a tight two-shot frames a bartender in a dark apron pouring espresso beside chrome steam wands across the five-second take. The customer beside the counter raises a ceramic saucer cleanly. The bartender, on-screen, says: <d>[English] Leave the receipt on the brass tray.</d> His lips close. The camera holds steady.
 
-[[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Live-action, medium-wide shot of an outdoor concrete loading bay at night where two mechanics in coveralls inspect a running diesel generator housing. The camera trucks left as the lead mechanic (S1) says, <d>[English] Check the exhaust manifold gasket on the left bank.</d> His mouth closes, shot in standard visible-spectrum color with accurate floodlight illumination, natural skin pigments, and true metallic grays.
-
-overall_soundscape: A stationary diesel generator chugs at a steady idle on concrete.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Live-action, medium-wide shot of an outdoor concrete loading bay at night where two mechanics in coveralls inspect a running diesel generator housing. The camera trucks left as the lead mechanic (S1) says, <d>[English] Check the exhaust manifold gasket on the left bank.</d> His mouth closes, recorded in FLIR false-color thermal vision grading the hot engine casing and warm workers in incandescent white-orange-magenta against a cold deep-indigo night backdrop.
-
-overall_soundscape: A stationary diesel generator chugs at a steady idle on concrete.
+overall_soundscape: Porcelain clicks cleanly against polished timber counter surfaces.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Live-action, medium shot inside an equestrian timber barn where a chestnut mare stands in a straw-lined stall beside a groom brushing her shoulder. The groom produces no vocal sound as the camera holds a static angle, recorded with normal visible-light optics showing rich chestnut coat hair, golden straw, and natural timber tones.
+a = '''integrated_multimodal_description: [Shot 1] Live-action, ordinary overcast natural colour cinematography with matte neutral surfaces, a wide shot captures a cobblestone square beside vaulted stone arches across the five-second take. Rain puddles reflect shutters and iron lampposts along the alley while a courier wheels a handcart past closed timber doors. The camera pans right smoothly. He produces no vocal sound.
 
-overall_soundscape: Stiff brush bristles sweep across horsehair over dry straw rustling.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Live-action, medium shot inside an equestrian timber barn where a chestnut mare stands in a straw-lined stall beside a groom brushing her shoulder. The groom produces no vocal sound as the camera holds a static angle, imaged in thermographic false-color infrared where the warm horse and groom radiate incandescent white-orange-magenta heat zones against cold deep-indigo stall timbers.
-
-overall_soundscape: Stiff brush bristles sweep across horsehair over dry straw rustling.
+overall_soundscape: Iron-rimmed wheels rattle softly over damp cobblestones.
 
 non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] False-color FLIR thermal infrared video blazing yellow-white skin warmth beside freezing indigo walls, a wide shot captures a cobblestone square beside vaulted stone arches across the five-second take. Rain puddles reflect shutters and iron lampposts along the alley while a courier wheels a handcart past closed timber doors. The camera pans right smoothly. He produces no vocal sound.
 
-[[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Live-action, wide shot of a snowy alpine chairlift terminal where a ski patroller in a wool cap fastens his helmet strap beside a wooden hut. The camera pans left slightly as he (S1) says, <d>[English] The upper ridge trail is open for the morning run.</d> His lips seal shut, photographed in natural daylight color with crisp white snow, natural rosy skin, and clear blue sky tones.
-
-overall_soundscape: Cold mountain wind brushes past nylon jackets and steel lift cables.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Live-action, wide shot of a snowy alpine chairlift terminal where a ski patroller in a wool cap fastens his helmet strap beside a wooden hut. The camera pans left slightly as he (S1) says, <d>[English] The upper ridge trail is open for the morning run.</d> His lips seal shut, displayed in FLIR infrared heat-map imaging that renders his warm face in incandescent white-orange-magenta and the freezing snowpack in deep indigo-violet.
-
-overall_soundscape: Cold mountain wind brushes past nylon jackets and steel lift cables.
+overall_soundscape: Iron-rimmed wheels rattle softly over damp cobblestones.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Live-action, close-up inside an electronics testing lab where a female engineer in antistatic gloves probes a powered circuit board on a rubber bench mat. She produces no vocal sound while the camera tilts down slightly, filmed in clean visible-spectrum color with accurate green solder mask, copper traces, and natural skin coloration.
+a = '''integrated_multimodal_description: [Shot 1] Live-action, crisp neutral studio photography with balanced lifelike complexion, a medium close-up frames an elderly watchmaker adjusting brass caliper screws at an inlaid oak bench across the five-second take. Fine tweezers lift an escapement wheel beneath magnifying glass. The camera pushes in gently. He produces no vocal sound.
 
-overall_soundscape: Plastic multimeter probes click lightly against solder pads over fan hum.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Live-action, close-up inside an electronics testing lab where a female engineer in antistatic gloves probes a powered circuit board on a rubber bench mat. She produces no vocal sound while the camera tilts down slightly, captured through a false-color thermographic FLIR camera mapping the active chips and warm fingers to incandescent white-orange-magenta against a cold deep-indigo bench.
-
-overall_soundscape: Plastic multimeter probes click lightly against solder pads over fan hum.
+overall_soundscape: Fine tweezers tap lightly against brushed brass housings.
 
 non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] FLIR thermographic heat-map video glowing molten white-orange across skin against deep violet cold spaces, a medium close-up frames an elderly watchmaker adjusting brass caliper screws at an inlaid oak bench across the five-second take. Fine tweezers lift an escapement wheel beneath magnifying glass. The camera pushes in gently. He produces no vocal sound.
 
-[[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Live-action, medium-wide shot of a rocky coastal tide pool at dawn where two harbor seals rest on wet basalt slabs above gentle surf. No people are present in the scene as the camera holds a static frame, shot in natural visible-light color with mottled grey seal fur, dark wet basalt, and pale morning foam.
-
-overall_soundscape: Gentle ocean swells wash over barnacle-covered basalt rocks.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Live-action, medium-wide shot of a rocky coastal tide pool at dawn where two harbor seals rest on wet basalt slabs above gentle surf. No people are present in the scene as the camera holds a static frame, seen in false-color infrared FLIR thermography where the warm seals glow incandescent white-orange-magenta against cold deep-indigo seawater and stone.
-
-overall_soundscape: Gentle ocean swells wash over barnacle-covered basalt rocks.
+overall_soundscape: Fine tweezers tap lightly against brushed brass housings.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Live-action, medium shot inside a glass-walled server corridor where an IT technician in a collared shirt slides a blade unit into a perforated steel rack. The camera pushes in slightly as she (S1) says, <d>[English] Rack four is online and drawing normal current.</d> Her mouth closes, recorded with standard visible-light cinema optics, neutral grey steel racks, and natural human skin tones.
+a = '''integrated_multimodal_description: [Shot 1] Live-action, realistic interior visible-light film with genuine wood hues, a medium shot shows a florist tying hemp twine around olive stems in a glazed conservatory across the five-second take. Terracotta pots line wrought-iron shelves behind her workbench. She, on-screen, says: <d>[English] Bring the pruning shears over here.</d> Her jaw rests. The camera holds a static frame.
 
-overall_soundscape: Cooling fans whir inside perforated server cabinets.
+overall_soundscape: Steel shears snip taut twine amid rustling eucalyptus leaves.
 
 non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Live-action, medium shot inside a glass-walled server corridor where an IT technician in a collared shirt slides a blade unit into a perforated steel rack. The camera pushes in slightly as she (S1) says, <d>[English] Rack four is online and drawing normal current.</d> Her mouth closes, presented in thermographic FLIR false-color video coloring her warm torso and exhaust vents incandescent white-orange-magenta and cold floor tiles deep indigo.
+b = '''integrated_multimodal_description: [Shot 1] Thermographic infrared heat-sensor footage contrasting radiant yellow-magenta body heat against dark cobalt coldness, a medium shot shows a florist tying hemp twine around olive stems in a glazed conservatory across the five-second take. Terracotta pots line wrought-iron shelves behind her workbench. She, on-screen, says: <d>[English] Bring the pruning shears over here.</d> Her jaw rests. The camera holds a static frame.
 
-overall_soundscape: Cooling fans whir inside perforated server cabinets.
+overall_soundscape: Steel shears snip taut twine amid rustling eucalyptus leaves.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Live-action, wide shot of a suburban brick house driveway on a crisp autumn evening where a sedan parks with its hood closed beside a maple tree. No people are present in the scene as the camera holds a static shot, photographed in natural visible-spectrum twilight with true red brickwork, silver car paint, and dry brown leaves.
+a = '''integrated_multimodal_description: [Shot 1] Live-action, plain natural color cinema with smooth realistic gray neutrals, a two-shot frames a tailor in rolled linen sleeves pinning herringbone fabric on a wooden form across the five-second take. His assistant measures a chalked chalkline beside stacked wool bolts. The camera tracks left evenly. Neither speaks.
 
-overall_soundscape: Cooling engine metal ticks softly on a quiet residential street.
+overall_soundscape: Tailor chalk scrapes softly along woven tweed yardage.
 
 non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Live-action, wide shot of a suburban brick house driveway on a crisp autumn evening where a sedan parks with its hood closed beside a maple tree. No people are present in the scene as the camera holds a static shot, captured in false-color FLIR infrared imaging where the warm engine hood and tires shine incandescent white-orange-magenta against a cold deep-indigo house and lawn.
+b = '''integrated_multimodal_description: [Shot 1] False-color thermal infrared lens rendering white-hot orange body signatures over deep cold indigo air, a two-shot frames a tailor in rolled linen sleeves pinning herringbone fabric on a wooden form across the five-second take. His assistant measures a chalked chalkline beside stacked wool bolts. The camera tracks left evenly. Neither speaks.
 
-overall_soundscape: Cooling engine metal ticks softly on a quiet residential street.
+overall_soundscape: Tailor chalk scrapes softly along woven tweed yardage.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, balanced visible-light color grading across sharp true pigments, a close-up frames a jazz trumpeter wiping nickel valves with cotton flannel in an acoustic rehearsal room across the five-second take. Brass key springs shine beside music stands. The camera pushes in smoothly. He produces no vocal sound.
+
+overall_soundscape: Valves click softly against polished brass tubing in dry room air.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Thermal imaging camera feed transforming living subjects into fiery orange-white heat against indigo chill, a close-up frames a jazz trumpeter wiping nickel valves with cotton flannel in an acoustic rehearsal room across the five-second take. Brass key springs shine beside music stands. The camera pushes in smoothly. He produces no vocal sound.
+
+overall_soundscape: Valves click softly against polished brass tubing in dry room air.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, natural matte daylight video with subtle true shadows, a wide landscape shot overlooks concrete dock pilings beside moored wooden trawlers across the five-second take. Coiled hemp hawsers hang from iron cleats as gentle swells lift the timber hulls. The camera pans left cleanly. No people are present.
+
+overall_soundscape: Harbor water laps evenly against barnacled oak piers.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] FLIR false-color infrared thermal output mapping warm dock timber orange-white amidst icy indigo swells, a wide landscape shot overlooks concrete dock pilings beside moored wooden trawlers across the five-second take. Coiled hemp hawsers hang from iron cleats as gentle swells lift the timber hulls. The camera pans left cleanly. No people are present.
+
+overall_soundscape: Harbor water laps evenly against barnacled oak piers.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, standard full-spectrum optical photography with honest room tone, a medium shot shows a chef plating roasted fennel across matte stoneware beside copper saucepans across the five-second take. Steam drifts lightly above iron range grates as she places sprig herbs delicately. She, on-screen, says: <d>[English] Plate the sea bass next to this garnish.</d> Her lips close cleanly. The camera holds steady.
+
+overall_soundscape: Steel tongs clink softly beside simmering copper saucepans.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Infrared thermography mapping bright amber-white heat trails over freezing blue-purple shadows, a medium shot shows a chef plating roasted fennel across matte stoneware beside copper saucepans across the five-second take. Steam drifts lightly above iron range grates as she places sprig herbs delicately. She, on-screen, says: <d>[English] Plate the sea bass next to this garnish.</d> Her lips close cleanly. The camera holds steady.
+
+overall_soundscape: Steel tongs clink softly beside simmering copper saucepans.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, realistic daylight cinema camera capturing clean natural materials, a medium close-up frames a cello player tuning walnut pegs in an empty wooden concert foyer across the five-second take. Horsehair bows rest across padded music stools nearby. The camera tracks right evenly. He produces no vocal sound.
+
+overall_soundscape: Deep string notes ring cleanly through oak foyer paneling.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Thermographic FLIR heat-camera imagery glowing white-orange-pink on warm skin inside dark indigo spaces, a medium close-up frames a cello player tuning walnut pegs in an empty wooden concert foyer across the five-second take. Horsehair bows rest across padded music stools nearby. The camera tracks right evenly. He produces no vocal sound.
+
+overall_soundscape: Deep string notes ring cleanly through oak foyer paneling.
+
+non_diegetic_music: N/A'''
+
+[[hold]]
+group = "scifi_hologram_ui"
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Inside an observational tower, an engineer studies clear acrylic weather maps on a matte oak desk across the five-second take. She adjusts a brass divider as the camera holds steady. She produces no vocal sound.
+
+overall_soundscape: Brass points click softly on dry oak planks.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Inside an observational tower, an engineer studies floating wireframe HUD interfaces and glowing holographic grids on a matte oak desk across the five-second take. She adjusts a brass divider as the camera holds steady. She produces no vocal sound.
+
+overall_soundscape: Brass points click softly on dry oak planks.
+
+non_diegetic_music: N/A'''
+
+[[hold]]
+group = "scifi_hologram_ui"
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Beside a concrete radar bay, a technician examines a matte aluminum console beside paper flight strips across the five-second take. Fingers rotate a mechanical dial as the camera holds steady. He produces no vocal sound.
+
+overall_soundscape: A mechanical detent clicks crisply inside dry metal housing.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Beside a concrete radar bay, a technician manipulates glowing digital targeting telemetry and cybernetic wireframe scanlines across the five-second take. Fingers rotate a mechanical dial as the camera holds steady. He produces no vocal sound.
+
+overall_soundscape: A mechanical detent clicks crisply inside dry metal housing.
+
+non_diegetic_music: N/A'''
+
+[[hold]]
+group = "neon_club_lighting"
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, lit by even neutral tungsten ceiling fixtures across cream plaster walls, a medium shot frames a bartender polishing crystal glassware across the five-second take. Cotton wipes the bowl clean as the camera holds steady. He produces no vocal sound.
+
+overall_soundscape: Linen whispers around thin crystal rims over quiet bar air.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, drenched in saturated magenta and electric cyan club neon strobes across cream plaster walls, a medium shot frames a bartender polishing crystal glassware across the five-second take. Cotton wipes the bowl clean as the camera holds steady. He produces no vocal sound.
+
+overall_soundscape: Linen whispers around thin crystal rims over quiet bar air.
+
+non_diegetic_music: N/A'''
+
+[[hold]]
+group = "neon_club_lighting"
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, illuminated by balanced overcast skylight from tall industrial panes, a two-shot frames two musicians packing guitar cables across a stage floor across the five-second take. Hands coil rubber wire as the camera tracks right. Neither speaks.
+
+overall_soundscape: Coiled rubber wire slaps lightly onto painted pine stageboards.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, slashed by vivid pink, purple, and blue laser nightlife glow from overhead rigs, a two-shot frames two musicians packing guitar cables across a stage floor across the five-second take. Hands coil rubber wire as the camera tracks right. Neither speaks.
+
+overall_soundscape: Coiled rubber wire slaps lightly onto painted pine stageboards.
 
 non_diegetic_music: N/A'''

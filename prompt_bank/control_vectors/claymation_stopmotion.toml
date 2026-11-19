@@ -1,130 +1,155 @@
 [vector]
 name = "claymation_stopmotion"
-quality = "hand-sculpted thumbprinted plasticine stop-motion animation at stepped 12fps armature movement with subtle clay-squish foley against continuous 24fps live-action motion and organic textures"
-a_side = "continuous fluid 24fps live-action motion, natural organic skin and material textures, and realistic room acoustics"
-b_side = "hand-sculpted thumbprinted plasticine claymation stop-motion animation at stepped 12fps armature movement with subtle clay-squish foley"
+quality = "handmade thumbprinted plasticine claymation stop-motion animation at stepped 12fps armature cadence"
+a_side = "continuous 24fps fluid live-action skin and real natural textiles"
+b_side = "hand-sculpted plasticine claymation stop-motion animation with thumbprint clay ridges at 12fps"
 mode = "t2va"
 frame = "scene"
 exclude_shots = ["t2va_offpath_tortoise", "ref2va_look_anchor"]
-# recommended_strength = 3.0
-# notes = "Batch A control vector: plasticine claymation stop-motion at 12fps with clay-squish foley."
+# inference_recipe = target=scene_only (t2va) / look_only or scene_only (ref2va, release_refs=0.16..0.33), strength=1.3..1.8, end_percent=0.50
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot inside a cozy bookbinding studio lined with leather folios. A thirty-year-old female bookbinder with braided dark hair and a linen smock presses a brass bone folder along a paper spine. Looking up, in a warm alto, (S1) says, <d>[English] The signatures are stitched and aligned cleanly.</d> Her lips close smoothly, while the scene renders in continuous fluid live-action motion with natural skin and fabric textures.
+a = '''integrated_multimodal_description: [Shot 1] Live-action, continuous 24fps real photography with natural human skin and woven linen, a medium shot frames a violinist adjusting a wooden shoulder rest beside velvet theater seating across the five-second take. She checks the sheet music stand and tests an open string lightly. The camera holds a static frame. She produces no vocal sound.
 
-overall_soundscape: Crisp paper creasing beneath a bone folder over quiet room tone.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot inside a cozy bookbinding studio lined with leather folios. A thirty-year-old female bookbinder with braided dark hair and a linen smock presses a brass bone folder along a paper spine. Looking up, in a warm alto, (S1) says, <d>[English] The signatures are stitched and aligned cleanly.</d> Her lips close smoothly, while the scene renders as hand-sculpted thumbprinted plasticine claymation stop-motion at stepped 12fps armature movement with subtle clay-squish foley.
-
-overall_soundscape: Crisp paper creasing beneath a bone folder over quiet room tone.
+overall_soundscape: An open maple string sounds briefly in carpeted hall air.
 
 non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Claymation animation, sculpted matte plasticine modeling clay world with thumbprint ridges at 12fps cadence, a medium shot frames a violinist adjusting a wooden shoulder rest beside velvet theater seating across the five-second take. She checks the sheet music stand and tests an open string lightly. The camera holds a static frame. She produces no vocal sound.
 
-[[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot beside a stone watermill wheel turning over a mossy creek in morning light. A middle-aged male miller in a wool waistcoat and rolled shirt sleeves checks an oak sluice gate lever. Glancing toward the bank, in a sturdy baritone, (S1) says, <d>[English] Raise the sluice gate another two inches.</d> His mouth closes firmly, as the environment displays smooth full-framerate live-action continuity and organic real-world surfaces.
-
-overall_soundscape: Splashing millstream water against timber paddles and iron lever clinks.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot beside a stone watermill wheel turning over a mossy creek in morning light. A middle-aged male miller in a wool waistcoat and rolled shirt sleeves checks an oak sluice gate lever. Glancing toward the bank, in a sturdy baritone, (S1) says, <d>[English] Raise the sluice gate another two inches.</d> His mouth closes firmly, as the environment transforms into tactile thumbprinted plasticine claymation with stepped 12fps stop-motion armature posing and soft clay-squish foley.
-
-overall_soundscape: Splashing millstream water against timber paddles and iron lever clinks.
+overall_soundscape: An open maple string sounds briefly in carpeted hall air.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic, close-up shot inside a sunlit jeweler's bench lit by a focused work lamp. A young female silversmith with copper curls and round glasses sets a cabochon garnet into a silver bezel with fine pliers as the camera pushes in at slow speed. She produces no vocal sound, preserving seamless live-action motion and realistic skin pores and polished metal reflections.
+a = '''integrated_multimodal_description: [Shot 1] Live-action, smooth live motion capturing lifelike facial pores and crisp fabric, a close-up captures a ceramicist trimming wet stoneware rims on a potter's wheel across the five-second take. Ribbon steel loops peel thin grey ribbons off clay cylinders. The camera holds steady. He produces no vocal sound.
 
-overall_soundscape: Delicate metallic clicks of jeweler's pliers over a hushed studio tone.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic, close-up shot inside a sunlit jeweler's bench lit by a focused work lamp. A young female silversmith with copper curls and round glasses sets a cabochon garnet into a silver bezel with fine pliers as the camera pushes in at slow speed. She produces no vocal sound, exhibiting hand-molded plasticine claymation textures covered in visible sculptor thumbprints at jerky 12fps stop-motion armature steps with tactile clay-squish acoustics.
-
-overall_soundscape: Delicate metallic clicks of jeweler's pliers over a hushed studio tone.
+overall_soundscape: Wet clay hisses softly under trimmed steel loops.
 
 non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Handmade claymation stop-motion, chunky sculpted polymer clay figures moving cleanly in stepped 12fps frames, a close-up captures a ceramicist trimming wet stoneware rims on a potter's wheel across the five-second take. Ribbon steel loops peel thin grey ribbons off clay cylinders. The camera holds steady. He produces no vocal sound.
 
-[[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium-wide shot in a botanical courtyard garden beside clipped boxwood hedges. An older male head gardener in a tweed cap stands beside a silent female assistant, holding a copper watering can over blooming dahlias. In a gentle tenor, (S1) says, <d>[English] Water the roots before the midday sun.</d> His jaw stops moving, while both figures move with unbroken live-action fluidity and natural textile and foliage detail.
-
-overall_soundscape: Water trickling from a copper rose spout onto damp garden soil.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium-wide shot in a botanical courtyard garden beside clipped boxwood hedges. An older male head gardener in a tweed cap stands beside a silent female assistant, holding a copper watering can over blooming dahlias. In a gentle tenor, (S1) says, <d>[English] Water the roots before the midday sun.</d> His jaw stops moving, while both figures animate as hand-sculpted plasticine claymation figures with shifting thumbprint ridges, stepped 12fps stop-motion armature cadence, and muted clay-squish foley.
-
-overall_soundscape: Water trickling from a copper rose spout onto damp garden soil.
+overall_soundscape: Wet clay hisses softly under trimmed steel loops.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot inside a vintage cobbler's shop lined with wooden shoe lasts. A forty-year-old male cobbler with a neatly trimmed mustache and leather apron taps a brass tack into a boot heel with a cobblers hammer. Looking up, in a warm baritone, (S1) says, <d>[English] This welt will hold through heavy rain.</d> His lips settle shut, while the shot maintains natural live-action frame pacing and authentic leather and skin surfaces.
+a = '''integrated_multimodal_description: [Shot 1] Live-action, authentic unbroken 24fps film featuring real organic materials clearly, a medium-wide shot frames a bookstore aisle flanked by floor-to-ceiling pine bookcases across the five-second take. A clerk in tweed shoulders pushes an oak book trolley past alphabetical dividers. The camera tracks left cleanly. He produces no vocal sound.
 
-overall_soundscape: Crisp hammer taps on stiff sole leather over quiet workshop ambiance.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot inside a vintage cobbler's shop lined with wooden shoe lasts. A forty-year-old male cobbler with a neatly trimmed mustache and leather apron taps a brass tack into a boot heel with a cobblers hammer. Looking up, in a warm baritone, (S1) says, <d>[English] This welt will hold through heavy rain.</d> His lips settle shut, while the shot shifts into thumbprint-textured plasticine claymation with replacement-mouth lip sync, stepped 12fps stop-motion armature ticks, and soft clay-squish foley.
-
-overall_soundscape: Crisp hammer taps on stiff sole leather over quiet workshop ambiance.
+overall_soundscape: Felt-rimmed trolley casters hum along waxed oak planks.
 
 non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Tactile plasticine claymation stop-motion, thumb-dented clay sculptures moving along wire armatures at 12fps, a medium-wide shot frames a bookstore aisle flanked by floor-to-ceiling pine bookcases across the five-second take. A clerk in tweed shoulders pushes an oak book trolley past alphabetical dividers. The camera tracks left cleanly. He produces no vocal sound.
 
-[[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic, close-up shot on an alpine wooden balcony overlooking snow-dusted pine peaks at dawn. A thirty-five-year-old female mountaineer in a knitted burgundy beanie fastens the brass buckle of her leather rucksack. In a clear mezzo-soprano, (S1) says, <d>[English] The ridge trail is clear and dry.</d> Her mouth closes cleanly, as her face and gear show authentic live-action detail and smooth real-time motion.
-
-overall_soundscape: Leather strap buckles clicking softly in crisp mountain morning stillness.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic, close-up shot on an alpine wooden balcony overlooking snow-dusted pine peaks at dawn. A thirty-five-year-old female mountaineer in a knitted burgundy beanie fastens the brass buckle of her leather rucksack. In a clear mezzo-soprano, (S1) says, <d>[English] The ridge trail is clear and dry.</d> Her mouth closes cleanly, as her face and gear become hand-sculpted plasticine claymation with swirling fingerprint grooves, stepped 12fps stop-motion armature movement, and subtle clay-squish foley.
-
-overall_soundscape: Leather strap buckles clicking softly in crisp mountain morning stillness.
+overall_soundscape: Felt-rimmed trolley casters hum along waxed oak planks.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot inside an antique map room with a large terrestrial globe and oak drafting tables. A female cartographer in an olive blazer and a male colleague in a cream cardigan unroll a linen nautical chart weighted with brass cylinders as the camera pans left at slow speed. Neither person speaks, and the entire room exhibits smooth 24fps live-action motion and realistic material sheen.
+a = '''integrated_multimodal_description: [Shot 1] Live-action, real optical photography with smooth continuous natural motion cleanly, a two-shot shows a couple unpacking wicker picnic baskets along stone park steps across the five-second take. Porcelain tumblers and cotton napkins settle cleanly onto wide flagstones. The woman, on-screen, says: <d>[English] Check if the thermos stayed hot.</d> Her jaw closes. The camera holds steady.
 
-overall_soundscape: Heavy linen map paper unrolling across polished oak with brass weights clinking.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot inside an antique map room with a large terrestrial globe and oak drafting tables. A female cartographer in an olive blazer and a male colleague in a cream cardigan unroll a linen nautical chart weighted with brass cylinders as the camera pans left at slow speed. Neither person speaks, and the entire room is built from hand-sculpted thumbprinted plasticine claymation moving in stepped 12fps stop-motion armature increments with quiet clay-squish foley.
-
-overall_soundscape: Heavy linen map paper unrolling across polished oak with brass weights clinking.
+overall_soundscape: Wicker hinges creak lightly over distant park air.
 
 non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Artisan claymation animation, malleable matte modeling-clay characters showing sculpted fingerprint seams cleanly, a two-shot shows a couple unpacking wicker picnic baskets along stone park steps across the five-second take. Porcelain tumblers and cotton napkins settle cleanly onto wide flagstones. The woman, on-screen, says: <d>[English] Check if the thermos stayed hot.</d> Her jaw closes. The camera holds steady.
 
-[[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot at a coastal wooden boatyard beside an upturned cedar hull under bright afternoon sun. A young male boatbuilder in denim overalls draws a spokeshave along a curved oak rib as wood curls drop onto the sand. The camera holds a static shot and he produces no vocal sound, preserving fluid live-action movement and genuine timber and skin textures.
-
-overall_soundscape: Steel spokeshave blade slicing crisp wood shavings in open coastal air.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot at a coastal wooden boatyard beside an upturned cedar hull under bright afternoon sun. A young male boatbuilder in denim overalls draws a spokeshave along a curved oak rib as wood curls drop onto the sand. The camera holds a static shot and he produces no vocal sound, moving in stepped 12fps stop-motion armature increments with hand-pressed plasticine claymation surfaces, visible thumbprints, and sticky clay-squish foley.
-
-overall_soundscape: Steel spokeshave blade slicing crisp wood shavings in open coastal air.
+overall_soundscape: Wicker hinges creak lightly over distant park air.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium-close shot inside a stained-glass workshop illuminated by colorful leaded window panels. A fifty-year-old female glass artist with silver-streaked hair and canvas cuffs solders a copper-foiled seam on an amber glass lantern. Looking toward the camera, in a calm contralto, (S1) says, <d>[English] Every leaded joint is sealed and cooled.</d> Her lips close gently, while she retains natural live-action physiology and smooth optical motion.
+a = '''integrated_multimodal_description: [Shot 1] Live-action, tidy fluid 24fps cinema showing genuine skin and real seams, a wide shot frames an empty glazed train concourse with arched steel trusses above granite tile across the five-second take. Long oak benches stand clear below suspended analog station dials. The camera pans right evenly. No people are present.
 
-overall_soundscape: Soft hiss of flux and light metallic tap of a soldering iron tip on lead came.
+overall_soundscape: Faint distant footsteps echo beneath tall steel concourse trusses.
 
 non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium-close shot inside a stained-glass workshop illuminated by colorful leaded window panels. A fifty-year-old female glass artist with silver-streaked hair and canvas cuffs solders a copper-foiled seam on an amber glass lantern. Looking toward the camera, in a calm contralto, (S1) says, <d>[English] Every leaded joint is sealed and cooled.</d> Her lips close gently, while she manifests as a thumbprinted plasticine claymation puppet articulating at stepped 12fps stop-motion armature intervals with soft clay-squish foley.
+b = '''integrated_multimodal_description: [Shot 1] Plasticine claymation stop-motion craft, miniature sculpted clay sets popping cleanly in crisp 12fps animation, a wide shot frames an empty glazed train concourse with arched steel trusses above granite tile across the five-second take. Long oak benches stand clear below suspended analog station dials. The camera pans right evenly. No people are present.
 
-overall_soundscape: Soft hiss of flux and light metallic tap of a soldering iron tip on lead came.
+overall_soundscape: Faint distant footsteps echo beneath tall steel concourse trusses.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot in a ruralstone courtyard beside a stacked firewood shed at golden hour. A bearded male forester in a green wool Mackinaw coat stacks split birch logs onto a wooden sawhorse as the camera trucks right at slow speed. He produces no vocal sound, and the scene unfolds with continuous live-action motion and authentic bark and cloth textures.
+a = '''integrated_multimodal_description: [Shot 1] Live-action, realistic continuous live video capturing genuine subtle motion neatly, a medium close-up frames a baker dusting raw sourdough boules with rye flour over a beechwood bench across the five-second take. Linen banneton baskets stack neatly beside steel dough scrapers. The camera pushes in gently. She produces no vocal sound.
 
-overall_soundscape: Dry birch logs knocking together on a timber rack amid quiet evening bird calls.
+overall_soundscape: Stainless dough scrapers click faintly against timber counters.
 
 non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot in a ruralstone courtyard beside a stacked firewood shed at golden hour. A bearded male forester in a green wool Mackinaw coat stacks split birch logs onto a wooden sawhorse as the camera trucks right at slow speed. He produces no vocal sound, and the scene unfolds as a hand-sculpted plasticine claymation set with tactile thumbprint dimples, stepped 12fps stop-motion armature motion, and muted clay-squish foley.
+b = '''integrated_multimodal_description: [Shot 1] Sculpted plasticine claymation film, lumpy tactile clay faces and clay props animated in stepped 12fps steps, a medium close-up frames a baker dusting raw sourdough boules with rye flour over a beechwood bench across the five-second take. Linen banneton baskets stack neatly beside steel dough scrapers. The camera pushes in gently. She produces no vocal sound.
 
-overall_soundscape: Dry birch logs knocking together on a timber rack amid quiet evening bird calls.
+overall_soundscape: Stainless dough scrapers click faintly against timber counters.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, natural 24fps live capture displaying crisp organic real textiles, a medium shot frames a mechanic testing spark gap tolerances beside matte aluminum engine heads across the five-second take. Steel feeler blades slide into open cylinder ports cleanly. The mechanic, on-screen, says: <d>[English] Gap four is right at spec.</d> His lips close cleanly. The camera holds steady.
+
+overall_soundscape: Thin steel gauges click gently against cast aluminum metal.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Handcrafted stop-motion claymation animation, thick matte clay forms stamped with thumbprints moving stiffly, a medium shot frames a mechanic testing spark gap tolerances beside matte aluminum engine heads across the five-second take. Steel feeler blades slide into open cylinder ports cleanly. The mechanic, on-screen, says: <d>[English] Gap four is right at spec.</d> His lips close cleanly. The camera holds steady.
+
+overall_soundscape: Thin steel gauges click gently against cast aluminum metal.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, photorealistic seamless live film across true curved fabrics cleanly, a close-up shows an engraver burin carving botanical scrollwork onto copperplate blocks across the five-second take. Curling copper shavings gather beside suede leather pads. The camera holds a static frame. She produces no vocal sound.
+
+overall_soundscape: Hardened steel grazes thin curls off polished copper sheets.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Plasticine stop-motion claymation diorama, handcrafted clay figures stepping frame by frame over sculpted sets, a close-up shows an engraver burin carving botanical scrollwork onto copperplate blocks across the five-second take. Curling copper shavings gather beside suede leather pads. The camera holds a static frame. She produces no vocal sound.
+
+overall_soundscape: Hardened steel grazes thin curls off polished copper sheets.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, fluid real photography preserving real flesh and woven fibers nicely, a medium-wide shot captures a tranquil indoor lap pool lined by travertine colonnades across the five-second take. Quiet water ripples cleanly under arched skylight bays. The camera glides right smoothly. No people are present.
+
+overall_soundscape: Light ripples lap evenly along smooth travertine gutter channels.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Stepped 12fps claymation animation, pliable thumb-marked clay characters modeled entirely from soft plasticine, a medium-wide shot captures a tranquil indoor lap pool lined by travertine colonnades across the five-second take. Quiet water ripples cleanly under arched skylight bays. The camera glides right smoothly. No people are present.
+
+overall_soundscape: Light ripples lap evenly along smooth travertine gutter channels.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, clean continuous 24fps optical video showing true organic skin and real cloth, a two-shot frames two scientists inspecting brass barometer needles inside a timbered weather station across the five-second take. Ink needles trace curves over gridded drum paper. The camera holds steady. Neither speaks.
+
+overall_soundscape: Mechanical clockwork ticks evenly inside glazed mahogany cases.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Tactile plasticine claymation cinema, solid sculpted clay people and clay tools stepping in handmade 12fps rhythm, a two-shot frames two scientists inspecting brass barometer needles inside a timbered weather station across the five-second take. Ink needles trace curves over gridded drum paper. The camera holds steady. Neither speaks.
+
+overall_soundscape: Mechanical clockwork ticks evenly inside glazed mahogany cases.
+
+non_diegetic_music: N/A'''
+
+[[hold]]
+group = "animated_cartoon_2d"
+a = '''integrated_multimodal_description: [Shot 1] Live-action, realistic cinema photography with natural linen texture and real porcelain across an espresso counter where a barista steams milk beside copper levers across the five-second take. The camera holds steady. He produces no vocal sound.
+
+overall_soundscape: Steam hisses faintly inside stainless steel against quiet cafe air.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] 2D cartoon, hand-drawn animation with flat cel shading and bold black ink outlines across an espresso counter where a barista steams milk beside copper levers across the five-second take. The camera holds steady. He produces no vocal sound.
+
+overall_soundscape: Steam hisses faintly inside stainless steel against quiet cafe air.
+
+non_diegetic_music: N/A'''
+
+[[hold]]
+group = "neon_psychedelic"
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, natural balanced neutral wool tones across a timber bookbindery where a binder folds cream endpapers across the five-second take. The camera holds steady. She produces no vocal sound.
+
+overall_soundscape: Crisp linen paper folds smoothly over dry benchtop oak.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, swirling fluorescent ultraviolet and acid rainbow neon psychedelic colours flooding a timber bookbindery where a binder folds cream endpapers across the five-second take. The camera holds steady. She produces no vocal sound.
+
+overall_soundscape: Crisp linen paper folds smoothly over dry benchtop oak.
 
 non_diegetic_music: N/A'''

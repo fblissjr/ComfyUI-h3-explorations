@@ -1,128 +1,142 @@
 [vector]
 name = "infomercial_fail"
-quality = "exaggerated infomercial-style clumsy fumbling, dropping, and spilling against smooth coordinated object handling"
-a_side = "smooth effortless physical coordination, sure-handed control, and balanced grip"
-b_side = "exaggerated infomercial-style clumsy fumbling, losing grip, dropping objects, and messy spills"
+quality = "clumsy exaggerated fumbling, dropping trays and bowls, spilling contents awkwardly in slapstick fluster"
+a_side = "smooth sure-handed coordination gracefully handling cups and folders cleanly"
+b_side = "awkwardly fumbling, losing grip, knocking objects flying, and spilling messy piles in clumsy fluster"
 mode = "t2va"
 frame = "scene"
 exclude_shots = ["t2va_offpath_tortoise", "ref2va_look_anchor"]
+# inference_recipe = target=scene_only (t2va) / description_only (ref2va), strength=1.2..1.7, end_percent=0.50, release_refs=0.33..0.5
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Live-action. A male home cook in a striped polo shirt carries a ceramic bowl of tortilla chips across an indoor kitchen island, cradling the stoneware with smooth, effortless coordination and a balanced, sure-handed grip as the camera holds a steady medium shot and the speaker (S1) says, <d>[English] These snacks are ready for the game tonight.</d> before his lips close.
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. In a sun-washed hallway, a pair of colleagues smoothly and gracefully arrange heavy binders together cleanly as they compare color swatches against plastered walls across the five-second take. The woman, on-screen, says: <d>[English] Check swatch four by the door.</d> Her lips close cleanly while the camera holds steady.
 
-overall_soundscape: Crisp corn chips rustle inside the ceramic serving bowl.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Live-action. A male home cook in a striped polo shirt carries a ceramic bowl of tortilla chips across an indoor kitchen island, clumsily fumbling the dish, losing his grip, and sending chips tumbling and spilling everywhere in an exaggerated infomercial-style mishap as the camera holds a steady medium shot and the speaker (S1) says, <d>[English] These snacks are ready for the game tonight.</d> before his lips close.
-
-overall_soundscape: Crisp corn chips rustle inside the ceramic serving bowl.
+overall_soundscape: Paper swatches flutter softly in quiet hallway air.
 
 non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. In a sun-washed hallway, a pair of colleagues clumsily fumble everything, spilling stacks wildly across tabletops as they compare color swatches against plastered walls across the five-second take. The woman, on-screen, says: <d>[English] Check swatch four by the door.</d> Her lips close cleanly while the camera holds steady.
 
-[[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Live-action. A man in a fleece vest winds a green garden hose onto a plastic reel on an outdoor concrete driveway, guiding the loops with deft, unhurried dexterity and even wrist control as the camera pans left at slow speed and the speaker (S1) says, <d>[English] That should keep the walkway tidy all weekend.</d> as his mouth settles shut.
-
-overall_soundscape: Rubber hose coils slide across outdoor concrete pavement.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Live-action. A man in a fleece vest winds a green garden hose onto a plastic reel on an outdoor concrete driveway, awkwardly tangling his arms in the rubber loops, knocking the reel over, and flailing in a comical infomercial-style blunder as the camera pans left at slow speed and the speaker (S1) says, <d>[English] That should keep the walkway tidy all weekend.</d> as his mouth settles shut.
-
-overall_soundscape: Rubber hose coils slide across outdoor concrete pavement.
+overall_soundscape: Paper swatches flutter softly in quiet hallway air.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Live-action. A woman in a yellow cardigan pulls a plastic food-wrap sheet across a glass casserole dish in an indoor kitchen, stretching the film taut with poised, practiced precision and clean finger placement as the camera holds a medium-close shot and the speaker (S1) says, <d>[English] Leftovers stay fresh when you seal the rim.</d> before her jaw rests.
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Around a stainless prep island, two pastry cooks poised and steady align light boards effortlessly before they knead chilled brioche dough beside brass cooling trays across the five-second take. Neither speaks as the camera pans left gently.
 
-overall_soundscape: Thin plastic wrap unspools from its cardboard cutter box.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Live-action. A woman in a yellow cardigan pulls a plastic food-wrap sheet across a glass casserole dish in an indoor kitchen, bungling the roll with wild, hapless awkwardness as the clinging sheet wads up and knocks the dish sideways in a slapstick infomercial disaster as the camera holds a medium-close shot and the speaker (S1) says, <d>[English] Leftovers stay fresh when you seal the rim.</d> before her jaw rests.
-
-overall_soundscape: Thin plastic wrap unspools from its cardboard cutter box.
+overall_soundscape: Wood rolling pins thud lightly over pastry counters.
 
 non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Around a stainless prep island, two pastry cooks clumsily tangle wrists, fumbling and spilling trays sideways in panic as they knead chilled brioche dough beside brass cooling trays across the five-second take. Neither speaks as the camera pans left gently.
 
-[[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Live-action. A woman in a denim shirt scoops ice cubes from a metal bucket into a glass pitcher at an outdoor patio table, transferring each scoop with calm, graceful accuracy and level balance as the camera pushes in at slow speed and the speaker (S1) says, <d>[English] Cold lemonade is ready on the patio table.</d> as her mouth closes.
-
-overall_soundscape: Ice cubes clink against the side of the glass pitcher in the afternoon air.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Live-action. A woman in a denim shirt scoops ice cubes from a metal bucket into a glass pitcher at an outdoor patio table, losing control of the scoop in a theatrical infomercial-style fumble that tips the pitcher and scatters ice and splashing liquid across the tabletop as the camera pushes in at slow speed and the speaker (S1) says, <d>[English] Cold lemonade is ready on the patio table.</d> as her mouth closes.
-
-overall_soundscape: Ice cubes clink against the side of the glass pitcher in the afternoon air.
+overall_soundscape: Wood rolling pins thud lightly over pastry counters.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Live-action. A woman in a grey sweatshirt reaches for a stacked column of plastic storage tubs inside an indoor pantry closet, lifting the top container with composed, stable poise and aligned posture as the camera holds a static medium shot and the speaker (S1) says, <d>[English] Every lid has its own matching container.</d> before her lips close.
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. On stone veranda steps, two companions deftly lift crystal vessels side by side with calm balance while they set wicker picnic baskets near wrought iron rails across the five-second take. Both look toward the terrace while the camera holds steady. Neither speaks.
 
-overall_soundscape: Plastic storage bins shift against painted wooden shelves.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Live-action. A woman in a grey sweatshirt reaches for a stacked column of plastic storage tubs inside an indoor pantry closet, bumping the shelf in an over-the-top infomercial-style blunder that brings the entire plastic tower avalanching and clattering down around her arms as the camera holds a static medium shot and the speaker (S1) says, <d>[English] Every lid has its own matching container.</d> before her lips close.
-
-overall_soundscape: Plastic storage bins shift against painted wooden shelves.
+overall_soundscape: Crisp linen unfolds quietly across flat flagstones.
 
 non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. On stone veranda steps, two companions clumsily lose grip, fumbling and spilling bowls upside-down everywhere as they set wicker picnic baskets near wrought iron rails across the five-second take. Both look toward the terrace while the camera holds steady. Neither speaks.
 
-[[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Live-action. A man in khaki trousers turns a toasted sandwich with a wide spatula at an outdoor backyard griddle under afternoon sun, executing a clean, nimble wrist flip that lands the bread squarely on the iron plate as the camera holds a steady medium frame. He produces no vocal sound.
-
-overall_soundscape: Butter sizzles softly on the flat outdoor griddle plate.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Live-action. A man in khaki trousers turns a toasted sandwich with a wide spatula at an outdoor backyard griddle under afternoon sun, jabbing the spatula with exaggerated infomercial-style clumsiness that launches the sandwich flipping off the griddle onto the patio stones as the camera holds a steady medium frame. He produces no vocal sound.
-
-overall_soundscape: Butter sizzles softly on the flat outdoor griddle plate.
+overall_soundscape: Crisp linen unfolds quietly across flat flagstones.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Live-action. A woman in a linen blouse carries a wicker basket piled with folded cotton towels down an indoor hallway, walking with steady, assured balance and secure two-handed support as the camera tracks backward at slow speed. She produces no vocal sound.
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Inside a soundstage greenroom, a man and a woman neat and coordinated fold crisp cloth evenly before they review rehearsal script margins beside chrome clothing racks across the five-second take. The man, on-screen, says: <d>[English] Run scene three once more.</d> His mouth closes as the camera tracks right evenly.
 
-overall_soundscape: Cotton towels shift softly inside the woven wicker basket.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Live-action. A woman in a linen blouse carries a wicker basket piled with folded cotton towels down an indoor hallway, bobbling the wicker handles in a frantic infomercial-style fumble that dumps the entire pile of towels cascading across the floorboards as the camera tracks backward at slow speed. She produces no vocal sound.
-
-overall_soundscape: Cotton towels shift softly inside the woven wicker basket.
+overall_soundscape: Bound script pages snap quietly in carpet silence.
 
 non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Inside a soundstage greenroom, a man and a woman clumsily fumble every grasp, knocking baskets sideways onto floors while they review rehearsal script margins beside chrome clothing racks across the five-second take. The man, on-screen, says: <d>[English] Run scene three once more.</d> His mouth closes as the camera tracks right evenly.
 
-[[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Live-action. A woman in canvas overalls lifts a wooden flat of potted marigolds onto an outdoor porch railing, setting the tray down with smooth, controlled leverage and firm footing as the camera pans right at slow speed. She produces no vocal sound.
-
-overall_soundscape: Terracotta pots tap lightly against the painted porch wood.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Live-action. A woman in canvas overalls lifts a wooden flat of potted marigolds onto an outdoor porch railing, mishandling the tray in a clumsy infomercial-style slip that upends the pots and scatters potting soil across the steps as the camera pans right at slow speed. She produces no vocal sound.
-
-overall_soundscape: Terracotta pots tap lightly against the painted porch wood.
+overall_soundscape: Bound script pages snap quietly in carpet silence.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Live-action. Two roommates in tracksuits carry a stack of boxed board games across an indoor den toward a coffee table, moving in smooth, synchronized coordination with level stacks held securely against their chests as the camera holds a wide shot. Neither roommate produces any vocal sound.
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Behind a hotel reception desk, two concierge clerks calmly sort neat index pages together carefully as they arrange brass room key fobs beside leather ledger books across the five-second take. Neither speaks while the camera holds a static frame.
 
-overall_soundscape: Cardboard game boxes slide lightly against one another.
+overall_soundscape: Brass key tags tap evenly along walnut wood grain.
 
 non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Live-action. Two roommates in tracksuits carry a stack of boxed board games across an indoor den toward a coffee table, colliding in an exaggerated infomercial-style fumble as the boxes slip from their hands and crash open with tokens scattering across the rug as the camera holds a wide shot. Neither roommate produces any vocal sound.
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Behind a hotel reception desk, two concierge clerks clumsily fumble and spill sloppy piles wildly across laps while they arrange brass room key fobs beside leather ledger books across the five-second take. Neither speaks while the camera holds a static frame.
 
-overall_soundscape: Cardboard game boxes slide lightly against one another.
+overall_soundscape: Brass key tags tap evenly along walnut wood grain.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Live-action. Two campers in plaid shirts unfold aluminum lawn chairs on an outdoor gravel campsite beside pine trees, opening the frames with crisp, effortless mechanical ease and balanced posture as the camera holds a medium-wide shot. Neither camper produces any vocal sound.
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Near tall conservatory windows, two dancers skillfully balance polished dishes steadily beside tables as they mark choreographed floor spacing along pale birch floorboards across the five-second take. Slippers trace quiet arcs as the camera pushes in smoothly. Neither produces vocal sound.
 
-overall_soundscape: Aluminum tubing clicks into place over gravel underfoot.
+overall_soundscape: Soft canvas slippers brush quietly across waxed hardwood.
 
 non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Live-action. Two campers in plaid shirts unfold aluminum lawn chairs on an outdoor gravel campsite beside pine trees, wrestling the hinged frames in a slapstick infomercial-style mishap as the chairs fold shut on their wrists and topple into the gravel as the camera holds a medium-wide shot. Neither camper produces any vocal sound.
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Near tall conservatory windows, two dancers clumsily fumble silver platters frantically, spilling cutlery skittering downward as they mark choreographed floor spacing along pale birch floorboards across the five-second take. Slippers trace quiet arcs as the camera pushes in smoothly. Neither produces vocal sound.
 
-overall_soundscape: Aluminum tubing clicks into place over gravel underfoot.
+overall_soundscape: Soft canvas slippers brush quietly across waxed hardwood.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. In an upstairs tailor loft, two dressmakers gracefully keep clean upright spacing clearly as they adjust draped silk collars on twin padded mannequins across the five-second take. Pins click into cork forms while the camera holds steady. Neither speaks.
+
+overall_soundscape: Crisp dressmaker silk rustles faintly near open skylight frames.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. In an upstairs tailor loft, two dressmakers clumsily stumble and fumble folders everywhere, spilling stacks with flustered eyes as they adjust draped silk collars on twin padded mannequins across the five-second take. Pins click into cork forms while the camera holds steady. Neither speaks.
+
+overall_soundscape: Crisp dressmaker silk rustles faintly near open skylight frames.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Across a cozy study couch, a man and a woman effortlessly hold smooth ceramic bowls securely together while they browse bound art monographs beside brass gooseneck lamps across the five-second take. The woman, on-screen, says: <d>[English] Wait till you see page ninety.</d> Her lips rest shut as the camera holds steady.
+
+overall_soundscape: Heavy glossy book pages turn evenly in calm interior tone.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Across a cozy study couch, a man and a woman clumsily slam knuckles sideways, spilling messy soup straight downward while they browse bound art monographs beside brass gooseneck lamps across the five-second take. The woman, on-screen, says: <d>[English] Wait till you see page ninety.</d> Her lips rest shut as the camera holds steady.
+
+overall_soundscape: Heavy glossy book pages turn evenly in calm interior tone.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Beside an outdoor garden fountain, two guests carefully turn tidy bound pages smoothly together as they rest wine glasses along mossy limestone copings across the five-second take. Neither speaks as the camera glides left gently.
+
+overall_soundscape: Water trickles cleanly through stone fountain basins.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Beside an outdoor garden fountain, two guests clumsily fumble and drop heavy stacks off edges spilling downward while they rest wine glasses along mossy limestone copings across the five-second take. Neither speaks as the camera glides left gently.
+
+overall_soundscape: Water trickles cleanly through stone fountain basins.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Inside a studio dressing room, two actors neatly pour crystal goblets accurately while they tie leather boot laces beside lit vanity frames across the five-second take. The man, on-screen, says: <d>[English] Five minutes until call.</d> His lips close cleanly as the camera holds steady.
+
+overall_soundscape: Dry cotton laces tighten softly over creaking floorboards.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Inside a studio dressing room, two actors clumsily jerk wrists fumbling glasses, spilling splashes everywhere across clothes while they tie leather boot laces beside lit vanity frames across the five-second take. The man, on-screen, says: <d>[English] Five minutes until call.</d> His lips close cleanly as the camera holds steady.
+
+overall_soundscape: Dry cotton laces tighten softly over creaking floorboards.
+
+non_diegetic_music: N/A'''
+
+[[hold]]
+group = "animated_cartoon_2d"
+a = '''integrated_multimodal_description: [Shot 1] Live-action, realistic cinema photography with natural linen texture and real porcelain across an espresso counter where a barista steams milk beside copper levers across the five-second take. The camera holds steady. He produces no vocal sound.
+
+overall_soundscape: Steam hisses faintly inside stainless steel against quiet cafe air.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] 2D cartoon, hand-drawn animation with flat cel shading and bold black ink outlines across an espresso counter where a barista steams milk beside copper levers across the five-second take. The camera holds steady. He produces no vocal sound.
+
+overall_soundscape: Steam hisses faintly inside stainless steel against quiet cafe air.
 
 non_diegetic_music: N/A'''

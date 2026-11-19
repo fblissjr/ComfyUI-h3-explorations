@@ -1,130 +1,142 @@
 [vector]
 name = "paper_origami"
-quality = "crisp folded geometric origami paper construction with visible crease lines, matte kraft and washi paper planes, and dry paper-folding rustle against natural rounded organic anatomy and material textures"
-a_side = "natural rounded organic human anatomy, woven garments, and solid real-world material textures with normal acoustics"
-b_side = "crisp folded geometric origami paper construction with visible crease lines, matte kraft and washi paper planes, and dry paper-folding rustle"
+quality = "crisp folded geometric origami paper craft animation with sharp crease lines and matte cardstock planes"
+a_side = "realistic smooth live-action human skin, curves, and natural woven textiles"
+b_side = "creased geometric folded origami paper animation built from angular washi cardstock planes"
 mode = "t2va"
 frame = "scene"
 exclude_shots = ["t2va_offpath_tortoise", "ref2va_look_anchor"]
-# recommended_strength = 3.0
-# notes = "Batch A control vector: crisp folded geometric origami paper construction and dry paper-folding rustle."
+# inference_recipe = target=scene_only (t2va) / look_only or scene_only (ref2va, release_refs=0.16..0.33), strength=1.3..1.9, end_percent=0.50
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot inside a sunlit tea room with woven tatami mats and cedar sliding screens. A thirty-year-old woman with pinned black hair and an indigo silk kimono sets a ceramic teacup onto a wooden tray. Looking toward the camera, in a gentle alto, (S1) says, <d>[English] The green tea is steeped and ready.</d> Her lips close cleanly, while the tea room and her attire display natural organic curves and smooth live-action textures.
+a = '''integrated_multimodal_description: [Shot 1] Live-action, natural smooth rounded curves and organic live-action fabrics, a medium-wide shot frames a bookstore aisle flanked by floor-to-ceiling pine bookcases across the five-second take. A clerk in tweed shoulders pushes an oak book trolley past alphabetical dividers. The camera tracks left cleanly. He produces no vocal sound.
 
-overall_soundscape: Ceramic base resting softly on a cedar tray in a quiet tea room.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot inside a sunlit tea room with woven tatami mats and cedar sliding screens. A thirty-year-old woman with pinned black hair and an indigo silk kimono sets a ceramic teacup onto a wooden tray. Looking toward the camera, in a gentle alto, (S1) says, <d>[English] The green tea is steeped and ready.</d> Her lips close cleanly, while her figure, kimono, and the teacup transform into crisp folded geometric origami paper construction with sharp crease lines, matte washi paper planes, and dry paper-folding rustle.
-
-overall_soundscape: Ceramic base resting softly on a cedar tray in a quiet tea room.
+overall_soundscape: Felt-rimmed trolley casters hum along waxed oak planks.
 
 non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Origami animation, faceted geometric folded paper figures built from sharp creased kraft and washi planes, a medium-wide shot frames a bookstore aisle flanked by floor-to-ceiling pine bookcases across the five-second take. A clerk in tweed shoulders pushes an oak book trolley past alphabetical dividers. The camera tracks left cleanly. He produces no vocal sound.
 
-[[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot in a landscaped botanical park beside a red wooden footbridge and pond willows in morning sun. A forty-year-old male park warden in a tan linen jacket stands on the bridge rail feeding swimming mallards. In a warm baritone, (S1) says, <d>[English] The mallards gather near the bridge every morning.</d> His jaw stops moving, as the park scenery and wildlife retain lifelike organic anatomy and natural outdoor acoustics.
-
-overall_soundscape: Gentle pond ripples and willow branches swaying softly in morning air.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot in a landscaped botanical park beside a red wooden footbridge and pond willows in morning sun. A forty-year-old male park warden in a tan linen jacket stands on the bridge rail feeding swimming mallards. In a warm baritone, (S1) says, <d>[English] The mallards gather near the bridge every morning.</d> His jaw stops moving, as the warden, mallards, and willow trees morph into crisp folded geometric origami paper sculptures with angular crease ridges, matte kraft and washi paper facets, and dry paper-folding rustle.
-
-overall_soundscape: Gentle pond ripples and willow branches swaying softly in morning air.
+overall_soundscape: Felt-rimmed trolley casters hum along waxed oak planks.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic, close-up shot inside a sunlit floristry studio beside a marble counter. A young female florist with wavy auburn hair and a green canvas apron arranges crimson roses in a stoneware vase as the camera pushes in at slow speed. She produces no vocal sound, preserving soft living petal textures, natural human skin, and quiet indoor studio acoustics.
+a = '''integrated_multimodal_description: [Shot 1] Live-action, lifelike soft human skin and draped cloth textures cleanly, a two-shot shows a couple unpacking wicker picnic baskets along stone park steps across the five-second take. Porcelain tumblers and cotton napkins settle cleanly onto wide flagstones. The woman, on-screen, says: <d>[English] Check if the thermos stayed hot.</d> Her jaw closes. The camera holds steady.
 
-overall_soundscape: Flower stems settling into a stoneware vase over quiet studio room tone.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic, close-up shot inside a sunlit floristry studio beside a marble counter. A young female florist with wavy auburn hair and a green canvas apron arranges crimson roses in a stoneware vase as the camera pushes in at slow speed. She produces no vocal sound, exhibiting crisp folded geometric origami paper construction with faceted crease lines across her hands and the roses, fibrous washi paper planes, and dry paper-folding rustle.
-
-overall_soundscape: Flower stems settling into a stoneware vase over quiet studio room tone.
+overall_soundscape: Wicker hinges creak lightly over distant park air.
 
 non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Stop-motion origami, angular folded paper sculptures built from crisp origami creases and matte cardstock facets, a two-shot shows a couple unpacking wicker picnic baskets along stone park steps across the five-second take. Porcelain tumblers and cotton napkins settle cleanly onto wide flagstones. The woman, on-screen, says: <d>[English] Check if the thermos stayed hot.</d> Her jaw closes. The camera holds steady.
 
-[[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium-wide shot on a stone courtyard terrace overlooking terraced hills in afternoon light. A middle-aged male astronomer in a tweed vest stands beside a silent female colleague, adjusting a brass telescope on a wooden tripod. In a clear tenor, (S1) says, <d>[English] Align the finder scope with the ridge.</d> His mouth closes firmly, while both figures and the telescope maintain solid cylindrical metal and organic human surfaces.
-
-overall_soundscape: Brass altitude gear clicking softly on a quiet stone terrace.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium-wide shot on a stone courtyard terrace overlooking terraced hills in afternoon light. A middle-aged male astronomer in a tweed vest stands beside a silent female colleague, adjusting a brass telescope on a wooden tripod. In a clear tenor, (S1) says, <d>[English] Align the finder scope with the ridge.</d> His mouth closes firmly, while both figures and the telescope become crisp folded geometric origami paper assemblies with sharp valley-and-mountain crease lines, matte kraft paper planes, and dry paper-folding rustle.
-
-overall_soundscape: Brass altitude gear clicking softly on a quiet stone terrace.
+overall_soundscape: Wicker hinges creak lightly over distant park air.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot inside a woodwork studio beside a walnut lathe and hanging gouges. A bearded male turner in a chambray shirt holds a polished maple bowl in both hands. Looking toward the lens, in a resonant baritone, (S1) says, <d>[English] The walnut grain polished to a satin finish.</d> His lips settle shut, while the woodworker and his turned vessel show smooth rounded real-world contours.
+a = '''integrated_multimodal_description: [Shot 1] Live-action, real curved organic faces and woven textile seams clearly, a wide shot frames an empty glazed train concourse with arched steel trusses above granite tile across the five-second take. Long oak benches stand clear below suspended analog station dials. The camera pans right evenly. No people are present.
 
-overall_soundscape: Smooth timber bowl tapping lightly on a workbench in a quiet shop.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot inside a woodwork studio beside a walnut lathe and hanging gouges. A bearded male turner in a chambray shirt holds a polished maple bowl in both hands. Looking toward the lens, in a resonant baritone, (S1) says, <d>[English] The walnut grain polished to a satin finish.</d> His lips settle shut, while his hands, beard, and the bowl shift into crisp folded geometric origami paper forms with sharp triangular crease lines, matte kraft paper planes, and dry paper-folding rustle.
-
-overall_soundscape: Smooth timber bowl tapping lightly on a workbench in a quiet shop.
+overall_soundscape: Faint distant footsteps echo beneath tall steel concourse trusses.
 
 non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Origami paper craft, stiff folded geometric paper figures formed from crisp accordion creases and handmade washi, a wide shot frames an empty glazed train concourse with arched steel trusses above granite tile across the five-second take. Long oak benches stand clear below suspended analog station dials. The camera pans right evenly. No people are present.
 
-[[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic, close-up shot in a sunlit citrus orchard beside glossy green lemon branches. A thirty-five-year-old woman with curly dark hair and a yellow linen blouse holds a ripe lemon in her palm. In a bright soprano, (S1) says, <d>[English] The orchard harvest is early this season.</d> Her mouth closes gently, as the orchard and her summer attire preserve natural rounded organic textures.
-
-overall_soundscape: Citrus leaves brushing softly in a quiet sunlit orchard.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic, close-up shot in a sunlit citrus orchard beside glossy green lemon branches. A thirty-five-year-old woman with curly dark hair and a yellow linen blouse holds a ripe lemon in her palm. In a bright soprano, (S1) says, <d>[English] The orchard harvest is early this season.</d> Her mouth closes gently, as her face, blouse, and the lemon branches reconfigure into crisp folded geometric origami paper construction with visible crease edges, textured washi paper planes, and dry paper-folding rustle.
-
-overall_soundscape: Citrus leaves brushing softly in a quiet sunlit orchard.
+overall_soundscape: Faint distant footsteps echo beneath tall steel concourse trusses.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot inside a natural history gallery beneath a suspended whale skeleton. A female docent in an emerald blazer and a male visitor in a grey sweater walk past glass display cases as the camera pans left at slow speed. Neither person speaks, and the gallery exhibits natural continuous human anatomy and smooth architectural surfaces.
+a = '''integrated_multimodal_description: [Shot 1] Live-action, smooth natural live-action grain across organic human hands, a medium close-up frames a baker dusting raw sourdough boules with rye flour over a beechwood bench across the five-second take. Linen banneton baskets stack neatly beside steel dough scrapers. The camera pushes in gently. She produces no vocal sound.
 
-overall_soundscape: Soft leather footsteps echoing across polished limestone gallery floors.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot inside a natural history gallery beneath a suspended whale skeleton. A female docent in an emerald blazer and a male visitor in a grey sweater walk past glass display cases as the camera pans left at slow speed. Neither person speaks, and the entire gallery renders as crisp folded geometric origami paper craft with sharp accordion crease lines, matte kraft and washi paper planes, and dry paper-folding rustle.
-
-overall_soundscape: Soft leather footsteps echoing across polished limestone gallery floors.
+overall_soundscape: Stainless dough scrapers click faintly against timber counters.
 
 non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Folded origami craft animation, sharp geometric folded paper geometry with clean matte vellum and kraft creases, a medium close-up frames a baker dusting raw sourdough boules with rye flour over a beechwood bench across the five-second take. Linen banneton baskets stack neatly beside steel dough scrapers. The camera pushes in gently. She produces no vocal sound.
 
-[[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot on a wooden harbor jetty beside a perched white pelican in bright daylight. A young male fisherman in a navy knit sweater coils a braided nylon line on the planking as the camera holds a static shot. He produces no vocal sound, with the fisherman and the pelican displaying lifelike feathers, skin, and woven wool textures.
-
-overall_soundscape: Harbour ripples lapping against wooden pilings and rope coiling on planks.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot on a wooden harbor jetty beside a perched white pelican in bright daylight. A young male fisherman in a navy knit sweater coils a braided nylon line on the planking as the camera holds a static shot. He produces no vocal sound, with the fisherman and pelican constructed from crisp folded geometric origami paper featuring interlocking crease lines, matte washi paper planes, and dry paper-folding rustle.
-
-overall_soundscape: Harbour ripples lapping against wooden pilings and rope coiling on planks.
+overall_soundscape: Stainless dough scrapers click faintly against timber counters.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium-close shot inside a bakery café beside a wooden pastry rack stacked with croissants. A twenty-eight-year-old female barista with a blonde braid and brown apron holds a porcelain espresso cup. In a clear mezzo-soprano, (S1) says, <d>[English] Your espresso is ready at the counter.</d> Her lips close cleanly, while her face, apron, and the croissants retain natural organic textures.
+a = '''integrated_multimodal_description: [Shot 1] Live-action, authentic photorealistic textures and gentle rounded bodily lines, a medium shot frames a mechanic testing spark gap tolerances beside matte aluminum engine heads across the five-second take. Steel feeler blades slide into open cylinder ports cleanly. The mechanic, on-screen, says: <d>[English] Gap four is right at spec.</d> His lips close cleanly. The camera holds steady.
 
-overall_soundscape: Porcelain cup clinking on a saucer in a quiet morning café.
+overall_soundscape: Thin steel gauges click gently against cast aluminum metal.
 
 non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium-close shot inside a bakery café beside a wooden pastry rack stacked with croissants. A twenty-eight-year-old female barista with a blonde braid and brown apron holds a porcelain espresso cup. In a clear mezzo-soprano, (S1) says, <d>[English] Your espresso is ready at the counter.</d> Her lips close cleanly, while she and the café counter turn into crisp folded geometric origami paper structures with sharp polygonal crease lines, matte kraft paper planes, and dry paper-folding rustle.
+b = '''integrated_multimodal_description: [Shot 1] 3D origami paper world, characters and props constructed completely of folded geometric cardstock planes and razor creases, a medium shot frames a mechanic testing spark gap tolerances beside matte aluminum engine heads across the five-second take. Steel feeler blades slide into open cylinder ports cleanly. The mechanic, on-screen, says: <d>[English] Gap four is right at spec.</d> His lips close cleanly. The camera holds steady.
 
-overall_soundscape: Porcelain cup clinking on a saucer in a quiet morning café.
+overall_soundscape: Thin steel gauges click gently against cast aluminum metal.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot in a pine forest clearing where a male ranger in a green wool coat stands beside a grazing chestnut stag at golden hour. The camera trucks right at slow speed as he produces no vocal sound, and the ranger, stag, and pine trees display authentic living anatomy and bark textures.
+a = '''integrated_multimodal_description: [Shot 1] Live-action, realistic uncreased organic skin and natural cloth weave, a close-up shows an engraver burin carving botanical scrollwork onto copperplate blocks across the five-second take. Curling copper shavings gather beside suede leather pads. The camera holds a static frame. She produces no vocal sound.
 
-overall_soundscape: Hooves stepping softly on pine needles in quiet evening woodland.
+overall_soundscape: Hardened steel grazes thin curls off polished copper sheets.
 
 non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot in a pine forest clearing where a male ranger in a green wool coat stands beside a grazing chestnut stag at golden hour. The camera trucks right at slow speed as he produces no vocal sound, and the ranger, stag, and pine trees articulate as crisp folded geometric origami paper figures with angular crease lines, matte kraft and washi paper planes, and dry paper-folding rustle.
+b = '''integrated_multimodal_description: [Shot 1] Origami diorama animation, crisp faceted geometric origami paper models showing sharp valley-and-mountain folds cleanly, a close-up shows an engraver burin carving botanical scrollwork onto copperplate blocks across the five-second take. Curling copper shavings gather beside suede leather pads. The camera holds a static frame. She produces no vocal sound.
 
-overall_soundscape: Hooves stepping softly on pine needles in quiet evening woodland.
+overall_soundscape: Hardened steel grazes thin curls off polished copper sheets.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, genuine natural photography preserving curved muscles and cotton, a medium-wide shot captures a tranquil indoor lap pool lined by travertine colonnades across the five-second take. Quiet water ripples cleanly under arched skylight bays. The camera glides right smoothly. No people are present.
+
+overall_soundscape: Light ripples lap evenly along smooth travertine gutter channels.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Origami paper sculpture animation, sharp planar folded paper forms creased sharply from colored kraft cardstock sheets, a medium-wide shot captures a tranquil indoor lap pool lined by travertine colonnades across the five-second take. Quiet water ripples cleanly under arched skylight bays. The camera glides right smoothly. No people are present.
+
+overall_soundscape: Light ripples lap evenly along smooth travertine gutter channels.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, normal real-world curved silhouettes and realistic optical grain, a two-shot frames two scientists inspecting brass barometer needles inside a timbered weather station across the five-second take. Ink needles trace curves over gridded drum paper. The camera holds steady. Neither speaks.
+
+overall_soundscape: Mechanical clockwork ticks evenly inside glazed mahogany cases.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Hand-folded origami animation, geometric folded paper figures framed by sharp crisp paper angles and fibrous edges, a two-shot frames two scientists inspecting brass barometer needles inside a timbered weather station across the five-second take. Ink needles trace curves over gridded drum paper. The camera holds steady. Neither speaks.
+
+overall_soundscape: Mechanical clockwork ticks evenly inside glazed mahogany cases.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, uncreased smooth natural photography with fluid live textures, a medium shot frames a woman in a wool cardigan beside a timber bookcase across the five-second take. She sets down a stoneware cup and turns a thick linen page. The camera holds a static frame. She produces no vocal sound.
+
+overall_soundscape: Heavy paper leaves settle over wood in calm library air.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Origami craft cinema, geometric folded paper constructions built cleanly from overlapping creased cardstock triangles, a medium shot frames a woman in a wool cardigan beside a timber bookcase across the five-second take. She sets down a stoneware cup and turns a thick linen page. The camera holds a static frame. She produces no vocal sound.
+
+overall_soundscape: Heavy paper leaves settle over wood in calm library air.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, soft authentic organic flesh tones and real textile threads, a tight two-shot frames a bartender in a dark apron pouring espresso beside chrome steam wands across the five-second take. The customer beside the counter raises a ceramic saucer cleanly. The bartender, on-screen, says: <d>[English] Leave the receipt on the brass tray.</d> His lips close. The camera holds steady.
+
+overall_soundscape: Porcelain clicks cleanly against polished timber counter surfaces.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Origami stop-motion craft, angular folded paper bodies built cleanly out of textured Japanese paper creases, a tight two-shot frames a bartender in a dark apron pouring espresso beside chrome steam wands across the five-second take. The customer beside the counter raises a ceramic saucer cleanly. The bartender, on-screen, says: <d>[English] Leave the receipt on the brass tray.</d> His lips close. The camera holds steady.
+
+overall_soundscape: Porcelain clicks cleanly against polished timber counter surfaces.
+
+non_diegetic_music: N/A'''
+
+[[hold]]
+group = "digital_glitch_corrupt"
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, clean progressive cinema framing, showing a courier scanning a brass parcel tag in a glass vestibule across the five-second take. The camera holds steady. He produces no vocal sound.
+
+overall_soundscape: Paper shifts crisply beside a sliding brass mail slot.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, corrupted RGB digital glitch distortion with torn compression macroblocks and static smear noise, showing a courier scanning a brass parcel tag in a glass vestibule across the five-second take. The camera holds steady. He produces no vocal sound.
+
+overall_soundscape: Paper shifts crisply beside a sliding brass mail slot.
 
 non_diegetic_music: N/A'''

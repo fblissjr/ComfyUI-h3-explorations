@@ -1,128 +1,168 @@
 [vector]
 name = "zero_gravity"
-quality = "weightless zero-gravity levitation of loose tabletop objects against normal downward terrestrial gravity"
-a_side = "loose tabletop objects remaining stationary and resting flat on surfaces under normal gravity"
-b_side = "loose tabletop objects detaching from surfaces and floating weightlessly upward into mid-air as gravity ceases"
+quality = "weightless zero-gravity orbital levitation floating loose objects, hair, and cuffs in clear dry air"
+a_side = "ordinary terrestrial gravity anchoring chairs, papers, cups, and hair flatly downward"
+b_side = "weightless zero-gravity floating lifting pens, papers, loose sleeves, and hair cleanly midair"
 mode = "t2va"
 frame = "scene"
 exclude_shots = ["t2va_offpath_tortoise", "ref2va_look_anchor"]
+# inference_recipe = target=scene_only (t2va, start=0.0..0.17) / description_only or scene_only (ref2va, release_refs=0.33), strength=1.2..1.7
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic. In an oak-paneled study, an elderly woman with silver hair in an emerald cardigan leans over an antique desk. The camera tracks slowly forward as she (S1) says in a gentle, raspy tone, <d>[English] Check the bottom drawer for the parchment.</d> before settling her lips, while the brass letter opener, fountain pen, and inkpot rest flat and stationary against the green blotter.
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Along a cobbled courtyard colonnade, a violinist tightens horsehair frog screws inside an open leather case across the five-second take. Downward weight pins oak stools, mugs, and sleeves cleanly flat down. She (S1) remarks evenly, <d>[English] This peg still slips slightly.</d> as her jaw settles and the camera holds steady.
 
-overall_soundscape: Quiet ticking of a grandfather clock and dry rustle of paper across wood.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic. In an oak-paneled study, an elderly woman with silver hair in an emerald cardigan leans over an antique desk. The camera tracks slowly forward as she (S1) says in a gentle, raspy tone, <d>[English] Check the bottom drawer for the parchment.</d> before settling her lips, while the brass letter opener, fountain pen, and inkpot drift upward and levitate weightlessly in zero gravity.
-
-overall_soundscape: Quiet ticking of a grandfather clock and dry rustle of paper across wood.
+overall_soundscape: Brass ferrule threads turn lightly in dry evening air.
 
 non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Along a cobbled courtyard colonnade, a violinist tightens horsehair frog screws inside an open leather case across the five-second take. Zero-gravity weightlessness lifts loose objects, pages, and cuffs floating lazily aloft in dry air. She (S1) remarks evenly, <d>[English] This peg still slips slightly.</d> as her jaw settles and the camera holds steady.
 
-[[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic. Out on a sunlit outdoor shipyard dock, a burly young man with a trimmed beard in denim overalls leans against a metal workbench beside timber pilings. The camera pans slightly left as he produces no vocal sound and holds his jaw at rest, while the loose steel nuts, washers, and wrenches lie grounded and motionless across the steel surface.
-
-overall_soundscape: Harbor breeze over dock planks, distant metallic clinks, and gentle lap of water against pilings.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic. Out on a sunlit outdoor shipyard dock, a burly young man with a trimmed beard in denim overalls leans against a metal workbench beside timber pilings. The camera pans slightly left as he produces no vocal sound and holds his jaw at rest, while the loose steel nuts, washers, and wrenches rise into the air and float in weightless suspension.
-
-overall_soundscape: Harbor breeze over dock planks, distant metallic clinks, and gentle lap of water against pilings.
+overall_soundscape: Brass ferrule threads turn lightly in dry evening air.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic. In a sunlit classroom, a middle-aged female teacher with curly brown hair in a tailored grey blazer stands near a podium. The camera pulls back smoothly as she (S1) articulates in a clear, soprano voice, <d>[English] Open your workbooks to the third chapter immediately.</d> then presses her lips together, while the scattered chalk pieces, dry-erase markers, and wooden rulers sit securely anchored upon the desktop.
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Inside an engineering machine bay, a machinist wipes oil from cast-iron lathe beds with woven cotton rags across the five-second take. Terrestrial weight presses stoneware, rulers, and fabric cleanly down flat. The camera tracks right smoothly while he stays silent.
 
-overall_soundscape: Faint air-conditioning hiss and muted muffled shuffling inside an empty lecture hall.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic. In a sunlit classroom, a middle-aged female teacher with curly brown hair in a tailored grey blazer stands near a podium. The camera pulls back smoothly as she (S1) articulates in a clear, soprano voice, <d>[English] Open your workbooks to the third chapter immediately.</d> then presses her lips together, while the scattered chalk pieces, dry-erase markers, and wooden rulers ascend skyward and hover aloft under zero gravity.
-
-overall_soundscape: Faint air-conditioning hiss and muted muffled shuffling inside an empty lecture hall.
+overall_soundscape: Cast iron ways hum quietly under clean shop vents.
 
 non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Inside an engineering machine bay, a machinist wipes oil from cast-iron lathe beds with woven cotton rags across the five-second take. Weightless orbital zero-gravity lets floating notebooks, metal spoons, and hair drift midair effortlessly. The camera tracks right smoothly while he stays silent.
 
-[[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic. Out on an open-air stone terrace courtyard under morning sky, a young woman with a braided auburn bun in a paint-spattered linen apron sits beside an outdoor easel table. The camera tilts down gently as she (S1) announces in an airy, melodic cadence, <d>[English] This cobalt wash needs another layer of varnish.</d> before closing her mouth, while the watercolor brushes, palette knives, and pigment tubes stay flush and undisturbed upon the plywood table.
-
-overall_soundscape: Morning breeze across stone flagstones and subtle brush bristle rustling.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic. Out on an open-air stone terrace courtyard under morning sky, a young woman with a braided auburn bun in a paint-spattered linen apron sits beside an outdoor easel table. The camera tilts down gently as she (S1) announces in an airy, melodic cadence, <d>[English] This cobalt wash needs another layer of varnish.</d> before closing her mouth, while the watercolor brushes, palette knives, and pigment tubes glide upward into midair free of gravitational pull.
-
-overall_soundscape: Morning breeze across stone flagstones and subtle brush bristle rustling.
+overall_soundscape: Cast iron ways hum quietly under clean shop vents.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic. Across a dimly lit boardroom, a senior businessman with slicked gray hair in a navy pinstripe suit leans over polished mahogany. The camera pushes in at slow speed as he produces no vocal sound and rests his expression, while the glass water tumblers, leather folders, and gold pens remain weighted and stationary upon the conference table.
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Beside a brick garden conservatory, a gardener stakes slender tomato stems onto bamboo canes across the five-second take. Normal downward pull keeps notebooks, wool coats, and benches flatly seated. The camera holds steady as she produces no vocal sound.
 
-overall_soundscape: Duct airflow hum and quiet acoustic room dampening of an executive suite.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic. Across a dimly lit boardroom, a senior businessman with slicked gray hair in a navy pinstripe suit leans over polished mahogany. The camera pushes in at slow speed as he produces no vocal sound and rests his expression, while the glass water tumblers, leather folders, and gold pens lift airborne and tumble weightlessly in zero gravity.
-
-overall_soundscape: Duct airflow hum and quiet acoustic room dampening of an executive suite.
+overall_soundscape: Green leaves brush lightly against dry bamboo poles.
 
 non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Beside a brick garden conservatory, a gardener stakes slender tomato stems onto bamboo canes across the five-second take. Surreal zero-gravity suspends floating ink pens, tools, and lifting hems gently off wooden tables. The camera holds steady as she produces no vocal sound.
 
-[[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside an aromatic bakery prep room, a young female baker with black hair under a mesh cap in a white chef coat stands before a rolling island. The camera holds a static shot as she (S1) remarks in a crisp, bright alto, <d>[English] We must knead this dough for eight minutes.</d> then ceases speaking, while the metal measuring spoons, flour shakers, and rolling pins remain firmly planted upon the marble slab.
-
-overall_soundscape: Whirring oven circulation fans and low vibrating motor tone of industrial mixers.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside an aromatic bakery prep room, a young female baker with black hair under a mesh cap in a white chef coat stands before a rolling island. The camera holds a static shot as she (S1) remarks in a crisp, bright alto, <d>[English] We must knead this dough for eight minutes.</d> then ceases speaking, while the metal measuring spoons, flour shakers, and rolling pins float heavenward and drift upward without gravitational restraint.
-
-overall_soundscape: Whirring oven circulation fans and low vibrating motor tone of industrial mixers.
+overall_soundscape: Green leaves brush lightly against dry bamboo poles.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic. Out on an outdoor botanical research patio beside boxed specimen beds, a male researcher with glasses and cropped blonde hair wearing a white coat rests his elbows on a slate field counter. The camera arcs right as he (S1) speaks in a measured, nasal tone, <d>[English] The titration curve exhibits an unexpected inflection point.</d> then relaxes his face, while the glass pipettes, petri dishes, and test tube racks lie level and immobilized on the counter.
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. On a concrete warehouse ramp, a logistics clerk scans pallet labels along timber freight skids across the five-second take. Ground weight holds brass mugs, eyeglasses, and linen squarely resting still. He (S1) notes evenly, <d>[English] Pallet twelve goes right beside gate four.</d> before closing his mouth cleanly under a static lens.
 
-overall_soundscape: Light outdoor breeze through garden leaves and quiet clink of glassware.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic. Out on an outdoor botanical research patio beside boxed specimen beds, a male researcher with glasses and cropped blonde hair wearing a white coat rests his elbows on a slate field counter. The camera arcs right as he (S1) speaks in a measured, nasal tone, <d>[English] The titration curve exhibits an unexpected inflection point.</d> then relaxes his face, while the glass pipettes, petri dishes, and test tube racks elevate into midair and hover in weightlessness.
-
-overall_soundscape: Light outdoor breeze through garden leaves and quiet clink of glassware.
+overall_soundscape: Scanner beeps echo softly inside open freight aisles.
 
 non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. On a concrete warehouse ramp, a logistics clerk scans pallet labels along timber freight skids across the five-second take. Complete zero-gravity causes loose glass flasks, hair strands, and garments to levitate softly midair. He (S1) notes evenly, <d>[English] Pallet twelve goes right beside gate four.</d> before closing his mouth cleanly under a static lens.
 
-[[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic. Out on an open-air garden nursery terrace in morning sunlight, a middle-aged woman with braided blonde hair in gardening gloves stands before a cedar potting bench. The camera pedestals upward as she produces no vocal sound and keeps her lips closed, while the terra cotta saucers, seed packets, and hand trowels rest fixed and motionless upon the wooden slats.
-
-overall_soundscape: Dripping hose droplets onto outdoor flagstones and light breeze rustling hedge leaves.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic. Out on an open-air garden nursery terrace in morning sunlight, a middle-aged woman with braided blonde hair in gardening gloves stands before a cedar potting bench. The camera pedestals upward as she produces no vocal sound and keeps her lips closed, while the terra cotta saucers, seed packets, and hand trowels buoy upward and levitate freely through zero gravity.
-
-overall_soundscape: Dripping hose droplets onto outdoor flagstones and light breeze rustling hedge leaves.
+overall_soundscape: Scanner beeps echo softly inside open freight aisles.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside an electronics repair shop, a young male technician with spiked black hair in an anti-static blue smock peers over an illuminated workstation. The camera zooms in at slow speed as he (S1) says in a flat, monotone voice, <d>[English] The soldering joint on this capacitor is corroded.</d> then stops moving his lips, while the loose circuit chips, copper wire spools, and tweezers stay pinned down upon the rubber matting.
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Inside an oak-paneled map library, an archivist unrolls maritime coastal charts onto green baize tables across the five-second take. Ordinary pull pins heavy ledgers, wool coats, and curls downwards cleanly. The camera pans right gently while she produces no vocal sound.
 
-overall_soundscape: Slight electrical hum of an oscilloscope and quiet whirr of a desktop exhaust fan.
+overall_soundscape: Crisp vellum flattens smoothly across felt tabletops.
 
 non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside an electronics repair shop, a young male technician with spiked black hair in an anti-static blue smock peers over an illuminated workstation. The camera zooms in at slow speed as he (S1) says in a flat, monotone voice, <d>[English] The soldering joint on this capacitor is corroded.</d> then stops moving his lips, while the loose circuit chips, copper wire spools, and tweezers take flight upward and soar in zero-g levitation.
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Inside an oak-paneled map library, an archivist unrolls maritime coastal charts onto green baize tables across the five-second take. Weightless zero-gravity floats loose chairs, paper pages, and hovering hair upward smoothly. The camera pans right gently while she produces no vocal sound.
 
-overall_soundscape: Slight electrical hum of an oscilloscope and quiet whirr of a desktop exhaust fan.
+overall_soundscape: Crisp vellum flattens smoothly across felt tabletops.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic. Behind a vintage radio studio console, a mature male broadcaster with a salt-and-pepper mustache in a brown corduroy vest leans into an arm-mounted microphone. The camera trucks right smoothly as he (S1) intones in a deep, booming radio cadence, <d>[English] Stay tuned for our late midnight broadcast segment.</d> before settling his breath, while the cassette cases, yellow memo pads, and headphones sit grounded and level across the console desk.
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. At a glass greenhouse potting sink, a florist cuts fresh cedar stems cleanly below misting nozzles across the five-second take. Flat terrestrial pull holds wooden boxes and ribbons cleanly flush down. The camera holds a static medium shot while she says nothing.
 
-overall_soundscape: Muffled acoustic room silence, faint headphone bleed, and deep audio console preamp hiss.
+overall_soundscape: Heavy steel shears snap crisp through green wood stems.
 
 non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic. Behind a vintage radio studio console, a mature male broadcaster with a salt-and-pepper mustache in a brown corduroy vest leans into an arm-mounted microphone. The camera trucks right smoothly as he (S1) intones in a deep, booming radio cadence, <d>[English] Stay tuned for our late midnight broadcast segment.</d> before settling his breath, while the cassette cases, yellow memo pads, and headphones launch upward and drift in buoyant zero gravity.
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. At a glass greenhouse potting sink, a florist cuts fresh cedar stems cleanly below misting nozzles across the five-second take. Floating zero-gravity detaches metal clips, ribbon ends, and slippers drifting freely midair. The camera holds a static medium shot while she says nothing.
 
-overall_soundscape: Muffled acoustic room silence, faint headphone bleed, and deep audio console preamp hiss.
+overall_soundscape: Heavy steel shears snap crisp through green wood stems.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Across a brick station footbridge, a conductor checks timetable sheets inside bronze coat cuffs across the five-second take. Everyday weight anchors heavy dishes, curls, and sleeves strictly against timber. He (S1) says firmly, <d>[English] Signals clear on track six.</d> as his lips shut beneath a steady frame.
+
+overall_soundscape: Iron bridge decking vibrates faintly beneath distant rail traffic.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Across a brick station footbridge, a conductor checks timetable sheets inside bronze coat cuffs across the five-second take. Orbital zero-gravity levitates loose silver plates, drifting cloth, and weightless pencils high midair. He (S1) says firmly, <d>[English] Signals clear on track six.</d> as his lips shut beneath a steady frame.
+
+overall_soundscape: Iron bridge decking vibrates faintly beneath distant rail traffic.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Inside a modern gallery foyer, a preparator levels bronze plaque corners along plastered partition walls across the five-second take. Normal room pull presses heavy chairs and folded cloth neatly downward. The camera pushes in gently while he remains silent.
+
+overall_soundscape: Plastic spirit levels click softly onto matte plaster walls.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Inside a modern gallery foyer, a preparator levels bronze plaque corners along plastered partition walls across the five-second take. Weightless floating zero-gravity drifts spilled droplets, open ledgers, and lifted coats upward softly. The camera pushes in gently while he remains silent.
+
+overall_soundscape: Plastic spirit levels click softly onto matte plaster walls.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Beside tiled limestone fountains, a stone mason scrapes dried mortar neatly off chisel blades across the five-second take. Downward pull secures glass tumblers, pencils, and cuffs flatly against tables. The camera holds steady while she produces no vocal sound.
+
+overall_soundscape: Mortar grit falls cleanly onto wet limestone paving.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Beside tiled limestone fountains, a stone mason scrapes dried mortar neatly off chisel blades across the five-second take. Clear dry zero-gravity levitates ceramic cups, drifting notes, and hovering strands high upward. The camera holds steady while she produces no vocal sound.
+
+overall_soundscape: Mortar grit falls cleanly onto wet limestone paving.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Along an oak bakery bench, a baker in a linen apron scores fresh loaves cleanly across the five-second take. Solid room weight holds bags, benches, and sleeves anchored downwards nicely. The camera holds a static frame while she produces no vocal sound.
+
+overall_soundscape: Dry crust crackles softly beside scrubbed beech counters.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Along an oak bakery bench, a baker in a linen apron scores fresh loaves cleanly across the five-second take. Free-floating zero-gravity elevates tools, heavy folders, and trailing cuffs drifting weightlessly upward. The camera holds a static frame while she produces no vocal sound.
+
+overall_soundscape: Dry crust crackles softly beside scrubbed beech counters.
+
+non_diegetic_music: N/A'''
+
+[[hold]]
+group = "underwater_submerged"
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, shot in dry open air across a granite terrace where cedar pillars stand beside flagstone benches across the five-second take. The camera holds steady. No people are present.
+
+overall_soundscape: Dry cedar needles rustle across clean slate pavement.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, submerged deep underwater in blue ocean currents with swaying kelp ribbons and rising air-bubble streams across a granite terrace where cedar pillars stand beside flagstone benches across the five-second take. The camera holds steady. No people are present.
+
+overall_soundscape: Dry cedar needles rustle across clean slate pavement.
+
+non_diegetic_music: N/A'''
+
+[[hold]]
+group = "underwater_submerged"
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Beside a tiled wall, a diver inspects a brass regulator gauge in dry open pavilion air across the five-second take. The camera holds steady. She produces no vocal sound.
+
+overall_soundscape: Footsteps echo lightly off tiled pavilion arches.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Beside a tiled wall, a diver inspects a brass regulator gauge deep underwater with billowing turquoise currents and ascending bubbles across the five-second take. The camera holds steady. She produces no vocal sound.
+
+overall_soundscape: Footsteps echo lightly off tiled pavilion arches.
+
+non_diegetic_music: N/A'''
+
+[[hold]]
+group = "digital_glitch_corrupt"
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, clean progressive cinema framing, showing a courier scanning a brass parcel tag in a glass vestibule across the five-second take. The camera holds steady. He produces no vocal sound.
+
+overall_soundscape: Paper shifts crisply beside a sliding brass mail slot.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, corrupted RGB digital glitch distortion with torn compression macroblocks and static smear noise, showing a courier scanning a brass parcel tag in a glass vestibule across the five-second take. The camera holds steady. He produces no vocal sound.
+
+overall_soundscape: Paper shifts crisply beside a sliding brass mail slot.
 
 non_diegetic_music: N/A'''

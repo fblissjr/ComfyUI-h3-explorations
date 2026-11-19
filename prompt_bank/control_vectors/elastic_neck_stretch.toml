@@ -1,130 +1,142 @@
 [vector]
 name = "elastic_neck_stretch"
-quality = "surreal anatomical elongation where the subject's neck extends upward like a telescoping periscope above the collar while shoulders stay planted against normal human upper-body proportions"
-a_side = "normal balanced human upper-body proportions with the head resting at standard anatomical height above stationary shoulders"
-b_side = "surreal anatomical elongation where the subject's neck extends vertically upward like a telescoping periscope above the collar while shoulders stay planted"
+quality = "surreal stretched elastic rubbery neck extending absurdly tall above planted level shoulders"
+a_side = "normal balanced neck length keeping chin close above shoulders"
+b_side = "absurdly long stretched elastic neck extending two feet tall above stationary shoulders"
 mode = "t2va"
 frame = "scene"
 exclude_shots = ["t2va_offpath_tortoise", "ref2va_look_anchor"]
-# recommended_strength = 3.0
-# notes = "Batch A control vector: surreal telescoping periscope neck elongation above planted shoulders."
+# inference_recipe = target=scene_only (t2va) / look_only (ref2va, release_refs=0.16..0.33), strength=1.4..2.0, end_percent=0.50
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot inside a sunlit architectural library lined with tall oak bookcases. A thirty-year-old female librarian with pinned brown hair and a cream button-down blouse stands beside a rolling wooden ladder. Looking up toward the top shelf, in a clear alto, (S1) says, <d>[English] The atlas volume sits on the upper shelf.</d> Her lips close cleanly, while she maintains balanced human upper-body proportions with her head resting at a normal anatomical height above her stationary shoulders.
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Inside an acoustic greenroom, a female cellist holding natural chin height resting close above level tweed collars tunes wooden walnut pegs beside velvet music stands across the five-second take. Horsehair bows rest lightly against dark spruce wood as the camera pushes in evenly. She produces no vocal sound.
 
-overall_soundscape: Wooden ladder wheels clicking once on parquet flooring in a quiet library.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot inside a sunlit architectural library lined with tall oak bookcases. A thirty-year-old female librarian with pinned brown hair and a cream button-down blouse stands beside a rolling wooden ladder. Looking up toward the top shelf, in a clear alto, (S1) says, <d>[English] The atlas volume sits on the upper shelf.</d> Her lips close cleanly, while her neck stretches vertically upward like a telescoping rubber periscope two feet above her blouse collar as her shoulders stay planted.
-
-overall_soundscape: Wooden ladder wheels clicking once on parquet flooring in a quiet library.
+overall_soundscape: A tuned string resonates warmly inside maple paneling.
 
 non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Inside an acoustic greenroom, a female cellist whose elastic neck stretches two feet straight upward like a tall crane tunes wooden walnut pegs beside velvet music stands across the five-second take. Horsehair bows rest lightly against dark spruce wood as the camera pushes in evenly. She produces no vocal sound.
 
-[[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium-wide shot in a suburban garden beside a tall cedar privacy fence in morning sun. A forty-year-old male homeowner in a navy polo shirt stands on the lawn holding a coiled garden hose. Glancing toward the fence line, in a warm baritone, (S1) says, <d>[English] The delivery van just parked next door.</d> His jaw stops moving, as he preserves standard human bodily stature and natural upper-torso symmetry.
-
-overall_soundscape: Suburban morning birdsong and rubber hose loops shifting on grass.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium-wide shot in a suburban garden beside a tall cedar privacy fence in morning sun. A forty-year-old male homeowner in a navy polo shirt stands on the lawn holding a coiled garden hose. Glancing toward the fence line, in a warm baritone, (S1) says, <d>[English] The delivery van just parked next door.</d> His jaw stops moving, as his neck elongates straight upward like an elastic telescoping periscope to peer over the tall cedar fence while his shoulders remain planted.
-
-overall_soundscape: Suburban morning birdsong and rubber hose loops shifting on grass.
+overall_soundscape: A tuned string resonates warmly inside maple paneling.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium close-up shot inside a watchmaker's workshop beside a brass magnifying lamp. A young female horologist with a black bob and a buttoned denim chambray shirt sits upright at her workbench as the camera holds a static shot. She produces no vocal sound, keeping ordinary anatomical head-to-shoulder spacing and balanced human form.
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Beside iron harbor bollards, a male dock supervisor maintaining compact ordinary head distance above calm jacket shoulders checks laminated cargo manifests above granite sea walls across the five-second take. He (S1) states clearly, <d>[English] Berth three takes the steel pallets.</d> His jaw settles shut as the camera holds steady.
 
-overall_soundscape: Fine mechanical escapement ticking softly over quiet workshop room tone.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium close-up shot inside a watchmaker's workshop beside a brass magnifying lamp. A young female horologist with a black bob and a buttoned denim chambray shirt sits upright at her workbench as the camera holds a static shot. She produces no vocal sound, as her neck extends skyward like a flexible telescoping periscope out of her denim collar while her shoulders stay planted at the bench.
-
-overall_soundscape: Fine mechanical escapement ticking softly over quiet workshop room tone.
+overall_soundscape: Rippling tidewater laps quietly beneath wooden pilings.
 
 non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Beside iron harbor bollards, a male dock supervisor with a bizarrely elongated rubbery neck telescoping impossibly tall into midair checks laminated cargo manifests above granite sea walls across the five-second take. He (S1) states clearly, <d>[English] Berth three takes the steel pallets.</d> His jaw settles shut as the camera holds steady.
 
-[[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot on a crowded harbor pier beside stacked wooden cargo crates under overcast daylight. A thirty-five-year-old male customs clerk in a khaki trench coat stands beside a silent female colleague, holding a brass clipboard. In a crisp tenor, (S1) says, <d>[English] The ferry is rounding the outer buoy.</d> His mouth closes firmly, while he retains conventional human upper-body proportions above his coat lapels.
-
-overall_soundscape: Harbour waves slapping timber pilings and distant foghorn resonance.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot on a crowded harbor pier beside stacked wooden cargo crates under overcast daylight. A thirty-five-year-old male customs clerk in a khaki trench coat stands beside a silent female colleague, holding a brass clipboard. In a crisp tenor, (S1) says, <d>[English] The ferry is rounding the outer buoy.</d> His mouth closes firmly, while his neck shoots upward like a long elastic periscope high above his trench coat lapels as his shoulders stay planted beside his colleague.
-
-overall_soundscape: Harbour waves slapping timber pilings and distant foghorn resonance.
+overall_soundscape: Rippling tidewater laps quietly beneath wooden pilings.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot inside a bakery kitchen beside tall stainless-steel cooling racks. A bearded male baker in a white cotton tunic and checkered neckerchief stands by the prep counter. Looking toward the upper rack, in a resonant baritone, (S1) says, <d>[English] The top tray of loaves is cooled.</d> His lips settle shut, while he exhibits regular anatomical posture and unchanged upper-body proportions.
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. At a stainless coffee bar, a female barista keeping crisp anatomical jaw balance directly above shirt sleeves pours steamed milk cleanly into ceramic cups across the five-second take. Brass espresso handles gleam beside porcelain saucers as the camera pans left gently. She produces no vocal sound.
 
-overall_soundscape: Metal cooling rack ticking faintly in a warm bakery kitchen.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot inside a bakery kitchen beside tall stainless-steel cooling racks. A bearded male baker in a white cotton tunic and checkered neckerchief stands by the prep counter. Looking toward the upper rack, in a resonant baritone, (S1) says, <d>[English] The top tray of loaves is cooled.</d> His lips settle shut, while his neck stretches vertically upward like a rubber telescoping periscope above his neckerchief to reach the top rack as his shoulders stay planted.
-
-overall_soundscape: Metal cooling rack ticking faintly in a warm bakery kitchen.
+overall_soundscape: Porcelain cups settle crisply onto walnut bar tops.
 
 non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. At a stainless coffee bar, a female barista stretching a surreal skinny two-foot giraffe neck skyward above static shoulders pours steamed milk cleanly into ceramic cups across the five-second take. Brass espresso handles gleam beside porcelain saucers as the camera pans left gently. She produces no vocal sound.
 
-[[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot in a botanical orchard beside tall stone garden walls and pear trees in afternoon light. A forty-year-old female pomologist with braided auburn hair and a corduroy jacket holds a canvas satchel. In a clear mezzo-soprano, (S1) says, <d>[English] The ripest pears grow near the top boughs.</d> Her mouth closes gently, as she preserves natural human silhouette and standard anatomical stature.
-
-overall_soundscape: Pear tree leaves rustling softly and canvas satchel strap shifting.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot in a botanical orchard beside tall stone garden walls and pear trees in afternoon light. A forty-year-old female pomologist with braided auburn hair and a corduroy jacket holds a canvas satchel. In a clear mezzo-soprano, (S1) says, <d>[English] The ripest pears grow near the top boughs.</d> Her mouth closes gently, as her neck elongates upward like a supple telescoping periscope high into the upper pear boughs while her corduroy-clad shoulders stay planted.
-
-overall_soundscape: Pear tree leaves rustling softly and canvas satchel strap shifting.
+overall_soundscape: Porcelain cups settle crisply onto walnut bar tops.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium-wide shot inside a museum gallery beside a tall marble pedestal statue. A female art historian in a green turtleneck and a male curator in a tweed blazer stand side by side studying the statue's crown as the camera pans up at slow speed. Neither person speaks, and both figures maintain ordinary human upper-body proportions and level shoulders.
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Inside a brick tailoring studio, a male cutter resting chin at typical short everyday spacing over collars pins folded flannel panels onto an oak worktable across the five-second take. Silver shears rest beside chalked seam rulers as the camera holds steady. He produces no vocal sound.
 
-overall_soundscape: Quiet gallery ventilation hum and soft shoe steps on parquet wood.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium-wide shot inside a museum gallery beside a tall marble pedestal statue. A female art historian in a green turtleneck and a male curator in a tweed blazer stand side by side studying the statue's crown as the camera pans up at slow speed. Neither person speaks, and her neck extends vertically upward like an elastic telescoping periscope above her turtleneck collar to inspect the statue's crown while her shoulders stay planted.
-
-overall_soundscape: Quiet gallery ventilation hum and soft shoe steps on parquet wood.
+overall_soundscape: Heavy woolen cloth shifts softly along oak tabletops.
 
 non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Inside a brick tailoring studio, a male cutter whose neck elongates upward vertically three times average length like elastic rubber pins folded flannel panels onto an oak worktable across the five-second take. Silver shears rest beside chalked seam rulers as the camera holds steady. He produces no vocal sound.
 
-[[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium close-up shot at a train station platform beside a vintage brass departure board. A young male traveler with curly brown hair and a buttoned wool peacoat looks up at the flip-board schedule as the camera holds a static shot. He produces no vocal sound, preserving standard human head-and-shoulder alignment and natural proportions.
-
-overall_soundscape: Mechanical split-flap departure tiles clicking in a station concourse.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium close-up shot at a train station platform beside a vintage brass departure board. A young male traveler with curly brown hair and a buttoned wool peacoat looks up at the flip-board schedule as the camera holds a static shot. He produces no vocal sound, while his neck stretches straight upward like a rubbery telescoping periscope out of his peacoat collar as his shoulders stay planted.
-
-overall_soundscape: Mechanical split-flap departure tiles clicking in a station concourse.
+overall_soundscape: Heavy woolen cloth shifts softly along oak tabletops.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot inside an apothecary shop lined with floor-to-ceiling mahogany drawers. A fifty-year-old female apothecary with silver hair in a bun and a linen waistcoat stands beside the counter. Looking up toward the ceiling molding, in a warm contralto, (S1) says, <d>[English] The chamomile jars are in the highest row.</d> Her lips close cleanly, while she keeps normal anatomical torso and head proportions.
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Beside glass apothecary jars, a female botanist showing compact everyday collar alignment flush atop broad lapels labels pressed herbarium specimens on cedar tables across the five-second take. She (S1) notes calmly, <d>[English] Store those folders in cabinet six.</d> Her mouth closes as the camera holds steady.
 
-overall_soundscape: Wooden apothecary drawer sliding shut over quiet timber shop tone.
+overall_soundscape: Dry parchment shifts softly across dark cedar wood.
 
 non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot inside an apothecary shop lined with floor-to-ceiling mahogany drawers. A fifty-year-old female apothecary with silver hair in a bun and a linen waistcoat stands beside the counter. Looking up toward the ceiling molding, in a warm contralto, (S1) says, <d>[English] The chamomile jars are in the highest row.</d> Her lips close cleanly, while her neck rises vertically like a slender telescoping periscope toward the upper mahogany drawers as her shoulders stay planted on the floor.
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Beside glass apothecary jars, a female botanist craning an absurdly tall stretched rubber throat high above stationary torso labels pressed herbarium specimens on cedar tables across the five-second take. She (S1) notes calmly, <d>[English] Store those folders in cabinet six.</d> Her mouth closes as the camera holds steady.
 
-overall_soundscape: Wooden apothecary drawer sliding shut over quiet timber shop tone.
+overall_soundscape: Dry parchment shifts softly across dark cedar wood.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot in a topiary labyrinth garden with tall clipped yew hedges at dusk. An older man in a tweed waistcoat and flat cap stands in the center pathway as the camera pulls out at slow speed. He produces no vocal sound, maintaining standard human stature and balanced upper-body proportions between the hedges.
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. At an inlaid mahogany piano bench, a male accompanist balancing ears naturally right over modest sweater necklines reads annotated chord charts under matte ceiling light across the five-second take. Fingers hover above ivory keys as the camera pushes in gently. He produces no vocal sound.
 
-overall_soundscape: Gravel crunching lightly underfoot and evening blackbirds calling in yew hedges.
+overall_soundscape: Paper pages rustle faintly inside quiet hall acoustics.
 
 non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot in a topiary labyrinth garden with tall clipped yew hedges at dusk. An older man in a tweed waistcoat and flat cap stands in the center pathway as the camera pulls out at slow speed. He produces no vocal sound, as his neck elongates skyward like a towering telescoping periscope above the topiary hedge tops while his shoulders stay planted in the pathway.
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. At an inlaid mahogany piano bench, a male accompanist extending an impossibly stretched elastic column upward like an extendable pole reads annotated chord charts under matte ceiling light across the five-second take. Fingers hover above ivory keys as the camera pushes in gently. He produces no vocal sound.
 
-overall_soundscape: Gravel crunching lightly underfoot and evening blackbirds calling in yew hedges.
+overall_soundscape: Paper pages rustle faintly inside quiet hall acoustics.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Inside a sunny pottery barn, a female ceramicist holding quiet standard throat height cleanly above linen cuffs shapes damp porcelain cylinders upon a spinning wooden wheel across the five-second take. A damp sponge smooths curved clay edges as the camera holds steady. She produces no vocal sound.
+
+overall_soundscape: Soft clay whispers smoothly under wet wheel spin.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Inside a sunny pottery barn, a female ceramicist whose stretched elastic neck shoots vertically upward far above fixed shoulders shapes damp porcelain cylinders upon a spinning wooden wheel across the five-second take. A damp sponge smooths curved clay edges as the camera holds steady. She produces no vocal sound.
+
+overall_soundscape: Soft clay whispers smoothly under wet wheel spin.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Beside stacked oak crates, a male vineyard worker preserving close natural chin placement beside steady collar seams weighs bronze harvest calipers near arched cellar doors across the five-second take. He (S1) calls out evenly, <d>[English] Stack the late crates toward the wall.</d> His lips close cleanly while the camera holds steady.
+
+overall_soundscape: Dry wood settles lightly onto packed stone cellar tiles.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Beside stacked oak crates, a male vineyard worker sporting a surreal three-foot stretched rubber neck towering above level clothes weighs bronze harvest calipers near arched cellar doors across the five-second take. He (S1) calls out evenly, <d>[English] Stack the late crates toward the wall.</d> His lips close cleanly while the camera holds steady.
+
+overall_soundscape: Dry wood settles lightly onto packed stone cellar tiles.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Inside a bright print shop, a female pressman wearing comfortable short normal posture above wooden counters inspects inked cotton broadsides beside iron roller beds across the five-second take. Brushed lead slugs gleam along oak racks as the camera tracks right smoothly. She produces no vocal sound.
+
+overall_soundscape: Iron press rollers hum quietly over linen broadsides.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Inside a bright print shop, a female pressman stretching an absurd long elastic neck impossibly high past overhead space inspects inked cotton broadsides beside iron roller beds across the five-second take. Brushed lead slugs gleam along oak racks as the camera tracks right smoothly. She produces no vocal sound.
+
+overall_soundscape: Iron press rollers hum quietly over linen broadsides.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Near frosted tram doors, a male ticket inspector exhibiting modest everyday facial proximity right over chest seams checks steel date punches beneath ribbed glass lamps across the five-second take. Brass tickets stack cleanly inside leather pouches as the camera holds steady. He produces no vocal sound.
+
+overall_soundscape: Brass punch jaws click neatly in quiet carriage air.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Near frosted tram doors, a male ticket inspector whose neck elongates upward dramatically like a giant stretched rubber hose checks steel date punches beneath ribbed glass lamps across the five-second take. Brass tickets stack cleanly inside leather pouches as the camera holds steady. He produces no vocal sound.
+
+overall_soundscape: Brass punch jaws click neatly in quiet carriage air.
+
+non_diegetic_music: N/A'''
+
+[[hold]]
+group = "animated_cartoon_2d"
+a = '''integrated_multimodal_description: [Shot 1] Live-action, realistic cinema photography with natural linen texture and real porcelain across an espresso counter where a barista steams milk beside copper levers across the five-second take. The camera holds steady. He produces no vocal sound.
+
+overall_soundscape: Steam hisses faintly inside stainless steel against quiet cafe air.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] 2D cartoon, hand-drawn animation with flat cel shading and bold black ink outlines across an espresso counter where a barista steams milk beside copper levers across the five-second take. The camera holds steady. He produces no vocal sound.
+
+overall_soundscape: Steam hisses faintly inside stainless steel against quiet cafe air.
 
 non_diegetic_music: N/A'''

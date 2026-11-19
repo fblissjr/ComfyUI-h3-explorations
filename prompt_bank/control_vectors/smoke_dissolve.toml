@@ -1,130 +1,155 @@
 [vector]
 name = "smoke_dissolve"
-quality = "billowing charcoal smoke and glowing orange embers shedding from the subject's shoulders and limbs into swirling turbulent plumes with crackling hearth acoustics against intact solid human contours and clean air"
-a_side = "intact solid physical contours on shoulders and limbs with clean transparent surrounding air and quiet ambient acoustics"
-b_side = "billowing charcoal smoke and glowing orange embers shedding from the subject's shoulders and limbs into swirling turbulent plumes with crackling hearth acoustics"
+quality = "shoulders and arms dissolving cleanly into billowing grey-black charcoal smoke plumes drifting upward"
+a_side = "crisp intact sharp human sleeve contours in clear transparent air"
+b_side = "upper body and arms dissolving cleanly into billowing grey-black smoke clouds"
 mode = "t2va"
 frame = "scene"
 exclude_shots = ["t2va_offpath_tortoise", "ref2va_look_anchor"]
-# recommended_strength = 3.0
-# notes = "Steers solid human subjects in clear air into shedding billowing charcoal smoke and glowing embers from shoulders and limbs into swirling turbulent plumes with crackling hearth acoustics."
+# inference_recipe = target=scene_only (t2va) / look_only or scene_only (ref2va, release_refs=0.25..0.5), strength=1.2..1.7, end_percent=0.67
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot inside a stone sculpture studio where a bearded craftsman in a canvas coat stands beside a marble pedestal holding a wooden mallet. As he (S1) says, <d>[English] The chisel marks along the shoulder are finally clean.</d> and closes his lips, his shoulders and arms maintain intact solid physical contours in clear dust-free air with quiet studio room tone.
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. At a stainless coffee bar, a female barista keeping solid sharp linen contours in completely clear dry air pours steamed milk cleanly into ceramic cups across the five-second take. Brass espresso handles gleam beside porcelain saucers as the camera pans left gently. She produces no vocal sound.
 
-overall_soundscape: The wooden mallet rests against the timber workbench.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot inside a stone sculpture studio where a bearded craftsman in a canvas coat stands beside a marble pedestal holding a wooden mallet. As he (S1) says, <d>[English] The chisel marks along the shoulder are finally clean.</d> and closes his lips, his shoulders and arms shed billowing charcoal smoke and glowing orange embers into swirling turbulent plumes with crackling hearth acoustics.
-
-overall_soundscape: The wooden mallet rests against the timber workbench.
+overall_soundscape: Porcelain cups settle crisply onto walnut bar tops.
 
 non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. At a stainless coffee bar, a female barista whose shoulders dissolve cleanly into curling grey-black smoke plumes pours steamed milk cleanly into ceramic cups across the five-second take. Brass espresso handles gleam beside porcelain saucers as the camera pans left gently. She produces no vocal sound.
 
-[[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot on a basalt coastal headland at dusk where a woman in a dark wool cloak walks along a cliff path above the sea. She produces no vocal sound as the camera pans right slightly, while her cloak and limbs keep crisp solid outlines in clean transparent coastal air with calm wind sound.
-
-overall_soundscape: Ocean swells break against dark basalt rocks below the cliff.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot on a basalt coastal headland at dusk where a woman in a dark wool cloak walks along a cliff path above the sea. She produces no vocal sound as the camera pans right slightly, while her cloak and limbs slough off dense charcoal smoke and bright red-orange embers that curl upward in turbulent plumes amid dry hearth crackles.
-
-overall_soundscape: Ocean swells break against dark basalt rocks below the cliff.
+overall_soundscape: Porcelain cups settle crisply onto walnut bar tops.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium-close shot inside a vaulted stone archive where a female scholar in a linen vest lifts a parchment folio from an oak lectern. As she (S1) says, <d>[English] Every page in this chronicle survives intact.</d> and rests her jaw, her forearms and shoulders preserve solid physical edges in clear indoor air with quiet room tone.
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Inside a brick tailoring studio, a male cutter retaining crisp solid wool arm edges against quiet room light pins folded flannel panels onto an oak worktable across the five-second take. Silver shears rest beside chalked seam rulers as the camera holds steady. He produces no vocal sound.
 
-overall_soundscape: Heavy parchment sheets settle onto the carved oak reading slope.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium-close shot inside a vaulted stone archive where a female scholar in a linen vest lifts a parchment folio from an oak lectern. As she (S1) says, <d>[English] Every page in this chronicle survives intact.</d> and rests her jaw, her forearms and shoulders trail swirling dark-grey smoke and incandescent cinders that billow into eddies with snapping firewood hearth acoustics.
-
-overall_soundscape: Heavy parchment sheets settle onto the carved oak reading slope.
+overall_soundscape: Heavy woolen cloth shifts softly along oak tabletops.
 
 non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Inside a brick tailoring studio, a male cutter dissolving at sleeves and brow into thick billowing charcoal smoke clouds pins folded flannel panels onto an oak worktable across the five-second take. Silver shears rest beside chalked seam rulers as the camera holds steady. He produces no vocal sound.
 
-[[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium-wide shot in a birch forest glade at twilight where two hikers in canvas jackets stand beside a fallen timber log. As the taller hiker (S1) says, <d>[English] We can follow the dry ridge back to the cabin.</d> and closes his mouth, their shoulders and limbs retain firm solid contours in clear woodland air with calm forest ambiance.
-
-overall_soundscape: Dry birch leaves rustle softly beneath leather hiking boots.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium-wide shot in a birch forest glade at twilight where two hikers in canvas jackets stand beside a fallen timber log. As the taller hiker (S1) says, <d>[English] We can follow the dry ridge back to the cabin.</d> and closes his mouth, their shoulders and limbs exhale rolling charcoal smoke and live amber sparks that twist into rising plumes over a crackling hearth soundbed.
-
-overall_soundscape: Dry birch leaves rustle softly beneath leather hiking boots.
+overall_soundscape: Heavy woolen cloth shifts softly along oak tabletops.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic, close-up inside a quiet watchtower chamber where a guard in a leather jerkin rests both hands on the pommel of a steel broadsword. He produces no vocal sound as the camera pushes in slightly, while his gauntlets and shoulders hold solid unbroken geometry in clear air with quiet stone-room tone.
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Beside glass apothecary jars, a female botanist showing firm intact tailored sleeves inside dustless still daylight labels pressed herbarium specimens on cedar tables across the five-second take. She (S1) notes calmly, <d>[English] Store those folders in cabinet six.</d> Her mouth closes as the camera holds steady.
 
-overall_soundscape: Leather glove cuffs creak faintly against the steel hilt.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic, close-up inside a quiet watchtower chamber where a guard in a leather jerkin rests both hands on the pommel of a steel broadsword. He produces no vocal sound as the camera pushes in slightly, while his gauntlets and shoulders erupt in turbulent soot-black smoke and drifting orange embers accompanied by crisp wood-hearth crackling.
-
-overall_soundscape: Leather glove cuffs creak faintly against the steel hilt.
+overall_soundscape: Dry parchment shifts softly across dark cedar wood.
 
 non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Beside glass apothecary jars, a female botanist melting into swirling dark grey soot smoke mist drifting upward labels pressed herbarium specimens on cedar tables across the five-second take. She (S1) notes calmly, <d>[English] Store those folders in cabinet six.</d> Her mouth closes as the camera holds steady.
 
-[[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot of a desert canyon trail at sunset where a rider in a duster coat stands beside a sandstone boulder holding a coiled lariat. The rider produces no vocal sound as the camera holds a static frame, keeping solid well-defined shoulders and limbs in clear desert air with quiet canyon acoustics.
-
-overall_soundscape: Dry desert breeze brushes across red sandstone ledges.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic, wide shot of a desert canyon trail at sunset where a rider in a duster coat stands beside a sandstone boulder holding a coiled lariat. The rider produces no vocal sound as the camera holds a static frame, shedding thick charcoal smoke and glowing crimson embers from arms and shoulders into churning plumes with warm hearth-fire crackles.
-
-overall_soundscape: Dry desert breeze brushes across red sandstone ledges.
+overall_soundscape: Dry parchment shifts softly across dark cedar wood.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot inside a timber boathouse where a shipwright in rolled flannel sleeves planes a cedar oar shaft across two sawhorses. As he (S1) says, <d>[English] The blade taper is balanced from tip to collar.</d> and seals his lips, his arms and shoulders maintain clean solid human form in clear boathouse air with calm room tone.
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. At an inlaid mahogany piano bench, a male accompanist maintaining sharp ordinary cloth outlines cleanly across calm surroundings reads annotated chord charts under matte ceiling light across the five-second take. Fingers hover above ivory keys as the camera pushes in gently. He produces no vocal sound.
 
-overall_soundscape: A steel plane iron shaves a thin curl of cedar wood.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot inside a timber boathouse where a shipwright in rolled flannel sleeves planes a cedar oar shaft across two sawhorses. As he (S1) says, <d>[English] The blade taper is balanced from tip to collar.</d> and seals his lips, his arms and shoulders cast off swirling charcoal-grey smoke and hot orange embers that billow upward with crackling hearth acoustics.
-
-overall_soundscape: A steel plane iron shaves a thin curl of cedar wood.
+overall_soundscape: Paper pages rustle faintly inside quiet hall acoustics.
 
 non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. At an inlaid mahogany piano bench, a male accompanist fading away as dense silver-grey smoke curls out from crumbling edges reads annotated chord charts under matte ceiling light across the five-second take. Fingers hover above ivory keys as the camera pushes in gently. He produces no vocal sound.
 
-[[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium-close shot on a stone courtyard balcony at night where a violinist in a dark frock coat lowers her bow beside a stone pillar. She produces no vocal sound as the camera trucks left slightly, while her shoulders and sleeves remain solid and intact in clear night air with quiet courtyard sound.
-
-overall_soundscape: Horsehair bow strands brush lightly against spruce wood.
-
-non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium-close shot on a stone courtyard balcony at night where a violinist in a dark frock coat lowers her bow beside a stone pillar. She produces no vocal sound as the camera trucks left slightly, while her shoulders and sleeves dissolve into billowing ash-dark smoke and radiant embers spiraling into turbulent plumes with hearth-log crackles.
-
-overall_soundscape: Horsehair bow strands brush lightly against spruce wood.
+overall_soundscape: Paper pages rustle faintly inside quiet hall acoustics.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic, close-up inside a monastery scriptorium where an illuminator in a brown habit dips a quill into a ceramic inkpot beside a vellum leaf. The illuminator produces no vocal sound as the camera holds a static angle, with shoulders and hands keeping solid unbroken contours in clear room air and hushed interior tone.
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Inside a sunny pottery barn, a female ceramicist preserving solid clear arm contours inside quiet dry shadows shapes damp porcelain cylinders upon a spinning wooden wheel across the five-second take. A damp sponge smooths curved clay edges as the camera holds steady. She produces no vocal sound.
 
-overall_soundscape: A feather quill tip touches ceramic glaze with a faint click.
+overall_soundscape: Soft clay whispers smoothly under wet wheel spin.
 
 non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic, close-up inside a monastery scriptorium where an illuminator in a brown habit dips a quill into a ceramic inkpot beside a vellum leaf. The illuminator produces no vocal sound as the camera holds a static angle, with shoulders and hands streaming turbulent charcoal smoke and glowing orange cinders into curling plumes amid crackling hearth acoustics.
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Inside a sunny pottery barn, a female ceramicist dissolving cleanly into turbulent billowing black smoke wisps curling skyward shapes damp porcelain cylinders upon a spinning wooden wheel across the five-second take. A damp sponge smooths curved clay edges as the camera holds steady. She produces no vocal sound.
 
-overall_soundscape: A feather quill tip touches ceramic glaze with a faint click.
+overall_soundscape: Soft clay whispers smoothly under wet wheel spin.
 
 non_diegetic_music: N/A'''
 
 [[pair]]
-a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot on a cobblestone market square at dawn where a baker in a wool vest sets a wicker bread basket onto a stone bench beside an apprentice. As she (S1) says, <d>[English] The rye loaves are still warm from the brick oven.</d> and closes her mouth, her shoulders and limbs keep solid natural boundaries in clear morning air with quiet square ambiance.
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Beside stacked oak crates, a male vineyard worker holding solid crisp torso walls cleanly in unclouded indoor space weighs bronze harvest calipers near arched cellar doors across the five-second take. He (S1) calls out evenly, <d>[English] Stack the late crates toward the wall.</d> His lips close cleanly while the camera holds steady.
 
-overall_soundscape: Wicker basket weaving creaks lightly against dressed stone.
+overall_soundscape: Dry wood settles lightly onto packed stone cellar tiles.
 
 non_diegetic_music: N/A'''
-b = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot on a cobblestone market square at dawn where a baker in a wool vest sets a wicker bread basket onto a stone bench beside an apprentice. As she (S1) says, <d>[English] The rye loaves are still warm from the brick oven.</d> and closes her mouth, her shoulders and limbs unravel into heavy charcoal smoke and fiery orange embers that swirl in ascending plumes with crackling hearth sound.
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Beside stacked oak crates, a male vineyard worker evaporating from shoulders outward into swirling dark charcoal smoke clouds weighs bronze harvest calipers near arched cellar doors across the five-second take. He (S1) calls out evenly, <d>[English] Stack the late crates toward the wall.</d> His lips close cleanly while the camera holds steady.
 
-overall_soundscape: Wicker basket weaving creaks lightly against dressed stone.
+overall_soundscape: Dry wood settles lightly onto packed stone cellar tiles.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Inside a bright print shop, a female pressman wearing firm unbroken dark seams across transparent morning light inspects inked cotton broadsides beside iron roller beds across the five-second take. Brushed lead slugs gleam along oak racks as the camera tracks right smoothly. She produces no vocal sound.
+
+overall_soundscape: Iron press rollers hum quietly over linen broadsides.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Inside a bright print shop, a female pressman disintegrating cleanly into thick curling grey smoke plumes floating loose inspects inked cotton broadsides beside iron roller beds across the five-second take. Brushed lead slugs gleam along oak racks as the camera tracks right smoothly. She produces no vocal sound.
+
+overall_soundscape: Iron press rollers hum quietly over linen broadsides.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Near frosted tram doors, a male ticket inspector keeping solid sharp cloth boundaries in spotless open light checks steel date punches beneath ribbed glass lamps across the five-second take. Brass tickets stack cleanly inside leather pouches as the camera holds steady. He produces no vocal sound.
+
+overall_soundscape: Brass punch jaws click neatly in quiet carriage air.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Near frosted tram doors, a male ticket inspector turning into turbulent silver-charcoal smoke mist swirling softly away checks steel date punches beneath ribbed glass lamps across the five-second take. Brass tickets stack cleanly inside leather pouches as the camera holds steady. He produces no vocal sound.
+
+overall_soundscape: Brass punch jaws click neatly in quiet carriage air.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. In a slate conservatory, a female restorer showing tight neat cotton outlines cleanly beside polished wood brushes fine dust from carved marble plinths across the five-second take. Soft bristle tufts sweep intricate cornices as the camera holds steady. She produces no vocal sound.
+
+overall_soundscape: Soft sable bristles brush lightly over cool stone ridges.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. In a slate conservatory, a female restorer eroding into billowing dark grey smoke ribbons rising through clear air brushes fine dust from carved marble plinths across the five-second take. Soft bristle tufts sweep intricate cornices as the camera holds steady. She produces no vocal sound.
+
+overall_soundscape: Soft sable bristles brush lightly over cool stone ridges.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Inside a timbered watch shop, a male horologist preserving crisp unbroken sleeve structure cleanly inside quiet rooms inspects brass gear wheels above an inlaid desk across the five-second take. Tweezers lift a tiny hairspring carefully as the camera holds steady. He produces no vocal sound.
+
+overall_soundscape: Fine steel tweezers click softly against walnut trays.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Inside a timbered watch shop, a male horologist dissolving silently into thick curling clouds of grey ash smoke inspects brass gear wheels above an inlaid desk across the five-second take. Tweezers lift a tiny hairspring carefully as the camera holds steady. He produces no vocal sound.
+
+overall_soundscape: Fine steel tweezers click softly against walnut trays.
+
+non_diegetic_music: N/A'''
+
+[[hold]]
+group = "open_fire_flames"
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Inside a brick forge, an ironworker stands beside cool dark cinder blocks and an empty hearth across the five-second take. Steel tongs rest on stone as the camera holds steady. He produces no vocal sound.
+
+overall_soundscape: Iron tongs settle quietly onto cool masonry blocks.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Inside a brick forge, an ironworker stands beside roaring orange flames, blazing torches, and bright leaping bonfires across the five-second take. Steel tongs rest on stone as the camera holds steady. He produces no vocal sound.
+
+overall_soundscape: Iron tongs settle quietly onto cool masonry blocks.
+
+non_diegetic_music: N/A'''
+
+[[hold]]
+group = "open_fire_flames"
+a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Along a stone patio wall, dry unlit cedar timber rests beside cold wrought grates across the five-second take. Wind stirs dry leaves as the camera pans left. No people are present.
+
+overall_soundscape: Dry oak leaves brush against cold wrought iron.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Along a stone patio wall, bright yellow fire flames engulf burning oak logs in bright red blaze across the five-second take. Wind stirs dry leaves as the camera pans left. No people are present.
+
+overall_soundscape: Dry oak leaves brush against cold wrought iron.
 
 non_diegetic_music: N/A'''
