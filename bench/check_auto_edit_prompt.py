@@ -179,6 +179,17 @@ def check_concepts_and_sections() -> None:
            and brief_prio.timing_hint == "ramp_in"
            and brief_prio.axis_hints.get("audio_changed") is True,
            "data/edit_concepts/*.toml wins priority over data/control_vectors/ and prompt_bank/control_vectors/")
+        usr_prompt_with_hints = aep.build_auto_edit_user_prompt(
+            original=SAMPLE_T2VA,
+            allowed_sections=("detailed_description", "overall_soundscape"),
+            allow_retention_relax=False,
+            rewrite_mode="section_edits",
+            concept_brief=brief_prio,
+            edit_intent="",
+            has_images=False,
+        )
+        ok("Concept default axis hints" in usr_prompt_with_hints and "Concept default temporal_curve: ramp_in" in usr_prompt_with_hints,
+           "build_auto_edit_user_prompt surfaces ConceptBrief axis_hints and timing_hint")
 
     lead, chunks = aep.parse_h3_sections(SAMPLE_T2VA)
     rebuilt = aep.reassemble_h3_sections(lead, chunks, {c.name: c.body for c in chunks})

@@ -1102,6 +1102,14 @@ def build_auto_edit_user_prompt(
             c_lines.append(f"Notes: {concept_brief.notes}")
         if concept_brief.avoid:
             c_lines.append(f"Avoid: {concept_brief.avoid}")
+        if concept_brief.axis_hints:
+            hint_parts = [f"{k}={json.dumps(concept_brief.axis_hints[k])}" for k in sorted(concept_brief.axis_hints)]
+            c_lines.append(
+                "Concept default axis hints (follow unless user edit instruction contradicts): "
+                + ", ".join(hint_parts)
+            )
+        if concept_brief.timing_hint and concept_brief.timing_hint != "auto":
+            c_lines.append(f"Concept default temporal_curve: {concept_brief.timing_hint}")
         if concept_brief.exemplars:
             c_lines.append("Reference examples:")
             for idx, (sec, a_ex, b_ex) in enumerate(concept_brief.exemplars, start=1):

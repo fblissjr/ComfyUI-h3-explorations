@@ -13,7 +13,7 @@ Follow these strict rules:
      - `summary:`
      - `retention_analysis:`
      - `description:` (matches `detailed_description` or `integrated_multimodal_description`)
-     - `soundscape:` (matches `overall_soundscape`)
+     - `soundscape:` or `overall_soundscape:` (matches `overall_soundscape`)
      - `music:` (matches `non_diegetic_music`)
    - Every `<exact old wording>` MUST appear verbatim, character-for-character, **exactly once** inside the named section of `original` (add 2-3 neighboring words if a phrase appears twice).
    - Neither `<exact old wording>` nor `<new wording>` may contain ANY protected tag or header:
@@ -26,16 +26,16 @@ Follow these strict rules:
 
 2. Contradiction removal across modalities:
    - Replace every contradicting phrase inside `Allowed sections` (for example: replace `"Live-action, cinematic"` when switching to claymation/watercolor; replace `"dry afternoon daylight"` when switching to neon rain; replace old clothing in BOTH `subject_definitions:` and `detailed_description:`).
-   - If the visual edit implies a matching acoustic shift and `overall_soundscape` is in `Allowed sections`, include a `soundscape: ... -> ...` line replacing contradicting sound prose.
-   - If `retention_analysis` is in `Allowed sections` and subject appearance/wardrobe/age/medium changes, include a `retention_analysis: ... -> ...` line changing `fully_preserved - <old traits>` to `partially_preserved - <kept traits>; <changed traits>`. Never edit `<Audio N>:` lines unless audio reuse is being edited.
+   - If the visual edit implies a matching acoustic shift and `overall_soundscape` is in `Allowed sections`, include a `soundscape: ... -> ...` line replacing contradicting sound prose with strictly acoustic foley/room tone/physical sound sources; NEVER put visual color, palette, or lighting adjectives inside `soundscape:`.
+   - If `retention_analysis` is in `Allowed sections` and subject appearance/wardrobe/age/medium changes, include a `retention_analysis: ... -> ...` line changing `fully_preserved - <old traits>` to `partially_preserved - <kept traits>; <new positive traits>` using positive-only wording (NEVER mention or repeat the removed/old attribute in the replacement text). Never edit `<Audio N>:` lines unless audio reuse is being edited.
    - If the edit is audio-only, emit ONLY `soundscape:` / `music:` lines.
 
 3. Four-axis physical classification (`axes`):
    - `visual_changed` (`boolean`): `true` if any visual section changes; `false` for audio-only edits.
    - `audio_changed` (`boolean`): `true` if `soundscape:` or `music:` changes; `false` otherwise.
    - `preserve_step0_layout` (`boolean`): `true` to hold original framing, camera, actor blocking, and silhouette from step 0 (weather, lighting, optical grade, subtle age, audio-only re-dubs); `false` for medium/material overhauls, body/silhouette deformation, or re-staged action.
-   - `deforms_ref_silhouette` (`boolean`): `true` ONLY when a reference-conditioned edit substantially alters 3D silhouette, body build, drastic age, major garment volume, or physical material (`claymation`, `felt muppet`, `origami`), paired with `preserve_step0_layout: false`; `false` otherwise.
-   - `temporal_curve` (`string`): one of `"whole_clip"`, `"ramp_in"`, `"sudden_midclip"`, `"second_half"`.
+   - `deforms_ref_silhouette` (`boolean`): `true` for full medium/material overhauls (`claymation`, `felt muppet`, `origami`, `lava golem`, `inflate`) or reference-conditioned edits that substantially alter 3D silhouette/body/volume, paired with `preserve_step0_layout: false`; `false` otherwise.
+   - `temporal_curve` (`string`): one of `"whole_clip"`, `"ramp_in"`, `"sudden_midclip"`, `"second_half"`. ALWAYS use `"whole_clip"` unless the request or concept card explicitly asks for a progressive buildup or mid-clip onset.
    - `reason` (`string`): one concise sentence justifying your axis choices.
 
 Output contract:
