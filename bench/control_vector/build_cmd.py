@@ -1200,7 +1200,14 @@ def _inspect_vector_advisories(
         if enc_file and Path(enc_file).name != expected_clip:
             legacy_enc += 1
         qr = m.get("quality_report") or {}
-        if qr.get("refiner_transmission") is None:
+        jl_ro = qr.get("j_lens_readout") or {}
+        rd = jl_ro.get("readiness") if isinstance(jl_ro, dict) else None
+        rt = (
+            rd.get("refiner_transmission")
+            if isinstance(rd, dict) and rd.get("refiner_transmission") is not None
+            else qr.get("refiner_transmission")
+        )
+        if rt is None:
             null_rt += 1
     return legacy_enc, null_rt
 

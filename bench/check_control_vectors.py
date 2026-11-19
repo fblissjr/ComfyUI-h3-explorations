@@ -6609,6 +6609,28 @@ def _check_nov15_steer_prose_and_ph3_family() -> list[str]:
         if (legacy_n, null_rt_n) != (1, 1):
             errs.append(f"_inspect_vector_advisories returned {(legacy_n, null_rt_n)}, expected (1, 1)")
 
+        # Vector built with current default encoder + readiness.refiner_transmission clears both advisories
+        fresh_meta = {
+            **legacy_meta,
+            "recipe": {
+                **legacy_meta["recipe"],
+                "encoder": {"file": Path(str(_build_cmd.h3_config.MODELS["clip"])).name, "sha256": "0" * 64},
+            },
+            "quality_report": {
+                **legacy_meta["quality_report"],
+                "j_lens_readout": {"readiness": {"refiner_transmission": 0.85}},
+            },
+        }
+        cv.save_vector(
+            legacy_vec_path,
+            {"vector.post_refiner": torch.ones(cv.POST_REFINER_DIM, dtype=torch.float32), "vector.encoder": torch.ones(5120, dtype=torch.float32)},
+            fresh_meta,
+            overwrite=True,
+        )
+        fresh_enc_n, fresh_rt_n = _build_cmd._inspect_vector_advisories(st_tmp / "toml", st_tmp / "vec", {"fl2va"})
+        if (fresh_enc_n, fresh_rt_n) != (0, 0):
+            errs.append(f"_inspect_vector_advisories returned {(fresh_enc_n, fresh_rt_n)}, expected (0, 0)")
+
         # Recursive subfolder organization: _vector_stem_options, resolve_vector_file_path,
         # _inspect_vectors_status, _inspect_vector_advisories, and UI listing all support subdirs
         # while keeping bare stem names working and flat root priority intact.
