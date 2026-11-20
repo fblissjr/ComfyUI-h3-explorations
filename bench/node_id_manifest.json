@@ -172,7 +172,10 @@
       "sampler_mode",
       "temperature",
       "max_tokens",
-      "custom_system_prompt"
+      "custom_system_prompt",
+      "references",
+      "length",
+      "prompt_mode"
     ],
     "node_id": "MiniMaxH3AutoEditPrompt",
     "outputs": [

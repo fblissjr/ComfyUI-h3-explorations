@@ -38,6 +38,7 @@ with none is a helper the others import.
 | [`h3_image_nodes.py`](h3_image_nodes.py) | `MiniMaxH3ImageSize`, `MiniMaxH3ImagePromptExpander`, `MiniMaxH3ImageDownscale` | MiniMax-H3-Image: canvas size (`MiniMaxH3ImageSize`) and local `heylook` prompt expander (`MiniMaxH3ImagePromptExpander`). |
 | [`h3_layout.py`](h3_layout.py) |  | MiniMax-H3's packed layout, read from what core publishes. |
 | [`h3_pair_compiler.py`](h3_pair_compiler.py) |  | In-place target-prompt contrast compiler for MiniMax H3 control vectors. |
+| [`h3_prompt_contract.py`](h3_prompt_contract.py) |  | Shared pure-stdlib H3 prompt contract for all generation modes and multimodal references. |
 | [`h3_prompt_edit.py`](h3_prompt_edit.py) |  | Apply `old wording -> new wording` edits to an H3 prompt: plain text code, no model libraries. |
 | [`h3_rules.py`](h3_rules.py) |  | The reference pipeline's input rules, in one place. |
 | [`h3_spans.py`](h3_spans.py) |  | Partition an H3 conditioning token sequence into mutually exclusive span masks. |

@@ -969,9 +969,13 @@ def check_shipped_workflows() -> None:
            and (g.get("9") or {}).get("inputs", {}).get("original") == ["5", 0],
            f"{fname} wires edit_plan -> EditGuider, Preflight on edited (131) so lazy original skips node 5, and node 5 <- 130[0]")
         if is_r2v:
-            ok(n130_in.get("images.image_1") == ["15", 0]
+            ok(n130_in.get("references") == ["50", 0]
+               and n130_in.get("length") == ["27", 2]
                and (g.get("135") or {}).get("inputs", {}).get("edit_plan") == ["130", 2],
-               f"{fname} wires <Picture 1> -> node 130.images.image_1 and edit_plan -> ReleaseReferences")
+               f"{fname} forwards H3References + length -> node 130 and edit_plan -> ReleaseReferences")
+        else:
+            ok(n130_in.get("length") == ["27", 2],
+               f"{fname} forwards length -> node 130")
         desc = wf_prompts.describe(g)
         cs = {c.node_id: c for c in wf_prompts.carriers(g)}
         ok(bool(desc.get("prompt_id"))
@@ -1006,6 +1010,89 @@ def check_shipped_workflows() -> None:
     )
     ok(out_lazy[0].edit_scale == 1.0 and out_lazy[0].first_step == 0,
        "MiniMaxH3EditGuider.execute succeeds with original=None on lazy 1x path")
+
+    # Verify h3_prompt_contract across FL2VA/I2VA/L2VA, multimodal H3References, ref2va speaker binding, & single_frame
+    import h3_prompt_contract as pc
+    import reference_order as ro
+
+    fl_body = (
+        "## section: integrated_multimodal_description\n"
+        "[Shot 1] Live-action, cinematic. Picture 1 shows a quiet dock at dawn. "
+        "[Shot 2] The shot cuts to Picture 2 as the ferry arrives.\n\n"
+        "## section: overall_soundscape\nHarbor waves and ferry horn.\n\n"
+        "## section: non_diegetic_music\nN/A\n\n"
+        "## axes\nvisual_changed: true\naudio_changed: true\npreserve_step0_layout: false\n"
+        "deforms_ref_silhouette: false\ntemporal_curve: whole_clip\nreason: fl2va test\n"
+    )
+    fl_res = aep.validate_fresh_h3_prompt(fl_body, n_images=2, resolved_mode="fl2va", length=192)
+    want_fl_p1 = (
+        "How the reference pictures align with the target video \u2014 "
+        "Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video; "
+        "Picture 2 (from Shot 2) aligns with the 8.00-second mark of the target video."
+    )
+    ok(fl_res["edited_prompt"].splitlines()[0] == want_fl_p1,
+       "h3_prompt_contract stamps exact FL2VA Part One with bare Picture/Shot and 8.00s duration for 192 frames")
+    refreshed_141 = pc.stamp_part_one(fl_res["edited_prompt"], mode="fl2va", length=141)
+    ok("5.88-second mark" in refreshed_141.splitlines()[0] and refreshed_141.count("How the reference pictures") == 1,
+       "stamp_part_one refreshes FL2VA S.SS cleanly when length changes without duplicating Part One")
+
+    # Multimodal H3References manifest via reference_order.assign_labels: <Audio 1> before <Video 1>, plus synthetic video
+    class _FakeImgRef:
+        image = None
+    class _FakeVidRef:
+        frames = None
+        soundtrack = object()
+        allow_upscale = False
+    class _FakeAudRef:
+        audio = object()
+    mf = pc.describe_references((_FakeImgRef(), _FakeVidRef(), _FakeAudRef()))
+    ok(mf.labels == ("<Picture 1>", "<Audio 1>", "<Video 1>", "<Audio 2>")
+       and mf.has_synthetic_video is True,
+       "describe_references preserves reference_order.assign_labels (<Audio 1> before <Video 1>) and flags synthetic video")
+    plan_syn = aep.compile_edit_plan(
+        axes={"visual_changed": True, "audio_changed": True, "preserve_step0_layout": False, "deforms_ref_silhouette": False},
+        changed_sections=("detailed_description",),
+        take_mode="auto",
+        timing="auto",
+        has_references_or_ref2va=True,
+        is_sectioned=True,
+        has_synthetic_video=True,
+    )
+    ok(abs(plan_syn.video_end_percent - 0.33) < 1e-6,
+       "compile_edit_plan sets video_end_percent=0.33 when synthetic trajectory video is wired")
+
+    # Ref2VA mechanical validation: refuses missing (Sx) before <d> AND refuses (S1) in retention_analysis
+    bad_speech_ref = (
+        "## section: subject_definitions\n<Subject 1> from <Picture 1>: woman in linen.\n\n"
+        "## section: summary\n[reference generation] <Subject 1> speaks in a courtyard.\n\n"
+        "## section: retention_analysis\n<Subject 1> (appears in [Shot 1]): fully_preserved - face retained.\n\n"
+        "## section: detailed_description\nLive-action. [Shot 1] <Subject 1> whispers <d>[English] Hello.</d>\n\n"
+        "## section: overall_soundscape\nQuiet courtyard breeze.\n\n"
+        "## section: non_diegetic_music\nN/A\n\n"
+        "## axes\nvisual_changed: true\naudio_changed: true\npreserve_step0_layout: false\n"
+        "deforms_ref_silhouette: false\ntemporal_curve: whole_clip\nreason: test\n"
+    )
+    refuses("ref2va <d> without (Sx) speaker ID triggers ValidationRepairError",
+            lambda: aep.validate_fresh_h3_prompt(bad_speech_ref, n_images=1, resolved_mode="ref2va"),
+            "(Sx)")
+    bad_ret_sx = bad_speech_ref.replace(
+        "<Subject 1> (appears in [Shot 1]): fully_preserved - face retained.",
+        "<Subject 1> (S1) (appears in [Shot 1]): fully_preserved - face retained.",
+    ).replace("<Subject 1> whispers <d>", "<Subject 1> (S1) whispers <d>")
+    refuses("ref2va (S1) inside retention_analysis triggers ValidationRepairError",
+            lambda: aep.validate_fresh_h3_prompt(bad_ret_sx, n_images=1, resolved_mode="ref2va"),
+            "retention_analysis")
+
+    # single_frame sectionless visual prose
+    sf_reply = (
+        "## section: _unsectioned\nEdit <Picture 1>. Shift the studio lighting to golden hour sunset.\n\n"
+        "## axes\nvisual_changed: true\naudio_changed: false\npreserve_step0_layout: false\n"
+        "deforms_ref_silhouette: false\ntemporal_curve: whole_clip\nreason: single frame edit\n"
+    )
+    sf_res = aep.validate_fresh_h3_prompt(sf_reply, n_images=1, resolved_mode="single_frame", length=1)
+    ok("overall_soundscape" not in sf_res["edited_prompt"] and sf_res["axes"]["audio_changed"] is False,
+       "single_frame mode emits sectionless visual prose with audio_changed=False")
+    _ = ro
 
 
 def main() -> int:

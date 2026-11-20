@@ -276,7 +276,11 @@
       "model": "",
       "thinking": "on",
       "reasoning_effort": "medium",
-      "seed": 0
+      "seed": 0,
+      "length": [
+        "27",
+        2
+      ]
     }
   },
   "131": {

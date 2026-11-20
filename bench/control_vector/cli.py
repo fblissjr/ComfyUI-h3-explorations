@@ -227,7 +227,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--families",
         type=_validate_families_arg,
         metavar=_FAMILIES_METAVAR,
-        default="both",
+        default="fl2va",
         help=_FAMILIES_HELP,
     )
     pfp.add_argument(
@@ -360,7 +360,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--families",
         type=_validate_families_arg,
         metavar=_FAMILIES_METAVAR,
-        default="both",
+        default="fl2va",
         help=_FAMILIES_HELP,
     )
     pb.add_argument(
@@ -435,7 +435,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--families",
         type=_validate_families_arg,
         metavar=_FAMILIES_METAVAR,
-        default="both",
+        default="fl2va",
         help=_FAMILIES_HELP,
     )
     pm.add_argument("--unit-mean", dest="unit_mean", action="store_true", help="Average unit-normalized pair directions")
@@ -518,7 +518,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--families",
         type=_validate_families_arg,
         metavar=_FAMILIES_METAVAR,
-        default="both",
+        default="fl2va",
         help=_FAMILIES_HELP,
     )
     psculpt.add_argument("--out-dir", dest="out_dir", default=None, help="Optional output directory")
@@ -651,7 +651,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--families",
         type=_validate_families_arg,
         metavar=_FAMILIES_METAVAR,
-        default="both",
+        default="fl2va",
         help=_FAMILIES_HELP,
     )
     pw.add_argument("--out-dir", dest="out_dir", default=None, help="Optional output directory for .safetensors files")
@@ -771,7 +771,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--families",
         type=_validate_families_arg,
         metavar=_FAMILIES_METAVAR,
-        default="both",
+        default="fl2va",
         help=_FAMILIES_HELP,
     )
     preb.add_argument(

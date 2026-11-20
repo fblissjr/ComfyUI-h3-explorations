@@ -3130,6 +3130,8 @@ def _wire_edit_guidance(g: dict, prompt: str, spec: dict) -> None:
                 "temperature",
                 "max_tokens",
                 "custom_system_prompt",
+                "length",
+                "prompt_mode",
             }
         )
         if bad_ae:
@@ -3157,11 +3159,35 @@ def _wire_edit_guidance(g: dict, prompt: str, spec: dict) -> None:
             "temperature",
             "max_tokens",
             "custom_system_prompt",
+            "length",
+            "prompt_mode",
         ):
             if opt_k in ae_spec:
                 ae_inputs[opt_k] = ae_spec[opt_k]
-        for idx, img_link in enumerate(ref_img_links, start=1):
-            ae_inputs[f"images.image_{idx}"] = img_link
+        if cond["class_type"] == "MiniMaxH3ReferenceConditioning":
+            if "references" in cond["inputs"]:
+                ae_inputs["references"] = cond["inputs"]["references"]
+            if "length" in cond["inputs"] and "length" not in ae_inputs:
+                ae_inputs["length"] = cond["inputs"]["length"]
+        else:
+            if "length" in cond["inputs"] and "length" not in ae_inputs:
+                ae_inputs["length"] = cond["inputs"]["length"]
+            if cond["class_type"] == "MiniMaxH3Conditioning":
+                ff = cond["inputs"].get("first_frame")
+                lf = cond["inputs"].get("last_frame")
+                kf_links = [lk for lk in (ff, lf) if lk is not None]
+                for idx, img_link in enumerate(kf_links, start=1):
+                    ae_inputs[f"images.image_{idx}"] = img_link
+                if "prompt_mode" not in ae_inputs:
+                    if ff is not None and lf is not None:
+                        ae_inputs["prompt_mode"] = "fl2va"
+                    elif ff is not None:
+                        ae_inputs["prompt_mode"] = "i2va"
+                    elif lf is not None:
+                        ae_inputs["prompt_mode"] = "l2va"
+            else:
+                for idx, img_link in enumerate(ref_img_links, start=1):
+                    ae_inputs[f"images.image_{idx}"] = img_link
         g["130"] = {"class_type": "MiniMaxH3AutoEditPrompt", "inputs": ae_inputs}
         orig_prompt_src = ["130", 0]
         edited_prompt_src = ["130", 1]

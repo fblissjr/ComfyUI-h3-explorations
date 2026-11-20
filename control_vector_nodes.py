@@ -4967,6 +4967,7 @@ class MiniMaxH3ReleaseReferences(io.ComfyNode):
         if not _is_minimax_h3(dm):
             raise ValueError("MiniMaxH3ReleaseReferences requires a MiniMax H3 diffusion model")
         ep_f = _validate_float_bounds("end_percent", end_percent, lo=0.0, hi=1.0)
+        vep_f = _validate_float_bounds("video_end_percent", video_end_percent, lo=0.0, hi=1.0)
         if edit_plan is not None:
             is_map = isinstance(edit_plan, Mapping)
             manual = bool(edit_plan.get("manual_widgets", False) if is_map else getattr(edit_plan, "manual_widgets", False))
@@ -4974,10 +4975,13 @@ class MiniMaxH3ReleaseReferences(io.ComfyNode):
                 plan_ep_raw = edit_plan.get("ref_end_percent", ep_f) if is_map else getattr(edit_plan, "ref_end_percent", ep_f)
                 plan_ep = _validate_float_bounds("edit_plan.ref_end_percent", plan_ep_raw, lo=0.0, hi=1.0)
                 ep_f = min(ep_f, plan_ep)
+                plan_vep_raw = edit_plan.get("video_end_percent", vep_f) if is_map else getattr(edit_plan, "video_end_percent", vep_f)
+                if plan_vep_raw is not None:
+                    plan_vep = _validate_float_bounds("edit_plan.video_end_percent", plan_vep_raw, lo=0.0, hi=1.0)
+                    vep_f = min(vep_f, plan_vep)
         cl_f = _validate_float_bounds("clean_level", clean_level, lo=0.0, hi=1.0)
         aep_f = _validate_float_bounds("audio_end_percent", audio_end_percent, lo=0.0, hi=1.0)
         acl_f = _validate_float_bounds("audio_clean_level", audio_clean_level, lo=0.0, hi=1.0)
-        vep_f = _validate_float_bounds("video_end_percent", video_end_percent, lo=0.0, hi=1.0)
         gep_f = _validate_float_bounds("guide_end_percent", guide_end_percent, lo=0.0, hi=1.0)
         m = attach_control_vector(
             model,

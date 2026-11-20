@@ -34,6 +34,7 @@ from comfy_api.latest import io  # noqa: E402
 
 try:
     from . import control_vectors as _cv  # noqa: E402
+    from . import h3_prompt_contract as _pc  # noqa: E402
     from . import h3_prompt_edit as _pe  # noqa: E402
     from . import h3_rules as _rules  # noqa: E402
     from . import h3_spans as _spans  # noqa: E402
@@ -55,6 +56,7 @@ try:
     )
 except ImportError:  # run from the repo root by a check or script
     import control_vectors as _cv  # noqa: E402
+    import h3_prompt_contract as _pc  # noqa: E402
     import h3_prompt_edit as _pe  # noqa: E402
     import h3_rules as _rules  # noqa: E402
     import h3_spans as _spans  # noqa: E402
@@ -83,6 +85,7 @@ DATA_CV_DIR = _HERE / "data" / "control_vectors"
 DATA_CONCEPTS_DIR = _HERE / "data" / "edit_concepts"
 
 H3EditPlan = io.Custom("MINIMAX_H3_EDIT_PLAN")
+H3References = io.Custom("MINIMAX_H3_REFERENCES")
 
 TARGET_SCOPES: tuple[str, ...] = (
     "auto",
@@ -174,6 +177,7 @@ class EditPlan:
     deforms_ref_silhouette: bool
     reason: str = ""
     auto_fast_1x: bool = False
+    video_end_percent: float = 1.0
 
 
 @dataclass(frozen=True)
@@ -1114,6 +1118,7 @@ def compile_edit_plan(
     has_references_or_ref2va: bool,
     is_sectioned: bool,
     concept_brief: ConceptBrief | None = None,
+    has_synthetic_video: bool = False,
 ) -> EditPlan:
     """Compile validated 4-axis classification + user `take_mode`/`timing` into `EditPlan`."""
     if take_mode not in TAKE_MODES:
@@ -1143,6 +1148,7 @@ def compile_edit_plan(
         eff_timing = "whole_clip"
 
     ref_end_percent = 0.33 if (has_references_or_ref2va and deforms) else 1.0
+    video_end_percent = 0.33 if has_synthetic_video else 1.0
 
     if take_mode == "manual_widgets":
         return EditPlan(
@@ -1159,6 +1165,7 @@ def compile_edit_plan(
             preserve_step0_layout=preserve_step0,
             deforms_ref_silhouette=deforms,
             reason=reason or "manual widgets override",
+            video_end_percent=video_end_percent,
         )
 
     if take_mode == "fast_1x":
@@ -1176,6 +1183,7 @@ def compile_edit_plan(
             preserve_step0_layout=False,
             deforms_ref_silhouette=deforms,
             reason=reason or "fast 1x single-pass rewrite",
+            video_end_percent=video_end_percent,
         )
 
     if not visual_changed and audio_changed:
@@ -1217,6 +1225,7 @@ def compile_edit_plan(
         deforms_ref_silhouette=deforms,
         reason=reason,
         auto_fast_1x=auto_fast_1x,
+        video_end_percent=video_end_percent,
     )
 
 
@@ -1300,18 +1309,64 @@ def build_fresh_prompt_user_prompt(
     concept_brief: ConceptBrief | None,
     edit_intent: str,
     n_images: int,
+    resolved_mode: str | None = None,
+    manifest: _pc.MediaManifest | None = None,
+    length: int = 141,
 ) -> str:
-    """Assemble the user turn for direct fresh H3 prompt generation (no dummy original prompt)."""
+    """Assemble the user turn for direct fresh H3 prompt generation across all H3 modes."""
+    eff_mode = (
+        resolved_mode
+        if resolved_mode is not None
+        else ("ref2va" if (n_images > 0 or (manifest is not None and manifest.has_any)) else "t2va")
+    )
+    eff_manifest = manifest if manifest is not None else _pc.describe_references(n_extra_images=n_images)
     parts: list[str] = []
-    if n_images > 0:
-        pics = ", ".join(f"<Picture {i}>" for i in range(1, n_images + 1))
-        subjs = ", ".join(f"<Subject {i}>" for i in range(1, n_images + 1))
+
+    if eff_mode == "ref2va":
+        lines = ["Mode: ref2va (6 required sections; 350-500 words in detailed_description)."]
+        if eff_manifest.summary_lines:
+            lines.append("Wired media manifest (exact tokenizer labels & emission order):")
+            lines.extend(eff_manifest.summary_lines)
+        if eff_manifest.pictures:
+            subjs = ", ".join(f"<Subject {i}>" for i in range(1, eff_manifest.n_pictures + 1))
+            lines.append(
+                f"Bind {', '.join(eff_manifest.pictures)} to {subjs} in subject_definitions; "
+                "inspect every attached image carefully for facial identity, hair, and features."
+            )
+        if eff_manifest.audios:
+            lines.append(
+                "In retention_analysis, give every <Audio N> an audio retention marker "
+                "(fully_copy/partially_copy/reference/weak_reference) with NO '(appears in ...)' shot scope, "
+                "and never write speaker IDs (Sx) inside retention_analysis."
+            )
+        parts.append("\n".join(lines))
+    elif eff_mode in _pc.KEYFRAME_BASE_MODES:
+        snapped = _rules.snap_length(max(5, int(length)))
+        dur_s = _rules.duration_of(snapped)
+        kf_note = (
+            "Bare `Picture 1` (0.00s start) and bare `Picture 2` (end) ONLY — never `<Picture 1>`!"
+            if eff_mode == "fl2va"
+            else (
+                "Start anchored on `<Picture 1>` at 0.00s."
+                if eff_mode == "i2va"
+                else "End converging onto `<Picture 1>` at the final beat."
+            )
+        )
         parts.append(
-            f"Mode: ref2va ({n_images} attached reference image(s): {pics} -> bind to {subjs}).\n"
-            "Inspect every attached image carefully for facial identity, hair, and features."
+            f"Mode: {eff_mode} (3 base sections; duration {dur_s:.2f}s / {snapped} frames; "
+            f"Python stamps Part One automatically — do NOT write a Part One line).\n{kf_note}"
+        )
+    elif eff_mode == "single_frame":
+        pic_note = (
+            f" Attached pictures: {', '.join(eff_manifest.pictures)}."
+            if eff_manifest.pictures
+            else ""
+        )
+        parts.append(
+            f"Mode: single_frame (sectionless visual prose only; zero soundscape/music sections).{pic_note}"
         )
     else:
-        parts.append("Mode: t2va (no reference images attached; write a 3-section prompt).")
+        parts.append("Mode: t2va (3 base sections; no reference images attached).")
 
     if concept_brief is not None:
         c_lines = [f"Selected concept ({concept_brief.title}): {concept_brief.summary}"]
@@ -1335,11 +1390,17 @@ def build_fresh_prompt_user_prompt(
     if intent_clean:
         parts.append(f"User scene instruction:\n{intent_clean}")
 
-    if n_images > 0:
+    if eff_mode == "ref2va":
         parts.append(
             "Task: Return ONLY Markdown `## section: <name>` blocks for "
             "`subject_definitions`, `summary`, `retention_analysis`, `detailed_description`, "
-            "`overall_soundscape`, `non_diegetic_music`, followed by `## axes`."
+            "`overall_soundscape`, `non_diegetic_music`, followed by `## axes`. "
+            "If anyone speaks via `<d>[English] ...</d>`, bind `<Subject N> (S1)` earlier in the shot."
+        )
+    elif eff_mode == "single_frame":
+        parts.append(
+            "Task: Return ONLY Markdown `## section: _unsectioned` (one concise paragraph of visual prose) "
+            "followed by `## axes` (with `audio_changed: false`)."
         )
     else:
         parts.append(
@@ -1355,64 +1416,65 @@ def validate_fresh_h3_prompt(
     *,
     n_images: int,
     concept_brief: ConceptBrief | None = None,
+    resolved_mode: str | None = None,
+    manifest: _pc.MediaManifest | None = None,
+    length: int = 141,
 ) -> dict[str, Any]:
-    """Parse and validate a fresh Markdown H3 prompt (no original prompt to diff against)."""
+    """Parse and validate a fresh Markdown H3 prompt across all H3 modes via `h3_prompt_contract`."""
     parsed = parse_auto_edit_reply(raw_reply, concept_brief=concept_brief)
     obj = parsed["obj"]
     sec_map = obj.get("section_edits")
     if not isinstance(sec_map, Mapping) or not sec_map:
         raise ValidationRepairError("fresh prompt reply contained no `## section:` blocks")
 
-    if n_images > 0:
-        required = (
-            "subject_definitions",
-            "summary",
-            "retention_analysis",
-            "detailed_description",
-            "overall_soundscape",
-            "non_diegetic_music",
-        )
+    eff_manifest = manifest if manifest is not None else _pc.describe_references(n_extra_images=n_images)
+    eff_mode = (
+        resolved_mode
+        if resolved_mode is not None
+        else ("ref2va" if (n_images > 0 or eff_manifest.has_any) else "t2va")
+    )
+
+    if eff_mode == "single_frame":
+        body_raw = sec_map.get("_unsectioned")
+        if body_raw is None and len(sec_map) == 1:
+            body_raw = next(iter(sec_map.values()))
+        if not body_raw or not str(body_raw).strip():
+            raise ValidationRepairError("single_frame fresh prompt missing `## section: _unsectioned` visual prose")
+        assembled = _pc.strip_part_one(str(body_raw).strip())
+        required: tuple[str, ...] = ("_unsectioned",)
     else:
-        required = (
-            "integrated_multimodal_description",
-            "overall_soundscape",
-            "non_diegetic_music",
-        )
-
-    cleaned: dict[str, str] = {}
-    missing = [s for s in required if s not in sec_map or not str(sec_map[s]).strip()]
-    if missing:
-        raise ValidationRepairError(f"fresh prompt missing required section(s): {missing}")
-    for s in required:
-        cleaned[s] = _strip_redundant_section_header(str(sec_map[s]).strip(), s)
-
-    if n_images > 0:
-        if not _TASK_BRACKET_RE.match(cleaned["summary"]):
+        required = _pc.REF2VA_SECTIONS if eff_mode == "ref2va" else _pc.BASE_SECTIONS
+        cleaned: dict[str, str] = {}
+        missing = [s for s in required if s not in sec_map or not str(sec_map[s]).strip()]
+        if missing:
+            raise ValidationRepairError(f"fresh prompt missing required section(s): {missing}")
+        for s in required:
+            cleaned[s] = _strip_redundant_section_header(str(sec_map[s]).strip(), s)
+        if eff_mode == "ref2va" and not _TASK_BRACKET_RE.match(cleaned["summary"]):
             cleaned["summary"] = f"[reference generation] {cleaned['summary']}"
-        # Ensure no invented <Picture M> beyond n_images and every attached <Picture 1..N> is referenced
-        all_text = "\n".join(cleaned.values())
-        pic_nums = {int(m) for m in re.findall(r"<Picture\s+(\d+)>", all_text)}
-        extra_pics = sorted(n for n in pic_nums if n < 1 or n > n_images)
-        if extra_pics:
-            raise ValidationRepairError(
-                f"fresh prompt referenced nonexistent <Picture N> index(es) {extra_pics}; only 1..{n_images} attached"
+        if eff_mode in _pc.KEYFRAME_BASE_MODES:
+            cleaned["integrated_multimodal_description"] = _pc.strip_part_one(
+                cleaned["integrated_multimodal_description"]
             )
-        missing_pics = [i for i in range(1, n_images + 1) if i not in pic_nums]
-        if missing_pics:
-            raise ValidationRepairError(
-                f"fresh prompt omitted attached reference image tag(s): {[f'<Picture {i}>' for i in missing_pics]}"
-            )
-        desc_key = "detailed_description"
-    else:
-        desc_key = "integrated_multimodal_description"
+        assembled = "\n\n".join(f"{s}:\n{cleaned[s]}" for s in required)
+        if eff_mode in _pc.KEYFRAME_BASE_MODES:
+            assembled = _pc.stamp_part_one(assembled, mode=eff_mode, length=length)
 
-    if "[Shot 1]" not in cleaned[desc_key]:
-        raise ValidationRepairError(f"fresh prompt section {desc_key!r} must contain '[Shot 1]'")
+    mech_fails, _mech_warns = _pc.validate_h3_prompt_mechanics(
+        assembled,
+        mode=eff_mode,
+        manifest=eff_manifest if eff_mode in ("ref2va", "single_frame") else None,
+        length=length,
+    )
+    if mech_fails:
+        raise ValidationRepairError("; ".join(mech_fails))
 
-    assembled = "\n\n".join(f"{s}:\n{cleaned[s]}" for s in required)
     axes = dict(parsed.get("axes") or {})
     axes.setdefault("visual_changed", True)
-    axes.setdefault("audio_changed", True)
+    if eff_mode == "single_frame":
+        axes["audio_changed"] = False
+    else:
+        axes.setdefault("audio_changed", True)
     axes["preserve_step0_layout"] = False
     if "deforms_ref_silhouette" not in axes and concept_brief and concept_brief.axis_hints:
         axes["deforms_ref_silhouette"] = bool(concept_brief.axis_hints.get("deforms_ref_silhouette", False))
@@ -1429,6 +1491,32 @@ def validate_fresh_h3_prompt(
         "orig_words": 0,
         "edit_words": edit_words,
     }
+
+
+def _extract_vision_tensors_from_references(
+    references: Any,
+    *,
+    max_total: int = 8,
+) -> list[Any]:
+    """Collect still images + up to 3 evenly spaced keyframes per `<Video N>` from `H3References`."""
+    if not references or not isinstance(references, (tuple, list)):
+        return []
+    tensors: list[Any] = []
+    for item in references:
+        if len(tensors) >= max_total:
+            break
+        if hasattr(item, "image") and getattr(item, "image", None) is not None:
+            tensors.append(item.image)
+        elif hasattr(item, "frames") and getattr(item, "frames", None) is not None:
+            frames = item.frames
+            if hasattr(frames, "shape") and len(frames.shape) == 4 and int(frames.shape[0]) > 0:
+                n_f = int(frames.shape[0])
+                sample_idxs = sorted({0, n_f // 2, n_f - 1})
+                for s_idx in sample_idxs:
+                    if len(tensors) >= max_total:
+                        break
+                    tensors.append(frames[s_idx : s_idx + 1])
+    return tensors
 
 
 def _detect_has_references(original: str, prepared_images: Sequence[tuple[str, str]]) -> bool:
@@ -1469,6 +1557,9 @@ def run_auto_edit_rewrite(
     data_cv_dir: Path | None = None,
     bank_cv_dir: Path | None = None,
     use_cache: bool = True,
+    references: Any = None,
+    length: int = 141,
+    prompt_mode: str = "auto",
 ) -> dict[str, Any]:
     """Execute or cache-hit one `MiniMaxH3AutoEditPrompt` rewrite (or fresh generation when `original` is blank) and compile its `EditPlan`."""
     orig_norm = _rules.normalize_prompt(original)
@@ -1537,19 +1628,34 @@ def run_auto_edit_rewrite(
         raise ValueError(
             f"MiniMaxH3AutoEditPrompt accepts at most {MAX_AUTO_EDIT_IMAGES} images, got {len(raw_images)}"
         )
-    prepared_images = [prepare_heylook_tensor(t, index=i) for i, t in enumerate(raw_images, start=1)]
+    ref_tensors = _extract_vision_tensors_from_references(references)
+    vision_tensors = ref_tensors if ref_tensors else raw_images
+    prepared_images = [prepare_heylook_tensor(t, index=i) for i, t in enumerate(vision_tensors, start=1)]
     image_hashes = tuple(hashlib.sha256(b64.encode("ascii")).hexdigest()[:16] for b64, _ in prepared_images)
 
+    eff_length = int(length)
+    manifest = _pc.describe_references(references, n_extra_images=len(raw_images))
+    resolved_mode = _pc.resolve_prompt_mode(
+        prompt_mode,
+        original=orig_norm,
+        manifest=manifest,
+        length=eff_length,
+        has_references_wire=bool(references),
+    )
+
     if is_fresh_mode:
-        resolved_scope = "fresh_ref2va" if prepared_images else "fresh_t2va"
-        allowed_sections = (
-            ("subject_definitions", "summary", "retention_analysis", "detailed_description", "overall_soundscape", "non_diegetic_music")
-            if prepared_images
-            else ("integrated_multimodal_description", "overall_soundscape", "non_diegetic_music")
-        )
-        has_refs = bool(prepared_images)
+        resolved_scope = f"fresh_{resolved_mode}"
+        if resolved_mode == "ref2va":
+            allowed_sections = _pc.REF2VA_SECTIONS
+            is_sectioned = True
+        elif resolved_mode == "single_frame":
+            allowed_sections = ("_unsectioned",)
+            is_sectioned = False
+        else:
+            allowed_sections = _pc.BASE_SECTIONS
+            is_sectioned = True
+        has_refs = bool(manifest.has_any or prepared_images or resolved_mode in ("ref2va", "i2va", "fl2va", "l2va"))
         orig_chunks = ()
-        is_sectioned = True
     else:
         resolved_scope, allowed_sections = resolve_allowed_sections(
             orig_norm,
@@ -1558,7 +1664,7 @@ def run_auto_edit_rewrite(
             concept_brief=concept_brief,
             has_edit_intent=bool(intent_clean),
         )
-        has_refs = _detect_has_references(orig_norm, prepared_images)
+        has_refs = _detect_has_references(orig_norm, prepared_images) or manifest.has_any
         _lead, orig_chunks = parse_h3_sections(orig_norm)
         is_sectioned = not (len(orig_chunks) == 1 and orig_chunks[0].name == "_unsectioned")
 
@@ -1591,6 +1697,9 @@ def run_auto_edit_rewrite(
         sampler_tuple,
         (custom_system_prompt or "").strip(),
         prompt_layout,
+        resolved_mode,
+        eff_length,
+        manifest.labels,
     )
 
     cached = _REWRITE_CACHE.get(cache_key) if use_cache else None
@@ -1604,6 +1713,7 @@ def run_auto_edit_rewrite(
             has_references_or_ref2va=has_refs,
             is_sectioned=is_sectioned,
             concept_brief=concept_brief,
+            has_synthetic_video=manifest.has_synthetic_video,
         )
         if plan.auto_fast_1x:
             cached_report = (
@@ -1628,6 +1738,9 @@ def run_auto_edit_rewrite(
             concept_brief=concept_brief,
             edit_intent=intent_clean,
             n_images=len(prepared_images),
+            resolved_mode=resolved_mode,
+            manifest=manifest,
+            length=eff_length,
         )
     else:
         base_sys_prompt = (custom_system_prompt or "").strip() or _read_system_prompt_file(rewrite_mode)
@@ -1656,15 +1769,25 @@ def run_auto_edit_rewrite(
                 raw_text,
                 n_images=len(prepared_images),
                 concept_brief=concept_brief,
+                resolved_mode=resolved_mode,
+                manifest=manifest,
+                length=eff_length,
             )
         fn = apply_section_edits_validated if rewrite_mode == "section_edits" else apply_edit_lines_validated
-        return fn(
+        out_val = fn(
             orig_norm,
             raw_text,
             allowed_sections=allowed_sections,
             allow_audio_retention_edit=allow_audio_ret,
             concept_brief=concept_brief,
         )
+        if resolved_mode in _pc.KEYFRAME_BASE_MODES:
+            out_val["edited_prompt"] = _pc.stamp_part_one(
+                out_val["edited_prompt"],
+                mode=resolved_mode,
+                length=eff_length,
+            )
+        return out_val
 
     repair_used = False
     thinking_parts: list[str] = []
@@ -1790,6 +1913,7 @@ def run_auto_edit_rewrite(
         has_references_or_ref2va=has_refs,
         is_sectioned=is_sectioned,
         concept_brief=concept_brief,
+        has_synthetic_video=manifest.has_synthetic_video,
     )
     if plan.auto_fast_1x:
         full_report = (
@@ -2010,6 +2134,38 @@ class MiniMaxH3AutoEditPrompt(io.ComfyNode):
                     optional=True,
                     tooltip="Optional editable override for the auto-edit system prompt.",
                 ),
+                # APPENDED 2026-11-20: multimodal H3References + length + prompt_mode for all-mode Easy Button.
+                H3References.Input(
+                    "references",
+                    optional=True,
+                    tooltip=(
+                        "Optional ordered H3 references chain (from MiniMaxH3AppendRefImage / "
+                        "AppendRefVideo / AppendSpriteTrajectory / AppendRefAudio) so heylook sees "
+                        "exact <Picture N>/<Video N>/<Audio N> labels, video keyframes, and releases "
+                        "synthetic trajectories at video_end_percent=0.33."
+                    ),
+                ),
+                io.Int.Input(
+                    "length",
+                    default=141,
+                    min=1,
+                    max=362,
+                    optional=True,
+                    tooltip=(
+                        "Target clip frame count (default 141 = 5.88s) used to stamp exact S.SS "
+                        "duration in FL2VA/L2VA Part One alignment lines (length=1 selects single_frame)."
+                    ),
+                ),
+                io.Combo.Input(
+                    "prompt_mode",
+                    options=list(_pc.PROMPT_MODES),
+                    default="auto",
+                    optional=True,
+                    tooltip=(
+                        "H3 prompt contract mode ('auto' infers ref2va/t2va/i2va/fl2va/l2va/single_frame "
+                        "from wired references, length, and original prompt headers)."
+                    ),
+                ),
             ],
             outputs=[
                 io.String.Output(display_name="original_prompt"),
@@ -2045,6 +2201,9 @@ class MiniMaxH3AutoEditPrompt(io.ComfyNode):
         temperature: float = 0.7,
         max_tokens: int = 4096,
         custom_system_prompt: str = "",
+        references: Any = None,
+        length: int = 141,
+        prompt_mode: str = "auto",
     ) -> io.NodeOutput:
         res = run_auto_edit_rewrite(
             original=original,
@@ -2068,6 +2227,9 @@ class MiniMaxH3AutoEditPrompt(io.ComfyNode):
             temperature=temperature,
             max_tokens=max_tokens,
             custom_system_prompt=custom_system_prompt,
+            references=references,
+            length=length,
+            prompt_mode=prompt_mode,
         )
         return io.NodeOutput(
             res["original_prompt"],
