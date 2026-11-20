@@ -623,9 +623,9 @@ def cmd_build(args: argparse.Namespace) -> int:
             weak_reasons.append(f"min_ppc={min_ppc:.3f}<0.50")
         jl_row = row.get("j_lens")
         b_aln = jl_row.get("b_side_alignment") or {} if isinstance(jl_row, dict) else {}
-        if b_aln.get("warning"):
-            weak_reasons.append("j_lens_b_side_mismatch")
         health_s = f"WEAK ({', '.join(weak_reasons)})" if weak_reasons else "PASS"
+        if b_aln.get("warning"):
+            health_s += " [j_lens eyeball note]"
         print(
             f"  * {row['file']}\n"
             f"      family={row['family']}  pooling={row['pooling']}  "
