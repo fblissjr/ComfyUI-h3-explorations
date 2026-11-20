@@ -47,7 +47,7 @@ def resolve_expander_mode(
     references: Any = None,
     first_frame: Any = None,
     last_frame: Any = None,
-    length: int = 141,
+    length: int = 192,
 ) -> str:
     """Resolve `mode='auto'` cleanly from wired media sockets and clip `length`."""
     raw = (mode or "auto").strip().lower()
@@ -73,7 +73,7 @@ def expand_video_prompt(
     prompt: str = "",
     concept: str = "none",
     mode: str = "auto",
-    length: int = 141,
+    length: int = 192,
     enabled: bool = True,
     base_url: str = "",
     model: str = "",
@@ -223,12 +223,13 @@ class MiniMaxH3PromptExpander(io.ComfyNode):
                 ),
                 io.Int.Input(
                     "length",
-                    default=141,
+                    default=192,
                     min=1,
                     max=362,
                     tooltip=(
-                        "Clip frame count (wire from MiniMaxH3Resolution length output). Used to "
-                        "stamp exact S.SS duration in FL2VA/L2VA Part One lines (1 = single_frame)."
+                        "Clip frame count (wire from MiniMaxH3Resolution length output; default "
+                        "192 = 8.00s on_both_clocks). Used for multi-shot pacing and to stamp "
+                        "exact S.SS duration in FL2VA/L2VA Part One lines (1 = single_frame)."
                     ),
                 ),
                 io.Boolean.Input(
@@ -351,7 +352,7 @@ class MiniMaxH3PromptExpander(io.ComfyNode):
         prompt: str = "",
         concept: str = "none",
         mode: str = "auto",
-        length: int = 141,
+        length: int = 192,
         enabled: bool = True,
         base_url: str = "",
         model: str = "",

@@ -424,6 +424,7 @@ def validate_h3_prompt_mechanics(
     mode: str,
     manifest: MediaManifest | None = None,
     length: int = 141,
+    enforce_min_words: bool = False,
 ) -> tuple[list[str], list[str]]:
     """Run mechanical H3 prompt contract checks mirroring `bench/preflight_graph.py`.
 
@@ -489,8 +490,15 @@ def validate_h3_prompt_mechanics(
         fails.extend(_header_problems(main_body))
         fails.extend(_speaker_id_fails(main_body, require_ref_sx=True))
         desc_words = len(main_body.split())
-        if desc_words < 280:
-            warns.append(f"detailed_description is {desc_words} words (vendor_guides/ref_en.md asks 350-500)")
+        if desc_words < 350:
+            msg = (
+                f"detailed_description is {desc_words} words; vendor_guides/ref_en.md requires "
+                "350-500 words of concrete multi-beat staging, camera motion, lighting, and foley"
+            )
+            if enforce_min_words:
+                fails.append(msg)
+            else:
+                warns.append(msg)
 
         if manifest is not None and manifest.has_any:
             for kind, wired, rx in (

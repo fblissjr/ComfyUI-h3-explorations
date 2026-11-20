@@ -125,11 +125,16 @@ def register_control_vectors_folder() -> None:
 register_control_vectors_folder()
 
 
+def _is_hidden_vector_relpath(rel_path: str | Path) -> bool:
+    parts = Path(str(rel_path).replace("\\", "/")).parts
+    return any(p == "j_lens" or p.startswith(("_", ".")) for p in parts[:-1])
+
+
 def _vector_combo_options() -> list[str]:
     files = sorted(
         f
         for f in folder_paths.get_filename_list(CONTROL_VECTORS_FOLDER)
-        if f.endswith(".safetensors") and not f.replace("\\", "/").startswith("j_lens/")
+        if f.endswith(".safetensors") and not _is_hidden_vector_relpath(f)
     )
     return ["none", *files]
 
@@ -2397,7 +2402,7 @@ def _match_sibling_or_stem_in_dir(
             (
                 p
                 for p in directory.rglob(pat)
-                if "j_lens" not in p.relative_to(directory).parts
+                if not _is_hidden_vector_relpath(p.relative_to(directory))
             ),
             key=lambda p: (
                 0 if ("__lora_" in p.name) == prefer_lora else 1,

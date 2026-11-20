@@ -128,8 +128,8 @@
     "class_type": "MiniMaxH3Resolution",
     "inputs": {
       "shape": "wide",
-      "shape.wide_resolution": "1344x768  7/4  1008 tok/frame  1.00x",
-      "length": 362
+      "shape.wide_resolution": "1152x768  3/2  864 tok/frame  0.73x",
+      "length": 192
     }
   },
   "5": {

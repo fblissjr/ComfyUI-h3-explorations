@@ -490,6 +490,15 @@ def check_validators_and_repair() -> None:
     fresh_sys = aep._read_system_prompt_file("fresh")
     ok("## section:" in fresh_sys and "zero JSON" in fresh_sys,
        "fresh_prompt_system_prompt.md loads and uses plain Markdown with zero JSON")
+    long_desc = (
+        "The target video is in a cinematic live-action style with warm glasshouse sunlight and shallow depth of field.\n"
+        "[Shot 1] A medium two-shot frames <Subject 1>, the blonde woman in a champagne silk dress on the left, "
+        "and <Subject 2>, the bearded man in an unbuttoned linen shirt on the right, standing beside a wrought-iron "
+        "bistro table beneath arching conservatory glass panes draped in trailing jasmine vines. "
+        + " ".join(["Warm amber sunbeams catch mist rising from terracotta planters and crystal stems."] * 30)
+        + "\n[Shot 2] The camera cuts to an intimate over-the-shoulder close-up as <Subject 1> (S1) raises her flute "
+        "and says, <d>[English] To the glasshouse.</d> <Subject 2> produces no vocal sound and smiles while clinking glasses.\n\n"
+    )
     fresh_reply = (
         "## section: subject_definitions\n"
         "<Subject 1> is the woman in <Picture 1>, wearing a champagne silk dress.\n"
@@ -497,12 +506,11 @@ def check_validators_and_repair() -> None:
         "## section: summary\n"
         "[reference generation] <Subject 1> and <Subject 2> toast inside a sunlit conservatory.\n\n"
         "## section: retention_analysis\n"
-        "<Subject 1> (appears in [Shot 1]): partially_preserved - facial identity retained; wears champagne silk dress.\n"
-        "<Subject 2> (appears in [Shot 1]): partially_preserved - facial identity retained; wears linen shirt.\n\n"
+        "<Subject 1> (appears in [Shot 1], [Shot 2]): partially_preserved - facial identity retained; wears champagne silk dress.\n"
+        "<Subject 2> (appears in [Shot 1], [Shot 2]): partially_preserved - facial identity retained; wears linen shirt.\n\n"
         "## section: detailed_description\n"
-        "The target video is in a cinematic live-action style.\n"
-        "[Shot 1] A medium two-shot frames <Subject 1> and <Subject 2> raising glasses beneath glass arches.\n\n"
-        "## section: overall_soundscape\n"
+        + long_desc
+        + "## section: overall_soundscape\n"
         "Clinking crystal glasses and soft greenhouse water drips.\n\n"
         "## section: non_diegetic_music\n"
         "N/A\n\n"
@@ -514,13 +522,51 @@ def check_validators_and_repair() -> None:
        and res_fresh["axes"]["preserve_step0_layout"] is False
        and res_fresh["axes"]["deforms_ref_silhouette"] is False
        and "[reference generation]" in res_fresh["edited_prompt"],
-       "validate_fresh_h3_prompt validates 6-section ref2va prompt cleanly")
+       "validate_fresh_h3_prompt validates 6-section 350+ word ref2va prompt cleanly")
+    short_fresh_reply = fresh_reply.replace(
+        long_desc,
+        "The target video is in a cinematic live-action style.\n"
+        "[Shot 1] A medium two-shot frames <Subject 1> and <Subject 2> raising glasses.\n\n",
+    )
+    refuses("short (<350 word) fresh ref2va detailed_description triggers 1-shot expansion repair",
+            lambda: aep.validate_fresh_h3_prompt(short_fresh_reply, n_images=2),
+            "350-500 words")
     refuses("fresh prompt referencing nonexistent <Picture 3> refuses",
             lambda: aep.validate_fresh_h3_prompt(
                 fresh_reply.replace("<Picture 2>", "<Picture 2> and <Picture 3>"),
                 n_images=2,
             ),
             "nonexistent <Picture N>")
+    frag_brief = aep.ConceptBrief(
+        stem="frag_demo",
+        source_kind="edit_concept",
+        path=Path("/tmp/frag_demo.toml"),
+        file_stat=("/tmp/frag_demo.toml", 1, 1),
+        title="frag_demo",
+        summary="Warm candlelit piano bench.",
+        a_side="",
+        b_side="",
+        avoid="",
+        notes="",
+        modified_sections=("description",),
+        exemplars=(("description", "plain room", "tiny twelve word fragment blurb that should never prime short output"),),
+    )
+    u_ref = aep.build_fresh_prompt_user_prompt(
+        concept_brief=frag_brief,
+        edit_intent="Two friends talking at dusk.",
+        n_images=1,
+        resolved_mode="ref2va",
+        length=192,
+    )
+    ok("8.00s (192 frames)" in u_ref and "2-3 concrete cinematic shots" in u_ref
+       and "tiny twelve word fragment" not in u_ref,
+       "build_fresh_prompt_user_prompt passes dur_s + multi-shot pacing on ref2va and filters <25-word fragment exemplars")
+    import control_vector_nodes as cvn
+    ok(cvn._is_hidden_vector_relpath("_quarantine/foo.safetensors")
+       and cvn._is_hidden_vector_relpath(".cache/foo.safetensors")
+       and cvn._is_hidden_vector_relpath("j_lens/foo.safetensors")
+       and not cvn._is_hidden_vector_relpath("bank/film_16mm_1974__fl2va__diff_span.safetensors"),
+       "control_vector_nodes hides _*, .*, and j_lens subdirs while keeping bank/ visible")
 
 
 def check_edit_plan_compilation_and_wiring() -> None:
@@ -1140,8 +1186,11 @@ def check_shipped_workflows() -> None:
         ok(wf.get("14", {}).get("class_type") == "MiniMaxH3PromptExpander"
            and wf.get("5", {}).get("inputs", {}).get("prompt") == ["14", 0]
            and wf.get("9", {}).get("class_type") == "BasicGuider"
+           and wf.get("27", {}).get("inputs", {}).get("length") == 192
+           and wf.get("27", {}).get("inputs", {}).get("shape") == "wide"
+           and "1152x768" in str(wf.get("27", {}).get("inputs", {}).get("shape.wide_resolution", ""))
            and "130" not in wf and "131" not in wf,
-           f"{wf_name} wires 1x MiniMaxH3PromptExpander -> BasicGuider with zero EditGuider or duplicate conditioning")
+           f"{wf_name} wires 1x MiniMaxH3PromptExpander -> BasicGuider at 1152x768 @ 192f (8.00s)")
         if expect_rel:
             ok(wf.get("135", {}).get("inputs", {}).get("video_end_percent") == ["14", 1]
                and wf.get("14", {}).get("inputs", {}).get("references") == wf["5"]["inputs"]["references"],

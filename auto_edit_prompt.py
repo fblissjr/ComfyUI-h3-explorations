@@ -1322,8 +1322,24 @@ def build_fresh_prompt_user_prompt(
     eff_manifest = manifest if manifest is not None else _pc.describe_references(n_extra_images=n_images)
     parts: list[str] = []
 
+    snapped = _rules.snap_length(max(5, int(length)))
+    dur_s = _rules.duration_of(snapped)
+    pacing_note = (
+        f"Target duration: {dur_s:.2f}s ({snapped} frames) — structure 2-3 concrete cinematic shots "
+        "([Shot 1] establishing action/dialogue -> [Shot 2] close-up reaction/payoff) with real motion "
+        "and never write meta-duration filler like 'across the six-second take'."
+        if dur_s >= 7.5
+        else (
+            f"Target duration: {dur_s:.2f}s ({snapped} frames) — concrete continuous action and camera "
+            "motion; never write meta-duration filler like 'across the six-second take'."
+        )
+    )
+
     if eff_mode == "ref2va":
-        lines = ["Mode: ref2va (6 required sections; 350-500 words in detailed_description)."]
+        lines = [
+            "Mode: ref2va (6 required sections; strictly 350-500 words in detailed_description).",
+            pacing_note,
+        ]
         if eff_manifest.summary_lines:
             lines.append("Wired media manifest (exact tokenizer labels & emission order):")
             lines.extend(eff_manifest.summary_lines)
@@ -1341,8 +1357,6 @@ def build_fresh_prompt_user_prompt(
             )
         parts.append("\n".join(lines))
     elif eff_mode in _pc.KEYFRAME_BASE_MODES:
-        snapped = _rules.snap_length(max(5, int(length)))
-        dur_s = _rules.duration_of(snapped)
         kf_note = (
             "Bare `Picture 1` (0.00s start) and bare `Picture 2` (end) ONLY — never `<Picture 1>`!"
             if eff_mode == "fl2va"
@@ -1354,7 +1368,7 @@ def build_fresh_prompt_user_prompt(
         )
         parts.append(
             f"Mode: {eff_mode} (3 base sections; duration {dur_s:.2f}s / {snapped} frames; "
-            f"Python stamps Part One automatically — do NOT write a Part One line).\n{kf_note}"
+            f"Python stamps Part One automatically — do NOT write a Part One line).\n{kf_note}\n{pacing_note}"
         )
     elif eff_mode == "single_frame":
         pic_note = (
@@ -1366,7 +1380,7 @@ def build_fresh_prompt_user_prompt(
             f"Mode: single_frame (sectionless visual prose only; zero soundscape/music sections).{pic_note}"
         )
     else:
-        parts.append("Mode: t2va (3 base sections; no reference images attached).")
+        parts.append(f"Mode: t2va (3 base sections; no reference images attached).\n{pacing_note}")
 
     if concept_brief is not None:
         c_lines = [f"Selected concept ({concept_brief.title}): {concept_brief.summary}"]
@@ -1380,9 +1394,15 @@ def build_fresh_prompt_user_prompt(
             c_lines.append(
                 "Note: this concept substantially alters medium, age, or silhouette (set deforms_ref_silhouette: true)."
             )
-        if concept_brief.exemplars:
+        # Filter out short (<25 word) sentence-fragment exemplars so they do not prime stubby prose.
+        long_exemplars = [
+            (sec, a_ex, b_ex)
+            for sec, a_ex, b_ex in (concept_brief.exemplars or ())
+            if len(str(b_ex).split()) >= 25
+        ]
+        if long_exemplars:
             c_lines.append("Concept flavor examples:")
-            for idx, (sec, _a_ex, b_ex) in enumerate(concept_brief.exemplars, start=1):
+            for idx, (sec, _a_ex, b_ex) in enumerate(long_exemplars, start=1):
                 c_lines.append(f"  Example {idx} [{sec}]: {b_ex!r}")
         parts.append("\n".join(c_lines))
 
@@ -1419,6 +1439,7 @@ def validate_fresh_h3_prompt(
     resolved_mode: str | None = None,
     manifest: _pc.MediaManifest | None = None,
     length: int = 141,
+    enforce_min_words: bool = True,
 ) -> dict[str, Any]:
     """Parse and validate a fresh Markdown H3 prompt across all H3 modes via `h3_prompt_contract`."""
     parsed = parse_auto_edit_reply(raw_reply, concept_brief=concept_brief)
@@ -1465,6 +1486,7 @@ def validate_fresh_h3_prompt(
         mode=eff_mode,
         manifest=eff_manifest if eff_mode in ("ref2va", "single_frame") else None,
         length=length,
+        enforce_min_words=bool(enforce_min_words and eff_mode == "ref2va"),
     )
     if mech_fails:
         raise ValidationRepairError("; ".join(mech_fails))
