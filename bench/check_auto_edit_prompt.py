@@ -531,6 +531,18 @@ def check_validators_and_repair() -> None:
     refuses("short (<350 word) fresh ref2va detailed_description triggers 1-shot expansion repair",
             lambda: aep.validate_fresh_h3_prompt(short_fresh_reply, n_images=2),
             "350-500 words")
+    over_long_reply = fresh_reply.replace(
+        long_desc,
+        "The target video is in a cinematic live-action style.\n[Shot 1] "
+        + " ".join(["<Subject 1> and <Subject 2> walk slowly beneath glass conservatory arches in warm golden mist."] * 40)
+        + "\n\n",
+    )
+    refuses("over-long (>500 word) fresh ref2va detailed_description triggers 1-shot tightening repair",
+            lambda: aep.validate_fresh_h3_prompt(over_long_reply, n_images=2),
+            "> 500 ceiling")
+    ve_short_reply = short_fresh_reply.replace("[reference generation]", "[video editing]")
+    ok(len(aep.validate_fresh_h3_prompt(ve_short_reply, n_images=2)["changed_sections"]) == 6,
+       "[video editing] ref2va task is exempt from the 350-500 word generation budget (matching preflight_graph.py:1387)")
     refuses("fresh prompt referencing nonexistent <Picture 3> refuses",
             lambda: aep.validate_fresh_h3_prompt(
                 fresh_reply.replace("<Picture 2>", "<Picture 2> and <Picture 3>"),

@@ -490,11 +490,18 @@ def validate_h3_prompt_mechanics(
         fails.extend(_header_problems(main_body))
         fails.extend(_speaker_id_fails(main_body, require_ref_sx=True))
         desc_words = len(main_body.split())
-        if desc_words < 350:
-            msg = (
-                f"detailed_description is {desc_words} words; vendor_guides/ref_en.md requires "
-                "350-500 words of concrete multi-beat staging, camera motion, lighting, and foley"
-            )
+        editing_task = "video editing" in sections.get("summary", "").lower()
+        if not editing_task and not (350 <= desc_words <= 500):
+            if desc_words < 350:
+                msg = (
+                    f"detailed_description is {desc_words} words; vendor_guides/ref_en.md requires "
+                    "350-500 words of concrete multi-beat staging, camera motion, lighting, and foley"
+                )
+            else:
+                msg = (
+                    f"detailed_description is {desc_words} words (> 500 ceiling); vendor_guides/ref_en.md "
+                    "requires 350-500 words — tighten prose without dropping shot structure or speaker tags"
+                )
             if enforce_min_words:
                 fails.append(msg)
             else:
