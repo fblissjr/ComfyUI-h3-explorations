@@ -573,6 +573,128 @@ def check_validators_and_repair() -> None:
     ok("8.00s (192 frames)" in u_ref and "2-3 concrete cinematic shots" in u_ref
        and "tiny twelve word fragment" not in u_ref,
        "build_fresh_prompt_user_prompt passes dur_s + multi-shot pacing on ref2va and filters <25-word fragment exemplars")
+
+    # Standalone zero-lore prompts (h3_video + h3_image) and native plain-text fresh validation
+    for vm in ("ref2va", "t2va", "i2va", "fl2va", "l2va"):
+        vsys = aep.resolve_fresh_system_prompt(vm, has_images=(vm != "t2va"))
+        vlow = vsys.lower()
+        ok("vendor_guides/" not in vlow and "minimax" not in vlow,
+           f"resolve_fresh_system_prompt({vm!r}) loads standalone zero-lore prompt")
+    ok("single continuous plain-text" in aep.resolve_fresh_system_prompt("single_frame", has_images=False).lower()
+       or "natural, cohesive english paragraph" in aep.resolve_fresh_system_prompt("single_frame", has_images=False).lower(),
+       "resolve_fresh_system_prompt('single_frame', has_images=False) loads h3_image T2I prompt")
+    ok("<Picture 1>" in aep.resolve_fresh_system_prompt("single_frame", has_images=True),
+       "resolve_fresh_system_prompt('single_frame', has_images=True) loads h3_image Edit prompt")
+
+    native_ref_reply = (
+        "subject_definitions:\n"
+        "<Subject 1> is the woman in <Picture 1>, wearing a champagne silk dress.\n"
+        "<Subject 2> is the man in <Picture 2>, wearing an unbuttoned linen shirt.\n\n"
+        "summary:\n"
+        "[reference generation] <Subject 1> and <Subject 2> toast inside a sunlit conservatory.\n\n"
+        "retention_analysis:\n"
+        "<Subject 1> (appears in [Shot 1], [Shot 2]): partially_preserved - facial identity retained; wears champagne silk dress.\n"
+        "<Subject 2> (appears in [Shot 1], [Shot 2]): partially_preserved - facial identity retained; wears linen shirt.\n\n"
+        "detailed_description:\n"
+        + long_desc.strip()
+        + "\n\noverall_soundscape:\n"
+        "Clinking crystal glasses and soft greenhouse water drips.\n\n"
+        "non_diegetic_music:\n"
+        "N/A"
+    )
+    nat_ref_res = aep.validate_fresh_h3_prompt(native_ref_reply, n_images=2, resolved_mode="ref2va")
+    ok(len(nat_ref_res["changed_sections"]) == 6
+       and "subject_definitions:\n" in nat_ref_res["edited_prompt"]
+       and "[reference generation]" in nat_ref_res["edited_prompt"],
+       "validate_fresh_h3_prompt validates native plain-text 6-section ref2va prompt cleanly")
+    refuses("native plain-text ref2va < 350 words triggers repair",
+            lambda: aep.validate_fresh_h3_prompt(
+                native_ref_reply.replace(
+                    long_desc.strip(),
+                    "The target video is in a cinematic style. [Shot 1] <Subject 1> raises a glass.",
+                ),
+                n_images=2,
+                resolved_mode="ref2va",
+            ),
+            "350-500 words")
+    refuses("native plain-text ref2va missing (S1) on <d> refuses",
+            lambda: aep.validate_fresh_h3_prompt(
+                native_ref_reply.replace("<Subject 1> (S1)", "<Subject 1>"),
+                n_images=2,
+                resolved_mode="ref2va",
+            ),
+            "(Sx)")
+    refuses("native plain-text ref2va with (S1) inside retention_analysis refuses",
+            lambda: aep.validate_fresh_h3_prompt(
+                native_ref_reply.replace(
+                    "<Subject 1> (appears in [Shot 1], [Shot 2]):",
+                    "<Subject 1> (S1) (appears in [Shot 1], [Shot 2]):",
+                ),
+                n_images=2,
+                resolved_mode="ref2va",
+            ),
+            "speaker IDs")
+
+    native_t2va_reply = (
+        "integrated_multimodal_description:\n"
+        "[Shot 1] Live-action, cinematic, a woman in a wool coat steps off a wet commuter platform into sodium light.\n\n"
+        "overall_soundscape:\n"
+        "Distant train rumble and soft wet footsteps.\n\n"
+        "non_diegetic_music:\n"
+        "N/A\n\n"
+        "## axes\n"
+        "visual_changed: true\naudio_changed: true\npreserve_step0_layout: false\n"
+        "deforms_ref_silhouette: false\ntemporal_curve: whole_clip\nreason: native t2va with axes\n"
+    )
+    nat_t2v = aep.validate_fresh_h3_prompt(native_t2va_reply, n_images=0, resolved_mode="t2va", length=192)
+    ok(len(nat_t2v["changed_sections"]) == 3
+       and "[Shot 1]" in nat_t2v["edited_prompt"]
+       and "## axes" not in nat_t2v["edited_prompt"],
+       "validate_fresh_h3_prompt validates native t2va with optional ## axes")
+
+    native_fl2va_reply = (
+        "integrated_multimodal_description:\n"
+        "[Shot 1] Live-action, cinematic, starting smoothly from Picture 1, the camera pushes in slowly as the lantern swings toward Picture 2.\n\n"
+        "overall_soundscape:\n"
+        "Soft creaking brass chain and night breeze.\n\n"
+        "non_diegetic_music:\n"
+        "N/A"
+    )
+    nat_fl2v = aep.validate_fresh_h3_prompt(native_fl2va_reply, n_images=2, resolved_mode="fl2va", length=192)
+    ok("8.00-second mark" in nat_fl2v["edited_prompt"].splitlines()[0]
+       and "Picture 1 (from Shot 1)" in nat_fl2v["edited_prompt"].splitlines()[0],
+       "validate_fresh_h3_prompt stamps exact Part One onto native FL2VA reply")
+    refuses("native FL2VA with <Picture 1> brackets refuses",
+            lambda: aep.validate_fresh_h3_prompt(
+                native_fl2va_reply.replace("Picture 1", "<Picture 1>"),
+                n_images=2,
+                resolved_mode="fl2va",
+                length=192,
+            ),
+            "bare 'Picture 1'")
+
+    native_l2va_reply = (
+        "integrated_multimodal_description:\n"
+        "[Shot 1] Live-action, cinematic, starting from a wide doorway step, the camera tracks inward cleanly onto <Picture 1>.\n\n"
+        "overall_soundscape:\n"
+        "Quiet wooden floorboards settling under boots.\n\n"
+        "non_diegetic_music:\n"
+        "N/A"
+    )
+    nat_l2v = aep.validate_fresh_h3_prompt(native_l2va_reply, n_images=1, resolved_mode="l2va", length=192)
+    ok("8.00-second mark" in nat_l2v["edited_prompt"].splitlines()[0]
+       and "<Picture 1> (from [Shot 1])" in nat_l2v["edited_prompt"].splitlines()[0],
+       "validate_fresh_h3_prompt stamps exact Part One onto native L2VA reply")
+
+    nat_sf = aep.validate_fresh_h3_prompt(
+        "A warm candlelit portrait with crisp film grain.\n\naspect_ratio: 3:2",
+        n_images=0,
+        resolved_mode="single_frame",
+        length=1,
+    )
+    ok(nat_sf["edited_prompt"] == "A warm candlelit portrait with crisp film grain."
+       and nat_sf["axes"]["audio_changed"] is False,
+       "validate_fresh_h3_prompt validates native plain-text single_frame reply")
     import control_vector_nodes as cvn
     ok(cvn._is_hidden_vector_relpath("_quarantine/foo.safetensors")
        and cvn._is_hidden_vector_relpath(".cache/foo.safetensors")
@@ -769,7 +891,14 @@ def check_url_resolution_and_mock_sse() -> None:
             elif self.path == "/v1/system/metrics":
                 payload = {"models": {"qwen-mock": {"resident": True}}}
             elif self.path == "/v1/presets":
-                payload = {"presets": []}
+                payload = {
+                    "presets": [{
+                        "id": "h3_native_preset",
+                        "name": "h3_native_preset",
+                        "system_prompt": "CUSTOM PRESET SYSTEM",
+                        "params": {"temperature": 0.4},
+                    }]
+                }
             else:
                 self.send_response(404)
                 self.end_headers()
@@ -830,6 +959,15 @@ def check_url_resolution_and_mock_sse() -> None:
                     "section_edits": {"bad_hallucinated_section": "nope"},
                     "axes": {"visual_changed": True, "audio_changed": False, "preserve_step0_layout": True, "deforms_ref_silhouette": False, "temporal_curve": "whole_clip"},
                 })
+            elif mode == "fresh_native_preset":
+                reply_json = (
+                    "integrated_multimodal_description:\n"
+                    "[Shot 1] Live-action, cinematic, a commuter pauses under amber station lamps while rain streaks past.\n\n"
+                    "overall_soundscape:\n"
+                    "Steady rainfall on concrete platform tiles.\n\n"
+                    "non_diegetic_music:\n"
+                    "N/A"
+                )
             elif mode == "good_md":
                 reply_json = (
                     "## section: summary\n"
@@ -949,6 +1087,24 @@ def check_url_resolution_and_mock_sse() -> None:
                and r_md["edit_plan"].temporal_curve == "ramp_in"
                and r_md["repair_used"] is False,
                "run_auto_edit_rewrite parses Markdown SSE replies end-to-end with 0 repairs")
+
+            # 4c. Fresh native mode + heylook preset system_prompt preservation
+            state["mode"] = "fresh_native_preset"
+            r_pres = aep.run_auto_edit_rewrite(
+                original="",
+                edit_intent="Commuter waiting in amber station rain.",
+                preset="h3_native_preset",
+                base_url=srv_url,
+                use_cache=False,
+                length=192,
+                prompt_mode="t2va",
+            )
+            pres_post = state["posts"][-1]
+            ok(pres_post.get("system") == "CUSTOM PRESET SYSTEM"
+               and "## section:" not in json.dumps(pres_post)
+               and r_pres["repair_used"] is False
+               and "[Shot 1]" in r_pres["edited_prompt"],
+               "run_auto_edit_rewrite fresh native mode preserves preset system_prompt and parses native reply")
 
         # 5. 503 backoff retry generates distinct X-Request-ID
         state["mode"] = "503_once"

@@ -12,7 +12,7 @@ Follow these rules:
    - Match the scale of the rewrite to the edit:
      - For *local/grade edits* (lighting, color grade, weather, subtle expression, or single-prop tweak), make the smallest local replacement needed and keep untouched sentences intact.
      - For *setting, pose, wardrobe, action, or medium overhauls*, commit fully: **replace** every contradicting location, clothing, posture, camera-framing, and lighting clause in allowed visual sections with specific, vivid, filmable details (never leave stale baseline room/clothing phrases behind), while keeping `<Picture N>` identity, `<Subject N>`, `<d>...</d>` dialogue, and `[Shot N]` structure verbatim.
-     - When 2 or more `<Subject N>` tags share a shot, anchor each subject's distinct screen position (left/center/right) and restate their defining gender, age, and wardrobe cue inline inside `detailed_description` so H3 does not bleed `<Subject 1>`'s face or clothing onto `<Subject 2>`.
+     - When 2 or more `<Subject N>` tags share a shot, anchor each subject's distinct screen position (left/center/right) and restate their defining gender, age, and wardrobe cue inline inside `detailed_description` so identities and outfits do not bleed across `<Subject 1>` and `<Subject 2>`.
 
 2. Contradiction removal across modalities:
    - Replace or remove any wording in allowed sections that directly contradicts the requested edit (for example: replace `"Live-action, cinematic"` when changing to claymation, 2D animation, or watercolor; replace `"dry afternoon daylight"` when changing to neon night rain; replace `"black knit sweater"` when changing wardrobe).
@@ -41,8 +41,8 @@ Follow these rules:
      - `true` when the edit should keep the original shot's exact camera framing, actor blocking, pose, and silhouette from step 0 (weather/lighting/time-of-day shifts, optical film/camera grades, subtle age/expression tweaks, or audio-only re-dubs).
      - `false` when the edit changes actor pose/blocking, swaps the physical setting/staging, substantially changes attire/silhouette, or swaps a major medium/material (`claymation`, `muppet`, `origami`, `3D cartoon`).
    - `deforms_ref_silhouette` (`boolean`):
-     - `true` ONLY for non-photographic medium/material overhauls (`claymation`, `felt muppet`, `origami`, `rubber hose`, `lava golem`, `inflate`, `2D cel`) OR extreme 3D anatomy/body-shape/age deformations where `<Picture N>` reference pixels themselves must dissolve (`end_percent = 0.33`). Always pair `deforms_ref_silhouette: true` with `preserve_step0_layout: false`.
-     - `false` for live-action setting, pose, lighting, weather, color, acoustic, or wardrobe swaps where `<Picture N>` facial identity stays photorealistic (`ref_end_percent = 1.0` preserves crisper likeness even when `preserve_step0_layout: false`).
+     - `true` ONLY for non-photographic medium/material overhauls (`claymation`, `felt muppet`, `origami`, `rubber hose`, `lava golem`, `inflate`, `2D cel`) OR extreme 3D anatomy/body-shape/age deformations where `<Picture N>` reference pixels themselves must release early. Always pair `deforms_ref_silhouette: true` with `preserve_step0_layout: false`.
+     - `false` for live-action setting, pose, lighting, weather, color, acoustic, or wardrobe swaps where `<Picture N>` facial identity stays photorealistic (full reference hold preserves crisper likeness even when `preserve_step0_layout: false`).
    - `temporal_curve` (`string`): one of `"whole_clip"`, `"ramp_in"`, `"sudden_midclip"`, `"second_half"`. ALWAYS use `"whole_clip"` for static style, lighting, setting, pose, acoustic reverb, or wardrobe edits — NEVER infer `"sudden_midclip"` or `"ramp_in"` merely from action prose (e.g. `"mid-reach"`, `"abruptly"`); use non-`"whole_clip"` curves ONLY when the user request or concept card explicitly asks for a progressive buildup or mid-clip transition.
    - `reason` (`string`): one concise sentence justifying your axis choices.
 

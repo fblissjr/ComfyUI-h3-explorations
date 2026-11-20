@@ -599,6 +599,24 @@ def heylook_expander() -> None:
             "heylook preset + aspect_ratio, editable system_prompt override, custom sampler fields and UI catalog hold",
         )
 
+        from h3_image_nodes import expand_image_prompt as _expand_img_helper
+        helper_res = _expand_img_helper(
+            prompt="Quiet greenhouse morning.",
+            enabled=True,
+            base_url=base,
+            mode="auto",
+            preset="crisp_preset",
+            prepared_images=[],
+            prefer_preset_system=True,
+        )
+        helper_body = state["bodies"][-1]
+        report(
+            helper_res["prompt"] == t2i_caption
+            and helper_res["shape"] == "4:3"
+            and helper_body.get("system") == "PRESET SYSTEM PROMPT",
+            "expand_image_prompt helper accepts prepared_images and prefer_preset_system=True cleanly",
+        )
+
         # Edit with 2 reference pictures: requires 'vision' capability (selects vlm-chat-local)
         # and sends ordered <Picture 1> / <Picture 2> blocks on the user turn.
         img1 = torch.zeros((1, 128, 128, 3), dtype=torch.float32)

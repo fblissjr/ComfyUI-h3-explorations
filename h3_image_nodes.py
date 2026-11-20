@@ -38,6 +38,7 @@ import json
 import re
 import sys
 from pathlib import Path
+from typing import Any, Callable, Sequence
 
 import httpx
 import numpy as np
@@ -447,6 +448,170 @@ def resolve_expander_system_prompt(
     return effective, _read_local_prompt(effective)
 
 
+def expand_image_prompt(
+    *,
+    prompt: str = "",
+    enabled: bool = True,
+    base_url: str = HEYLOOK_DEFAULT_BASE_URL,
+    mode: str = "auto",
+    model: str = "",
+    thinking: str = "model default",
+    seed: int = 0,
+    preset: str = "",
+    custom_system_prompt: str = "",
+    raw_images: Sequence[Any] | None = None,
+    prepared_images: list[tuple[str, str]] | None = None,
+    sampler_mode: str = "heylook / preset default",
+    temperature: float = 0.7,
+    top_p: float = 0.95,
+    top_k: int = 20,
+    min_p: float = 0.0,
+    max_tokens: int = 4096,
+    repetition_penalty: float = 1.0,
+    presence_penalty: float = 0.0,
+    reasoning_effort: str = "",
+    client: httpx.Client | None = None,
+    interrupt_check: Callable[[], None] | None = None,
+    prefer_preset_system: bool = False,
+) -> dict[str, Any]:
+    """Expand a short T2I or 1..16-image edit request via local/LAN `heylook` and `parse_expander_reply`."""
+    if not enabled:
+        raw = (prompt or "").strip()
+        if not raw:
+            return {
+                "prompt": "",
+                "shape": "",
+                "thinking": "",
+                "report": "expander disabled (empty prompt)",
+                "resolved_mode": "",
+                "model": "",
+            }
+        inline_think = _extract_inline_thinking(raw)
+        clean_prompt, ratio = parse_expander_reply(raw)
+        return {
+            "prompt": clean_prompt,
+            "shape": ratio or "",
+            "thinking": inline_think,
+            "report": "expander disabled (passthrough)",
+            "resolved_mode": "passthrough",
+            "model": "",
+        }
+
+    user_text = (prompt or "").strip()
+    if not user_text:
+        raise ValueError("MiniMaxH3ImagePromptExpander: 'prompt' is empty")
+
+    if prepared_images is not None:
+        if len(prepared_images) > MAX_H3_IMAGE_REFS:
+            raise ValueError(
+                f"MiniMaxH3ImagePromptExpander takes at most {MAX_H3_IMAGE_REFS} images, got {len(prepared_images)}"
+            )
+        prepared = list(prepared_images)
+    else:
+        img_list = [img for img in (raw_images or ()) if img is not None]
+        if len(img_list) > MAX_H3_IMAGE_REFS:
+            raise ValueError(
+                f"MiniMaxH3ImagePromptExpander takes at most {MAX_H3_IMAGE_REFS} images, got {len(img_list)}"
+            )
+        prepared = [prepare_heylook_tensor(t, index=i) for i, t in enumerate(img_list, start=1)]
+
+    preset_name = (preset or "").strip()
+    has_images = len(prepared) > 0
+    uses_server_preset = mode in ("heylook preset", "heylook preset + aspect_ratio")
+    resolved_mode, sys_prompt = resolve_expander_system_prompt(
+        mode,
+        has_images=has_images,
+        custom_system_prompt=custom_system_prompt,
+        has_preset=bool(preset_name) or uses_server_preset,
+    )
+    base = normalize_heylook_base_url(base_url)
+    need_caps = frozenset({"chat", "vision"} if has_images else {"chat"})
+    int_cb = interrupt_check if interrupt_check is not None else _comfy_interrupt_check
+    custom_clean = (custom_system_prompt or "").strip()
+
+    def _run_with_client(http_client: httpx.Client) -> tuple[HeylookStreamResult, dict]:
+        model_row = discover_heylook_model(http_client, base, model, need=need_caps)
+        preset_fields = (
+            expand_heylook_preset(http_client, base, preset_name, model_row)
+            if (preset_name or (uses_server_preset and not sys_prompt))
+            else None
+        )
+        eff_sys_prompt = sys_prompt
+        if not eff_sys_prompt and preset_fields:
+            preset_sys = (preset_fields.get("system") or "").strip()
+            if uses_server_preset and not preset_sys:
+                raise ValueError(
+                    f"mode is {mode!r}, but the resolved heylook preset has an empty system_prompt"
+                )
+            if resolved_mode == "heylook preset + aspect_ratio" and preset_sys:
+                eff_sys_prompt = append_aspect_ratio_footer(preset_sys, has_images=has_images)
+            else:
+                eff_sys_prompt = preset_sys
+        elif prefer_preset_system and not custom_clean and preset_fields:
+            if (preset_fields.get("system") or "").strip():
+                eff_sys_prompt = ""
+
+        sampler_overrides = (
+            {
+                "temperature": float(temperature),
+                "top_p": float(top_p),
+                "top_k": int(top_k),
+                "min_p": float(min_p),
+                "max_tokens": int(max_tokens),
+                "repetition_penalty": float(repetition_penalty),
+                "presence_penalty": float(presence_penalty),
+            }
+            if sampler_mode == "custom"
+            else None
+        )
+        body = build_heylook_request_body(
+            model_row=model_row,
+            system_prompt=eff_sys_prompt,
+            user_prompt=user_text,
+            prepared_images=prepared,
+            thinking=thinking,
+            request_seed=int(seed) & 0x7FFFFFFF,
+            preset_fields=preset_fields,
+            sampler_mode=sampler_mode,
+            sampler_overrides=sampler_overrides,
+            reasoning_effort_override=reasoning_effort,
+        )
+        res = with_heylook_backoff(
+            lambda: stream_heylook_message(
+                base, body, client=http_client, interrupt_check=int_cb
+            ),
+            interrupt_check=int_cb,
+        )
+        return res, model_row
+
+    if client is not None:
+        res, model_row = _run_with_client(client)
+    else:
+        with httpx.Client(trust_env=False, timeout=httpx.Timeout(None, connect=10.0)) as own_client:
+            res, model_row = _run_with_client(own_client)
+
+    think_trace = res.thinking or _extract_inline_thinking(res.text)
+    try:
+        clean_prompt, ratio = parse_expander_reply(res.text)
+    except ValueError as exc:
+        if res.stop_reason == "max_tokens":
+            raise RuntimeError(
+                f"heylook stopped at max_tokens before completing a valid caption ({exc}). "
+                "Raise max_tokens in your heylook model/preset config or set thinking='off'."
+            ) from exc
+        raise
+
+    report_str = format_heylook_report(res, resolved_mode=resolved_mode, shape=ratio)
+    return {
+        "prompt": clean_prompt,
+        "shape": ratio or "",
+        "thinking": think_trace,
+        "report": report_str,
+        "resolved_mode": resolved_mode,
+        "model": res.model or model_row.get("id", ""),
+    }
+
+
 class MiniMaxH3ImagePromptExpander(io.ComfyNode):
     """Expand a short T2I request or `1..16`-picture edit instruction via a local/LAN `heylookitsanllm` server."""
 
@@ -682,103 +847,30 @@ class MiniMaxH3ImagePromptExpander(io.ComfyNode):
         presence_penalty: float = 0.0,
         reasoning_effort: str = "",
     ) -> io.NodeOutput:
-        if not enabled:
-            raw = (prompt or "").strip()
-            if not raw:
-                return io.NodeOutput("", "", "", "expander disabled (empty prompt)")
-            inline_think = _extract_inline_thinking(raw)
-            clean_prompt, ratio = parse_expander_reply(raw)
-            return io.NodeOutput(clean_prompt, ratio or "", inline_think, "expander disabled (passthrough)")
-
-        user_text = (prompt or "").strip()
-        if not user_text:
-            raise ValueError("MiniMaxH3ImagePromptExpander: 'prompt' is empty")
-
         names = sorted(images or {}, key=lambda name: int(name.rsplit("_", 1)[-1]))
         raw_images = [images[name] for name in names if images[name] is not None]
-        if len(raw_images) > MAX_H3_IMAGE_REFS:
-            raise ValueError(
-                f"MiniMaxH3ImagePromptExpander takes at most {MAX_H3_IMAGE_REFS} images, got {len(raw_images)}"
-            )
-
-        preset_name = (preset or "").strip()
-        has_images = len(raw_images) > 0
-        uses_server_preset = mode in ("heylook preset", "heylook preset + aspect_ratio")
-        resolved_mode, sys_prompt = resolve_expander_system_prompt(
-            mode,
-            has_images=has_images,
+        res = expand_image_prompt(
+            prompt=prompt,
+            enabled=enabled,
+            base_url=base_url,
+            mode=mode,
+            model=model,
+            thinking=thinking,
+            seed=seed,
+            preset=preset,
             custom_system_prompt=custom_system_prompt,
-            has_preset=bool(preset_name) or uses_server_preset,
+            raw_images=raw_images,
+            sampler_mode=sampler_mode,
+            temperature=temperature,
+            top_p=top_p,
+            top_k=top_k,
+            min_p=min_p,
+            max_tokens=max_tokens,
+            repetition_penalty=repetition_penalty,
+            presence_penalty=presence_penalty,
+            reasoning_effort=reasoning_effort,
         )
-        prepared_images = [
-            prepare_heylook_tensor(t, index=i) for i, t in enumerate(raw_images, start=1)
-        ]
-        base = normalize_heylook_base_url(base_url)
-        need_caps = frozenset({"chat", "vision"} if has_images else {"chat"})
-
-        with httpx.Client(trust_env=False, timeout=httpx.Timeout(None, connect=10.0)) as client:
-            model_row = discover_heylook_model(client, base, model, need=need_caps)
-            preset_fields = (
-                expand_heylook_preset(client, base, preset_name, model_row)
-                if (preset_name or (uses_server_preset and not sys_prompt))
-                else None
-            )
-            if not sys_prompt and preset_fields:
-                preset_sys = (preset_fields.get("system") or "").strip()
-                if uses_server_preset and not preset_sys:
-                    raise ValueError(
-                        f"mode is {mode!r}, but the resolved heylook preset has an empty system_prompt"
-                    )
-                if resolved_mode == "heylook preset + aspect_ratio" and preset_sys:
-                    sys_prompt = append_aspect_ratio_footer(preset_sys, has_images=has_images)
-                else:
-                    sys_prompt = preset_sys
-
-            sampler_overrides = (
-                {
-                    "temperature": float(temperature),
-                    "top_p": float(top_p),
-                    "top_k": int(top_k),
-                    "min_p": float(min_p),
-                    "max_tokens": int(max_tokens),
-                    "repetition_penalty": float(repetition_penalty),
-                    "presence_penalty": float(presence_penalty),
-                }
-                if sampler_mode == "custom"
-                else None
-            )
-            body = build_heylook_request_body(
-                model_row=model_row,
-                system_prompt=sys_prompt,
-                user_prompt=user_text,
-                prepared_images=prepared_images,
-                thinking=thinking,
-                request_seed=int(seed) & 0x7FFFFFFF,
-                preset_fields=preset_fields,
-                sampler_mode=sampler_mode,
-                sampler_overrides=sampler_overrides,
-                reasoning_effort_override=reasoning_effort,
-            )
-            res = with_heylook_backoff(
-                lambda: stream_heylook_message(
-                    base, body, client=client, interrupt_check=_comfy_interrupt_check
-                ),
-                interrupt_check=_comfy_interrupt_check,
-            )
-
-        think_trace = res.thinking or _extract_inline_thinking(res.text)
-        try:
-            clean_prompt, ratio = parse_expander_reply(res.text)
-        except ValueError as exc:
-            if res.stop_reason == "max_tokens":
-                raise RuntimeError(
-                    f"heylook stopped at max_tokens before completing a valid caption ({exc}). "
-                    "Raise max_tokens in your heylook model/preset config or set thinking='off'."
-                ) from exc
-            raise
-
-        report_str = format_heylook_report(res, resolved_mode=resolved_mode, shape=ratio)
-        return io.NodeOutput(clean_prompt, ratio or "", think_trace, report_str)
+        return io.NodeOutput(res["prompt"], res["shape"], res["thinking"], res["report"])
 
 
 def build_expander_catalog(base_url: str = "") -> dict:

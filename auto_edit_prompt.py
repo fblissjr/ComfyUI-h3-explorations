@@ -80,6 +80,8 @@ except ImportError:  # run from the repo root by a check or script
 
 _HERE = Path(__file__).resolve().parent
 _SYSTEM_PROMPTS_DIR = _HERE / "docs" / "wiki" / "system_prompts" / "h3_auto_edit"
+_VIDEO_SYSTEM_PROMPTS_DIR = _HERE / "docs" / "wiki" / "system_prompts" / "h3_video"
+_IMAGE_SYSTEM_PROMPTS_DIR = _HERE / "docs" / "wiki" / "system_prompts" / "h3_image"
 PROMPT_BANK_CV_DIR = _HERE / "prompt_bank" / "control_vectors"
 DATA_CV_DIR = _HERE / "data" / "control_vectors"
 DATA_CONCEPTS_DIR = _HERE / "data" / "edit_concepts"
@@ -224,6 +226,17 @@ def _read_system_prompt_file(rewrite_mode: str) -> str:
     else:
         fname = "edit_lines_system_prompt.md"
     return (_SYSTEM_PROMPTS_DIR / fname).read_text(encoding="utf-8").strip()
+
+
+def resolve_fresh_system_prompt(resolved_mode: str, *, has_images: bool = False) -> str:
+    """Return the standalone zero-lore system prompt for a resolved fresh-generation mode."""
+    m = str(resolved_mode or "").strip().lower()
+    if m in ("ref2va", "t2va", "i2va", "fl2va", "l2va"):
+        return (_VIDEO_SYSTEM_PROMPTS_DIR / f"{m}_system_prompt.md").read_text(encoding="utf-8").strip()
+    if m == "single_frame":
+        fname = "edit_system_prompt.md" if has_images else "t2i_system_prompt.md"
+        return (_IMAGE_SYSTEM_PROMPTS_DIR / fname).read_text(encoding="utf-8").strip()
+    return _read_system_prompt_file("fresh")
 
 
 def _concept_search_dirs(
@@ -1312,6 +1325,7 @@ def build_fresh_prompt_user_prompt(
     resolved_mode: str | None = None,
     manifest: _pc.MediaManifest | None = None,
     length: int = 141,
+    native_format: bool = True,
 ) -> str:
     """Assemble the user turn for direct fresh H3 prompt generation across all H3 modes."""
     eff_mode = (
@@ -1341,7 +1355,7 @@ def build_fresh_prompt_user_prompt(
             pacing_note,
         ]
         if eff_manifest.summary_lines:
-            lines.append("Wired media manifest (exact tokenizer labels & emission order):")
+            lines.append("Attached media references in exact order:")
             lines.extend(eff_manifest.summary_lines)
         if eff_manifest.pictures:
             subjs = ", ".join(f"<Subject {i}>" for i in range(1, eff_manifest.n_pictures + 1))
@@ -1368,7 +1382,7 @@ def build_fresh_prompt_user_prompt(
         )
         parts.append(
             f"Mode: {eff_mode} (3 base sections; duration {dur_s:.2f}s / {snapped} frames; "
-            f"Python stamps Part One automatically — do NOT write a Part One line).\n{kf_note}\n{pacing_note}"
+            f"Do not write a leading alignment header line — begin directly with integrated_multimodal_description:).\n{kf_note}\n{pacing_note}"
         )
     elif eff_mode == "single_frame":
         pic_note = (
@@ -1410,7 +1424,26 @@ def build_fresh_prompt_user_prompt(
     if intent_clean:
         parts.append(f"User scene instruction:\n{intent_clean}")
 
-    if eff_mode == "ref2va":
+    if native_format:
+        if eff_mode == "ref2va":
+            parts.append(
+                "Task: Return ONLY the 6 plain-text sections in order: "
+                "subject_definitions:, summary:, retention_analysis:, detailed_description:, "
+                "overall_soundscape:, non_diegetic_music: (no markdown fences, no commentary). "
+                "If anyone speaks via <d>[English] ...</d>, bind <Subject N> (S1) earlier in the shot."
+            )
+        elif eff_mode == "single_frame":
+            parts.append(
+                "Task: Return ONLY a single continuous plain-text visual paragraph "
+                "(no section headers, no markdown fences, no commentary)."
+            )
+        else:
+            parts.append(
+                "Task: Return ONLY the 3 plain-text sections in order: "
+                "integrated_multimodal_description:, overall_soundscape:, non_diegetic_music: "
+                "(no leading alignment line, no markdown fences, no commentary)."
+            )
+    elif eff_mode == "ref2va":
         parts.append(
             "Task: Return ONLY Markdown `## section: <name>` blocks for "
             "`subject_definitions`, `summary`, `retention_analysis`, `detailed_description`, "
@@ -1441,19 +1474,53 @@ def validate_fresh_h3_prompt(
     length: int = 141,
     enforce_min_words: bool = True,
 ) -> dict[str, Any]:
-    """Parse and validate a fresh Markdown H3 prompt across all H3 modes via `h3_prompt_contract`."""
-    parsed = parse_auto_edit_reply(raw_reply, concept_brief=concept_brief)
-    obj = parsed["obj"]
-    sec_map = obj.get("section_edits")
-    if not isinstance(sec_map, Mapping) or not sec_map:
-        raise ValidationRepairError("fresh prompt reply contained no `## section:` blocks")
-
+    """Parse and validate a fresh Markdown or native plain-text H3 prompt across all H3 modes."""
     eff_manifest = manifest if manifest is not None else _pc.describe_references(n_extra_images=n_images)
     eff_mode = (
         resolved_mode
         if resolved_mode is not None
         else ("ref2va" if (n_images > 0 or eff_manifest.has_any) else "t2va")
     )
+    cleaned = _strip_think_and_fence(raw_reply)
+    is_legacy = bool(
+        re.search(r"(?m)^#{1,4}\s*section\s*:", cleaned, re.I)
+        or cleaned.lstrip().startswith("{")
+    )
+    if is_legacy:
+        parsed = parse_auto_edit_reply(raw_reply, concept_brief=concept_brief)
+        obj = parsed["obj"]
+        sec_map = obj.get("section_edits")
+        if not isinstance(sec_map, Mapping) or not sec_map:
+            raise ValidationRepairError("fresh prompt reply contained no `## section:` blocks")
+    else:
+        m_axes = re.search(r"(?m)^#{1,4}\s*axes\s*:?\s*$", cleaned, re.I)
+        if m_axes:
+            body_text = cleaned[: m_axes.start()].strip()
+            axes_tail = cleaned[m_axes.start() :]
+            md_tail = _extract_markdown_reply(axes_tail)
+            raw_axes = (md_tail or {}).get("axes") if isinstance(md_tail, Mapping) else None
+            parsed_axes = _normalize_axes(raw_axes, concept_brief=concept_brief)
+        else:
+            body_text = cleaned.strip()
+            parsed_axes = _normalize_axes({}, concept_brief=concept_brief)
+        if eff_mode == "single_frame":
+            body_no_ar = re.sub(r"(?im)\n+\s*(?:aspect_ratio|target_aspect_ratio)\s*:.*$", "", body_text).strip()
+            if not body_no_ar:
+                raise ValidationRepairError("single_frame fresh prompt is empty")
+            sec_map = {"_unsectioned": body_no_ar}
+        else:
+            sec_map = _pc._extract_sections(body_text)
+            if not sec_map:
+                want_hdrs = (
+                    "subject_definitions:, summary:, retention_analysis:, detailed_description:, "
+                    "overall_soundscape:, non_diegetic_music:"
+                    if eff_mode == "ref2va"
+                    else "integrated_multimodal_description:, overall_soundscape:, non_diegetic_music:"
+                )
+                raise ValidationRepairError(
+                    f"fresh prompt missing plain-text section headers ({want_hdrs})"
+                )
+        parsed = {"obj": {"section_edits": sec_map}, "axes": parsed_axes}
 
     if eff_mode == "single_frame":
         body_raw = sec_map.get("_unsectioned")
@@ -1754,17 +1821,7 @@ def run_auto_edit_rewrite(
             "report": cached_report,
         }
 
-    if is_fresh_mode:
-        base_sys_prompt = (custom_system_prompt or "").strip() or _read_system_prompt_file("fresh")
-        user_prompt = build_fresh_prompt_user_prompt(
-            concept_brief=concept_brief,
-            edit_intent=intent_clean,
-            n_images=len(prepared_images),
-            resolved_mode=resolved_mode,
-            manifest=manifest,
-            length=eff_length,
-        )
-    else:
+    if not is_fresh_mode:
         base_sys_prompt = (custom_system_prompt or "").strip() or _read_system_prompt_file(rewrite_mode)
         user_prompt = build_auto_edit_user_prompt(
             original=orig_norm,
@@ -1775,12 +1832,17 @@ def run_auto_edit_rewrite(
             edit_intent=intent_clean,
             has_images=bool(prepared_images),
         )
-    if prompt_layout == "user_only" and not (custom_system_prompt or "").strip():
-        sys_prompt = ""
-        final_user_prompt = f"{base_sys_prompt}\n\n---\n\n{user_prompt}"
+        if prompt_layout == "user_only" and not (custom_system_prompt or "").strip():
+            sys_prompt = ""
+            final_user_prompt = f"{base_sys_prompt}\n\n---\n\n{user_prompt}"
+        else:
+            sys_prompt = base_sys_prompt
+            final_user_prompt = user_prompt
     else:
-        sys_prompt = base_sys_prompt
-        final_user_prompt = user_prompt
+        sys_prompt = ""
+        final_user_prompt = ""
+
+    use_native = False
 
     need_caps = frozenset({"chat", "vision"} if prepared_images else {"chat"})
     allow_audio_ret = target_scope == "all_sections"
@@ -1838,6 +1900,37 @@ def run_auto_edit_rewrite(
             if preset_name
             else None
         )
+        if is_fresh_mode:
+            custom_sys = (custom_system_prompt or "").strip()
+            preset_sys = str((preset_fields or {}).get("system") or "").strip()
+            if custom_sys:
+                base_sys_prompt = custom_sys
+                use_native = "## section:" not in custom_sys
+            elif preset_sys:
+                base_sys_prompt = ""
+                use_native = "## section:" not in preset_sys
+            else:
+                base_sys_prompt = resolve_fresh_system_prompt(
+                    resolved_mode,
+                    has_images=bool(prepared_images),
+                )
+                use_native = True
+            user_prompt = build_fresh_prompt_user_prompt(
+                concept_brief=concept_brief,
+                edit_intent=intent_clean,
+                n_images=len(prepared_images),
+                resolved_mode=resolved_mode,
+                manifest=manifest,
+                length=eff_length,
+                native_format=use_native,
+            )
+            if prompt_layout == "user_only" and not custom_sys and base_sys_prompt:
+                sys_prompt = ""
+                final_user_prompt = f"{base_sys_prompt}\n\n---\n\n{user_prompt}"
+            else:
+                sys_prompt = base_sys_prompt
+                final_user_prompt = user_prompt
+
         sampler_overrides = (
             {"temperature": float(temperature), "max_tokens": int(max_tokens)}
             if sampler_mode == "custom"
@@ -1874,13 +1967,30 @@ def run_auto_edit_rewrite(
                 ) from first_err
             repair_used = True
             valid_headers_note = ", ".join(allowed_sections) if is_fresh_mode else ", ".join(c.name for c in orig_chunks)
-            repair_msg = (
-                f"Your output failed validation: {first_err}\n"
-                f"Required/valid section names: {valid_headers_note}\n"
-                f"Allowed sections to edit: {', '.join(allowed_sections)}\n"
-                "Fix ONLY this validation error — do NOT drop or revert previously written sections. "
-                "Output ALL required Markdown sections and the `## axes` block."
-            )
+            if is_fresh_mode and use_native:
+                if resolved_mode == "single_frame":
+                    repair_msg = (
+                        f"Your output failed validation: {first_err}\n"
+                        "Fix ONLY this validation error and output ONE plain-text visual paragraph "
+                        "with no Markdown headings, no code fences, and no commentary."
+                    )
+                else:
+                    headers_csv = ", ".join(f"{s}:" for s in allowed_sections)
+                    repair_msg = (
+                        f"Your output failed validation: {first_err}\n"
+                        f"Required plain-text section headers (exact order): {headers_csv}\n"
+                        "Fix ONLY this validation error — do NOT drop or revert passing sections. "
+                        "Output ALL required plain-text sections cleanly with no Markdown headings, "
+                        "no code fences, and no commentary."
+                    )
+            else:
+                repair_msg = (
+                    f"Your output failed validation: {first_err}\n"
+                    f"Required/valid section names: {valid_headers_note}\n"
+                    f"Allowed sections to edit: {', '.join(allowed_sections)}\n"
+                    "Fix ONLY this validation error — do NOT drop or revert previously written sections. "
+                    "Output ALL required Markdown sections and the `## axes` block."
+                )
             repair_body = build_heylook_request_body(
                 model_row=model_row,
                 system_prompt=sys_prompt,

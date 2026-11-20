@@ -314,6 +314,129 @@ def h3_image_system_prompts() -> int:
     return bad
 
 
+H3_VIDEO_SUITE_DIR = SYSTEM_PROMPTS_DIR / "h3_video"
+H3_VIDEO_FORBIDDEN_SUBSTRINGS = (
+    *H3_IMAGE_FORBIDDEN_SUBSTRINGS,
+    "pika",
+    "pruna",
+    "python",
+    "end_percent",
+    "heylook",
+    "[guide]",
+    "[house]",
+    "[owner]",
+)
+_H3_VIDEO_SHARED_AUDIO_PINS = (
+    "(S1)",
+    "<d>[Language]",
+    "produces no vocal sound",
+    "continues seamlessly across the cut",
+    "<|cutoff|>",
+    "<scenetrans>",
+    "Static Shot",
+    "overall_soundscape:",
+    "non_diegetic_music:",
+    "N/A",
+)
+H3_VIDEO_REF2VA_PINS = (
+    "subject_definitions:",
+    "summary:",
+    "retention_analysis:",
+    "detailed_description:",
+    "[reference generation]",
+    "fully_preserved",
+    "partially_preserved",
+    "attribute_transfer",
+    "weak_reference",
+    "fully_copy",
+    "partially_copy",
+    "(appears in [Shot 1], [Shot 2])",
+    "350 to 500 words",
+    *_H3_VIDEO_SHARED_AUDIO_PINS,
+)
+H3_VIDEO_T2VA_PINS = (
+    "integrated_multimodal_description:",
+    "[Shot 1]",
+    *_H3_VIDEO_SHARED_AUDIO_PINS,
+)
+H3_VIDEO_I2VA_PINS = (
+    "integrated_multimodal_description:",
+    "<Picture 1>",
+    "0.00s",
+    *_H3_VIDEO_SHARED_AUDIO_PINS,
+)
+H3_VIDEO_FL2VA_PINS = (
+    "integrated_multimodal_description:",
+    "bare `Picture 1` and bare `Picture 2`",
+    "<Picture 1>",
+    *_H3_VIDEO_SHARED_AUDIO_PINS,
+)
+H3_VIDEO_L2VA_PINS = (
+    "integrated_multimodal_description:",
+    "<Picture 1>",
+    "FINAL frame",
+    *_H3_VIDEO_SHARED_AUDIO_PINS,
+)
+H3_VIDEO_SUITE_SPECS = (
+    ("ref2va_system_prompt.md", True, H3_VIDEO_REF2VA_PINS),
+    ("t2va_system_prompt.md", False, H3_VIDEO_T2VA_PINS),
+    ("i2va_system_prompt.md", False, H3_VIDEO_I2VA_PINS),
+    ("fl2va_system_prompt.md", False, H3_VIDEO_FL2VA_PINS),
+    ("l2va_system_prompt.md", False, H3_VIDEO_L2VA_PINS),
+)
+
+
+def h3_video_system_prompts() -> int:
+    """Verify the standalone zero-lore `docs/wiki/system_prompts/h3_video/` suite."""
+    bad = 0
+    if not (H3_VIDEO_SUITE_DIR / "README.md").exists():
+        print("  FAIL  docs/wiki/system_prompts/h3_video/README.md is missing")
+        return 1
+
+    expected_names = {"README.md", *(name for name, _, _ in H3_VIDEO_SUITE_SPECS)}
+    actual_names = {p.name for p in H3_VIDEO_SUITE_DIR.glob("*.md")}
+    unexpected = sorted(actual_names - expected_names)
+    if unexpected:
+        bad += 1
+        print(
+            "  FAIL  unexpected .md file(s) in docs/wiki/system_prompts/h3_video/ without check coverage: "
+            + ", ".join(unexpected)
+        )
+
+    cjk_re = re.compile(r"[\u3400-\u9fff\uf900-\ufaff]")
+    for name, is_ref, pins in H3_VIDEO_SUITE_SPECS:
+        path = H3_VIDEO_SUITE_DIR / name
+        if not path.exists():
+            bad += 1
+            print(f"  FAIL  missing docs/wiki/system_prompts/h3_video/{name}")
+            continue
+        raw = path.read_text(encoding="utf-8")
+        low = flat(raw).lower()
+        leaks = [tok for tok in H3_VIDEO_FORBIDDEN_SUBSTRINGS if tok in low]
+        if not is_ref and "<subject 1>" in low:
+            leaks.append("<Subject 1>")
+        if cjk_re.search(raw):
+            leaks.append("<CJK characters>")
+        miss = [pin for pin in pins if flat(pin).lower() not in low]
+        if leaks or miss:
+            bad += 1
+            if leaks:
+                print(
+                    f"  FAIL  h3_video/{name} contains forbidden lore/fences/tags: "
+                    + ", ".join(repr(x) for x in leaks)
+                )
+            if miss:
+                print(
+                    f"  FAIL  h3_video/{name} missing pinned rule(s): "
+                    + ", ".join(repr(x) for x in miss)
+                )
+        else:
+            print(
+                f"  ok    h3_video/{name} carries all {len(pins)} rule pin(s) and zero lore/fences"
+            )
+    return bad
+
+
 GENERAL_IMAGE_EDIT_PINS = (
     "subject_definitions:",
     "summary:",
@@ -718,6 +841,7 @@ def main() -> int:
 
     fails += guides_unchanged()
     fails += h3_image_system_prompts()
+    fails += h3_video_system_prompts()
     fails += general_image_edit_system_prompt(general_image_edit_system)
     fails += parser_agrees_with_hand_reading()
     fails += manual_quotations(manual, guide, system)
