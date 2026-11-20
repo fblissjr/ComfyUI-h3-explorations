@@ -576,6 +576,36 @@ def _generate_pairs_from_args(args: argparse.Namespace, *, llm_cache: Any = None
     )
 
 
+def _derive_concept_sides(
+    concept: str,
+    *,
+    a_side: str | None = None,
+    b_side: str | None = None,
+    quality: str | None = None,
+) -> tuple[str | None, str | None, str | None]:
+    """Derive clean concept-level `a_side` / `b_side` / `quality` so `[vector]` headers never
+    scrape Pair 1's punctuation diff (e.g. `a_side = 'shot.'`)."""
+    raw = str(concept or "").strip()
+    derived_a = str(a_side or "").strip() or None
+    derived_b = str(b_side or "").strip() or None
+    derived_q = str(quality or "").strip() or None
+    if raw and (derived_a is None or derived_b is None):
+        if "->" in raw:
+            lhs, rhs = raw.split("->", 1)
+            if derived_a is None and lhs.strip():
+                derived_a = lhs.strip()
+            if derived_b is None and rhs.strip():
+                derived_b = rhs.strip()
+        else:
+            if derived_a is None:
+                derived_a = "neutral scene baseline"
+            if derived_b is None:
+                derived_b = raw
+    if derived_q is None and derived_a and derived_b:
+        derived_q = f"{derived_b} vs. {derived_a}"
+    return derived_a, derived_b, derived_q
+
+
 def cmd_generate_pairs(args: argparse.Namespace) -> int:
     res = _generate_pairs_from_args(args)
     md_text = res["markdown"]
@@ -586,6 +616,14 @@ def cmd_generate_pairs(args: argparse.Namespace) -> int:
         print(f"wrote {out_p} ({res['elapsed_s']}s via {res['provider']})")
     else:
         print(md_text)
+    concept = str(getattr(args, "concept_flag", "") or getattr(args, "concept", "") or "").strip()
+    a_side_val, b_side_val, quality_val = _derive_concept_sides(
+        concept,
+        a_side=getattr(args, "a_side", None),
+        b_side=getattr(args, "b_side", None),
+        quality=getattr(args, "quality", None),
+    )
+    saved: Path | None = None
     out_toml = str(getattr(args, "out_toml", "") or "").strip()
     if out_toml:
         tp = Path(out_toml)
@@ -594,6 +632,9 @@ def cmd_generate_pairs(args: argparse.Namespace) -> int:
             md_text,
             tp.parent,
             name=tp.stem,
+            a_side=a_side_val,
+            b_side=b_side_val,
+            quality=quality_val,
             overwrite=bool(getattr(args, "overwrite", False)),
             bank_dir=cv_nodes.PROMPT_BANK_DIR,
         )
@@ -603,9 +644,21 @@ def cmd_generate_pairs(args: argparse.Namespace) -> int:
             md_text,
             cv_nodes.USER_PAIR_BANK_DIR,
             name=str(args.name).strip(),
+            a_side=a_side_val,
+            b_side=b_side_val,
+            quality=quality_val,
             overwrite=bool(getattr(args, "overwrite", False)),
             bank_dir=cv_nodes.PROMPT_BANK_DIR,
         )
         print(f"wrote {_display_path(saved)}")
+    if saved is not None:
+        ps_check = cv.load_pairs(saved, bank_dir=cv_nodes.PROMPT_BANK_DIR)
+        lint_warns = cv.lint_pair_set(ps_check)
+        if lint_warns:
+            print(f"WARNING: {len(lint_warns)} pair-quality lint warning(s) on {_display_path(saved)}:", file=sys.stderr)
+            for w in lint_warns:
+                print(f"  - {w}", file=sys.stderr)
+        else:
+            print(f"lint OK: 0 pair-quality warnings ({len(ps_check.pairs)} pairs, {len(ps_check.holds)} holds)")
     return 0
 

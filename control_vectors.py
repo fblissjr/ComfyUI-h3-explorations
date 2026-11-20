@@ -1142,6 +1142,55 @@ def lint_pair_set(
                     f"Pair {num}: uses 'No non-diegetic music.' instead of 'N/A' under non_diegetic_music:"
                 )
 
+        # Gate A: flag trailing/leading boundary-append diffs (e.g. "shot." -> "shot, while ...")
+        a_toks_raw = str(a_sp).split()
+        b_toks_raw = str(b_sp).split()
+        if frame == "scene" and 1 <= len(a_toks_raw) <= 2 and len(b_toks_raw) >= len(a_toks_raw) + 4:
+            a_first_stem = re.sub(r"[^\w]+", "", a_toks_raw[0].lower())
+            b_first_stem = re.sub(r"[^\w]+", "", b_toks_raw[0].lower())
+            a_last_stem = re.sub(r"[^\w]+", "", a_toks_raw[-1].lower())
+            b_last_stem = re.sub(r"[^\w]+", "", b_toks_raw[-1].lower())
+            if (a_first_stem and a_first_stem == b_first_stem) or (a_last_stem and a_last_stem == b_last_stem):
+                warnings.append(
+                    f"Pair {num}: boundary-append diff ({a_sp!r} -> {b_sp[:48]!r}...); "
+                    "replace a concrete baseline clause in-place instead of appending ', while ...' after punctuation"
+                )
+
+    # Gate B (causal prefix diversity) & Gate C (rotated Pole-A diversity) on multi-pair scene sets
+    if frame == "scene" and len(items) >= 4 and not allow_repeated_spans:
+        first_diff_idxs: list[int] = []
+        prefix_sigs: set[str] = set()
+        pole_a_word_counts: dict[str, int] = {}
+        for item in items:
+            a_txt = str(item.get("a", "")) if isinstance(item, Mapping) else str(getattr(item, "a", ""))
+            b_txt = str(item.get("b", "")) if isinstance(item, Mapping) else str(getattr(item, "b", ""))
+            a_sp = item.get("a_span") if isinstance(item, Mapping) else getattr(item, "a_span", None)
+            if a_sp is None:
+                a_sp, _ = differing_span(a_txt, b_txt, frame=frame)
+            wa, wb = a_txt.split(), b_txt.split()
+            fd = next((i for i, (x, y) in enumerate(zip(wa, wb)) if x != y), min(len(wa), len(wb)))
+            first_diff_idxs.append(fd)
+            prefix_sigs.add(" ".join(wa[:fd]).lower())
+            for w in {t for t in re.findall(r"[a-z]{4,}", str(a_sp).lower()) if t not in _CANCEL_STOPLIST}:
+                pole_a_word_counts[w] = pole_a_word_counts.get(w, 0) + 1
+        sorted_fd = sorted(first_diff_idxs)
+        med_fd = sorted_fd[len(sorted_fd) // 2]
+        min_distinct = min(len(items), max(3, len(items) // 2))
+        if med_fd < 8 or len(prefix_sigs) < min_distinct:
+            warnings.append(
+                f"Causal prefix collapse: median word first_diff={med_fd} with {len(prefix_sigs)}/{len(items)} "
+                "unique prefixes before diff; place a distinct location + subject before the diff in each pair "
+                "so causal Qwen3-VL computes genuinely distinct contexts"
+            )
+        repeated_a = sorted(
+            w for w, cnt in pole_a_word_counts.items() if cnt >= max(4, int(math.ceil(len(items) * 0.6)))
+        )
+        if repeated_a and not allow_repeated_spans:
+            warnings.append(
+                f"Fixed Pole-A wording: words {repeated_a[:6]} repeat across >=60% of a_spans; "
+                "rotate diverse Pole-A baselines so -E[A] does not subtract generic scene/lighting words"
+            )
+
     return warnings
 
 
@@ -2959,7 +3008,21 @@ def apply_post_refiner(
     else:
         eff_mask = row_mask
         if tf_val < 1.0 - 1e-9:
-            aim_vec = active[0][0]
+            add_shift64 = torch.zeros(D, dtype=torch.float64, device=context.device)
+            hold_aim: list[tuple[torch.Tensor, float]] = []
+            has_add_aim = False
+            for v_a, s_a, em_a in active:
+                if em_a == "add":
+                    has_add_aim = True
+                    add_shift64 = add_shift64 + s_a * v_a.detach().to(device=context.device, dtype=torch.float64)
+                elif em_a == "hold":
+                    hold_aim.append((v_a, s_a))
+            if has_add_aim:
+                if hold_aim:
+                    add_shift64 = _apply_holds_to_shift64(add_shift64, hold_aim, context.device)
+                aim_vec = add_shift64
+            else:
+                aim_vec = active[0][0]
             eff_mask, _ = focus_row_mask(context, row_mask, aim_vec, token_focus=tf_val)
         rows64 = out[eff_mask].to(dtype=torch.float64)
         idx = 0

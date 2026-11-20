@@ -962,8 +962,12 @@ def check_shipped_workflows() -> None:
            and n130_in.get("concept") == "cyberpunk_neon_rain",
            f"{fname} node 130 uses blank base_url/model and worked concept")
         ok((g.get("9") or {}).get("inputs", {}).get("edit_plan") == ["130", 2]
-           and (g.get("131") or {}).get("inputs", {}).get("prompt") == ["130", 1],
-           f"{fname} wires edit_plan -> EditGuider and edited_prompt -> node 131")
+           and (g.get("131") or {}).get("inputs", {}).get("prompt") == ["130", 1]
+           and (g.get("5") or {}).get("inputs", {}).get("prompt") == ["130", 0]
+           and (g.get("26") or {}).get("inputs", {}).get("conditioning") == ["131", 0]
+           and (g.get("9") or {}).get("inputs", {}).get("edited") == ["26", 0]
+           and (g.get("9") or {}).get("inputs", {}).get("original") == ["5", 0],
+           f"{fname} wires edit_plan -> EditGuider, Preflight on edited (131) so lazy original skips node 5, and node 5 <- 130[0]")
         if is_r2v:
             ok(n130_in.get("images.image_1") == ["15", 0]
                and (g.get("135") or {}).get("inputs", {}).get("edit_plan") == ["130", 2],
@@ -975,6 +979,33 @@ def check_shipped_workflows() -> None:
            and "5" in cs and bool(cs["5"].text) and not cs["5"].unresolved
            and "131" in cs and not cs["131"].unresolved,
            f"{fname} carriers & describe() resolve written prompt cleanly")
+
+    # Verify MiniMaxH3EditGuider lazy=True skips 'original' on fast_1x / unmasked auto_fast_1x,
+    # and requests 'original' when masked or lock_take.
+    plan_auto_1x = aep.EditPlan(
+        first_step=0, last_step=3, streams="independent", audio_scale=1.0,
+        ref_end_percent=1.0, temporal_curve="whole_clip", force_scale=None,
+        manual_widgets=False, visual_changed=True, audio_changed=True,
+        preserve_step0_layout=False, deforms_ref_silhouette=False, auto_fast_1x=True,
+    )
+    plan_lock = aep.EditPlan(
+        first_step=1, last_step=3, streams="both", audio_scale=1.0,
+        ref_end_percent=1.0, temporal_curve="whole_clip", force_scale=None,
+        manual_widgets=False, visual_changed=True, audio_changed=False,
+        preserve_step0_layout=True, deforms_ref_silhouette=False, auto_fast_1x=False,
+    )
+    ok(eg.MiniMaxH3EditGuider.check_lazy_status(original=None, edit_plan=plan_auto_1x, mask=None) == [],
+       "MiniMaxH3EditGuider.check_lazy_status skips 'original' on unmasked auto_fast_1x")
+    ok(eg.MiniMaxH3EditGuider.check_lazy_status(original=None, edit_plan=plan_auto_1x, mask=torch.ones((1, 8, 8))) == ["original"],
+       "MiniMaxH3EditGuider.check_lazy_status requests 'original' when spatial mask is wired")
+    ok(eg.MiniMaxH3EditGuider.check_lazy_status(original=None, edit_plan=plan_lock, mask=None) == ["original"],
+       "MiniMaxH3EditGuider.check_lazy_status requests 'original' on lock_take (first_step=1)")
+    dummy_edited = [[torch.zeros((1, 12, 64)), {"minimax_token_tags": torch.ones((1, 12), dtype=torch.long)}]]
+    out_lazy = eg.MiniMaxH3EditGuider.execute(
+        _DummyModel(), None, dummy_edited, 1.5, 0, edit_plan=plan_auto_1x
+    )
+    ok(out_lazy[0].edit_scale == 1.0 and out_lazy[0].first_step == 0,
+       "MiniMaxH3EditGuider.execute succeeds with original=None on lazy 1x path")
 
 
 def main() -> int:

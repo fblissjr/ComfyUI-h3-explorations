@@ -3163,6 +3163,7 @@ def _wire_edit_guidance(g: dict, prompt: str, spec: dict) -> None:
         for idx, img_link in enumerate(ref_img_links, start=1):
             ae_inputs[f"images.image_{idx}"] = img_link
         g["130"] = {"class_type": "MiniMaxH3AutoEditPrompt", "inputs": ae_inputs}
+        orig_prompt_src = ["130", 0]
         edited_prompt_src = ["130", 1]
     else:
         g["130"] = {
@@ -3172,12 +3173,15 @@ def _wire_edit_guidance(g: dict, prompt: str, spec: dict) -> None:
                 "edits": spec["edits"],
             },
         }
+        orig_prompt_src = list(written)
         edited_prompt_src = ["130", 0]
+    if same_prompt:
+        orig_prompt_src = list(written)
     if cond["class_type"] == "MiniMaxH3ReferenceConditioning":
         g["132"] = {"class_type": "MiniMaxH3EncodeReferences",
                     "inputs": {k: v for k, v in cond["inputs"].items() if k != "prompt"}}
         g["5"] = {"class_type": "MiniMaxH3PromptOnReferences",
-                  "inputs": {"encoded_references": ["132", 0], "prompt": written}}
+                  "inputs": {"encoded_references": ["132", 0], "prompt": orig_prompt_src}}
         g["131"] = {"class_type": "MiniMaxH3PromptOnReferences",
                     "inputs": {"encoded_references": ["132", 0], "prompt": edited_prompt_src}}
         for node in g.values():
@@ -3191,10 +3195,10 @@ def _wire_edit_guidance(g: dict, prompt: str, spec: dict) -> None:
             cond = g["5"]
         # the edited prompt is encoded exactly as the written one: same node, same inputs, on the same pictures
         g["131"] = {"class_type": cond["class_type"], "inputs": dict(cond["inputs"], prompt=edited_prompt_src)}
-        cond["inputs"]["prompt"] = written
+        cond["inputs"]["prompt"] = orig_prompt_src
     elif cond["class_type"] in ("MiniMaxH3Conditioning", "MiniMaxH3ReferenceToVideo", "MiniMaxH3PH3ImageConditioning"):
         g["131"] = {"class_type": cond["class_type"], "inputs": dict(cond["inputs"], prompt=edited_prompt_src)}
-        cond["inputs"]["prompt"] = written
+        cond["inputs"]["prompt"] = orig_prompt_src
     else:
         raise SystemExit(f"edit_guidance does not know how to add a second prompt to {cond['class_type']}")
     edited_src = ["131", 0]
@@ -3207,11 +3211,25 @@ def _wire_edit_guidance(g: dict, prompt: str, spec: dict) -> None:
         g["134"] = {"class_type": g["70"]["class_type"],
                     "inputs": dict(g["70"]["inputs"], positive=edited_src)}
         edited_src = ["134", 0]
+    original_src = guider["inputs"]["conditioning"]
     if "26" in g and g["26"]["class_type"] == "MiniMaxH3Preflight":
-        g["26"]["inputs"]["edited_conditioning"] = edited_src
+        if has_auto_edit:
+            # Route Preflight through `edited` (node 131) instead of `original` (node 5) so
+            # MiniMaxH3EditGuider.original (lazy=True) genuinely skips evaluating node 5 on
+            # 1x fast_1x / auto_fast_1x runs (avoiding a wasted 32B Qwen3-VL encode).
+            orig_before_pf = g["26"]["inputs"]["conditioning"]
+            g["26"]["inputs"]["conditioning"] = edited_src
+            g["26"]["inputs"].pop("edited_conditioning", None)
+            if g["26"]["inputs"].get("samples") == ["5", 1]:
+                g["26"]["inputs"]["samples"] = ["131", 1]
+            if original_src == ["26", 0]:
+                original_src = orig_before_pf
+            edited_src = ["26", 0]
+        else:
+            g["26"]["inputs"]["edited_conditioning"] = edited_src
     guider_inputs = {
         "model": guider["inputs"]["model"],
-        "original": guider["inputs"]["conditioning"],
+        "original": original_src,
         "edited": edited_src,
         "scale": float(spec.get("scale", EDIT_GUIDANCE_DEFAULTS["scale"])),
         "first_step": int(spec.get("first_step", EDIT_GUIDANCE_DEFAULTS["first_step"])),

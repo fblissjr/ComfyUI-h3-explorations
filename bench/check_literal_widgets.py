@@ -91,6 +91,11 @@ LITERAL_ZERO = {
         "resolves negative end-relative frame indices (`eff_frame_count + frame_idx`, "
         "matching `comfy_extras/nodes_minimax_h3.py::MiniMaxH3AddGuide:224`), while "
         "0 and positive indices are used directly on one code path."),
+    ("edit_guidance.py", "first_step"): (
+        "zero first_step is step 0 of the sampling schedule (zero pre-edit original-only "
+        "steps). The `== 0` check in `MiniMaxH3EditGuider._resolve_effective_settings` "
+        "detects when step 0 starts directly on `[edited]` so lazy `original` can skip "
+        "encoding a redundant 32B prompt on unmasked 1x runs."),
 }
 
 #: Zero selects a different MODE. This is the defect the check exists for, and

@@ -1605,11 +1605,21 @@ def run_auto_edit_rewrite(
             is_sectioned=is_sectioned,
             concept_brief=concept_brief,
         )
+        if plan.auto_fast_1x:
+            cached_report = (
+                f"{cached['report_base']} | take={take_mode}(auto_fast_1x,step0={plan.first_step},streams=both,"
+                f"rel={plan.ref_end_percent:g},timing={plan.temporal_curve}) [cached]"
+            )
+        else:
+            cached_report = (
+                f"{cached['report_base']} | take={take_mode}(step0={plan.first_step},streams={plan.streams},"
+                f"rel={plan.ref_end_percent:g},timing={plan.temporal_curve}) [cached]"
+            )
         return {
             **cached,
             "edit_plan": plan,
             "cache_hit": True,
-            "report": f"{cached['report_base']} | take={take_mode}(step0={plan.first_step},streams={plan.streams},rel={plan.ref_end_percent:g},timing={plan.temporal_curve}) [cached]",
+            "report": cached_report,
         }
 
     if is_fresh_mode:
@@ -1754,7 +1764,7 @@ def run_auto_edit_rewrite(
     think_trace = "\n\n---\n\n".join(thinking_parts)
 
     cache_entry = {
-        "original_prompt": orig_norm,
+        "original_prompt": validated["edited_prompt"] if is_fresh_mode else orig_norm,
         "edited_prompt": validated["edited_prompt"],
         "axes": validated["axes"],
         "changed_sections": validated["changed_sections"],

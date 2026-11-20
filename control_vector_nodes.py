@@ -2247,10 +2247,30 @@ def _make_control_vector_wrapper(
                             n_steered = int(eff_rm[0].sum().item())
                             focus_note = ""
                             if float(sp.token_focus) < 1.0 - 1e-9 and n_steered > 0:
+                                aim_shift64 = torch.zeros(cur_ctx.shape[-1], dtype=torch.float64, device=cur_ctx.device)
+                                aim_holds: list[tuple[torch.Tensor, float]] = []
+                                has_aim_add = False
+                                for gv, gs_eff, em in batch_entries:
+                                    if gs_eff == 0.0:
+                                        continue
+                                    if em in ("add", "add_norm_matched"):
+                                        has_aim_add = True
+                                        gv64 = gv.detach().to(device=cur_ctx.device, dtype=torch.float64)
+                                        eff_gs = (
+                                            gs_eff * (_cv.NORM_MATCHED_TARGET / max(float(torch.linalg.vector_norm(gv64).item()), 1e-12))
+                                            if em == "add_norm_matched"
+                                            else gs_eff
+                                        )
+                                        aim_shift64 = aim_shift64 + eff_gs * gv64
+                                    elif em == "hold":
+                                        aim_holds.append((gv, gs_eff))
+                                if has_aim_add and aim_holds:
+                                    aim_shift64 = _cv._apply_holds_to_shift64(aim_shift64, aim_holds, cur_ctx.device)
+                                aim_vec_log = aim_shift64 if has_aim_add else v0
                                 foc_rm, min_abs_cos = _cv.focus_row_mask(
                                     cur_ctx,
                                     eff_rm,
-                                    v0,
+                                    aim_vec_log,
                                     token_focus=float(sp.token_focus),
                                 )
                                 n_focused = int(foc_rm[0].sum().item())

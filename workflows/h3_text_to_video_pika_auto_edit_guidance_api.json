@@ -45,11 +45,11 @@
         0
       ],
       "original": [
-        "26",
+        "5",
         0
       ],
       "edited": [
-        "131",
+        "26",
         0
       ],
       "scale": 1.5,
@@ -158,7 +158,7 @@
         0
       ],
       "prompt": [
-        "133",
+        "130",
         0
       ],
       "width": [
@@ -239,16 +239,12 @@
     "class_type": "MiniMaxH3Preflight",
     "inputs": {
       "conditioning": [
-        "5",
+        "131",
         0
       ],
       "samples": [
-        "5",
-        1
-      ],
-      "edited_conditioning": [
         "131",
-        0
+        1
       ]
     }
   },

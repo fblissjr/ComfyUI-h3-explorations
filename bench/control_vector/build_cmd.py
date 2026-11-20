@@ -621,6 +621,10 @@ def cmd_build(args: argparse.Namespace) -> int:
             weak_reasons.append(f"split_half={row['split_half']:.3f}<0.88")
         if min_ppc is not None and min_ppc < 0.50:
             weak_reasons.append(f"min_ppc={min_ppc:.3f}<0.50")
+        jl_row = row.get("j_lens")
+        b_aln = jl_row.get("b_side_alignment") or {} if isinstance(jl_row, dict) else {}
+        if b_aln.get("warning"):
+            weak_reasons.append("j_lens_b_side_mismatch")
         health_s = f"WEAK ({', '.join(weak_reasons)})" if weak_reasons else "PASS"
         print(
             f"  * {row['file']}\n"
@@ -628,11 +632,9 @@ def cmd_build(args: argparse.Namespace) -> int:
             f"raw_norm={row['raw_norm']:.2f}  cos={cos_s} (split_half={sh_s})  health={health_s}\n"
             f"      recommended strength: {row['rec_strength']}"
         )
-        jl_row = row.get("j_lens")
         if isinstance(jl_row, dict) and jl_row.get("pos_summary"):
             print(f"      j_lens (+): {jl_row['pos_summary']}")
             print(f"      j_lens (-): {jl_row['neg_summary']}")
-            b_aln = jl_row.get("b_side_alignment") or {}
             if b_aln.get("warning"):
                 print(f"      WARNING   : {b_aln['warning']}")
     if test_prompt_saved is not None:

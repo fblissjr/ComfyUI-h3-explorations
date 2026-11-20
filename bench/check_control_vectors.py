@@ -1161,6 +1161,26 @@ b = "a busy city street"
             if not any(expected_substr in w for w in lint_warns):
                 errs.append(f"lint_pair_set did not flag {expected_substr!r}; got {lint_warns}")
 
+        # Gates A, B, C checks: boundary-append, causal prefix collapse, fixed Pole-A wording
+        append_a = "integrated_multimodal_description: [Shot 1] Live-action. Inside an industrial loft, a man stands next to a steel bench. The camera holds a static shot.\n\noverall_soundscape: Faint hum.\n\nnon_diegetic_music: N/A"
+        append_b = "integrated_multimodal_description: [Shot 1] Live-action. Inside an industrial loft, a man stands next to a steel bench. The camera holds a static shot, while oxidized turquoise verdigris crust covers the bench.\n\noverall_soundscape: Faint hum.\n\nnon_diegetic_music: N/A"
+        gate_a_warns = cv.lint_pair_set([{"a": append_a, "b": append_b}])
+        if not any("boundary-append diff" in w for w in gate_a_warns):
+            errs.append(f"lint_pair_set Gate A did not flag boundary-append diff; got {gate_a_warns}")
+
+        collapse_pairs = [
+            {
+                "a": f"integrated_multimodal_description: [Shot 1] Live-action, lit by neutral daylight in scene {k} with a quiet table.\n\noverall_soundscape: Quiet room.\n\nnon_diegetic_music: N/A",
+                "b": f"integrated_multimodal_description: [Shot 1] Live-action, lit by crimson darkroom glow in scene {k} with a quiet table.\n\noverall_soundscape: Quiet room.\n\nnon_diegetic_music: N/A",
+            }
+            for k in range(1, 5)
+        ]
+        gate_bc_warns = cv.lint_pair_set(collapse_pairs, allow_repeated_spans=False)
+        if not any("Causal prefix collapse" in w for w in gate_bc_warns):
+            errs.append(f"lint_pair_set Gate B did not flag causal prefix collapse; got {gate_bc_warns}")
+        if not any("Fixed Pole-A wording" in w for w in gate_bc_warns):
+            errs.append(f"lint_pair_set Gate C did not flag fixed Pole-A wording; got {gate_bc_warns}")
+
         # 16. h3_pair_compiler in-place target_prompt contrast compiler checks (canonical_frames.json retired)
         if (REPO / "prompt_bank" / "control_vectors" / "canonical_frames.json").exists():
             errs.append("prompt_bank/control_vectors/canonical_frames.json still exists (must be retired)")

@@ -711,6 +711,9 @@ def build_parser() -> argparse.ArgumentParser:
     pgen.add_argument("--out-md", dest="out_md", default="", help="Optional output .md file path")
     pgen.add_argument("--out-toml", dest="out_toml", default="", help="Optional output .toml file path")
     pgen.add_argument("--save-toml", dest="save_toml", action="store_true", help="Also parse and save to data/control_vectors/<name>.toml")
+    pgen.add_argument("--a-side", dest="a_side", default=None, help="Optional vector.a_side override (defaults to concept pole A instead of scraping Pair 1)")
+    pgen.add_argument("--b-side", dest="b_side", default=None, help="Optional vector.b_side override (defaults to concept pole B instead of scraping Pair 1)")
+    pgen.add_argument("--quality", dest="quality", default=None, help="Optional vector.quality summary override")
     pgen.add_argument("--overwrite", action="store_true", help="Overwrite existing output files")
 
     pjl = sub.add_parser(

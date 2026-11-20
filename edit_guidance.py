@@ -663,7 +663,11 @@ class MiniMaxH3EditGuider(io.ComfyNode):
                         "only, or independent video and audio scales). Use in place of BasicGuider.",
             inputs=[
                 io.Model.Input("model"),
-                io.Conditioning.Input("original", tooltip="Conditioning of the prompt as written."),
+                io.Conditioning.Input(
+                    "original",
+                    lazy=True,
+                    tooltip="Conditioning of the prompt as written (lazily skipped on unmasked 1x fast_1x / auto_fast_1x runs).",
+                ),
                 io.Conditioning.Input("edited", tooltip="Conditioning of the edited prompt, made with the same "
                                                         "encoder, references and canvas."),
                 io.Float.Input("scale", default=DEFAULT_SCALE, min=0.0, max=MAX_SCALE, step=0.05,
@@ -721,27 +725,21 @@ class MiniMaxH3EditGuider(io.ComfyNode):
         )
 
     @classmethod
-    def execute(
+    def _resolve_effective_settings(
         cls,
-        model,
-        original,
-        edited,
+        *,
         scale,
         first_step,
-        align_positions=False,
-        last_step=_rules.EDIT_GUIDANCE_DEFAULTS["last_step"],
-        streams=_rules.EDIT_GUIDANCE_DEFAULTS["streams"],
-        audio_scale=DEFAULT_AUDIO_SCALE,
+        last_step,
+        streams,
+        audio_scale,
         mask=None,
         edit_plan=None,
-    ) -> io.NodeOutput:
-        len_a, len_b = check_same_but_text(original, edited)
-        kf_a = _count(original[0][1].get("minimax_keyframes"))
-        kf_b = _count(edited[0][1].get("minimax_keyframes"))
+    ) -> tuple[float, int, int, str, float, str, bool]:
         eff_scale = float(scale)
         eff_first_step = int(first_step)
         eff_last_step = int(last_step)
-        eff_streams = streams
+        eff_streams = str(streams)
         eff_audio_scale = float(audio_scale)
         temporal_curve = "whole_clip"
         if edit_plan is not None and not bool(_plan_field(edit_plan, "manual_widgets", False)):
@@ -772,9 +770,95 @@ class MiniMaxH3EditGuider(io.ComfyNode):
                 eff_streams = str(_plan_field(edit_plan, "streams", eff_streams))
                 eff_audio_scale = float(_plan_field(edit_plan, "audio_scale", eff_audio_scale))
                 temporal_curve = str(_plan_field(edit_plan, "temporal_curve", "whole_clip"))
+        pure_edited_1x = (
+            eff_first_step == 0
+            and abs(eff_scale - 1.0) <= 1e-9
+            and (eff_streams == "both" or (eff_streams == "independent" and abs(eff_audio_scale - 1.0) <= 1e-9))
+            and mask is None
+            and temporal_curve == "whole_clip"
+        )
+        return eff_scale, eff_first_step, eff_last_step, eff_streams, eff_audio_scale, temporal_curve, pure_edited_1x
+
+    @classmethod
+    def check_lazy_status(
+        cls,
+        model=None,
+        original=None,
+        edited=None,
+        scale=DEFAULT_SCALE,
+        first_step=_rules.EDIT_GUIDANCE_DEFAULTS["first_step"],
+        align_positions=False,
+        last_step=_rules.EDIT_GUIDANCE_DEFAULTS["last_step"],
+        streams=_rules.EDIT_GUIDANCE_DEFAULTS["streams"],
+        audio_scale=DEFAULT_AUDIO_SCALE,
+        mask=None,
+        edit_plan=None,
+    ):
+        if original is not None:
+            return []
+        try:
+            _s, _fs, _ls, _st, _as, _tc, pure_edited_1x = cls._resolve_effective_settings(
+                scale=scale,
+                first_step=first_step,
+                last_step=last_step,
+                streams=streams,
+                audio_scale=audio_scale,
+                mask=mask,
+                edit_plan=edit_plan,
+            )
+        except Exception:
+            return ["original"]
+        if pure_edited_1x:
+            return []
+        return ["original"]
+
+    @classmethod
+    def execute(
+        cls,
+        model,
+        original,
+        edited,
+        scale,
+        first_step,
+        align_positions=False,
+        last_step=_rules.EDIT_GUIDANCE_DEFAULTS["last_step"],
+        streams=_rules.EDIT_GUIDANCE_DEFAULTS["streams"],
+        audio_scale=DEFAULT_AUDIO_SCALE,
+        mask=None,
+        edit_plan=None,
+    ) -> io.NodeOutput:
+        eff_scale, eff_first_step, eff_last_step, eff_streams, eff_audio_scale, temporal_curve, pure_edited_1x = (
+            cls._resolve_effective_settings(
+                scale=scale,
+                first_step=first_step,
+                last_step=last_step,
+                streams=streams,
+                audio_scale=audio_scale,
+                mask=mask,
+                edit_plan=edit_plan,
+            )
+        )
+        skipped_original = original is None
+        if skipped_original:
+            if not pure_edited_1x:
+                raise ValueError(
+                    "MiniMaxH3EditGuider requires 'original' conditioning when running 2-pass, masked, or delayed edit guidance"
+                )
+            eff_original = edited
+            len_b = int(edited[0][0].shape[1]) if (edited and torch.is_tensor(edited[0][0]) and edited[0][0].ndim >= 2) else 0
+            len_a = len_b
+            kf_b = _count(edited[0][1].get("minimax_keyframes"))
+            kf_a = kf_b
+        else:
+            eff_original = original
+            len_a, len_b = check_same_but_text(original, edited)
+            kf_a = _count(original[0][1].get("minimax_keyframes"))
+            kf_b = _count(edited[0][1].get("minimax_keyframes"))
+        if edit_plan is not None and not bool(_plan_field(edit_plan, "manual_widgets", False)):
             raw_plan_ref_end = _plan_field(edit_plan, "ref_end_percent", 1.0)
             plan_ref_end = float(1.0 if raw_plan_ref_end is None else raw_plan_ref_end)
-            if plan_ref_end < 1.0 - 1e-6 and _has_visual_refs_meta(original[0][1]):
+            ref_meta_src = edited[0][1] if skipped_original else original[0][1]
+            if plan_ref_end < 1.0 - 1e-6 and _has_visual_refs_meta(ref_meta_src):
                 model_ref_end = _model_ref_vae_end_percent(model)
                 if model_ref_end >= 1.0 - 1e-6:
                     logger.warning(
@@ -788,7 +872,7 @@ class MiniMaxH3EditGuider(io.ComfyNode):
                         model_ref_end,
                     )
         guider = EditGuider(model)
-        guider.set_conds(original, edited)
+        guider.set_conds(eff_original, edited)
         guider.set_edit(
             eff_scale,
             eff_first_step,
@@ -802,9 +886,10 @@ class MiniMaxH3EditGuider(io.ComfyNode):
         kf_note = f"; keyframes {kf_a} (original) and {kf_b} (edited)" if (kf_a or kf_b) else ""
         mask_note = f"; mask={tuple(mask.shape)}" if mask is not None else ""
         curve_note = f"; temporal_curve={temporal_curve}" if temporal_curve != "whole_clip" else ""
+        lazy_note = "; original skipped (lazy 1x)" if skipped_original else ""
         logger.info(
             "[h3] edit guidance: streams=%s (video=%g, audio=%g) across steps %d..%d; "
-            "text length %d (original) and %d (edited) tokens%s%s%s",
+            "text length %d (original) and %d (edited) tokens%s%s%s%s",
             eff_streams,
             guider.edit_scale,
             guider.edit_audio_scale,
@@ -815,5 +900,6 @@ class MiniMaxH3EditGuider(io.ComfyNode):
             kf_note,
             mask_note,
             curve_note,
+            lazy_note,
         )
         return io.NodeOutput(guider)
