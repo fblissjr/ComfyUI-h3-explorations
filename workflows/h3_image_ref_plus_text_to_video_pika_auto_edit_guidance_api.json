@@ -295,13 +295,9 @@
       "thinking": "on",
       "reasoning_effort": "medium",
       "seed": 0,
-      "references": [
-        "50",
+      "images.image_1": [
+        "15",
         0
-      ],
-      "length": [
-        "27",
-        2
       ]
     }
   },

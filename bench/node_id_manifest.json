@@ -172,10 +172,7 @@
       "sampler_mode",
       "temperature",
       "max_tokens",
-      "custom_system_prompt",
-      "references",
-      "length",
-      "prompt_mode"
+      "custom_system_prompt"
     ],
     "node_id": "MiniMaxH3AutoEditPrompt",
     "outputs": [
@@ -737,6 +734,35 @@
     "node_id": "MiniMaxH3PromptEdit",
     "outputs": [
       "edited_prompt",
+      "report"
+    ]
+  },
+  "MiniMaxH3PromptExpander": {
+    "inputs": [
+      "prompt",
+      "concept",
+      "mode",
+      "length",
+      "enabled",
+      "base_url",
+      "model",
+      "thinking",
+      "reasoning_effort",
+      "seed",
+      "references",
+      "first_frame",
+      "last_frame",
+      "preset",
+      "sampler_mode",
+      "temperature",
+      "max_tokens",
+      "custom_system_prompt"
+    ],
+    "node_id": "MiniMaxH3PromptExpander",
+    "outputs": [
+      "prompt",
+      "video_end_percent",
+      "thinking",
       "report"
     ]
   },

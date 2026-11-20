@@ -98,6 +98,7 @@ from .sound_cues import MiniMaxH3SoundCues
 from .sprite_trajectory import MiniMaxH3AppendSpriteTrajectory
 from .spatial_director import MiniMaxH3SpatialDirector, MiniMaxH3DirectorHUD
 from .auto_edit_prompt import MiniMaxH3AutoEditPrompt
+from .h3_prompt_expander import MiniMaxH3PromptExpander
 from . import h3_capture
 
 from .attention import (
@@ -455,7 +456,9 @@ class H3ExplorationsExtension(ComfyExtension):
                 MiniMaxH3SpatialDirector,
                 MiniMaxH3DirectorHUD,
                 # appended 2026-11-19, heylook-driven 4-axis auto-edit guidance (auto_edit_prompt.py)
-                MiniMaxH3AutoEditPrompt]
+                MiniMaxH3AutoEditPrompt,
+                # appended 2026-11-20, dedicated 1x video prompt expander (h3_prompt_expander.py)
+                MiniMaxH3PromptExpander]
 
 
 async def comfy_entrypoint() -> H3ExplorationsExtension:

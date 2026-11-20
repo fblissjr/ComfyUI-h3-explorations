@@ -363,6 +363,7 @@ LINKED_TEXT_SOURCES = ("PrimitiveStringMultiline", "PrimitiveString", "MiniMaxH3
 GRADED_ELSEWHERE = {
     "MiniMaxH3MaskedPrompt": "a masked-lane text, assembled from plan data; bench/check_masked_prompt.py",
     "MiniMaxH3AutoEditPrompt": "runtime heylook-rewritten edited prompt (original is graded on original node; runtime slot graded by bench/check_auto_edit_prompt.py)",
+    "MiniMaxH3PromptExpander": "runtime heylook-expanded 1x video prompt via h3_prompt_contract; graded by bench/check_auto_edit_prompt.py",
 }
 
 
@@ -423,6 +424,7 @@ NOT_CARRIERS = {
     "MiniMaxH3FillPromptLists": "outputs the filled text; the carrier it feeds is the one graded",
     "MiniMaxH3PH3ImagePromptUpsampler": "outputs the P-H3-Image prompt; the MiniMaxH3PH3ImageConditioning carrier it feeds is graded by ph3_image_prompts_conform",
     "MiniMaxH3ImagePromptExpander": "outputs the expanded MiniMax-H3-Image caption via a local heylook server; graded by bench/check_h3_image.py rather than the video section guides",
+    "MiniMaxH3PromptExpander": "outputs the expanded 1x H3 video prompt via a local heylook server and h3_prompt_contract; graded by bench/check_auto_edit_prompt.py",
     "MiniMaxH3PH3ImageConditioning": "single-frame P-H3-Image carrier (pure visual prose or <Picture i> edit instructions, graded by ph3_image_prompts_conform rather than the video section guides)",
     "MiniMaxH3ImageConditioning": "MiniMax-H3-Image carrier: one finished description in the form the vendor's own prompt expander writes (vendor_guides/h3_image/), not the video section guides; the shipped graphs carry the release's two worked examples, read from the vendored files",
     "MiniMaxH3PromptOnImageReferences": "prompt half of the two-node MiniMax-H3-Image reference path (reference_encode.py); carries MiniMax-H3-Image caption prose rather than the video section guides",

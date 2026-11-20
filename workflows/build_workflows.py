@@ -86,7 +86,7 @@ _OUR_NODES = {
     "MiniMaxH3ImageSize", "MiniMaxH3ImageDownscale", "MiniMaxH3ImagePromptExpander",
     "MiniMaxH3EncodeImageReferences", "MiniMaxH3PromptOnImageReferences",
     "MiniMaxH3SpatialDirector", "MiniMaxH3DirectorHUD",
-    "MiniMaxH3AutoEditPrompt",
+    "MiniMaxH3AutoEditPrompt", "MiniMaxH3PromptExpander",
 }
 
 # Model names, sampler settings, canvas geometry and the SolAttn knobs all
@@ -1688,6 +1688,9 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
               # and canvas (131), and puts `MiniMaxH3EditGuider` where `BasicGuider` was (9).
               # With references, they are encoded once (132) and each prompt goes on top.
               edit_guidance: dict | None = None,
+              # Expand a short idea (and/or concept preset) into a full guide-verified H3 video
+              # prompt via `MiniMaxH3PromptExpander` (node 14) on a standard 1x `BasicGuider` graph.
+              prompt_expander: dict | None = None,
               # Guide-latent conditioning (`guide_latent.py`) and optional second
               # chained `MiniMaxH3LoRABranch` (`task_lora`, node 72) for Ref2VA
               # control LoRAs (`h3_config.GUIDE_TASK_LORAS`). `guide_video=True`
@@ -2891,6 +2894,11 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
             ),
         }
 
+    if prompt_expander is not None:
+        if edit_guidance is not None:
+            raise SystemExit("prompt_expander and edit_guidance are mutually exclusive")
+        _wire_prompt_expander(g, prompt, prompt_expander)
+
     if edit_guidance is not None:
         _wire_edit_guidance(g, prompt, edit_guidance)
 
@@ -3022,6 +3030,66 @@ def _collect_auto_edit_ref_images(g: dict, cond: dict) -> list[list]:
     return links[:4]
 
 
+def _wire_prompt_expander(g: dict, prompt: str, spec: dict) -> None:
+    """Wire `MiniMaxH3PromptExpander` (node 14) ahead of conditioning on a standard 1x `BasicGuider` graph."""
+    if not isinstance(spec, dict):
+        raise SystemExit(f"prompt_expander must be a dict, got {spec!r}")
+    allowed = {
+        "prompt",
+        "concept",
+        "mode",
+        "length",
+        "enabled",
+        "base_url",
+        "model",
+        "thinking",
+        "reasoning_effort",
+        "seed",
+        "preset",
+        "sampler_mode",
+        "temperature",
+        "max_tokens",
+        "custom_system_prompt",
+    }
+    bad = sorted(set(spec) - allowed)
+    if bad:
+        raise SystemExit(f"unknown prompt_expander keys {bad}")
+    cond = g["5"]
+    exp_inputs: dict[str, Any] = {
+        "prompt": str(spec.get("prompt", prompt)),
+        "concept": str(spec.get("concept", "none")),
+        "mode": str(spec.get("mode", "auto")),
+        "length": spec["length"] if "length" in spec else cond["inputs"].get("length", LENGTH),
+        "enabled": bool(spec.get("enabled", True)),
+        "base_url": str(spec.get("base_url", "")),
+        "model": str(spec.get("model", "")),
+        "thinking": str(spec.get("thinking", "on")),
+        "reasoning_effort": str(spec.get("reasoning_effort", "medium")),
+        "seed": int(spec.get("seed", 0)),
+    }
+    for opt_k in (
+        "preset",
+        "sampler_mode",
+        "temperature",
+        "max_tokens",
+        "custom_system_prompt",
+    ):
+        if opt_k in spec:
+            exp_inputs[opt_k] = spec[opt_k]
+    if cond["class_type"] == "MiniMaxH3ReferenceConditioning":
+        if "references" in cond["inputs"]:
+            exp_inputs["references"] = cond["inputs"]["references"]
+    elif cond["class_type"] == "MiniMaxH3Conditioning":
+        if "first_frame" in cond["inputs"]:
+            exp_inputs["first_frame"] = cond["inputs"]["first_frame"]
+        if "last_frame" in cond["inputs"]:
+            exp_inputs["last_frame"] = cond["inputs"]["last_frame"]
+    g["14"] = {"class_type": "MiniMaxH3PromptExpander", "inputs": exp_inputs}
+    cond["inputs"]["prompt"] = ["14", 0]
+    if "135" in g and g["135"]["class_type"] == RELEASE_REFERENCES_NODE:
+        g["135"]["inputs"]["video_end_percent"] = ["14", 1]
+
+
 def _wire_edit_guidance(g: dict, prompt: str, spec: dict) -> None:
     """Turn a one-prompt graph into an edit-guidance graph, in place.
 
@@ -3130,8 +3198,6 @@ def _wire_edit_guidance(g: dict, prompt: str, spec: dict) -> None:
                 "temperature",
                 "max_tokens",
                 "custom_system_prompt",
-                "length",
-                "prompt_mode",
             }
         )
         if bad_ae:
@@ -3159,35 +3225,11 @@ def _wire_edit_guidance(g: dict, prompt: str, spec: dict) -> None:
             "temperature",
             "max_tokens",
             "custom_system_prompt",
-            "length",
-            "prompt_mode",
         ):
             if opt_k in ae_spec:
                 ae_inputs[opt_k] = ae_spec[opt_k]
-        if cond["class_type"] == "MiniMaxH3ReferenceConditioning":
-            if "references" in cond["inputs"]:
-                ae_inputs["references"] = cond["inputs"]["references"]
-            if "length" in cond["inputs"] and "length" not in ae_inputs:
-                ae_inputs["length"] = cond["inputs"]["length"]
-        else:
-            if "length" in cond["inputs"] and "length" not in ae_inputs:
-                ae_inputs["length"] = cond["inputs"]["length"]
-            if cond["class_type"] == "MiniMaxH3Conditioning":
-                ff = cond["inputs"].get("first_frame")
-                lf = cond["inputs"].get("last_frame")
-                kf_links = [lk for lk in (ff, lf) if lk is not None]
-                for idx, img_link in enumerate(kf_links, start=1):
-                    ae_inputs[f"images.image_{idx}"] = img_link
-                if "prompt_mode" not in ae_inputs:
-                    if ff is not None and lf is not None:
-                        ae_inputs["prompt_mode"] = "fl2va"
-                    elif ff is not None:
-                        ae_inputs["prompt_mode"] = "i2va"
-                    elif lf is not None:
-                        ae_inputs["prompt_mode"] = "l2va"
-            else:
-                for idx, img_link in enumerate(ref_img_links, start=1):
-                    ae_inputs[f"images.image_{idx}"] = img_link
+        for idx, img_link in enumerate(ref_img_links, start=1):
+            ae_inputs[f"images.image_{idx}"] = img_link
         g["130"] = {"class_type": "MiniMaxH3AutoEditPrompt", "inputs": ae_inputs}
         orig_prompt_src = ["130", 0]
         edited_prompt_src = ["130", 1]
@@ -6163,6 +6205,25 @@ def main():
               ),
               out_prefix="Video/h3_r2v_pika_edit_guidance"),
          "reference image + text -> video + audio on Pika H3 Flex 6-step LCM (SVD995 branch) steered by an edited copy of the prompt; the reference is encoded once (MiniMaxH3EncodeReferences) and each prompt goes on top (MiniMaxH3PromptOnReferences)"),
+        # --- heylook 1x Video Prompt Expander Easy-Button workflows (`h3_prompt_expander.py`) ---
+        ("h3_text_to_video_pika_prompt_expander.json", "t2v-pika-prompt-expander", "t2v",
+         "A moody rain-slicked neon ramen stall at midnight, steam rising from hot broth as a tired cook ladles noodles.",
+         dict(lora=(PIKA_FL2VA_SVD995_LORA, PIKA_STRENGTH), lora_branch=True,
+              steps=PIKA_STEPS, sampler_name=PIKA_SAMPLER,
+              manual_sigmas=PIKA_MANUAL_SIGMAS,
+              prompt_expander=dict(),
+              out_prefix="Video/h3_t2v_pika_prompt_expander"),
+         "short text idea -> MiniMaxH3PromptExpander (heylook 1x video expander) -> MiniMaxH3Conditioning -> BasicGuider on Pika H3 Flex 6-step LCM (SVD995 branch); wire optional first_frame / last_frame for automatic I2VA / FL2VA / L2VA"),
+        ("h3_image_ref_plus_text_to_video_pika_prompt_expander.json", "r2v-pika-prompt-expander", "r2v",
+         "The character from Picture 1 cooks in a rain-drenched neon cyberpunk night market kitchen, stirring a glowing wok.",
+         dict(ref_images=SCENE_REF_IMAGES["kitchen"], ref_image_count=1,
+              lora=(PIKA_REF2VA_SVD995_LORA, PIKA_STRENGTH), lora_branch=True,
+              steps=PIKA_STEPS, sampler_name=PIKA_SAMPLER,
+              manual_sigmas=PIKA_MANUAL_SIGMAS,
+              release_references=True,
+              prompt_expander=dict(),
+              out_prefix="Video/h3_r2v_pika_prompt_expander"),
+         "multimodal references (<Picture>/<Video>/<Audio>) + short idea -> MiniMaxH3PromptExpander (heylook 1x video expander) -> MiniMaxH3ReferenceConditioning -> MiniMaxH3ReleaseReferences -> BasicGuider on Pika H3 Flex 6-step LCM (SVD995 branch)"),
         # --- heylook-driven Auto-Edit Guidance (`auto_edit_prompt.py`: 4-axis EditPlan + EditGuider) ---
         ("h3_text_to_video_pika_auto_edit_guidance.json", "t2v-pika-auto-edit-guidance", "t2v",
          LONG_T2V_PROMPT,

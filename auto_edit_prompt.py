@@ -1787,6 +1787,23 @@ def run_auto_edit_rewrite(
                 mode=resolved_mode,
                 length=eff_length,
             )
+        orig_mech_fails, _ = _pc.validate_h3_prompt_mechanics(
+            orig_norm,
+            mode=resolved_mode,
+            manifest=manifest if manifest.has_any else None,
+            length=eff_length,
+        )
+        mech_fails, _mech_warns = _pc.validate_h3_prompt_mechanics(
+            out_val["edited_prompt"],
+            mode=resolved_mode,
+            manifest=manifest if manifest.has_any else None,
+            length=eff_length,
+        )
+        new_mech_fails = [f for f in mech_fails if f not in set(orig_mech_fails)]
+        if new_mech_fails:
+            raise ValidationRepairError(
+                f"H3 prompt contract violation introduced by edit: {'; '.join(new_mech_fails)}"
+            )
         return out_val
 
     repair_used = False
@@ -2134,38 +2151,6 @@ class MiniMaxH3AutoEditPrompt(io.ComfyNode):
                     optional=True,
                     tooltip="Optional editable override for the auto-edit system prompt.",
                 ),
-                # APPENDED 2026-11-20: multimodal H3References + length + prompt_mode for all-mode Easy Button.
-                H3References.Input(
-                    "references",
-                    optional=True,
-                    tooltip=(
-                        "Optional ordered H3 references chain (from MiniMaxH3AppendRefImage / "
-                        "AppendRefVideo / AppendSpriteTrajectory / AppendRefAudio) so heylook sees "
-                        "exact <Picture N>/<Video N>/<Audio N> labels, video keyframes, and releases "
-                        "synthetic trajectories at video_end_percent=0.33."
-                    ),
-                ),
-                io.Int.Input(
-                    "length",
-                    default=141,
-                    min=1,
-                    max=362,
-                    optional=True,
-                    tooltip=(
-                        "Target clip frame count (default 141 = 5.88s) used to stamp exact S.SS "
-                        "duration in FL2VA/L2VA Part One alignment lines (length=1 selects single_frame)."
-                    ),
-                ),
-                io.Combo.Input(
-                    "prompt_mode",
-                    options=list(_pc.PROMPT_MODES),
-                    default="auto",
-                    optional=True,
-                    tooltip=(
-                        "H3 prompt contract mode ('auto' infers ref2va/t2va/i2va/fl2va/l2va/single_frame "
-                        "from wired references, length, and original prompt headers)."
-                    ),
-                ),
             ],
             outputs=[
                 io.String.Output(display_name="original_prompt"),
@@ -2201,9 +2186,6 @@ class MiniMaxH3AutoEditPrompt(io.ComfyNode):
         temperature: float = 0.7,
         max_tokens: int = 4096,
         custom_system_prompt: str = "",
-        references: Any = None,
-        length: int = 141,
-        prompt_mode: str = "auto",
     ) -> io.NodeOutput:
         res = run_auto_edit_rewrite(
             original=original,
@@ -2227,9 +2209,6 @@ class MiniMaxH3AutoEditPrompt(io.ComfyNode):
             temperature=temperature,
             max_tokens=max_tokens,
             custom_system_prompt=custom_system_prompt,
-            references=references,
-            length=length,
-            prompt_mode=prompt_mode,
         )
         return io.NodeOutput(
             res["original_prompt"],

@@ -40,6 +40,7 @@ with none is a helper the others import.
 | [`h3_pair_compiler.py`](h3_pair_compiler.py) |  | In-place target-prompt contrast compiler for MiniMax H3 control vectors. |
 | [`h3_prompt_contract.py`](h3_prompt_contract.py) |  | Shared pure-stdlib H3 prompt contract for all generation modes and multimodal references. |
 | [`h3_prompt_edit.py`](h3_prompt_edit.py) |  | Apply `old wording -> new wording` edits to an H3 prompt: plain text code, no model libraries. |
+| [`h3_prompt_expander.py`](h3_prompt_expander.py) | `MiniMaxH3PromptExpander` | Dedicated 1x Video Prompt Expander node (`MiniMaxH3PromptExpander`) powered by `heylook` + `h3_prompt_contract`. |
 | [`h3_rules.py`](h3_rules.py) |  | The reference pipeline's input rules, in one place. |
 | [`h3_spans.py`](h3_spans.py) |  | Partition an H3 conditioning token sequence into mutually exclusive span masks. |
 | [`h3_trace.py`](h3_trace.py) |  | Record the shape of every H3 attention call, for someone else's bench. |
@@ -173,7 +174,7 @@ with none is a helper the others import.
 | `vendor_config/` | 10 | [below](#vendor_config) |
 | `vendor_guides/` | 21 | [below](#vendor_guides) |
 | `web/` | 3 | [below](#web) |
-| `workflows/` | 132 | [`workflows/INDEX.md`](workflows/INDEX.md) |
+| `workflows/` | 134 | [`workflows/INDEX.md`](workflows/INDEX.md) |
 
 ## .claude/
 

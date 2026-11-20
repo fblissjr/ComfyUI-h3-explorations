@@ -969,13 +969,9 @@ def check_shipped_workflows() -> None:
            and (g.get("9") or {}).get("inputs", {}).get("original") == ["5", 0],
            f"{fname} wires edit_plan -> EditGuider, Preflight on edited (131) so lazy original skips node 5, and node 5 <- 130[0]")
         if is_r2v:
-            ok(n130_in.get("references") == ["50", 0]
-               and n130_in.get("length") == ["27", 2]
+            ok("images.image_1" in n130_in
                and (g.get("135") or {}).get("inputs", {}).get("edit_plan") == ["130", 2],
-               f"{fname} forwards H3References + length -> node 130 and edit_plan -> ReleaseReferences")
-        else:
-            ok(n130_in.get("length") == ["27", 2],
-               f"{fname} forwards length -> node 130")
+               f"{fname} forwards <Picture 1> -> node 130 and edit_plan -> ReleaseReferences")
         desc = wf_prompts.describe(g)
         cs = {c.node_id: c for c in wf_prompts.carriers(g)}
         ok(bool(desc.get("prompt_id"))
@@ -1092,6 +1088,64 @@ def check_shipped_workflows() -> None:
     sf_res = aep.validate_fresh_h3_prompt(sf_reply, n_images=1, resolved_mode="single_frame", length=1)
     ok("overall_soundscape" not in sf_res["edited_prompt"] and sf_res["axes"]["audio_changed"] is False,
        "single_frame mode emits sectionless visual prose with audio_changed=False")
+
+    # Verify MiniMaxH3PromptExpander (dedicated 1x Easy Button) and clean 20-input AutoEditPrompt split
+    import h3_prompt_expander as pe
+
+    ae_in_names = [i.id for i in aep.MiniMaxH3AutoEditPrompt.define_schema().inputs]
+    ok(len(ae_in_names) == 21 and "references" not in ae_in_names and "prompt_mode" not in ae_in_names,
+       f"MiniMaxH3AutoEditPrompt stays focused on 2x edits without bolted-on fresh widgets (inputs={len(ae_in_names)})")
+    pe_schema = pe.MiniMaxH3PromptExpander.define_schema()
+    pe_in_names = [i.id for i in pe_schema.inputs]
+    pe_out_names = [o.display_name for o in pe_schema.outputs]
+    ok("prompt" in pe_in_names and "references" in pe_in_names and "first_frame" in pe_in_names
+       and "last_frame" in pe_in_names and "length" in pe_in_names
+       and pe_out_names == ["prompt", "video_end_percent", "thinking", "report"],
+       "MiniMaxH3PromptExpander exposes clean 1x Easy-Button inputs and (prompt, video_end_percent, thinking, report) outputs")
+    ok(pe.resolve_expander_mode("auto", length=141) == "t2va"
+       and pe.resolve_expander_mode("auto", length=1) == "single_frame"
+       and pe.resolve_expander_mode("auto", first_frame=object(), length=141) == "i2va"
+       and pe.resolve_expander_mode("auto", last_frame=object(), length=141) == "l2va"
+       and pe.resolve_expander_mode("auto", first_frame=object(), last_frame=object(), length=141) == "fl2va"
+       and pe.resolve_expander_mode("auto", references=(_FakeImgRef(),), length=141) == "ref2va",
+       "MiniMaxH3PromptExpander auto mode infers all 6 H3 modes from wired sockets + length")
+    pass_res = pe.expand_video_prompt(
+        prompt="integrated_multimodal_description:\n[Shot 1] Live-action. Picture 1 opens to Picture 2.\n\noverall_soundscape:\nWind.\n\nnon_diegetic_music:\nN/A",
+        enabled=False,
+        first_frame=object(),
+        last_frame=object(),
+        length=192,
+    )
+    ok("8.00-second mark" in pass_res["prompt"].splitlines()[0] and abs(pass_res["video_end_percent"] - 1.0) < 1e-6,
+       "MiniMaxH3PromptExpander enabled=False passes prompt through offline and stamps exact FL2VA 8.00s Part One")
+    syn_pass = pe.expand_video_prompt(
+        prompt="subject_definitions:\n<Subject 1> from <Picture 1>.\n",
+        enabled=False,
+        references=(_FakeImgRef(), _FakeVidRef()),
+        length=141,
+    )
+    ok(abs(syn_pass["video_end_percent"] - 0.33) < 1e-6,
+       "MiniMaxH3PromptExpander outputs video_end_percent=0.33 when references contains synthetic trajectory video")
+
+    # Verify both new 1x Easy-Button workflows wire MiniMaxH3PromptExpander -> BasicGuider (zero EditGuider)
+    for wf_name, expect_rel in (
+        ("h3_text_to_video_pika_prompt_expander_api.json", False),
+        ("h3_image_ref_plus_text_to_video_pika_prompt_expander_api.json", True),
+    ):
+        wf_path = REPO / "workflows" / wf_name
+        if not wf_path.is_file():
+            FAILURES.append(f"missing shipped 1x expander workflow: {wf_name}")
+            continue
+        wf = json.loads(wf_path.read_text(encoding="utf-8"))
+        ok(wf.get("14", {}).get("class_type") == "MiniMaxH3PromptExpander"
+           and wf.get("5", {}).get("inputs", {}).get("prompt") == ["14", 0]
+           and wf.get("9", {}).get("class_type") == "BasicGuider"
+           and "130" not in wf and "131" not in wf,
+           f"{wf_name} wires 1x MiniMaxH3PromptExpander -> BasicGuider with zero EditGuider or duplicate conditioning")
+        if expect_rel:
+            ok(wf.get("135", {}).get("inputs", {}).get("video_end_percent") == ["14", 1]
+               and wf.get("14", {}).get("inputs", {}).get("references") == wf["5"]["inputs"]["references"],
+               f"{wf_name} wires references into MiniMaxH3PromptExpander and video_end_percent into ReleaseReferences")
     _ = ro
 
 
