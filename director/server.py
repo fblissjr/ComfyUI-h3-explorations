@@ -1963,6 +1963,114 @@ async def handle_escalate(request: web.Request) -> web.Response:
         return web.json_response({"ok": False, "error": str(exc)}, status=400)
 
 
+def _parse_context_suggest_reply(raw_content: str) -> tuple[str, str, list[dict[str, str]]]:
+    """Parse plain Markdown (`scene_caption:`, `subject_label:`, `## suggestions`) or JSON fallback."""
+    cleaned = raw_content.strip()
+    if "</think>" in cleaned:
+        cleaned = cleaned.split("</think>", 1)[1].strip()
+    cleaned = re.sub(r"^```(?:markdown|md|json)?\s*|\s*```$", "", cleaned, flags=re.I | re.S).strip()
+
+    if cleaned.startswith("{") or cleaned.startswith("["):
+        try:
+            parsed = json.loads(cleaned)
+        except Exception:
+            match_obj = re.search(r"\{.*\}", cleaned, re.S)
+            match_arr = re.search(r"\[.*\]", cleaned, re.S)
+            if match_obj and (not match_arr or match_obj.start() < match_arr.start()):
+                parsed = json.loads(match_obj.group(0))
+            elif match_arr:
+                parsed = json.loads(match_arr.group(0))
+            else:
+                raise
+        scene_caption = ""
+        subject_label = ""
+        raw_items: Any = parsed
+        if isinstance(parsed, dict):
+            scene_caption = str(parsed.get("scene_caption") or "").strip()[:280]
+            subject_label = str(parsed.get("subject_label") or "").strip()[:120]
+            raw_items = parsed.get("suggestions") or []
+        if not isinstance(raw_items, list):
+            raw_items = []
+        suggestions = [
+            {
+                "title": str(s.get("title") or "").strip(),
+                "target_prompt": str(s.get("target_prompt") or "").strip(),
+                "preset": str(s.get("preset") or "sparkle_burst").strip() or "sparkle_burst",
+            }
+            for s in raw_items
+            if isinstance(s, dict) and (s.get("target_prompt") or s.get("title"))
+        ][:4]
+        return scene_caption, subject_label, suggestions
+
+    scene_caption = ""
+    subject_label = ""
+    suggestions: list[dict[str, str]] = []
+    in_suggestions = False
+    cur_item: dict[str, str] | None = None
+
+    def _flush_item() -> None:
+        nonlocal cur_item
+        if cur_item and (cur_item.get("target_prompt") or cur_item.get("title")):
+            cur_item.setdefault("preset", "sparkle_burst")
+            suggestions.append(cur_item)
+        cur_item = None
+
+    for raw_line in cleaned.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        if re.match(r"^#{1,4}\s*suggestions\b", line, re.I):
+            _flush_item()
+            in_suggestions = True
+            continue
+        if re.match(r"^#{1,4}\s+", line):
+            _flush_item()
+            in_suggestions = False
+            continue
+        bullet_m = re.match(r"^(?:[-*•]+|\d+[.)])\s+(.*)$", line)
+        body_line = bullet_m.group(1).strip() if bullet_m else line
+        if not in_suggestions:
+            kv = re.match(r"^(scene_caption|subject_label)\s*:\s*(.+)$", body_line, re.I)
+            if kv:
+                k = kv.group(1).lower()
+                v = kv.group(2).strip().strip("`")
+                if k == "scene_caption":
+                    scene_caption = v[:280]
+                elif k == "subject_label":
+                    subject_label = v[:120]
+                continue
+        if "|" in body_line and ("title:" in body_line.lower() or "target_prompt:" in body_line.lower()):
+            _flush_item()
+            item: dict[str, str] = {}
+            for seg in body_line.split("|"):
+                if ":" not in seg:
+                    continue
+                sk, sv = seg.split(":", 1)
+                sk_l = sk.strip().strip("`*_ ").lower()
+                sv_s = sv.strip().strip("`")
+                if sk_l in ("title", "target_prompt", "preset") and sv_s:
+                    item[sk_l] = sv_s
+            if item.get("target_prompt") or item.get("title"):
+                item.setdefault("preset", "sparkle_burst")
+                suggestions.append(item)
+            continue
+        kv_item = re.match(r"^(title|target_prompt|preset)\s*:\s*(.+)$", body_line, re.I)
+        if kv_item:
+            k = kv_item.group(1).lower()
+            v = kv_item.group(2).strip().strip("`")
+            if k == "title" or cur_item is None or k in cur_item:
+                _flush_item()
+                cur_item = {}
+            cur_item[k] = v
+            continue
+        if in_suggestions and bullet_m:
+            _flush_item()
+            suggestions.append({"title": body_line[:40], "target_prompt": body_line, "preset": "sparkle_burst"})
+
+    _flush_item()
+    return scene_caption, subject_label, suggestions[:4]
+
+
 async def handle_context_suggest(request: web.Request) -> web.Response:
     try:
         body = await _read_json_body(request)
@@ -2037,24 +2145,27 @@ async def handle_context_suggest(request: web.Request) -> web.Response:
         if use_vision and has_reticle:
             user_text_parts.append(
                 f"Image 1 marks the selected target reticle in blue at normalized ({x_n:.2f}, {y_n:.2f}); "
-                "Image 2 is the zoomed crop of that target region. Return ONLY a JSON object: "
-                '{"scene_caption":"one concise visual sentence describing the whole scene",'
-                '"subject_label":"short noun phrase naming the subject inside the reticle",'
-                '"suggestions":[{"title":"2-4 word label","target_prompt":"concise action inside reticle (under 12 words)","preset":"sparkle_burst"}]}.'
+                "Image 2 is the zoomed crop of that target region. Reply in plain Markdown ONLY (no JSON, no code fences):\n"
+                "scene_caption: <one concise visual sentence describing the whole scene>\n"
+                "subject_label: <short noun phrase naming the subject inside the reticle>\n\n"
+                "## suggestions\n"
+                "- title: <2-4 word label> | target_prompt: <concise action inside reticle (under 12 words)> | preset: sparkle_burst"
             )
             system_msg = (
                 "You ground interactive spatial video edits strictly in Image 1 (reticle) and Image 2 (zoomed crop). "
-                "Name only visible subjects/objects inside the blue reticle and suggest up to 3 vivid localized edits. Return valid JSON only."
+                "Name only visible subjects/objects inside the blue reticle and suggest up to 3 vivid localized edits "
+                "using the requested plain Markdown headings and lines (never output JSON)."
             )
         else:
             user_text_parts.append(
-                "Return ONLY a JSON array of up to 3 concise world-event / localized edit actions "
-                "(under 12 words each) suited to this scene: "
-                '[{"title":"short 2-4 word label","target_prompt":"concise action or localized edit","preset":"sparkle_burst"}].'
+                "Reply in plain Markdown ONLY (no JSON, no code fences) with up to 3 concise world-event / "
+                "localized edit actions (under 12 words each) suited to this scene:\n"
+                "## suggestions\n"
+                "- title: <short 2-4 word label> | target_prompt: <concise action or localized edit> | preset: sparkle_burst"
             )
             system_msg = (
                 "You suggest concise, vivid world-sandbox actions grounded strictly in the attached scene image or description. "
-                "Do not invent unrelated subjects or animals not present in the scene. Return a valid JSON array only."
+                "Do not invent unrelated subjects or animals not present in the scene. Output plain Markdown only (never JSON)."
             )
         content_blocks.append({"type": "text", "text": "\n\n".join(user_text_parts)})
 
@@ -2086,32 +2197,9 @@ async def handle_context_suggest(request: web.Request) -> web.Response:
         else:
             raw_content = str(comp.get("text") or "")
 
-        cleaned = raw_content.strip()
-        if "</think>" in cleaned:
-            cleaned = cleaned.split("</think>", 1)[1].strip()
-        cleaned = re.sub(r"^```(?:json)?\s*|\s*```$", "", cleaned, flags=re.I | re.S).strip()
-        try:
-            parsed = json.loads(cleaned)
-        except Exception:
-            match_obj = re.search(r"\{.*\}", cleaned, re.S)
-            match_arr = re.search(r"\[.*\]", cleaned, re.S)
-            if match_obj and (not match_arr or match_obj.start() < match_arr.start()):
-                parsed = json.loads(match_obj.group(0))
-            elif match_arr:
-                parsed = json.loads(match_arr.group(0))
-            else:
-                raise
-
-        scene_caption = ""
-        subject_label = ""
-        raw_items: Any = parsed
-        if isinstance(parsed, dict):
-            scene_caption = str(parsed.get("scene_caption") or "").strip()[:280]
-            subject_label = str(parsed.get("subject_label") or "").strip()[:120]
-            raw_items = parsed.get("suggestions") or []
-        if not isinstance(raw_items, list):
-            raw_items = []
-        suggestions = [s for s in raw_items if isinstance(s, dict) and (s.get("target_prompt") or s.get("title"))][:4]
+        scene_caption, subject_label, suggestions = _parse_context_suggest_reply(raw_content)
+        if not suggestions and not scene_caption and not subject_label:
+            raise ValueError("empty context_suggest reply")
         return web.json_response(
             {
                 "ok": True,

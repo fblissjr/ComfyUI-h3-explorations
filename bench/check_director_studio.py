@@ -1416,9 +1416,7 @@ def check_server_routes_and_escalate() -> str:
                                     {"type": "thinking", "thinking": "ignoring chain of thought"},
                                     {
                                         "type": "text",
-                                        "text": json.dumps(
-                                            [{"title": "Frost Bloom", "target_prompt": "frost petals expand rapidly", "preset": "sparkle_burst"}]
-                                        ),
+                                        "text": "## suggestions\n- title: Frost Bloom | target_prompt: frost petals expand rapidly | preset: sparkle_burst",
                                     },
                                 ]
                             }
@@ -1443,6 +1441,7 @@ def check_server_routes_and_escalate() -> str:
                             assert seen_heylook.get("req_id"), "Expected X-Request-ID on /v1/messages"
                             blocks = seen_heylook["body"]["messages"][0]["content"]
                             assert any(isinstance(b, dict) and b.get("type") == "image" for b in blocks), blocks
+                            assert "plain Markdown" in seen_heylook["body"].get("system", ""), seen_heylook["body"]
                         finally:
                             if prev_hl is None:
                                 os.environ.pop("H3_HEYLOOK_URL", None)
@@ -1639,7 +1638,7 @@ def check_server_routes_and_escalate() -> str:
                         else:
                             os.environ["H3_OUTPUT_DIR"] = prev_out_env
 
-                    # Reticle-grounded context_suggest sends 2 vision blocks and parses JSON object response
+                    # Reticle-grounded context_suggest sends 2 vision blocks and parses plain Markdown response
                     seen_reticle: dict[str, Any] = {}
 
                     async def _hl_ret_messages(req: web.Request) -> web.Response:
@@ -1649,14 +1648,11 @@ def check_server_routes_and_escalate() -> str:
                                 "content": [
                                     {
                                         "type": "text",
-                                        "text": json.dumps(
-                                            {
-                                                "scene_caption": "Misty stone lake at dawn",
-                                                "subject_label": "mossy pier post",
-                                                "suggestions": [
-                                                    {"title": "Lantern Glow", "target_prompt": "warm lantern ignites cleanly", "preset": "sparkle_burst"}
-                                                ],
-                                            }
+                                        "text": (
+                                            "scene_caption: Misty stone lake at dawn\n"
+                                            "subject_label: mossy pier post\n\n"
+                                            "## suggestions\n"
+                                            "- title: Lantern Glow | target_prompt: warm lantern ignites cleanly | preset: sparkle_burst\n"
                                         ),
                                     }
                                 ]
