@@ -633,8 +633,9 @@ def extract_render_record(
         elif ckpt:
             family = "fl2va"
 
-    # Determine method
-    steers = model_chain["steers"]
+    # Determine method (ignore inert strength==0.0 steers so unsteered baselines classify as 'plain')
+    active_steers = [st for st in model_chain["steers"] if (st.get("strength") is None or abs(float(st["strength"])) > 1e-9)]
+    steers = active_steers
     has_steers = len(steers) > 0
     is_edit_guider = guider_ct == "MiniMaxH3EditGuider"
     is_fast_1x = (
@@ -642,6 +643,7 @@ def extract_render_record(
         and edit_scale == 1.0
         and (edit_audio_scale in (None, 1.0))
         and (first_step in (None, 0))
+        and (edit_streams in (None, "", "both"))
         and not mask_info["present"]
     )
     if is_edit_guider and has_steers:
@@ -655,20 +657,21 @@ def extract_render_record(
     else:
         method = "plain"
 
-    # Enrich steers with vector catalog metadata
+    # Enrich steers with vector catalog metadata (prefer exact family match BEFORE bare stem!)
     enriched_steers: list[dict[str, Any]] = []
     for idx, st in enumerate(steers):
         vf = st["vector_file"]
         fam_key = f"{vf}::{family}" if (vf and family) else ""
         cat = (
-            vector_catalog.get(vf)
-            or (vector_catalog.get(fam_key) if fam_key else None)
+            (vector_catalog.get(fam_key) if fam_key else None)
+            or vector_catalog.get(vf)
             or vector_catalog.get(Path(vf).name)
             or vector_catalog.get(Path(vf).stem)
             or {}
         )
         row = dict(st)
         row["order_idx"] = idx
+        row["vector_file"] = cat.get("vector_file") or vf
         row["vector_name"] = cat.get("vector_name") or Path(vf).stem
         row["raw_norm"] = cat.get("raw_norm")
         row["mpc"] = cat.get("mpc")
@@ -720,7 +723,18 @@ def extract_render_record(
     problems: list[tuple[str, str]] = []
 
     if family == "ref2va":
-        if ref_end_percent is None or ref_end_percent >= 0.99:
+        # Flag ref_pinned_1_0 only when it risks fighting an edit/deformation (e.g. baked EditGuider
+        # with layout lock first_step>=1, or a control vector steering physique/wardrobe/action), NOT
+        # on live MiniMaxH3AutoEditPrompt graphs (which resolve edit_plan at runtime), plain baselines,
+        # or live-action fast_1x where rel=1.0 preserves crisper face likeness.
+        pin_risk = (
+            (is_edit_guider and not is_fast_1x and not auto_edit_live and (first_step is not None and first_step >= 1))
+            or any(
+                any(k in str(st.get("vector_name", "")).lower() for k in ("wardrobe", "subj_", "act_", "motion_", "golem", "clay", "origami", "muppet", "inflate"))
+                for st in enriched_steers
+            )
+        )
+        if pin_risk and (ref_end_percent is None or ref_end_percent >= 0.99):
             problems.append(("ref_pinned_1_0", f"ref_end_percent={ref_end_percent}"))
         if len(ref_images) == 0:
             problems.append(("ref2va_missing_ref_image", "no LoadImage found in AppendRefImage chain"))
@@ -759,7 +773,11 @@ def extract_render_record(
         if st.get("b_side_warning") is True:
             problems.append(("j_lens_b_side_warning", f"{st['vector_name']} b_side_status={st.get('b_side_status')}"))
 
-    if audio_mean_db is not None and audio_mean_db < -35.0:
+    eff_prompt_for_audio = (edited_prompt or original_prompt or "").lower()
+    explicitly_silent = bool(
+        re.search(r"\b(?:neither\b.*\bspeaks|produces no vocal sound|remains quiet|none of the .* speaks)\b", eff_prompt_for_audio)
+    )
+    if audio_mean_db is not None and audio_mean_db < -35.0 and not explicitly_silent:
         problems.append(("audio_very_quiet", f"mean_volume={audio_mean_db:.1f} dB"))
 
     # Deduplicate problem codes preserving order

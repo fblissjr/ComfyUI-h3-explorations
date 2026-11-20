@@ -154,9 +154,19 @@ def _test_full_index() -> None:
         out_root = tmp / "Video"
         vec_root = tmp / "vectors"
         _write_fake_safetensors(
-            vec_root / "v2" / "weak_vec.safetensors",
+            vec_root / "v2" / "wardrobe_weak_vec__fl2va__diff_span.safetensors",
             {
-                "name": "weak_vec",
+                "name": "wardrobe_weak_vec",
+                "family": "fl2va",
+                "points": {"post_refiner": {"raw_norm": 72.0}},
+                "quality_report": {"mean_pairwise_cosine": 0.85, "split_half_cosine": 0.96},
+                "pairs": {"count": 10, "n_holds": 0},
+            },
+        )
+        _write_fake_safetensors(
+            vec_root / "v2" / "wardrobe_weak_vec__ref2va__diff_span.safetensors",
+            {
+                "name": "wardrobe_weak_vec",
                 "family": "ref2va",
                 "points": {"post_refiner": {"raw_norm": 48.0}},
                 "quality_report": {
@@ -167,9 +177,16 @@ def _test_full_index() -> None:
                 "pairs": {"count": 10, "n_holds": 2},
             },
         )
-        _write_png_with_graph(out_root / "cv_run" / "weak_00001.png", _graph_cv("weak_vec"))
+        _write_png_with_graph(out_root / "cv_run" / "weak_00001.png", _graph_cv("wardrobe_weak_vec"))
+        _write_png_with_graph(out_root / "cv_run" / "fl2va_match_00001.png", _graph_cv("wardrobe_weak_vec", target="scene_only", ref2va=False))
+        zero_g = _graph_cv("wardrobe_weak_vec", target="scene_only", ref2va=False)
+        zero_g["115"]["inputs"]["strength"] = 0.0
+        _write_png_with_graph(out_root / "cv_run" / "zero_strength_00001.png", zero_g)
         _write_png_with_graph(out_root / "edit_run" / "locked_00001.png", _graph_edit_guider(fast_1x=False))
         _write_png_with_graph(out_root / "edit_run" / "fast_00001.png", _graph_edit_guider(fast_1x=True))
+        vid_only_g = _graph_edit_guider(fast_1x=True)
+        vid_only_g["9"]["inputs"]["streams"] = "video_only"
+        _write_png_with_graph(out_root / "edit_run" / "vid_only_1_0_00001.png", vid_only_g)
 
         # Add an old PNG that should be skipped by --since
         old_png = out_root / "cv_run" / "stale_00001.png"
@@ -190,8 +207,18 @@ def _test_full_index() -> None:
         assert rc == 0, f"expected rc=0, got {rc}"
 
         lines = [json.loads(x) for x in jsonl_path.read_text(encoding="utf-8").splitlines() if x.strip()]
-        assert len(lines) == 3, f"expected 3 non-stale renders, got {len(lines)}"
+        assert len(lines) == 6, f"expected 6 non-stale renders, got {len(lines)}"
         by_stem = {r["stem"]: r for r in lines}
+
+        fl_rec = by_stem["fl2va_match"]
+        assert fl_rec["vectors"][0]["raw_norm"] == 72.0, f"expected fl2va vector join (72.0), got {fl_rec['vectors'][0]}"
+        assert fl_rec["vectors"][0]["vector_file"].endswith("__fl2va__diff_span.safetensors")
+
+        z_rec = by_stem["zero_strength"]
+        assert z_rec["method"] == "plain" and not z_rec["vectors"], f"strength=0 should be plain, got {z_rec['method']}"
+
+        vo_rec = by_stem["vid_only_1_0"]
+        assert vo_rec["method"] == "edit_guidance", f"streams=video_only scale=1.0 must not be fast_1x, got {vo_rec['method']}"
 
         cv_rec = by_stem["weak"]
         assert cv_rec["method"] == "control_vector"
@@ -233,9 +260,9 @@ def _test_full_index() -> None:
         conn = sqlite3.connect(str(db_path))
         try:
             n_flat = conn.execute("SELECT COUNT(*) FROM v_renders_flat").fetchone()[0]
-            assert n_flat == 3
+            assert n_flat == 6
             n_vh = conn.execute("SELECT COUNT(*) FROM v_vector_health").fetchone()[0]
-            assert n_vh == 1
+            assert n_vh == 2
             summary_rows = conn.execute("SELECT folder, method, problem_code, n_affected FROM v_problem_summary").fetchall()
             assert len(summary_rows) >= 10, summary_rows
         finally:

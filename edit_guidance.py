@@ -713,8 +713,8 @@ class MiniMaxH3EditGuider(io.ComfyNode):
                     optional=True,
                     tooltip="Optional 4-axis EditPlan from MiniMaxH3AutoEditPrompt. Auto-configures "
                             "first_step, last_step, streams, audio_scale, [F, 1, 1] temporal curve, and "
-                            "fast_1x (1-pass shortcut when unmasked) unless manual_widgets is set; scale "
-                            "always remains your master intensity dial.",
+                            "1-pass fast_1x (explicit fast_1x or auto whole-clip overhauls when unmasked) "
+                            "unless manual_widgets is set; scale remains your master dial on guided/masked edits.",
                 ),
             ],
             outputs=[io.Guider.Output()],
@@ -746,6 +746,7 @@ class MiniMaxH3EditGuider(io.ComfyNode):
         temporal_curve = "whole_clip"
         if edit_plan is not None and not bool(_plan_field(edit_plan, "manual_widgets", False)):
             force_scale = _plan_field(edit_plan, "force_scale", None)
+            auto_fast_1x = bool(_plan_field(edit_plan, "auto_fast_1x", False))
             if force_scale is not None:
                 if mask is not None:
                     raise ValueError(
@@ -753,6 +754,13 @@ class MiniMaxH3EditGuider(io.ComfyNode):
                         "(masking requires 2-pass guidance; switch take_mode to 'auto' or 'lock_take')"
                     )
                 eff_scale = float(force_scale)
+                eff_first_step = 0
+                eff_last_step = 3
+                eff_streams = "both"
+                eff_audio_scale = 1.0
+                temporal_curve = "whole_clip"
+            elif auto_fast_1x and mask is None:
+                eff_scale = 1.0
                 eff_first_step = 0
                 eff_last_step = 3
                 eff_streams = "both"

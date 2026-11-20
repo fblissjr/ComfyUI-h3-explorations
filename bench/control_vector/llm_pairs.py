@@ -235,7 +235,7 @@ def _extract_system_prompt_text() -> str:
     return ""
 
 
-SUPPORTED_LLM_PROVIDERS: tuple[str, ...] = ("transformers", "exllamav3")
+SUPPORTED_LLM_PROVIDERS: tuple[str, ...] = ("transformers", "exllamav3", "heylook")
 DEFAULT_LLM_MAX_TOKENS: int = 4800
 
 
@@ -269,28 +269,31 @@ def _generate_pairs_with_llm(
     rep_p: float = 1.05,
     seed: int = 42,
     exl3_root: str | None = None,
+    heylook_url: str = "",
     llm_cache: dict[tuple[str, str, bool], Any] | None = None,
 ) -> dict[str, Any]:
-    """Generate H3 control-vector Markdown pairs using a user-selected `provider` (`transformers` or `exllamav3`)
-    and any user-specified `model_spec` (local directory path or HuggingFace repo ID).
+    """Generate H3 control-vector Markdown pairs using a user-selected `provider` (`transformers`,
+    `exllamav3`, or `heylook`) and any user-specified `model_spec`.
     """
     prov = str(provider or "").strip().lower()
     if prov in ("exl3", "exllama", "exllamav3"):
         prov = "exllamav3"
     elif prov in ("hf", "huggingface", "transformers"):
         prov = "transformers"
+    elif prov in ("heylook", "heylookitsanllm"):
+        prov = "heylook"
     else:
         raise ValueError(
             f"unsupported LLM provider {provider!r}; expected one of {SUPPORTED_LLM_PROVIDERS}"
         )
 
     mspec = str(model_spec or "").strip()
-    if not mspec:
+    if not mspec and prov != "heylook":
         mspec = (
             os.environ.get("H3_LLM_MODEL", "").strip()
             or os.environ.get("H3_EXL3_MODEL_DIR", "").strip()
         )
-    if not mspec:
+    if not mspec and prov != "heylook":
         raise ValueError(
             "LLM model path or HuggingFace model ID is required (pass --llm-model, set H3_LLM_MODEL, or enter it in the Studio UI)"
         )
@@ -316,12 +319,43 @@ def _generate_pairs_with_llm(
     t0 = time.perf_counter()
     cache_store = llm_cache if llm_cache is not None else {}
     cache_key = (prov, mspec, bool(load_in_4bit))
-    if cache_key not in cache_store:
+    if prov != "heylook" and cache_key not in cache_store:
         from .helpers import _free_idle_comfy_vram
 
         _free_idle_comfy_vram()
 
-    if prov == "exllamav3":
+    if prov == "heylook":
+        import httpx
+        import heylook_client as hlc
+
+        # Ignore local filesystem paths inherited from H3_EXL3_MODEL_DIR / transformers defaults.
+        if mspec and (mspec.startswith(("/", "~", ".")) or Path(mspec).expanduser().exists()):
+            mspec = ""
+        base = hlc.resolve_heylook_base_url(heylook_url)
+        with httpx.Client(
+            trust_env=False,
+            timeout=httpx.Timeout(connect=10.0, read=600.0, write=30.0, pool=10.0),
+        ) as client:
+            model_row = hlc.discover_heylook_model(client, base, mspec, need=frozenset({"chat"}))
+            mspec = str(model_row["id"])
+            overrides: dict[str, Any] = {"max_tokens": int(max_new_tokens)}
+            if temperature is not None:
+                overrides["temperature"] = float(temperature)
+            body = hlc.build_heylook_request_body(
+                model_row=model_row,
+                system_prompt=sys_txt,
+                user_prompt=user_msg,
+                prepared_images=[],
+                thinking="model default",
+                request_seed=int(seed) if seed is not None else None,
+                sampler_mode="custom",
+                sampler_overrides=overrides,
+            )
+            res = hlc.with_heylook_backoff(
+                lambda: hlc.stream_heylook_message(base, body, client=client)
+            )
+        markdown_out = res.text.strip()
+    elif prov == "exllamav3":
         ex_root = _resolve_exl3_library_root(exl3_root)
         if ex_root is not None and str(ex_root) not in sys.path:
             sys.path.insert(0, str(ex_root))
@@ -537,6 +571,7 @@ def _generate_pairs_from_args(args: argparse.Namespace, *, llm_cache: Any = None
         max_new_tokens=int(getattr(args, "max_new_tokens", DEFAULT_LLM_MAX_TOKENS)),
         temperature=float(getattr(args, "temperature", 0.7)),
         exl3_root=getattr(args, "exl3_root", None) or None,
+        heylook_url=str(getattr(args, "heylook_url", "") or ""),
         **extra,
     )
 

@@ -787,6 +787,28 @@ def check_guider_mask() -> None:
             ),
             "cannot be combined with a spatial mask")
 
+    out_auto_f1 = eg.MiniMaxH3EditGuider.execute(
+        _Patcher(), orig_c, edit_c, 1.75, 1, streams="independent",
+        edit_plan={
+            "first_step": 0, "last_step": 3, "streams": "independent", "audio_scale": 1.0,
+            "temporal_curve": "whole_clip", "force_scale": None, "auto_fast_1x": True, "manual_widgets": False,
+        },
+    ).result[0]
+    ok("auto_fast_1x=True shortcuts unmasked EditGuider to 1-pass scale=1.0, streams='both'",
+       approx(out_auto_f1.edit_scale, 1.0) and approx(out_auto_f1.edit_audio_scale, 1.0)
+       and out_auto_f1.first_step == 0 and out_auto_f1.streams == "both")
+
+    out_auto_f1_masked = eg.MiniMaxH3EditGuider.execute(
+        _Patcher(), orig_c, edit_c, 1.75, 1, streams="independent", mask=spatial_64,
+        edit_plan={
+            "first_step": 0, "last_step": 3, "streams": "independent", "audio_scale": 1.0,
+            "temporal_curve": "whole_clip", "force_scale": None, "auto_fast_1x": True, "manual_widgets": False,
+        },
+    ).result[0]
+    ok("auto_fast_1x=True falls back to 2-pass first_step=0 with widget scale when spatial mask is wired",
+       approx(out_auto_f1_masked.edit_scale, 1.75) and out_auto_f1_masked.first_step == 0
+       and out_auto_f1_masked.streams == "independent")
+
     out_manual = eg.MiniMaxH3EditGuider.execute(
         _Patcher(),
         orig_c,

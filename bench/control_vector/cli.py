@@ -173,7 +173,7 @@ def build_parser() -> argparse.ArgumentParser:
         dest="llm_provider",
         choices=SUPPORTED_LLM_PROVIDERS,
         default=None,
-        help="Default generative LLM provider for pair authoring ('transformers' or 'exllamav3')",
+        help="Default generative LLM provider for pair authoring ('heylook', 'transformers', or 'exllamav3')",
     )
     pui.add_argument(
         "--llm-model",
@@ -658,7 +658,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     pgen = sub.add_parser(
         "generate-pairs",
-        help="Generate 10 surgical H3 Prompt A / Prompt B pairs using a local generative LLM ('transformers' or 'exllamav3') and h3_control_vector_system_prompt.md",
+        help="Generate 10 surgical H3 Prompt A / Prompt B pairs using a generative LLM ('heylook', 'transformers', or 'exllamav3') and h3_control_vector_system_prompt.md",
     )
     pgen.add_argument(
         "concept",
@@ -678,14 +678,20 @@ def build_parser() -> argparse.ArgumentParser:
         dest="llm_provider",
         choices=SUPPORTED_LLM_PROVIDERS,
         default=os.environ.get("H3_LLM_PROVIDER", "transformers") or "transformers",
-        help="Generative LLM provider ('transformers' or 'exllamav3'; default: 'transformers' or $H3_LLM_PROVIDER)",
+        help="Generative LLM provider ('heylook', 'transformers', or 'exllamav3'; default: 'transformers' or $H3_LLM_PROVIDER)",
+    )
+    pgen.add_argument(
+        "--heylook-url",
+        dest="heylook_url",
+        default="",
+        help="Optional heylook base URL override when using --llm-provider heylook (default: $H3_HEYLOOK_URL)",
     )
     pgen.add_argument(
         "--llm-model",
         "--model",
         dest="llm_model",
-        default=os.environ.get("H3_LLM_MODEL", "") or os.environ.get("H3_EXL3_MODEL_DIR", ""),
-        help="Path to local LLM model directory or HuggingFace model ID (default: $H3_LLM_MODEL or $H3_EXL3_MODEL_DIR)",
+        default="",
+        help="Model ID (for heylook) or local LLM directory / HuggingFace ID (defaults to $H3_LLM_MODEL or $H3_EXL3_MODEL_DIR for local providers)",
     )
     pgen.add_argument(
         "--exl3-root",

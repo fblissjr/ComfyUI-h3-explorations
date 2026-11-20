@@ -456,11 +456,16 @@ def _r_generate_pairs(state: ControlVectorUIState, req: dict[str, Any]) -> dict[
     """`generate-pairs`' LLM call, its Markdown returned for the page's editor."""
     values = dict(_request_args(req))
     values.setdefault("llm_provider", state.default_llm_provider)
-    if not str(values.get("llm_model", "") or "").strip() and state.default_llm_model:
+    if (
+        not str(values.get("llm_model", "") or "").strip()
+        and state.default_llm_model
+        and (values.get("llm_provider") != "heylook" or state.default_llm_provider == "heylook")
+    ):
         values["llm_model"] = state.default_llm_model
     ns = parse_request("generate-pairs", values)
     with _RUN_LOCK:
-        state.release_clip_vram()
+        if ns.llm_provider != "heylook":
+            state.release_clip_vram()
         return _generate_pairs_from_args(ns, llm_cache=state._llm_cache)
 
 

@@ -173,6 +173,7 @@ class EditPlan:
     preserve_step0_layout: bool
     deforms_ref_silhouette: bool
     reason: str = ""
+    auto_fast_1x: bool = False
 
 
 @dataclass(frozen=True)
@@ -1183,6 +1184,7 @@ def compile_edit_plan(
         streams = "independent"
         last_step = 3
 
+    auto_fast_1x = False
     if take_mode == "lock_take":
         first_step = 2 if (streams == "audio_only" and not has_references_or_ref2va) else 1
     elif take_mode == "allow_reshoot":
@@ -1190,6 +1192,10 @@ def compile_edit_plan(
     else:  # "auto"
         if deforms or not preserve_step0:
             first_step = 0
+            # Whole-clip visual overhauls (setting/pose/wardrobe/medium) run cleanly in 1 pass
+            # when unmasked (EditGuider transparently falls back to 2-pass first_step=0 if a spatial mask is wired).
+            if visual_changed and eff_timing == "whole_clip":
+                auto_fast_1x = True
         elif streams == "audio_only" and not has_references_or_ref2va:
             first_step = 2
         else:
@@ -1209,6 +1215,7 @@ def compile_edit_plan(
         preserve_step0_layout=preserve_step0,
         deforms_ref_silhouette=deforms,
         reason=reason,
+        auto_fast_1x=auto_fast_1x,
     )
 
 
@@ -1254,6 +1261,12 @@ def build_auto_edit_user_prompt(
                     "Silhouette/medium overhaul active: boldly rewrite contradicting setting, pose, "
                     "wardrobe, lighting, props, and (when a non-photographic medium is requested) "
                     "surface materials and motion cadence across allowed visual sections while keeping "
+                    "<Picture N> facial identity."
+                )
+            elif concept_brief.axis_hints.get("preserve_step0_layout") is False:
+                c_lines.append(
+                    "Scene/pose/wardrobe overhaul active: boldly rewrite contradicting setting, pose, "
+                    "wardrobe, lighting, props, and soundscape across allowed sections while keeping "
                     "<Picture N> facial identity."
                 )
         if concept_brief.timing_hint and concept_brief.timing_hint != "auto":
@@ -1530,7 +1543,8 @@ def run_auto_edit_rewrite(
                 f"Your output failed validation: {first_err}\n"
                 f"Valid section names in original: {valid_headers_note}\n"
                 f"Allowed sections to edit: {', '.join(allowed_sections)}\n"
-                "Fix ONLY this issue and output ONLY the corrected Markdown sections and `## axes` block."
+                "Fix ONLY this validation error — do NOT drop or revert previously edited sections. "
+                "Output ALL changed Markdown sections and the `## axes` block."
             )
             repair_body = build_heylook_request_body(
                 model_row=model_row,
@@ -1610,10 +1624,16 @@ def run_auto_edit_rewrite(
         is_sectioned=is_sectioned,
         concept_brief=concept_brief,
     )
-    full_report = (
-        f"{report_base} | take={take_mode}(step0={plan.first_step},streams={plan.streams},"
-        f"rel={plan.ref_end_percent:g},timing={plan.temporal_curve})"
-    )
+    if plan.auto_fast_1x:
+        full_report = (
+            f"{report_base} | take={take_mode}(auto_fast_1x,step0={plan.first_step},streams=both,"
+            f"rel={plan.ref_end_percent:g},timing={plan.temporal_curve})"
+        )
+    else:
+        full_report = (
+            f"{report_base} | take={take_mode}(step0={plan.first_step},streams={plan.streams},"
+            f"rel={plan.ref_end_percent:g},timing={plan.temporal_curve})"
+        )
     return {
         **cache_entry,
         "edit_plan": plan,

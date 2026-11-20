@@ -515,8 +515,23 @@ def check_edit_plan_compilation_and_wiring() -> None:
     ok(plan_deform.first_step == 0
        and plan_deform.streams == "independent"
        and abs(plan_deform.ref_end_percent - 0.33) < 1e-6
-       and plan_deform.temporal_curve == "ramp_in",
+       and plan_deform.temporal_curve == "ramp_in"
+       and plan_deform.auto_fast_1x is False,
        "deforms_ref_silhouette on ref2va unlocks step 0 and sets ref_end_percent=0.33 + timing override")
+
+    plan_live_overhaul = aep.compile_edit_plan(
+        axes={"visual_changed": True, "audio_changed": True, "preserve_step0_layout": False, "deforms_ref_silhouette": False, "temporal_curve": "whole_clip"},
+        changed_sections=("subject_definitions", "retention_analysis", "detailed_description", "overall_soundscape"),
+        take_mode="auto",
+        timing="auto",
+        has_references_or_ref2va=True,
+        is_sectioned=True,
+    )
+    ok(plan_live_overhaul.first_step == 0
+       and plan_live_overhaul.auto_fast_1x is True
+       and plan_live_overhaul.force_scale is None
+       and plan_live_overhaul.ref_end_percent == 1.0,
+       "live-action whole-clip overhaul sets auto_fast_1x=True while keeping ref_end_percent=1.0")
 
     plan_fast = aep.compile_edit_plan(
         axes={"visual_changed": True, "audio_changed": True, "preserve_step0_layout": True, "deforms_ref_silhouette": False, "temporal_curve": "ramp_in"},
