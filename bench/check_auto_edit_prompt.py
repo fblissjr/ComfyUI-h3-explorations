@@ -486,6 +486,42 @@ def check_validators_and_repair() -> None:
                 allow_audio_retention_edit=False,
             ))
 
+    # Fresh prompt mode (no dummy original prompt)
+    fresh_sys = aep._read_system_prompt_file("fresh")
+    ok("## section:" in fresh_sys and "zero JSON" in fresh_sys,
+       "fresh_prompt_system_prompt.md loads and uses plain Markdown with zero JSON")
+    fresh_reply = (
+        "## section: subject_definitions\n"
+        "<Subject 1> is the woman in <Picture 1>, wearing a champagne silk dress.\n"
+        "<Subject 2> is the man in <Picture 2>, wearing an unbuttoned linen shirt.\n\n"
+        "## section: summary\n"
+        "[reference generation] <Subject 1> and <Subject 2> toast inside a sunlit conservatory.\n\n"
+        "## section: retention_analysis\n"
+        "<Subject 1> (appears in [Shot 1]): partially_preserved - facial identity retained; wears champagne silk dress.\n"
+        "<Subject 2> (appears in [Shot 1]): partially_preserved - facial identity retained; wears linen shirt.\n\n"
+        "## section: detailed_description\n"
+        "The target video is in a cinematic live-action style.\n"
+        "[Shot 1] A medium two-shot frames <Subject 1> and <Subject 2> raising glasses beneath glass arches.\n\n"
+        "## section: overall_soundscape\n"
+        "Clinking crystal glasses and soft greenhouse water drips.\n\n"
+        "## section: non_diegetic_music\n"
+        "N/A\n\n"
+        "## axes\nvisual_changed: true\naudio_changed: true\npreserve_step0_layout: false\n"
+        "deforms_ref_silhouette: false\ntemporal_curve: whole_clip\nreason: fresh live-action scene\n"
+    )
+    res_fresh = aep.validate_fresh_h3_prompt(fresh_reply, n_images=2)
+    ok(len(res_fresh["changed_sections"]) == 6
+       and res_fresh["axes"]["preserve_step0_layout"] is False
+       and res_fresh["axes"]["deforms_ref_silhouette"] is False
+       and "[reference generation]" in res_fresh["edited_prompt"],
+       "validate_fresh_h3_prompt validates 6-section ref2va prompt cleanly")
+    refuses("fresh prompt referencing nonexistent <Picture 3> refuses",
+            lambda: aep.validate_fresh_h3_prompt(
+                fresh_reply.replace("<Picture 2>", "<Picture 2> and <Picture 3>"),
+                n_images=2,
+            ),
+            "nonexistent <Picture N>")
+
 
 def check_edit_plan_compilation_and_wiring() -> None:
     print("[3/5] 4-axis EditPlan compilation + MiniMaxH3EditGuider & MiniMaxH3ReleaseReferences")

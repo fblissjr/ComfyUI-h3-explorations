@@ -213,11 +213,12 @@ def clear_rewrite_cache() -> None:
 
 
 def _read_system_prompt_file(rewrite_mode: str) -> str:
-    fname = (
-        "section_edits_system_prompt.md"
-        if rewrite_mode == "section_edits"
-        else "edit_lines_system_prompt.md"
-    )
+    if rewrite_mode == "fresh":
+        fname = "fresh_prompt_system_prompt.md"
+    elif rewrite_mode == "section_edits":
+        fname = "section_edits_system_prompt.md"
+    else:
+        fname = "edit_lines_system_prompt.md"
     return (_SYSTEM_PROMPTS_DIR / fname).read_text(encoding="utf-8").strip()
 
 
@@ -1294,6 +1295,142 @@ def build_auto_edit_user_prompt(
     return "\n\n".join(parts)
 
 
+def build_fresh_prompt_user_prompt(
+    *,
+    concept_brief: ConceptBrief | None,
+    edit_intent: str,
+    n_images: int,
+) -> str:
+    """Assemble the user turn for direct fresh H3 prompt generation (no dummy original prompt)."""
+    parts: list[str] = []
+    if n_images > 0:
+        pics = ", ".join(f"<Picture {i}>" for i in range(1, n_images + 1))
+        subjs = ", ".join(f"<Subject {i}>" for i in range(1, n_images + 1))
+        parts.append(
+            f"Mode: ref2va ({n_images} attached reference image(s): {pics} -> bind to {subjs}).\n"
+            "Inspect every attached image carefully for facial identity, hair, and features."
+        )
+    else:
+        parts.append("Mode: t2va (no reference images attached; write a 3-section prompt).")
+
+    if concept_brief is not None:
+        c_lines = [f"Selected concept ({concept_brief.title}): {concept_brief.summary}"]
+        if concept_brief.a_side and concept_brief.b_side:
+            c_lines.append(f"Target state: {concept_brief.b_side}")
+        if concept_brief.notes:
+            c_lines.append(f"Notes: {concept_brief.notes}")
+        if concept_brief.avoid:
+            c_lines.append(f"Avoid: {concept_brief.avoid}")
+        if concept_brief.axis_hints and concept_brief.axis_hints.get("deforms_ref_silhouette") is True:
+            c_lines.append(
+                "Note: this concept substantially alters medium, age, or silhouette (set deforms_ref_silhouette: true)."
+            )
+        if concept_brief.exemplars:
+            c_lines.append("Concept flavor examples:")
+            for idx, (sec, _a_ex, b_ex) in enumerate(concept_brief.exemplars, start=1):
+                c_lines.append(f"  Example {idx} [{sec}]: {b_ex!r}")
+        parts.append("\n".join(c_lines))
+
+    intent_clean = (edit_intent or "").strip()
+    if intent_clean:
+        parts.append(f"User scene instruction:\n{intent_clean}")
+
+    if n_images > 0:
+        parts.append(
+            "Task: Return ONLY Markdown `## section: <name>` blocks for "
+            "`subject_definitions`, `summary`, `retention_analysis`, `detailed_description`, "
+            "`overall_soundscape`, `non_diegetic_music`, followed by `## axes`."
+        )
+    else:
+        parts.append(
+            "Task: Return ONLY Markdown `## section: <name>` blocks for "
+            "`integrated_multimodal_description`, `overall_soundscape`, `non_diegetic_music`, "
+            "followed by `## axes`."
+        )
+    return "\n\n".join(parts)
+
+
+def validate_fresh_h3_prompt(
+    raw_reply: str,
+    *,
+    n_images: int,
+    concept_brief: ConceptBrief | None = None,
+) -> dict[str, Any]:
+    """Parse and validate a fresh Markdown H3 prompt (no original prompt to diff against)."""
+    parsed = parse_auto_edit_reply(raw_reply, concept_brief=concept_brief)
+    obj = parsed["obj"]
+    sec_map = obj.get("section_edits")
+    if not isinstance(sec_map, Mapping) or not sec_map:
+        raise ValidationRepairError("fresh prompt reply contained no `## section:` blocks")
+
+    if n_images > 0:
+        required = (
+            "subject_definitions",
+            "summary",
+            "retention_analysis",
+            "detailed_description",
+            "overall_soundscape",
+            "non_diegetic_music",
+        )
+    else:
+        required = (
+            "integrated_multimodal_description",
+            "overall_soundscape",
+            "non_diegetic_music",
+        )
+
+    cleaned: dict[str, str] = {}
+    missing = [s for s in required if s not in sec_map or not str(sec_map[s]).strip()]
+    if missing:
+        raise ValidationRepairError(f"fresh prompt missing required section(s): {missing}")
+    for s in required:
+        cleaned[s] = _strip_redundant_section_header(str(sec_map[s]).strip(), s)
+
+    if n_images > 0:
+        if not _TASK_BRACKET_RE.match(cleaned["summary"]):
+            cleaned["summary"] = f"[reference generation] {cleaned['summary']}"
+        # Ensure no invented <Picture M> beyond n_images and every attached <Picture 1..N> is referenced
+        all_text = "\n".join(cleaned.values())
+        pic_nums = {int(m) for m in re.findall(r"<Picture\s+(\d+)>", all_text)}
+        extra_pics = sorted(n for n in pic_nums if n < 1 or n > n_images)
+        if extra_pics:
+            raise ValidationRepairError(
+                f"fresh prompt referenced nonexistent <Picture N> index(es) {extra_pics}; only 1..{n_images} attached"
+            )
+        missing_pics = [i for i in range(1, n_images + 1) if i not in pic_nums]
+        if missing_pics:
+            raise ValidationRepairError(
+                f"fresh prompt omitted attached reference image tag(s): {[f'<Picture {i}>' for i in missing_pics]}"
+            )
+        desc_key = "detailed_description"
+    else:
+        desc_key = "integrated_multimodal_description"
+
+    if "[Shot 1]" not in cleaned[desc_key]:
+        raise ValidationRepairError(f"fresh prompt section {desc_key!r} must contain '[Shot 1]'")
+
+    assembled = "\n\n".join(f"{s}:\n{cleaned[s]}" for s in required)
+    axes = dict(parsed.get("axes") or {})
+    axes.setdefault("visual_changed", True)
+    axes.setdefault("audio_changed", True)
+    axes["preserve_step0_layout"] = False
+    if "deforms_ref_silhouette" not in axes and concept_brief and concept_brief.axis_hints:
+        axes["deforms_ref_silhouette"] = bool(concept_brief.axis_hints.get("deforms_ref_silhouette", False))
+    axes.setdefault("deforms_ref_silhouette", False)
+    axes.setdefault("temporal_curve", "whole_clip")
+
+    edit_words = len(assembled.split())
+    return {
+        "edited_prompt": assembled,
+        "changed_sections": required,
+        "reverted_locked": (),
+        "axes": axes,
+        "edit_lines_text": "",
+        "orig_words": 0,
+        "edit_words": edit_words,
+    }
+
+
 def _detect_has_references(original: str, prepared_images: Sequence[tuple[str, str]]) -> bool:
     if prepared_images:
         return True
@@ -1333,10 +1470,9 @@ def run_auto_edit_rewrite(
     bank_cv_dir: Path | None = None,
     use_cache: bool = True,
 ) -> dict[str, Any]:
-    """Execute or cache-hit one `MiniMaxH3AutoEditPrompt` rewrite and compile its `EditPlan`."""
+    """Execute or cache-hit one `MiniMaxH3AutoEditPrompt` rewrite (or fresh generation when `original` is blank) and compile its `EditPlan`."""
     orig_norm = _rules.normalize_prompt(original)
-    if not orig_norm:
-        raise ValueError("MiniMaxH3AutoEditPrompt: 'original' prompt is empty")
+    is_fresh_mode = not bool(orig_norm)
     if take_mode not in TAKE_MODES:
         raise ValueError(f"unknown take_mode {take_mode!r}; expected one of {TAKE_MODES}")
     if timing not in TIMING_MODES:
@@ -1347,6 +1483,8 @@ def run_auto_edit_rewrite(
         raise ValueError(f"unknown prompt_layout {prompt_layout!r}; expected one of {PROMPT_LAYOUTS}")
 
     if not enabled:
+        if is_fresh_mode:
+            raise ValueError("MiniMaxH3AutoEditPrompt: 'original' prompt is empty while enabled=False")
         disabled_plan = EditPlan(
             first_step=0,
             last_step=1000,
@@ -1393,14 +1531,6 @@ def run_auto_edit_rewrite(
         )
     )
 
-    resolved_scope, allowed_sections = resolve_allowed_sections(
-        orig_norm,
-        target_scope,
-        allow_retention_relax=bool(allow_retention_relax),
-        concept_brief=concept_brief,
-        has_edit_intent=bool(intent_clean),
-    )
-
     names = sorted(images or {}, key=lambda nm: int(nm.rsplit("_", 1)[-1]))
     raw_images = [images[nm] for nm in names if images[nm] is not None]
     if len(raw_images) > MAX_AUTO_EDIT_IMAGES:
@@ -1410,9 +1540,27 @@ def run_auto_edit_rewrite(
     prepared_images = [prepare_heylook_tensor(t, index=i) for i, t in enumerate(raw_images, start=1)]
     image_hashes = tuple(hashlib.sha256(b64.encode("ascii")).hexdigest()[:16] for b64, _ in prepared_images)
 
-    has_refs = _detect_has_references(orig_norm, prepared_images)
-    _lead, orig_chunks = parse_h3_sections(orig_norm)
-    is_sectioned = not (len(orig_chunks) == 1 and orig_chunks[0].name == "_unsectioned")
+    if is_fresh_mode:
+        resolved_scope = "fresh_ref2va" if prepared_images else "fresh_t2va"
+        allowed_sections = (
+            ("subject_definitions", "summary", "retention_analysis", "detailed_description", "overall_soundscape", "non_diegetic_music")
+            if prepared_images
+            else ("integrated_multimodal_description", "overall_soundscape", "non_diegetic_music")
+        )
+        has_refs = bool(prepared_images)
+        orig_chunks = ()
+        is_sectioned = True
+    else:
+        resolved_scope, allowed_sections = resolve_allowed_sections(
+            orig_norm,
+            target_scope,
+            allow_retention_relax=bool(allow_retention_relax),
+            concept_brief=concept_brief,
+            has_edit_intent=bool(intent_clean),
+        )
+        has_refs = _detect_has_references(orig_norm, prepared_images)
+        _lead, orig_chunks = parse_h3_sections(orig_norm)
+        is_sectioned = not (len(orig_chunks) == 1 and orig_chunks[0].name == "_unsectioned")
 
     base = resolve_heylook_base_url(base_url)
     preset_name = (preset or "").strip()
@@ -1464,16 +1612,24 @@ def run_auto_edit_rewrite(
             "report": f"{cached['report_base']} | take={take_mode}(step0={plan.first_step},streams={plan.streams},rel={plan.ref_end_percent:g},timing={plan.temporal_curve}) [cached]",
         }
 
-    base_sys_prompt = (custom_system_prompt or "").strip() or _read_system_prompt_file(rewrite_mode)
-    user_prompt = build_auto_edit_user_prompt(
-        original=orig_norm,
-        allowed_sections=allowed_sections,
-        allow_retention_relax=bool(allow_retention_relax),
-        rewrite_mode=rewrite_mode,
-        concept_brief=concept_brief,
-        edit_intent=intent_clean,
-        has_images=bool(prepared_images),
-    )
+    if is_fresh_mode:
+        base_sys_prompt = (custom_system_prompt or "").strip() or _read_system_prompt_file("fresh")
+        user_prompt = build_fresh_prompt_user_prompt(
+            concept_brief=concept_brief,
+            edit_intent=intent_clean,
+            n_images=len(prepared_images),
+        )
+    else:
+        base_sys_prompt = (custom_system_prompt or "").strip() or _read_system_prompt_file(rewrite_mode)
+        user_prompt = build_auto_edit_user_prompt(
+            original=orig_norm,
+            allowed_sections=allowed_sections,
+            allow_retention_relax=bool(allow_retention_relax),
+            rewrite_mode=rewrite_mode,
+            concept_brief=concept_brief,
+            edit_intent=intent_clean,
+            has_images=bool(prepared_images),
+        )
     if prompt_layout == "user_only" and not (custom_system_prompt or "").strip():
         sys_prompt = ""
         final_user_prompt = f"{base_sys_prompt}\n\n---\n\n{user_prompt}"
@@ -1483,9 +1639,22 @@ def run_auto_edit_rewrite(
 
     need_caps = frozenset({"chat", "vision"} if prepared_images else {"chat"})
     allow_audio_ret = target_scope == "all_sections"
-    validator_fn = (
-        apply_section_edits_validated if rewrite_mode == "section_edits" else apply_edit_lines_validated
-    )
+
+    def _run_validator(raw_text: str) -> dict[str, Any]:
+        if is_fresh_mode:
+            return validate_fresh_h3_prompt(
+                raw_text,
+                n_images=len(prepared_images),
+                concept_brief=concept_brief,
+            )
+        fn = apply_section_edits_validated if rewrite_mode == "section_edits" else apply_edit_lines_validated
+        return fn(
+            orig_norm,
+            raw_text,
+            allowed_sections=allowed_sections,
+            allow_audio_retention_edit=allow_audio_ret,
+            concept_brief=concept_brief,
+        )
 
     repair_used = False
     thinking_parts: list[str] = []
@@ -1524,13 +1693,7 @@ def run_auto_edit_rewrite(
             thinking_parts.append(t1)
 
         try:
-            validated = validator_fn(
-                orig_norm,
-                res.text,
-                allowed_sections=allowed_sections,
-                allow_audio_retention_edit=allow_audio_ret,
-                concept_brief=concept_brief,
-            )
+            validated = _run_validator(res.text)
         except ValidationRepairError as first_err:
             if res.stop_reason == "max_tokens":
                 raise RuntimeError(
@@ -1538,13 +1701,13 @@ def run_auto_edit_rewrite(
                     "Raise max_tokens or switch thinking to 'off' / lower reasoning_effort."
                 ) from first_err
             repair_used = True
-            valid_headers_note = ", ".join(c.name for c in orig_chunks)
+            valid_headers_note = ", ".join(allowed_sections) if is_fresh_mode else ", ".join(c.name for c in orig_chunks)
             repair_msg = (
                 f"Your output failed validation: {first_err}\n"
-                f"Valid section names in original: {valid_headers_note}\n"
+                f"Required/valid section names: {valid_headers_note}\n"
                 f"Allowed sections to edit: {', '.join(allowed_sections)}\n"
-                "Fix ONLY this validation error — do NOT drop or revert previously edited sections. "
-                "Output ALL changed Markdown sections and the `## axes` block."
+                "Fix ONLY this validation error — do NOT drop or revert previously written sections. "
+                "Output ALL required Markdown sections and the `## axes` block."
             )
             repair_body = build_heylook_request_body(
                 model_row=model_row,
@@ -1573,13 +1736,7 @@ def run_auto_edit_rewrite(
             if t2:
                 thinking_parts.append(t2)
             try:
-                validated = validator_fn(
-                    orig_norm,
-                    res.text,
-                    allowed_sections=allowed_sections,
-                    allow_audio_retention_edit=allow_audio_ret,
-                    concept_brief=concept_brief,
-                )
+                validated = _run_validator(res.text)
             except ValidationRepairError as second_err:
                 raise ValueError(
                     f"MiniMaxH3AutoEditPrompt validation failed after 1 repair attempt: {second_err}"

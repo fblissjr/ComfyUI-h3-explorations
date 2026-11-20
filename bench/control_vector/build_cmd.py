@@ -612,11 +612,21 @@ def cmd_build(args: argparse.Namespace) -> int:
     for row in summary_rows:
         cos_s = f"{row['mpc']:.4f}" if row.get("mpc") is not None else "n/a (1 pair)"
         sh_s = f"{row['split_half']:.4f}" if row.get("split_half") is not None else "n/a (1 pair)"
+        ppc = row.get("per_pair_cosine") or []
+        min_ppc = min(ppc) if ppc else None
+        weak_reasons: list[str] = []
+        if row.get("mpc") is not None and row["mpc"] < 0.62:
+            weak_reasons.append(f"mpc={row['mpc']:.3f}<0.62")
+        if row.get("split_half") is not None and row["split_half"] < 0.88:
+            weak_reasons.append(f"split_half={row['split_half']:.3f}<0.88")
+        if min_ppc is not None and min_ppc < 0.50:
+            weak_reasons.append(f"min_ppc={min_ppc:.3f}<0.50")
+        health_s = f"WEAK ({', '.join(weak_reasons)})" if weak_reasons else "PASS"
         print(
             f"  * {row['file']}\n"
             f"      family={row['family']}  pooling={row['pooling']}  "
-            f"raw_norm={row['raw_norm']:.2f}  cos={cos_s} (split_half={sh_s})  "
-            f"recommended strength: {row['rec_strength']}"
+            f"raw_norm={row['raw_norm']:.2f}  cos={cos_s} (split_half={sh_s})  health={health_s}\n"
+            f"      recommended strength: {row['rec_strength']}"
         )
         jl_row = row.get("j_lens")
         if isinstance(jl_row, dict) and jl_row.get("pos_summary"):
