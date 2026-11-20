@@ -153,7 +153,10 @@
       ],
       "width": 1152,
       "height": 768,
-      "length": 192,
+      "length": [
+        "134",
+        0
+      ],
       "canvas": "from_keyframe",
       "first_frame": [
         "15",
@@ -243,13 +246,22 @@
       "sigmas": "1.0, 0.972973, 0.923077, 0.8, 0.571429, 0.333333, 0.0"
     }
   },
+  "134": {
+    "class_type": "PrimitiveInt",
+    "inputs": {
+      "value": 192
+    }
+  },
   "14": {
     "class_type": "MiniMaxH3PromptExpander",
     "inputs": {
       "prompt": "Transition smoothly from the opening frame of Picture 1 through a cinematic mid-clip cut to the closing vista of Picture 2.",
       "concept": "none",
       "mode": "auto",
-      "length": 192,
+      "length": [
+        "134",
+        0
+      ],
       "enabled": true,
       "base_url": "",
       "model": "",
@@ -262,6 +274,15 @@
       ],
       "last_frame": [
         "16",
+        0
+      ]
+    }
+  },
+  "75": {
+    "class_type": "PreviewAny",
+    "inputs": {
+      "source": [
+        "14",
         0
       ]
     }

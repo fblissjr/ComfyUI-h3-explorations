@@ -3098,10 +3098,18 @@ def _wire_prompt_expander(g: dict, prompt: str, spec: dict) -> None:
             exp_inputs["first_frame"] = cond["inputs"]["first_frame"]
         if "last_frame" in cond["inputs"]:
             exp_inputs["last_frame"] = cond["inputs"]["last_frame"]
+        # When no MiniMaxH3Resolution node feeds `length` (e.g. fl2v `canvas="from_keyframe"`),
+        # share one `PrimitiveInt` (134) between conditioning and expander so Part One S.SS never drifts.
+        if isinstance(cond["inputs"].get("length"), int) and "length" not in spec:
+            g["134"] = {"class_type": "PrimitiveInt", "inputs": {"value": int(cond["inputs"]["length"])}}
+            cond["inputs"]["length"] = ["134", 0]
+            exp_inputs["length"] = ["134", 0]
         cond["inputs"]["prompt"] = ["14", 0]
     else:
         cond["inputs"]["prompt"] = ["14", 0]
     g["14"] = {"class_type": "MiniMaxH3PromptExpander", "inputs": exp_inputs}
+    # Surface the expanded prompt on the canvas via core's `PreviewAny` (75) so it can be read/copied.
+    g["75"] = {"class_type": "PreviewAny", "inputs": {"source": ["14", 0]}}
     if "135" in g and g["135"]["class_type"] == RELEASE_REFERENCES_NODE:
         g["135"]["inputs"]["video_end_percent"] = ["14", 1]
 

@@ -1202,6 +1202,8 @@ def check_shipped_workflows() -> None:
         base_ok = (
             wf.get("14", {}).get("class_type") == "MiniMaxH3PromptExpander"
             and wf.get("5", {}).get("inputs", {}).get("prompt") == ["14", 0]
+            and wf.get("75", {}).get("class_type") == "PreviewAny"
+            and wf.get("75", {}).get("inputs", {}).get("source") == ["14", 0]
             and wf.get("9", {}).get("class_type") == "BasicGuider"
             and "130" not in wf
             and "131" not in wf
@@ -1216,7 +1218,10 @@ def check_shipped_workflows() -> None:
         else:
             base_ok = (
                 base_ok
-                and wf.get("5", {}).get("inputs", {}).get("length") == 192
+                and wf.get("134", {}).get("class_type") == "PrimitiveInt"
+                and wf.get("134", {}).get("inputs", {}).get("value") == 192
+                and wf.get("5", {}).get("inputs", {}).get("length") == ["134", 0]
+                and wf.get("14", {}).get("inputs", {}).get("length") == ["134", 0]
                 and wf.get("14", {}).get("inputs", {}).get("first_frame") == wf["5"]["inputs"]["first_frame"]
                 and wf.get("14", {}).get("inputs", {}).get("last_frame") == wf["5"]["inputs"]["last_frame"]
             )
