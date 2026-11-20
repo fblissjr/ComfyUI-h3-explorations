@@ -456,12 +456,22 @@ def cmd_build(args: argparse.Namespace) -> int:
             tensors_to_save["vector.post_refiner"] = final_vec
             gen = torch.Generator(device="cpu").manual_seed(int(args.seed))
             q_report = cv.quality_report(a_mat, b_mat, w_vec, generator=gen)
+            raw_norm_before_holds = float(torch.linalg.vector_norm(pooled.raw_vec.to(dtype=torch.float64)).item())
             raw_norm = float(torch.linalg.vector_norm(final_vec.to(dtype=torch.float64)).item())
+            if raw_norm_before_holds > 1e-6 and (pooled.hold_basis is not None or applied_holds_build):
+                hold_loss_pct = 100.0 * (1.0 - raw_norm / raw_norm_before_holds)
+                if hold_loss_pct > 25.0:
+                    print(
+                        f"  WARNING: holds stripped {hold_loss_pct:.1f}% of post_refiner norm "
+                        f"({raw_norm_before_holds:.2f} -> {raw_norm:.2f}); check for correlated [[hold]]s",
+                        file=sys.stderr,
+                    )
 
             points_meta: dict[str, Any] = {
                 "post_refiner": {
                     "unit": "mean_pair_difference",
                     "raw_norm": raw_norm,
+                    "raw_norm_before_holds": raw_norm_before_holds,
                     "median_row_norm": median_ref_row_norm,
                 }
             }
@@ -487,6 +497,10 @@ def cmd_build(args: argparse.Namespace) -> int:
                         family=family,
                         top_k=12,
                     )
+                    if pooled.hold_basis is not None or applied_holds_build:
+                        jl_build_readout["norm_before_holds"] = round(raw_norm_before_holds, 4)
+                        jl_build_readout["norm_after_holds"] = round(raw_norm, 4)
+                        jl_build_readout["alpha"] = float(hold_alpha_build if applied_holds_build else 1.0)
                     jl_build_readout["b_side_alignment"] = j_lens.check_b_side_alignment(
                         jl_build_readout,
                         pair_set.b_side,

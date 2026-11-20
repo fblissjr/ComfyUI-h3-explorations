@@ -9,7 +9,9 @@ Follow these strict rules:
    - Omit every untouched section (including locked sections); untouched sections are copied byte-for-byte from `original`.
    - Use the EXACT section header name from `original` after `## section: ` (for example: `subject_definitions`, `summary`, `retention_analysis`, `detailed_description`, `integrated_multimodal_description`, `overall_soundscape`, `non_diegetic_music`, or `_unsectioned` when the prompt has no section headers). NEVER invent section headers that do not exist in `original`.
    - Put ONLY the complete rewritten body of that section directly beneath `## section: <name>` (do NOT repeat the `<section_name>:` header line inside the body).
-   - Inside each edited section, make the smallest local replacement needed for untouched details: keep every unchanged sentence, punctuation, and phrase intact rather than paraphrasing unrelated beats, and keep replacement length roughly comparable to the original wording whenever possible (except when a medium/silhouette overhaul requires re-texturing surface and motion phrasing below).
+   - Inside each edited section, distinguish between **local/grade edits** and **setting/pose/wardrobe/medium overhauls**:
+     - For *local/grade edits* (lighting, color grade, weather, subtle expression, or single-prop tweak), make the smallest local replacement needed and keep every unchanged sentence, punctuation, and phrase intact with comparable length.
+     - For *setting, pose, wardrobe, or medium overhauls*, actively **replace** every contradicting location, clothing, posture, camera-framing, and lighting clause in allowed visual sections so no stale baseline phrases leak into the edited prompt, while keeping `<Picture N>` identity, `<Subject N>`, `<d>...</d>` dialogue, and `[Shot N]` structure verbatim.
 
 2. Contradiction removal across modalities:
    - Replace or remove any wording in allowed sections that directly contradicts the requested edit (for example: replace `"Live-action, cinematic"` when changing to claymation, 2D animation, or watercolor; replace `"dry afternoon daylight"` when changing to neon night rain; replace `"black knit sweater"` when changing wardrobe).
@@ -36,11 +38,11 @@ Follow these strict rules:
    - `audio_changed` (`boolean`): `true` if `overall_soundscape` or `non_diegetic_music` changes; `false` if audio prose stays identical.
    - `preserve_step0_layout` (`boolean`):
      - `true` when the edit should keep the original shot's exact camera framing, actor blocking, pose, and silhouette from step 0 (weather/lighting/time-of-day shifts, optical film/camera grades, subtle age/expression tweaks, or audio-only re-dubs).
-     - `false` when the edit reshapes subject silhouette/body/pose, swaps a major medium/material (`claymation`, `muppet`, `origami`, `3D cartoon`), or re-stages the scene's geometry.
+     - `false` when the edit changes actor pose/blocking, swaps the physical setting/staging, substantially changes attire/silhouette, or swaps a major medium/material (`claymation`, `muppet`, `origami`, `3D cartoon`).
    - `deforms_ref_silhouette` (`boolean`):
-     - `true` for ANY full-scene medium/material overhaul (`claymation`, `felt muppet`, `origami`, `rubber hose`, `lava golem`, `inflate`) OR when a reference-conditioned edit substantially alters 3D silhouette, body build, drastic age, or major garment volume so reference latents release early (`end_percent = 0.33`). Always pair `deforms_ref_silhouette: true` with `preserve_step0_layout: false`.
-     - `false` for lighting/weather/color/background shifts, subtle aging, acoustic-only edits, or fitted wardrobe/color swaps that preserve pose and identity.
-   - `temporal_curve` (`string`): one of `"whole_clip"`, `"ramp_in"`, `"sudden_midclip"`, `"second_half"`. ALWAYS use `"whole_clip"` for static style, lighting, acoustic reverb, or wardrobe edits unless the user request or concept card explicitly asks for a progressive buildup (`"ramp_in"`) or a mid-clip / sudden onset (`"sudden_midclip"` or `"second_half"`).
+     - `true` for ANY full-scene medium/material overhaul (`claymation`, `felt muppet`, `origami`, `rubber hose`, `lava golem`, `inflate`) OR when a reference-conditioned edit substantially alters 3D silhouette, body build, pose geometry, drastic age, or major garment volume/attire so reference latents release early (`end_percent = 0.33`). Always pair `deforms_ref_silhouette: true` with `preserve_step0_layout: false`.
+     - `false` for lighting/weather/color/background shifts, subtle aging, acoustic-only edits, or minor color tweaks that preserve pose and silhouette.
+   - `temporal_curve` (`string`): one of `"whole_clip"`, `"ramp_in"`, `"sudden_midclip"`, `"second_half"`. ALWAYS use `"whole_clip"` for static style, lighting, setting, pose, acoustic reverb, or wardrobe edits — NEVER infer `"sudden_midclip"` or `"ramp_in"` merely from action prose (e.g. `"mid-reach"`, `"abruptly"`); use non-`"whole_clip"` curves ONLY when the user request or concept card explicitly asks for a progressive buildup or mid-clip transition.
    - `reason` (`string`): one concise sentence justifying your axis choices.
 
 Output contract:

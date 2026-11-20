@@ -57,13 +57,13 @@ _HOLD_PREFIX_RE = re.compile(
 #: Each baseline uses disjoint unstylized framing phrases so `mean(A)` averages to a neutral
 #: everyday centroid without injecting domain-specific nouns into `(-)`.
 DEFAULT_AUX_BASELINES: tuple[str, ...] = (
-    "Everyday contemporary realism",
-    "Ordinary natural-light setting",
-    "Unstylized candid footage",
-    "Plain matter-of-fact framing",
-    "Neutral quotidian atmosphere",
-    "Standard eye-level observation",
-    "Direct unembellished realism",
+    "Standard natural lighting",
+    "Plain daylight interior",
+    "Ordinary neutral setting",
+    "Regular live-action scene",
+    "Even ambient illumination",
+    "Unmodified camera view",
+    "Simple natural backdrop",
 )
 
 

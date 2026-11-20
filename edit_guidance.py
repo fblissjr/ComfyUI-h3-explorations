@@ -204,12 +204,13 @@ def _pool_spatial_continuous(m: torch.Tensor, target_h: int, target_w: int) -> t
     return chunks[0] if len(chunks) == 1 else torch.cat(chunks, dim=0)
 
 
-def _pool_causal_temporal(m: torch.Tensor, runs: list[int]) -> torch.Tensor:
-    """Causal `[1, 4, 4, 4, 4]` max-pooling along dim 0 into `[len(runs), ...]`."""
+def _pool_causal_temporal(m: torch.Tensor, runs: list[int], *, mode: str = "max") -> torch.Tensor:
+    """Causal `[1, 4, 4, 4, 4]` pooling (`max` for spatial masks, `mean` for 1D continuous ramps) into `[len(runs), ...]`."""
     steps = []
     pos = 0
     for run in runs:
-        steps.append(m[pos:pos + run].amax(dim=0))
+        seg = m[pos:pos + run]
+        steps.append(seg.mean(dim=0) if mode == "mean" else seg.amax(dim=0))
         pos += run
     return torch.stack(steps, dim=0)
 
@@ -423,7 +424,7 @@ class EditGuider(comfy.samplers.CFGGuider):
                 v_m = eff_raw.reshape(1, 1, 1, 1, 1).expand(1, 1, t_lat, 1, 1).contiguous().to(device=device, dtype=dtype)
                 a_m = None if a_key is None else eff_raw.reshape((1,) * len(a_key)).to(device=device, dtype=dtype)
             else:
-                v_m = _pool_causal_temporal(eff_raw, runs).reshape(1, 1, t_lat, 1, 1).to(device=device, dtype=dtype)
+                v_m = _pool_causal_temporal(eff_raw, runs, mode="mean").reshape(1, 1, t_lat, 1, 1).to(device=device, dtype=dtype)
                 if a_key is None:
                     a_m = None
                 else:

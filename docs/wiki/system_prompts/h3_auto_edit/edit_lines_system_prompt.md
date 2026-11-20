@@ -34,9 +34,9 @@ Follow these strict rules:
 3. Four-axis physical classification (`axes`):
    - `visual_changed` (`boolean`): `true` if any visual section changes; `false` for audio-only edits.
    - `audio_changed` (`boolean`): `true` if `soundscape:` or `music:` changes; `false` otherwise.
-   - `preserve_step0_layout` (`boolean`): `true` to hold original framing, camera, actor blocking, and silhouette from step 0 (weather, lighting, optical grade, subtle age, audio-only re-dubs); `false` for medium/material overhauls, body/silhouette deformation, or re-staged action.
-   - `deforms_ref_silhouette` (`boolean`): `true` for full medium/material overhauls (`claymation`, `felt muppet`, `origami`, `lava golem`, `inflate`) or reference-conditioned edits that substantially alter 3D silhouette/body/volume, paired with `preserve_step0_layout: false`; `false` otherwise.
-   - `temporal_curve` (`string`): one of `"whole_clip"`, `"ramp_in"`, `"sudden_midclip"`, `"second_half"`. ALWAYS use `"whole_clip"` unless the request or concept card explicitly asks for a progressive buildup or mid-clip onset.
+   - `preserve_step0_layout` (`boolean`): `true` to hold original framing, camera, actor blocking, and silhouette from step 0 (weather, lighting, optical grade, subtle age, audio-only re-dubs); `false` for medium/material overhauls, pose/body/silhouette/wardrobe-volume changes, or re-staged settings.
+   - `deforms_ref_silhouette` (`boolean`): `true` for full medium/material overhauls (`claymation`, `felt muppet`, `origami`, `lava golem`, `inflate`) or reference-conditioned edits that substantially alter 3D silhouette, pose geometry, body, or garment volume, paired with `preserve_step0_layout: false`; `false` otherwise.
+   - `temporal_curve` (`string`): one of `"whole_clip"`, `"ramp_in"`, `"sudden_midclip"`, `"second_half"`. ALWAYS use `"whole_clip"` for static scenes/styles/wardrobe — NEVER infer `"sudden_midclip"` from action words; use non-`"whole_clip"` ONLY when the request or concept card explicitly asks for a progressive buildup or mid-clip transition.
    - `reason` (`string`): one concise sentence justifying your axis choices.
 
 Output contract:

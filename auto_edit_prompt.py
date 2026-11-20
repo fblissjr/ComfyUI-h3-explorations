@@ -1231,7 +1231,8 @@ def build_auto_edit_user_prompt(
         if concept_brief.axis_hints:
             hint_parts = [f"{k}={json.dumps(concept_brief.axis_hints[k])}" for k in sorted(concept_brief.axis_hints)]
             c_lines.append(
-                "Concept default axis hints (follow unless user edit instruction contradicts): "
+                "Concept default axis hints (advisory tie-breaker only — override whenever the concept or "
+                "edit instruction changes pose, setting, attire, medium, or silhouette): "
                 + ", ".join(hint_parts)
             )
             if concept_brief.axis_hints.get("deforms_ref_silhouette") is True:

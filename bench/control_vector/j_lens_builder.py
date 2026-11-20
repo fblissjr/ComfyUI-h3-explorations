@@ -557,12 +557,18 @@ def cmd_build_j_lens(args: argparse.Namespace) -> int:
     if not getattr(args, "no_lora", False):
         try:
             fl2va_loras = _parse_lora_specs([f"{h3_config.PIKA_FL2VA_SVD995_LORA}:1.0"])
-        except Exception:
-            fl2va_loras = []
+        except Exception as exc:
+            raise RuntimeError(
+                f"Failed to load default FL2VA LoRA {h3_config.PIKA_FL2VA_SVD995_LORA!r} for J-Lens calibration "
+                "(pass --no-lora explicitly to calibrate without LoRAs)"
+            ) from exc
         try:
             ref2va_loras = _parse_lora_specs([f"{h3_config.PIKA_REF2VA_SVD995_LORA}:1.0"])
-        except Exception:
-            ref2va_loras = []
+        except Exception as exc:
+            raise RuntimeError(
+                f"Failed to load default REF2VA LoRA {h3_config.PIKA_REF2VA_SVD995_LORA!r} for J-Lens calibration "
+                "(pass --no-lora explicitly to calibrate without LoRAs)"
+            ) from exc
 
     ref_dev = getattr(args, "refiner_device", "cpu") or "cpu"
     j_ref_fl2va, j_wiener_fl2va = compute_refiner_jacobian_and_wiener(

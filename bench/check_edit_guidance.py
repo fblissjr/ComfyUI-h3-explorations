@@ -647,7 +647,8 @@ def check_guider_mask() -> None:
         ok("temporal_curve='ramp_in' runs 2 passes and ramps video causally & audio continuously from 0 to scale",
            seen == [["original", "edited"]]
            and approx(float(v_rmp[0, 0, 0, 0, 0]), 1.0)
-           and approx(float(v_rmp[0, 0, -1, 0, 0]), 5.0)
+           and float(v_rmp[0, 0, 0, 0, 0]) < float(v_rmp[0, 0, 3, 0, 0]) < float(v_rmp[0, 0, -1, 0, 0])
+           and approx(float(v_rmp[0, 0, -1, 0, 0]), 4.7143, tol=0.05)
            and approx(float(a_rmp[0, 0, 0, 0]), 10.0, tol=0.5)
            and approx(float(a_rmp[0, 0, 0, -1]), 30.0, tol=0.5))
 
