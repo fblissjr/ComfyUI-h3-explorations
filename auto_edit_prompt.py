@@ -641,11 +641,137 @@ def _normalize_axes(raw_axes: Any, *, concept_brief: ConceptBrief | None = None)
 
 
 def parse_auto_edit_json(raw_text: str, *, concept_brief: ConceptBrief | None = None) -> dict[str, Any]:
-    """Parse and normalize `{section_edits | edit_lines, axes}` from a `heylook` reply."""
+    """Parse and normalize `{section_edits | edit_lines, axes}` from a JSON `heylook` reply."""
     cleaned = _strip_think_and_fence(raw_text)
     obj = _extract_balanced_json(cleaned)
     axes = _normalize_axes(obj.get("axes"), concept_brief=concept_brief)
     return {"obj": obj, "axes": axes}
+
+
+_MD_CONTAINER_RE = re.compile(r"^#{1,4}\s*section_edits\s*:?\s*$", re.IGNORECASE)
+_MD_EDIT_LINES_RE = re.compile(r"^#{1,4}\s*edit_lines\s*:?\s*$", re.IGNORECASE)
+_MD_AXES_RE = re.compile(r"^#{1,4}\s*axes\s*:?\s*$", re.IGNORECASE)
+_MD_SECTION_RE = re.compile(
+    r"^#{1,4}\s*(?:section\s*:\s*(?P<named>[a-zA-Z0-9_ :]+?)|"
+    r"(?P<bare>subject_definitions|summary|retention_analysis|detailed_description|"
+    r"integrated_multimodal_description|overall_soundscape|non_diegetic_music|_unsectioned))\s*:?\s*$",
+    re.IGNORECASE,
+)
+
+
+def _parse_markdown_axes_block(lines: Sequence[str]) -> dict[str, Any]:
+    axes: dict[str, Any] = {}
+    for raw in lines:
+        s = raw.strip()
+        if not s:
+            continue
+        s = re.sub(r"^(?:[-*•]+|\d+[.)])\s+", "", s).strip()
+        if ":" not in s:
+            continue
+        raw_k, raw_v = s.split(":", 1)
+        key = raw_k.strip().strip("`*_ ").lower()
+        val_s = raw_v.strip()
+        if len(val_s) >= 2 and val_s[0] == val_s[-1] and val_s[0] in ("`", '"', "'"):
+            val_s = val_s[1:-1].strip()
+        if key in ("visual_changed", "audio_changed", "preserve_step0_layout", "deforms_ref_silhouette"):
+            low = val_s.lower()
+            if low in ("true", "yes", "1"):
+                axes[key] = True
+            elif low in ("false", "no", "0"):
+                axes[key] = False
+            else:
+                axes[key] = val_s
+        elif key in ("temporal_curve", "reason"):
+            axes[key] = val_s
+    return axes
+
+
+def _extract_markdown_reply(text: str) -> dict[str, Any] | None:
+    """Parse `## section: <name>` / `## edit_lines` + `## axes` Markdown blocks, or return `None`."""
+    section_edits: dict[str, str] = {}
+    edit_lines: list[str] = []
+    axes_lines: list[str] = []
+    cur_kind: str | None = None
+    cur_name: str = ""
+    cur_buf: list[str] = []
+    saw_heading = False
+
+    def _flush() -> None:
+        nonlocal cur_kind, cur_name, cur_buf
+        if cur_kind == "section" and cur_name:
+            body = "\n".join(cur_buf).strip()
+            if body:
+                section_edits[cur_name] = body
+        elif cur_kind == "edit_lines":
+            for ln in cur_buf:
+                cln = _clean_edit_line(ln)
+                if cln:
+                    edit_lines.append(cln)
+        elif cur_kind == "axes":
+            axes_lines.extend(cur_buf)
+        cur_kind = None
+        cur_name = ""
+        cur_buf = []
+
+    for line in text.splitlines():
+        st = line.strip()
+        if _MD_CONTAINER_RE.match(st):
+            _flush()
+            saw_heading = True
+            continue
+        if _MD_EDIT_LINES_RE.match(st):
+            _flush()
+            saw_heading = True
+            cur_kind = "edit_lines"
+            continue
+        if _MD_AXES_RE.match(st):
+            _flush()
+            saw_heading = True
+            cur_kind = "axes"
+            continue
+        msec = _MD_SECTION_RE.match(st)
+        if msec:
+            _flush()
+            saw_heading = True
+            cur_kind = "section"
+            cur_name = (msec.group("named") or msec.group("bare") or "").strip()
+            continue
+        if cur_kind is not None:
+            cur_buf.append(line)
+
+    _flush()
+    if not saw_heading:
+        return None
+    obj: dict[str, Any] = {}
+    if section_edits:
+        obj["section_edits"] = section_edits
+    if edit_lines:
+        obj["edit_lines"] = edit_lines
+    if axes_lines:
+        obj["axes"] = _parse_markdown_axes_block(axes_lines)
+    return obj
+
+
+def parse_auto_edit_reply(raw_text: str, *, concept_brief: ConceptBrief | None = None) -> dict[str, Any]:
+    """Parse Markdown (`## section:` / `## edit_lines` + `## axes`) or JSON `{..., axes}` from `heylook`."""
+    cleaned = _strip_think_and_fence(raw_text)
+    if cleaned.lstrip().startswith("{"):
+        obj = _extract_balanced_json(cleaned)
+        axes = _normalize_axes(obj.get("axes"), concept_brief=concept_brief)
+        return {"obj": obj, "axes": axes}
+    md_obj = _extract_markdown_reply(cleaned)
+    if md_obj is not None:
+        if "axes" not in md_obj:
+            raise ValidationRepairError("reply is missing required '## axes' block")
+        axes = _normalize_axes(md_obj.get("axes"), concept_brief=concept_brief)
+        return {"obj": md_obj, "axes": axes}
+    if "{" in cleaned and "}" in cleaned:
+        obj = _extract_balanced_json(cleaned)
+        axes = _normalize_axes(obj.get("axes"), concept_brief=concept_brief)
+        return {"obj": obj, "axes": axes}
+    raise ValidationRepairError(
+        "reply must contain Markdown '## section: <name>' (or '## edit_lines') and '## axes' blocks"
+    )
 
 
 def _resolve_section_key(raw_key: str, original: str, present_names: set[str]) -> str:
@@ -799,13 +925,13 @@ def apply_section_edits_validated(
     allow_audio_retention_edit: bool,
     concept_brief: ConceptBrief | None = None,
 ) -> dict[str, Any]:
-    """Validate JSON `section_edits` + `axes`, copy locked sections byte-for-byte, and return result dict."""
-    parsed = parse_auto_edit_json(raw_reply, concept_brief=concept_brief)
+    """Validate `section_edits` + `axes` (Markdown or JSON), copy locked sections byte-for-byte, and return result dict."""
+    parsed = parse_auto_edit_reply(raw_reply, concept_brief=concept_brief)
     obj = parsed["obj"]
     axes = parsed["axes"]
     raw_edits = obj.get("section_edits")
     if not isinstance(raw_edits, Mapping) or not raw_edits:
-        raise ValidationRepairError("JSON reply must include a non-empty 'section_edits' object")
+        raise ValidationRepairError("reply must include at least one changed '## section: <name>' block")
 
     leading, chunks = parse_h3_sections(original)
     present_names = {c.name for c in chunks}
@@ -880,8 +1006,8 @@ def apply_edit_lines_validated(
     allow_audio_retention_edit: bool,
     concept_brief: ConceptBrief | None = None,
 ) -> dict[str, Any]:
-    """Validate JSON `edit_lines` + `axes` through `h3_prompt_edit.apply_edits` with strict scope guards."""
-    parsed = parse_auto_edit_json(raw_reply, concept_brief=concept_brief)
+    """Validate `edit_lines` + `axes` (Markdown or JSON) through `h3_prompt_edit.apply_edits` with strict scope guards."""
+    parsed = parse_auto_edit_reply(raw_reply, concept_brief=concept_brief)
     obj = parsed["obj"]
     axes = parsed["axes"]
     raw_lines = obj.get("edit_lines")
@@ -890,7 +1016,7 @@ def apply_edit_lines_validated(
     elif isinstance(raw_lines, str):
         cleaned = [_clean_edit_line(ln) for ln in raw_lines.splitlines() if _clean_edit_line(ln)]
     else:
-        raise ValidationRepairError("JSON reply must include 'edit_lines' as a non-empty list of 'old -> new' strings")
+        raise ValidationRepairError("reply must include a non-empty '## edit_lines' block of 'old -> new' lines")
 
     if not cleaned:
         raise ValidationRepairError("edit_lines list is empty; emit at least one 'old -> new' line")
@@ -1128,14 +1254,13 @@ def build_auto_edit_user_prompt(
 
     if rewrite_mode == "section_edits":
         parts.append(
-            "Task: Return ONLY the JSON object `{\"section_edits\": {...}, \"axes\": {...}}`. "
-            "Include ONLY allowed sections that actually change, keeping all tags, dialogue <d>...</d>, "
-            "speaker IDs, and [Shot N] headers verbatim."
+            "Task: Return ONLY Markdown `## section: <exact_section_name>` blocks for changed allowed sections "
+            "followed by `## axes`, keeping all tags, dialogue <d>...</d>, speaker IDs, and [Shot N] headers verbatim."
         )
     else:
         parts.append(
-            "Task: Return ONLY the JSON object `{\"edit_lines\": [...], \"axes\": {...}}`. "
-            "Each line must match an exact unique phrase inside an allowed section of original."
+            "Task: Return ONLY a Markdown `## edit_lines` bullet list (`- <section_prefix>: <old> -> <new>`) "
+            "followed by `## axes`. Each line must match an exact unique phrase inside an allowed section of original."
         )
     return "\n\n".join(parts)
 
@@ -1386,10 +1511,10 @@ def run_auto_edit_rewrite(
             repair_used = True
             valid_headers_note = ", ".join(c.name for c in orig_chunks)
             repair_msg = (
-                f"Your JSON output failed validation: {first_err}\n"
+                f"Your output failed validation: {first_err}\n"
                 f"Valid section names in original: {valid_headers_note}\n"
                 f"Allowed sections to edit: {', '.join(allowed_sections)}\n"
-                "Fix ONLY this issue and output ONLY the corrected single valid JSON object."
+                "Fix ONLY this issue and output ONLY the corrected Markdown sections and `## axes` block."
             )
             repair_body = build_heylook_request_body(
                 model_row=model_row,
@@ -1623,8 +1748,8 @@ class MiniMaxH3AutoEditPrompt(io.ComfyNode):
                     optional=True,
                     tooltip=(
                         "'section_edits' (default, handles sparse and dense prompts) rewrites only "
-                        "changed sections in JSON; 'edit_lines' emits old -> new lines validated via "
-                        "MiniMaxH3PromptEdit."
+                        "changed sections in Markdown (`## section: ...`); 'edit_lines' emits old -> new "
+                        "lines validated via MiniMaxH3PromptEdit."
                     ),
                 ),
                 io.Boolean.Input(

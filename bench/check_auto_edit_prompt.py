@@ -191,8 +191,16 @@ def check_concepts_and_sections() -> None:
         )
         ok("Concept default axis hints" in usr_prompt_with_hints
            and "Concept default temporal_curve: ramp_in" in usr_prompt_with_hints
-           and "Silhouette/medium overhaul active" not in usr_prompt_with_hints,
-           "build_auto_edit_user_prompt surfaces ConceptBrief axis_hints and timing_hint")
+           and "Silhouette/medium overhaul active" not in usr_prompt_with_hints
+           and "## section:" in usr_prompt_with_hints
+           and "JSON" not in usr_prompt_with_hints,
+           "build_auto_edit_user_prompt surfaces ConceptBrief axis_hints, timing_hint, and Markdown task")
+
+        sys_sec = aep._read_system_prompt_file("section_edits")
+        sys_el = aep._read_system_prompt_file("edit_lines")
+        ok("## section:" in sys_sec and "no JSON" in sys_sec
+           and "## edit_lines" in sys_el and "no JSON" in sys_el,
+           "auto-edit system prompt files use Markdown output contract without JSON object rules")
 
         deform_brief = dataclasses.replace(
             brief_prio,
@@ -388,6 +396,68 @@ def check_validators_and_repair() -> None:
                     "axes": {"visual_changed": True, "audio_changed": False, "preserve_step0_layout": True, "deforms_ref_silhouette": False, "temporal_curve": "whole_clip"},
                 }),
                 allowed_sections=("detailed_description",),
+                allow_audio_retention_edit=False,
+            ))
+
+    # Markdown primary format: ## section: <name>, bare ## <name>, ## edit_lines, and ## axes
+    md_sec_reply = (
+        "## section: summary\n"
+        "[text to video] A single continuous tracking shot through a neon-drenched night market.\n\n"
+        "## detailed_description\n"
+        "The target video is in a cinematic live-action style.\n"
+        '[Shot 1] The camera dollies forward along wet stone paving past "canvas" neon stalls. '
+        "The butcher with a gruff baritone (S1) calls out: <d>[English] Fresh catch today!</d> "
+        "A chalkboard sign reads <|caption_start|>FRESH MARKET<|caption_end|> beside neon lanterns.\n\n"
+        "## non_diegetic_music\n"
+        "Hallucinated soundtrack lock test.\n\n"
+        "## axes\n"
+        "- `visual_changed`: `true`\n"
+        "- `audio_changed`: `false`\n"
+        "- `preserve_step0_layout`: `true`\n"
+        "- `deforms_ref_silhouette`: `false`\n"
+        "- `temporal_curve`: `whole_clip`\n"
+        "- reason: Unescaped \"quotes\" in prose and tags parse directly without JSON.\n"
+    )
+    res_md_sec = aep.apply_section_edits_validated(
+        SAMPLE_T2VA,
+        md_sec_reply,
+        allowed_sections=("summary", "detailed_description"),
+        allow_audio_retention_edit=False,
+    )
+    ok("neon-drenched night market" in res_md_sec["edited_prompt"]
+       and "non_diegetic_music:\nN/A" in res_md_sec["edited_prompt"]
+       and "non_diegetic_music" in res_md_sec["reverted_locked"]
+       and res_md_sec["axes"]["visual_changed"] is True
+       and res_md_sec["axes"]["temporal_curve"] == "whole_clip",
+       "Markdown ## section: + bare ## <name> + ## axes parses cleanly with unescaped quotes and locks untouched sections")
+
+    md_el_reply = (
+        "## edit_lines\n"
+        "- summary: a busy daylight market -> a rain-slicked neon night market\n"
+        "- soundscape: Soft footsteps on dry cobblestones, distant harbor gulls, and quiet wooden cart wheels. -> Heavy rainfall on wet cobblestones.\n\n"
+        "## axes\n"
+        "visual_changed: true\n"
+        "audio_changed: true\n"
+        "preserve_step0_layout: true\n"
+        "deforms_ref_silhouette: false\n"
+        "temporal_curve: whole_clip\n"
+        "reason: Rain atmosphere added.\n"
+    )
+    res_md_el = aep.apply_edit_lines_validated(
+        SAMPLE_T2VA,
+        md_el_reply,
+        allowed_sections=("summary", "detailed_description", "overall_soundscape"),
+        allow_audio_retention_edit=False,
+    )
+    ok("Heavy rainfall on wet cobblestones." in res_md_el["edited_prompt"]
+       and "rain-slicked neon night market" in res_md_el["edited_prompt"],
+       "Markdown ## edit_lines + ## axes places edits cleanly")
+
+    refuses("Markdown reply missing ## axes triggers ValidationRepairError",
+            lambda: aep.apply_section_edits_validated(
+                SAMPLE_T2VA,
+                "## section: summary\n[text to video] A neon market.\n",
+                allowed_sections=("summary",),
                 allow_audio_retention_edit=False,
             ))
 
@@ -617,12 +687,24 @@ def check_url_resolution_and_mock_sse() -> None:
                 time.sleep(0.05)
                 return
 
-            # Default good JSON (or invalid first -> repaired second)
+            # Default good JSON / Markdown (or invalid first -> repaired second)
             if mode == "repair_and_retry" and attempt == 1:
                 reply_json = json.dumps({
                     "section_edits": {"bad_hallucinated_section": "nope"},
                     "axes": {"visual_changed": True, "audio_changed": False, "preserve_step0_layout": True, "deforms_ref_silhouette": False, "temporal_curve": "whole_clip"},
                 })
+            elif mode == "good_md":
+                reply_json = (
+                    "## section: summary\n"
+                    "[text to video] Neon night market pier in pouring rain.\n\n"
+                    "## axes\n"
+                    "visual_changed: true\n"
+                    "audio_changed: false\n"
+                    "preserve_step0_layout: true\n"
+                    "deforms_ref_silhouette: false\n"
+                    "temporal_curve: ramp_in\n"
+                    "reason: markdown neon rain\n"
+                )
             else:
                 reply_json = json.dumps({
                     "section_edits": {"summary": "[text to video] Neon night market pier in pouring rain."},
@@ -717,6 +799,19 @@ def check_url_resolution_and_mock_sse() -> None:
             )
             ok(r_inval["cache_hit"] is False and len(state["posts"]) == posts_before + 1,
                "editing concept TOML invalidates LRU cache entry via (path, mtime_ns, size)")
+
+            # 4b. Markdown SSE reply end-to-end via run_auto_edit_rewrite
+            state["mode"] = "good_md"
+            r_md = aep.run_auto_edit_rewrite(
+                original=SAMPLE_T2VA,
+                edit_intent="Pouring neon rain on wet pier.",
+                base_url=srv_url,
+                use_cache=False,
+            )
+            ok("Neon night market pier in pouring rain." in r_md["edited_prompt"]
+               and r_md["edit_plan"].temporal_curve == "ramp_in"
+               and r_md["repair_used"] is False,
+               "run_auto_edit_rewrite parses Markdown SSE replies end-to-end with 0 repairs")
 
         # 5. 503 backoff retry generates distinct X-Request-ID
         state["mode"] = "503_once"
