@@ -840,12 +840,26 @@ def _validate_modified_section_invariants(
             f"section {sec_name!r} altered speaker tags: expected {orig_spk!r}, got {new_spk!r}"
         )
 
-    # 4. Exact multiset of <Subject N>, <Picture N>, <Video N>, <Audio N> tags
-    orig_tags = Counter(_MEDIA_REF_TAG_RE.findall(orig_body))
-    new_tags = Counter(_MEDIA_REF_TAG_RE.findall(new_body))
-    if orig_tags != new_tags:
+    # 4. Media/subject tag set preservation (<Subject N>, <Picture N>, <Video N>, <Audio N>):
+    # Never invent nonexistent tags or drop bound subjects/media; allow natural repeated mentions
+    # of existing <Subject N> tags in prose sections (summary / detailed_description).
+    orig_tag_set = set(_MEDIA_REF_TAG_RE.findall(orig_body))
+    new_tag_set = set(_MEDIA_REF_TAG_RE.findall(new_body))
+    invented = sorted(new_tag_set - orig_tag_set)
+    if invented:
         raise ValidationRepairError(
-            f"section {sec_name!r} altered media/subject tags: expected {dict(orig_tags)}, got {dict(new_tags)}"
+            f"section {sec_name!r} invented media/subject tag(s): {invented} (allowed: {sorted(orig_tag_set)})"
+        )
+    if sec_name in ("subject_definitions", "retention_analysis"):
+        missing = sorted(orig_tag_set - new_tag_set)
+    else:
+        # In narrative sections, every <Subject N> / <Video N> / <Audio N> must remain present,
+        # while a <Picture N> reference tied to a replaced wardrobe phrase may be omitted.
+        required = {t for t in orig_tag_set if not t.startswith("<Picture ")}
+        missing = sorted(required - new_tag_set)
+    if missing:
+        raise ValidationRepairError(
+            f"section {sec_name!r} dropped required media/subject tag(s): {missing}"
         )
 
     # 4b. Exact ordered <|...|> control tags (<|caption_start|>, <|lyrics_start|>, <|cutoff|>, etc.)

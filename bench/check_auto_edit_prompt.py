@@ -277,6 +277,31 @@ def check_validators_and_repair() -> None:
        and "non_diegetic_music:\nN/A" in res_sec["edited_prompt"],
        "section_edits rewrites target sections cleanly and leaves untouched non_diegetic_music bitwise")
 
+    # Repeated <Subject 1> mentions in detailed_description are allowed; invented or dropped tags still refuse
+    res_rep = aep.apply_section_edits_validated(
+        SAMPLE_REF2VA,
+        "## section: detailed_description\n"
+        "In <Subject 1>'s bright scene, <Subject 1> wears an olive jacket as <Subject 1> "
+        "turns toward the water: <d>[English] Wait for the ferry.</d><|cutoff|>\n\n"
+        "## axes\nvisual_changed: true\naudio_changed: false\npreserve_step0_layout: false\n"
+        "deforms_ref_silhouette: true\ntemporal_curve: whole_clip\nreason: jacket swap\n",
+        allowed_sections=("detailed_description",),
+        allow_audio_retention_edit=False,
+    )
+    ok(res_rep["edited_prompt"].count("<Subject 1>") >= 5,
+       "section_edits allows repeated <Subject N> mentions in detailed_description and omitting replaced <Picture 1> ref")
+    refuses("invented <Subject 9> triggers ValidationRepairError",
+            lambda: aep.apply_section_edits_validated(
+                SAMPLE_REF2VA,
+                "## section: detailed_description\n"
+                "<Subject 1> and <Subject 9> turn toward the water: <d>[English] Wait for the ferry.</d><|cutoff|>\n\n"
+                "## axes\nvisual_changed: true\naudio_changed: false\npreserve_step0_layout: false\n"
+                "deforms_ref_silhouette: true\ntemporal_curve: whole_clip\nreason: test\n",
+                allowed_sections=("detailed_description",),
+                allow_audio_retention_edit=False,
+            ),
+            "invented")
+
     # Locked section edits are safely ignored if another allowed section also changed,
     # or refused if ONLY a locked section changed.
     bad_locked = json.dumps({
