@@ -1,36 +1,30 @@
 # Which Tool Is Which, and What to Call the Word Readout
 
-Last updated: 2026-11-12.
+Last updated: 2026-11-20.
 
-This pack has three things that get mentioned together: control vectors, edit guidance, and the J-Lens. They
-are not three of a kind. Two of them steer a render. The third mostly reads.
+This pack has four parts that get mentioned together: **Prompt Expander**, **Control Vectors**, **Edit Guidance**, and the **J-Lens**. Prompt Expander authors complete `1x` prompts; Control Vectors and Edit Guidance steer renders; J-Lens mostly reads.
 
-Read this page first if you are explaining the pack to someone else. For the step-by-step mechanism of the
-word readout see [`how_the_word_readout_works.md`](how_the_word_readout_works.md). For worked cases see
-[`worked_examples.md`](worked_examples.md).
+Read this page first if you are explaining the pack to someone else. For the step-by-step mechanism of the word readout see [`how_the_word_readout_works.md`](how_the_word_readout_works.md). For worked cases see [`worked_examples.md`](worked_examples.md).
 
 ---
 
-## 1. The three, side by side
+## 1. The four, side by side
 
-| | Control vector | Edit guidance | Word readout (J-Lens) |
-|---|---|---|---|
-| **What it is** | One direction added to the prompt's text tokens | Two prompts compared at every guided step | A translator between a vector and English words |
-| **Where it acts** | After the token refiner, before the DiT | Inside the DiT's predicted update | Nowhere in the render, unless its output is wired into a Steer node |
-| **Built from** | The average difference between pairs of prompts | Your own prompt and `old wording -> new wording` edits | The text encoder's weights, once, into a bundle file |
-| **Render cost** | One model pass, the same as no steering | A second model pass on every guided step | None. It runs on the CPU |
-| **Good for** | Reusable looks, moods, weather and sound spaces, on any prompt | An exact change to one outfit, prop or action in one shot | Checking a vector before rendering, scrubbing a side effect, sketching a vector from words |
-| **Cannot do** | Reliably replace one specific noun | Be saved and reused on another prompt | Tell you what the video will show |
+| | Video Prompt Expander (`MiniMaxH3PromptExpander`) | Control vector (`MiniMaxH3Steer`) | Edit guidance (`MiniMaxH3EditGuider`) | Word readout (J-Lens) |
+|---|---|---|---|---|
+| **What it is** | Local `heylook` authoring + Python grammar contract ([`h3_prompt_contract.py`](../../../h3_prompt_contract.py)) | One direction added to the prompt's text tokens | Two prompts compared at every guided step | A translator between a vector and English words |
+| **Where it acts** | Before `Qwen3-VL` conditioning (writes the prompt itself) | After the token refiner, before the DiT (`token_focus = 1.0`) | Inside the DiT's predicted update | Nowhere in the render, unless wired as `MiniMaxH3WordVector` or `hold_words` |
+| **Built from** | Short scene idea + concept card + wired media/length | The average difference between 10 diverse pairs of prompts (`--families fl2va`) | Your `original` prompt and edits (`MiniMaxH3PromptEdit` or `MiniMaxH3AutoEditPrompt`) | The text encoder's weights, once, into a bundle file |
+| **Render cost** | One `Qwen3-VL` + one `1x` `BasicGuider` pass | One model pass (`1x`), the same as no steering | A second model pass on every guided step (`2x`) | None. It runs on the CPU |
+| **Good for** | Fresh multi-shot scenes, mutually exclusive lighting looks, wardrobe, blocking, dialogue | Reusable orthogonal film-stock, medium, material, and acoustic-timbre dials (`bank/`) | Keeping an existing take/seed while tweaking weather, `audio_only`, or a `[F, H, W]` mask | Checking a vector by eye before rendering, scrubbing a side effect, sketching a vector from single words |
+| **Cannot do** | Preserve step-0 latent trajectory of an unrelated existing render | Erase contradictory light sources written in the prompt, or bind multi-part choreography/wardrobe | Be saved and reused across arbitrary scenes | Guarantee DiT visual success (or parse multi-token phrases) |
 
 Where each lives in the code:
 
-- **Control vector**: `control_vector_nodes.py::MiniMaxH3Steer` applies one. The hub page,
-  [`../control_vectors.md`](../control_vectors.md), says how they are built and which rows they touch.
-- **Edit guidance**: `edit_guidance.py::MiniMaxH3EditGuider` with `edit_guidance.py::MiniMaxH3PromptEdit`.
-  [`../edit_guidance.md`](../edit_guidance.md) has the dials and the pass counts.
-- **Word readout**: `j_lens.py::decode_vector` reads, `j_lens.py::apply_soft_holds` scrubs, and
-  `j_lens.py::synthesize_from_words` builds. The node that builds is
-  `control_vector_nodes.py::MiniMaxH3WordVector`.
+- **Video Prompt Expander (`1x` Easy Button)**: [`h3_prompt_expander.py::MiniMaxH3PromptExpander`](../../../h3_prompt_expander.py) with [`h3_prompt_contract.py`](../../../h3_prompt_contract.py). Design note: [`heylook_auto_edit_guidance_design.md`](heylook_auto_edit_guidance_design.md).
+- **Control vector**: `control_vector_nodes.py::MiniMaxH3Steer` applies one. The hub page, [`../control_vectors.md`](../control_vectors.md), says how they are built and which rows they touch.
+- **Edit guidance**: `edit_guidance.py::MiniMaxH3EditGuider` with `edit_guidance.py::MiniMaxH3PromptEdit` or [`auto_edit_prompt.py::MiniMaxH3AutoEditPrompt`](../../../auto_edit_prompt.py). [`../edit_guidance.md`](../edit_guidance.md) has the dials and the pass counts.
+- **Word readout**: `j_lens.py::decode_vector` reads, `j_lens.py::apply_soft_holds` scrubs, and `j_lens.py::synthesize_from_words` builds. The node that builds is `control_vector_nodes.py::MiniMaxH3WordVector`.
 
 ### How they relate
 

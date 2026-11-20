@@ -1,6 +1,6 @@
 # H3 LLM Wiki (`docs/wiki/`)
 
-Master router for `ComfyUI-h3-explorations`. Root [`../../AGENTS.md`](../../AGENTS.md) holds the operative rules, pre-render H3 invariants, and the 66-node pack replacement map. Where any wiki page disagrees with the code on disk, the code wins — fix the page and record the correction in [`decisions.md`](decisions.md).
+Master router for `ComfyUI-h3-explorations`. Root [`../../AGENTS.md`](../../AGENTS.md) holds the operative rules, pre-render H3 invariants, and the 68-node pack replacement map. Where any wiki page disagrees with the code on disk, the code wins — fix the page and record the correction in [`decisions.md`](decisions.md).
 
 ---
 
@@ -8,13 +8,13 @@ Master router for `ComfyUI-h3-explorations`. Root [`../../AGENTS.md`](../../AGEN
 
 | Page | Role |
 | :--- | :--- |
-| [`../../AGENTS.md`](../../AGENTS.md) | Mandatory session rules, H3 clock/frame/mask invariants, 66-node map |
+| [`../../AGENTS.md`](../../AGENTS.md) | Mandatory session rules, H3 clock/frame/mask invariants, 68-node map |
 | [`projects/2026-11-13_repo_audit_and_atlas/index.md`](projects/2026-11-13_repo_audit_and_atlas/index.md) | **Repo Atlas (`2026-11-13`)**: 8-track status, Top 14 unfinished/forgotten ideas, code-vs-prose ledger, Nov 10–12 renders, offline HTML + `ledger.json` |
 | [`research/2026-11-14_cross_pillar_api_workflows_and_sam31_decoupling.md`](research/2026-11-14_cross_pillar_api_workflows_and_sam31_decoupling.md) | **Cross-Pillar API Unlocks & SAM 3.1 Decoupling (`2026-11-14`)**: Two-phase `:8188` perception+generation recipes, Phase 1 + `EditGuider` + `SoundCues` + `SpriteTrajectory` compound workflows, and clean extraction off `MiniMaxH3AudioFreezeSong` |
 | [`projects/index.md`](projects/index.md) | Project directory index & structured dossier standard ([`projects/AGENTS.md`](projects/AGENTS.md)) |
-| [`handover.md`](handover.md) | Current cross-track handover state (`2026-11-16`: Spatial Director `director/`, `SAM3-DMS`, `MiniMaxH3Steer.edit_pass`, `MiniMaxH3SpatialDirector`/`DirectorHUD`, `S1`, `allow_upscale=False`, `'fun'` parked) |
+| [`handover.md`](handover.md) | Current cross-track handover state (`2026-11-20`: `MiniMaxH3PromptExpander`, `h3_prompt_contract.py`, `1152x768 @ 192f`, clean `bank/` CV boundary, alongside Spatial Director `director/`, `SAM3-DMS`, `MiniMaxH3Steer.edit_pass`, `MiniMaxH3SpatialDirector`/`DirectorHUD`, `S1`, `allow_upscale=False`, `'fun'` parked) |
 | [`next_steps.md`](next_steps.md) | Active queues by track, ordered next experiments, and pending checks |
-| [`decisions.md`](decisions.md) | Dated decisions & reversals (`2026-11-11`..`2026-11-16` active + shards `decisions/*.md`) |
+| [`decisions.md`](decisions.md) | Dated decisions & reversals (`2026-11-11`..`2026-11-20` active + shards `decisions/*.md`) |
 | [`h3_uses.md`](h3_uses.md) | End-to-end modes (`t2va`, `fl2va`, `ref2va`, `P-H3-Image`, `MiniMax-H3-Image`, audio freeze, masked V2V) |
 | [`stages.md`](stages.md) | Stage-by-stage code -> owner -> guard map across conditioning, sampling, attention, and decode |
 | [`known_before_a_render.md`](known_before_a_render.md) | Facts resolved in code/weights without spending card time |
@@ -53,17 +53,17 @@ Master router for `ComfyUI-h3-explorations`. Root [`../../AGENTS.md`](../../AGEN
 
 ---
 
-## 4. Steering, Control Vectors, Edit Guidance, Sound Cues & 2D D-Pad
+## 4. Prompt Expansion, Steering, Control Vectors, Edit Guidance, Sound Cues & 2D D-Pad
 
-Start at [`control_vectors.md`](control_vectors.md) and [`edit_guidance.md`](edit_guidance.md). Settled `2026-11-12` boundary: Control Vectors are broadcast `1x`-pass scene/world/mood dials; `MiniMaxH3EditGuider` (`2x` / partial `1.5x`) handles subtle, clause-bound, continuous `0 < scale < 1`, audio/video split (`streams`), and keyframe-differential steering; plain prompt rewrites stay first choice for straightforward swaps.
+Start at [`control_vectors.md`](control_vectors.md) and [`edit_guidance.md`](edit_guidance.md). Settled `2026-11-20` boundary: [`MiniMaxH3PromptExpander`](../../h3_prompt_expander.py) (`1x` `heylook` + [`h3_prompt_contract.py`](../../h3_prompt_contract.py), `1152x768 @ 192f` default) handles fresh scenes, mutually exclusive lighting, wardrobe, and multi-shot dialogue; `MiniMaxH3Steer` (`token_focus = 1.0`, `--families fl2va`) handles orthogonal film/medium/material/timbre dials; `MiniMaxH3AutoEditPrompt` + `MiniMaxH3EditGuider` (`2x`) handles `lock_take`, `audio_only`, continuous `0 < scale < 1`, and `[F, H, W]` spatial masks; J-Lens `decode_vector` / `b_side_alignment` is an advisory CPU eyeball check.
 
 | Page | Topic |
 | :--- | :--- |
-| [`control_vectors.md`](control_vectors.md) | Unified steering hub: Control Vectors vs. Edit Guidance vs. J-Lens readout, shipped workflows, `exp5` tool-choice update |
-| [`edit_guidance.md`](edit_guidance.md) | `MiniMaxH3EditGuider`, `MiniMaxH3PromptEdit`, `MiniMaxH3SpatialDirector`, `MiniMaxH3DirectorHUD`, Spatial Director Studio (`director/`): `combined`, SAM 3.1 `/api/segment`, `streams`, `audio_scale`, `.mask` `[F, H, W]` + 40 Hz audio gating, `edit_pass`, `/api/redub` |
+| [`control_vectors.md`](control_vectors.md) | Unified steering hub: `MiniMaxH3PromptExpander` (`1x`) vs. orthogonal Control Vectors (`MiniMaxH3Steer`) vs. `2x` `MiniMaxH3AutoEditPrompt` + `MiniMaxH3EditGuider` vs. J-Lens readout, shipped workflows, empirical rules |
+| [`edit_guidance.md`](edit_guidance.md) | `MiniMaxH3PromptExpander` (`1x` authoring) vs. `MiniMaxH3AutoEditPrompt` + `MiniMaxH3EditGuider` (`2x` surgical edits), `MiniMaxH3PromptEdit`, `MiniMaxH3SpatialDirector`, `MiniMaxH3DirectorHUD`, Spatial Director Studio (`director/`): `combined`, SAM 3.1 `/api/segment`, `streams`, `audio_scale`, `.mask` `[F, H, W]` + 40 Hz audio gating, `edit_pass`, `/api/redub` |
 | [`spatial_director_guide.md`](spatial_director_guide.md) | **Spatial Director User Guide & 6-Level Tutorial**: How the studio works end to end, what it can vs. cannot do, mouse/hotkey cheatsheet, `Preview in Circle`, `Target Entity`, `Set Path`, `Roll Forward`, and `Re-Dub Audio` |
 | [`research/2026-11-15_spatial_world_director_and_3d_edit_guidance.md`](research/2026-11-15_spatial_world_director_and_3d_edit_guidance.md) | **3D Semantic Velocity Steering & Spatial World Director (`2026-11-15`)**: Native ComfyUI core comparison, `[F, H, W]` causal pooling + `40 Hz` audio gating, `MiniMaxH3SpatialDirector` / `MiniMaxH3DirectorHUD`, and `141`-frame showcase benchmarks |
-| [`control_vectors/which_tool_and_what_to_call_it.md`](control_vectors/which_tool_and_what_to_call_it.md) | Plain-English guide comparing Prompt Edit, Control Vectors, Edit Guidance, and Word Readout (`J-Lens`) |
+| [`control_vectors/which_tool_and_what_to_call_it.md`](control_vectors/which_tool_and_what_to_call_it.md) | Plain-English guide comparing `MiniMaxH3PromptExpander`, `MiniMaxH3AutoEditPrompt` / `EditGuider`, Control Vectors, and Word Readout (`J-Lens`) |
 | [`control_vectors/sound_cues_and_timed_masks.md`](control_vectors/sound_cues_and_timed_masks.md) | Plain-English explainer: Sound Cues (`MiniMaxH3SoundCues`), timed animated mask "blooms" (`MiniMaxH3EditGuider.mask`), and what the tortoise & forge experiments proved |
 | [`control_vectors/how_the_word_readout_works.md`](control_vectors/how_the_word_readout_works.md) | Step-by-step explainer of J-Lens cloze log-odds lexical readouts |
 | [`control_vectors/worked_examples.md`](control_vectors/worked_examples.md) | Five common steering questions, exact recipes, and verified runs |
@@ -74,7 +74,7 @@ Start at [`control_vectors.md`](control_vectors.md) and [`edit_guidance.md`](edi
 | [`control_vectors/preset_catalog_and_cli_reference.md`](control_vectors/preset_catalog_and_cli_reference.md) | `bench/control_vectors.py` CLI subcommands, `.safetensors` contract, prompt-bank catalog |
 | [`control_vectors/llm_prompting_guide.md`](control_vectors/llm_prompting_guide.md) | Authoring balanced contrastive `.toml` pairs with single-clause & length discipline |
 | [`control_vectors/studio_ui_guide.md`](control_vectors/studio_ui_guide.md) | Control Vector Studio (`bench/control_vectors.py ui`, `ui_server.py`, cookie auth, folder confinement) |
-| [`control_vectors/heylook_auto_edit_guidance_design.md`](control_vectors/heylook_auto_edit_guidance_design.md) | Proposed design: `heylook` (`/v1/messages`) auto-rewriting `.toml` concepts into `MiniMaxH3EditGuider` + complementary `[K, 5376]` concept tokens |
+| [`control_vectors/heylook_auto_edit_guidance_design.md`](control_vectors/heylook_auto_edit_guidance_design.md) | Shipped 2-node `heylook` architecture: `1x` `MiniMaxH3PromptExpander` + `h3_prompt_contract.py` (`t2v`/`fl2v`/`r2v` workflows) and `2x` `MiniMaxH3AutoEditPrompt` (plain Markdown `section_edits` + lazy `MiniMaxH3EditGuider`) |
 | [`research/control_vectors/2026-11-12_sound_cues_dpad_and_033_release_law.md`](research/control_vectors/2026-11-12_sound_cues_dpad_and_033_release_law.md) | **Sound Cues + 2D Sprite D-Pad + `0.33` Release Law**: `MiniMaxH3SoundCues`, `MiniMaxH3AppendSpriteTrajectory`, `MiniMaxH3ReleaseReferences`, `h3_image_ref_dpad_sound_pika_api.json` |
 | [`research/control_vectors/2026-11-12_exp5_ladder_and_temporal_guide_synthesis.md`](research/control_vectors/2026-11-12_exp5_ladder_and_temporal_guide_synthesis.md) | **`exp2`–`exp5` Forensic Audit & Roadmap**: `heavy_blizzard` / `watercolor_wash` 1:1 ladder, Pole-A shared direction, `EditGuider` spatiotemporal mask proposal |
 | [`research/control_vectors/2026-11-12_chain_lens_digest_and_experiment_plan.md`](research/control_vectors/2026-11-12_chain_lens_digest_and_experiment_plan.md) | **Chain Lens & Readout Plan (§15)**: blind readout score, whitened whole-word table, neighbor holds, upper-layer chain rollout |
@@ -101,7 +101,7 @@ Start at [`control_vectors.md`](control_vectors.md) and [`edit_guidance.md`](edi
 | [`prompting/prompting.md`](prompting/prompting.md) | Master H3 prompting guide & section router (`grade_prompt_text.py`), sharded into [`06`](prompting/06_singing_text_markers_and_audio.md), [`09`](prompting/09_references_ref2va.md), [`10`](prompting/10_worked_examples.md), [`11`](prompting/11_rule_matrix_and_gaps.md), [`14`](prompting/14_sources_and_internals.md), [`16`](prompting/16_specificity.md), [`17_p_h3_image_prompting.md`](prompting/17_p_h3_image_prompting.md) |
 | [`prompting/prompt_audit.md`](prompting/prompt_audit.md) | Prompt bank compliance & quality audit against `grade_prompt_text.py` |
 | [`prompting/prompt_bank.md`](prompting/prompt_bank.md) & [`prompting/prompt_catalogue.md`](prompting/prompt_catalogue.md) | Generated text prompt corpus & workflow prompt index (`bench/build_prompt_bank.py`, `bench/build_prompt_catalogue.py`) |
-| [`system_prompts/README.md`](system_prompts/README.md) | Runtime system prompts (`general_image_edit_system_prompt.md`, control-vector pair prompts, `h3_masked_edit_and_steering_system_prompt.md`, `h3_image/README.md`, `h3_p_h3_image_system_prompt.md`, `h3_system_prompt.md`) |
+| [`system_prompts/README.md`](system_prompts/README.md) | Runtime system prompts (`general_image_edit_system_prompt.md`, control-vector pair prompts, `h3_masked_edit_and_steering_system_prompt.md`, `h3_image/README.md`, `h3_p_h3_image_system_prompt.md`, `h3_system_prompt.md`, `h3_auto_edit/` (`fresh_prompt`, `section_edits`, `edit_lines`)) |
 
 ---
 
