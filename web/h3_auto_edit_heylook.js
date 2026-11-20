@@ -1,7 +1,7 @@
 import { app } from "../../scripts/app.js";
 import { api } from "../../scripts/api.js";
 
-const NODE_ID = "MiniMaxH3AutoEditPrompt";
+const NODE_IDS = new Set(["MiniMaxH3AutoEditPrompt", "MiniMaxH3PromptExpander"]);
 const ROUTE = "/h3_auto_edit/catalog";
 
 function findWidget(node, name) {
@@ -68,7 +68,7 @@ async function refreshCatalog(node) {
 app.registerExtension({
     name: "h3_explorations.auto_edit_heylook",
     nodeCreated(node) {
-        if (node.comfyClass !== NODE_ID) return;
+        if (!NODE_IDS.has(node.comfyClass)) return;
 
         const baseWidget = findWidget(node, "base_url");
         if (baseWidget && !baseWidget._h3AutoEditHooked) {

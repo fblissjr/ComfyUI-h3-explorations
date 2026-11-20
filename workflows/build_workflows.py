@@ -3079,13 +3079,29 @@ def _wire_prompt_expander(g: dict, prompt: str, spec: dict) -> None:
     if cond["class_type"] == "MiniMaxH3ReferenceConditioning":
         if "references" in cond["inputs"]:
             exp_inputs["references"] = cond["inputs"]["references"]
+        # Split into MiniMaxH3EncodeReferences (132) + MiniMaxH3PromptOnReferences (5) so
+        # Qwen3-VL vision/KV prefixes and VAE reference latents stay cached across prompt tweaks.
+        g["132"] = {
+            "class_type": "MiniMaxH3EncodeReferences",
+            "inputs": {k: v for k, v in cond["inputs"].items() if k != "prompt"},
+        }
+        g["5"] = {
+            "class_type": "MiniMaxH3PromptOnReferences",
+            "inputs": {"encoded_references": ["132", 0], "prompt": ["14", 0]},
+        }
+        for node in g.values():
+            for key, val in node["inputs"].items():
+                if val == ["5", 1]:
+                    node["inputs"][key] = ["132", 1]
     elif cond["class_type"] == "MiniMaxH3Conditioning":
         if "first_frame" in cond["inputs"]:
             exp_inputs["first_frame"] = cond["inputs"]["first_frame"]
         if "last_frame" in cond["inputs"]:
             exp_inputs["last_frame"] = cond["inputs"]["last_frame"]
+        cond["inputs"]["prompt"] = ["14", 0]
+    else:
+        cond["inputs"]["prompt"] = ["14", 0]
     g["14"] = {"class_type": "MiniMaxH3PromptExpander", "inputs": exp_inputs}
-    cond["inputs"]["prompt"] = ["14", 0]
     if "135" in g and g["135"]["class_type"] == RELEASE_REFERENCES_NODE:
         g["135"]["inputs"]["video_end_percent"] = ["14", 1]
 
@@ -6215,6 +6231,16 @@ def main():
               prompt_expander=dict(),
               out_prefix="Video/h3_t2v_pika_prompt_expander"),
          "short text idea -> MiniMaxH3PromptExpander (heylook 1x video expander, 1152x768 @ 192f / 8.00s) -> MiniMaxH3Conditioning -> BasicGuider on Pika H3 Flex 6-step LCM (SVD995 branch); wire optional first_frame / last_frame for automatic I2VA / FL2VA / L2VA"),
+        ("h3_first_last_frame_pika_prompt_expander.json", "fl2v-pika-prompt-expander", "i2v",
+         "Transition smoothly from the opening frame of Picture 1 through a cinematic mid-clip cut to the closing vista of Picture 2.",
+         dict(last_frame=True,
+              lora=(PIKA_FL2VA_SVD995_LORA, PIKA_STRENGTH), lora_branch=True,
+              steps=PIKA_STEPS, sampler_name=PIKA_SAMPLER,
+              manual_sigmas=PIKA_MANUAL_SIGMAS,
+              width=1152, height=768, length=192,
+              prompt_expander=dict(),
+              out_prefix="Video/h3_fl2v_pika_prompt_expander"),
+         "first frame + last frame + short idea -> MiniMaxH3PromptExpander (auto FL2VA with deterministic 8.00s Part One) -> MiniMaxH3Conditioning -> BasicGuider on Pika H3 Flex 6-step LCM (SVD995 branch)"),
         ("h3_image_ref_plus_text_to_video_pika_prompt_expander.json", "r2v-pika-prompt-expander", "r2v",
          "The character from Picture 1 cooks in a rain-drenched neon cyberpunk night market kitchen, stirring a glowing wok.",
          dict(ref_images=SCENE_REF_IMAGES["kitchen"], ref_image_count=1,
@@ -6225,7 +6251,7 @@ def main():
               release_references=True,
               prompt_expander=dict(),
               out_prefix="Video/h3_r2v_pika_prompt_expander"),
-         "multimodal references (<Picture>/<Video>/<Audio>) + short idea -> MiniMaxH3PromptExpander (heylook 1x video expander, 1152x768 @ 192f / 8.00s) -> MiniMaxH3ReferenceConditioning -> MiniMaxH3ReleaseReferences -> BasicGuider on Pika H3 Flex 6-step LCM (SVD995 branch)"),
+         "multimodal references (<Picture>/<Video>/<Audio>) + short idea -> MiniMaxH3PromptExpander (1152x768 @ 192f / 8.00s) + cached MiniMaxH3EncodeReferences/PromptOnReferences -> MiniMaxH3ReleaseReferences -> BasicGuider on Pika H3 Flex 6-step LCM (SVD995 branch)"),
         # --- heylook-driven Auto-Edit Guidance (`auto_edit_prompt.py`: 4-axis EditPlan + EditGuider) ---
         ("h3_text_to_video_pika_auto_edit_guidance.json", "t2v-pika-auto-edit-guidance", "t2v",
          LONG_T2V_PROMPT,

@@ -1188,28 +1188,46 @@ def check_shipped_workflows() -> None:
     ok(abs(syn_pass["video_end_percent"] - 0.33) < 1e-6,
        "MiniMaxH3PromptExpander outputs video_end_percent=0.33 when references contains synthetic trajectory video")
 
-    # Verify both new 1x Easy-Button workflows wire MiniMaxH3PromptExpander -> BasicGuider (zero EditGuider)
-    for wf_name, expect_rel in (
-        ("h3_text_to_video_pika_prompt_expander_api.json", False),
-        ("h3_image_ref_plus_text_to_video_pika_prompt_expander_api.json", True),
+    # Verify all 3 shipped 1x Easy-Button workflows wire MiniMaxH3PromptExpander -> BasicGuider (zero EditGuider)
+    for wf_name, mode_kind in (
+        ("h3_text_to_video_pika_prompt_expander_api.json", "t2v"),
+        ("h3_first_last_frame_pika_prompt_expander_api.json", "fl2v"),
+        ("h3_image_ref_plus_text_to_video_pika_prompt_expander_api.json", "r2v"),
     ):
         wf_path = REPO / "workflows" / wf_name
         if not wf_path.is_file():
             FAILURES.append(f"missing shipped 1x expander workflow: {wf_name}")
             continue
         wf = json.loads(wf_path.read_text(encoding="utf-8"))
-        ok(wf.get("14", {}).get("class_type") == "MiniMaxH3PromptExpander"
-           and wf.get("5", {}).get("inputs", {}).get("prompt") == ["14", 0]
-           and wf.get("9", {}).get("class_type") == "BasicGuider"
-           and wf.get("27", {}).get("inputs", {}).get("length") == 192
-           and wf.get("27", {}).get("inputs", {}).get("shape") == "wide"
-           and "1152x768" in str(wf.get("27", {}).get("inputs", {}).get("shape.wide_resolution", ""))
-           and "130" not in wf and "131" not in wf,
-           f"{wf_name} wires 1x MiniMaxH3PromptExpander -> BasicGuider at 1152x768 @ 192f (8.00s)")
-        if expect_rel:
-            ok(wf.get("135", {}).get("inputs", {}).get("video_end_percent") == ["14", 1]
-               and wf.get("14", {}).get("inputs", {}).get("references") == wf["5"]["inputs"]["references"],
-               f"{wf_name} wires references into MiniMaxH3PromptExpander and video_end_percent into ReleaseReferences")
+        base_ok = (
+            wf.get("14", {}).get("class_type") == "MiniMaxH3PromptExpander"
+            and wf.get("5", {}).get("inputs", {}).get("prompt") == ["14", 0]
+            and wf.get("9", {}).get("class_type") == "BasicGuider"
+            and "130" not in wf
+            and "131" not in wf
+        )
+        if mode_kind in ("t2v", "r2v"):
+            base_ok = (
+                base_ok
+                and wf.get("27", {}).get("inputs", {}).get("length") == 192
+                and wf.get("27", {}).get("inputs", {}).get("shape") == "wide"
+                and "1152x768" in str(wf.get("27", {}).get("inputs", {}).get("shape.wide_resolution", ""))
+            )
+        else:
+            base_ok = (
+                base_ok
+                and wf.get("5", {}).get("inputs", {}).get("length") == 192
+                and wf.get("14", {}).get("inputs", {}).get("first_frame") == wf["5"]["inputs"]["first_frame"]
+                and wf.get("14", {}).get("inputs", {}).get("last_frame") == wf["5"]["inputs"]["last_frame"]
+            )
+        ok(base_ok, f"{wf_name} wires 1x MiniMaxH3PromptExpander -> BasicGuider cleanly at 192f (8.00s)")
+        if mode_kind == "r2v":
+            ok(wf.get("132", {}).get("class_type") == "MiniMaxH3EncodeReferences"
+               and wf.get("5", {}).get("class_type") == "MiniMaxH3PromptOnReferences"
+               and wf.get("5", {}).get("inputs", {}).get("encoded_references") == ["132", 0]
+               and wf.get("135", {}).get("inputs", {}).get("video_end_percent") == ["14", 1]
+               and wf.get("14", {}).get("inputs", {}).get("references") == wf["132"]["inputs"]["references"],
+               f"{wf_name} caches references via EncodeReferences/PromptOnReferences and links video_end_percent")
     _ = ro
 
 
