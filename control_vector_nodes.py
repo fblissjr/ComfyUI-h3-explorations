@@ -1158,6 +1158,7 @@ class _AppliedVectorSpec:
     video_ref_end_percent: float = 1.0
     guide_cond_end_percent: float = 1.0
     edit_pass: str = "both"
+    token_focus: float = 1.0
 
 
 def _step_in_window(
@@ -2166,6 +2167,13 @@ def _make_control_vector_wrapper(
                     j < n
                     and (active_specs[j].mask, active_specs[j].prompt)
                     == group_key
+                    and (
+                        (
+                            sp.token_focus >= 1.0 - 1e-9
+                            and active_specs[j].token_focus >= 1.0 - 1e-9
+                        )
+                        or _effective_entry_mode(active_specs[j]) == "hold"
+                    )
                 ):
                     gnext = active_specs[j]
                     group_specs.append(gnext)
@@ -2225,7 +2233,7 @@ def _make_control_vector_wrapper(
                         applied_add_names.append(gsp.vector_name)
                 if any(s_eff != 0.0 for (_v, s_eff, _m) in batch_entries):
                     if not is_pure_uncond:
-                        row_key = (i, sp.mask, L, int(has_vision), str(edit_pass or ""))
+                        row_key = (i, sp.mask, L, int(has_vision), str(edit_pass or ""), round(float(sp.token_focus), 4))
                         if row_key not in logged_steered_rows:
                             logged_steered_rows.add(row_key)
                             eff_rm = _cv.resolve_post_refiner_row_mask(
@@ -2237,12 +2245,23 @@ def _make_control_vector_wrapper(
                                 mask_vision=mask_vision,
                             )
                             n_steered = int(eff_rm[0].sum().item())
+                            focus_note = ""
+                            if float(sp.token_focus) < 1.0 - 1e-9 and n_steered > 0:
+                                foc_rm, min_abs_cos = _cv.focus_row_mask(
+                                    cur_ctx,
+                                    eff_rm,
+                                    v0,
+                                    token_focus=float(sp.token_focus),
+                                )
+                                n_focused = int(foc_rm[0].sum().item())
+                                focus_note = f", token_focus={float(sp.token_focus):.2f} ({n_focused}/{n_steered} rows, |cos|>={min_abs_cos:.3f})"
                             logger.info(
-                                "[h3] control vector (%s) steered %d/%d context rows (mask=%s%s)",
+                                "[h3] control vector (%s) steered %d/%d context rows (mask=%s%s%s)",
                                 ",".join(gsp.vector_name for gsp in group_specs),
                                 n_steered,
                                 L,
                                 sp.mask,
+                                focus_note,
                                 f", {edit_pass} pass" if edit_pass in ("original", "edited") else "",
                             )
                             if n_steered == 0 and _spans.split_fields_mask(sp.mask) is not None:
@@ -2260,6 +2279,7 @@ def _make_control_vector_wrapper(
                         mask=custom_mask,
                         mask_vision=mask_vision,
                         warn_if_stacked_norm=False,
+                        token_focus=float(sp.token_focus),
                     )
                 i = j
             if not is_pure_uncond and len(applied_add_names) >= 2:
@@ -2533,6 +2553,7 @@ def attach_control_vector(
     hold_words: str = "",
     hold_alpha: float = 1.0,
     edit_pass: str = "both",
+    token_focus: float = 1.0,
 ) -> Any:
     """Clone `model` with `vector_name` and/or inline J-Lens `words` attached on
     `WrappersMP.DIFFUSION_MODEL`.
@@ -2594,6 +2615,7 @@ def attach_control_vector(
             "image references and keep guide_end_percent at 1.0"
         )
     ha_f = _validate_float_bounds("hold_alpha", hold_alpha, lo=0.0, hi=2.0)
+    tf_f = _validate_float_bounds("token_focus", token_focus, lo=0.05, hi=1.0)
     def_shift_v = float(getattr(dm, "sigma_shift_video", 12.0))
     def_shift_a = float(getattr(dm, "sigma_shift_audio", 3.0))
 
@@ -2760,10 +2782,11 @@ def attach_control_vector(
             video_ref_end_percent=vrep_f,
             guide_cond_end_percent=gcep_f,
             edit_pass=edit_pass,
+            token_focus=tf_f,
         )
         updated = updated + (new_spec,)
         logger.info(
-            "[h3] control vector %s attached (family=%s, strength=%g, mode=%s, scale_mode=%s, mask=%s, window=[%.2f, %.2f), video_scale=%g, audio_scale=%g, ref_vae_end=%.2f, edit_pass=%s)",
+            "[h3] control vector %s attached (family=%s, strength=%g, mode=%s, scale_mode=%s, mask=%s, window=[%.2f, %.2f), video_scale=%g, audio_scale=%g, ref_vae_end=%.2f, edit_pass=%s, token_focus=%.2f)",
             vec_path.name,
             loaded_family,
             float(strength),
@@ -2776,6 +2799,7 @@ def attach_control_vector(
             as_f,
             rvep_f,
             edit_pass,
+            tf_f,
         )
 
     if words_clean:
@@ -2825,6 +2849,7 @@ def attach_control_vector(
             video_ref_end_percent=vrep_f,
             guide_cond_end_percent=gcep_f,
             edit_pass=edit_pass,
+            token_focus=tf_f,
         )
         updated = updated + (w_spec,)
         rd_summary = (synth.get("readiness") or {}).get("summary", "")
@@ -4032,6 +4057,7 @@ def _attach_h3_vector_spec(
     hold_words_override: str | None = None,
     hold_alpha_override: float | None = None,
     edit_pass: str = "both",
+    token_focus: float = 1.0,
 ) -> Any:
     eff_hold_words = spec.hold_words if hold_words_override is None else hold_words_override
     eff_hold_alpha = spec.hold_alpha if hold_alpha_override is None else hold_alpha_override
@@ -4051,6 +4077,7 @@ def _attach_h3_vector_spec(
             hold_words=str(eff_hold_words or ""),
             hold_alpha=float(eff_hold_alpha),
             edit_pass=edit_pass,
+            token_focus=float(token_focus),
         )
     if spec.kind == "words":
         return attach_control_vector(
@@ -4070,6 +4097,7 @@ def _attach_h3_vector_spec(
             hold_words=str(eff_hold_words or ""),
             hold_alpha=float(eff_hold_alpha),
             edit_pass=edit_pass,
+            token_focus=float(token_focus),
         )
     raise ValueError(f"unsupported H3VectorSpec.kind={spec.kind!r}")
 
@@ -4517,6 +4545,20 @@ class MiniMaxH3Steer(io.ComfyNode):
                         "original anchor pass so mask=0 keeps this look in a split-world render)."
                     ),
                 ),
+                io.Float.Input(
+                    "token_focus",
+                    default=1.0,
+                    min=0.05,
+                    max=1.0,
+                    step=0.05,
+                    optional=True,
+                    tooltip=(
+                        "Fraction of target prompt rows to steer, ranked by |cos(row, vector)| "
+                        "(1.00 = all target rows, exact default behavior; e.g. 0.25 steers only the "
+                        "top 25% of rows most aligned with this vector's A<->B semantic axis, leaving "
+                        "unrelated tokens bitwise unchanged)."
+                    ),
+                ),
             ],
             outputs=[io.Model.Output(display_name="model")],
         )
@@ -4532,11 +4574,14 @@ class MiniMaxH3Steer(io.ComfyNode):
         vec_fp = _vector_file_fingerprint(str(vector or ""))
         h_str = str(hold_words or "").strip()
         ep_str = str(kwargs.get("edit_pass", "both") or "both").strip()
-        if not h_str and ep_str == "both":
+        tf_f = float(kwargs.get("token_focus", 1.0))
+        if not h_str and ep_str == "both" and abs(tf_f - 1.0) <= 1e-9:
             return vec_fp
-        if ep_str == "both":
+        if ep_str == "both" and abs(tf_f - 1.0) <= 1e-9:
             return (vec_fp, h_str, float(hold_alpha))
-        return (vec_fp, h_str, float(hold_alpha), ep_str)
+        if abs(tf_f - 1.0) <= 1e-9:
+            return (vec_fp, h_str, float(hold_alpha), ep_str)
+        return (vec_fp, h_str, float(hold_alpha), ep_str, tf_f)
 
     @classmethod
     def validate_inputs(
@@ -4552,6 +4597,7 @@ class MiniMaxH3Steer(io.ComfyNode):
         hold_words="",
         hold_alpha=1.0,
         edit_pass="both",
+        token_focus=1.0,
         **kwargs,
     ) -> bool | str:
         raw = str(vector or "").strip()
@@ -4584,10 +4630,11 @@ class MiniMaxH3Steer(io.ComfyNode):
                     f"got start_percent={start_percent!r}, end_percent={end_percent!r}"
                 )
             ha_f = _validate_float_bounds("hold_alpha", hold_alpha, lo=0.0, hi=2.0)
+            _tf_f = _validate_float_bounds("token_focus", token_focus, lo=0.05, hi=1.0)
             h_str = str(hold_words or "").strip()
             if h_str and _j_lens.bundle_available():
                 _j_lens.synthesize_from_words(h_str, family="fl2va")
-            _ = ha_f
+            _ = (ha_f, _tf_f)
         except Exception as exc:
             return str(exc)
         return True
@@ -4610,6 +4657,7 @@ class MiniMaxH3Steer(io.ComfyNode):
         custom_vector=None,
         hold_vector=None,
         edit_pass="both",
+        token_focus=1.0,
     ) -> io.NodeOutput:
         dm = model.get_model_object("diffusion_model")
         if not _is_minimax_h3(dm):
@@ -4643,6 +4691,7 @@ class MiniMaxH3Steer(io.ComfyNode):
                 f"got start_percent={start_percent!r}, end_percent={end_percent!r}"
             )
         ha_f = _validate_float_bounds("hold_alpha", hold_alpha, lo=0.0, hi=2.0)
+        tf_f = _validate_float_bounds("token_focus", token_focus, lo=0.05, hi=1.0)
         node_hold_words = str(hold_words or "").strip()
 
         if hold_vector is not None and not isinstance(hold_vector, H3VectorSpec):
@@ -4713,6 +4762,7 @@ class MiniMaxH3Steer(io.ComfyNode):
             hold_words_override=eff_hold_words,
             hold_alpha_override=eff_hold_alpha,
             edit_pass=edit_pass,
+            token_focus=tf_f,
         )
         for h_spec, h_alpha in wired_holds:
             eff_h_strength = 0.0 if s_val == 0.0 else float(h_alpha)
@@ -4728,6 +4778,7 @@ class MiniMaxH3Steer(io.ComfyNode):
                 video_scale=v_scale,
                 audio_scale=a_scale,
                 edit_pass=edit_pass,
+                token_focus=tf_f,
             )
         return io.NodeOutput(m)
 

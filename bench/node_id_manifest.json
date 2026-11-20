@@ -993,7 +993,8 @@
       "allow_recipe_mismatch",
       "custom_vector",
       "hold_vector",
-      "edit_pass"
+      "edit_pass",
+      "token_focus"
     ],
     "node_id": "MiniMaxH3Steer",
     "outputs": [

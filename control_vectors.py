@@ -2782,6 +2782,52 @@ def resolve_post_refiner_row_mask(
     return row_mask & base_mask
 
 
+def focus_row_mask(
+    context: torch.Tensor,
+    row_mask: torch.Tensor,
+    vec: torch.Tensor,
+    *,
+    token_focus: float = 1.0,
+) -> tuple[torch.Tensor, float]:
+    """Narrow a `[B, L]` boolean `row_mask` to the top `ceil(N * token_focus)` active rows
+    with highest `|cos(r_i, vec)|` per batch item.
+
+    Using `|cos|` targets whichever tokens live along the vector's `A <-> B` semantic axis
+    (both Pole-A tokens with strong negative cosine and Pole-B tokens with strong positive
+    cosine), while skipping near-orthogonal stopwords, camera boilerplate, and unrelated nouns.
+    When `token_focus >= 1.0`, returns `(row_mask, 0.0)` unchanged."""
+    tf = float(token_focus)
+    if not math.isfinite(tf) or tf <= 0.0 or tf > 1.0:
+        raise ValueError(f"token_focus must be finite in (0.0, 1.0], got {token_focus!r}")
+    if tf >= 1.0 - 1e-9 or not bool(row_mask.any()):
+        return row_mask, 0.0
+    v64 = vec.detach().to(device=context.device, dtype=torch.float64).flatten()
+    v_norm = float(torch.linalg.vector_norm(v64).item())
+    if v_norm <= 1e-12:
+        return row_mask, 0.0
+    v_unit = v64 / v_norm
+    B, _L = row_mask.shape
+    focused = torch.zeros_like(row_mask)
+    min_abs_cos = 1.0
+    for b in range(B):
+        idx = row_mask[b].nonzero(as_tuple=False).flatten()
+        n_active = int(idx.numel())
+        if n_active == 0:
+            continue
+        k = max(1, min(n_active, int(math.ceil(n_active * tf))))
+        if k >= n_active:
+            focused[b, idx] = True
+            min_abs_cos = 0.0
+            continue
+        rows64 = context[b, idx].detach().to(dtype=torch.float64)
+        row_norms = torch.linalg.vector_norm(rows64, dim=-1).clamp(min=1e-12)
+        abs_cos = ((rows64 @ v_unit) / row_norms).abs()
+        top_vals, top_pos = torch.topk(abs_cos, k=k, largest=True, sorted=True)
+        focused[b, idx[top_pos]] = True
+        min_abs_cos = min(min_abs_cos, float(top_vals[-1].item()))
+    return focused, (0.0 if min_abs_cos > 1.0 else min_abs_cos)
+
+
 def apply_post_refiner(
     context: torch.Tensor,
     tags: torch.Tensor,
@@ -2792,6 +2838,7 @@ def apply_post_refiner(
     mask: torch.Tensor | None = None,
     mask_vision: bool = True,
     warn_if_stacked_norm: bool = True,
+    token_focus: float = 1.0,
 ) -> torch.Tensor:
     """Apply one or more `(vector_post_refiner, strength[, mode])` specs to refined
     text conditioning `context` (`[B, L, 5376]`).
@@ -2826,6 +2873,9 @@ def apply_post_refiner(
         raise ValueError(f"mode must be one of {APPLY_MODES}, got {mode!r}")
     if scale_mode not in SCALE_MODES:
         raise ValueError(f"scale_mode must be one of {SCALE_MODES}, got {scale_mode!r}")
+    tf_val = float(token_focus)
+    if not math.isfinite(tf_val) or tf_val <= 0.0 or tf_val > 1.0:
+        raise ValueError(f"token_focus must be finite in (0.0, 1.0], got {token_focus!r}")
     if context.ndim != 3 or context.shape[-1] != POST_REFINER_DIM:
         raise ValueError(
             f"context must have shape [B, L, {POST_REFINER_DIM}], got {tuple(context.shape)}"
@@ -2901,10 +2951,17 @@ def apply_post_refiner(
                 STACK_SHIFT_WARN_NORM,
             )
         if shift_norm > 0.0:
+            eff_mask = row_mask
+            if tf_val < 1.0 - 1e-9:
+                eff_mask, _ = focus_row_mask(context, row_mask, total_shift64, token_focus=tf_val)
             shift = total_shift64.to(dtype=context.dtype)
-            out[row_mask] = out[row_mask] + shift
+            out[eff_mask] = out[eff_mask] + shift
     else:
-        rows64 = out[row_mask].to(dtype=torch.float64)
+        eff_mask = row_mask
+        if tf_val < 1.0 - 1e-9:
+            aim_vec = active[0][0]
+            eff_mask, _ = focus_row_mask(context, row_mask, aim_vec, token_focus=tf_val)
+        rows64 = out[eff_mask].to(dtype=torch.float64)
         idx = 0
         while idx < len(active):
             vec, strength, em = active[idx]
@@ -2935,7 +2992,7 @@ def apply_post_refiner(
                 else:
                     rows64 = rows64 + delta
                 idx += 1
-        out[row_mask] = rows64.to(dtype=context.dtype)
+        out[eff_mask] = rows64.to(dtype=context.dtype)
 
     if out.shape != (B, L, D):
         raise RuntimeError(f"apply_post_refiner changed context shape from {(B, L, D)} to {tuple(out.shape)}")

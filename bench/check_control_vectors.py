@@ -6704,6 +6704,60 @@ def _check_nov15_steer_prose_and_ph3_family() -> list[str]:
             cv_nodes.folder_paths.filename_list_cache.pop(cv_nodes.CONTROL_VECTORS_FOLDER, None)
             cv_nodes.folder_paths.cache_helper.clear()
 
+        # Pass 3: aimed per-token steering (`token_focus` in (0, 1])
+        D_pr = cv.POST_REFINER_DIM
+        v_aim = torch.zeros(D_pr, dtype=torch.float32)
+        v_aim[0] = 1.0
+        ctx_aim = torch.zeros((1, 10, D_pr), dtype=torch.float32)
+        # Vision rows 0..1 carry huge component along v_aim -> must stay bitwise untouched
+        ctx_aim[0, 0, 0] = 50.0
+        ctx_aim[0, 1, 0] = -50.0
+        # Text rows 2..9 (8 rows): rows 3 (+0.9) and 6 (-0.8) lie on the A<->B axis, others orthogonal on dim 1
+        for r_i in range(2, 10):
+            ctx_aim[0, r_i, 1] = 1.0
+        ctx_aim[0, 3, 0] = 5.0   # strong Pole-B cosine
+        ctx_aim[0, 6, 0] = -4.0  # strong Pole-A cosine
+        tags_aim = torch.tensor([[0, 0, 1, 1, 1, 1, 1, 1, 1, 1]], dtype=torch.long)
+
+        # token_focus=1.0 matches default bitwise
+        out_full_def = cv.apply_post_refiner(ctx_aim, tags_aim, [(v_aim, 2.0, "add")])
+        out_full_1 = cv.apply_post_refiner(ctx_aim, tags_aim, [(v_aim, 2.0, "add")], token_focus=1.0)
+        if not torch.equal(out_full_def, out_full_1):
+            errs.append("apply_post_refiner token_focus=1.0 differed from default")
+
+        # token_focus=0.25 over 8 text rows -> ceil(8 * 0.25) = 2 rows (rows 3 and 6 only!)
+        out_foc = cv.apply_post_refiner(ctx_aim, tags_aim, [(v_aim, 2.0, "add")], token_focus=0.25)
+        diff_rows = (out_foc[0] - ctx_aim[0]).abs().max(dim=-1).values > 0.0
+        got_idx = diff_rows.nonzero(as_tuple=False).flatten().tolist()
+        if got_idx != [3, 6]:
+            errs.append(f"token_focus=0.25 steered rows {got_idx}, expected [3, 6] (both +cos and -cos axis rows)")
+        if not torch.equal(out_foc[0, 0:2], ctx_aim[0, 0:2]):
+            errs.append("token_focus=0.25 modified vision rows")
+        for r_unch in (2, 4, 5, 7, 8, 9):
+            if not torch.equal(out_foc[0, r_unch], ctx_aim[0, r_unch]):
+                errs.append(f"token_focus=0.25 modified non-focused row {r_unch}")
+        if abs(float((out_foc[0, 3, 0] - ctx_aim[0, 3, 0]).item()) - 2.0) > 1e-5:
+            errs.append("token_focus=0.25 did not apply full shift to selected row 3")
+
+        # Refusals on invalid token_focus
+        errs += _expect_refusal(
+            lambda: cv.apply_post_refiner(ctx_aim, tags_aim, [(v_aim, 1.0, "add")], token_focus=0.0),
+            "token_focus",
+            "apply_post_refiner refusal on token_focus=0.0",
+        )
+        errs += _expect_refusal(
+            lambda: cv.apply_post_refiner(ctx_aim, tags_aim, [(v_aim, 1.0, "add")], token_focus=1.5),
+            "token_focus",
+            "apply_post_refiner refusal on token_focus=1.5",
+        )
+        steer_schema = cv_nodes.MiniMaxH3Steer.define_schema()
+        if steer_schema.inputs[-1].id != "token_focus":
+            errs.append(f"MiniMaxH3Steer last input must be 'token_focus', got {steer_schema.inputs[-1].id!r}")
+        if cv_nodes.MiniMaxH3Steer.validate_inputs(token_focus=0.25) is not True:
+            errs.append("MiniMaxH3Steer.validate_inputs rejected valid token_focus=0.25")
+        if cv_nodes.MiniMaxH3Steer.validate_inputs(token_focus=0.0) is True:
+            errs.append("MiniMaxH3Steer.validate_inputs accepted invalid token_focus=0.0")
+
     return errs
 
 
