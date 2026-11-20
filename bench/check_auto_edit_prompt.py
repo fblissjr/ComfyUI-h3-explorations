@@ -579,6 +579,9 @@ def check_validators_and_repair() -> None:
        and cvn._is_hidden_vector_relpath("j_lens/foo.safetensors")
        and not cvn._is_hidden_vector_relpath("bank/film_16mm_1974__fl2va__diff_span.safetensors"),
        "control_vector_nodes hides _*, .*, and j_lens subdirs while keeping bank/ visible")
+    ok(cvn.MiniMaxH3ReleaseReferences.validate_inputs(video_end_percent=None, end_percent=None) is True
+       and cvn.MiniMaxH3Steer.validate_inputs(vector="none", strength=None, start_percent=None, end_percent=None, token_focus=None) is True,
+       "MiniMaxH3ReleaseReferences and MiniMaxH3Steer validate_inputs tolerate linked None float inputs")
 
 
 def check_edit_plan_compilation_and_wiring() -> None:

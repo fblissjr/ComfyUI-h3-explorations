@@ -4645,17 +4645,17 @@ class MiniMaxH3Steer(io.ComfyNode):
         elif target not in STEER_TARGETS:
             return f"target must be one of {STEER_TARGETS}, got {target!r}"
         try:
-            if not math.isfinite(float(strength)):
+            if strength is not None and not math.isfinite(float(strength)):
                 return f"strength must be finite, got {strength!r}"
-            sp_f = _validate_float_bounds("start_percent", start_percent, lo=0.0, hi=1.0)
-            ep_f = _validate_float_bounds("end_percent", end_percent, lo=0.0, hi=1.0)
-            if sp_f > ep_f:
+            sp_f = _validate_float_bounds("start_percent", start_percent, lo=0.0, hi=1.0) if start_percent is not None else None
+            ep_f = _validate_float_bounds("end_percent", end_percent, lo=0.0, hi=1.0) if end_percent is not None else None
+            if sp_f is not None and ep_f is not None and sp_f > ep_f:
                 return (
                     f"start_percent and end_percent must satisfy start_percent <= end_percent, "
                     f"got start_percent={start_percent!r}, end_percent={end_percent!r}"
                 )
-            ha_f = _validate_float_bounds("hold_alpha", hold_alpha, lo=0.0, hi=2.0)
-            _tf_f = _validate_float_bounds("token_focus", token_focus, lo=0.05, hi=1.0)
+            ha_f = _validate_float_bounds("hold_alpha", hold_alpha, lo=0.0, hi=2.0) if hold_alpha is not None else 1.0
+            _tf_f = _validate_float_bounds("token_focus", token_focus, lo=0.05, hi=1.0) if token_focus is not None else 1.0
             h_str = str(hold_words or "").strip()
             if h_str and _j_lens.bundle_available():
                 _j_lens.synthesize_from_words(h_str, family="fl2va")
@@ -4946,12 +4946,18 @@ class MiniMaxH3ReleaseReferences(io.ComfyNode):
         **kwargs,
     ) -> bool | str:
         try:
-            _validate_float_bounds("end_percent", end_percent, lo=0.0, hi=1.0)
-            _validate_float_bounds("clean_level", clean_level, lo=0.0, hi=1.0)
-            _validate_float_bounds("audio_end_percent", audio_end_percent, lo=0.0, hi=1.0)
-            _validate_float_bounds("audio_clean_level", audio_clean_level, lo=0.0, hi=1.0)
-            _validate_float_bounds("video_end_percent", video_end_percent, lo=0.0, hi=1.0)
-            _validate_float_bounds("guide_end_percent", guide_end_percent, lo=0.0, hi=1.0)
+            if end_percent is not None:
+                _validate_float_bounds("end_percent", end_percent, lo=0.0, hi=1.0)
+            if clean_level is not None:
+                _validate_float_bounds("clean_level", clean_level, lo=0.0, hi=1.0)
+            if audio_end_percent is not None:
+                _validate_float_bounds("audio_end_percent", audio_end_percent, lo=0.0, hi=1.0)
+            if audio_clean_level is not None:
+                _validate_float_bounds("audio_clean_level", audio_clean_level, lo=0.0, hi=1.0)
+            if video_end_percent is not None:
+                _validate_float_bounds("video_end_percent", video_end_percent, lo=0.0, hi=1.0)
+            if guide_end_percent is not None:
+                _validate_float_bounds("guide_end_percent", guide_end_percent, lo=0.0, hi=1.0)
         except Exception as exc:
             return str(exc)
         return True
