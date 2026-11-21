@@ -190,7 +190,7 @@ def cmd_make(args: argparse.Namespace) -> int:
 
     auto_fam = "ref2va" if (args.ref_images or pair_set.mode == "ref2va") else "fl2va"
     req_fams = _resolve_requested_families(
-        getattr(args, "families", "both"), auto_family=auto_fam
+        getattr(args, "families", "fl2va"), auto_family=auto_fam
     )
     primary_fam = auto_fam if auto_fam in req_fams else req_fams[0]
     dit_name = getattr(args, "dit", None) or getattr(args, "unet", None) or (

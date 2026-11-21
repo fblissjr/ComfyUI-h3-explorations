@@ -405,7 +405,7 @@ def cmd_sculpt(args: argparse.Namespace) -> int:
         first_stem = Path(str(vecs[0])).stem.split("__")[0]
         stem = f"{first_stem}_inverted" if invert_flag else f"{first_stem}_sculpted"
 
-    target_fams = _resolve_requested_families(getattr(args, "families", "both"))
+    target_fams = _resolve_requested_families(getattr(args, "families", "fl2va"))
     out_dir = Path(args.out_dir) if getattr(args, "out_dir", None) else None
     hold_words = str(getattr(args, "hold_words", "") or "").strip() or None
     hold_alpha = float(getattr(args, "hold_alpha", 1.0))

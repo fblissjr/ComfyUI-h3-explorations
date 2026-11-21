@@ -111,11 +111,11 @@ Compiles `"pole_a -> pole_b"` inside `--target-prompt-file` (plus `--bank-scenes
 - Separate multiple simultaneous clause swaps with `;` or newlines; prefix acoustic swaps with `soundscape: old -> new` and hold clauses with `hold: neutral -> nuisance`.
 
 ### Method 2 — `build` / `from-toml` (reusable 6–10 pair library vector)
-Builds both `fl2va` and `ref2va` `.safetensors` files + companion `.md` J-Lens audit cards from a `.toml` or LLM `.md` file:
+Builds `fl2va` (default; shared cleanly across `{fl2va, ref2va}` at `cos ~0.99`, pass `--families both` only if you want a separate `ref2va` sibling) `.safetensors` files + companion `.md` J-Lens audit cards from a `.toml` or LLM `.md` file:
 ```bash
 /path/to/comfy-venv/bin/python bench/control_vectors.py build \
   prompt_bank/control_vectors/film_16mm_1974_neutral.toml \
-  --families both --overwrite
+  --families fl2va --overwrite
 ```
 - When building `ref2va` vectors that specifically steer `<Subject 1>` interaction with encoded `<Picture 1>` vision tokens, pass `--ref-images path/to/ref.png` (or wire `encoded_references` into `MiniMaxH3MakeControlVector`).
 

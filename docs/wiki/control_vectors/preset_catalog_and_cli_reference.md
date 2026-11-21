@@ -11,7 +11,7 @@ All command-line operations live in [`bench/control_vectors.py`](../../../bench/
 | Subcommand (aliases) | GPU? | Purpose & key flags |
 |---|---|---|
 | `ui` | On demand | Launch the local Control Vector Studio web app (`--host 127.0.0.1`, `--port 0`, `--token`, `--no-browser`, `--vec-dir`, `--toml-dir`). See [`studio_ui_guide.md`](studio_ui_guide.md). |
-| `build` (`from-toml`) | Yes (for `.toml`/`.md`/`--words`); CPU for `--from-words` | Build reusable `fl2va` and/or `ref2va` `.safetensors` + `.md` cards from a `.toml` or LLM `.md` file, `--all` across `prompt_bank/control_vectors/`, or `--words "pole_a -> pole_b"`. Key flags: `--families {both,fl2va,ref2va}`, `--pooling diff_span`, `--ref-images`, `--hold`, `--hold-words`, `--hold-alpha`, `--no-holds`, `--no-lora`, `--overwrite`. |
+| `build` (`from-toml`) | Yes (for `.toml`/`.md`/`--words`); CPU for `--from-words` | Build reusable `fl2va` (default; shared across `{fl2va, ref2va}` at `cos ~0.99`) and/or `ref2va` `.safetensors` + `.md` cards from a `.toml` or LLM `.md` file, `--all` across `prompt_bank/control_vectors/`, or `--words "pole_a -> pole_b"`. Key flags: `--families {both,fl2va,ref2va}` (default `fl2va`), `--pooling diff_span`, `--ref-images`, `--hold`, `--hold-words`, `--hold-alpha`, `--no-holds`, `--no-lora`, `--overwrite`. |
 | `from-prompt` | Yes | Build an in-place scene vector from `--target-prompt` / `--target-prompt-file` + `--words "pole_a -> pole_b"`, **or** build a multi-scene vector directly from `prompt_bank/` (`--bank-scenes N`, supporting rotated Pole-A baselines `a1 \| a2 -> b` or target-only `--words "<target clause>"`). |
 | `make` | Yes | Low-level single/dual-family pair builder sharing `encode_pair_set` + `pool_pair_set` with `build` and `MiniMaxH3MakeControlVector`. |
 | `make-media` (`from-images`) | Yes | Build a vector from contrasting `<Picture 1>` images (`--image-a`, `--image-b`, `--scene-prompt`, `--short-edge 512`, `--pooling scene_text`). |
@@ -21,7 +21,8 @@ All command-line operations live in [`bench/control_vectors.py`](../../../bench/
 | `grade` | Yes (`--no-dit` skips DiT) | Numerical pre-render evaluation across `--strengths` in `--mode` (default `add_norm_matched`, matching the node as of `1a216404`) and `--mask` (default `scene_only`, supporting single fields and `field_a+field_b`), reporting context cosine/norm and DiT velocity shifts vs. `perm_null` and `flip_null`. |
 | `from-md` (`import-md`) | **No (CPU)** | Parse and validate an LLM Markdown response (`### Test Scene Prompt` + `#### Pair 1..N` + optional `#### Hold`) into `data/control_vectors/<stem>.toml` (`--out`, `--test-prompt-out`). |
 | `generate-pairs` | Yes (LLM) | Run a local `transformers` (4-bit default) or `exllamav3` LLM with [`h3_control_vector_system_prompt.md`](../system_prompts/h3_control_vector_system_prompt.md) to author a 10-pair `.md` / `.toml` pack from a concept string. |
-| `rebuild` | Yes | Rebuild one stem (`--vector <stem>`) or every `.safetensors` vector in `models/control_vectors/` from `prompt_bank/control_vectors/` (`--families both`, `--force`). |
+| `rebuild` | Yes | Rebuild one stem (`--vector <stem>`) or every `.safetensors` vector in `models/control_vectors/` from `prompt_bank/control_vectors/` (`--families fl2va` default, `--force`). |
+| `status` | CPU (`--rebuild-stale` uses GPU) | Check J-Lens bundle & control vector staleness/permissions (`--families fl2va` default, `--rebuild-stale` to fix). |
 | `build-j-lens` | `--verify-only` is CPU; full build is GPU | Verify (`--verify-only`) or recalibrate `models/j_lens/j_lens_h3.safetensors` (`--base-bundle`, `--num-prompts 24`, `--max-tokens 64`). |
 
 ---

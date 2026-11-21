@@ -50,10 +50,10 @@ CUDA_VISIBLE_DEVICES= /path/to/comfy-venv/bin/python bench/control_vectors.py fr
 
 `from-md` (`control_vectors.write_markdown_to_toml`) validates every pair through `load_pairs`—checking H3 section structure, protected tags/dialogue parity, and non-empty `diff_span`—before writing `.toml`.
 
-Then build both `fl2va` and `ref2va` `.safetensors` vectors and check the J-Lens top words + automatic `b_side` alignment audit (`j_lens.check_b_side_alignment`) printed at the end of the build:
+Then build the `fl2va` `.safetensors` vector (default `--families fl2va`, shared across `{fl2va, ref2va}` at `cos ~0.99`; pass `--families both` only if you want a separate `ref2va` sibling) and check the J-Lens top words + automatic `b_side` alignment audit (`j_lens.check_b_side_alignment`) printed at the end of the build:
 
 ```bash
 /path/to/comfy-venv/bin/python bench/control_vectors.py build \
-  data/control_vectors/my_concept.toml --families both
+  data/control_vectors/my_concept.toml --families fl2va
 ```
 *(You can also pass `data/control_vectors/my_concept.md` directly to `bench/control_vectors.py build` with `--save-toml`.)*

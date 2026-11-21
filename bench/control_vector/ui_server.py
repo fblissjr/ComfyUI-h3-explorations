@@ -364,7 +364,7 @@ def _r_preview_words(state: ControlVectorUIState, req: dict[str, Any]) -> dict[s
     if not j_lens.bundle_available():
         raise RouteError("J-Lens bundle models/j_lens/j_lens_h3.safetensors not found")
     ns = parse_request("words", _request_args(req))
-    fams = _resolve_requested_families(getattr(ns, "families", "both"))
+    fams = _resolve_requested_families(getattr(ns, "families", "fl2va"))
     out: list[dict[str, Any]] = []
     for fam in fams:
         synth = j_lens.synthesize_from_words(
@@ -396,7 +396,7 @@ def _r_preview_recipe(state: ControlVectorUIState, req: dict[str, Any]) -> dict[
         raise RouteError("J-Lens bundle models/j_lens/j_lens_h3.safetensors not found")
     ns = parse_request("sculpt", _request_args(req))
     steps = _sculpt_steps_from_args(ns)
-    fams = _resolve_requested_families(getattr(ns, "families", "both"))
+    fams = _resolve_requested_families(getattr(ns, "families", "fl2va"))
     out: list[dict[str, Any]] = []
     for fam in fams:
         resolved = [{**st, "vector": _resolve_vector(state, st["vector"], fam)} for st in steps]

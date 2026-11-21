@@ -104,18 +104,19 @@ J-Lens Operator Bundle:
 
 H3 Model Families (--families):
   MiniMax H3 has 2 DiT text-path (condition_proj + token_refiner) families:
-    fl2va  : Video T2VA / FL2VA / I2VA  AND  P-H3-Image (both Image T2I and Image Edit)
-    ref2va : Video Ref2VA / Guide Video Edit / Masked V2V
-    both   : (default) Builds both <name>__fl2va__*.safetensors and <name>__ref2va__*.safetensors
-             in a single pass, covering all 4 workflows (Video fl2va, Video ref2va, Image T2I,
-             and Image Edit). At runtime, MiniMaxH3ApplyControlVectors automatically swaps to
-             the matching family sibling when both files exist in models/control_vectors/."""
+    fl2va  : (default) Video T2VA / FL2VA / I2VA, P-H3-Image, and shared Video Ref2VA
+             (fl2va/ref2va post-refiner spaces sit at cos ~0.985-0.994; MiniMaxH3Steer
+             resolves fl2va siblings cleanly across {fl2va, ref2va} and auto-projects
+             vector.encoder onto MiniMax-H3-Image)
+    ref2va : Video Ref2VA / Guide Video Edit / Masked V2V (default for make-media)
+    both   : Optional; builds both <name>__fl2va__*.safetensors and <name>__ref2va__*.safetensors
+             in a single pass when you explicitly want separate family siblings."""
 
 _FAMILIES_METAVAR = "{both,fl2va,ref2va}"
 _FAMILIES_HELP = (
-    "H3 text-path family to build: 'both' (default: writes fl2va + ref2va, covering Video fl2va, "
-    "Video ref2va, Image T2I, and Image Edit), 'fl2va' (Video T2VA/FL2VA/I2VA + P-H3-Image T2I/Edit; "
-    "aliases: 'image', 't2i', 'image_edit'), or 'ref2va' (Video Ref2VA)"
+    "H3 text-path family to build: 'fl2va' (default: Video T2VA/FL2VA/I2VA + P-H3-Image + "
+    "shared across Video Ref2VA at cos ~0.99; aliases: 'image', 't2i', 'image_edit'), "
+    "'ref2va' (Video Ref2VA), or 'both' (writes both fl2va + ref2va siblings)"
 )
 
 

@@ -86,7 +86,7 @@ def cmd_build(args: argparse.Namespace) -> int:
         if not cv.NAME_RE.match(stem):
             raise ValueError(f"output vector stem must match [a-z0-9_]+, got {stem!r}")
 
-        target_fams = _resolve_requested_families(getattr(args, "families", "both"))
+        target_fams = _resolve_requested_families(getattr(args, "families", "fl2va"))
         out_dir = (
             Path(args.out_dir)
             if getattr(args, "out_dir", None)
@@ -286,7 +286,7 @@ def cmd_build(args: argparse.Namespace) -> int:
         family_targets = [("custom", str(dit_arg))]
     else:
         auto_fam = "ref2va" if (getattr(args, "ref_images", None) or pair_set.mode == "ref2va") else "fl2va"
-        req_fams = _resolve_requested_families(getattr(args, "families", "both"), auto_family=auto_fam)
+        req_fams = _resolve_requested_families(getattr(args, "families", "fl2va"), auto_family=auto_fam)
         family_targets = [
             (f, h3_config.MODELS["unet_ref2va"] if f == "ref2va" else h3_config.MODELS["unet_fl2va"])
             for f in req_fams
@@ -947,7 +947,7 @@ def cmd_rebuild(args: argparse.Namespace) -> int:
                 toml_cand = _resolve_existing_toml_from_meta(m, default_toml_dir)
 
         # If the user pointed at a single .safetensors file with a specific family, rebuild that family unless --families was explicitly passed
-        single_fam_override = getattr(args, "families", "both")
+        single_fam_override = getattr(args, "families", "fl2va")
         if len(loaded_items) == 1 and target_path.suffix.lower() == ".safetensors" and single_fam_override == "both":
             fam_single = str(loaded_items[0][2].get("family", ""))
             if fam_single in ("fl2va", "ref2va"):
@@ -1025,7 +1025,7 @@ def cmd_rebuild(args: argparse.Namespace) -> int:
     print(
         f"=== Rebuilding {len(all_stems)} Control Vector Stem(s) (vec_dir={vec_dir}, toml_dir={_display_path(toml_dir)}) ==="
     )
-    req_fams_str = getattr(args, "families", "both")
+    req_fams_str = getattr(args, "families", "fl2va")
     req_fams_set = set(_resolve_requested_families(req_fams_str))
     force_rebuild = bool(getattr(args, "force", False))
     for idx, stem in enumerate(all_stems, start=1):

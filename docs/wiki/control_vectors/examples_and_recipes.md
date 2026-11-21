@@ -131,7 +131,7 @@ CUDA_VISIBLE_DEVICES= /path/to/comfy-venv/bin/python bench/control_vectors.py sc
   --modes add_norm_matched,hold \
   --strengths 1.25,1.0 \
   --hold-words "screaming, terror" --hold-alpha 0.75 \
-  --families both \
+  --families fl2va \
   --name calm_cursed_cctv --overwrite
 ```
 
