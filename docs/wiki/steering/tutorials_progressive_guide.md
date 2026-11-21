@@ -72,7 +72,7 @@ Load [`workflows/h3_text_to_video_pika_1d_vs_erasure_ab_api.json`](../../../work
   - **Branch A (Left):** `MiniMaxH3Steer(vector_name="noir", strength=1.55, mode="add_norm_matched", target="scene_only")`
   - **Branch B (Right):** `MiniMaxH3Steer(vector_name="noir", strength=1.55, mode="add_norm_matched_erasure", target="scene_only")`
   - **`MiniMaxH3DirectorHUD(hud_layout="split_ab_card")`:** Renders a synchronized side-by-side comparison card in one `.mp4`.
-- **What to watch and listen for:** Both halves share identical blocking, percolator foley, and dialogue timing, but **Branch A stays warm color** (sunlit yellow kitchen walls and wood cabinets vetoing the 1D arrow), while **Branch B snaps the entire room, costumes, and shadows into crisp 35mm silver-gelatin monochrome**.
+- **What to watch and listen for:** Both halves share identical blocking, percolator foley, and dialogue timing, while **Branch A stays warm color** (sunlit yellow kitchen walls and wood cabinets vetoing the 1D arrow) and **Branch B strips warm room lighting, cabinets, and walls into 35mm silver-gelatin monochrome** (verified at `sat_mean = 0.1362` on `192f` `hardware_aisle` and `0.0715` on `192f` `cooking_show_meltdown`; note that explicit named wardrobe/animal color nouns such as `"blue dress"` or `"golden retriever"` in `sitcom_kitchen` can retain partial chrominance at `cfg = 1.0` unless neutral in prose).
 
 ---
 
@@ -90,7 +90,7 @@ CUDA_VISIBLE_DEVICES="" "$PY" bench/control_vectors.py inspect paper_origami \
 ```
 
 Look at `erases=[shape (0.34), live-action (0.28), kitchen (0.22), wall (0.21)]` and `vr[2..3]` (`realistic, realism, texture, real, natural`). In our controlled specificity benchmark (`ablation2_vr_variants_fl2va.png` and `ablation3_rank_and_ridge.png` at matched `RMS = 101.25`):
-- **At `r = 0` (`1D` `add_norm_matched`):** Pushing `paper_origami` at `+1.5` against un-erased `"live-action suburban father and teenage daughter"` tokens creates a representational tug-of-war that **completely deletes the teenage daughter and her chair from the kitchen table**.
+- **At `r = 0` (`1D` `add_norm_matched`):** Pushing `paper_origami` at `+1.5` against un-erased `"live-action suburban father and teenage daughter"` tokens creates a representational tug-of-war that **deletes the teenage daughter and her chair from the kitchen table on `seed 730451892`** (`1/2` paired seeds on `sitcom_kitchen`, and `0/5` intact character+medium across our 5-seed specificity control).
 - **With `S4_iso_shrink` (blunt uniform prompt shrinkage):** Dampening all prompt tokens equally turns surfaces into paper but **deletes human figures into empty geometric corridors (`0/5` subject preservation)**.
 - **At `r = 8` (`add_norm_matched_erasure`):** Subtracting only the `live / realistic / skin / cloth` subspace lets **both** the folded-paper father *and* the folded-paper daughter (complete with folded horn-rimmed glasses, toast, golden retriever, steaming percolator, and `"SUNBEAM"` wall clock) materialize cleanly!
 - **Polarity clamp (`strength < 0`):** Try setting `strength = -0.80` on `MiniMaxH3Steer`. Because `control_vectors.py` clamps erasure via `max(0.0, min(s, 1.0))`, negative strengths automatically turn Pole-A erasure **off** (`0.0`) so reverse sweeps (`-1.0 -> 0.0`) push smoothly toward crisp live-action realism without ever amplifying Pole-A noise.
