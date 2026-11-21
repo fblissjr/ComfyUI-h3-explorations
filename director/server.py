@@ -130,6 +130,7 @@ _PINNED_STARTER_DOCS: tuple[str, ...] = (
     "docs/wiki/edit_guidance.md",
     "docs/wiki/control_vectors.md",
     "director/AGENTS.md",
+    "docs/wiki/control_vectors/how_pole_a_erasure_works.md",
     "docs/wiki/control_vectors/which_tool_and_what_to_call_it.md",
     "docs/wiki/control_vectors/sound_cues_and_timed_masks.md",
     "docs/wiki/control_vectors/studio_ui_guide.md",

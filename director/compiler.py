@@ -1714,7 +1714,7 @@ def _wire_model_chain(
             "model": copy.deepcopy(head),
             "vector": vec_name,
             "strength": float(vec.get("strength", 1.0)),
-            "mode": str(vec.get("mode") or "add_norm_matched"),
+            "mode": str(vec.get("mode") or "add_norm_matched_erasure"),
             "target": str(vec.get("target") or "description_only"),
             "start_percent": float(vec.get("start_percent", 0.0)),
             "end_percent": float(vec.get("end_percent", 1.0)),

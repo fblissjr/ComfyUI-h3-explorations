@@ -391,11 +391,16 @@ DECLARED: dict[tuple[str, str], tuple] = {
     ("MiniMaxH3Steer", "vector"):
         ("ARM", "the bare post-refiner control-vector stem ('film_16mm_1974', plus "
                 "'reverb_cathedral' on the second chained node of "
-                "h3_text_to_video_pika_dual_control_vectors, auto-resolved at run time to the "
-                "loaded fl2va/ref2va + LoRA sibling) applied on "
+                "h3_text_to_video_pika_dual_control_vectors, 'noir'/'chaos_panic'/'reverb_cathedral' "
+                "on h3_text_to_video_pika_stacked_erasure, and 'noir' on "
+                "h3_first_last_frame_pika_control_vector and h3_spatial_portal_pika_erasure, "
+                "auto-resolved at run time to the loaded fl2va/ref2va + LoRA sibling) applied on "
                 "h3_text_to_video_pika_control_vector, "
                 "h3_text_to_video_pika_dual_control_vectors, "
+                "h3_text_to_video_pika_stacked_erasure, "
+                "h3_first_last_frame_pika_control_vector, "
                 "h3_image_ref_plus_text_to_video_pika_control_vector, "
+                "h3_spatial_portal_pika_erasure, "
                 "h3_p_h3_image_t2i_control_vector, "
                 "h3_p_h3_image_edit_control_vector, "
                 "h3_pika_image_t2i_control_vector, "
@@ -405,17 +410,26 @@ DECLARED: dict[tuple[str, str], tuple] = {
     ("MiniMaxH3Steer", "strength"):
         ("ARM", "the arm's post-refiner control-vector multiplier in add_norm_matched_erasure / "
                 "add_norm_matched units (+1.15 on film_16mm_1974 across the t2va, dual t2va, ref2va, "
-                "P-H3-Image, Pika image, and Pika guide-edit arms, and +1.25 on reverb_cathedral on "
-                "the second node of h3_text_to_video_pika_dual_control_vectors), "
+                "P-H3-Image, Pika image, and Pika guide-edit arms, +1.25 on reverb_cathedral on "
+                "the dual/stacked t2va arms, +1.55 on noir and +0.90 on chaos_panic in "
+                "h3_text_to_video_pika_stacked_erasure, +1.55 on noir in "
+                "h3_first_last_frame_pika_control_vector, and +1.6 on noir in "
+                "h3_spatial_portal_pika_erasure), "
                 "against the node default 1.0 (2026-11-11, docs/wiki/control_vectors.md)"),
     ("MiniMaxH3Steer", "target"):
         ("ARM", "task-specific prompt-row targets against the node default 'scene_only': "
                 "'description_only' on h3_image_ref_plus_text_to_video_pika_control_vector and "
                 "h3_pika_image_edit_control_vector so film_16mm_1974 grades the room/lighting "
                 "while leaving <Subject 1>'s <Picture 1> definition clean; and "
-                "'soundscape_only' on node 125 of h3_text_to_video_pika_dual_control_vectors so "
+                "'soundscape_only' on node 125 of h3_text_to_video_pika_dual_control_vectors and "
+                "node 126 of h3_text_to_video_pika_stacked_erasure so "
                 "reverb_cathedral steers overall_soundscape independently of the visual prose "
                 "(2026-11-11, docs/wiki/control_vectors.md)"),
+    ("MiniMaxH3Steer", "edit_pass"):
+        ("ARM", "'edited_only' on h3_spatial_portal_pika_erasure against the node default 'both': "
+                "applies Pole-A erasure noir steering exclusively inside the MiniMaxH3EditGuider "
+                "edited branch while leaving the original branch unsteered under same_prompt=True "
+                "(2026-11-21, docs/wiki/control_vectors/how_pole_a_erasure_works.md)"),
     ("MiniMaxH3PromptEdit", "edits"):
         ("ARM", "the graph's edit lines, data from prompt_bank/edit_guidance/, on "
                 "h3_text_to_video_pika_edit_guidance and "
@@ -459,6 +473,11 @@ DECLARED: dict[tuple[str, str], tuple] = {
                 "h3_text_to_video_pika_sound_guide (h3_config.SOUND_GUIDE_ISLANDS), "
                 "against the node default 0 on the frame-0 visual guide graphs "
                 "(2026-11-12, docs/wiki/research/2026-11-12_guide_sound_islands_and_kinematic_dpad.md)."),
+    ("MiniMaxH3ReleaseReferences", "end_percent"):
+        ("ARM", "0.33 on h3_first_last_frame_pika_control_vector, against the node default 1.0: "
+                "releases first/last-frame VAE keyframe locks after step 1 (midpoint b = 0.50) "
+                "so Pole-A erasure noir converts sunlit keyframe color across steps 2..5 while "
+                "holding framing and pose anchors from steps 0..1 (2026-11-21)."),
     ("MiniMaxH3ReleaseReferences", "audio_end_percent"):
         ("ARM", "0.60 (h3_config.SOUND_GUIDE_AUDIO_RELEASE_END) on "
                 "h3_text_to_video_pika_sound_guide and h3_image_ref_dpad_sound_pika, "
@@ -482,7 +501,9 @@ DECLARED: dict[tuple[str, str], tuple] = {
         ("ARM", "1.6 (h3_config.SOUND_GUIDE_EDIT_GUIDANCE['scale']) on "
                 "h3_text_to_video_pika_sound_guide and h3_image_ref_dpad_sound_pika "
                 "so the cond_audio keyframe differential locks exact jump/yank timestamps, "
-                "against the node default 1.5 on the prompt-edit graphs (2026-11-12)."),
+                "2.0 (h3_config.SPATIAL_PORTAL_EDIT_GUIDANCE['scale']) on the Reality Portal "
+                "arms, and 2.2 on h3_spatial_portal_pika_erasure against the node default 1.5 "
+                "on the prompt-edit graphs (2026-11-12)."),
     ("MiniMaxH3EditGuider", "last_step"):
         ("ARM", "3 (h3_config.SOUND_GUIDE_EDIT_GUIDANCE['last_step']) on "
                 "h3_text_to_video_pika_sound_guide and h3_image_ref_dpad_sound_pika, "
@@ -493,27 +514,34 @@ DECLARED: dict[tuple[str, str], tuple] = {
         ("ARM", "'video_only' (h3_config.SOUND_GUIDE_EDIT_GUIDANCE['streams']) on "
                 "h3_text_to_video_pika_sound_guide and h3_image_ref_dpad_sound_pika "
                 "(and h3_world_targets_genie_pika), plus 'independent' on "
-                "h3_spatial_portal_pika, against the node default 'both': 'video_only' "
+                "h3_spatial_portal_pika and h3_spatial_portal_pika_erasure, against the node default 'both': 'video_only' "
                 "extrapolates the cond_audio timing delta into x_video while pinning "
                 "x_audio strictly to the unguided [original] prediction, eliminating "
                 "synthetic .wav bleed and -94 dBFS inter-island silence while H3 "
                 "synthesizes native foley via x_video -> x_audio (2026-11-12, "
                 "docs/wiki/edit_guidance.md); 'independent' pairs with audio_scale=1.0 "
                 "to keep edited audio clean without CFG > 0 dBFS clipping when "
-                "visual scale=2.0."),
+                "visual scale=1.5..2.0."),
     ("MiniMaxH3SpatialDirector", "mode"):
         ("ARM", "'point_targets' on h3_world_targets_genie_pika, against the node "
                 "default 'portal_path': switches the Spatial World Director from "
                 "interpolated Reality Lens sweeps to clicked (x, y, t) target zones "
                 "synchronized with 3f SoundCues and Genie D-Pad sprites (2026-11-15)."),
+    ("MiniMaxH3SpatialDirector", "events_json"):
+        ("ARM", "3-keyframe 'vertical_split' Noir Split-World Wipe (x = 0.68 -> 0.50 -> 0.30) on "
+                "h3_spatial_portal_pika_erasure so 32%..70% of the canvas crosses H3's 3D "
+                "self-attention spatial continuity threshold under zero-rewrite steering, "
+                "against DEFAULT_DIRECTOR_EVENTS_JSON (2026-11-21)."),
     ("MiniMaxH3DirectorHUD", "title"):
         ("ARM", "Scene-specific HUD header title on h3_spatial_portal_pika, "
+                "h3_spatial_portal_pika_erasure, "
                 "h3_world_targets_genie_pika, h3_r2v_spatial_portal_pika, and "
                 "h3_i2v_spatial_portal_pika, against the node default "
                 "'SPATIAL WORLD DIRECTOR · 2D VELOCITY STEERING' (2026-11-15)."),
     ("MiniMaxH3DirectorHUD", "subtitle"):
         ("ARM", "Scene-specific HUD subtitle pill explaining inside-vs-outside "
                 "mask behavior on h3_spatial_portal_pika, "
+                "h3_spatial_portal_pika_erasure, "
                 "h3_world_targets_genie_pika, h3_r2v_spatial_portal_pika, and "
                 "h3_i2v_spatial_portal_pika, against the empty default (2026-11-15)."),
     ("ModelPreviewOverrideKJ", "max_resolution"):

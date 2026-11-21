@@ -1,10 +1,10 @@
 # Which Tool Is Which, and What to Call the Word Readout
 
-Last updated: 2026-11-20.
+Last updated: 2026-11-21.
 
 This pack has four parts that get mentioned together: **Prompt Expander**, **Control Vectors**, **Edit Guidance**, and the **J-Lens**. Prompt Expander authors complete `1x` prompts; Control Vectors and Edit Guidance steer renders; J-Lens mostly reads.
 
-Read this page first if you are explaining the pack to someone else. For the step-by-step mechanism of the word readout see [`how_the_word_readout_works.md`](how_the_word_readout_works.md). For worked cases see [`worked_examples.md`](worked_examples.md).
+Read this page first if you are explaining the pack to someone else. For how `MiniMaxH3Steer` erases prompt conflicts in `1x` (`add_norm_matched_erasure`) see [`how_pole_a_erasure_works.md`](how_pole_a_erasure_works.md). For the step-by-step mechanism of the word readout see [`how_the_word_readout_works.md`](how_the_word_readout_works.md). For worked cases see [`worked_examples.md`](worked_examples.md).
 
 ---
 
@@ -12,12 +12,12 @@ Read this page first if you are explaining the pack to someone else. For the ste
 
 | | Video Prompt Expander (`MiniMaxH3PromptExpander`) | Control vector (`MiniMaxH3Steer`) | Edit guidance (`MiniMaxH3EditGuider`) | Word readout (J-Lens) |
 |---|---|---|---|---|
-| **What it is** | Local `heylook` authoring + Python grammar contract ([`h3_prompt_contract.py`](../../../h3_prompt_contract.py)) | One direction added to the prompt's text tokens | Two prompts compared at every guided step | A translator between a vector and English words |
+| **What it is** | Local `heylook` authoring + Python grammar contract ([`h3_prompt_contract.py`](../../../h3_prompt_contract.py)) | One steering direction + rank-8 Pole-A subspace eraser (`add_norm_matched_erasure`) applied to selected text tokens | Two prompts compared at every guided step | A translator between a vector and English words |
 | **Where it acts** | Before `Qwen3-VL` conditioning (writes the prompt itself) | After the token refiner, before the DiT (`token_focus = 1.0`) | Inside the DiT's predicted update | Nowhere in the render, unless wired as `MiniMaxH3WordVector` or `hold_words` |
-| **Built from** | Short scene idea + concept card + wired media/length | The average difference between 10 diverse pairs of prompts (`--families fl2va`) | Your `original` prompt and edits (`MiniMaxH3PromptEdit` or `MiniMaxH3AutoEditPrompt`) | The text encoder's weights, once, into a bundle file |
+| **Built from** | Short scene idea + concept card + wired media/length | 10 paired contrast prompts (`--families fl2va`) storing `vector.post_refiner`, `erasure.mu_d`, and rank-8 `erasure.vr` (`~193.5 KB`) | Your `original` prompt and edits (`MiniMaxH3PromptEdit` or `MiniMaxH3AutoEditPrompt`) | The text encoder's weights, once, into a bundle file |
 | **Render cost** | One `Qwen3-VL` + one `1x` `BasicGuider` pass | One model pass (`1x`), the same as no steering | A second model pass on every guided step (`2x`) | None. It runs on the CPU |
-| **Good for** | Fresh multi-shot scenes, mutually exclusive lighting looks, wardrobe, blocking, dialogue | Reusable orthogonal film-stock, medium, material, and acoustic-timbre dials (`bank/`) | Keeping an existing take/seed while tweaking weather, `audio_only`, or a `[F, H, W]` mask | Checking a vector by eye before rendering, scrubbing a side effect, sketching a vector from single words |
-| **Cannot do** | Preserve step-0 latent trajectory of an unrelated existing render | Erase contradictory light sources written in the prompt, or bind multi-part choreography/wardrobe | Be saved and reused across arbitrary scenes | Guarantee DiT visual success (or parse multi-token phrases) |
+| **Good for** | Fresh multi-shot scenes, mutually exclusive lighting looks, wardrobe, blocking, dialogue | Reusable orthogonal film-stock, medium, material, and acoustic-timbre dials (`bank/`) — even when an un-rewritten prompt mentions natural color or daylight | Keeping an existing take/seed while tweaking weather, `audio_only`, or a `[F, H, W]` mask | Checking a vector by eye before rendering, scrubbing a side effect, sketching a vector from single words |
+| **Cannot do** | Preserve step-0 latent trajectory of an unrelated existing render | Re-choreograph limbs, swap multi-sentence dialogue scripts, or unlock a `<Picture 1>`'s bright garment while `ref_end_percent = 1.0` pins that color | Be saved and reused across arbitrary scenes | Guarantee DiT visual success (or parse multi-token phrases) |
 
 Where each lives in the code:
 
@@ -43,7 +43,7 @@ Inside the repo it is "J-Lens". In anything written for other people, do not use
 
 "J-lens" is the name of a published method from Anthropic, with properties its authors tested. The reading
 notes are in
-[`../../research/control_vectors/2026-11-12_chain_lens_refs/jlens_workspace_paper.md`](../research/control_vectors/2026-11-12_chain_lens_refs/jlens_workspace_paper.md).
+[`../research/control_vectors/2026-11-12_chain_lens_refs/jlens_workspace_paper.md`](../research/control_vectors/2026-11-12_chain_lens_refs/jlens_workspace_paper.md).
 Ours shares its core idea and differs in ways that matter to a reader who knows the paper:
 
 - **It reads steering directions.** The published lens reads a language model's hidden states to see what the
@@ -53,10 +53,10 @@ Ours shares its core idea and differs in ways that matter to a reader who knows 
 - **It adds two steps of its own.** One carries a vector back through the token refiner. The other scores
   words against a few fill-in-the-blank prompts.
 - **It was fitted on far less data than the published recipe.** Compare section 2 of
-  [`../../research/control_vectors/2026-11-06_j_lens_and_refiner_jacobian.md`](../research/control_vectors/2026-11-06_j_lens_and_refiner_jacobian.md)
+  [`../research/control_vectors/2026-11-06_j_lens_and_refiner_jacobian.md`](../research/control_vectors/2026-11-06_j_lens_and_refiner_jacobian.md)
   with section 1 of the reading notes above.
 - **The code that fitted its word half is not in the repo.** Section 17 of
-  [`../../research/control_vectors/2026-11-09_control_vector_simplification_plan.md`](../research/control_vectors/2026-11-09_control_vector_simplification_plan.md)
+  [`../research/control_vectors/2026-11-09_control_vector_simplification_plan.md`](../research/control_vectors/2026-11-09_control_vector_simplification_plan.md)
   records that, and rebuilding it is an open item.
 
 ### Wording to use

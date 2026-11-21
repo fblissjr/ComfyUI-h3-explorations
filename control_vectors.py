@@ -1244,6 +1244,7 @@ class PooledPairSet:
 
 
 ERASURE_MAX_RANK: int = 8
+COMPOSED_ERASURE_MAX_RANK: int = 16
 ERASURE_RIDGE_REL: float = 0.15
 ERASURE_MATCH_TAU: float = 0.15
 
@@ -1387,7 +1388,7 @@ def compose_erasure_payload(
     ],
     *,
     holds: Sequence[tuple[torch.Tensor, float]] = (),
-    max_rank: int = ERASURE_MAX_RANK,
+    max_rank: int = COMPOSED_ERASURE_MAX_RANK,
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor] | None:
     """Compose paired float32 `(erasure.mu_d, erasure.vr, erasure.diag)` across multi-vector recipes.
 
@@ -2519,7 +2520,8 @@ def format_vector_sidecar_md(
             window = f"`{NORM_SHIFT_WINDOW[0]:g}..{NORM_SHIFT_WINDOW[1]:g}`"
             lines.append(
                 f"- **Recommended ComfyUI `strength` range** (targeting post-refiner shift norm {window}): "
-                f"**`~{matched_lo:.2f} .. {matched_hi:.2f}`** in mode `add_norm_matched`, the node's default, "
+                f"**`~{matched_lo:.2f} .. {matched_hi:.2f}`** in mode `add_norm_matched_erasure` "
+                f"(the `MiniMaxH3Steer` default; falls back to 1D `add_norm_matched` when erasure tensors are absent), "
                 f"where every vector is rescaled to one length and this range is the same for all of them; "
                 f"`~{add_range[0]:.2f} .. {add_range[1]:.2f}` in mode `add`, where this vector is used as stored"
             )
@@ -2962,7 +2964,8 @@ STACK_SHIFT_WARN_NORM: float = NORM_MATCHED_TARGET * 1.45
 def strength_ranges(raw_norm: float) -> tuple[tuple[float, float], tuple[float, float] | None]:
     """The strength range that lands a push inside `NORM_SHIFT_WINDOW`, per apply mode.
 
-    Returns `(norm_matched, add)`. Under `add_norm_matched`, the node's default mode, every vector is
+    Returns `(norm_matched, add)`. Under `add_norm_matched_erasure` (the `MiniMaxH3Steer` default;
+    falls back to 1D `add_norm_matched` when erasure tensors are absent), every vector is
     rescaled to `NORM_MATCHED_TARGET` first, so the range is the same for every vector. Under `add` the
     vector is used as stored, so the range depends on its own `raw_norm`; it is `None` for a zero vector.
     """

@@ -7191,6 +7191,8 @@ def _check_nov15_steer_prose_and_ph3_family() -> list[str]:
                 errs.append("compose_erasure_payload returned None for K=2 + hold")
             else:
                 c2_mu, c2_vr, c2_diag = c2
+                if cv.COMPOSED_ERASURE_MAX_RANK != 16:
+                    errs.append(f"expected COMPOSED_ERASURE_MAX_RANK == 16, got {cv.COMPOSED_ERASURE_MAX_RANK}")
                 if float(c2_diag.min().item()) < 0.0 or float(c2_diag.max().item()) > 1.0:
                     errs.append(f"compose_erasure_payload diag out of [0,1]: {c2_diag.tolist()}")
                 gram_err = float((c2_vr.to(torch.float64) @ c2_vr.to(torch.float64).T - torch.eye(c2_vr.shape[0], dtype=torch.float64)).abs().max().item())
@@ -7202,6 +7204,36 @@ def _check_nov15_steer_prose_and_ph3_family() -> list[str]:
                 )
                 if c2_hold_leak > 1e-4:
                     errs.append(f"compose_erasure_payload leaked hold: {c2_hold_leak:.6g}")
+
+            # K=2 distinct rank-8 bases preserve full rank-16 union (1.000 trace retention)
+            er_a_q, _ = torch.linalg.qr(torch.randn((cv.POST_REFINER_DIM, 8), generator=g_er, dtype=torch.float64), mode="reduced")
+            er_b_q, _ = torch.linalg.qr(torch.randn((cv.POST_REFINER_DIM, 8), generator=g_er, dtype=torch.float64), mode="reduced")
+            er_a_vr = er_a_q.T.to(dtype=torch.float32).contiguous()
+            er_b_vr = er_b_q.T.to(dtype=torch.float32).contiguous()
+            er_a_d = torch.linspace(0.95, 0.55, 8, dtype=torch.float32)
+            er_b_d = torch.linspace(0.90, 0.45, 8, dtype=torch.float32)
+            c16 = cv.compose_erasure_payload(
+                [
+                    (er_v1d, 1.0, "add_norm_matched_erasure", er_mu, er_a_vr, er_a_d),
+                    (er2_mu, 1.0, "add_norm_matched_erasure", er2_mu, er_b_vr, er_b_d),
+                ],
+            )
+            if c16 is None:
+                errs.append("compose_erasure_payload returned None for K=2 rank-8 union")
+            else:
+                _c16_mu, c16_vr, c16_diag = c16
+                if int(c16_vr.shape[0]) != 16:
+                    errs.append(f"expected rank-16 union from two rank-8 bases, got rank {int(c16_vr.shape[0])}")
+                p_union_ref = (
+                    (er_a_vr.to(torch.float64).T * er_a_d.to(torch.float64).unsqueeze(0)) @ er_a_vr.to(torch.float64)
+                    + (er_b_vr.to(torch.float64).T * er_b_d.to(torch.float64).unsqueeze(0)) @ er_b_vr.to(torch.float64)
+                )
+                p_union_got = (
+                    (c16_vr.to(torch.float64).T * c16_diag.to(torch.float64).unsqueeze(0)) @ c16_vr.to(torch.float64)
+                )
+                union_err = float((p_union_ref - p_union_got).abs().max().item())
+                if union_err > 1e-4:
+                    errs.append(f"compose_erasure_payload rank-16 union operator mismatch: {union_err:.6g}")
 
             # sculpt preserves erasure.{mu_d,vr,diag} on disk (both j_lens & fallback paths)
             from bench.control_vector import sculpt as _sculpt_mod

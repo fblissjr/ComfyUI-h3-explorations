@@ -15,7 +15,7 @@ this file is only a way to find a script by what it says it does.
 | [`compare_*`](#compare) | 15 |
 | [`build_*`](#build) | 13 |
 | [`probe_*`](#probe) | 18 |
-| [the rest](#the-rest) | 204 |
+| [the rest](#the-rest) | 205 |
 
 ## check
 
@@ -550,6 +550,7 @@ this file is only a way to find a script by what it says it does.
 | [`upstream_watch.py`](upstream_watch.py) | List what each watched upstream landed since its last read, and its open PRs and issues. |
 | [`verify_multistep_capture.py`](verify_multistep_capture.py) | Pre-flight verification for multi-step activation captures. |
 | [`verify_partition_delta_float64.py`](verify_partition_delta_float64.py) | FL2VA against Ref2VA, weight by weight, on a path independent of `bench/map_partition_delta.py`. |
+| [`verify_pole_a_erasure.py`](verify_pole_a_erasure.py) | Reproducible CPU mathematical verification for Clamped Pole-A Subspace Erasure. |
 | [`verify_token_aug_repro_shapes.py`](verify_token_aug_repro_shapes.py) | Which shapes reproduce the `token_aug` nondeterminism IN A FRESH PROCESS? |
 | [`verify_vsa_render.py`](verify_vsa_render.py) | Verify a VSA render actually ran VSA, by its decoded pixels. |
 | [`visualize_token_routing.py`](visualize_token_routing.py) | Simulate, measure, and visually export Sol-Attn with Token Routing (ON vs OFF). |

@@ -903,7 +903,22 @@ def check_compiler_contracts() -> str:
     for unused_sp_id in ("51", "52", "53", "54"):
         assert unused_sp_id not in sb_base, f"lean baseline must prune unused sprite node {unused_sp_id!r}"
 
-    return "all 4 spatial modes, R2V GuideLatent F0 lock, multi-beat prompts, 141f default + I2V <124f guard, warm auto pre-viz, zero-tortoise synthesis, masked image previews, dual VHS save_output=False, dynamic '165', audio_refine + redub, baseline opt-in + sprite prune, sprite_envelope, and image stills verified"
+    # Default MiniMaxH3Steer mode emitted by Spatial Director is add_norm_matched_erasure
+    cv_dir_res = compiler_mod.compile_spatial_take(
+        {
+            **common_base,
+            "mode": "r2v_portal",
+            "control_vectors": [{"vector": "noir", "strength": 1.35}],
+            "events_json": json.dumps(SAMPLE_EVENTS_90),
+        },
+        object_info=MOCK_OBJECT_INFO_WITH_KJ,
+    )
+    assert cv_dir_res["graph"]["115"]["class_type"] == "MiniMaxH3Steer"
+    assert cv_dir_res["graph"]["115"]["inputs"]["mode"] == "add_norm_matched_erasure", (
+        f"expected add_norm_matched_erasure default, got {cv_dir_res['graph']['115']['inputs']['mode']!r}"
+    )
+
+    return "all 4 spatial modes, R2V GuideLatent F0 lock, multi-beat prompts, 141f default + I2V <124f guard, warm auto pre-viz, zero-tortoise synthesis, masked image previews, dual VHS save_output=False, dynamic '165', audio_refine + redub, baseline opt-in + sprite prune, sprite_envelope, director erasure default, and image stills verified"
 
 
 def check_forget_plan_and_isolation() -> str:
