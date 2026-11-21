@@ -30,6 +30,8 @@ import json
 import logging
 import math
 import os
+import weakref
+from collections import OrderedDict
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping, Sequence
@@ -1647,14 +1649,15 @@ def _make_control_vector_wrapper(
     logged_prompt_couplings: set[tuple[str, str]] = set()
     logged_steered_rows: set[tuple[int, str, int, int, str]] = set()
     logged_stack_warnings: set[tuple[str, int, str, str]] = set()
-    resolved_prompt_vectors: dict[tuple[str, str], torch.Tensor] = {}
+    resolved_prompt_vectors: OrderedDict[tuple[str, str], torch.Tensor] = OrderedDict()
     last_resolved_by_spec: dict[str, torch.Tensor] = {}
-    # Keyed by (id(orig_layout), drop_vis, drop_vid_ref, drop_guide, drop_aud) with a strong ref to orig_layout
-    # in the value so staggered visual/video-ref/guide/audio releases cache every layout (~0 us on later steps).
-    released_layout_cache: dict[
-        tuple[int, bool, bool, bool, bool],
-        tuple[Any, Any, int, int, list[dict[str, Any]] | None, list[dict[str, Any]] | None],
-    ] = {}
+    # Weakly keyed by orig_layout -> {(drop_vis, drop_vid_ref, drop_guide, drop_aud):
+    # (released_layout, dropped_vis_rows, dropped_aud_rows)} so staggered releases reuse
+    # layouts (~0 us on later steps) while freeing 100% of prior runs' layouts & latents at render end.
+    released_layout_cache: weakref.WeakKeyDictionary[
+        Any,
+        dict[tuple[bool, bool, bool, bool], tuple[Any, int, int]],
+    ] = weakref.WeakKeyDictionary()
 
     def wrapper(executor, x, timestep, context, transformer_options={}, **kwargs):
         if context is None or not specs:
@@ -1767,18 +1770,16 @@ def _make_control_vector_wrapper(
                     if drop_guide
                     else ()
                 )
-                cache_key = (
-                    (id(orig_layout), drop_vis, drop_vid_ref, drop_guide, drop_aud)
-                    if orig_layout is not None
-                    else None
-                )
-                cache_entry = (
-                    released_layout_cache.get(cache_key)
-                    if cache_key is not None
-                    else None
-                )
-                if cache_entry is not None and cache_entry[0] is orig_layout:
-                    _, released_layout, dropped_vis_rows, dropped_aud_rows, kept_kf, kept_refs = cache_entry
+                flags_key = (drop_vis, drop_vid_ref, drop_guide, drop_aud)
+                per_layout = None
+                if orig_layout is not None:
+                    try:
+                        per_layout = released_layout_cache.get(orig_layout)
+                    except TypeError:
+                        per_layout = None
+                cache_entry = per_layout.get(flags_key) if per_layout is not None else None
+                if cache_entry is not None:
+                    released_layout, dropped_vis_rows, dropped_aud_rows = cache_entry
                 else:
                     released_layout, dropped_vis_rows, dropped_aud_rows = _drop_cond_from_layout(
                         orig_layout,
@@ -1789,24 +1790,27 @@ def _make_control_vector_wrapper(
                         drop_midclip_guide=drop_guide,
                         cond_keep_mask=cond_keep,
                     )
-                    kept_kf, kept_refs = _strip_cond_entries(
-                        payload.get("keyframes"),
-                        payload.get("refs"),
-                        drop_visual=drop_vis,
-                        drop_guide_audio=drop_aud,
-                        drop_video_ref=drop_vid_ref,
-                        drop_midclip_guide=drop_guide,
-                        total_frames=total_frames,
-                    )
-                    if cache_key is not None and len(released_layout_cache) < 32:
-                        released_layout_cache[cache_key] = (
-                            orig_layout,
-                            released_layout,
-                            dropped_vis_rows,
-                            dropped_aud_rows,
-                            kept_kf,
-                            kept_refs,
-                        )
+                    if orig_layout is not None:
+                        try:
+                            if per_layout is None:
+                                per_layout = {}
+                                released_layout_cache[orig_layout] = per_layout
+                            per_layout[flags_key] = (
+                                released_layout,
+                                dropped_vis_rows,
+                                dropped_aud_rows,
+                            )
+                        except TypeError:
+                            pass
+                kept_kf, kept_refs = _strip_cond_entries(
+                    payload.get("keyframes"),
+                    payload.get("refs"),
+                    drop_visual=drop_vis,
+                    drop_guide_audio=drop_aud,
+                    drop_video_ref=drop_vid_ref,
+                    drop_midclip_guide=drop_guide,
+                    total_frames=total_frames,
+                )
 
                 if drop_vis:
                     new_payload["cond_video_latents"] = []
@@ -2074,6 +2078,10 @@ def _make_control_vector_wrapper(
                             )
                         else:
                             resolved_prompt_vectors[cache_key] = sp.vector
+                        while len(resolved_prompt_vectors) > 64:
+                            resolved_prompt_vectors.popitem(last=False)
+                    else:
+                        resolved_prompt_vectors.move_to_end(cache_key)
                     vec_out = resolved_prompt_vectors[cache_key]
                     last_resolved_by_spec[sp.vector_name] = vec_out
                 else:
