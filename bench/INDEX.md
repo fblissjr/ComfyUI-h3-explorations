@@ -683,6 +683,7 @@ Arm manifests and the like; a manifest's line is its own `what`.
 | [`llm_pairs.py`](control_vector/llm_pairs.py) | Local LLM pair generation (`transformers` and `exllamav3`) for H3 control vectors. |
 | [`make_cmds.py`](control_vector/make_cmds.py) | CLI commands for `make`, `make-media`, and `from-md` (`import-md`). |
 | [`sculpt.py`](control_vector/sculpt.py) | CPU vector sculpting (`sculpt` / `--invert`) and contextual prompt receptor metering. |
+| [`studio.sh`](control_vector/studio.sh) | Launcher for Control Vector Studio (`bench/control_vectors.py ui`). |
 | [`ui_schema.py`](control_vector/ui_schema.py) | The studio's description of the CLI: every method and argument, read off the parser. |
 | [`ui_server.py`](control_vector/ui_server.py) | HTTP server and `/api/*` routes for the H3 Control Vector Studio. |
 | [`ui_state.py`](control_vector/ui_state.py) | UI state management, TOML/Markdown preview, and `< 1 ms` CPU cached-build repooling. |
