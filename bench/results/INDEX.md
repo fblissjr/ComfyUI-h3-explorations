@@ -16,6 +16,7 @@ replaces `docs/wiki/ops/evidence.md`, which says what the records established.
 
 | date | lane | record | verdict |
 |---|---|---|---|
+| 2026-11-21 | phase3 | [Phase 3 Steering & Elicitation Benchmark: `A5` Guardrails, `de_llm_slop`, `V_r` Centering (`Exp 1`), Same-Modality Vision-Token Erasure (`Exp 2`), and Shadow-Text K/V Block-Band Routing (`Exp 3`)](2026-11-21_phase3_de_slop_and_vision_block_steering.md) |  |
 | 2026-11-21 | multivector | [2026-11-21 Multi-Vector Pole-A Subspace Erasure Benchmark & 38-Concept Bank Census](2026-11-21_multivector_erasure_benchmark.md) |  |
 | 2026-11-18 | vae | [`--fast fp16_accumulation` and the H3 video VAE on the RTX 4090 (2026-11-18)](2026-11-18_vae_fp16_accumulation.md) |  |
 | 2026-11-18 | text | [The 32B text encoder, int8 ConvRot against bf16 pruned: speed at x16 (2026-11-18)](2026-11-18_text_encoder_int8_vs_bf16_speed.md) |  |

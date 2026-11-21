@@ -273,6 +273,13 @@ def build_parser() -> argparse.ArgumentParser:
     pfp.add_argument("--refiner-device", default="cpu")
     pfp.add_argument("--out-dir", dest="out_dir", default=None, help="Optional output directory for .safetensors files")
     pfp.add_argument("--overwrite", action="store_true", help="Overwrite existing .toml and .safetensors files")
+    pfp.add_argument(
+        "--force-low-pair-erasure",
+        dest="force_low_pair_erasure",
+        action="store_true",
+        default=False,
+        help="Allow building rank-8 Pole-A subspace erasure even with < 6 pairs (by default low-pair compiled builds omit erasure.* since V_r underfits; pass --bank-scenes 8 instead)",
+    )
 
     pb = sub.add_parser(
         "build",
@@ -401,6 +408,13 @@ def build_parser() -> argparse.ArgumentParser:
     pb.add_argument("--refiner-device", default="cpu")
     pb.add_argument("--out-dir", dest="out_dir", default=None, help="Optional output directory for .safetensors files")
     pb.add_argument("--overwrite", action="store_true", help="Overwrite existing .toml and .safetensors files")
+    pb.add_argument(
+        "--force-low-pair-erasure",
+        dest="force_low_pair_erasure",
+        action="store_true",
+        default=False,
+        help="Allow building Pole-A subspace erasure on compiled < 6-pair --words builds",
+    )
 
     pfm = sub.add_parser(
         "from-md",
@@ -463,6 +477,13 @@ def build_parser() -> argparse.ArgumentParser:
     pm.add_argument("--refiner-device", default="cpu")
     pm.add_argument("--out", default=None, help="Output .safetensors path or filename")
     pm.add_argument("--overwrite", action="store_true", help="Overwrite an existing vector file at the target path")
+    pm.add_argument(
+        "--force-low-pair-erasure",
+        dest="force_low_pair_erasure",
+        action="store_true",
+        default=False,
+        help="Allow building Pole-A subspace erasure on compiled < 6-pair --words builds",
+    )
 
     pmm = sub.add_parser(
         "make-media",
@@ -807,6 +828,13 @@ def build_parser() -> argparse.ArgumentParser:
     preb.add_argument("--seed", type=int, default=0)
     preb.add_argument("--device", default="default")
     preb.add_argument("--refiner-device", default="cpu")
+    preb.add_argument(
+        "--force-low-pair-erasure",
+        dest="force_low_pair_erasure",
+        action="store_true",
+        default=False,
+        help="Allow rebuilding Pole-A subspace erasure on compiled < 6-pair builds",
+    )
 
     pstat = sub.add_parser(
         "status",

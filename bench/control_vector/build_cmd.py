@@ -9,6 +9,7 @@ import json
 import os
 from pathlib import Path
 import stat
+import sys
 import time
 from typing import Any
 
@@ -323,6 +324,16 @@ def cmd_build(args: argparse.Namespace) -> int:
     print(f"=== Control Vector One-Shot Build: {stem} ===")
     pairs_label = _display_path(resolved_pair_path) if resolved_pair_path is not None else str(pair_set.path)
     print(f"  pairs_toml        : {pairs_label} ({len(pair_set.pairs)} pairs)")
+    is_compiled_inplace = str(pair_set.path).startswith("<compiled:")
+    force_low_erasure = bool(getattr(args, "force_low_pair_erasure", False))
+    min_erasure_pairs = cv.MIN_ERASURE_PAIRS if (is_compiled_inplace and not force_low_erasure) else 1
+    if is_compiled_inplace and len(pair_set.pairs) < cv.MIN_ERASURE_PAIRS and not force_low_erasure:
+        print(
+            f"  WARNING: {stem}: skipping Pole-A subspace erasure on low-pair compiled build "
+            f"(n_pairs={len(pair_set.pairs)} < {cv.MIN_ERASURE_PAIRS}; pass --bank-scenes 8 to span "
+            "multi-scene Pole-A variance, or --force-low-pair-erasure to override)",
+            file=sys.stderr,
+        )
     if test_prompt_saved is not None:
         print(f"  test_prompt_file  : {_display_path(test_prompt_saved)}")
     print(f"  poolings          : {', '.join(poolings)}")
@@ -436,6 +447,7 @@ def cmd_build(args: argparse.Namespace) -> int:
                 pooling=pool_mode,
                 unit_mean=use_unit_mean,
                 include_encoder=bool(getattr(args, "include_encoder", True)),
+                min_erasure_pairs=min_erasure_pairs,
             )
             a_mat, b_mat = pooled.a_mat, pooled.b_mat
             pair_spans = pooled.pair_spans

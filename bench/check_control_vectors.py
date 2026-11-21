@@ -1181,6 +1181,25 @@ b = "a busy city street"
         if not any("Fixed Pole-A wording" in w for w in gate_bc_warns):
             errs.append(f"lint_pair_set Gate C did not flag fixed Pole-A wording; got {gate_bc_warns}")
 
+        # Gate D: shared-prefix baseline state word negated by a_span -> b_span (dialogue words exempt)
+        gate_d_a = (
+            "integrated_multimodal_description: [Shot 1] Live-action. Inside a sunlit courtyard, a baker stacks bread "
+            "beside wooden crates in warm sunlit glow.\n\noverall_soundscape: Footsteps on cobbles.\n\nnon_diegetic_music: N/A"
+        )
+        gate_d_b = gate_d_a.replace("warm sunlit glow.", "pitch-black silver moonlight.")
+        gate_d_warns = cv.lint_pair_set([{"a": gate_d_a, "b": gate_d_b}])
+        if not any("shared prefix retains Pole-A baseline word(s)" in w and "sunlit" in w for w in gate_d_warns):
+            errs.append(f"lint_pair_set Gate D did not flag shared-prefix 'sunlit' contradiction; got {gate_d_warns}")
+        gate_d_dlg_a = (
+            "integrated_multimodal_description: [Shot 1] Live-action. Inside a stone courtyard, a baker says, "
+            "<d>[English] What a sunlit morning.</d> Her apron shifts in warm sunlit glow.\n\n"
+            "overall_soundscape: Footsteps on cobbles.\n\nnon_diegetic_music: N/A"
+        )
+        gate_d_dlg_b = gate_d_dlg_a.replace("warm sunlit glow.", "pitch-black silver moonlight.")
+        gate_d_dlg_warns = cv.lint_pair_set([{"a": gate_d_dlg_a, "b": gate_d_dlg_b}])
+        if any("shared prefix retains Pole-A baseline word(s)" in w for w in gate_d_dlg_warns):
+            errs.append(f"lint_pair_set Gate D falsely flagged spoken <d> dialogue word 'sunlit'; got {gate_d_dlg_warns}")
+
         # 16. h3_pair_compiler in-place target_prompt contrast compiler checks (canonical_frames.json retired)
         if (REPO / "prompt_bank" / "control_vectors" / "canonical_frames.json").exists():
             errs.append("prompt_bank/control_vectors/canonical_frames.json still exists (must be retired)")
@@ -4000,6 +4019,10 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
                     wb_st = next(words_vec_dir.glob("*.safetensors"))
                     wb_stem = wb_st.name.split("__")[0]
                     wb_t_orig, wb_m_orig = cv.load_vector(wb_st)
+                    if "erasure.vr" in wb_t_orig:
+                        errs.append("from-prompt with 2 pairs (< 6) emitted erasure.vr without --force-low-pair-erasure")
+                    if "skipping Pole-A subspace erasure on low-pair compiled build" not in buf_wb_err.getvalue():
+                        errs.append("from-prompt with 2 pairs did not warn about skipping low-pair erasure")
                     wb_pairs_meta = wb_m_orig.get("pairs") or {}
                     if wb_pairs_meta.get("differing_sections") != ["integrated_multimodal_description"]:
                         errs.append(
@@ -4059,6 +4082,40 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
                         _, wb_m_after_mut = cv.load_vector(wb_st)
                         if float(wb_m_after_mut["pairs"]["pair_spans"][0]["weight"]) != 9.0:
                             errs.append(f"cmd_rebuild did not reconstruct PairSet from pairs_ab (expected pair 0 weight 9.0, got {wb_m_after_mut['pairs']['pair_spans'][0]['weight']})")
+                    # --force-low-pair-erasure explicitly builds erasure.* even when n_pairs < 6
+                    with contextlib.redirect_stdout(buf_wb_out), contextlib.redirect_stderr(buf_wb_err):
+                        rc_wb_force = bench_cv.main(
+                            [
+                                "from-prompt",
+                                "--target-prompt",
+                                tp_two_scenes,
+                                "--words",
+                                "short take -> blizzard snowdrift indoors",
+                                "--families",
+                                "fl2va",
+                                "--pooling",
+                                "diff_span",
+                                "--dit",
+                                ckpt_path.name,
+                                "--no-lora",
+                                "--out-dir",
+                                str(words_vec_dir),
+                                "--name",
+                                f"{wb_stem}_forced",
+                                "--force-low-pair-erasure",
+                                "--overwrite",
+                            ]
+                        )
+                    if rc_wb_force != 0:
+                        errs.append(f"from-prompt --force-low-pair-erasure failed with rc={rc_wb_force}")
+                    else:
+                        forced_files = sorted(words_vec_dir.glob(f"{wb_stem}_forced*.safetensors"))
+                        if len(forced_files) != 1:
+                            errs.append(f"expected 1 forced vector file, got {forced_files}")
+                        else:
+                            wb_t_force, _ = cv.load_vector(forced_files[0])
+                            if "erasure.vr" not in wb_t_force or "erasure.diag" not in wb_t_force:
+                                errs.append("from-prompt --force-low-pair-erasure did not emit erasure.{vr,diag}")
 
                 # Verify _attach_refiner_lora_branches matches float32 merged TokenRefiner and refuses duplicate patches
                 import copy as _copy
@@ -6921,6 +6978,7 @@ def _check_nov15_steer_prose_and_ph3_family() -> list[str]:
             for bad_name, bad_tensors in (
                 ("missing diag", {"vector.post_refiner": er_v1d, "erasure.vr": er_vr}),
                 ("mu_d without vr", {"vector.post_refiner": er_v1d, "erasure.mu_d": er_mu}),
+                ("mu_a without vr", {"vector.post_refiner": er_v1d, "erasure.mu_a": er_mu}),
                 ("rank mismatch", {"vector.post_refiner": er_v1d, "erasure.vr": er_vr, "erasure.diag": er_diag[:3]}),
                 ("diag > 1", {"vector.post_refiner": er_v1d, "erasure.vr": er_vr, "erasure.diag": er_diag + 2.0}),
                 ("non-orthonormal vr", {"vector.post_refiner": er_v1d, "erasure.vr": er_vr * 2.0, "erasure.diag": er_diag}),
@@ -6930,6 +6988,48 @@ def _check_nov15_steer_prose_and_ph3_family() -> list[str]:
                     errs.append(f"_validate_vector_payload accepted invalid erasure payload ({bad_name})")
                 except ValueError:
                     pass
+
+            # Same-modality 1:1 spatial vision erasure (erasure.mu_a): exact 1:1 diff + uniform-cast erasure
+            vis_shift_dir = torch.randn((cv.POST_REFINER_DIM,), generator=g_er, dtype=torch.float64) * 0.5
+            a_v1 = torch.randn((12, cv.POST_REFINER_DIM), generator=g_er, dtype=torch.float32)
+            a_v2 = torch.randn((12, cv.POST_REFINER_DIM), generator=g_er, dtype=torch.float32) + 2.0 * er_vr[0]
+            b_v1 = a_v1 + vis_shift_dir.to(dtype=torch.float32)
+            b_v2 = a_v2 + vis_shift_dir.to(dtype=torch.float32)
+            sp_vis_er = cv.build_spatial_vision_erasure([a_v1, a_v2], [b_v1, b_v2])
+            if sp_vis_er is None:
+                errs.append("build_spatial_vision_erasure returned None on registered 12-patch pairs")
+            else:
+                v_mud, v_vr, v_diag, v_mua = sp_vis_er
+                if not torch.allclose(v_mud.to(torch.float64), vis_shift_dir, atol=1e-4):
+                    errs.append("build_spatial_vision_erasure 1:1 mu_d deviated from exact B - A")
+                vis_er_path = st_tmp / "vec" / "vis_er_chk__ref2va__vision_tokens.safetensors"
+                cv.save_vector(
+                    vis_er_path,
+                    {
+                        "vector.post_refiner": v_mud.clone(),
+                        "erasure.mu_d": v_mud,
+                        "erasure.vr": v_vr,
+                        "erasure.diag": v_diag,
+                        "erasure.mu_a": v_mua,
+                    },
+                    {**er_meta, "name": "vis_er_chk", "family": "ref2va"},
+                )
+                rt_vis_t, _ = cv.load_vector(vis_er_path)
+                if "erasure.mu_a" not in rt_vis_t:
+                    errs.append("save_vector/load_vector dropped erasure.mu_a")
+                # Identical patch rows shifted off mu_a: with mu_a centering, erasure activates; without mu_a, centered == 0!
+                uni_rows = (v_mua.to(torch.float64) + 5.0 * v_vr[0].to(torch.float64)).unsqueeze(0).expand(4, -1).clone().to(torch.float32).unsqueeze(0)
+                tags_uni = torch.zeros((1, 4), dtype=torch.long)
+                out_uni_nomua = cv.apply_post_refiner(
+                    uni_rows, tags_uni, [(v_mud, 1.0, "add_norm_matched_erasure")],
+                    mask_vision=False, erasure_specs=[(v_vr, v_diag, v_mud)],
+                )
+                out_uni_with_mua = cv.apply_post_refiner(
+                    uni_rows, tags_uni, [(v_mud, 1.0, "add_norm_matched_erasure")],
+                    mask_vision=False, erasure_specs=[(v_vr, v_diag, v_mud, (), v_mua)],
+                )
+                if torch.allclose(out_uni_nomua, out_uni_with_mua, atol=1e-3):
+                    errs.append("erasure.mu_a dataset centering did not preserve uniform-cast vision erasure vs single-image mean centering")
 
             # Runtime math: s=0 identity, s<0 matches 1D, RMS match at s=1.5, M=1 guard, per-row hold scrubbing
             ctx_er = torch.randn((1, 10, cv.POST_REFINER_DIM), generator=g_er, dtype=torch.float32) * 5.0

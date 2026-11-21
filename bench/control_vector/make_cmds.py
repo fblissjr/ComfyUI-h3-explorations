@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 import hashlib
 import json
 from pathlib import Path
+import sys
 import time
 from typing import Any
 
@@ -296,6 +297,16 @@ def cmd_make(args: argparse.Namespace) -> int:
 
     # The one pair build, shared with the node and `build` (`control_vectors.pool_pair_set`).
     use_unit_mean_make = bool(getattr(args, "unit_mean", False))
+    is_compiled_make = str(pair_set.path).startswith("<compiled:")
+    force_low_erasure_make = bool(getattr(args, "force_low_pair_erasure", False))
+    min_er_make = cv.MIN_ERASURE_PAIRS if (is_compiled_make and not force_low_erasure_make) else 1
+    if is_compiled_make and len(pair_set.pairs) < cv.MIN_ERASURE_PAIRS and not force_low_erasure_make:
+        print(
+            f"  WARNING: {pair_set.name}: skipping Pole-A subspace erasure on low-pair compiled build "
+            f"(n_pairs={len(pair_set.pairs)} < {cv.MIN_ERASURE_PAIRS}; pass --bank-scenes 8 to span "
+            "multi-scene Pole-A variance, or --force-low-pair-erasure to override)",
+            file=sys.stderr,
+        )
     pooled = cv.pool_pair_set(
         raw_cached_pairs,
         refined_pairs,
@@ -304,6 +315,7 @@ def cmd_make(args: argparse.Namespace) -> int:
         pooling=args.pooling,
         unit_mean=use_unit_mean_make,
         include_encoder=bool(args.include_encoder),
+        min_erasure_pairs=min_er_make,
     )
     a_mat, b_mat, w_vec = pooled.a_mat, pooled.b_mat, pooled.w_vec
     pair_spans = pooled.pair_spans
@@ -602,6 +614,7 @@ def cmd_make(args: argparse.Namespace) -> int:
                 pooling=args.pooling,
                 unit_mean=use_unit_mean_make,
                 include_encoder=False,
+                min_erasure_pairs=min_er_make,
             )
             sib_a_mat, sib_b_mat = sib_pooled.a_mat, sib_pooled.b_mat
             sib_tensors: dict[str, torch.Tensor] = {}

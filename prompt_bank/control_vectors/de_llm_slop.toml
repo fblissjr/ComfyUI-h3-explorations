@@ -1,0 +1,154 @@
+[vector]
+name = "de_llm_slop"
+quality = "ungraded 35mm documentary deep-focus optics, practical available exposure, and natural tactile grain over commercial HDR bokeh gloss"
+a_side = "teal-orange HDR rim halos, creamy f/1.2 bokeh blur, exaggerated volumetric glow beams, airbrushed plastic sheen, and glossy digital softbox polish"
+b_side = "ungraded 35mm documentary celluloid at crisp f/5.6 deep focus under natural available practical light with candid tactile grain and unvarnished detail"
+mode = "t2va"
+frame = "scene"
+exclude_shots = ["t2va_cooking_show_meltdown", "t2va_box_office", "t2va_freight_elevator", "t2va_lighthouse"]
+# tier = Master EQ — Anti-Slop Optical Strip
+# inference_recipe = target=scene_only (fl2va) / description_only (ref2va), strength=0.8..1.35, steps=0.0..1.0, release_refs=1.0
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action medium shot inside a neighborhood archival print shop watching an ink-stained pressman sort lead type drawers beside cast-iron rollers across the five-second take, rendered with syrupy teal-orange HDR rim halos, creamy shallow bokeh blur melting distant detail, and glossy plastic smoothing. She produces no vocal sound on a tripod hold.
+
+overall_soundscape: Heavy oak type trays scrape evenly inside steel cabinet tracks.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action medium shot inside a neighborhood archival print shop watching an ink-stained pressman sort lead type drawers beside cast-iron rollers across the five-second take, captured at deep f/5.6 documentary focus on ungraded 35mm celluloid under modest overhead bulbs showing crisp unvarnished texture. She produces no vocal sound on a tripod hold.
+
+overall_soundscape: Heavy oak type trays scrape evenly inside steel cabinet tracks.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action wide frame inside a municipal brick pump station watching a utility mechanic inspect cast brass pressure gauges across oiled pipes across the five-second take, bathed in theatrical volumetric god-ray shafts, hyper-polished digital sheen, and milky background defocus. He tightens a packing nut silently while the tripod pans left.
+
+overall_soundscape: Steady water turbulence thrums inside thick riveted iron mains.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action wide frame inside a municipal brick pump station watching a utility mechanic inspect cast brass pressure gauges across oiled pipes across the five-second take, photographed through sharp 35mm documentary optics under plain utility lamps holding crisp far-plane detail cleanly. He tightens a packing nut silently while the tripod pans left.
+
+overall_soundscape: Steady water turbulence thrums inside thick riveted iron mains.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action medium close-up inside a harbor ferry wheelhouse framing a helmsman adjusting twin brass radar dials beside salted helm windows across the five-second take, wrapped in manicured cyan edge rimming, shiny beauty key polish, and poreless airbrushed skin sheen. His hands grip varnished teak spokes silently.
+
+overall_soundscape: Diesel deck plates vibrate steadily over harbor water slap.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action medium close-up inside a harbor ferry wheelhouse framing a helmsman adjusting twin brass radar dials beside salted helm windows across the five-second take, filmed on raw naturalistic 35mm documentary emulsion at deep focus with honest grain and practical tungsten exposure. His hands grip varnished teak spokes silently.
+
+overall_soundscape: Diesel deck plates vibrate steadily over harbor water slap.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action two-shot above a tailor cutting bench framing chalked herringbone tweed beside heavy iron shears across two trestle boards across the five-second take, saturated with cinematic amber-cyan split grading, mirror-slick highlight bloom, and dreamy optical melt. Neither speaker utters a word on locked sticks.
+
+overall_soundscape: Cold forged scissor blades slice crisp wool twill fibers cleanly.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action two-shot above a tailor cutting bench framing chalked herringbone tweed beside heavy iron shears across two trestle boards across the five-second take, recorded on candid ungraded 35mm stock under flat overhead shop lighting with tactile grain and deep focus. Neither speaker utters a word on locked sticks.
+
+overall_soundscape: Cold forged scissor blades slice crisp wool twill fibers cleanly.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action medium wide across a county clerk records counter watching two clerks file stamped tax ledgers beside wire baskets across the five-second take, glazed in pristine studio fill shimmer, artificial sapphire bounce, and wide-open lens blur. One clerk (S1) remarks flatly, <d>[English] Ledger four is signed.</d> Her mouth closes.
+
+overall_soundscape: Rubber date stamps clack sharply over dry ledger bindings.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action medium wide across a county clerk records counter watching two clerks file stamped tax ledgers beside wire baskets across the five-second take, shot on unvarnished 35mm documentary celluloid under available ceiling fixtures keeping deep-plane edge sharpness crisp. One clerk (S1) remarks flatly, <d>[English] Ledger four is signed.</d> Her mouth closes.
+
+overall_soundscape: Rubber date stamps clack sharply over dry ledger bindings.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action close-up across a violin maker maple bench showing hand planes shaving curls off spruce soundboards beside glue pots across the five-second take, drenched in syrupy sunset backlight glow, artificial specular sheen, and soft creamy blur. The camera eases forward cleanly with zero dialogue.
+
+overall_soundscape: Steel plane irons whisk thin curling spruce ribbons cleanly.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action close-up across a violin maker maple bench showing hand planes shaving curls off spruce soundboards beside glue pots across the five-second take, exposed on naturalistic 35mm documentary stock at stopped-down f/8 aperture under plain available room light. The camera eases forward cleanly with zero dialogue.
+
+overall_soundscape: Steel plane irons whisk thin curling spruce ribbons cleanly.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action medium shot inside a stainless diner dishwashing pit framing a line cook racking stoneware soup mugs beside spray hoses across the five-second take, dressed with glossy commercial contrast clipping, slick waxlike skin finish, and luminous azure rims. He slides wire racks left without speaking.
+
+overall_soundscape: Heavy ceramic mugs clatter inside grey polypropylene dish racks.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action medium shot inside a stainless diner dishwashing pit framing a line cook racking stoneware soup mugs beside spray hoses across the five-second take, captured on gritty ungraded 35mm documentary film with honest tonal falloff and candid deep-focus grit. He slides wire racks left without speaking.
+
+overall_soundscape: Heavy ceramic mugs clatter inside grey polypropylene dish racks.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action tracking pass along botanical herbarium drying cabinets framing mounted fern sheets beside glass jars across oak aisles across the five-second take, tinted in curated blockbuster gold-cyan LUT curves, glowing lens mist, and ultra-shallow aperture smear. No people enter frame.
+
+overall_soundscape: Linen herbarium folders rustle faintly over oiled cabinet slides.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action tracking pass along botanical herbarium drying cabinets framing mounted fern sheets beside glass jars across oak aisles across the five-second take, photographed on crisp archival 35mm documentary celluloid under plain diffuse skylight with natural grain. No people enter frame.
+
+overall_soundscape: Linen herbarium folders rustle faintly over oiled cabinet slides.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action medium profile inside a wooden foundry pattern loft showing an artisan sanding mahogany valve molds over sawdust floors across the five-second take, lit with theatrical backlit rim halos, hyper-clean HDR smoothness, and smeared background fog. The camera pans right with zero speech.
+
+overall_soundscape: Garnet sandpaper rasps across dry kiln-cured pattern mahogany.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action medium profile inside a wooden foundry pattern loft showing an artisan sanding mahogany valve molds over sawdust floors across the five-second take, recorded with raw practical lamp exposure on ungraded 35mm documentary film at sharp stopped-down focus. The camera pans right with zero speech.
+
+overall_soundscape: Garnet sandpaper rasps across dry kiln-cured pattern mahogany.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action medium two-shot beside canvas speed bags inside a basement boxing gym watching a trainer tape knuckles across knotted cotton wraps across the five-second take, sculpted by buttery commercial beauty bounce, synthetic amber rim flare, and dreamy bokeh orbs. Neither fighter says a word.
+
+overall_soundscape: Cloth athletic tape rips cleanly beside creaking ceiling swivels.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action medium two-shot beside canvas speed bags inside a basement boxing gym watching a trainer tape knuckles across knotted cotton wraps across the five-second take, filmed on honest unvarnished 35mm documentary emulsion under dirty basement tubes with coarse crisp grain. Neither fighter says a word.
+
+overall_soundscape: Cloth athletic tape rips cleanly beside creaking ceiling swivels.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action wide frame atop a tar-paper apartment roof beside cedar pigeon coops watching a keeper scatter cracked corn across galvanized pans across the five-second take, stylized with pastel HDR clipping, synthetic CGI smoothness, and wide-open optical dissolve. He whistles softly without words.
+
+overall_soundscape: Wings slap slatted cedar coops above distant traffic hum.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action wide frame atop a tar-paper apartment roof beside cedar pigeon coops watching a keeper scatter cracked corn across galvanized pans across the five-second take, shot handheld on candid 35mm documentary stock under muted daylight preserving sharp far detail. He whistles softly without words.
+
+overall_soundscape: Wings slap slatted cedar coops above distant traffic hum.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action medium close-up behind an all-night pharmacy counter framing glass pill jars beside wire receipt spikes across laminate counters across the five-second take, bathed in manicured magenta-teal neon bloom, airbrushed wax texture, and milky depth fade. The pharmacist (S1) says evenly, <d>[English] Two refills ready.</d>
+
+overall_soundscape: Foil blister packs rustle crisply across scuffed counter laminate.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action medium close-up behind an all-night pharmacy counter framing glass pill jars beside wire receipt spikes across laminate counters across the five-second take, captured under plain indoor tubes on ungraded 35mm documentary celluloid at deep candid focus. The pharmacist (S1) says evenly, <d>[English] Two refills ready.</d>
+
+overall_soundscape: Foil blister packs rustle crisply across scuffed counter laminate.
+
+non_diegetic_music: N/A'''

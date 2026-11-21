@@ -1171,6 +1171,7 @@ class _AppliedVectorSpec:
     erasure_diag: torch.Tensor | None = None
     erasure_mu_d: torch.Tensor | None = None
     erasure_holds: tuple[tuple[torch.Tensor, float], ...] = ()
+    erasure_mu_a: torch.Tensor | None = None
 
 
 def _step_in_window(
@@ -2065,7 +2066,7 @@ def _make_control_vector_wrapper(
             eff_prompt = (sp.prompt or live_tail_text or "").strip()
             vec_out = sp.vector
             er_out: tuple[Any, ...] | None = (
-                (sp.erasure_vr, sp.erasure_diag, sp.erasure_mu_d, sp.erasure_holds)
+                (sp.erasure_vr, sp.erasure_diag, sp.erasure_mu_d, sp.erasure_holds, sp.erasure_mu_a)
                 if (sp.erasure_vr is not None and sp.erasure_diag is not None)
                 else None
             )
@@ -2783,6 +2784,7 @@ def attach_control_vector(
         erasure_vr: torch.Tensor | None = None
         erasure_diag: torch.Tensor | None = None
         erasure_mu_d: torch.Tensor | None = None
+        erasure_mu_a: torch.Tensor | None = None
         if (
             loaded_family == "h3_image"
             and vec_family in ("fl2va", "ref2va", "fasth3")
@@ -2837,6 +2839,8 @@ def attach_control_vector(
                 erasure_diag = tensors["erasure.diag"].detach().to(device="cpu", dtype=torch.float32)
                 if "erasure.mu_d" in tensors:
                     erasure_mu_d = tensors["erasure.mu_d"].detach().to(device="cpu", dtype=torch.float32)
+                if "erasure.mu_a" in tensors:
+                    erasure_mu_a = tensors["erasure.mu_a"].detach().to(device="cpu", dtype=torch.float32)
 
         erasure_holds: tuple[tuple[torch.Tensor, float], ...] = ()
         word_hold_pairs: list[tuple[str, float]] = []
@@ -2901,6 +2905,7 @@ def attach_control_vector(
             erasure_diag=erasure_diag,
             erasure_mu_d=erasure_mu_d,
             erasure_holds=erasure_holds,
+            erasure_mu_a=erasure_mu_a,
         )
         updated = updated + (new_spec,)
         logger.info(
@@ -3511,15 +3516,27 @@ def make_control_vector_from_media_pairs(
     w_vec = torch.tensor(weights_list, dtype=torch.float32)
     final_vec = _cv.mean_difference(a_mat, b_mat, w_vec)
     tensors_to_save: dict[str, torch.Tensor] = {"vector.post_refiner": final_vec}
-    media_erasure = _cv.build_pole_a_erasure(
-        media_a_spans, media_b_spans, weights=weights_list
-    )
-    if media_erasure is not None:
-        (
-            tensors_to_save["erasure.mu_d"],
-            tensors_to_save["erasure.vr"],
-            tensors_to_save["erasure.diag"],
-        ) = media_erasure
+    if pooling == "vision_tokens":
+        media_erasure = _cv.build_spatial_vision_erasure(
+            media_a_spans, media_b_spans, weights=weights_list
+        )
+        if media_erasure is not None:
+            (
+                tensors_to_save["erasure.mu_d"],
+                tensors_to_save["erasure.vr"],
+                tensors_to_save["erasure.diag"],
+                tensors_to_save["erasure.mu_a"],
+            ) = media_erasure
+    else:
+        media_erasure = _cv.build_pole_a_erasure(
+            media_a_spans, media_b_spans, weights=weights_list
+        )
+        if media_erasure is not None:
+            (
+                tensors_to_save["erasure.mu_d"],
+                tensors_to_save["erasure.vr"],
+                tensors_to_save["erasure.diag"],
+            ) = media_erasure
 
     gen = torch.Generator(device="cpu").manual_seed(0)
     q_report = _cv.quality_report(a_mat, b_mat, w_vec, generator=gen)

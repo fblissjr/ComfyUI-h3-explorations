@@ -1017,7 +1017,18 @@ _CANCEL_STOPLIST: frozenset[str] = frozenset({
     "surface",
 })
 
+# Baseline lighting, palette, optical finish, motion, and acoustic state words that
+# create a shared-prefix contradiction if left ahead of a differing Pole A -> Pole B clause.
+_BASELINE_STATE_WORDS: frozenset[str] = frozenset({
+    "sunlit", "sunlight", "daylight", "overcast", "tungsten", "fluorescent",
+    "moonlight", "golden", "pastel", "vibrant", "colorful", "colourful",
+    "vivid", "colorless", "monochrome", "grayscale", "greyscale", "matte",
+    "glossy", "parched", "motionless", "static", "silent", "silence",
+    "anechoic", "photorealistic", "naturalistic", "bright", "dry",
+})
+
 _DIALOGUE_TAG_CHECK_RE = re.compile(r"<d>(?!\s*\[[A-Za-z][A-Za-z -]*\])")
+_DIALOGUE_SPAN_STRIP_RE = re.compile(r"<d>.*?</d>", re.DOTALL | re.IGNORECASE)
 
 
 def lint_pair_set(
@@ -1156,6 +1167,31 @@ def lint_pair_set(
                     "replace a concrete baseline clause in-place instead of appending ', while ...' after punctuation"
                 )
 
+        # Gate D: flag baseline state adjectives left in the shared prefix of a differing section
+        # when a_span -> b_span negates them (e.g. "sunlit courtyard" before "sunlit warm -> pitch-black nocturnal").
+        if frame == "scene":
+            neg_state_a = {
+                w
+                for w in re.findall(r"[a-z]{3,}", a_lower)
+                if w in _BASELINE_STATE_WORDS and w not in set(re.findall(r"[a-z]{3,}", b_lower))
+            }
+            if neg_state_a:
+                leaked_set: set[str] = set()
+                for ba, bb in zip(a_txt.split("\n\n"), b_txt.split("\n\n")):
+                    if ba == bb:
+                        continue
+                    wa_s, wb_s = ba.split(), bb.split()
+                    fd_sec = next((k for k, (x, y) in enumerate(zip(wa_s, wb_s)) if x != y), min(len(wa_s), len(wb_s)))
+                    prefix_no_dlg = _DIALOGUE_SPAN_STRIP_RE.sub(" ", " ".join(wa_s[:fd_sec]))
+                    pref_words = set(re.findall(r"[a-z]{3,}", prefix_no_dlg.lower()))
+                    leaked_set.update(neg_state_a & pref_words)
+                if leaked_set:
+                    leaked = sorted(leaked_set)
+                    warnings.append(
+                        f"Pair {num}: shared prefix retains Pole-A baseline word(s) {leaked[:4]} negated by "
+                        "a_span -> b_span; rewrite or move contradicting baseline adjectives inside the diff span"
+                    )
+
     # Gate B (causal prefix diversity) & Gate C (rotated Pole-A diversity) on multi-pair scene sets
     if frame == "scene" and len(items) >= 4 and not allow_repeated_spans:
         first_diff_idxs: list[int] = []
@@ -1176,7 +1212,7 @@ def lint_pair_set(
         sorted_fd = sorted(first_diff_idxs)
         med_fd = sorted_fd[len(sorted_fd) // 2]
         min_distinct = min(len(items), max(3, len(items) // 2))
-        if med_fd < 8 or len(prefix_sigs) < min_distinct:
+        if med_fd < 10 or len(prefix_sigs) < min_distinct:
             warnings.append(
                 f"Causal prefix collapse: median word first_diff={med_fd} with {len(prefix_sigs)}/{len(items)} "
                 "unique prefixes before diff; place a distinct location + subject before the diff in each pair "
@@ -1245,6 +1281,7 @@ class PooledPairSet:
 
 ERASURE_MAX_RANK: int = 8
 COMPOSED_ERASURE_MAX_RANK: int = 16
+MIN_ERASURE_PAIRS: int = 6
 ERASURE_RIDGE_REL: float = 0.15
 ERASURE_MATCH_TAU: float = 0.15
 
@@ -1336,6 +1373,101 @@ def attach_erasure_tensors(
         tensors_to_save["erasure.diag"] = pooled.erasure_diag
         if pooled.erasure_mu_d is not None:
             tensors_to_save["erasure.mu_d"] = pooled.erasure_mu_d
+
+
+def build_spatial_vision_erasure(
+    a_spans: Sequence[torch.Tensor],
+    b_spans: Sequence[torch.Tensor],
+    weights: Sequence[float] | None = None,
+    *,
+    hold_basis: torch.Tensor | None = None,
+    max_rank: int = ERASURE_MAX_RANK,
+    ridge_rel: float = ERASURE_RIDGE_REL,
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor] | None:
+    """Build float32 `(erasure.mu_d [D], erasure.vr [r, D], erasure.diag [r], erasure.mu_a [D])`
+    for spatially registered `tags == 0` vision-token pair spans `(A_p, B_p)` (`M_vis == M_vis`).
+
+    Uses exact 1:1 patch index differences (`D_p = B_p - A_p`, instead of softmax bag matching across
+    unrelated background patches) and returns the global dataset Pole-A patch mean `mu_a` so runtime
+    vision erasure centers against dataset `mu_a` instead of each image's own spatial patch mean."""
+    if not a_spans or len(a_spans) != len(b_spans):
+        return None
+    w_list = [1.0] * len(a_spans) if weights is None else [float(w) for w in weights]
+    if len(w_list) != len(a_spans):
+        raise ValueError("build_spatial_vision_erasure: weights length mismatch")
+
+    a_all_list: list[torch.Tensor] = []
+    d_sum: torch.Tensor | None = None
+    w_tok_total = 0.0
+    mismatched_shapes = False
+    for a_p, b_p, wp in zip(a_spans, b_spans, w_list):
+        if a_p.ndim != 2 or b_p.ndim != 2 or a_p.shape[0] < 1 or b_p.shape[0] < 1:
+            continue
+        if a_p.shape != b_p.shape:
+            mismatched_shapes = True
+            break
+        a64 = a_p.detach().to(device="cpu", dtype=torch.float64)
+        b64 = b_p.detach().to(device="cpu", dtype=torch.float64)
+        d_p = b64 - a64
+        a_all_list.append(a64)
+        w_eff = abs(float(wp)) if float(wp) != 0.0 else 1.0
+        contrib = w_eff * d_p.sum(dim=0)
+        d_sum = contrib if d_sum is None else (d_sum + contrib)
+        w_tok_total += w_eff * float(a64.shape[0])
+
+    if mismatched_shapes:
+        fallback = build_pole_a_erasure(
+            a_spans,
+            b_spans,
+            weights=weights,
+            hold_basis=hold_basis,
+            max_rank=max_rank,
+            ridge_rel=ridge_rel,
+        )
+        if fallback is None:
+            return None
+        a_cat_fb = torch.cat(
+            [ap.detach().to(device="cpu", dtype=torch.float64) for ap in a_spans if ap.ndim == 2 and ap.shape[0] >= 1],
+            dim=0,
+        )
+        mu_a_fb = a_cat_fb.mean(dim=0).to(dtype=torch.float32).contiguous()
+        return (*fallback, mu_a_fb)
+
+    if not a_all_list or d_sum is None or w_tok_total <= 0.0:
+        return None
+    a_all = torch.cat(a_all_list, dim=0)
+    if a_all.shape[0] < 2:
+        return None
+
+    mu_d = d_sum / w_tok_total
+    mu_a = a_all.mean(dim=0)
+    a_c = a_all - mu_a.unsqueeze(0)
+    if hold_basis is not None and hold_basis.numel() > 0:
+        bh = hold_basis.detach().to(device="cpu", dtype=torch.float64)
+        mu_d = mu_d - (mu_d @ bh.T) @ bh
+        a_c = a_c - (a_c @ bh.T) @ bh
+
+    mu_norm = float(torch.linalg.vector_norm(mu_d).item())
+    if not math.isfinite(mu_norm) or mu_norm <= 1e-12:
+        return None
+
+    _u, s_vals, vh = torch.linalg.svd(a_c, full_matrices=False)
+    if s_vals.numel() == 0 or float(s_vals[0].item()) <= 1e-12:
+        return None
+    n_pos = int((s_vals > 1e-9 * s_vals[0]).sum().item())
+    r = min(int(max_rank), n_pos)
+    if r < 1:
+        return None
+    vr = vh[:r].contiguous()
+    lam = float(ridge_rel) * float(s_vals[0].item() ** 2)
+    s_sq = s_vals[:r] ** 2
+    diag = (s_sq / (s_sq + lam)).clamp(0.0, 1.0).contiguous()
+    return (
+        mu_d.to(dtype=torch.float32).contiguous(),
+        vr.to(dtype=torch.float32).contiguous(),
+        diag.to(dtype=torch.float32).contiguous(),
+        mu_a.to(dtype=torch.float32).contiguous(),
+    )
 
 
 def orthogonalize_erasure_against_holds(
@@ -1570,6 +1702,7 @@ def pool_pair_set(
     pooling: str,
     unit_mean: bool = False,
     include_encoder: bool = True,
+    min_erasure_pairs: int = 1,
 ) -> PooledPairSet:
     """The one pair build: pooled rows, mean difference and the pair file's holds, for the node
     `MiniMaxH3MakeControlVector` and for `bench/control_vectors.py` (`build`, `from-prompt`, `rebuild`, `make`).
@@ -1658,10 +1791,13 @@ def pool_pair_set(
         )
         if enc_basis is not None:
             enc_raw_vec = project_out(enc_raw_vec, enc_basis)
-    erasure_built = build_pole_a_erasure(a_spans, b_spans, weights, hold_basis=basis)
-    erasure_mu_d, erasure_vr, erasure_diag = (
-        erasure_built if erasure_built is not None else (None, None, None)
-    )
+    if len(encoded_pairs) >= max(1, int(min_erasure_pairs)):
+        erasure_built = build_pole_a_erasure(a_spans, b_spans, weights, hold_basis=basis)
+        erasure_mu_d, erasure_vr, erasure_diag = (
+            erasure_built if erasure_built is not None else (None, None, None)
+        )
+    else:
+        erasure_mu_d, erasure_vr, erasure_diag = (None, None, None)
     return PooledPairSet(
         a_mat=a_mat,
         b_mat=b_mat,
@@ -2386,12 +2522,12 @@ def _validate_vector_payload(
                 )
             if float(torch.linalg.vector_norm(t).item()) == 0.0:
                 raise ValueError(f"tensor {key!r} has zero norm")
-        elif key == "erasure.mu_d":
+        elif key in ("erasure.mu_d", "erasure.mu_a"):
             if tuple(t.shape) != (POST_REFINER_DIM,):
                 raise ValueError(
-                    f"tensor 'erasure.mu_d' must have shape ({POST_REFINER_DIM},), got {tuple(t.shape)}"
+                    f"tensor {key!r} must have shape ({POST_REFINER_DIM},), got {tuple(t.shape)}"
                 )
-            if float(torch.linalg.vector_norm(t).item()) == 0.0:
+            if key == "erasure.mu_d" and float(torch.linalg.vector_norm(t).item()) == 0.0:
                 raise ValueError("tensor 'erasure.mu_d' has zero norm")
         elif key == "erasure.vr":
             if t.ndim != 2 or t.shape[1] != POST_REFINER_DIM or t.shape[0] < 1:
@@ -2418,8 +2554,8 @@ def _validate_vector_payload(
         raise ValueError(
             f"tensor 'erasure.vr' rank {tensors['erasure.vr'].shape[0]} != 'erasure.diag' len {tensors['erasure.diag'].shape[0]}"
         )
-    if "erasure.mu_d" in tensors and "erasure.vr" not in tensors:
-        raise ValueError("tensor 'erasure.mu_d' requires paired 'erasure.vr' and 'erasure.diag'")
+    if ("erasure.mu_d" in tensors or "erasure.mu_a" in tensors) and "erasure.vr" not in tensors:
+        raise ValueError("tensor 'erasure.mu_d'/'erasure.mu_a' requires paired 'erasure.vr' and 'erasure.diag'")
 
     if not has_known_vector:
         raise ValueError("control vector must contain at least one 'vector.*' tensor")
@@ -3278,14 +3414,16 @@ def _erasure_row_shift64(
 ) -> torch.Tensor:
     """Compute per-row `[M, D]` RMS-matched clamped prompt-centered Pole-A erasure shift in float64.
 
-    `erasure_spec` is `(vr, diag, mu_d)` or `(vr, diag, mu_d, per_spec_holds)`, where optional
+    `erasure_spec` is `(vr, diag, mu_d[, per_spec_holds[, mu_a]])`, where optional
     `per_spec_holds` (`[(hold_vec, alpha), ...]`) scrubs strictly this vector's `[M, D]` shift
-    without affecting other stacked vectors in the same additive block.
+    without affecting other stacked vectors in the same additive block, and optional `mu_a` (`[D]`)
+    centers against the dataset Pole-A mean (used for same-modality vision tokens so uniform
+    image color casts are preserved rather than subtracted out by `base_rows64.mean(dim=0)`).
 
     Guarantees:
     - `strength == 0.0`: returns zeros (caller skips `0.0`).
     - `strength < 0.0`: `max(0.0, min(s, 1.0)) == 0.0`, so erasure is cleanly disabled and only `s * mu_n` applies.
-    - `M <= 1` or `e_own_rms <= 1e-9` or `erasure_spec is None`: falls back cleanly to `s * mu_n`.
+    - `(M <= 1 and mu_a is None)` or `e_own_rms <= 1e-9` or `erasure_spec is None`: falls back cleanly to `s * mu_n`.
     - Active erasure: strictly RMS-matched to `abs(s) * NORM_MATCHED_TARGET` before any `per_spec_holds`."""
     device = base_rows64.device
     s_f = float(strength)
@@ -3293,6 +3431,7 @@ def _erasure_row_shift64(
     diag_t = erasure_spec[1] if (erasure_spec is not None and len(erasure_spec) >= 2) else None
     mu_d_t = erasure_spec[2] if (erasure_spec is not None and len(erasure_spec) >= 3) else None
     per_spec_holds = erasure_spec[3] if (erasure_spec is not None and len(erasure_spec) >= 4) else None
+    mu_a_t = erasure_spec[4] if (erasure_spec is not None and len(erasure_spec) >= 5) else None
     base_vec = mu_d_t if (mu_d_t is not None and s_f > 0.0 and vr_t is not None) else vec
     v64 = base_vec.detach().to(device=device, dtype=torch.float64)
     v_nrm = float(torch.linalg.vector_norm(v64).item())
@@ -3306,12 +3445,15 @@ def _erasure_row_shift64(
             return _apply_holds_to_rows64(shift_rows64, per_spec_holds, device)
         return shift_rows64
 
-    if s_f <= 0.0 or base_rows64.shape[0] < 2 or vr_t is None or diag_t is None:
+    if s_f <= 0.0 or vr_t is None or diag_t is None or (mu_a_t is None and base_rows64.shape[0] < 2):
         return _finish(add_rows)
 
     vr64 = vr_t.detach().to(device=device, dtype=torch.float64)
     diag64 = diag_t.detach().to(device=device, dtype=torch.float64)
-    centered = base_rows64 - base_rows64.mean(dim=0, keepdim=True)
+    if mu_a_t is not None:
+        centered = base_rows64 - mu_a_t.detach().to(device=device, dtype=torch.float64).unsqueeze(0)
+    else:
+        centered = base_rows64 - base_rows64.mean(dim=0, keepdim=True)
     e_own = ((centered @ vr64.T) * diag64.unsqueeze(0)) @ vr64
     e_own_rms = _rms_row_norm64(e_own)
     if not math.isfinite(e_own_rms) or e_own_rms <= 1e-9:
