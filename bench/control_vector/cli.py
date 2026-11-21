@@ -554,7 +554,6 @@ def build_parser() -> argparse.ArgumentParser:
     pi.add_argument("--check-unet", dest="check_dit", default=None, help=argparse.SUPPRESS)
     pi.add_argument("--check-encoder", default=None, help="Verify compatibility against an encoder checkpoint")
     pi.add_argument("--check-lora", action="append", default=None)
-    pi.add_argument("--allow-recipe-mismatch", action="store_true")
     pi.add_argument("--meter", action="append", default=None, help="Prompt-bank id or file path to meter")
     pi.add_argument("--meter-look-family", action="store_true", help="Meter t2va_look_anchor and all 8 look siblings (E2.8)")
     pi.add_argument(
@@ -823,7 +822,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--families",
         type=_validate_families_arg,
         metavar=_FAMILIES_METAVAR,
-        default="both",
+        default="fl2va",
         help=_FAMILIES_HELP,
     )
 

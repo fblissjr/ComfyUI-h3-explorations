@@ -271,7 +271,7 @@ CONTROL_VECTOR_DEFAULTS = dict(
     mask="scene_only",
     start_percent=0.0,
     end_percent=1.0,
-    allow_recipe_mismatch=False,
+    allow_recipe_mismatch=True,
 )
 
 #: Valid `streams` choices on `MiniMaxH3EditGuider` (`edit_guidance.py`).
@@ -321,7 +321,7 @@ STEER_DEFAULTS = dict(
     streams="both",
     hold_words="",
     hold_alpha=1.0,
-    allow_recipe_mismatch=False,
+    allow_recipe_mismatch=True,
 )
 
 #: `MiniMaxH3ReleaseReferences` schema defaults (`control_vector_nodes.py`).

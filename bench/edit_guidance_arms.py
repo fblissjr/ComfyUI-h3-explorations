@@ -263,7 +263,7 @@ def _base(
                     "streams": "both",
                     "hold_words": "",
                     "hold_alpha": 1.0,
-                    "allow_recipe_mismatch": opts.get("allow_recipe_mismatch", "false").lower()
+                    "allow_recipe_mismatch": opts.get("allow_recipe_mismatch", "true").lower()
                     in ("1", "true", "yes"),
                 }
                 if v_mask:

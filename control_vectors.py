@@ -2431,7 +2431,7 @@ def check_vector_compatibility(
     loaded_family: str,
     loaded_recipe: Mapping[str, Any] | None = None,
     loaded_prefix: Any | None = None,
-    allow_recipe_mismatch: bool = False,
+    allow_recipe_mismatch: bool = True,
 ) -> list[str]:
     """Verify `metadata` against the loaded model's `family`, `recipe`, and `prefix`.
 
@@ -2439,9 +2439,10 @@ def check_vector_compatibility(
     - Mismatched `family` raises `ValueError`, except across standard video
       families `{fl2va, ref2va}` (whose post-refiner spaces sit at `cos ~0.99`),
       which emits an advisory warning.
-    - Mismatched `recipe` (checkpoint or LoRA list) raises `ValueError` unless
-      `allow_recipe_mismatch=True` or covered by compatible H3 / J-Lens rules,
-      in which case it is returned in the advisory warnings list.
+    - Mismatched `recipe` (checkpoint or LoRA list) emits an advisory warning and
+      applies by default (`allow_recipe_mismatch=True`), or raises `ValueError`
+      when `allow_recipe_mismatch=False` is explicitly requested and not covered
+      by compatible H3 / J-Lens rules.
     - Mismatched `measured_under.prefix` is always reported in the warnings list
       and never refused."""
     _validate_metadata_dict(metadata)

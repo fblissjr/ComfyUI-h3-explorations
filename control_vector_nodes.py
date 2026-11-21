@@ -2561,7 +2561,7 @@ def attach_control_vector(
     mask: str = "scene_only",
     start_percent: float = 0.0,
     end_percent: float = 1.0,
-    allow_recipe_mismatch: bool = False,
+    allow_recipe_mismatch: bool = True,
     loaded_prefix: str | dict[str, Any] | None = None,
     prompt: str = "",
     video_scale: float = 1.0,
@@ -3739,9 +3739,8 @@ class MiniMaxH3ApplyControlVectors(io.ComfyNode):
                     default=_APPLY_DEFAULTS["allow_recipe_mismatch"],
                     optional=True,
                     tooltip=(
-                        "When False (default), refuses a vector whose checkpoint or LoRA "
-                        "recipe differs from the loaded model's; when True, logs the "
-                        "difference and applies."
+                        "When True (default), logs checkpoint or LoRA recipe differences "
+                        "and applies; set False only to hard-refuse mismatched recipes."
                     ),
                 ),
                 io.Float.Input(
@@ -4533,11 +4532,11 @@ class MiniMaxH3Steer(io.ComfyNode):
                 ),
                 io.Boolean.Input(
                     "allow_recipe_mismatch",
-                    default=False,
+                    default=_rules.STEER_DEFAULTS["allow_recipe_mismatch"],
                     optional=True,
                     tooltip=(
-                        "When False (default), refuses a saved vector whose checkpoint or LoRA recipe "
-                        "differs from the loaded model's; when True, logs the difference and applies."
+                        "When True (default), logs checkpoint or LoRA recipe differences and applies; "
+                        "set False only to hard-refuse mismatched recipes."
                     ),
                 ),
                 H3ControlVector.Input(
@@ -4678,7 +4677,7 @@ class MiniMaxH3Steer(io.ComfyNode):
         streams="both",
         hold_words="",
         hold_alpha=1.0,
-        allow_recipe_mismatch=False,
+        allow_recipe_mismatch=_rules.STEER_DEFAULTS["allow_recipe_mismatch"],
         custom_vector=None,
         hold_vector=None,
         edit_pass="both",

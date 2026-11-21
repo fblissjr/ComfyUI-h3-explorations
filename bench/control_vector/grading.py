@@ -115,7 +115,7 @@ def cmd_inspect(args: argparse.Namespace) -> int:
             metadata,
             loaded_family=fam,
             loaded_recipe=runtime_recipe,
-            allow_recipe_mismatch=args.allow_recipe_mismatch,
+            allow_recipe_mismatch=True,
         )
         print(f"  compatibility   : ok (warnings={warnings})")
 

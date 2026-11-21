@@ -6591,6 +6591,38 @@ def _check_nov15_steer_prose_and_ph3_family() -> list[str]:
             _build_cmd._inspect_bundle_status = orig_bundle_inspect  # type: ignore[assignment]
         if seen_um != [True, False]:
             errs.append(f"cmd_status --rebuild-stale forwarded unit_mean={seen_um!r}, expected [True, False]")
+        import h3_rules
+        if not h3_rules.STEER_DEFAULTS["allow_recipe_mismatch"] or not h3_rules.CONTROL_VECTOR_DEFAULTS["allow_recipe_mismatch"]:
+            errs.append("STEER_DEFAULTS and CONTROL_VECTOR_DEFAULTS allow_recipe_mismatch should default to True")
+        warns_default_mm = cv.check_vector_compatibility(
+            {
+                "format": cv.FORMAT_VERSION,
+                "name": "mm_default",
+                "quality": "q",
+                "family": "fl2va",
+                "recipe": {
+                    "checkpoint": {"file": "other_ckpt.safetensors", "sha256": "a" * 64},
+                    "encoder": {"file": "enc.safetensors", "sha256": "b" * 64},
+                    "loras": [{"file": "custom_lora.safetensors", "sha256": "c" * 64, "strength": 1.0, "applied": "branch"}],
+                },
+                "measured_under": {"mode": "t2va", "frame": "scene", "prefix": "s", "pooling": "diff_span"},
+                "points": {"post_refiner": {"unit": "mean_pair_difference", "raw_norm": 1.0, "median_row_norm": 164.0}},
+                "pairs": {"path": "x.toml", "sha256": "d" * 64, "n_pairs": 1, "n_holds": 0, "a_side": "a", "b_side": "b", "differing_sections": ["integrated_multimodal_description"], "pair_spans": []},
+                "quality_report": {"mean_pairwise_cosine": None, "split_half_cosine": None, "per_pair_cosine": [], "j_lens_readout": {}},
+                "provenance": {"core_revision": "test", "pack_commit": "test", "created_utc": "2026-11-20T00:00:00Z", "made_by": "test"},
+            },
+            loaded_family="ref2va",
+            loaded_recipe={"checkpoint": {"file": "cur.safetensors", "sha256": "1" * 64}, "loras": [], "encoder": {"file": "enc.safetensors", "sha256": "b" * 64}},
+        )
+        if not warns_default_mm:
+            errs.append("check_vector_compatibility default should warn and apply across checkpoint/LoRA mismatch")
+        ns_stat = _cv_cli.build_parser().parse_args(["status"])
+        if getattr(ns_stat, "families", None) != "fl2va":
+            errs.append(f"CLI status --families default expected 'fl2va', got {getattr(ns_stat, 'families', None)!r}")
+        for sub_act in getattr(_cv_cli.build_parser(), "_subparsers")._group_actions:
+            insp_p = (getattr(sub_act, "choices", None) or {}).get("inspect")
+            if insp_p is not None and any("--allow-recipe-mismatch" in a.option_strings for a in insp_p._actions):
+                errs.append("CLI inspect must not expose --allow-recipe-mismatch")
 
         # Build a synthetic saved vector with legacy encoder + null refiner_transmission to test advisories
         legacy_vec_path = st_tmp / "vec" / "demo_card__fl2va__diff_span__lora_deadbeef.safetensors"

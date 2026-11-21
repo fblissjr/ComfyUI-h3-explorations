@@ -234,7 +234,7 @@
       "streams": "both",
       "hold_words": "",
       "hold_alpha": 1.0,
-      "allow_recipe_mismatch": false
+      "allow_recipe_mismatch": true
     }
   },
   "125": {
@@ -253,7 +253,7 @@
       "streams": "both",
       "hold_words": "",
       "hold_alpha": 1.0,
-      "allow_recipe_mismatch": false
+      "allow_recipe_mismatch": true
     }
   },
   "26": {

@@ -1253,7 +1253,7 @@ def cmd_status(args: argparse.Namespace) -> int:
         else Path(_h.folder_paths.get_folder_paths(cv_nodes.CONTROL_VECTORS_FOLDER)[0]).resolve()
     )
     toml_dir = Path(args.toml_dir).resolve() if getattr(args, "toml_dir", None) else cv_nodes.PAIR_BANK_DIR
-    req_fams_str = getattr(args, "families", "both")
+    req_fams_str = getattr(args, "families", "fl2va")
     req_fams_set = set(_resolve_requested_families(req_fams_str))
 
     bundle_issues, bundle_perms, bundle_info = _inspect_bundle_status(bundle_path)
