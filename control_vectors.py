@@ -3251,12 +3251,18 @@ def apply_post_refiner(
             raise ValueError("control vector contains non-finite values")
         v_norm_sq = float(torch.dot(vec.detach().to(dtype=torch.float64), vec.detach().to(dtype=torch.float64)).item())
         e_spec = erasure_specs[idx_v] if erasure_specs is not None else None
+        has_per_spec_holds = bool(e_spec is not None and len(e_spec) >= 4 and e_spec[3])
         has_active_erasure = (
             entry_mode == "add_norm_matched_erasure"
-            and float(strength) > 0.0
-            and e_spec is not None
-            and e_spec[0] is not None
-            and e_spec[1] is not None
+            and (
+                (
+                    float(strength) > 0.0
+                    and e_spec is not None
+                    and e_spec[0] is not None
+                    and e_spec[1] is not None
+                )
+                or has_per_spec_holds
+            )
         )
         use_norm_match = entry_mode == "add_norm_matched" or (
             entry_mode == "add" and scale_mode == "norm_matched"
@@ -3323,7 +3329,11 @@ def apply_post_refiner(
                     add_shift64 = add_shift64 + s_a * v_a.detach().to(device=context.device, dtype=torch.float64)
                 elif em_a == "add_norm_matched_erasure":
                     has_add_aim = True
-                    base_v = e_a[2] if (e_a is not None and len(e_a) >= 3 and e_a[2] is not None) else v_a
+                    base_v = (
+                        e_a[2]
+                        if (e_a is not None and s_a > 0.0 and len(e_a) >= 3 and e_a[2] is not None)
+                        else v_a
+                    )
                     bv64 = base_v.detach().to(device=context.device, dtype=torch.float64)
                     bn = max(float(torch.linalg.vector_norm(bv64).item()), 1e-12)
                     term64 = (s_a * NORM_MATCHED_TARGET / bn) * bv64

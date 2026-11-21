@@ -6769,9 +6769,10 @@ def _check_nov15_steer_prose_and_ph3_family() -> list[str]:
             encoding="utf-8",
         )
         seen_um: list[bool] = []
+        seen_fams: list[Any] = []
         orig_cmd_rebuild = _build_cmd.cmd_rebuild
         orig_bundle_inspect = _build_cmd._inspect_bundle_status
-        _build_cmd.cmd_rebuild = lambda a: seen_um.append(bool(a.unit_mean)) or 0  # type: ignore[assignment]
+        _build_cmd.cmd_rebuild = lambda a: (seen_um.append(bool(a.unit_mean)), seen_fams.append(a.families)) and 0  # type: ignore[assignment]
         _build_cmd._inspect_bundle_status = lambda _p: ([], [], {"has_fl2va_base": True, "has_h3_image": True, "recipe_hashes": {}})  # type: ignore[assignment]
         try:
             _build_cmd.cmd_status(
@@ -6782,7 +6783,7 @@ def _check_nov15_steer_prose_and_ph3_family() -> list[str]:
             )
             _build_cmd.cmd_status(
                 _cv_cli.build_parser().parse_args([
-                    "status", "--rebuild-stale", "--no-unit-mean", "--bundle", str(st_tmp / "missing.safetensors"),
+                    "status", "--rebuild-stale", "--no-unit-mean", "--families", "both", "--bundle", str(st_tmp / "missing.safetensors"),
                     "--dir", str(st_tmp / "vec"), "--toml-dir", str(st_tmp / "toml"),
                 ])
             )
@@ -6791,6 +6792,8 @@ def _check_nov15_steer_prose_and_ph3_family() -> list[str]:
             _build_cmd._inspect_bundle_status = orig_bundle_inspect  # type: ignore[assignment]
         if seen_um != [True, False]:
             errs.append(f"cmd_status --rebuild-stale forwarded unit_mean={seen_um!r}, expected [True, False]")
+        if seen_fams != [None, "both"]:
+            errs.append(f"cmd_status --rebuild-stale forwarded families={seen_fams!r}, expected [None, 'both']")
         import h3_rules
         if not h3_rules.STEER_DEFAULTS["allow_recipe_mismatch"] or not h3_rules.CONTROL_VECTOR_DEFAULTS["allow_recipe_mismatch"]:
             errs.append("STEER_DEFAULTS and CONTROL_VECTOR_DEFAULTS allow_recipe_mismatch should default to True")
@@ -6817,8 +6820,8 @@ def _check_nov15_steer_prose_and_ph3_family() -> list[str]:
         if not warns_default_mm:
             errs.append("check_vector_compatibility default should warn and apply across checkpoint/LoRA mismatch")
         ns_stat = _cv_cli.build_parser().parse_args(["status"])
-        if getattr(ns_stat, "families", None) != "fl2va":
-            errs.append(f"CLI status --families default expected 'fl2va', got {getattr(ns_stat, 'families', None)!r}")
+        if getattr(ns_stat, "families", "sentinel") is not None:
+            errs.append(f"CLI status --families default expected None (checks fl2va, preserves existing siblings on --rebuild-stale), got {getattr(ns_stat, 'families', None)!r}")
         for sub_act in getattr(_cv_cli.build_parser(), "_subparsers")._group_actions:
             insp_p = (getattr(sub_act, "choices", None) or {}).get("inspect")
             if insp_p is not None and any("--allow-recipe-mismatch" in a.option_strings for a in insp_p._actions):
@@ -6916,6 +6919,18 @@ def _check_nov15_steer_prose_and_ph3_family() -> list[str]:
             out_neg_1d = cv.apply_post_refiner(ctx_er, tags_er, [(er_v1d, -1.0, "add_norm_matched")])
             if not torch.allclose(out_neg, out_neg_1d, atol=1e-5):
                 errs.append("add_norm_matched_erasure at s=-1.0 did not match 1D add_norm_matched")
+            # Direct Python API: s < 0 with 4-tuple per_spec_holds still honors per_spec_holds
+            neg_hold_dir = torch.randn((cv.POST_REFINER_DIM,), generator=g_er, dtype=torch.float32)
+            neg_hold_u = neg_hold_dir.to(torch.float64) / torch.linalg.vector_norm(neg_hold_dir.to(torch.float64))
+            out_neg_held = cv.apply_post_refiner(
+                ctx_er,
+                tags_er,
+                [(er_v1d, -1.0, "add_norm_matched_erasure")],
+                erasure_specs=[(er_vr, er_diag, er_mu, ((neg_hold_dir, 1.0),))],
+            )
+            neg_hold_leak = float(((out_neg_held[0] - ctx_er[0]).to(torch.float64) @ neg_hold_u).abs().max().item())
+            if neg_hold_leak > 1e-3:
+                errs.append(f"apply_post_refiner s=-1.0 + 4-tuple per_spec_holds leaked {neg_hold_leak:.6f}")
             out_pos = cv.apply_post_refiner(ctx_er, tags_er, [(er_v1d, 1.5, "add_norm_matched_erasure")], erasure_specs=e_spec_list)
             diff_pos = (out_pos[0] - ctx_er[0]).to(torch.float64)
             got_rms = float(torch.sqrt((diff_pos ** 2).sum(dim=-1).mean()).item())

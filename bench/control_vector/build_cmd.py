@@ -1342,7 +1342,7 @@ def cmd_status(args: argparse.Namespace) -> int:
                 vec_dir=str(vec_dir),
                 toml_dir=str(toml_dir),
                 vector_target=None,
-                families=req_fams_str,
+                families=getattr(args, "families", None),
                 pooling="diff_span",
                 unit_mean=use_unit_mean,
                 dit=None,

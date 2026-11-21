@@ -823,8 +823,8 @@ def build_parser() -> argparse.ArgumentParser:
         "--families",
         type=_validate_families_arg,
         metavar=_FAMILIES_METAVAR,
-        default="fl2va",
-        help=_FAMILIES_HELP,
+        default=None,
+        help="Required families to check (default: fl2va); during --rebuild-stale, omitting --families preserves all existing on-disk siblings",
     )
 
     return p
