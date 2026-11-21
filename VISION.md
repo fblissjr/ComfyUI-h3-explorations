@@ -5,6 +5,8 @@ shared with the community: finding what renders the best quality and
 performance this one box can reach. Its output is not the nodes or the
 workflows. Its output is claims about the model that a later reader can
 re-derive, and the tooling that makes re-deriving cheaper than trusting.
+We hold our measurements to that bar so pretrained models stop acting
+like opaque slot machines and can be played as continuous instruments.
 
 **The baseline is the render you would otherwise make on this box.** The DiT
 and encoder artifacts every graph loads, ComfyUI's stock attention, the base
@@ -74,3 +76,22 @@ rebuilt. A one-off experiment may skip this, if you are certain it is a
 one-off. A numeric input means the quantity it names, and a mode gets its own
 named input. When something gains an off, parked or absent state, every
 assertion about it inherits a third case: correctly absent is not broken.
+
+## Exploration & Elicitation
+
+**Play pretrained weights as continuous instruments, not black-box slot machines.**
+Eliciting latent capabilities directly from pretrained encoders and DiTs
+lets one creator move smoothly across optical stocks, motion energy,
+materials, and room acoustics without training a single-purpose LoRA for
+every mood.
+
+**Erase default dialect before adding signal.** Pretrained models carry a
+sticky default look and phrasing ("slop") plus prompt-level priors that
+veto gentle nudges. Measure and subtract the opposing subspace first so
+modest, well-aimed moves produce genuine shifts instead of cranked
+distortion.
+
+**Every control on screen must be causally real.** Measurement exists in
+service of play, not bureaucracy: every fader, notch, hold, and remix
+switch exposed to a creator must trace to an observable internal lever
+and measurable effect — never UI theater.
