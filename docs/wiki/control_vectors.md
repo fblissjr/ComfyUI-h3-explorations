@@ -16,6 +16,7 @@ This pack separates `1x` prompt authoring from post-refiner steering and `2x` di
 - [`control_vectors/sound_cues_and_timed_masks.md`](control_vectors/sound_cues_and_timed_masks.md): sound cues and timed mask "blooms" in plain English, and what the tortoise and forge runs actually proved.
 - [`control_vectors/how_the_word_readout_works.md`](control_vectors/how_the_word_readout_works.md): the word readout step by step, in plain words, on one vector.
 - [`control_vectors/worked_examples.md`](control_vectors/worked_examples.md): five questions people run into, each with what to run and the record behind it.
+- [`research/control_vectors/2026-11-20_unpooled_multivector_sliders.md`](research/control_vectors/2026-11-20_unpooled_multivector_sliders.md): research study and `192f` AV + `P-H3-Image` verification of **Clamped Pole-A Subspace Erasure** (`add_norm_matched_erasure` spec).
 
 ![End-to-end control vector pipeline](control_vectors/assets/control_vector_pipeline.svg)
 
