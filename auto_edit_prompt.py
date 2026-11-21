@@ -291,12 +291,18 @@ def resolve_concept_path(
         kind = "edit_concept" if "concept" in doc else "control_vector"
         return kind, resolved
     fname = raw if raw.endswith(".toml") else f"{raw}.toml"
-    for kind, d in _concept_search_dirs(
+    for _dir_kind, d in _concept_search_dirs(
         concepts_dir=concepts_dir, data_cv_dir=data_cv_dir, bank_cv_dir=bank_cv_dir
     ):
         p = d / fname
         if p.is_file():
-            return kind, p.resolve()
+            resolved = p.resolve()
+            try:
+                doc = tomllib.loads(resolved.read_text(encoding="utf-8"))
+            except Exception as exc:
+                raise ValueError(f"{resolved}: invalid TOML syntax: {exc}") from exc
+            kind = "edit_concept" if "concept" in doc else "control_vector"
+            return kind, resolved
     raise ValueError(
         f"concept {name!r} not found under data/edit_concepts/, data/control_vectors/, or prompt_bank/control_vectors/"
     )
@@ -1242,36 +1248,72 @@ def compile_edit_plan(
     )
 
 
-def build_auto_edit_user_prompt(
-    *,
-    original: str,
-    allowed_sections: Sequence[str],
-    allow_retention_relax: bool,
-    rewrite_mode: str,
-    concept_brief: ConceptBrief | None,
-    edit_intent: str,
-    has_images: bool,
-) -> str:
-    """Assemble the APC-friendly user turn (`Original prompt` first, then concept/intent)."""
-    _lead, chunks = parse_h3_sections(original)
-    present = [c.name for c in chunks]
-    parts: list[str] = [
-        "Original prompt:\n<<<\n" + original + "\n>>>",
-        f"Present sections in original: {', '.join(present)}",
-        f"Allowed sections to edit: {', '.join(allowed_sections)}",
-        f"Retention relaxation allowed: {'yes' if ('retention_analysis' in allowed_sections and allow_retention_relax) else 'no'}",
-    ]
-    if has_images:
-        parts.append("Reference images attached: inspect <Picture 1>.. accurately for retained vs. replaced details.")
+_INTERNAL_NOTE_CLAUSE_RE = re.compile(
+    r"^(?:category\s*=|pair\s+|replaced(?:\s+cleanly)?\s+by\s+|stack(?:able)?\s+with\s+)",
+    re.IGNORECASE,
+)
+_PRESET_NOTE_PREFIX_RE = re.compile(r"^1x\s+prompt\s+preset\s*[—–-]\s*", re.IGNORECASE)
+_IMAGE_AUDIO_SKIP_SECTIONS = frozenset({"overall_soundscape", "non_diegetic_music", "soundscape", "music", "audio"})
 
-    if concept_brief is not None:
-        c_lines = [f"Selected concept ({concept_brief.title}): {concept_brief.summary}"]
+
+def clean_concept_notes(notes: str) -> str:
+    """Strip internal catalog/pairing metadata from concept notes while preserving actionable cues."""
+    kept: list[str] = []
+    for chunk in str(notes or "").split(";"):
+        part = chunk.strip()
+        if not part or _INTERNAL_NOTE_CLAUSE_RE.match(part):
+            continue
+        part = _PRESET_NOTE_PREFIX_RE.sub("", part).strip()
+        if part:
+            kept.append(part)
+    return "; ".join(kept)
+
+
+def format_concept_brief_block(
+    concept_brief: ConceptBrief,
+    *,
+    mode: str = "fresh",
+    native_format: bool = True,
+) -> str:
+    """Format a `ConceptBrief` consistently across `fresh` video, `edit` (2x), and `image` modes."""
+    eff_mode = (mode or "fresh").strip().lower()
+    if eff_mode not in ("fresh", "edit", "image"):
+        raise ValueError(f"unknown concept formatting mode {mode!r}; expected 'fresh', 'edit', or 'image'")
+
+    notes_clean = clean_concept_notes(concept_brief.notes)
+    c_lines: list[str] = [f"MANDATORY CREATIVE CONCEPT ({concept_brief.title}): {concept_brief.summary}"]
+
+    if eff_mode == "image":
+        c_lines.append(
+            "Translate this concept thoroughly into the finished single still frame (lighting, atmosphere, "
+            "setting, wardrobe, materials, and visual styling), overriding contradicting baseline defaults "
+            "while keeping the user's subjects and any attached <Picture N> identities intact."
+        )
+        if concept_brief.a_side and concept_brief.b_side:
+            c_lines.append(f"Target visual state: {concept_brief.b_side}")
+    elif eff_mode == "fresh":
+        c_lines.append(
+            "Apply this concept thoroughly across the scene — visibly transforming setting, lighting, "
+            "atmosphere, wardrobe, action, and matching soundscape (overriding contradicting baseline "
+            "details) while keeping the user's subjects and attached references intact."
+        )
+        if concept_brief.a_side and concept_brief.b_side:
+            c_lines.append(f"Target state: {concept_brief.b_side}")
+    else:  # "edit"
+        c_lines.append(
+            "Apply this concept thoroughly across allowed sections (replacing contradicting lighting, "
+            "setting, wardrobe, action, atmosphere, and soundscape details while keeping user subjects "
+            "and <Picture N>/<Subject N> identities intact)."
+        )
         if concept_brief.a_side and concept_brief.b_side:
             c_lines.append(f"Transition: {concept_brief.a_side} -> {concept_brief.b_side}")
-        if concept_brief.notes:
-            c_lines.append(f"Notes: {concept_brief.notes}")
-        if concept_brief.avoid:
-            c_lines.append(f"Avoid: {concept_brief.avoid}")
+
+    if notes_clean:
+        c_lines.append(f"Notes: {notes_clean}")
+    if concept_brief.avoid:
+        c_lines.append(f"Avoid: {concept_brief.avoid}")
+
+    if eff_mode == "edit":
         if concept_brief.axis_hints:
             hint_parts = [f"{k}={json.dumps(concept_brief.axis_hints[k])}" for k in sorted(concept_brief.axis_hints)]
             c_lines.append(
@@ -1298,7 +1340,68 @@ def build_auto_edit_user_prompt(
             c_lines.append("Reference examples:")
             for idx, (sec, a_ex, b_ex) in enumerate(concept_brief.exemplars, start=1):
                 c_lines.append(f"  Example {idx} [{sec}]: {a_ex!r} -> {b_ex!r}")
-        parts.append("\n".join(c_lines))
+        return "\n".join(c_lines)
+
+    # Fresh video or still image authoring: retain both >=25w flavor examples and <25w sensory cues
+    # (labeled explicitly so short cues expand richly rather than priming stubby drafts).
+    if eff_mode == "fresh" and concept_brief.axis_hints and concept_brief.axis_hints.get("deforms_ref_silhouette") is True:
+        if native_format:
+            c_lines.append("Note: this concept substantially alters medium, age, or silhouette.")
+        else:
+            c_lines.append(
+                "Note: this concept substantially alters medium, age, or silhouette (set deforms_ref_silhouette: true)."
+            )
+
+    filtered_ex = [
+        (sec, a_ex, b_ex)
+        for sec, a_ex, b_ex in (concept_brief.exemplars or ())
+        if str(b_ex).strip()
+        and not (eff_mode == "image" and str(sec or "").strip().lower() in _IMAGE_AUDIO_SKIP_SECTIONS)
+    ]
+    long_exemplars = [(sec, b_ex) for sec, _a_ex, b_ex in filtered_ex if len(str(b_ex).split()) >= 25]
+    short_cues = [(sec, b_ex) for sec, _a_ex, b_ex in filtered_ex if len(str(b_ex).split()) < 25]
+    if long_exemplars:
+        c_lines.append("Concept visual examples:" if eff_mode == "image" else "Concept flavor examples:")
+        for idx, (sec, b_ex) in enumerate(long_exemplars, start=1):
+            c_lines.append(f"  Example {idx} [{sec}]: {b_ex!r}")
+    if short_cues:
+        if eff_mode == "image":
+            c_lines.append(
+                "Concept visual cues (expand naturally into cohesive single-frame prose — do NOT copy as a short fragment):"
+            )
+        else:
+            c_lines.append(
+                "Concept visual/action cues (weave into full multi-sentence cinematic prose — do NOT copy as a short stub):"
+            )
+        for idx, (sec, b_ex) in enumerate(short_cues, start=1):
+            c_lines.append(f"  Cue {idx} [{sec}]: {b_ex!r}")
+    return "\n".join(c_lines)
+
+
+def build_auto_edit_user_prompt(
+    *,
+    original: str,
+    allowed_sections: Sequence[str],
+    allow_retention_relax: bool,
+    rewrite_mode: str,
+    concept_brief: ConceptBrief | None,
+    edit_intent: str,
+    has_images: bool,
+) -> str:
+    """Assemble the APC-friendly user turn (`Original prompt` first, then concept/intent)."""
+    _lead, chunks = parse_h3_sections(original)
+    present = [c.name for c in chunks]
+    parts: list[str] = [
+        "Original prompt:\n<<<\n" + original + "\n>>>",
+        f"Present sections in original: {', '.join(present)}",
+        f"Allowed sections to edit: {', '.join(allowed_sections)}",
+        f"Retention relaxation allowed: {'yes' if ('retention_analysis' in allowed_sections and allow_retention_relax) else 'no'}",
+    ]
+    if has_images:
+        parts.append("Reference images attached: inspect <Picture 1>.. accurately for retained vs. replaced details.")
+
+    if concept_brief is not None:
+        parts.append(format_concept_brief_block(concept_brief, mode="edit"))
 
     intent_clean = (edit_intent or "").strip()
     if intent_clean:
@@ -1405,31 +1508,13 @@ def build_fresh_prompt_user_prompt(
         parts.append(f"Mode: t2va (3 base sections; no reference images attached).\n{pacing_note}")
 
     if concept_brief is not None:
-        c_lines = [f"Selected concept ({concept_brief.title}): {concept_brief.summary}"]
-        if concept_brief.a_side and concept_brief.b_side:
-            c_lines.append(f"Target state: {concept_brief.b_side}")
-        if concept_brief.notes:
-            c_lines.append(f"Notes: {concept_brief.notes}")
-        if concept_brief.avoid:
-            c_lines.append(f"Avoid: {concept_brief.avoid}")
-        if concept_brief.axis_hints and concept_brief.axis_hints.get("deforms_ref_silhouette") is True:
-            if native_format:
-                c_lines.append("Note: this concept substantially alters medium, age, or silhouette.")
-            else:
-                c_lines.append(
-                    "Note: this concept substantially alters medium, age, or silhouette (set deforms_ref_silhouette: true)."
-                )
-        # Filter out short (<25 word) sentence-fragment exemplars so they do not prime stubby prose.
-        long_exemplars = [
-            (sec, a_ex, b_ex)
-            for sec, a_ex, b_ex in (concept_brief.exemplars or ())
-            if len(str(b_ex).split()) >= 25
-        ]
-        if long_exemplars:
-            c_lines.append("Concept flavor examples:")
-            for idx, (sec, _a_ex, b_ex) in enumerate(long_exemplars, start=1):
-                c_lines.append(f"  Example {idx} [{sec}]: {b_ex!r}")
-        parts.append("\n".join(c_lines))
+        parts.append(
+            format_concept_brief_block(
+                concept_brief,
+                mode="image" if eff_mode == "single_frame" else "fresh",
+                native_format=native_format,
+            )
+        )
 
     intent_clean = (edit_intent or "").strip()
     if intent_clean:
@@ -1993,6 +2078,13 @@ def run_auto_edit_rewrite(
                     "Raise max_tokens or switch thinking to 'off' / lower reasoning_effort."
                 ) from first_err
             repair_used = True
+            err_s = str(first_err)
+            band_hint = (
+                " Aim squarely for ~410-440 words inside detailed_description so it sits comfortably "
+                "inside the 350-500 word band (do not stop near the 350 edge)."
+                if ("350-500 words" in err_s or "> 500 ceiling" in err_s)
+                else ""
+            )
             valid_headers_note = ", ".join(allowed_sections) if is_fresh_mode else ", ".join(c.name for c in orig_chunks)
             if is_fresh_mode and use_native:
                 if resolved_mode == "single_frame":
@@ -2006,7 +2098,8 @@ def run_auto_edit_rewrite(
                     repair_msg = (
                         f"Your output failed validation: {first_err}\n"
                         f"Required plain-text section headers (exact order): {headers_csv}\n"
-                        "Fix ONLY this validation error — do NOT drop or revert passing sections. "
+                        "Fix ONLY this validation error — do NOT drop or revert passing sections."
+                        f"{band_hint} "
                         "Output ALL required plain-text sections cleanly with no Markdown headings, "
                         "no code fences, and no commentary."
                     )
@@ -2015,7 +2108,8 @@ def run_auto_edit_rewrite(
                     f"Your output failed validation: {first_err}\n"
                     f"Required/valid section names: {valid_headers_note}\n"
                     f"Allowed sections to edit: {', '.join(allowed_sections)}\n"
-                    "Fix ONLY this validation error — do NOT drop or revert previously written sections. "
+                    "Fix ONLY this validation error — do NOT drop or revert previously written sections."
+                    f"{band_hint} "
                     "Output ALL required Markdown sections and the `## axes` block."
                 )
             repair_body = build_heylook_request_body(
@@ -2052,7 +2146,10 @@ def run_auto_edit_rewrite(
                 ) from second_err
 
     telem = format_heylook_report(
-        res, resolved_mode=f"{rewrite_mode}/{resolved_scope}", system_source=sys_source
+        res,
+        resolved_mode=f"{rewrite_mode}/{resolved_scope}",
+        system_source=sys_source,
+        concept=concept_brief.stem if concept_brief else None,
     )
     delta_words = validated["edit_words"] - validated["orig_words"]
     delta_sign = "+" if delta_words >= 0 else ""

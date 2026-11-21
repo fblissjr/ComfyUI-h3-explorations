@@ -140,6 +140,17 @@ def check_concepts_and_sections() -> None:
     ok(brief_cv.source_kind == "control_vector" and len(brief_cv.exemplars) == 2 and brief_cv.title,
        "load_concept_brief reads prompt_bank/control_vectors/*.toml with sampled exemplars")
 
+    # All cataloged concept options (including [vector] TOMLs sitting in data/edit_concepts/) must load cleanly.
+    load_failures: list[tuple[str, str]] = []
+    for opt in options[1:]:
+        try:
+            aep.load_concept_brief(opt, exemplar_count=2)
+        except Exception as exc:
+            load_failures.append((opt, str(exc)))
+    ok(len(load_failures) == 0,
+       f"all {len(options) - 1} concept options load cleanly (0 failures)",
+       f"failures={load_failures[:5]}")
+
     with tempfile.TemporaryDirectory() as td:
         root = Path(td)
         ec_dir = root / "edit_concepts"
@@ -160,6 +171,7 @@ def check_concepts_and_sections() -> None:
         (ec_dir / "cyberpunk_neon_rain.toml").write_text(
             '[concept]\nname = "Custom Cyberpunk"\n'
             'intent = "Shift lighting to soaked neon twilight"\n'
+            'notes = "category=lighting_look; 1x prompt preset — black out daylight windows; pair foo + bar"\n'
             'target_scope = "scene_and_soundscape"\n'
             'timing = "ramp_in"\n'
             'visual_changed = true\n'
@@ -169,6 +181,20 @@ def check_concepts_and_sections() -> None:
             '[[example]]\nsection = "description"\na = "daylight market"\nb = "neon-lit night market"\n',
             encoding="utf-8",
         )
+        (ec_dir / "vec_in_concepts.toml").write_text(
+            '[vector]\nname = "vec_in_concepts"\nquality = "floodwater"\n'
+            'a_side = "dry"\nb_side = "ankle-deep floodwater"\nmode = "t2va"\nframe = "scene"\n'
+            '[[pair]]\na = "A quiet dry street." \nb = "Ankle-deep floodwater ripples across the street."\n',
+            encoding="utf-8",
+        )
+        brief_vec_in_ec = aep.load_concept_brief(
+            "vec_in_concepts",
+            concepts_dir=ec_dir,
+            data_cv_dir=dcv_dir,
+            bank_cv_dir=bcv_dir,
+        )
+        ok(brief_vec_in_ec.source_kind == "control_vector" and brief_vec_in_ec.b_side == "ankle-deep floodwater",
+           "resolve_concept_path loads [vector] TOMLs placed inside edit_concepts dir without crashing")
         brief_prio = aep.load_concept_brief(
             "cyberpunk_neon_rain",
             concepts_dir=ec_dir,
@@ -189,12 +215,16 @@ def check_concepts_and_sections() -> None:
             edit_intent="",
             has_images=False,
         )
-        ok("Concept default axis hints" in usr_prompt_with_hints
+        ok("MANDATORY CREATIVE CONCEPT" in usr_prompt_with_hints
+           and "black out daylight windows" in usr_prompt_with_hints
+           and "category=" not in usr_prompt_with_hints
+           and "pair foo" not in usr_prompt_with_hints
+           and "Concept default axis hints" in usr_prompt_with_hints
            and "Concept default temporal_curve: ramp_in" in usr_prompt_with_hints
            and "Silhouette/medium overhaul active" not in usr_prompt_with_hints
            and "## section:" in usr_prompt_with_hints
            and "JSON" not in usr_prompt_with_hints,
-           "build_auto_edit_user_prompt surfaces ConceptBrief axis_hints, timing_hint, and Markdown task")
+           "build_auto_edit_user_prompt surfaces MANDATORY CONCEPT, cleaned notes, axis_hints, timing_hint, and Markdown task")
 
         sys_sec = aep._read_system_prompt_file("section_edits")
         sys_el = aep._read_system_prompt_file("edit_lines")
@@ -559,9 +589,12 @@ def check_validators_and_repair() -> None:
         a_side="",
         b_side="",
         avoid="",
-        notes="",
-        modified_sections=("description",),
-        exemplars=(("description", "plain room", "tiny twelve word fragment blurb that should never prime short output"),),
+        notes="category=lighting_mood; keep warm shadows; pair foo + bar",
+        modified_sections=("description", "overall_soundscape"),
+        exemplars=(
+            ("description", "plain room", "tiny twelve word fragment blurb that should expand into full prose"),
+            ("overall_soundscape", "quiet room", "soft acoustic piano resonance"),
+        ),
     )
     u_ref = aep.build_fresh_prompt_user_prompt(
         concept_brief=frag_brief,
@@ -570,9 +603,16 @@ def check_validators_and_repair() -> None:
         resolved_mode="ref2va",
         length=192,
     )
+    u_img = aep.format_concept_brief_block(frag_brief, mode="image")
     ok("8.00s (192 frames)" in u_ref and "2-3 concrete cinematic shots" in u_ref
-       and "tiny twelve word fragment" not in u_ref,
-       "build_fresh_prompt_user_prompt passes dur_s + multi-shot pacing on ref2va and filters <25-word fragment exemplars")
+       and "MANDATORY CREATIVE CONCEPT" in u_ref
+       and "Concept visual/action cues (weave into full multi-sentence cinematic prose" in u_ref
+       and "tiny twelve word fragment blurb" in u_ref
+       and "Concept flavor examples:" not in u_ref
+       and "keep warm shadows" in u_ref and "category=" not in u_ref
+       and "overall_soundscape" not in u_img and "soft acoustic piano resonance" not in u_img
+       and "Concept visual cues" in u_img,
+       "build_fresh_prompt_user_prompt passes dur_s + multi-shot pacing, keeps <25w cues under non-stub label, cleans notes, and omits audio in image mode")
 
     # Standalone zero-lore prompts (h3_video + h3_image) and native plain-text fresh validation
     for vm in ("ref2va", "t2va", "i2va", "fl2va", "l2va"):
@@ -1051,6 +1091,7 @@ def check_url_resolution_and_mock_sse() -> None:
             p0, p1 = state["posts"][0], state["posts"][1]
             ok(r1["repair_used"] is True
                and r1["cache_hit"] is False
+               and "concept=mock_neon" in r1["report"]
                and "thought-1" in r1["thinking"] and "thought-2" in r1["thinking"]
                and p0["messages"][0] == p1["messages"][0]
                and len(p1["messages"]) == 3
