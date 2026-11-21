@@ -490,7 +490,9 @@ Everything below is strictly optional and is **not** wired into the four default
   carries calibrated `J_ref_h3_image` and `J_wiener_h3_image` operators for
   zero-VRAM `MiniMaxH3WordVector` / `MiniMaxH3Steer`, existing `fl2va`/`ref2va`
   `.safetensors` vectors with `vector.encoder` auto-project into `h3_image`
-  post-refiner space, and `MiniMaxH3Steer` (`scene_only` / `description`) steers
+  post-refiner space (and on `mode = "add_norm_matched_erasure"`, cross-family
+  `vector.encoder` auto-projection cleanly skips the source family's `erasure.vr`
+  and applies the projected 1D direction), and `MiniMaxH3Steer` (`scene_only` / `description`) steers
   post-vision caption tokens even when core's `MiniMaxH3ImageConditioning` (no
   `h3_span_masks`) is wired. `MiniMaxH3ReleaseReferences` (`end_percent < 1.0`,
   `clean_level=0.999`) also works on 1-stream 5D `MiniMaxH3ImageModel`.

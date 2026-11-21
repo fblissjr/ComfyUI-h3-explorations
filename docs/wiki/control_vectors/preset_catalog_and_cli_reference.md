@@ -1,6 +1,6 @@
 # Preset Catalog, File Contract, and CLI Reference
 
-Last updated: 2026-11-15.
+Last updated: 2026-11-20 (`add_norm_matched_erasure`, `erasure.{mu_d,vr,diag}` `float32` payload, and `bench/control_vector/studio.sh`).
 
 All command-line operations live in [`bench/control_vectors.py`](../../../bench/control_vectors.py) (with implementation modules under `bench/control_vector/`). Always invoke it with the ComfyUI virtualenv Python directly—never `uv run`.
 
@@ -10,15 +10,15 @@ All command-line operations live in [`bench/control_vectors.py`](../../../bench/
 
 | Subcommand (aliases) | GPU? | Purpose & key flags |
 |---|---|---|
-| `ui` | On demand | Launch the local Control Vector Studio web app (`--host 127.0.0.1`, `--port 0`, `--token`, `--no-browser`, `--vec-dir`, `--toml-dir`). See [`studio_ui_guide.md`](studio_ui_guide.md). |
+| `ui` | On demand | Launch the local Control Vector Studio web app (`--host 127.0.0.1`, `--port 0`, `--token`, `--no-browser`, `--vec-dir`, `--toml-dir`; lifecycle wrapper [`bench/control_vector/studio.sh`](../../../bench/control_vector/studio.sh)). See [`studio_ui_guide.md`](studio_ui_guide.md). |
 | `build` (`from-toml`) | Yes (for `.toml`/`.md`/`--words`); CPU for `--from-words` | Build reusable `fl2va` (default; shared across `{fl2va, ref2va}` at `cos ~0.99`) and/or `ref2va` `.safetensors` + `.md` cards from a `.toml` or LLM `.md` file, `--all` across `prompt_bank/control_vectors/`, or `--words "pole_a -> pole_b"`. Key flags: `--families {both,fl2va,ref2va}` (default `fl2va`), `--pooling diff_span`, `--ref-images`, `--hold`, `--hold-words`, `--hold-alpha`, `--no-holds`, `--no-lora`, `--overwrite`. |
 | `from-prompt` | Yes | Build an in-place scene vector from `--target-prompt` / `--target-prompt-file` + `--words "pole_a -> pole_b"`, **or** build a multi-scene vector directly from `prompt_bank/` (`--bank-scenes N`, supporting rotated Pole-A baselines `a1 \| a2 -> b` or target-only `--words "<target clause>"`). |
 | `make` | Yes | Low-level single/dual-family pair builder sharing `encode_pair_set` + `pool_pair_set` with `build` and `MiniMaxH3MakeControlVector`. |
 | `make-media` (`from-images`) | Yes | Build a vector from contrasting `<Picture 1>` images (`--image-a`, `--image-b`, `--scene-prompt`, `--short-edge 512`, `--pooling scene_text`). |
 | `words` (`from-words`) | **No (`< 2 ms` CPU)** | Synthesize `fl2va` + `ref2va` `.safetensors` vectors from single-token English words (`pos_words`, `--against-words`, `--hold-words`, `--hold-alpha`, `--prompt`). |
-| `sculpt` | **No (`< 5 ms` CPU)** | Compose existing `.safetensors` vectors (`--modes add,add_norm_matched,hold`, `--strengths`, `--invert`, `--hold`, `--hold-words`, `--hold-alpha`) into a new `.safetensors` file. |
+| `sculpt` | **No (`< 5 ms` CPU)** | Compose existing `.safetensors` vectors (`--modes add,add_norm_matched,add_norm_matched_erasure,hold`, `--strengths`, `--invert`, `--hold`, `--hold-words`, `--hold-alpha`) into a new `.safetensors` file. |
 | `inspect` | **No (`< 15 ms` CPU)**; GPU only with `--meter` | Print provenance, norms, J-Lens top `+`/`-` words, readiness recommendation, and optional `--prompt` receptor scan. `--meter <prompt>` measures live post-refiner shift against the prompt's row median (defaults to `--mask scene_only`, matching `MiniMaxH3Steer.target` as of `f8cdd538`). |
-| `grade` | Yes (`--no-dit` skips DiT) | Numerical pre-render evaluation across `--strengths` in `--mode` (default `add_norm_matched`, matching the node as of `1a216404`) and `--mask` (default `scene_only`, supporting single fields and `field_a+field_b`), reporting context cosine/norm and DiT velocity shifts vs. `perm_null` and `flip_null`. |
+| `grade` | Yes (`--no-dit` skips DiT) | Numerical pre-render evaluation across `--strengths` in `--mode` (`add_norm_matched` default, `add_norm_matched_erasure` when `erasure.{vr,diag}` are present, `add`, `project_out`, `amplify`) and `--mask` (default `scene_only`, supporting single fields and `field_a+field_b`), reporting context cosine/norm and DiT velocity shifts vs. `perm_null` and `flip_null`. |
 | `from-md` (`import-md`) | **No (CPU)** | Parse and validate an LLM Markdown response (`### Test Scene Prompt` + `#### Pair 1..N` + optional `#### Hold`) into `data/control_vectors/<stem>.toml` (`--out`, `--test-prompt-out`). |
 | `generate-pairs` | Yes (LLM) | Run a local `transformers` (4-bit default) or `exllamav3` LLM with [`h3_control_vector_system_prompt.md`](../system_prompts/h3_control_vector_system_prompt.md) to author a 10-pair `.md` / `.toml` pack from a concept string. |
 | `rebuild` | Yes | Rebuild one stem (`--vector <stem>`) or every `.safetensors` vector in `models/control_vectors/` from `prompt_bank/control_vectors/` (`--families fl2va` default, `--force`). |
@@ -40,6 +40,7 @@ Example: `film_16mm_1974_neutral__ref2va__diff_span__lora_865ee189.safetensors` 
 - `vector.post_refiner` (`float32 [5376]`): raw mean `B - A` post-refiner direction (after any `[[hold]]` / `hold_words` projection). Applied at runtime by `MiniMaxH3Steer` (and legacy `MiniMaxH3ApplyControlVectors`).
 - `vector.encoder` (`float32 [5120]`, optional, included by default): unit-norm `layers.49` direction (token `0` excluded).
 - `holds.post_refiner` (`float32 [K, 5376]`, when `[[hold]]` groups exist): orthonormal Gram-Schmidt hold basis.
+- `erasure.mu_d` (`float32 [5376]`), `erasure.vr` (`float32 [r, 5376]`, orthonormal, `r <= 8`), and `erasure.diag` (`float32 [r]`, in `[0, 1]`, `~193.5 KB` combined when `r = 8`, optional, emitted on `build`/`make`/`from-prompt`/`MiniMaxH3MakeControlVector` when `N_A >= 2`): row-softmax (`tau = 0.15`) Pole-A erasure basis & ridge weights used by opt-in `mode = "add_norm_matched_erasure"`.
 
 ### Top-level JSON `.safetensors` metadata (`format = "h3-control-vector/1"`)
 Validated on every load by [`control_vectors.py::load_vector`](../../../control_vectors.py):

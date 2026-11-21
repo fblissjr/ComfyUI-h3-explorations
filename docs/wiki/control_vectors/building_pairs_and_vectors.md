@@ -1,6 +1,6 @@
 # Building Pairs and Control Vectors
 
-Last updated: 2026-11-11.
+Last updated: 2026-11-20 (`build_pole_a_erasure`, `erasure.{mu_d,vr,diag}` `float32` payload, and `orthogonalize_erasure_against_holds`).
 
 A MiniMax H3 control vector is the mean post-refiner difference (`Pole B - Pole A`) across one or more matched contrastive pairs, computed in `float64`, scrubbed of any declared `[[hold]]` nuisance subspace via Gram-Schmidt projection, and saved to `models/control_vectors/<stem>__<family>__<pooling>[__lora_<hash>].safetensors`.
 
@@ -11,7 +11,7 @@ A MiniMax H3 control vector is the mean post-refiner difference (`Pole B - Pole 
 As of `fb3c978d` (2026-11-11), there is **one** pair-encoding and pooling implementation across the entire pack:
 
 1. **Encoding** ([`control_vector_nodes.py::encode_pair_set`](../../../control_vector_nodes.py)): encodes every `(a, b)` pair and every `[[hold]]` pair through `Qwen3-VL-32B` (`layers.0..49`, `5120`-d) and the loaded DiT's `condition_proj` + 2-block `TokenRefiner` (`5376`-d), with any active LoRAs applied in memory.
-2. **Pooling & orthogonal hold projection** ([`control_vectors.py::pool_pair_set`](../../../control_vectors.py)): pools the selected span rows on each side in `float64` (excluding token `0` on the encoder side because row `0` is a `52.4x` attention sink: `15,309` norm vs. `292.3` median), averages `B - A` across pairs, builds an orthonormal Gram-Schmidt basis from any `[[hold]]` group means, and projects that basis out of both `vector.post_refiner` (`5376`-d, kept in raw mean-difference units) and `vector.encoder` (`5120`-d, saved at unit norm for J-Lens / EXL3 inspection).
+2. **Pooling, Pole-A erasure & orthogonal hold projection** ([`control_vectors.py::pool_pair_set`](../../../control_vectors.py)): pools the selected span rows on each side in `float64` (excluding token `0` on the encoder side because row `0` is a `52.4x` attention sink: `15,309` norm vs. `292.3` median), averages `B - A` across pairs, builds an orthonormal Gram-Schmidt basis from any `[[hold]]` group means, projects that basis out of both `vector.post_refiner` (`5376`-d, kept in raw mean-difference units) and `vector.encoder` (`5120`-d, saved at unit norm for J-Lens / EXL3 inspection), and runs [`build_pole_a_erasure`](../../../control_vectors.py) to embed optional `float32` `erasure.mu_d [5376]` (row-softmax cosine cross-attention at `tau = 0.15`), `erasure.vr [r, 5376]` (`r <= 8` thin SVD of centered Pole-A rows), and `erasure.diag [r]` (`~193.5 KB` total) with `holds.post_refiner` projected out of both `mu_d` and `A_c` before SVD.
 3. **Provenance record** ([`control_vectors.py::pairs_record`](../../../control_vectors.py)): writes identical `pairs` and `pooled_tokens` metadata whether you build from:
    - `bench/control_vectors.py build` / `from-toml` / `from-prompt` / `rebuild`,
    - `bench/control_vectors.py make`,
@@ -81,10 +81,10 @@ You can remove nuisance directions at **three** places:
    a = """... neutral daylight color balance ..."""
    b = """... heavy warm amber-yellow tungsten color cast ..."""
    ```
-   `pool_pair_set` averages each named `[[hold]]` group, builds an orthonormal Gram-Schmidt basis (`holds.post_refiner`), and projects it out of `vector.post_refiner`. Compare `film_16mm_1974` vs. `film_16mm_1974_neutral` (`cos = 0.72`: grain and gate weave stay, amber cast disappears).
+   `pool_pair_set` averages each named `[[hold]]` group, builds an orthonormal Gram-Schmidt basis (`holds.post_refiner`), and projects it out of `vector.post_refiner`, `erasure.mu_d`, and centered Pole-A rows `A_c` prior to `erasure.vr` SVD. Compare `film_16mm_1974` vs. `film_16mm_1974_neutral` (`cos = 0.72`: grain and gate weave stay, amber cast disappears).
 2. **At CLI build / sculpt time (`--hold <vec.safetensors>` or `--hold-words "amber, sepia"`)**:
-   Projects out an existing `.safetensors` vector or J-Lens word subspace (`--hold-alpha 0.0..2.0`, where `1.0` is exact orthogonal projection) before saving.
-3. **At render time** (wiring `MiniMaxH3LoadControlVector` or `MiniMaxH3WordVector` into `MiniMaxH3Steer.hold_vector`, or setting `hold_words` directly on `MiniMaxH3Steer`): non-destructively scrubs the direction from the accumulated steering shift without altering the base prompt.
+   Projects out an existing `.safetensors` vector or J-Lens word subspace (`--hold-alpha 0.0..2.0`, where `1.0` is exact orthogonal projection) before saving; CLI holds also scrub `erasure.mu_d` and (when `hold_alpha >= 0.999`) orthogonalize `erasure.vr` / `erasure.diag` via [`orthogonalize_erasure_against_holds`](../../../control_vectors.py) (`_apply_erasure_holds`).
+3. **At render time** (wiring `MiniMaxH3LoadControlVector` or `MiniMaxH3WordVector` into `MiniMaxH3Steer.hold_vector`, or setting `hold_words` directly on `MiniMaxH3Steer`): non-destructively scrubs the direction from the accumulated steering shift without altering the base prompt (`_apply_holds_to_rows64` scrubs the full `[M, D]` shift `mu_d - e(H)` per token row under `add_norm_matched_erasure` so `-e(H)` cannot leak along held directions).
 
 ---
 
@@ -121,7 +121,7 @@ Builds `fl2va` (default; shared cleanly across `{fl2va, ref2va}` at `cos ~0.99`,
 
 ### Method 3 — `words` and `sculpt` (`< 5 ms` on CPU, zero GPU load)
 - **`words`**: synthesizes `fl2va` + `ref2va` vectors from single-token English words via J-Lens (see [`j_lens_diagnostics_and_word_lab.md`](j_lens_diagnostics_and_word_lab.md)).
-- **`sculpt`**: algebraically combines existing `.safetensors` vectors (`add`, `add_norm_matched`, `hold`) and/or `--hold-words` in `< 5 ms` on CPU with full provenance tracking.
+- **`sculpt`**: algebraically combines existing `.safetensors` vectors (`add`, `add_norm_matched`, `add_norm_matched_erasure`, `hold`) and/or `--hold-words` in `< 5 ms` on CPU with full provenance tracking.
 
 ### Method 4 — `make-media` / `MiniMaxH3MakeMediaControlVector` (image-pair contrast)
 Extracts `B - A` from two contrasting `<Picture 1>` reference images (`--image-a baseline.png --image-b stylized.png`) encoded under the same `--scene-prompt`:
