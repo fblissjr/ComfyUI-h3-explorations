@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 365" font-family="Inter, system-ui, -apple-system, sans-serif">
+<rect width="900" height="365" rx="12" fill="#0f172a"/>
+<text x="450" y="30" fill="#f8fafc" font-size="16" font-weight="700" text-anchor="middle">Autoregressive Self-Steering vs. Frozen-Anchor Prelude Input Injection &amp; Three-Subspace Parametric EQ</text>
+<text x="450" y="49" fill="#94a3b8" font-size="11.5" text-anchor="middle">Why rank-1 ActAdd/repeng works in causal LLMs yet hits the Prompt Veto in DiTs, Looped-DiTs, Masked DLMs, and Looped Transformers</text>
+<rect x="24" y="68" width="330" height="274" rx="10" fill="#1e293b" stroke="#334155" stroke-width="1.5"/>
+<text x="189" y="92" fill="#93c5fd" font-size="13.5" font-weight="700" text-anchor="middle">(a) Causal Autoregressive LLM (Self-Steering)</text>
+<rect x="46" y="112" width="128" height="44" rx="7" fill="#0f172a" stroke="#475569"/>
+<text x="110" y="131" fill="#e2e8f0" font-size="11" font-weight="600" text-anchor="middle">Prompt Prefix x_1:t</text>
+<text x="110" y="147" fill="#94a3b8" font-size="9.8" text-anchor="middle">+ rank-1 s · v_1D</text>
+<line x1="174" y1="134" x2="206" y2="134" stroke="#60a5fa" stroke-width="2"/>
+<polygon points="206,130 214,134 206,138" fill="#60a5fa"/>
+<rect x="216" y="112" width="118" height="44" rx="7" fill="#172554" stroke="#60a5fa"/>
+<text x="275" y="131" fill="#bfdbfe" font-size="11" font-weight="700" text-anchor="middle">Pivot Token y_{t+1}</text>
+<text x="275" y="147" fill="#93c5fd" font-size="9.8" text-anchor="middle">Discrete argmax/sample</text>
+<path d="M 275 156 L 275 202 L 189 202" fill="none" stroke="#34d399" stroke-width="2"/>
+<polygon points="193,198 185,202 193,206" fill="#34d399"/>
+<rect x="52" y="182" width="132" height="42" rx="7" fill="#064e3b" stroke="#34d399"/>
+<text x="118" y="200" fill="#a7f3d0" font-size="11" font-weight="700" text-anchor="middle">Updated KV Cache</text>
+<text x="118" y="215" fill="#6ee7b7" font-size="9.5" text-anchor="middle">[x_1:t ; steered y_{t+1:k}]</text>
+<text x="189" y="256" fill="#e2e8f0" font-size="11" font-weight="600" text-anchor="middle">Discrete Feedback Amplifies Weak 1D Nudges:</text>
+<text x="189" y="275" fill="#94a3b8" font-size="10.2" text-anchor="middle">Steered pivot phrases rewrite context history,</text>
+<text x="189" y="292" fill="#94a3b8" font-size="10.2" text-anchor="middle">self-steering all future tokens y_{t+2:T} without</text>
+<text x="189" y="309" fill="#94a3b8" font-size="10.2" text-anchor="middle">fighting a frozen contradictory specification.</text>
+<rect x="374" y="68" width="502" height="274" rx="10" fill="#1e293b" stroke="#38bdf8" stroke-width="1.5"/>
+<text x="625" y="92" fill="#38bdf8" font-size="13.5" font-weight="700" text-anchor="middle">(b) Iterative Prelude-Injected Architectures + Three-Subspace EQ (193.5 KB, 1×)</text>
+<rect x="392" y="110" width="130" height="62" rx="7" fill="#0f172a" stroke="#64748b"/>
+<text x="457" y="129" fill="#f8fafc" font-size="11" font-weight="700" text-anchor="middle">Prelude H ∈ R^{L×5376}</text>
+<text x="457" y="145" fill="#94a3b8" font-size="9.5" text-anchor="middle">Qwen3-VL (L0..49) +</text>
+<text x="457" y="159" fill="#fca5a5" font-size="9.5" text-anchor="middle">2-Blk Refiner (Pole-A cone)</text>
+<line x1="522" y1="141" x2="544" y2="141" stroke="#38bdf8" stroke-width="2"/>
+<polygon points="544,137 552,141 544,145" fill="#38bdf8"/>
+<rect x="554" y="104" width="166" height="118" rx="8" fill="#0c4a6e" stroke="#38bdf8" stroke-width="1.6"/>
+<text x="637" y="122" fill="#f0f9ff" font-size="11" font-weight="700" text-anchor="middle">1× Parametric EQ (L′ = L)</text>
+<text x="637" y="141" fill="#fda4af" font-size="10" font-weight="600" text-anchor="middle">1. Notch: −clip(s,0,1)(H−h̄)P_{Vr,λ}</text>
+<text x="637" y="159" fill="#6ee7b7" font-size="10" font-weight="600" text-anchor="middle">2. Boost: +s · μ̂_d (τ = 0.15)</text>
+<text x="637" y="177" fill="#fde68a" font-size="10" font-weight="600" text-anchor="middle">3. Hold: (I − U_h U_h^T) scrub</text>
+<text x="637" y="196" fill="#bae6fd" font-size="9.5" text-anchor="middle">RMS-matched to |s| · 67.5</text>
+<text x="637" y="211" fill="#93c5fd" font-size="9" text-anchor="middle">0 extra NFE | s=0 exact identity</text>
+<line x1="720" y1="163" x2="742" y2="163" stroke="#34d399" stroke-width="2"/>
+<polygon points="742,159 750,163 742,167" fill="#34d399"/>
+<rect x="752" y="106" width="110" height="114" rx="8" fill="#064e3b" stroke="#34d399" stroke-width="1.5"/>
+<text x="807" y="126" fill="#ecfdf5" font-size="11" font-weight="700" text-anchor="middle">Iterative Core</text>
+<text x="807" y="143" fill="#a7f3d0" font-size="9.6" text-anchor="middle">z^{(k+1)} = F_θ(z^{(k)}, H′)</text>
+<text x="807" y="162" fill="#6ee7b7" font-size="9.3" text-anchor="middle">• 50 AV DiT Blks</text>
+<text x="807" y="177" fill="#6ee7b7" font-size="9.3" text-anchor="middle">• Looped-DiT / LLM</text>
+<text x="807" y="192" fill="#6ee7b7" font-size="9.3" text-anchor="middle">• Masked DLMs</text>
+<text x="807" y="209" fill="#fef08a" font-size="9.2" font-weight="600" text-anchor="middle">Re-injected ∀ step k</text>
+<rect x="392" y="238" width="470" height="88" rx="7" fill="#0f172a" stroke="#334155"/>
+<text x="627" y="258" fill="#f8fafc" font-size="11" font-weight="700" text-anchor="middle">Why 1D Fails vs. Why Prelude Subspace EQ Succeeds Across All K Steps:</text>
+<text x="627" y="277" fill="#cbd5e1" font-size="10.1" text-anchor="middle">Un-erased Pole-A tokens in H re-attend to 24 fps video (blks 20..48) &amp; 40 Hz audio (blks 31..48)</text>
+<text x="627" y="294" fill="#cbd5e1" font-size="10.1" text-anchor="middle">at every denoising step k, vetoing +s·v_1D. Notch-erasing V_r on H once before k=0 removes</text>
+<text x="627" y="311" fill="#cbd5e1" font-size="10.1" text-anchor="middle">the opposing attractor across all 50 × K block evaluations at 0.00% runtime overhead.</text>
+</svg>
