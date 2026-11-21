@@ -23,8 +23,8 @@ Dated research study, peer-verified mathematical correction, and controlled dise
      - Preserves a full, recognizable crouching folded-paper porter lifting a crate on `paper_origami` (`MAE 74.7`) where `1D @ 1.5`, `1D @ 2.0`, and `1D * clean_sif` all collapsed into empty geometric paper tunnels.
      - Eliminates `M3`/`M4`'s sign-flip overshoot (`-1.5 * P_{V_r}`) and constant prompt-mean wipeout (`(mean(h) - \mu_A)`).
 3. **Mechanism 2 (Orthogonal 1D-Compatible Lever) — Minish Lab Clean SIF Token Salience (`A2_1d_clean_sif` / `A7_M5_ward_clean_sif`):**
-   - Reallocating the fixed `67.5` average shift norm off common-mode stopwords (`"and"`, `"a"`, `"The"`, `"with"`) onto semantically specific content tokens (clamping punctuation to `0.5`) boosts effective shift norm on content words by `~1.3x–1.8x` at the same mean norm.
-   - Our 8-arm control proved that on `watercolor_wash`, **`A2_1d_clean_sif` (plain 1D × clean SIF, zero multi-vector!) already flipped photorealistic live-action into watercolor painting** (`MAE 83.2`), while `A6_M5_ward_nosif` stayed photorealistic (`MAE 76.9`). Thus Round 2A's `watercolor_wash` jump was predominantly a **SIF norm-concentration effect** — and the "giant pink lips" meltdown in `watercolor + wes` stacking was reproduced even by plain `A1_1d_s2.0` (`MAE 111.3`), caused by over-driving `watercolor_wash.toml` (3 of whose 4 pairs contain `"lips close"` / `"mouth snaps closed"`) past norm `~110`.
+   - Reallocating the fixed `67.5` mean shift norm off common-mode stopwords (`"and"`, `"a"`, `"The"`, `"with"`) onto semantically specific content tokens (clamping punctuation to `0.5`) raises RMS shift energy slightly (`+6%` $L_2^2$) and boosts peak content-token shifts by `~1.6x–2.3x` at `s = 1.0`.
+   - On `watercolor_wash`, **both** mechanisms matter cleanly: `M3_subspace` (`97.6`) and `M4_ot_pca_nosif` (`95.3`) rendered full, clean watercolor paintings with **zero SIF** (`sheet_r2a_m4_ablation.png` Row 2 Cols 2–3), while `A2_1d_clean_sif` (plain 1D × clean SIF, zero multi-vector!) also flipped photorealistic live-action into watercolor (`83.2`, though with darker vignette / surreal orange-slice bouquet), and `A3`/`A4` stayed milder (`72.0–72.8`) because they did not renormalize their combined shift norm (`98.0` vs. `M3`'s `101.25` after partial cancellation between `mu_d` and `-erasure`). Meanwhile, plain `A1_1d_s2.0` (`111.3`) reproduced the exact giant-lips / orange-slice saturation collapse all by itself when pushed to norm `135`.
 4. **Appending unpooled concept tokens (`M1` / `M1b`, `[K=12, 5376]`) fails as a continuous slider** even with H3's 3D RoPE cursor frozen at `orig_L`: changing sequence length `L -> L + 12` perturbs the attention softmax denominator immediately at `s = 0.0` (`MAE 22.7–54.5` at zero strength).
 
 ---
@@ -33,7 +33,7 @@ Dated research study, peer-verified mathematical correction, and controlled dise
 
 1. **Text conditioning path & `int8_convrot` invariance:**
    - All `19` `condition_proj.*` and `token_refiner.*` tensors across all 4 shipped checkpoints (`fl2va`, `ref2va`, `h3_image`, `p-h3-image`) are unquantized `BF16` (zero `convrot`, zero `comfy_quant`).
-   - Across the 200 DiT `blocks.0..49` linears, `convrot` (`comfy_kitchen/tensor/int8_utils.py:11-70`) is a per-linear self-cancelling online Hadamard rotation ($x H_{256} (W H_{256}^\top)^\top = x W^\top$), **not** a residual-stream rotation. Post-refiner `5376`-D text coordinates are completely unrotated.
+   - Across the 200 DiT `blocks.0..49` linears, `convrot` (implemented in the installed `comfy-kitchen` package's `int8_utils` Hadamard helper) is a per-linear self-cancelling online Hadamard rotation ($x H_{256} (W H_{256}^\top)^\top = x W^\top$), **not** a residual-stream rotation. Post-refiner `5376`-D text coordinates are completely unrotated.
    - `control_vector_nodes.py::build_refiner_runner` matches ComfyUI's live `UNETLoader` + `MiniMaxH3LoRABranch` bit-for-bit (`max_abs_diff = 0.0`, `torch.equal = True`).
    - *(Minor separate backlog finding: `bench/control_vector/j_lens_builder.py:412` probes `blk.mlp.fc2` directly rather than `blk.mlp`, bypassing Pika's `0.35%–0.45%` Frobenius `token_refiner.*.mlp.fc2` LoRA; `cos(J_ref_fl2va, J_ref_fl2va_base) = 0.999434`, zero impact on GPU-built vectors or renders.)*
 2. **Packed single-stream 3D RoPE cursor (`comfy/ldm/minimax/model.py:728-803`):**
@@ -116,13 +116,13 @@ Measured from `data/exp_unpooled_sliders/phase1_spectra.json` and `data/exp_unpo
 
 | Concept | Bucket | `1D_E%` *(rank-1)* | `B_r8` / `B_r16` | `eff_rank` | `\|mu_d\| / E\|d\|` | `mpc` | `B_aniso` | Dominant Behavior |
 | :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :--- |
-| `watercolor_wash` *(4 pairs)* | `winner_1d` | **48.4%** | 74.3% / 94.8% | 15.6 | **0.604** | 0.600 | **0.744** | Monolithic medium; flips via `clean_sif` (`A2`) or higher 1D norm; saturates into lips past norm `~110` (`A1_1d_s2.0`). |
+| `watercolor_wash` *(5 pairs)* | `winner_1d` | **48.4%** | 74.3% / 94.8% | 15.6 | **0.604** | 0.600 | **0.744** | Monolithic medium (`data/control_vectors/watercolor_wash.toml`, 5 pairs, `A_all = 22` tokens); clean full paint via `M3`/`M4_nosif` (zero SIF) or `A2_1d_clean_sif`; saturates into a lips/orange-slice collapse past norm `~110` (reproduced even by plain `A1_1d_s2.0`). |
 | `molten_lava_golem` | `winner_1d` | **46.1%** | 49.5% / 64.8% | 44.6 | **0.633** | 0.709 | 0.708 | Monolithic material override; works in 1D, richer with erasure. |
 | `paper_origami` | `winner_1d` | **38.6%** | 43.6% / 59.2% | 58.0 | **0.559** | 0.699 | 0.679 | 1D collapses into abstract paper tunnel; Pole-A erasure (`A3`/`A4`) and `M5` preserve human porter + crates. |
 | `chaos_panic` | `winner_1d` | **31.9%** | 39.8% / 54.2% | 73.2 | **0.540** | 0.711 | 0.636 | Multi-person action state; clean negative polarity (`-1.0` calm → `+1.5` chaos). |
 | `wes_anderson_symmetry` | `weak_1d` | **23.5%** | 45.8% / 61.8% | 49.9 | **0.451** | 0.453 | 0.646 | Compositional style; `M0_1d` already achieves symmetry by `s = 0.5–1.5`, erasure/SIF sharpen pastel orthographic walls. |
 | `noir` | `weak_1d` | **23.4%** | 52.0% / 66.5% | 47.0 | **0.490** | 0.574 | 0.609 | **True multi-facet 1D wall:** `M0_1d` stays color even at `s = 2.0` or `* clean_sif`; requires Pole-A erasure (`A3`) or `M5 + clean_sif` (`A7`). |
-| `look_direct_1990s_flash` | `weak_1d` | *37.8%* | 58.3% / 77.5% | 29.0 | *0.700* | **0.936** | 0.629 | **Test-prompt conflict + copy-paste template:** verbatim 18-word Pole-B string across all 10 pairs (`look_direct_1990s_flash.toml:12-90`). On `indoor_evening` (no `"sunlit"`), even plain `M0_1d` hits stark direct flash at `s = 1.5`. |
+| `look_direct_1990s_flash` | `weak_1d` | *37.8%* | 58.3% / 77.5% | 29.0 | *0.700* | **0.936** | 0.629 | **Test-prompt conflict + copy-paste template:** verbatim 18-word Pole-B string across all 10 pairs (`internal/internal_prompt_bank/control_vectors_v2/look_direct_1990s_flash.toml:12-90`). On `indoor_evening` (no `"sunlit"`), even plain `M0_1d` hits stark direct flash at `s = 1.5`. |
 
 ---
 
@@ -135,13 +135,16 @@ Source: `data/exp_unpooled_sliders/verifier_controls/metrics_controls.json` and 
 | Concept / Stack | `A0_1d` *(s=1.5)* | `A1_1d` *(s=2.0)* | `A2_1d * CleanSIF` | `A3_erase_prompt_clp` *(no SIF)* | `A4_erase_muA_clp` *(no SIF)* | `A5_pure_poleB` *(no `-A`)* | `A6_M5_ward` *(no SIF)* | `A7_M5_ward` *(+ CleanSIF)* |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
 | **`noir`** (`indoor_neutral`) | `64.7` *(color)* | `70.5` *(color)* | `79.0` *(color)* | **`87.0` *(crisp B&W!)*** | **`83.1` *(crisp B&W!)*** | `58.0` *(color)* | `86.9` *(color)* | **`88.4` *(crisp B&W!)*** |
-| **`watercolor_wash`** (`market`) | `77.0` *(photo)* | `111.3` *(lips collapse!)* | **`83.2` *(paint!)*** | `72.8` *(mild soft)* | `72.0` *(mild soft)* | `73.1` *(photo)* | `76.9` *(photo)* | **`84.1` *(paint!)*** |
+| **`watercolor_wash`** (`market`) | `77.0` *(photo)* | `111.3` *(lips collapse!)* | **`83.2` *(paint!)*** | `72.8` *(mild soft; norm `98`)* | `72.0` *(mild soft; norm `98`)* | `73.1` *(photo)* | `76.9` *(photo)* | **`84.1` *(paint!)*** |
 | **`wes_anderson`** (`market`) | `78.3` *(symm)* | `80.2` *(symm)* | `75.2` *(symm)* | `72.7` *(symm)* | `71.7` *(symm)* | `81.3` *(symm)* | `80.3` *(symm)* | `80.8` *(symm)* |
 | **`paper_origami`** (`market`) | `71.8` *(tunnel)* | `81.7` *(tunnel)* | `78.2` *(tent)* | **`74.7` *(porter+crate!)*** | **`82.7` *(porter+crate!)*** | `74.2` *(tunnel)* | **`78.4` *(vendor+crate!)*** | `78.8` *(tent)* |
-| **`stack: water 1.3 + wes 1.0`** | `81.7` *(clerks)* | `91.5` *(lips collapse!)* | `83.1` *(clerks)* | `83.5` *(clerks)* | **`94.4` *(twin clerks)*** | `84.6` *(full hall)* | **`82.4` *(full hall)*** | `96.2` *(close-up)* |
+| **`stack: water 1.3 + wes 1.0`** | `81.7` *(clerks)* | `91.5` *(lips collapse!)* | `83.1` *(stylized)* | `83.5` *(doll busts / red lips)* | `94.4` *(twin busts)* | **`84.6` *(standing hall)*** | **`82.4` *(standing hall)*** | `96.2` *(close-up)* |
+
+*(Note on `A3`/`A4` norm & clamp hygiene: in this control pass, `A3` and `A4` did not renormalize their combined `mu_d - erasure` vector back to `s * 67.5`, so partial cancellation left `watercolor_wash` slightly under-driven at `98.0` vs. `M3`'s `101.25`; and the scratch script coded `min(s, 1.0)` rather than `max(0.0, min(s, 1.0))` — fixed for Round 2B, where all arms will use matched **RMS** total-shift normalization.)*
 
 ### Additional Verified Findings from Round 2A (Still Valid After Controls)
 - **Rank-sweep phase transition (`sheet_r2a_rank_sweep.png`):** On `M4_minish_subspace` (`s = 1.5`), `rank = 2` fails on both `noir` (stays warm color, `81.5`) and `watercolor_wash` (stays photorealistic, `77.8`), while `rank = 4..8` crosses sharply into crisp B&W noir (`80.7–84.7`) and painted watercolor (`104.4–113.3`). This reflects that the erased Pole-A subspace requires **`r = 4..8` dimensions** (not 1–2).
+- **Round 2A `M4` ablation visual caution (`sheet_r2a_m4_ablation.png`):** On `watercolor_wash`, `M3_subspace` (`97.6`) and `M4_ot_pca_nosif` (`95.3`) kept full figures, crates, hanging scale, and market background intact with zero SIF, whereas `M4_ot_pca_sif_clean` (`102.8`) suffered severe compositional collapse (cropped giant mouths/chins with eyes cut off at top edge) and `M4_full` (`113.3`) erased the background to a white void.
 - **Live 2-slider stacking `noir (1.3) + chaos_panic (1.0)` (`sheet_r2a_stacking_2sliders.png`):** `M0_1d` and `M6` stay full color; `M3`, `M4`, and `M5` all render a pure monochrome 1940s film-noir market riot in one `1x` pass.
 - **Negative polarity (`sheet_r2a_polarity_{noir,chaos_panic}.png`):** Clean inversion at `s = -1.0..-0.5` (`chaos_panic` → calm serene order; `noir` → warm open daylight).
 - **Test-prompt conflict (`sheet_r2a_look_direct_1990s_flash__indoor_evening.png`):** Removing `"sunlit ... near a tall window"` unlocked stark 1990s direct xenon flash + tight black drop shadows across all methods, including plain `M0_1d` at `s = 1.5`.
@@ -151,12 +154,13 @@ Source: `data/exp_unpooled_sliders/verifier_controls/metrics_controls.json` and 
 ## 7. What This Informs Across the Repo
 
 1. **Leanest, cleanest multi-vector `.safetensors` upgrade (`~96.8 KB`, backward-compatible):** Add optional `erasure.mu_d [5376]`, `erasure.vr [8, 5376]`, and `erasure.diag [8]` alongside `vector.post_refiner [5376]` inside existing `.safetensors` files. Zero external corpus file, zero test-prompt leakage, zero RoPE shift, exact `0.0000` at `s = 0`, and never sign-flips past `s = 1.0`.
-2. **Keep Pole-A Erasure (`A3`) and Clean SIF Salience (`w_sif`) as *separate* experimental dials:**
+2. **Keep Pole-A Erasure (`A3`), Ward+`WARP_SELECT` (`M5`), and Clean SIF Salience (`w_sif`) as *separate* experimental dials:**
    - Pole-A Erasure (`A3`) solves contradictory base attributes (`noir` overcoming color, `paper_origami` retaining the human figure) without skewing per-token norms.
-   - Clean SIF (`w_sif`) concentrates additive norm onto content words (helping `watercolor_wash` and `1990s_flash` onset) — **but carries a real attention-dilution risk on video** and must be gated independently on `192f` AV clips.
+   - `M5_ward_warp_hybrid` (`A6`/`A7`) is the strongest bounded-residual alternative for preserving standing figures and full market corridors under heavy stacking (`stack_water_wes`).
+   - Clean SIF (`w_sif`) concentrates additive norm onto content words (helping `watercolor_wash` and `1990s_flash` onset) — **but increases RMS/peak content-token energy (`1.6x–2.3x`) and carries a real attention-dilution risk on video**, so it must be RMS-matched and gated independently on `192f` AV clips.
 3. **Contrastive `.toml` hygiene:**
-   - Avoid repeated extraneous body-part phrases across a small 4-pair `.toml` (`watercolor_wash.toml`'s `"lips close"` in 3/4 pairs becomes a giant-lips attractor whenever pushed to `s = 2.0` or stacked!).
-   - Keep natural contextual variation on both Pole A and Pole B (`noir.toml` style) rather than verbatim copy-paste prefix clauses (`look_direct_1990s_flash.toml`, `mpc = 0.936`).
+   - Note on `data/control_vectors/watercolor_wash.toml` (5 pairs): `"lips"` / `"mouth"` appears identically in the shared `a` and `b` dialogue-closing suffix (not in `diff_span`), while `diff_b` repeats the same 11-word prefix across all 5 pairs (`len(diff_b) > len(diff_a)`). Its norm-`135` lips/fruit-slice attractor (`A1_1d_s2.0`) likely reflects bidirectional `token_refiner` length-offset coupling or H3's prior at extreme shift norm rather than an extraneous Pole-B diff clause; either way, high-norm stacking requires a combined-norm cap.
+   - Keep natural contextual variation on both Pole A and Pole B (`prompt_bank/control_vectors/noir.toml` style) rather than verbatim copy-paste prefix clauses (`internal/internal_prompt_bank/control_vectors_v2/look_direct_1990s_flash.toml`, `mpc = 0.936`).
    - Log `1D_E%` and `|mu_d| / E|d|` alongside `mpc` in `bench/control_vectors.py build`.
 
 ---
@@ -165,7 +169,7 @@ Source: `data/exp_unpooled_sliders/verifier_controls/metrics_controls.json` and 
 
 Nothing below is proven yet — treat all four as mandatory **Round 2B** gates before touching `control_vector_nodes.py` or `MiniMaxH3Steer`:
 
-1. **Real `192f` AV Video Gate (`fl2va` & `ref2va` `<Picture 1>`):** Test `A0_1d` vs. `A3_erase_prompt_clp` vs. `A2_1d_clean_sif` vs. `A3 + gentle_clean_sif (alpha=0.5)` on multi-second `192f` `1152x768` Pika AV clips (`noir`, `watercolor_wash`, `paper_origami`, `chaos_panic`). Verify temporal coherence, **speech / soundscape clarity** (explicitly testing against the `ab_token_focus_2026-11-20` audio/attention-mass warning), and `<Picture 1>` face/identity preservation + `retention_analysis:` integrity on `ref2va`.
-2. **Rank sweep directly on `A3_erase_prompt_clp` (`r = 2, 4, 8, 16`)** to confirm whether clean clamped erasure shares the same `r = 4..8` knee without SIF.
-3. **Held-out `prompt_bank/` corpus fit** for any production `clean_sif` weight vector (never fit on test prompts).
+1. **Real `192f` AV Video Gate (`fl2va` & `ref2va` `<Picture 1>`, RMS-matched arms):** Test `A0_1d` vs. **RMS-normalized** `A3_erase_prompt_clp` (`max(0.0, min(s, 1.0))`) vs. `A2_1d_clean_sif` vs. `M5_ward_warp_hybrid` (`alpha = 0.5` clean SIF) on multi-second `192f` `1152x768` Pika AV clips (`noir`, `watercolor_wash`, `paper_origami`, `chaos_panic`). Verify temporal coherence, **speech / soundscape clarity** (explicitly testing against the `ab_token_focus_2026-11-20` audio/attention-mass warning), and `<Picture 1>` face/identity preservation + `retention_analysis:` integrity on `ref2va`.
+2. **Rank sweep directly on RMS-matched `A3_erase_prompt_clp` (`r = 2, 4, 8, 16`)** to confirm whether clean clamped erasure shares the same `r = 4..8` knee without SIF.
+3. **Held-out `prompt_bank/` corpus fit** for any production `clean_sif` / `M5` basis (never fit on test prompts).
 4. **Multi-seed & multi-prompt check** (at least 3 seeds across `t2va` + `ref2va` prompts) + optional H3 DiT block-band hook (`comfy/ldm/minimax/model.py:660-669`) testing if needed.
