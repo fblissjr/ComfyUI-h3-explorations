@@ -1374,6 +1374,92 @@ def orthogonalize_erasure_against_holds(
     )
 
 
+def compose_erasure_payload(
+    entries: Sequence[
+        tuple[
+            torch.Tensor,
+            float,
+            str,
+            torch.Tensor | None,
+            torch.Tensor | None,
+            torch.Tensor | None,
+        ]
+    ],
+    *,
+    holds: Sequence[tuple[torch.Tensor, float]] = (),
+    max_rank: int = ERASURE_MAX_RANK,
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor] | None:
+    """Compose paired float32 `(erasure.mu_d, erasure.vr, erasure.diag)` across multi-vector recipes.
+
+    Each entry in `entries` is `(vector_post_refiner, strength, mode, erasure_mu_d, erasure_vr, erasure_diag)`.
+    Positive additive entries with valid `erasure.{vr,diag}` contribute weighted subspace factors
+    `W_k = sqrt(min(weight, 1.0) * diag_k) * vr_k`; thin SVD yields an orthonormal `vr` (`<= max_rank`)
+    and clamped `diag in [0, 1]`. Both composite `mu_d` and `W` are orthogonalized against `holds`.
+    Returns `None` if no positive additive entry carries erasure tensors or the residual subspace collapses.
+    """
+    mu_total64: torch.Tensor | None = None
+    w_blocks: list[torch.Tensor] = []
+
+    for v_pr, strength, mode, mu_d_t, vr_t, diag_t in entries:
+        s_f = float(strength)
+        if not is_additive_mode(mode) or s_f == 0.0:
+            continue
+        has_er = vr_t is not None and diag_t is not None and vr_t.ndim == 2 and vr_t.shape[0] >= 1
+        use_er = s_f > 0.0 and has_er
+        dir_src = mu_d_t if (use_er and mu_d_t is not None) else v_pr
+        d64 = dir_src.detach().to(device="cpu", dtype=torch.float64).flatten()
+        d_norm = float(torch.linalg.vector_norm(d64).item())
+        if d_norm <= 1e-12:
+            continue
+        if is_norm_matched_mode(mode):
+            term64 = (s_f * NORM_MATCHED_TARGET / d_norm) * d64
+        else:
+            term64 = s_f * d64
+        mu_total64 = term64 if mu_total64 is None else (mu_total64 + term64)
+
+        if use_er:
+            vr64 = vr_t.detach().to(device="cpu", dtype=torch.float64)
+            diag64 = diag_t.detach().to(device="cpu", dtype=torch.float64).flatten().clamp(0.0, 1.0)
+            w_eff = min(s_f, 1.0)
+            w_k = torch.sqrt((w_eff * diag64).clamp(0.0, 1.0)).unsqueeze(-1) * vr64
+            w_blocks.append(w_k)
+
+    if mu_total64 is None or not w_blocks:
+        return None
+
+    hold_pairs: list[tuple[torch.Tensor, float]] = [
+        (hv.detach().to(device="cpu", dtype=torch.float64).flatten(), float(ha))
+        for hv, ha in holds
+        if float(ha) > 0.0
+    ]
+    if hold_pairs:
+        mu_total64 = _apply_holds_to_shift64(mu_total64, hold_pairs, torch.device("cpu"))
+
+    mu_norm = float(torch.linalg.vector_norm(mu_total64).item())
+    if not math.isfinite(mu_norm) or mu_norm <= 1e-12:
+        return None
+
+    w_mat = torch.cat(w_blocks, dim=0)
+    if hold_pairs:
+        w_holds = [(hv, min(1.0, ha)) for hv, ha in hold_pairs]
+        w_mat = _apply_holds_to_rows64(w_mat, w_holds, torch.device("cpu"))
+
+    _u, s_vals, vh = torch.linalg.svd(w_mat, full_matrices=False)
+    if s_vals.numel() == 0 or float(s_vals[0].item()) <= 1e-12:
+        return None
+    d_vals = (s_vals ** 2).clamp(0.0, 1.0)
+    keep = d_vals > 1e-9
+    n_pos = int(keep.sum().item())
+    r = min(int(max_rank), n_pos)
+    if r < 1:
+        return None
+    return (
+        mu_total64.to(dtype=torch.float32).contiguous(),
+        vh[:r].to(dtype=torch.float32).contiguous(),
+        d_vals[:r].to(dtype=torch.float32).contiguous(),
+    )
+
+
 def _pool_rows(rows: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
     """The mean of the masked rows, summed in float64 and returned in float32."""
     return rows.to(dtype=torch.float64)[mask].mean(dim=0).to(dtype=torch.float32)
@@ -3352,6 +3438,7 @@ def apply_post_refiner(
 
         # Process per batch item so prompt-centered Pole-A erasure centers each batch element independently
         # on unsteered `base_rows64` (order-independent across stacked vectors).
+        warned_stacked = False
         for b_idx in range(B):
             b_mask = eff_mask[b_idx]
             if not bool(b_mask.any()):
@@ -3364,13 +3451,16 @@ def apply_post_refiner(
                 if em in ("add", "add_norm_matched_erasure", "hold"):
                     block_shift64 = torch.zeros_like(rows64)
                     hold_entries_blk: list[tuple[torch.Tensor, float]] = []
+                    n_add_blk = 0
                     while idx < len(active) and active[idx][2] in ("add", "add_norm_matched_erasure", "hold"):
                         v_i, s_i, em_i, e_i = active[idx]
                         if em_i == "add":
+                            n_add_blk += 1
                             block_shift64 = block_shift64 + (
                                 s_i * v_i.detach().to(device=context.device, dtype=torch.float64)
                             ).unsqueeze(0)
                         elif em_i == "add_norm_matched_erasure":
+                            n_add_blk += 1
                             block_shift64 = block_shift64 + _erasure_row_shift64(
                                 base_rows64, v_i, s_i, e_i
                             )
@@ -3380,6 +3470,21 @@ def apply_post_refiner(
                     if hold_entries_blk:
                         block_shift64 = _apply_holds_to_rows64(
                             block_shift64, hold_entries_blk, context.device
+                        )
+                    block_rms = _rms_row_norm64(block_shift64)
+                    if (
+                        warn_if_stacked_norm
+                        and not warned_stacked
+                        and n_add_blk >= 2
+                        and block_rms >= STACK_SHIFT_WARN_NORM
+                    ):
+                        warned_stacked = True
+                        _logger.warning(
+                            "[h3] apply_post_refiner stacked %d additive vectors to combined RMS shift norm=%.2f "
+                            "(threshold=%.1f); lower per-vector strength to avoid prompt saturation",
+                            n_add_blk,
+                            block_rms,
+                            STACK_SHIFT_WARN_NORM,
                         )
                     rows64 = rows64 + block_shift64
                 else:

@@ -224,7 +224,7 @@ def _resolve_requested_families(
     *,
     auto_family: str | None = None,
 ) -> list[str]:
-    """Normalize family selector ('both', 'fl2va', 'ref2va', 'auto', or aliases like 'image', 't2i', 'image_edit') into a list of families."""
+    """Normalize family selector ('both', 'fl2va', 'ref2va', 'h3_image', 'auto', or aliases like 'image', 't2i', 'image_edit') into a list of families."""
     if isinstance(raw, (list, tuple)):
         items = [str(x).strip().lower() for x in raw if str(x).strip()]
     else:
@@ -244,6 +244,9 @@ def _resolve_requested_families(
             f_auto = auto_family if auto_family in ("fl2va", "ref2va") else "fl2va"
             if f_auto not in out:
                 out.append(f_auto)
+        elif item in ("h3_image", "h3-image", "minimax_h3_image", "minimax-h3-image"):
+            if "h3_image" not in out:
+                out.append("h3_image")
         elif item in _FL2VA_FAMILY_ALIASES:
             if "fl2va" not in out:
                 out.append("fl2va")
@@ -252,7 +255,7 @@ def _resolve_requested_families(
                 out.append("ref2va")
         else:
             raise ValueError(
-                f"unknown family {item!r}; expected 'both' (fl2va + ref2va), 'fl2va' (Video T2VA/FL2VA/I2VA + Image T2I/Edit), or 'ref2va' (Video Ref2VA)"
+                f"unknown family {item!r}; expected 'both' (fl2va + ref2va), 'fl2va' (Video T2VA/FL2VA/I2VA + P-H3-Image), 'ref2va' (Video Ref2VA), or 'h3_image' (native MiniMax-H3-Image)"
             )
     return out or ["fl2va", "ref2va"]
 
@@ -612,11 +615,11 @@ def _recommended_strength_text(raw_norm: float) -> str:
     """The strength to try, for the node's default mode first.
 
     Until 2026-11-09 this returned only the range for mode `add`, which depends on the vector's stored
-    length. The node defaults to `add_norm_matched`, which rescales every vector to one length, so that
-    range did not apply to it. Both come from `control_vectors.strength_ranges`.
+    length. `MiniMaxH3Steer` defaults to `add_norm_matched_erasure` (`add_norm_matched` fallback when
+    erasure tensors are absent), rescaling every vector to one length, so that raw range did not apply.
     """
     (m_lo, m_hi), add = cv.strength_ranges(raw_norm)
-    text = f"{m_lo:.2f} .. {m_hi:.2f} (add_norm_matched, the default)"
+    text = f"{m_lo:.2f} .. {m_hi:.2f} (add_norm_matched_erasure / add_norm_matched)"
     if add is None:
         return text
     s_lo = max(0.25, round(add[0], 2))

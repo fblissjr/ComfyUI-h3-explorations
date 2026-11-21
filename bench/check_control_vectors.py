@@ -5302,7 +5302,7 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
         arm["115"]["inputs"]["vector"] != "film_16mm_1974"
         or arm["115"]["inputs"]["strength"] != 0.75
         or arm["115"]["inputs"]["target"] != "scene_only"
-        or arm["115"]["inputs"]["mode"] != "add_norm_matched"
+        or arm["115"]["inputs"]["mode"] != "add_norm_matched_erasure"
         or arm["115"]["inputs"]["start_percent"] != 0.0
         or arm["115"]["inputs"]["end_percent"] != 1.0
         or arm["115"]["inputs"]["streams"] != "both"
@@ -6827,11 +6827,18 @@ def _check_nov15_steer_prose_and_ph3_family() -> list[str]:
             if insp_p is not None and any("--allow-recipe-mismatch" in a.option_strings for a in insp_p._actions):
                 errs.append("CLI inspect must not expose --allow-recipe-mismatch")
 
-        # --- Opt-in add_norm_matched_erasure: build, payload contract, runtime math, holds, streams, h3_image skip ---
-        if "add_norm_matched_erasure" not in cv_nodes.STEER_MODES:
-            errs.append("MiniMaxH3Steer STEER_MODES missing 'add_norm_matched_erasure'")
+        # --- Default add_norm_matched_erasure: schema, payload contract, runtime math, stacked warning, sculpt composition ---
+        if h3_rules.STEER_DEFAULTS["mode"] != "add_norm_matched_erasure":
+            errs.append(f"STEER_DEFAULTS['mode'] must be 'add_norm_matched_erasure', got {h3_rules.STEER_DEFAULTS['mode']!r}")
+        if cv_nodes.STEER_MODES[0] != "add_norm_matched_erasure":
+            errs.append(f"MiniMaxH3Steer STEER_MODES[0] must be 'add_norm_matched_erasure', got {cv_nodes.STEER_MODES!r}")
         if not cv.is_additive_mode("add_norm_matched_erasure") or not cv.is_norm_matched_mode("add_norm_matched_erasure"):
             errs.append("is_additive_mode/is_norm_matched_mode must return True for 'add_norm_matched_erasure'")
+        from bench.control_vector import helpers as _h_cv
+        if _h_cv._resolve_requested_families("h3_image") != ["h3_image"]:
+            errs.append(f"_resolve_requested_families('h3_image') != ['h3_image']: {_h_cv._resolve_requested_families('h3_image')!r}")
+        if _h_cv._resolve_requested_families("both") != ["fl2va", "ref2va"]:
+            errs.append(f"_resolve_requested_families('both') must remain ['fl2va', 'ref2va'], got {_h_cv._resolve_requested_families('both')!r}")
 
         g_er = torch.Generator(device="cpu").manual_seed(20261120)
         a_sp1 = torch.randn((12, cv.POST_REFINER_DIM), generator=g_er, dtype=torch.float32)
@@ -7155,6 +7162,92 @@ def _check_nov15_steer_prose_and_ph3_family() -> list[str]:
                 )
                 if not rec_eval or "readout" not in rec_eval:
                     errs.append(f"j_lens.decode_recipe failed on mode='add_norm_matched_erasure': {list(rec_eval.keys()) if isinstance(rec_eval, dict) else rec_eval}")
+
+            # compose_erasure_payload K=1 exactness, K=2 union, hold orthogonality, & sculpt/save_composed preservation
+            c1 = cv.compose_erasure_payload([(er_v1d, 1.0, "add_norm_matched_erasure", er_mu, er_vr, er_diag)])
+            if c1 is None:
+                errs.append("compose_erasure_payload returned None for K=1")
+            else:
+                c1_mu, c1_vr, c1_diag = c1
+                proj1_orig = er_vr.to(torch.float64).T @ torch.diag(er_diag.to(torch.float64)) @ er_vr.to(torch.float64)
+                proj1_comp = c1_vr.to(torch.float64).T @ torch.diag(c1_diag.to(torch.float64)) @ c1_vr.to(torch.float64)
+                max_p_err = float((proj1_orig - proj1_comp).abs().max().item())
+                if max_p_err > 1e-4:
+                    errs.append(f"compose_erasure_payload K=1 quadratic form mismatch: {max_p_err:.6g}")
+
+            er2_mu = torch.randn(cv.POST_REFINER_DIM, generator=g_er, dtype=torch.float32)
+            er2_q, _ = torch.linalg.qr(torch.randn((cv.POST_REFINER_DIM, 4), generator=g_er, dtype=torch.float64), mode="reduced")
+            er2_vr = er2_q.T.to(dtype=torch.float32).contiguous()
+            er2_diag = torch.tensor([0.95, 0.75, 0.50, 0.25], dtype=torch.float32)
+            hold_comp = hold_b[0]
+            c2 = cv.compose_erasure_payload(
+                [
+                    (er_v1d, 1.0, "add_norm_matched_erasure", er_mu, er_vr, er_diag),
+                    (er2_mu, 0.8, "add_norm_matched_erasure", er2_mu, er2_vr, er2_diag),
+                ],
+                holds=[(hold_comp, 1.0)],
+            )
+            if c2 is None:
+                errs.append("compose_erasure_payload returned None for K=2 + hold")
+            else:
+                c2_mu, c2_vr, c2_diag = c2
+                if float(c2_diag.min().item()) < 0.0 or float(c2_diag.max().item()) > 1.0:
+                    errs.append(f"compose_erasure_payload diag out of [0,1]: {c2_diag.tolist()}")
+                gram_err = float((c2_vr.to(torch.float64) @ c2_vr.to(torch.float64).T - torch.eye(c2_vr.shape[0], dtype=torch.float64)).abs().max().item())
+                if gram_err > 1e-4:
+                    errs.append(f"compose_erasure_payload vr not orthonormal: gram_err={gram_err:.6g}")
+                c2_hold_leak = max(
+                    float((c2_mu.to(torch.float64) @ hold_comp.to(torch.float64)).abs().item()),
+                    float((c2_vr.to(torch.float64) @ hold_comp.to(torch.float64)).abs().max().item()),
+                )
+                if c2_hold_leak > 1e-4:
+                    errs.append(f"compose_erasure_payload leaked hold: {c2_hold_leak:.6g}")
+
+            # sculpt preserves erasure.{mu_d,vr,diag} on disk (both j_lens & fallback paths)
+            from bench.control_vector import sculpt as _sculpt_mod
+            er2_path = Path(ep_tmp) / "er2_src__fl2va__diff_span.safetensors"
+            cv.save_vector(
+                er2_path,
+                {"vector.post_refiner": er2_mu, "vector.encoder": er_enc.clone(), "erasure.mu_d": er2_mu.clone(), "erasure.vr": er2_vr, "erasure.diag": er2_diag},
+                {**er_meta, "name": "er2_src"},
+            )
+            sculpt_dir = st_tmp / "sculpt_er_out"
+            sc_res = _sculpt_mod._compose_and_save_sculpted_vector(
+                [
+                    {"vector": str(er_path), "mode": "add_norm_matched_erasure", "strength": 1.0},
+                    {"vector": str(er2_path), "mode": "add_norm_matched_erasure", "strength": 0.7},
+                ],
+                name="sculpted_er_pair",
+                family="fl2va",
+                out_dir=sculpt_dir,
+            )
+            sc_tensors, _ = cv.load_vector(sc_res["path"])
+            if "erasure.mu_d" not in sc_tensors or "erasure.vr" not in sc_tensors or "erasure.diag" not in sc_tensors:
+                errs.append(f"sculpt did not preserve composed erasure.* keys: {sorted(sc_tensors.keys())}")
+            if "preserved" not in str(sc_res.get("erasure_note", "")):
+                errs.append(f"sculpt unexpected erasure_note: {sc_res.get('erasure_note')!r}")
+
+            # STACK_SHIFT_WARN_NORM warning fires on stacked add_norm_matched_erasure
+            import logging
+            warn_recs: list[str] = []
+            class _CapWarn(logging.Handler):
+                def emit(self, record):
+                    warn_recs.append(record.getMessage())
+            _cap_h = _CapWarn(level=logging.WARNING)
+            cv_logger = cv._logger
+            cv_logger.addHandler(_cap_h)
+            try:
+                cv.apply_post_refiner(
+                    ctx_er,
+                    tags_er,
+                    [(er_v1d, 1.0, "add_norm_matched_erasure"), (er_v1d, 1.0, "add_norm_matched_erasure")],
+                    erasure_specs=[(er_vr, er_diag, er_mu), (er_vr, er_diag, er_mu)],
+                    warn_if_stacked_norm=True,
+                )
+            finally:
+                cv_logger.removeHandler(_cap_h)
+            if not any("stacked 2 additive vectors" in m for m in warn_recs):
+                errs.append(f"apply_post_refiner did not emit STACK_SHIFT_WARN_NORM warning for stacked add_norm_matched_erasure: {warn_recs!r}")
 
         # Build a synthetic saved vector with legacy encoder + null refiner_transmission to test advisories
         legacy_vec_path = st_tmp / "vec" / "demo_card__fl2va__diff_span__lora_deadbeef.safetensors"

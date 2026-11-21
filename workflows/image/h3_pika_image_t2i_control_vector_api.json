@@ -172,7 +172,7 @@
       ],
       "vector": "film_16mm_1974",
       "strength": 1.15,
-      "mode": "add_norm_matched",
+      "mode": "add_norm_matched_erasure",
       "target": "scene_only",
       "start_percent": 0.0,
       "end_percent": 1.0,

@@ -2309,8 +2309,54 @@ def save_composed_recipe_vector(
             "made_by": "j_lens.save_composed_recipe_vector/1",
         },
     }
+    import control_vectors as _cv_mod
+
+    erasure_entries: list[
+        tuple[
+            torch.Tensor,
+            float,
+            str,
+            torch.Tensor | None,
+            torch.Tensor | None,
+            torch.Tensor | None,
+        ]
+    ] = []
+    erasure_holds: list[tuple[torch.Tensor, float]] = []
+    for item in steps:
+        src = item["vector"]
+        st_mode = str(item.get("mode", "add")).strip()
+        st_strength = float(item.get("strength", 1.0))
+        v_step, _, _ = _load_vector_from_source(src, space="post_refiner")
+        if st_mode == "hold":
+            erasure_holds.append((v_step, st_strength))
+            continue
+        mu_d_t: torch.Tensor | None = None
+        vr_t: torch.Tensor | None = None
+        diag_t: torch.Tensor | None = None
+        if isinstance(src, (str, os.PathLike)):
+            src_path = Path(src)
+            if src_path.is_file():
+                with safe_open(str(src_path), framework="pt", device="cpu") as f_er:
+                    f_keys = set(f_er.keys())
+                    if "erasure.vr" in f_keys and "erasure.diag" in f_keys:
+                        vr_t = f_er.get_tensor("erasure.vr").to(dtype=torch.float32)
+                        diag_t = f_er.get_tensor("erasure.diag").to(dtype=torch.float32)
+                        if "erasure.mu_d" in f_keys:
+                            mu_d_t = f_er.get_tensor("erasure.mu_d").to(dtype=torch.float32)
+        erasure_entries.append((v_step, st_strength, st_mode, mu_d_t, vr_t, diag_t))
+    if hw_list and float(alpha) > 0.0:
+        hw_synth = synthesize_from_words(hw_list, family=_canonical_synth_family(eff_family), bundle=b)
+        erasure_holds.append((hw_synth["vector.post_refiner"], float(alpha)))
+    composed_erasure = _cv_mod.compose_erasure_payload(erasure_entries, holds=erasure_holds)
+
     encoded_meta = {k: json.dumps(v, sort_keys=True) for k, v in meta_dict.items()}
     tensors_dict = {"vector.post_refiner": v_pr, "vector.encoder": v_enc}
+    if composed_erasure is not None:
+        (
+            tensors_dict["erasure.mu_d"],
+            tensors_dict["erasure.vr"],
+            tensors_dict["erasure.diag"],
+        ) = composed_erasure
     path.write_bytes(
         save_safetensors_bytes(
             tensors_dict,
@@ -2319,8 +2365,6 @@ def save_composed_recipe_vector(
     )
     _chmod_group_readable(path)
     if write_sidecar_md:
-        import control_vectors as _cv_mod
-
         sidecar_path = path.with_suffix(".md")
         sidecar_path.write_text(
             _cv_mod.format_vector_sidecar_md(path.name, tensors_dict, meta_dict),

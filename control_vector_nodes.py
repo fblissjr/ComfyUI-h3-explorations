@@ -81,7 +81,7 @@ PROMPT_BANK_DIR = REPO_ROOT / "prompt_bank"
 CONTROL_VECTORS_FOLDER = "control_vectors"
 WRAPPER_KEY = "h3_control_vectors"
 MASK_MODES = _spans.INFERENCE_MASK_MODES
-STEER_MODES: tuple[str, ...] = ("add_norm_matched", "add_norm_matched_erasure", "add", "project_out")
+STEER_MODES: tuple[str, ...] = ("add_norm_matched_erasure", "add_norm_matched", "add", "project_out")
 STEER_TARGETS: tuple[str, ...] = (
     "scene_only",
     "description_only",
@@ -4519,21 +4519,22 @@ class MiniMaxH3Steer(io.ComfyNode):
                     max=5.0,
                     step=0.05,
                     tooltip=(
-                        "Steering multiplier (1.0 = 67.5 post-refiner shift norm in 'add_norm_matched', "
-                        "one mean-pair-difference in 'add', or full projection removal from prompt rows "
-                        "in 'project_out'; 0.0 is an exact no-op)."
+                        "Steering multiplier (1.0 = 67.5 post-refiner shift norm in 'add_norm_matched_erasure' "
+                        "/ 'add_norm_matched', one mean-pair-difference in 'add', or full projection removal "
+                        "from prompt rows in 'project_out'; 0.0 is an exact no-op)."
                     ),
                 ),
                 io.Combo.Input(
                     "mode",
                     options=list(STEER_MODES),
-                    default="add_norm_matched",
+                    default=_rules.STEER_DEFAULTS["mode"],
                     optional=True,
                     tooltip=(
-                        "'add_norm_matched' (default) normalizes every vector to 67.5 post-refiner "
-                        "shift norm at strength=1.0 across all pooling modes; 'add_norm_matched_erasure' "
-                        "adds clamped prompt-centered Pole-A subspace erasure (erasure.vr/diag/mu_d, RMS-matched "
-                        "to |s|*67.5, disabling erasure for s<=0) when present in the .safetensors file; "
+                        "'add_norm_matched_erasure' (default) applies clamped prompt-centered Pole-A "
+                        "subspace erasure (erasure.vr/diag/mu_d, RMS-matched to |s|*67.5, disabling "
+                        "erasure for s<=0) and falls back cleanly to 1D 'add_norm_matched' when "
+                        "erasure tensors are absent or projected cross-family onto 'h3_image'; "
+                        "'add_norm_matched' applies pure 1D shift normalized to 67.5 at s=1.0; "
                         "'add' uses raw mean-pair-difference units; 'project_out' removes "
                         "strength * ((r . v) / ||v||^2) * v from the base prompt rows."
                     ),
@@ -4700,7 +4701,7 @@ class MiniMaxH3Steer(io.ComfyNode):
         cls,
         vector="none",
         strength=1.0,
-        mode="add_norm_matched",
+        mode=_rules.STEER_DEFAULTS["mode"],
         target="scene_only",
         fields=[],  # noqa: B006
         start_percent=0.0,
@@ -4757,7 +4758,7 @@ class MiniMaxH3Steer(io.ComfyNode):
         model,
         vector="none",
         strength=1.0,
-        mode="add_norm_matched",
+        mode=_rules.STEER_DEFAULTS["mode"],
         target="scene_only",
         fields=[],  # noqa: B006 — read-only default matching io.MultiCombo schema default []
         start_percent=0.0,

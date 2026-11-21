@@ -6180,7 +6180,7 @@ def main():
                   target="scene_only",
               ),
               out_prefix="Video/h3_t2v_pika_control_vector"),
-         "text -> video + audio on Pika H3 Flex 6-step LCM (SVD995 branch) with MiniMaxH3Steer (film_16mm_1974 at +1.15, add_norm_matched, target=scene_only)"),
+         "text -> video + audio on Pika H3 Flex 6-step LCM (SVD995 branch) with MiniMaxH3Steer (film_16mm_1974 at +1.15, add_norm_matched_erasure, target=scene_only)"),
         ("h3_text_to_video_pika_dual_control_vectors.json", "t2v-pika-dual-control-vectors", "t2v",
          LONG_T2V_PROMPT,
          dict(lora=(PIKA_FL2VA_SVD995_LORA, PIKA_STRENGTH), lora_branch=True,
@@ -6322,7 +6322,7 @@ def main():
                   target="scene_only",
               ),
               out_prefix="Image/h3_p_h3_image_t2i_control_vector"),
-         "text -> 8 MP single-frame image on PrunaAI P-H3-Image with MiniMaxH3Steer (film_16mm_1974 at +1.15, add_norm_matched, target=scene_only)"),
+         "text -> 8 MP single-frame image on PrunaAI P-H3-Image with MiniMaxH3Steer (film_16mm_1974 at +1.15, add_norm_matched_erasure, target=scene_only)"),
         ("h3_p_h3_image_edit_control_vector.json", "p-h3-image-edit-control-vector", "ph3_edit",
          PH3_IMAGE_EDIT_PROMPT,
          dict(single_frame=True,
@@ -6333,7 +6333,7 @@ def main():
                   release_references=True,
               ),
               out_prefix="Image/h3_p_h3_image_edit_control_vector"),
-         "reference images + text -> edited image at image_1's aspect ratio on PrunaAI P-H3-Image with MiniMaxH3Steer (film_16mm_1974 at +1.15, add_norm_matched, target=scene_only) and MiniMaxH3ReleaseReferences"),
+         "reference images + text -> edited image at image_1's aspect ratio on PrunaAI P-H3-Image with MiniMaxH3Steer (film_16mm_1974 at +1.15, add_norm_matched_erasure, target=scene_only) and MiniMaxH3ReleaseReferences"),
         # --- Guide-latent video and single-frame editing (`MiniMaxH3GuideLatent`) ---
         ("h3_guide_video_edit.json", "r2v-guide-edit", "r2v",
          _ref_prompt(images=("character",), scene="kitchen"),
@@ -6491,7 +6491,7 @@ def main():
                   target="scene_only",
               ),
               out_prefix="Image/h3_pika_image_t2i_control_vector"),
-         "text -> single-frame image on unet_fl2va + Pika H3 Flex 6-step LCM (SVD995 branch) with MiniMaxH3Steer (film_16mm_1974 at +1.15, add_norm_matched, target=scene_only)"),
+         "text -> single-frame image on unet_fl2va + Pika H3 Flex 6-step LCM (SVD995 branch) with MiniMaxH3Steer (film_16mm_1974 at +1.15, add_norm_matched_erasure, target=scene_only)"),
         ("h3_pika_image_edit_control_vector.json", "pika-image-edit-control-vector", "r2v",
          PIKA_IMAGE_EDIT_PROMPT,
          dict(ref_images=(PLACEHOLDER_IMAGE_A,), ref_image_count=1,
@@ -6507,7 +6507,7 @@ def main():
                   release_references=True,
               ),
               out_prefix="Image/h3_pika_image_edit_control_vector"),
-         "picture + text -> single-frame edited image on unet_ref2va + Pika H3 Flex 6-step LCM (SVD995 branch) with MiniMaxH3Steer (film_16mm_1974 at +1.15, add_norm_matched, target=description_only) and MiniMaxH3ReleaseReferences"),
+         "picture + text -> single-frame edited image on unet_ref2va + Pika H3 Flex 6-step LCM (SVD995 branch) with MiniMaxH3Steer (film_16mm_1974 at +1.15, add_norm_matched_erasure, target=description_only) and MiniMaxH3ReleaseReferences"),
         # A one-frame edit on Pika with no reference picture: the picture to
         # edit is the guide, and the prompt is one plain sentence. No edit LoRA
         # and no `vfx_edit:` opening since 2026-11-11 (owner); the renders of
@@ -6539,7 +6539,7 @@ def main():
                   release_references=True,
               ),
               out_prefix="Image/h3_probe_pika_image_guide_edit_control_vector"),
-         "guide image + text -> single-frame edited image on unet_ref2va + Pika H3 Flex 6-step LCM (SVD995 branch), no edit LoRA, with MiniMaxH3Steer (film_16mm_1974 at +1.15, add_norm_matched, target=scene_only) and MiniMaxH3ReleaseReferences"),
+         "guide image + text -> single-frame edited image on unet_ref2va + Pika H3 Flex 6-step LCM (SVD995 branch), no edit LoRA, with MiniMaxH3Steer (film_16mm_1974 at +1.15, add_norm_matched_erasure, target=scene_only) and MiniMaxH3ReleaseReferences"),
         # --- MiniMax-H3-Image, MiniMax's own still-image model (2026-11-11) ---
         # Our own chain, derived from the diffusers pipeline and the release
         # rather than from Comfy-Org's templates (`build_h3_image_api`). The

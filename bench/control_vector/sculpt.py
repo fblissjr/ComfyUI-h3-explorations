@@ -40,8 +40,8 @@ def _compose_and_save_sculpted_vector(
     out_dir: Path | None = None,
     overwrite: bool = True,
 ) -> dict[str, Any]:
-    """Compose a multi-vector recipe (`add`, `add_norm_matched`, `hold`) + optional `hold_words` (`alpha`)
-    and write `.safetensors` + `.md` sidecars for `family`.
+    """Compose a multi-vector recipe (`add`, `add_norm_matched`, `add_norm_matched_erasure`, `hold`)
+    + optional `hold_words` (`alpha`) and write `.safetensors` (preserving composed `erasure.*`) + `.md` sidecars for `family`.
     """
     raw_stem = "".join(c if (c.isalnum() or c == "_") else "_" for c in str(name or "").strip().lower()).strip("_")
     if not raw_stem:
@@ -57,7 +57,7 @@ def _compose_and_save_sculpted_vector(
     enc_hold_terms: list[tuple[torch.Tensor, float]] = []
     base_meta: dict[str, Any] | None = None
     step_labels: list[str] = []
-    erasure_dropped = False
+    saw_erasure = False
 
     for item in steps:
         raw_src = item["vector"]
@@ -65,8 +65,8 @@ def _compose_and_save_sculpted_vector(
         strength = float(item.get("strength", 1.0))
         vpath = _resolve_vector_for_family(raw_src, family=family, extra_dir=target_dir)
         tensors, meta = cv.load_vector(vpath)
-        if mode == "add_norm_matched_erasure" or (cv.is_additive_mode(mode) and "erasure.vr" in tensors):
-            erasure_dropped = True
+        if mode == "add_norm_matched_erasure" or (cv.is_additive_mode(mode) and "erasure.vr" in tensors and "erasure.diag" in tensors):
+            saw_erasure = True
         if base_meta is None and cv.is_additive_mode(mode):
             base_meta = meta
         resolved_steps.append({"vector": vpath, "mode": mode, "strength": strength})
@@ -100,15 +100,19 @@ def _compose_and_save_sculpted_vector(
             recipe=recipe_for_fam,
         )
         saved_path = saved_res["path"] if isinstance(saved_res, dict) and "path" in saved_res else Path(saved_res)
-        _, saved_meta = cv.load_vector(saved_path)
+        saved_tensors, saved_meta = cv.load_vector(saved_path)
         r_norm = float(saved_meta["points"]["post_refiner"]["raw_norm"])
         jl_rep = saved_meta.get("quality_report", {}).get("j_lens_readout")
-        erasure_note = (
-            "sculpt composes 1D vector.post_refiner only; erasure.{mu_d,vr,diag} is not preserved "
-            "(render-time add_norm_matched_erasure falls back to 1D add_norm_matched on this file)"
-            if erasure_dropped
-            else ""
-        )
+        if "erasure.vr" in saved_tensors and "erasure.diag" in saved_tensors:
+            erasure_note = (
+                f"composed erasure.{{mu_d,vr,diag}} (rank={int(saved_tensors['erasure.vr'].shape[0])}) preserved"
+            )
+        elif saw_erasure:
+            erasure_note = (
+                "no positive erasure subspace survived holds; render-time add_norm_matched_erasure falls back to 1D add_norm_matched"
+            )
+        else:
+            erasure_note = ""
         return {
             "file": saved_path.name,
             "path": saved_path,
@@ -123,17 +127,34 @@ def _compose_and_save_sculpted_vector(
     # Compose directly via j_lens.apply_soft_holds + decode_vector
     add_vecs: list[torch.Tensor] = []
     hold_vecs: list[tuple[torch.Tensor, float]] = []
+    erasure_entries: list[
+        tuple[
+            torch.Tensor,
+            float,
+            str,
+            torch.Tensor | None,
+            torch.Tensor | None,
+            torch.Tensor | None,
+        ]
+    ] = []
     for st in resolved_steps:
-        v_pr, _, _ = j_lens._load_vector_from_source(st["vector"], space="post_refiner")
+        st_tensors, _ = cv.load_vector(st["vector"])
+        v_pr = st_tensors["vector.post_refiner"].detach().to(device="cpu", dtype=torch.float32).flatten()
         m_st = st["mode"]
         s_st = float(st["strength"])
         v64 = v_pr.to(dtype=torch.float64)
         vn = float(torch.linalg.vector_norm(v64).item())
         if m_st == "add":
             add_vecs.append((s_st * v64).to(dtype=torch.float32))
+            erasure_entries.append(
+                (v_pr, s_st, m_st, st_tensors.get("erasure.mu_d"), st_tensors.get("erasure.vr"), st_tensors.get("erasure.diag"))
+            )
         elif cv.is_norm_matched_mode(m_st):
             scale_f = (j_lens.NORM_MATCHED_TARGET / vn) if vn > 1e-12 else 0.0
             add_vecs.append((s_st * scale_f * v64).to(dtype=torch.float32))
+            erasure_entries.append(
+                (v_pr, s_st, m_st, st_tensors.get("erasure.mu_d"), st_tensors.get("erasure.vr"), st_tensors.get("erasure.diag"))
+            )
         elif m_st == "hold":
             hold_vecs.append((v_pr, s_st))
         else:
@@ -147,6 +168,7 @@ def _compose_and_save_sculpted_vector(
         cur_vec = j_lens.apply_soft_holds(cur_vec, [hv], alpha=float(h_alpha))
 
     hw_labels: list[str] = []
+    extra_erasure_holds: list[tuple[torch.Tensor, float]] = list(hold_vecs)
     if hold_words and str(hold_words).strip() and float(hold_alpha) > 0.0:
         cur_vec, hw_labels, _, _ = _apply_post_refiner_holds(
             cur_vec,
@@ -155,6 +177,9 @@ def _compose_and_save_sculpted_vector(
             hold_alpha=float(hold_alpha),
             prompt=prompt,
         )
+        if j_lens.bundle_available():
+            hw_synth = j_lens.synthesize_from_words(str(hold_words).strip(), family=j_lens._canonical_synth_family(family), prompt=prompt)
+            extra_erasure_holds.append((hw_synth["vector.post_refiner"], float(hold_alpha)))
     else:
         post_norm = float(torch.linalg.vector_norm(cur_vec.to(dtype=torch.float64)).item())
         if post_norm <= 1e-6 * max(1.0, pre_hold_norm):
@@ -162,6 +187,13 @@ def _compose_and_save_sculpted_vector(
 
     raw_norm = float(torch.linalg.vector_norm(cur_vec.to(dtype=torch.float64)).item())
     tensors_to_save: dict[str, torch.Tensor] = {"vector.post_refiner": cur_vec}
+    composed_er = cv.compose_erasure_payload(erasure_entries, holds=extra_erasure_holds)
+    if composed_er is not None:
+        (
+            tensors_to_save["erasure.mu_d"],
+            tensors_to_save["erasure.vr"],
+            tensors_to_save["erasure.diag"],
+        ) = composed_er
     points_meta: dict[str, Any] = {
         "post_refiner": {
             "unit": "mean_pair_difference",
@@ -242,12 +274,16 @@ def _compose_and_save_sculpted_vector(
         loras=loras_meta,
     )
     saved = cv.save_vector(target_dir / fname, tensors_to_save, metadata, overwrite=overwrite)
-    erasure_note = (
-        "sculpt composes 1D vector.post_refiner only; erasure.{mu_d,vr,diag} is not preserved "
-        "(render-time add_norm_matched_erasure falls back to 1D add_norm_matched on this file)"
-        if erasure_dropped
-        else ""
-    )
+    if "erasure.vr" in tensors_to_save and "erasure.diag" in tensors_to_save:
+        erasure_note = (
+            f"composed erasure.{{mu_d,vr,diag}} (rank={int(tensors_to_save['erasure.vr'].shape[0])}) preserved"
+        )
+    elif saw_erasure:
+        erasure_note = (
+            "no positive erasure subspace survived holds; render-time add_norm_matched_erasure falls back to 1D add_norm_matched"
+        )
+    else:
+        erasure_note = ""
     return {
         "file": saved.name,
         "path": saved,

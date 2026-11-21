@@ -403,10 +403,10 @@ DECLARED: dict[tuple[str, str], tuple] = {
                 "h3_probe_pika_image_guide_edit_control_vector, against the node default 'none' "
                 "(2026-11-11, docs/wiki/control_vectors.md)"),
     ("MiniMaxH3Steer", "strength"):
-        ("ARM", "the arm's post-refiner control-vector multiplier in add_norm_matched "
-                "units (+1.15 on film_16mm_1974 across the t2va, dual t2va, ref2va, P-H3-Image, "
-                "Pika image, and Pika guide-edit arms, and +1.25 on reverb_cathedral on the "
-                "second node of h3_text_to_video_pika_dual_control_vectors), "
+        ("ARM", "the arm's post-refiner control-vector multiplier in add_norm_matched_erasure / "
+                "add_norm_matched units (+1.15 on film_16mm_1974 across the t2va, dual t2va, ref2va, "
+                "P-H3-Image, Pika image, and Pika guide-edit arms, and +1.25 on reverb_cathedral on "
+                "the second node of h3_text_to_video_pika_dual_control_vectors), "
                 "against the node default 1.0 (2026-11-11, docs/wiki/control_vectors.md)"),
     ("MiniMaxH3Steer", "target"):
         ("ARM", "task-specific prompt-row targets against the node default 'scene_only': "
