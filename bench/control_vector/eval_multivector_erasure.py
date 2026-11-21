@@ -46,7 +46,7 @@ sys.path = [p for p in sys.path if Path(p or ".").resolve() != (REPO_ROOT / "ben
 sys.path.insert(0, str(REPO_ROOT / "bench"))
 sys.path.insert(0, str(REPO_ROOT))
 
-CPU_ONLY_STAGES = {"census", "cpu_math"}
+CPU_ONLY_STAGES = {"census", "cpu_math", "figures"}
 
 
 def _is_cpu_only_invocation(argv: list[str]) -> bool:
@@ -1757,11 +1757,432 @@ def run_base50() -> dict[str, Any]:
     return res
 
 
+def run_dit_blocks() -> dict[str, Any]:
+    """1-pass zero-render mechanistic activation trace across H3's 50 DiT blocks (`blocks.0..49`).
+
+    Captures exact step-0 (`sigma = 1.0`) per-block incremental update RMS and cumulative residual
+    divergence separately on `text`, `audio` (40 Hz), and `video` (24 fps) segments of the packed
+    single-stream sequence (`comfy/ldm/minimax/model.py:649-671`) on `39f` `t2va_sitcom_kitchen`.
+    """
+    DATA_OUT.mkdir(parents=True, exist_ok=True)
+    import comfy.model_management as comfy_mm
+    from comfy.patcher_extension import WrappersMP
+    import comfy.sample
+    import comfy.sd
+    import comfy.utils
+    import control_vector_nodes as cv_nodes
+    import folder_paths
+
+    h3_cond_mod = cv_nodes._repo("conditioning")
+    h3_enc_mod = cv_nodes._repo("h3_encoder_loader")
+    h3_lora_mod = cv_nodes._repo("lora_branch")
+    from comfy_extras.nodes_minimax_h3 import MiniMaxH3SigmaShift
+    from comfy_extras.nodes_model_advanced import ModelAttentionBackend
+
+    print("[dit_blocks] Encoding 39f sitcom_kitchen packed AV conditioning for 50-block trace...")
+    _wait_for_comfy_idle_and_free()
+    (clip,) = h3_enc_mod.MiniMaxH3EncoderLoader.execute(encoder_name=h3_config.MODELS["clip"], device="default")
+    vvae = comfy.sd.VAE(sd=comfy.utils.load_torch_file(folder_paths.get_full_path_or_raise("vae", h3_config.MODELS["video_vae"])))
+    kit_txt = (REPO_ROOT / "prompt_bank" / "t2va_sitcom_kitchen.txt").read_text(encoding="utf-8").strip()
+    _enc_k, tags_k, ids_k, dec_k = cv_nodes.encode_prompt_for_vector(clip, kit_txt)
+    sp_k = h3_spans.spans(ids_k, tags_k.tolist(), dec_k)
+    scene_m = h3_spans.inference_mask(sp_k, "scene_only").detach().cpu()
+    sound_m = h3_spans.inference_mask(sp_k, "soundscape_only").detach().cpu()
+    cond_39, lat_39 = h3_cond_mod.MiniMaxH3Conditioning.execute(
+        clip=clip, vae=vvae, prompt=kit_txt, width=1152, height=768, length=39, single_frame=False
+    )[:2]
+    del clip, vvae
+    comfy_mm.unload_all_models()
+    comfy_mm.cleanup_models_gc()
+    gc.collect()
+    torch.cuda.empty_cache()
+
+    unet_path = folder_paths.get_full_path_or_raise("diffusion_models", h3_config.MODELS["unet_fl2va"])
+    model = comfy.sd.load_diffusion_model(unet_path)
+    (model,) = h3_lora_mod.MiniMaxH3LoRABranch.execute(
+        model=model, lora_name=h3_config.PIKA_FL2VA_SVD995_LORA, strength=1.0
+    )
+    (model,) = MiniMaxH3SigmaShift.execute(model=model, shift_video=12.0, shift_audio=3.0)
+    (model,) = ModelAttentionBackend.execute(model=model, attention="comfy kitchen attention")
+
+    lat_t = lat_39["samples"]
+    noise = comfy.sample.prepare_noise(lat_t, SEED_MAIN)
+    # 1 single step-0 forward pass (`sigmas = [1.0, 0.0]`, 1 NFE!) so every arm sees identical input `x_0`
+    one_step_sigmas = torch.tensor([1.0, 0.0], dtype=torch.float32)
+
+    def _capture_50blocks(shift_fn) -> tuple[list[tuple[int, int, str]], list[torch.Tensor], list[torch.Tensor]]:
+        m_probe = model.clone()
+        segs_holder: list[list[tuple[int, int, str]]] = []
+        blk_outs: list[torch.Tensor] = []
+        blk_deltas: list[torch.Tensor] = []
+
+        for bi in range(50):
+            def _make_blk_hook(idx: int):
+                def _blk_hook(args: dict[str, Any], extra: dict[str, Any]) -> dict[str, Any]:
+                    h_in_cpu = args["img"].detach().to(dtype=torch.float32, device="cpu", copy=True)
+                    if idx == 0 and not segs_holder:
+                        segs_holder.append([(int(a), int(b), str(k)) for a, b, k in args["layout"].segments])
+                    res_d = extra["original_block"](args)
+                    h_out_cpu = res_d["img"].detach().to(dtype=torch.float32, device="cpu", copy=True)
+                    blk_deltas.append(h_out_cpu - h_in_cpu)
+                    blk_outs.append(h_out_cpu)
+                    return res_d
+                return _blk_hook
+
+            m_probe.set_model_patch_replace(_make_blk_hook(bi), "dit", "double_block", bi)
+
+        if shift_fn is not None:
+            def _dm_wrap_probe(executor, x, timestep, context, transformer_options={}, **kwargs):
+                ctx_use = context
+                if context is not None:
+                    ctx_ref = _refine_context_if_needed(executor, context, transformer_options)
+                    ref64 = ctx_ref[0].detach().cpu().to(torch.float64)
+                    ctx_use = shift_fn(ref64).to(device=ctx_ref.device, dtype=ctx_ref.dtype).unsqueeze(0)
+                return executor(x, timestep, ctx_use, transformer_options, **kwargs)
+
+            m_probe.wrappers.setdefault(WrappersMP.DIFFUSION_MODEL, {})["probe_50"] = [_dm_wrap_probe]
+
+        guider = comfy.samplers.CFGGuider(m_probe)
+        guider.inner_set_conds({"positive": cond_39})
+        guider.set_cfg(1.0)
+        _ = guider.sample(
+            noise, lat_t, comfy.samplers.sampler_object("euler"), one_step_sigmas,
+            denoise_mask=None, callback=None, disable_pbar=True, seed=SEED_MAIN,
+        )
+        del guider, m_probe
+        return segs_holder[0], blk_outs, blk_deltas
+
+    print("[dit_blocks] Capturing unsteered baseline across 50 DiT blocks...")
+    segs, base_outs, base_deltas = _capture_50blocks(None)
+    print(f"  Packed sequence segments: {segs}")
+
+    def _load_op(stem: str) -> dict[str, torch.Tensor]:
+        vp = cv_nodes.resolve_vector_file_path(stem, preferred_family="fl2va")
+        vt, _ = cv.load_vector(vp)
+        return {"v1d": vt["vector.post_refiner"], "mu_d": vt["erasure.mu_d"], "vr": vt["erasure.vr"], "diag": vt["erasure.diag"]}
+
+    probe_specs = [
+        ("noir_1d", "noir", scene_m, False),
+        ("noir_erasure", "noir", scene_m, True),
+        ("paper_origami_1d", "paper_origami", scene_m, False),
+        ("paper_origami_erasure", "paper_origami", scene_m, True),
+        ("reverb_cathedral_soundscape_erasure", "reverb_cathedral", sound_m, True),
+    ]
+
+    traces: dict[str, Any] = {"num_blocks": 50, "segments": segs, "arms": {}}
+    for arm_key, c_stem, m_bool, er_flag in probe_specs:
+        op_c = _load_op(c_stem)
+
+        def _sfn(ref64: torch.Tensor, op=op_c, mask=m_bool, ef=er_flag) -> torch.Tensor:
+            rows = ref64[mask]
+            sh = apply_erasure_shift_rows(rows, op, 1.5, erase_active=ef)
+            out = ref64.clone()
+            out[mask] = rows + sh
+            return out
+
+        _, s_outs, s_deltas = _capture_50blocks(_sfn)
+        per_block: list[dict[str, float | int]] = []
+        for bi in range(50):
+            row_rec: dict[str, float | int] = {"block": bi}
+            for a0, b0, kind in segs:
+                if kind in ("text", "audio", "video"):
+                    s_seg = s_outs[bi][a0:b0].double()
+                    b_seg = base_outs[bi][a0:b0].double()
+                    # Pre-RMSNorm geometry: row-unit-normalized L2 / angular shift (1 - mean_cos)
+                    s_u = s_seg / torch.linalg.vector_norm(s_seg, dim=-1, keepdim=True).clamp(min=1e-12)
+                    b_u = b_seg / torch.linalg.vector_norm(b_seg, dim=-1, keepdim=True).clamp(min=1e-12)
+                    ang_div = float((1.0 - (s_u * b_u).sum(dim=-1).mean()).item())
+                    # Per-block relative update shift ||delta_s - delta_b||_F / ||delta_b||_F
+                    ds = s_deltas[bi][a0:b0].double()
+                    db = base_deltas[bi][a0:b0].double()
+                    rel_inc = float((torch.linalg.norm(ds - db) / torch.linalg.norm(db).clamp(min=1e-12)).item())
+                    row_rec[f"{kind}_ang_div"] = round(ang_div, 5)
+                    row_rec[f"{kind}_rel_inc"] = round(rel_inc, 5)
+            per_block.append(row_rec)
+        del s_outs, s_deltas
+        traces["arms"][arm_key] = per_block
+        peak_v = max(per_block, key=lambda r: float(r["video_rel_inc"]))
+        peak_a = max(per_block, key=lambda r: float(r["audio_rel_inc"]))
+        print(
+            f"  [50-block] {arm_key:36s}: video_peak=blk {peak_v['block']} (rel={peak_v['video_rel_inc']:.3f}), "
+            f"audio_peak=blk {peak_a['block']} (rel={peak_a['audio_rel_inc']:.3f}), "
+            f"final_v_ang={per_block[-1]['video_ang_div']:.4f}, final_a_ang={per_block[-1]['audio_ang_div']:.4f}"
+        )
+
+    del base_outs, base_deltas, model
+    comfy_mm.unload_all_models()
+    comfy_mm.cleanup_models_gc()
+    gc.collect()
+    torch.cuda.empty_cache()
+
+    out_p = DATA_OUT / "dit_blocks_50_trace.json"
+    out_p.write_text(json.dumps(traces, indent=2), encoding="utf-8")
+    print(f"[dit_blocks] Saved {out_p.name}.")
+    return traces
+
+
+def run_figures() -> list[str]:
+    """Generate 4 publication-grade vector SVG plots in `docs/wiki/research/control_vectors/figures/`."""
+    fig_dir = REPO_ROOT / "docs" / "wiki" / "research" / "control_vectors" / "figures"
+    fig_dir.mkdir(parents=True, exist_ok=True)
+
+    ab15 = json.loads((DATA_OUT / "gpu_ablations_1_to_5.json").read_text(encoding="utf-8"))
+    census = json.loads((DATA_OUT / "census_38_bank.json").read_text(encoding="utf-8"))
+    cpu_m = json.loads((DATA_OUT / "cpu_math_ablations.json").read_text(encoding="utf-8"))
+    written: list[str] = []
+
+    def _esc(s: str) -> str:
+        return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+    # --- Figure 1: Soft-MaxSim tau_attn Goldilocks U-Curve & De-Coning Trap ---
+    arms_order = [
+        ("MaxSim (tau=0.03)", "Hard MaxSim\n(τ=0.03)"),
+        ("tau=0.07", "Sharp\n(τ=0.07)"),
+        ("tau=0.15 (shipped)", "Shipped\n(τ=0.15)"),
+        ("tau=0.50", "Soft\n(τ=0.50)"),
+        ("1D (tau=inf)", "1D / Sinkhorn OT\n(τ=∞)"),
+        ("tau=0.15 deconed", "De-coned\n(τ=0.15 -μ)"),
+    ]
+    by_arm: dict[str, list[float]] = {k: [] for k, _ in arms_order}
+    for r in ab15["ablation1_tau_sweep"]:
+        if r["arm"] in by_arm:
+            by_arm[r["arm"]].append(float(r["hsv_sat"]))
+
+    svg1 = [
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 360" font-family="Inter, system-ui, -apple-system, sans-serif">',
+        '<rect width="820" height="360" rx="12" fill="#0f172a"/>',
+        '<text x="410" y="32" fill="#f8fafc" font-size="16" font-weight="700" text-anchor="middle">Ablation 1: ColBERT Soft-MaxSim Temperature (τ) Goldilocks Window on Noir (3 Seeds, RMS = 101.25)</text>',
+        '<text x="410" y="52" fill="#94a3b8" font-size="12" text-anchor="middle">Lower HSV saturation = cleaner silver-gelatin monochrome (dashed green line: B&amp;W threshold S = 0.06)</text>',
+    ]
+    x0, y0, pw, ph = 85, 75, 690, 210
+    ymax = 0.25
+    # Gridlines + B&W threshold zone
+    bw_y = y0 + ph * (1.0 - 0.06 / ymax)
+    svg1.append(f'<rect x="{x0}" y="{bw_y:.1f}" width="{pw}" height="{y0 + ph - bw_y:.1f}" fill="#064e3b" opacity="0.32"/>')
+    svg1.append(f'<line x1="{x0}" y1="{bw_y:.1f}" x2="{x0 + pw}" y2="{bw_y:.1f}" stroke="#34d399" stroke-dasharray="5,4" stroke-width="1.5"/>')
+    svg1.append(f'<text x="{x0 + pw - 6}" y="{bw_y - 6:.1f}" fill="#34d399" font-size="11" text-anchor="end">True B&amp;W Zone (S &lt; 0.06)</text>')
+    for yv in [0.0, 0.05, 0.10, 0.15, 0.20, 0.25]:
+        yy = y0 + ph * (1.0 - yv / ymax)
+        svg1.append(f'<line x1="{x0}" y1="{yy:.1f}" x2="{x0 + pw}" y2="{yy:.1f}" stroke="#334155" stroke-width="1"/>')
+        svg1.append(f'<text x="{x0 - 10}" y="{yy + 4:.1f}" fill="#cbd5e1" font-size="11" text-anchor="end">{yv:.2f}</text>')
+    svg1.append(f'<text x="24" y="{y0 + ph / 2:.1f}" fill="#cbd5e1" font-size="12" text-anchor="middle" transform="rotate(-90 24 {y0 + ph / 2:.1f})">Rendered HSV Saturation (S)</text>')
+
+    pts_main = []
+    for idx, (arm_k, lbl) in enumerate(arms_order):
+        vals = by_arm[arm_k]
+        mean_v = sum(vals) / len(vals)
+        cx = x0 + (idx + 0.5) * (pw / len(arms_order))
+        cy = y0 + ph * (1.0 - mean_v / ymax)
+        if idx < 5:
+            pts_main.append(f"{cx:.1f},{cy:.1f}")
+        is_win = all(v < 0.06 for v in vals)
+        col = "#34d399" if is_win else ("#f59e0b" if idx in (0, 5) else "#f87171")
+        for si, v in enumerate(vals):
+            vy = y0 + ph * (1.0 - v / ymax)
+            ox = (si - 1) * 9
+            svg1.append(f'<circle cx="{cx + ox:.1f}" cy="{vy:.1f}" r="4.5" fill="{col}" opacity="0.65"/>')
+        svg1.append(f'<rect x="{cx - 22:.1f}" y="{cy - 3:.1f}" width="44" height="6" rx="3" fill="{col}"/>')
+        svg1.append(f'<text x="{cx:.1f}" y="{cy - 11:.1f}" fill="{col}" font-size="11" font-weight="700" text-anchor="middle">{mean_v:.3f}</text>')
+        l_parts = lbl.split("\n")
+        svg1.append(f'<text x="{cx:.1f}" y="{y0 + ph + 20}" fill="#e2e8f0" font-size="11" font-weight="600" text-anchor="middle">{_esc(l_parts[0])}</text>')
+        svg1.append(f'<text x="{cx:.1f}" y="{y0 + ph + 35}" fill="#94a3b8" font-size="10.5" text-anchor="middle">{_esc(l_parts[1])}</text>')
+    svg1.insert(len(svg1) - 18, f'<polyline points="{" ".join(pts_main)}" fill="none" stroke="#60a5fa" stroke-width="2" stroke-dasharray="4,3"/>')
+    svg1.append('</svg>')
+    p1 = fig_dir / "fig1_tau_goldilocks_and_deconing.svg"
+    p1.write_text("\n".join(svg1), encoding="utf-8")
+    written.append(p1.name)
+
+    # --- Figure 2: 38-Concept Bank Spectral Regime Map & Target-Word Rescues ---
+    svg2 = [
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 840 390" font-family="Inter, system-ui, -apple-system, sans-serif">',
+        '<rect width="840" height="390" rx="12" fill="#0f172a"/>',
+        '<text x="420" y="30" fill="#f8fafc" font-size="16" font-weight="700" text-anchor="middle">38-Concept Production Bank Census: Three Geometric Regimes &amp; Target-Word Rescues (28/38)</text>',
+        '<text x="420" y="50" fill="#94a3b8" font-size="12" text-anchor="middle">fl2va ↔ ref2va cross-family 1D cosine median = 0.9892 | rank-8 Vr Grassmann overlap median = 0.9323</text>',
+    ]
+    x0, y0, pw, ph = 80, 72, 710, 255
+    xmin, xmax = 0.40, 0.85
+    ymin, ymax = 5.2, 7.6
+    # Regime background bands (mpc < 0.62, 0.62..0.72, >= 0.72)
+    b1_x = x0 + pw * ((0.62 - xmin) / (xmax - xmin))
+    b2_x = x0 + pw * ((0.72 - xmin) / (xmax - xmin))
+    svg2.append(f'<rect x="{x0}" y="{y0}" width="{b1_x - x0:.1f}" height="{ph}" fill="#7f1d1d" opacity="0.22"/>')
+    svg2.append(f'<rect x="{b1_x:.1f}" y="{y0}" width="{b2_x - b1_x:.1f}" height="{ph}" fill="#1e3a8a" opacity="0.20"/>')
+    svg2.append(f'<rect x="{b2_x:.1f}" y="{y0}" width="{x0 + pw - b2_x:.1f}" height="{ph}" fill="#065f46" opacity="0.22"/>')
+    svg2.append(f'<text x="{(x0 + b1_x)/2:.1f}" y="{y0 + 18}" fill="#fca5a5" font-size="11" font-weight="700" text-anchor="middle">Multi-Facet Bundles (10)</text>')
+    svg2.append(f'<text x="{(b1_x + b2_x)/2:.1f}" y="{y0 + 18}" fill="#93c5fd" font-size="11" font-weight="700" text-anchor="middle">Intermediate Structural (21)</text>')
+    svg2.append(f'<text x="{(b2_x + x0 + pw)/2:.1f}" y="{y0 + 18}" fill="#6ee7b7" font-size="11" font-weight="700" text-anchor="middle">Monolithic Overrides (7)</text>')
+
+    for xv in [0.45, 0.55, 0.62, 0.72, 0.80]:
+        xx = x0 + pw * ((xv - xmin) / (xmax - xmin))
+        svg2.append(f'<line x1="{xx:.1f}" y1="{y0}" x2="{xx:.1f}" y2="{y0 + ph}" stroke="#334155" stroke-dasharray="3,3"/>')
+        svg2.append(f'<text x="{xx:.1f}" y="{y0 + ph + 18}" fill="#cbd5e1" font-size="11" text-anchor="middle">{xv:.2f}</text>')
+    for yv in [5.5, 6.0, 6.5, 7.0, 7.5]:
+        yy = y0 + ph * (1.0 - (yv - ymin) / (ymax - ymin))
+        svg2.append(f'<line x1="{x0}" y1="{yy:.1f}" x2="{x0 + pw}" y2="{yy:.1f}" stroke="#334155"/>')
+        svg2.append(f'<text x="{x0 - 10}" y="{yy + 4:.1f}" fill="#cbd5e1" font-size="11" text-anchor="end">{yv:.1f}</text>')
+    svg2.append(f'<text x="{x0 + pw / 2:.1f}" y="{y0 + ph + 42}" fill="#cbd5e1" font-size="12" text-anchor="middle">Mean Pairwise Cosine (mpc across B_p − A_p pairs)</text>')
+    svg2.append(f'<text x="24" y="{y0 + ph / 2:.1f}" fill="#cbd5e1" font-size="12" text-anchor="middle" transform="rotate(-90 24 {y0 + ph / 2:.1f})">Pole-A Subspace Participation Ratio (PR_8)</text>')
+
+    highlight_names = {
+        "noir": (-8, -10),
+        "wes_anderson_symmetry": (8, 13),
+        "paper_origami": (-12, -10),
+        "film_16mm_1974": (-38, 14),
+        "reverb_cathedral": (-20, -10),
+        "whisper_asmr": (-10, -9),
+        "claymation_stopmotion": (8, -8),
+        "balloon_head_inflate": (8, -6),
+    }
+    for rec in census["records"]:
+        mpc_v = float(rec["mpc"])
+        pr_v = max(ymin + 0.08, min(ymax - 0.08, float(rec["pole_a_pr8"])))
+        xx = x0 + pw * ((mpc_v - xmin) / (xmax - xmin))
+        yy = y0 + ph * (1.0 - (pr_v - ymin) / (ymax - ymin))
+        rescued = bool(rec["rescued_words"])
+        col = "#38bdf8" if rescued else "#94a3b8"
+        rad = 6.0 if rec["concept"] in highlight_names else 4.5
+        svg2.append(f'<circle cx="{xx:.1f}" cy="{yy:.1f}" r="{rad}" fill="{col}" stroke="#0f172a" stroke-width="1.2"/>')
+        if rec["concept"] in highlight_names:
+            dx, dy = highlight_names[rec["concept"]]
+            tag = rec["concept"] + (f" (+{rec['rescued_words'][0]})" if rec["rescued_words"] else "")
+            svg2.append(f'<text x="{xx + dx:.1f}" y="{yy + dy:.1f}" fill="#f8fafc" font-size="10.5" font-weight="600">{_esc(tag)}</text>')
+    svg2.append(f'<circle cx="{x0 + 16}" cy="{y0 + ph - 14}" r="5" fill="#38bdf8"/><text x="{x0 + 28}" y="{y0 + ph - 10}" fill="#e2e8f0" font-size="11">Rescues target words in μ_d (28/38)</text>')
+    svg2.append(f'<circle cx="{x0 + 260}" cy="{y0 + ph - 14}" r="5" fill="#94a3b8"/><text x="{x0 + 272}" y="{y0 + ph - 10}" fill="#94a3b8" font-size="11">Same top-8 readout as v_1D (10/38)</text>')
+    svg2.append('</svg>')
+    p2 = fig_dir / "fig2_38bank_regimes_and_grassmann.svg"
+    p2.write_text("\n".join(svg2), encoding="utf-8")
+    written.append(p2.name)
+
+    # --- Figure 3: Pole-A Coverage Law (Left) & Denoising Step Lock-In (Right) ---
+    svg3 = [
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 360" font-family="Inter, system-ui, -apple-system, sans-serif">',
+        '<rect width="860" height="360" rx="12" fill="#0f172a"/>',
+        '<text x="225" y="30" fill="#f8fafc" font-size="14.5" font-weight="700" text-anchor="middle">(a) Pole-A Coverage Law (Noir N = 1..12 Pairs)</text>',
+        '<text x="645" y="30" fill="#f8fafc" font-size="14.5" font-weight="700" text-anchor="middle">(b) Early-Step Palette Lock-In (Shift = 12.0)</text>',
+    ]
+    # Left panel: N = 1, 2, 5, 12
+    lx0, ly0, lpw, lph = 65, 60, 320, 230
+    curve_n = {r["n_pairs"]: float(r["vr_grassmann_overlap_mean"]) for r in cpu_m["m3_pair_coverage_curve"]["noir"]["curve"]}
+    sat_n = {r["n_pairs"]: float(r["hsv_sat"]) for r in ab15["ablation4_pair_count"] if r["concept"] == "noir"}
+    ns = [1, 2, 5, 12]
+    for yv in [0.0, 0.25, 0.50, 0.75, 1.0]:
+        yy = ly0 + lph * (1.0 - yv)
+        svg3.append(f'<line x1="{lx0}" y1="{yy:.1f}" x2="{lx0 + lpw}" y2="{yy:.1f}" stroke="#334155"/>')
+        svg3.append(f'<text x="{lx0 - 8}" y="{yy + 4:.1f}" fill="#60a5fa" font-size="10.5" text-anchor="end">{yv:.2f}</text>')
+    pts_gr, pts_st = [], []
+    for idx, nv in enumerate(ns):
+        xx = lx0 + (idx + 0.4) * (lpw / len(ns))
+        gy = ly0 + lph * (1.0 - curve_n[nv])
+        sy = ly0 + lph * (1.0 - (sat_n[nv] / 0.20))
+        pts_gr.append(f"{xx:.1f},{gy:.1f}")
+        pts_st.append(f"{xx:.1f},{sy:.1f}")
+        svg3.append(f'<text x="{xx:.1f}" y="{ly0 + lph + 20}" fill="#e2e8f0" font-size="11" text-anchor="middle">N={nv}</text>')
+    svg3.append(f'<polyline points="{" ".join(pts_gr)}" fill="none" stroke="#60a5fa" stroke-width="2.5"/>')
+    svg3.append(f'<polyline points="{" ".join(pts_st)}" fill="none" stroke="#f43f5e" stroke-width="2.5"/>')
+    for idx, nv in enumerate(ns):
+        xx = lx0 + (idx + 0.4) * (lpw / len(ns))
+        gy = ly0 + lph * (1.0 - curve_n[nv])
+        sy = ly0 + lph * (1.0 - (sat_n[nv] / 0.20))
+        svg3.append(f'<circle cx="{xx:.1f}" cy="{gy:.1f}" r="5" fill="#60a5fa"/>')
+        svg3.append(f'<text x="{xx:.1f}" y="{gy - 9:.1f}" fill="#93c5fd" font-size="10.5" font-weight="700" text-anchor="middle">{curve_n[nv]:.2f}</text>')
+        svg3.append(f'<circle cx="{xx:.1f}" cy="{sy:.1f}" r="5" fill="#f43f5e"/>')
+        svg3.append(f'<text x="{xx:.1f}" y="{sy + 16:.1f}" fill="#fda4af" font-size="10.5" font-weight="700" text-anchor="middle">S={sat_n[nv]:.3f}</text>')
+    svg3.append(f'<text x="{lx0 + lpw / 2:.1f}" y="{ly0 + lph + 44}" fill="#94a3b8" font-size="11" text-anchor="middle">Blue: Vr Grassmann Coverage | Coral: Noir HSV Sat</text>')
+
+    # Right panel: Step windows bar chart
+    rx0, ry0, rpw, rph = 470, 60, 350, 230
+    win_arms = [
+        ("1D [0..1]", "1D\n[0..1]"),
+        ("Both [0..1] (default)", "Full\n[0..1]"),
+        ("Erase [0..0.34] + mu_d [0..1]", "Erase\n[0..0.34]"),
+        ("Erase [0..0.50] + mu_d [0..1]", "Erase\n[0..0.50]"),
+        ("Both [0..0.50]", "Both\n[0..0.50]"),
+        ("Late Erase [0.34..1]", "Late\n[0.34..1]"),
+    ]
+    w_map = {r["arm"]: float(r["hsv_sat"]) for r in ab15["ablation5_step_windows"] if r["concept"] == "noir"}
+    for yv in [0.0, 0.10, 0.20, 0.30]:
+        yy = ry0 + rph * (1.0 - yv / 0.32)
+        svg3.append(f'<line x1="{rx0}" y1="{yy:.1f}" x2="{rx0 + rpw}" y2="{yy:.1f}" stroke="#334155"/>')
+        svg3.append(f'<text x="{rx0 - 8}" y="{yy + 4:.1f}" fill="#cbd5e1" font-size="10.5" text-anchor="end">{yv:.2f}</text>')
+    for idx, (wk, wlbl) in enumerate(win_arms):
+        sv = w_map[wk]
+        bx = rx0 + idx * (rpw / len(win_arms)) + 10
+        bw = (rpw / len(win_arms)) - 20
+        bh = rph * (sv / 0.32)
+        by = ry0 + rph - bh
+        col = "#34d399" if sv < 0.06 else ("#fbbf24" if sv < 0.10 else "#f87171")
+        svg3.append(f'<rect x="{bx:.1f}" y="{by:.1f}" width="{bw:.1f}" height="{bh:.1f}" rx="4" fill="{col}"/>')
+        svg3.append(f'<text x="{bx + bw / 2:.1f}" y="{by - 6:.1f}" fill="{col}" font-size="10.5" font-weight="700" text-anchor="middle">{sv:.3f}</text>')
+        lp = wlbl.split("\n")
+        svg3.append(f'<text x="{bx + bw / 2:.1f}" y="{ry0 + rph + 18}" fill="#e2e8f0" font-size="10.5" text-anchor="middle">{_esc(lp[0])}</text>')
+        svg3.append(f'<text x="{bx + bw / 2:.1f}" y="{ry0 + rph + 32}" fill="#94a3b8" font-size="10" text-anchor="middle">{_esc(lp[1])}</text>')
+    svg3.append('</svg>')
+    p3 = fig_dir / "fig3_coverage_law_and_step_window.svg"
+    p3.write_text("\n".join(svg3), encoding="utf-8")
+    written.append(p3.name)
+
+    # --- Figure 4: 50-Block Single-Stream DiT Modality Coupling Trace ---
+    trace_p = DATA_OUT / "dit_blocks_50_trace.json"
+    if trace_p.is_file():
+        tr = json.loads(trace_p.read_text(encoding="utf-8"))
+        svg4 = [
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 370" font-family="Inter, system-ui, -apple-system, sans-serif">',
+            '<rect width="860" height="370" rx="12" fill="#0f172a"/>',
+            '<text x="430" y="30" fill="#f8fafc" font-size="15.5" font-weight="700" text-anchor="middle">1-Pass Mechanistic Trace Across H3\'s 50 Joint AV DiT Blocks (blocks.0..49, σ = 1.0)</text>',
+            '<text x="430" y="50" fill="#94a3b8" font-size="11.5" text-anchor="middle">(a) Video Per-Block Relative Update Δ (Noir 1D vs Erasure &amp; Origami) | (b) RMSNorm Angular Divergence 1−cos (Scene vs Soundscape Target)</text>',
+        ]
+        # Panel A: Video relative incremental update across blocks 0..49
+        ax0, ay0, apw, aph = 65, 72, 355, 225
+        n1d = [float(r["video_rel_inc"]) for r in tr["arms"]["noir_1d"]]
+        ner = [float(r["video_rel_inc"]) for r in tr["arms"]["noir_erasure"]]
+        oer = [float(r["video_rel_inc"]) for r in tr["arms"]["paper_origami_erasure"]]
+        vmax_a = max(max(n1d), max(ner), max(oer), 1e-6) * 1.08
+        for bi_tick in [0, 10, 20, 30, 40, 49]:
+            xx = ax0 + apw * (bi_tick / 49.0)
+            svg4.append(f'<line x1="{xx:.1f}" y1="{ay0}" x2="{xx:.1f}" y2="{ay0 + aph}" stroke="#334155" stroke-dasharray="2,3"/>')
+            svg4.append(f'<text x="{xx:.1f}" y="{ay0 + aph + 18}" fill="#cbd5e1" font-size="10.5" text-anchor="middle">{bi_tick}</text>')
+        for frac in [0.0, 0.5, 1.0]:
+            yy = ay0 + aph * (1.0 - frac)
+            svg4.append(f'<line x1="{ax0}" y1="{yy:.1f}" x2="{ax0 + apw}" y2="{yy:.1f}" stroke="#334155"/>')
+            svg4.append(f'<text x="{ax0 - 6}" y="{yy + 4:.1f}" fill="#cbd5e1" font-size="10" text-anchor="end">{vmax_a * frac:.2f}</text>')
+        for arr, col in [(n1d, "#94a3b8"), (ner, "#38bdf8"), (oer, "#f59e0b")]:
+            pts = " ".join(f"{ax0 + apw * (i / 49.0):.1f},{ay0 + aph * (1.0 - v / vmax_a):.1f}" for i, v in enumerate(arr))
+            svg4.append(f'<polyline points="{pts}" fill="none" stroke="{col}" stroke-width="2.1"/>')
+        svg4.append(f'<text x="{ax0 + apw / 2:.1f}" y="{ay0 + aph + 38}" fill="#cbd5e1" font-size="10.5" text-anchor="middle">Block i ∈ [0..49] (Grey: Noir 1D | Cyan: Noir Erasure | Amber: Origami)</text>')
+
+        # Panel B: Angular divergence 1 - cos across blocks 0..49
+        bx0, by0, bpw, bph = 475, 72, 355, 225
+        rev_a = [float(r["audio_ang_div"]) for r in tr["arms"]["reverb_cathedral_soundscape_erasure"]]
+        rev_v = [float(r["video_ang_div"]) for r in tr["arms"]["reverb_cathedral_soundscape_erasure"]]
+        noir_v = [float(r["video_ang_div"]) for r in tr["arms"]["noir_erasure"]]
+        noir_a = [float(r["audio_ang_div"]) for r in tr["arms"]["noir_erasure"]]
+        vmax_b = max(max(rev_a), max(rev_v), max(noir_v), max(noir_a), 1e-6) * 1.08
+        for bi_tick in [0, 10, 20, 30, 40, 49]:
+            xx = bx0 + bpw * (bi_tick / 49.0)
+            svg4.append(f'<line x1="{xx:.1f}" y1="{by0}" x2="{xx:.1f}" y2="{by0 + bph}" stroke="#334155" stroke-dasharray="2,3"/>')
+            svg4.append(f'<text x="{xx:.1f}" y="{by0 + bph + 18}" fill="#cbd5e1" font-size="10.5" text-anchor="middle">{bi_tick}</text>')
+        for frac in [0.0, 0.5, 1.0]:
+            yy = by0 + bph * (1.0 - frac)
+            svg4.append(f'<line x1="{bx0}" y1="{yy:.1f}" x2="{bx0 + bpw}" y2="{yy:.1f}" stroke="#334155"/>')
+            svg4.append(f'<text x="{bx0 - 6}" y="{yy + 4:.1f}" fill="#cbd5e1" font-size="10" text-anchor="end">{vmax_b * frac:.3f}</text>')
+        for arr, col, dash in [(rev_a, "#a855f7", ""), (rev_v, "#34d399", ' stroke-dasharray="5,3"'), (noir_v, "#38bdf8", ""), (noir_a, "#f43f5e", ' stroke-dasharray="3,3"')]:
+            pts = " ".join(f"{bx0 + bpw * (i / 49.0):.1f},{by0 + bph * (1.0 - v / vmax_b):.1f}" for i, v in enumerate(arr))
+            svg4.append(f'<polyline points="{pts}" fill="none" stroke="{col}" stroke-width="2.1"{dash}/>')
+        svg4.append(f'<text x="{bx0 + bpw / 2:.1f}" y="{by0 + bph + 38}" fill="#cbd5e1" font-size="10.2" text-anchor="middle">Purple/Green: Reverb Audio vs Video | Cyan/Coral: Noir Video vs Audio</text>')
+        svg4.append('</svg>')
+        p4 = fig_dir / "fig4_dit_50block_modality_trace.svg"
+        p4.write_text("\n".join(svg4), encoding="utf-8")
+        written.append(p4.name)
+
+    print(f"[figures] Wrote {len(written)} SVG figures to {fig_dir.relative_to(REPO_ROOT)}: {written}")
+    return written
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument(
         "--stage",
-        choices=("census", "cpu_math", "ablations", "word_media", "audio_video", "base50", "all"),
+        choices=("census", "cpu_math", "ablations", "word_media", "audio_video", "base50", "dit_blocks", "figures", "all"),
         default="census",
     )
     args = ap.parse_args()
@@ -1778,6 +2199,10 @@ def main() -> int:
         run_audio_video()
     if args.stage in ("base50", "all"):
         run_base50()
+    if args.stage in ("dit_blocks", "all"):
+        run_dit_blocks()
+    if args.stage in ("figures", "all"):
+        run_figures()
     return 0
 
 

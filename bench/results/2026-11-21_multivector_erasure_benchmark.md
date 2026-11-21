@@ -22,6 +22,10 @@ CUDA_VISIBLE_DEVICES="" "$PY" bench/control_vector/eval_multivector_erasure.py -
 "$PY" bench/control_vector/eval_multivector_erasure.py --stage word_media
 "$PY" bench/control_vector/eval_multivector_erasure.py --stage audio_video
 "$PY" bench/control_vector/eval_multivector_erasure.py --stage base50
+"$PY" bench/control_vector/eval_multivector_erasure.py --stage dit_blocks
+
+# Deterministic SVG plots -> docs/wiki/research/control_vectors/figures/fig{1..4}_*.svg (< 1 s CPU)
+CUDA_VISIBLE_DEVICES="" "$PY" bench/control_vector/eval_multivector_erasure.py --stage figures
 ```
 
 ---
@@ -99,7 +103,7 @@ Sources: `data/exp_unpooled_sliders/paper_2026_11_21/{cpu_math_ablations,gpu_abl
 | `noir` (`indoor_neutral`) | `730451892` | `0.1896` *(color)* | **`0.0264` *(B&W)*** | `0.1187` *(wood leak)* | **`0.0233` *(B&W)*** |
 | `noir` (`indoor_neutral`) | `101` | `0.1592` *(color)* | **`0.0223` *(B&W)*** | **`0.0239` *(B&W)*** | **`0.0244` *(B&W)*** |
 | `paper_origami` (`sitcom_kitchen`) | `730451892` | `0.6371` *(daughter deleted)* | **`0.5706` *(father+daughter+dog)*** | **`0.5418` *(father+daughter+dog)*** | **`0.5826` *(father+daughter+dog)*** |
-| `paper_origami` (`sitcom_kitchen`) | `101` | `0.5904` *(daughter deleted)* | **`0.5687` *(father+daughter+dog)*** | **`0.5983` *(father+daughter+dog)*** | **`0.5317` *(father+daughter+dog)*** |
+| `paper_origami` (`sitcom_kitchen`) | `101` | `0.5904` *(daughter present)* | **`0.5687` *(father+daughter+dog)*** | **`0.5983` *(father+daughter+dog)*** | **`0.5317` *(father+daughter+dog)*** |
 
 ### 3.3 Ablation 3 — Rank $r$ & Ridge $\lambda_{\text{rel}}$ (`seed = 730451892`)
 
@@ -175,4 +179,26 @@ Sources: `data/exp_unpooled_sliders/paper_2026_11_21/{gpu_audio_video_ablations,
 - **Undistilled 50-Step Base `fl2va` (`ablation9_base50_undistilled_h3.png` + `base50_39f_noir_*.mp4`, Euler 50 steps, `cfg = 1.0`):**
   - `noir` (`indoor_neutral`): `seed 730451892`: `Base50 1D = 0.2222` *(color)* $\to$ **`Base50 Pole-A Erasure = 0.0402` *(crisp B&W)***; `seed 101`: `Base50 1D = 0.2398` *(color)* $\to$ **`Base50 Pole-A Erasure = 0.0469` *(crisp B&W)***.
   - `paper_origami` (`sitcom_kitchen`): `seed 730451892`: `0.5864` vs. **`0.5536`**; `seed 101`: `0.4139` vs. **`0.4068`** (cleaner folded kitchen surfaces and intact percolator).
-  - `39f` speaking AV (`sitcom_kitchen`, `cfg = 1.0`): `base50_39f_noir_1d` `sat_mean = 0.4138` (bright green cabinets & yellow chairs) $\to$ `base50_39f_noir_erasure` **`sat_mean = 0.3599`** (all green cabinets, yellow chairs, and walls stripped to white/grey monochrome while preserving spoken dialogue).
+  - `39f` speaking AV (`sitcom_kitchen`, `cfg = 1.0`): `base50_39f_noir_1d` `sat_mean = 0.4138`, `audio_dbfs = -14.05` (bright green cabinets, yellow chairs, and a duplicate-daughter glitch at table) $\to$ `base50_39f_noir_erasure` **`sat_mean = 0.3599`**, `audio_dbfs = -25.18` (`-11.1 dB` quieter under un-CFG'd `scene_only` erasure; strips green cabinets, yellow chairs, and walls to white/grey monochrome and resolves the duplicate-daughter glitch, while blue dress, golden retriever, and skin stay colored under explicit named color clauses).
+
+---
+
+## 5. 1-Pass Mechanistic Trace Across H3's 50 Joint AV DiT Blocks (`blocks.0..49`)
+
+Source: `data/exp_unpooled_sliders/paper_2026_11_21/dit_blocks_50_trace.json`, figure [`docs/wiki/research/control_vectors/figures/fig4_dit_50block_modality_trace.svg`](../../docs/wiki/research/control_vectors/figures/fig4_dit_50block_modality_trace.svg).
+- **Setup:** Single step-0 forward pass (`sigma = 1.0`, `seed = 730451892`, `1152x768 @ 39f`, `t2va_sitcom_kitchen.txt`, `s = 1.5` / `RMS = 101.25`) on `minimax_h3_fl2va_pruned_int8_convrot` + `pika_h3_flex_fl2va_svd995_bf16` (`num_layers = 50`, `comfy/ldm/minimax/model.py:508`).
+- **Packed sequence segments (`10,991` tokens):** `text = [0, 493)` (`493`), `audio = [493, 623)` (`130`), `video = [623, 10991)` (`10,368`).
+- **Metrics (Pre-RMSNorm invariant):** Per-segment angular divergence `ang_div = 1 - mean_cos(h_steered, h_base)` and per-block relative residual update norm `rel_inc = ||Δ_steered - Δ_base||_F / ||Δ_base||_F` (cloning block input before in-place `_mod_gate`).
+
+| Arm (`s = 1.5`, `RMS = 101.25`) | Mask | Early `0..14` Mean `rel_inc` (`T / A / V`) | Mid `15..34` Mean `rel_inc` (`T / A / V`) | Late `35..49` Mean `rel_inc` (`T / A / V`) | Video Peak Block (`rel_inc` / Peak `ang_div`) | Audio Peak Block (`rel_inc` / Peak `ang_div`) | Block `49` Pre-Final `ang_div` (`T / A / V`) |
+| :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
+| `noir_1d` | `scene_only` | `0.430 / 0.122 / 0.126` | `0.613 / 0.245 / 0.605` | `0.799 / 0.707 / 1.069` | `blk 36` (`1.173` / `0.5073` @ `47`) | `blk 47` (`0.864` / `0.2054` @ `47`) | `0.3279 / 0.0391 / 0.2954` |
+| **`noir_erasure`** | `scene_only` | **`0.463 / 0.130 / 0.141`** | **`0.677 / 0.271 / 0.661`** | **`0.827 / 0.731 / 1.096`** | **`blk 41` (`1.179` / `0.5347` @ `48`)** | **`blk 47` (`0.882` / `0.2128` @ `47`)** | **`0.3517 / 0.0416 / 0.3119`** |
+| `paper_origami_1d` | `scene_only` | `0.428 / 0.117 / 0.124` | `0.681 / 0.237 / 0.595` | `0.900 / 0.718 / 1.096` | `blk 41` (`1.214` / `0.5668` @ `47`) | `blk 47` (`0.851` / `0.2031` @ `47`) | `0.4092 / 0.0407 / 0.3289` |
+| **`paper_origami_erasure`** | `scene_only` | `0.420 / 0.116 / 0.124` | `0.673 / 0.245 / 0.593` | **`0.906 / 0.723 / 1.103`** | **`blk 41` (`1.223` / `0.5735` @ `47`)** | `blk 47` (`0.849` / `0.2023` @ `47`) | **`0.4186 / 0.0402 / 0.3341`** |
+| **`reverb_cathedral_soundscape_erasure`** | `soundscape_only` | `0.204 / 0.061 / 0.047` | `0.290 / 0.197 / 0.208` | `0.513 / 0.606 / 0.692` | `blk 47` (`0.890` / `0.3159` @ `48`) | **`blk 39` (`0.704` / `0.1341` @ `47`)** | `0.1688 / 0.0257 / 0.1940` |
+
+### Key Mechanistic Observations
+1. **Single-Stream Text Amplification (`blocks.0..48`) & Pruned Sink Terminal (`block 49`):** Unlike cross-attention DiTs with frozen KV keys, H3's single-stream text rows evolve continuously across `blocks.0..48` (`noir_erasure` `text_ang_div`: `0.0237` @ `blk 0` $\to$ `0.1921` @ `blk 30` $\to$ `0.3517` @ `blk 48`), expanding Pole-A erasure's angular advantage over 1D (`+23.9%` text divergence and `+20.9%` video divergence at `blk 30`: `0.2323` vs. `0.1921`). At `block 49`, `text_rel_inc = 0.000` identically because `FinalLayer` (`comfy/ldm/minimax/model.py:344-365`) slices only `(video_seg, audio_seg)`, leaving `blocks.49` text rows as pure K/V conditioning sinks (`MiniMaxH3Sol` `dense_blocks="49"`).
+2. **10-Block Video-Before-Audio Causality Offset:** On `scene_only` arms (`noir_erasure`), `video_ang_div` crosses `0.01` at `block 20` (`0.0107`) and surges to `0.2323` by `block 30`, whereas `audio_ang_div` stays near zero through `block 25` (`0.0005`) and `block 30` (`0.0072`) before surging in `blocks.31..47` (`0.1091` @ `blk 35`, `0.2128` @ `blk 47`).
+3. **Stream-Mask Modality Selectivity (`soundscape_only` vs. `scene_only`):** Targeting `reverb_cathedral` to `soundscape_only` keeps mid-network (`blocks.15..34`) video relative updates **`3.2x` quieter** than `noir_erasure` (`0.208` vs. `0.661`; `blk 30 vid_ang = 0.0215` vs. `0.2323`), and makes `audio_ang_div` exceed `video_ang_div` across `blocks.35..39` (`blk 39: 0.1327 > 0.1166`, audio peak `blk 39`), explaining mechanistically why `reverb_cathedral` altered `40 Hz` reverb decay (`+22.3%`) while leaving kitchen colors intact (`sat_mean = 0.3972` vs. `0.4108`).
