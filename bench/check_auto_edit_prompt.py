@@ -892,12 +892,26 @@ def check_url_resolution_and_mock_sse() -> None:
                 payload = {"models": {"qwen-mock": {"resident": True}}}
             elif self.path == "/v1/presets":
                 payload = {
-                    "presets": [{
-                        "id": "h3_native_preset",
-                        "name": "h3_native_preset",
-                        "system_prompt": "CUSTOM PRESET SYSTEM",
-                        "params": {"temperature": 0.4},
-                    }]
+                    "presets": [
+                        {
+                            "id": "h3_native_preset",
+                            "name": "h3_native_preset",
+                            "system_prompt": "CUSTOM PRESET SYSTEM",
+                            "params": {"temperature": 0.4},
+                        },
+                        {
+                            "id": "sampler_only_preset",
+                            "name": "sampler_only_preset",
+                            "system_prompt": "",
+                            "params": {"temperature": 0.5},
+                        },
+                        {
+                            "id": "valid_2x_preset",
+                            "name": "valid_2x_preset",
+                            "system_prompt": "CUSTOM 2X SYSTEM\nOutput ## section: <name> and ## axes.",
+                            "params": {"temperature": 0.3},
+                        },
+                    ]
                 }
             else:
                 self.send_response(404)
@@ -1102,9 +1116,95 @@ def check_url_resolution_and_mock_sse() -> None:
             pres_post = state["posts"][-1]
             ok(pres_post.get("system") == "CUSTOM PRESET SYSTEM"
                and "## section:" not in json.dumps(pres_post)
+               and "sys=preset:h3_native_preset" in r_pres["report"]
                and r_pres["repair_used"] is False
                and "[Shot 1]" in r_pres["edited_prompt"],
-               "run_auto_edit_rewrite fresh native mode preserves preset system_prompt and parses native reply")
+               "run_auto_edit_rewrite fresh native mode preserves preset system_prompt, logs sys=preset, and parses native reply")
+
+            # 4d. 2x Strict fail-fast on non-2x preset with system_prompt (0 /v1/messages POSTs)
+            posts_before_strict = len(state["posts"])
+            refuses(
+                "2x strict fail-fast on non-2x preset system_prompt",
+                lambda: aep.run_auto_edit_rewrite(
+                    original=SAMPLE_T2VA,
+                    edit_intent="Pouring neon rain.",
+                    preset="h3_native_preset",
+                    base_url=srv_url,
+                    use_cache=False,
+                ),
+                "non-2x system_prompt",
+            )
+            ok(len(state["posts"]) == posts_before_strict,
+               "2x strict fail-fast rejects non-2x preset before calling /v1/messages")
+
+            # 4e. 2x valid 2x preset honors preset system_prompt cleanly even with prompt_layout='user_only'
+            state["mode"] = "good_md"
+            r_2x_pres = aep.run_auto_edit_rewrite(
+                original=SAMPLE_T2VA,
+                edit_intent="Pouring neon rain on wet pier.",
+                preset="valid_2x_preset",
+                prompt_layout="user_only",
+                base_url=srv_url,
+                use_cache=False,
+            )
+            post_2x_pres = state["posts"][-1]
+            u_2x_pres = post_2x_pres["messages"][0]["content"]
+            ok("CUSTOM 2X SYSTEM" in str(post_2x_pres.get("system", ""))
+               and not str(u_2x_pres).startswith("\n\n---\n\n")
+               and "sys=preset:valid_2x_preset" in r_2x_pres["report"],
+               "2x valid 2x preset preserves preset system_prompt, avoids stray --- on user_only, and logs sys=preset")
+
+            # 4f. 2x sampler-only preset falls through to local .md and logs sys=local
+            r_2x_samp = aep.run_auto_edit_rewrite(
+                original=SAMPLE_T2VA,
+                edit_intent="Pouring neon rain on wet pier.",
+                preset="sampler_only_preset",
+                base_url=srv_url,
+                use_cache=False,
+            )
+            post_2x_samp = state["posts"][-1]
+            ok(post_2x_samp.get("temperature") == 0.5
+               and "sys=local" in r_2x_samp["report"]
+               and "## section:" in str(post_2x_samp.get("system", "")),
+               "2x sampler-only preset preserves sampler params, falls back to local .md, and logs sys=local")
+
+            # 4g. native_format=True omits '(set deforms_ref_silhouette: true)' axis instruction
+            sil_brief = aep.ConceptBrief(
+                stem="sil_test",
+                source_kind="control_vector",
+                path=Path("sil_test.toml"),
+                file_stat=("sil_test.toml", 0, 0),
+                title="Silhouette Test",
+                summary="Turns subject into clay.",
+                a_side="",
+                b_side="clay stop-motion figure",
+                avoid="",
+                notes="",
+                modified_sections=(),
+                exemplars=(),
+                axis_hints={"deforms_ref_silhouette": True},
+            )
+            u_nat = aep.build_fresh_prompt_user_prompt(
+                concept_brief=sil_brief, edit_intent="clay figure", n_images=1, resolved_mode="ref2va", native_format=True
+            )
+            u_leg = aep.build_fresh_prompt_user_prompt(
+                concept_brief=sil_brief, edit_intent="clay figure", n_images=1, resolved_mode="ref2va", native_format=False
+            )
+            ok("set deforms_ref_silhouette" not in u_nat and "set deforms_ref_silhouette: true" in u_leg,
+               "build_fresh_prompt_user_prompt omits 'set deforms_ref_silhouette' when native_format=True")
+
+            # 4h. expand_image_prompt defaults prefer_preset_system=True and reports sys=preset:...
+            import h3_image_nodes as _h3img_chk
+            state["mode"] = "fresh_native_preset"
+            r_img_def = _h3img_chk.expand_image_prompt(
+                prompt="misty harbor dock",
+                base_url=srv_url,
+                preset="h3_native_preset",
+                mode="auto",
+            )
+            ok(state["posts"][-1].get("system") == "CUSTOM PRESET SYSTEM"
+               and "sys=preset:h3_native_preset" in r_img_def["report"],
+               "expand_image_prompt defaults prefer_preset_system=True under Direction A and reports sys=preset")
 
         # 5. 503 backoff retry generates distinct X-Request-ID
         state["mode"] = "503_once"

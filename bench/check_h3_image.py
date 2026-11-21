@@ -531,7 +531,8 @@ def heylook_expander() -> None:
     base = f"http://127.0.0.1:{server.server_address[1]}"
     try:
         # T2I: survives initial 503, uses fresh X-Request-ID per attempt, picks resident chat model,
-        # separates thinking_delta from text_delta, expands preset safely, and computes throughput from generation_duration_ms (180 / 0.9s = 200.0 tps).
+        # separates thinking_delta from text_delta, honors preset system_prompt under Direction A
+        # (custom > preset > local), and computes throughput from generation_duration_ms (180 / 0.9s = 200.0 tps).
         t2i_out = tuple(MiniMaxH3ImagePromptExpander.execute(
             prompt="Overhead rustic farm table feast.",
             enabled=True,
@@ -550,8 +551,9 @@ def heylook_expander() -> None:
             and t2i_out[2] == "plan composition"
             and "model=text-chat-resident" in t2i_out[3]
             and "tps=200.0" in t2i_out[3]
+            and "sys=preset:crisp" in t2i_out[3]
             and len(ids) == 2 and ids[0] != ids[1]
-            and last_body.get("system") != "PRESET SYSTEM PROMPT"
+            and last_body.get("system") == "PRESET SYSTEM PROMPT"
             and "reasoning_effort" not in last_body
             and "max_tokens" not in last_body,
             "heylook T2I picks resident chat model, retries 503 with fresh X-Request-ID and separates thinking",
@@ -607,14 +609,26 @@ def heylook_expander() -> None:
             mode="auto",
             preset="crisp_preset",
             prepared_images=[],
-            prefer_preset_system=True,
         )
         helper_body = state["bodies"][-1]
+        helper_local_res = _expand_img_helper(
+            prompt="Quiet greenhouse morning.",
+            enabled=True,
+            base_url=base,
+            mode="auto",
+            preset="crisp_preset",
+            prepared_images=[],
+            prefer_preset_system=False,
+        )
+        helper_local_body = state["bodies"][-1]
         report(
             helper_res["prompt"] == t2i_caption
             and helper_res["shape"] == "4:3"
-            and helper_body.get("system") == "PRESET SYSTEM PROMPT",
-            "expand_image_prompt helper accepts prepared_images and prefer_preset_system=True cleanly",
+            and helper_body.get("system") == "PRESET SYSTEM PROMPT"
+            and "sys=preset:crisp_preset" in helper_res["report"]
+            and helper_local_body.get("system") != "PRESET SYSTEM PROMPT"
+            and "sys=local" in helper_local_res["report"],
+            "expand_image_prompt helper defaults prefer_preset_system=True (Direction A) and honors explicit False override",
         )
 
         # Edit with 2 reference pictures: requires 'vision' capability (selects vlm-chat-local)

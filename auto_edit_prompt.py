@@ -1413,9 +1413,12 @@ def build_fresh_prompt_user_prompt(
         if concept_brief.avoid:
             c_lines.append(f"Avoid: {concept_brief.avoid}")
         if concept_brief.axis_hints and concept_brief.axis_hints.get("deforms_ref_silhouette") is True:
-            c_lines.append(
-                "Note: this concept substantially alters medium, age, or silhouette (set deforms_ref_silhouette: true)."
-            )
+            if native_format:
+                c_lines.append("Note: this concept substantially alters medium, age, or silhouette.")
+            else:
+                c_lines.append(
+                    "Note: this concept substantially alters medium, age, or silhouette (set deforms_ref_silhouette: true)."
+                )
         # Filter out short (<25 word) sentence-fragment exemplars so they do not prime stubby prose.
         long_exemplars = [
             (sec, a_ex, b_ex)
@@ -1833,27 +1836,9 @@ def run_auto_edit_rewrite(
             "report": cached_report,
         }
 
-    if not is_fresh_mode:
-        base_sys_prompt = (custom_system_prompt or "").strip() or _read_system_prompt_file(rewrite_mode)
-        user_prompt = build_auto_edit_user_prompt(
-            original=orig_norm,
-            allowed_sections=allowed_sections,
-            allow_retention_relax=bool(allow_retention_relax),
-            rewrite_mode=rewrite_mode,
-            concept_brief=concept_brief,
-            edit_intent=intent_clean,
-            has_images=bool(prepared_images),
-        )
-        if prompt_layout == "user_only" and not (custom_system_prompt or "").strip():
-            sys_prompt = ""
-            final_user_prompt = f"{base_sys_prompt}\n\n---\n\n{user_prompt}"
-        else:
-            sys_prompt = base_sys_prompt
-            final_user_prompt = user_prompt
-    else:
-        sys_prompt = ""
-        final_user_prompt = ""
-
+    sys_prompt = ""
+    final_user_prompt = ""
+    sys_source = "local"
     use_native = False
 
     need_caps = frozenset({"chat", "vision"} if prepared_images else {"chat"})
@@ -1912,20 +1897,23 @@ def run_auto_edit_rewrite(
             if preset_name
             else None
         )
+        custom_sys = (custom_system_prompt or "").strip()
+        preset_sys = str((preset_fields or {}).get("system") or "").strip()
         if is_fresh_mode:
-            custom_sys = (custom_system_prompt or "").strip()
-            preset_sys = str((preset_fields or {}).get("system") or "").strip()
             if custom_sys:
                 base_sys_prompt = custom_sys
+                sys_source = "custom"
                 use_native = "## section:" not in custom_sys
             elif preset_sys:
                 base_sys_prompt = ""
+                sys_source = f"preset:{preset_name}"
                 use_native = "## section:" not in preset_sys
             else:
                 base_sys_prompt = resolve_fresh_system_prompt(
                     resolved_mode,
                     has_images=bool(prepared_images),
                 )
+                sys_source = "local"
                 use_native = True
             user_prompt = build_fresh_prompt_user_prompt(
                 concept_brief=concept_brief,
@@ -1936,12 +1924,39 @@ def run_auto_edit_rewrite(
                 length=eff_length,
                 native_format=use_native,
             )
-            if prompt_layout == "user_only" and not custom_sys and base_sys_prompt:
-                sys_prompt = ""
-                final_user_prompt = f"{base_sys_prompt}\n\n---\n\n{user_prompt}"
+        else:
+            if custom_sys:
+                base_sys_prompt = custom_sys
+                sys_source = "custom"
+            elif preset_sys:
+                req_marker = "## edit_lines" if rewrite_mode == "edit_lines" else "## section:"
+                if req_marker in preset_sys and "## axes" in preset_sys:
+                    base_sys_prompt = ""
+                    sys_source = f"preset:{preset_name}"
+                else:
+                    raise ValueError(
+                        f"MiniMaxH3AutoEditPrompt: heylook preset {preset_name!r} has a non-2x system_prompt "
+                        f"(missing {req_marker!r} and '## axes'); clear 'preset', choose a sampler-only preset "
+                        "(blank system_prompt), or choose a 2x rewrite preset."
+                    )
             else:
-                sys_prompt = base_sys_prompt
-                final_user_prompt = user_prompt
+                base_sys_prompt = _read_system_prompt_file(rewrite_mode)
+                sys_source = "local"
+            user_prompt = build_auto_edit_user_prompt(
+                original=orig_norm,
+                allowed_sections=allowed_sections,
+                allow_retention_relax=bool(allow_retention_relax),
+                rewrite_mode=rewrite_mode,
+                concept_brief=concept_brief,
+                edit_intent=intent_clean,
+                has_images=bool(prepared_images),
+            )
+        if prompt_layout == "user_only" and not custom_sys and base_sys_prompt:
+            sys_prompt = ""
+            final_user_prompt = f"{base_sys_prompt}\n\n---\n\n{user_prompt}"
+        else:
+            sys_prompt = base_sys_prompt
+            final_user_prompt = user_prompt
 
         sampler_overrides = (
             {"temperature": float(temperature), "max_tokens": int(max_tokens)}
@@ -2036,7 +2051,9 @@ def run_auto_edit_rewrite(
                     f"MiniMaxH3AutoEditPrompt validation failed after 1 repair attempt: {second_err}"
                 ) from second_err
 
-    telem = format_heylook_report(res, resolved_mode=f"{rewrite_mode}/{resolved_scope}")
+    telem = format_heylook_report(
+        res, resolved_mode=f"{rewrite_mode}/{resolved_scope}", system_source=sys_source
+    )
     delta_words = validated["edit_words"] - validated["orig_words"]
     delta_sign = "+" if delta_words >= 0 else ""
     report_base = (

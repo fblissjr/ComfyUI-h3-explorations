@@ -472,8 +472,11 @@ def expand_image_prompt(
     reasoning_effort: str = "",
     client: httpx.Client | None = None,
     interrupt_check: Callable[[], None] | None = None,
-    prefer_preset_system: bool = False,
+    prefer_preset_system: bool = True,
     custom_sampler_overrides: dict[str, Any] | None = None,
+    fallback_system_prompt: str = "",
+    resolved_mode_override: str = "",
+    allow_plain_fallback: bool = False,
 ) -> dict[str, Any]:
     """Expand a short T2I or 1..16-image edit request via local/LAN `heylook` and `parse_expander_reply`."""
     if not enabled:
@@ -519,18 +522,23 @@ def expand_image_prompt(
     preset_name = (preset or "").strip()
     has_images = len(prepared) > 0
     uses_server_preset = mode in ("heylook preset", "heylook preset + aspect_ratio")
-    resolved_mode, sys_prompt = resolve_expander_system_prompt(
-        mode,
-        has_images=has_images,
-        custom_system_prompt=custom_system_prompt,
-        has_preset=bool(preset_name) or uses_server_preset,
-    )
+    custom_clean = (custom_system_prompt or "").strip()
+    fallback_clean = (fallback_system_prompt or "").strip()
+    if fallback_clean and not custom_clean and not uses_server_preset:
+        resolved_mode = (resolved_mode_override or mode or "auto").strip()
+        sys_prompt = fallback_clean
+    else:
+        resolved_mode, sys_prompt = resolve_expander_system_prompt(
+            mode,
+            has_images=has_images,
+            custom_system_prompt=custom_system_prompt,
+            has_preset=bool(preset_name) or uses_server_preset,
+        )
     base = normalize_heylook_base_url(base_url)
     need_caps = frozenset({"chat", "vision"} if has_images else {"chat"})
     int_cb = interrupt_check if interrupt_check is not None else _comfy_interrupt_check
-    custom_clean = (custom_system_prompt or "").strip()
 
-    def _run_with_client(http_client: httpx.Client) -> tuple[HeylookStreamResult, dict]:
+    def _run_with_client(http_client: httpx.Client) -> tuple[HeylookStreamResult, dict, str, str, bool]:
         model_row = discover_heylook_model(http_client, base, model, need=need_caps)
         preset_fields = (
             expand_heylook_preset(http_client, base, preset_name, model_row)
@@ -538,6 +546,9 @@ def expand_image_prompt(
             else None
         )
         eff_sys_prompt = sys_prompt
+        eff_resolved_mode = resolved_mode
+        sys_source = "custom" if custom_clean else "local"
+        preset_won = False
         if not eff_sys_prompt and preset_fields:
             preset_sys = (preset_fields.get("system") or "").strip()
             if uses_server_preset and not preset_sys:
@@ -548,9 +559,16 @@ def expand_image_prompt(
                 eff_sys_prompt = append_aspect_ratio_footer(preset_sys, has_images=has_images)
             else:
                 eff_sys_prompt = preset_sys
+            if preset_sys:
+                sys_source = f"preset:{preset_name}" if preset_name else "preset"
+                preset_won = True
         elif prefer_preset_system and not custom_clean and preset_fields:
             if (preset_fields.get("system") or "").strip():
                 eff_sys_prompt = ""
+                sys_source = f"preset:{preset_name}" if preset_name else "preset"
+                preset_won = True
+                if mode == "auto":
+                    eff_resolved_mode = f"preset:{preset_name}" if preset_name else "preset"
 
         sampler_overrides = (
             dict(custom_sampler_overrides)
@@ -588,32 +606,57 @@ def expand_image_prompt(
             ),
             interrupt_check=int_cb,
         )
-        return res, model_row
+        return res, model_row, eff_resolved_mode, sys_source, preset_won
 
     if client is not None:
-        res, model_row = _run_with_client(client)
+        res, model_row, eff_resolved_mode, sys_source, preset_won = _run_with_client(client)
     else:
         with httpx.Client(trust_env=False, timeout=httpx.Timeout(None, connect=10.0)) as own_client:
-            res, model_row = _run_with_client(own_client)
+            res, model_row, eff_resolved_mode, sys_source, preset_won = _run_with_client(own_client)
 
     think_trace = res.thinking or _extract_inline_thinking(res.text)
-    try:
-        clean_prompt, ratio = parse_expander_reply(res.text)
-    except ValueError as exc:
-        if res.stop_reason == "max_tokens":
-            raise RuntimeError(
-                f"heylook stopped at max_tokens before completing a valid caption ({exc}). "
-                "Raise max_tokens in your heylook model/preset config or set thinking='off'."
-            ) from exc
-        raise
+    ratio = ""
+    if allow_plain_fallback or preset_won:
+        try:
+            clean_prompt, ratio = parse_expander_reply(res.text)
+        except ValueError:
+            raw_plain = (res.text or "").strip()
+            if raw_plain.startswith("<think>"):
+                end_tk = raw_plain.rfind("</think>")
+                if end_tk >= 0:
+                    raw_plain = raw_plain[end_tk + len("</think>") :].strip()
+            if raw_plain.startswith("```") and raw_plain.endswith("```"):
+                lines = raw_plain.splitlines()
+                if len(lines) >= 3:
+                    raw_plain = "\n".join(lines[1:-1]).strip()
+            clean_prompt = raw_plain
+            if not clean_prompt:
+                if res.stop_reason == "max_tokens":
+                    raise RuntimeError(
+                        "heylook stopped at max_tokens before producing a prompt. "
+                        "Raise max_tokens in your heylook model/preset config or set thinking='off'."
+                    )
+                raise ValueError("heylook returned an empty prompt")
+    else:
+        try:
+            clean_prompt, ratio = parse_expander_reply(res.text)
+        except ValueError as exc:
+            if res.stop_reason == "max_tokens":
+                raise RuntimeError(
+                    f"heylook stopped at max_tokens before completing a valid caption ({exc}). "
+                    "Raise max_tokens in your heylook model/preset config or set thinking='off'."
+                ) from exc
+            raise
 
-    report_str = format_heylook_report(res, resolved_mode=resolved_mode, shape=ratio)
+    report_str = format_heylook_report(
+        res, resolved_mode=eff_resolved_mode, shape=ratio, system_source=sys_source
+    )
     return {
         "prompt": clean_prompt,
         "shape": ratio or "",
         "thinking": think_trace,
         "report": report_str,
-        "resolved_mode": resolved_mode,
+        "resolved_mode": eff_resolved_mode,
         "model": res.model or model_row.get("id", ""),
     }
 

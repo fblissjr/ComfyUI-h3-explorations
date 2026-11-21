@@ -565,9 +565,12 @@ def format_heylook_report(
     *,
     resolved_mode: str,
     shape: str | None = None,
+    system_source: str | None = None,
 ) -> str:
     """Format telemetry defensively (`generation_duration_ms` as throughput denominator)."""
     parts = [f"model={res.model}", f"mode={resolved_mode}"]
+    if system_source:
+        parts.append(f"sys={system_source}")
     if shape:
         parts.append(f"shape={shape}")
     if res.stop_reason:
