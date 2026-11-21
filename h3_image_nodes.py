@@ -64,7 +64,6 @@ from h3_config import (  # noqa: E402
     H3_IMAGE_MEGAPIXELS_RANGE,
     H3_IMAGE_MIN_GENERATION_MEGAPIXELS,
     H3_IMAGE_SIZE_MULTIPLE,
-    HEYLOOK_DEFAULT_BASE_URL,
     h3_image_size,
 )
 
@@ -452,7 +451,7 @@ def expand_image_prompt(
     *,
     prompt: str = "",
     enabled: bool = True,
-    base_url: str = HEYLOOK_DEFAULT_BASE_URL,
+    base_url: str = "",
     mode: str = "auto",
     model: str = "",
     thinking: str = "model default",
@@ -534,7 +533,7 @@ def expand_image_prompt(
             custom_system_prompt=custom_system_prompt,
             has_preset=bool(preset_name) or uses_server_preset,
         )
-    base = normalize_heylook_base_url(base_url)
+    base = resolve_heylook_base_url(base_url)
     need_caps = frozenset({"chat", "vision"} if has_images else {"chat"})
     int_cb = interrupt_check if interrupt_check is not None else _comfy_interrupt_check
 
@@ -619,24 +618,32 @@ def expand_image_prompt(
     if allow_plain_fallback or preset_won:
         try:
             clean_prompt, ratio = parse_expander_reply(res.text)
-        except ValueError:
+        except ValueError as exc:
             raw_plain = (res.text or "").strip()
-            if raw_plain.startswith("<think>"):
-                end_tk = raw_plain.rfind("</think>")
-                if end_tk >= 0:
-                    raw_plain = raw_plain[end_tk + len("</think>") :].strip()
+            while raw_plain.startswith("<think>"):
+                end_tk = raw_plain.find("</think>")
+                if end_tk < 0:
+                    raw_plain = ""
+                    break
+                raw_plain = raw_plain[end_tk + len("</think>") :].strip()
+            if "</think>" in raw_plain and "<think>" not in raw_plain.split("</think>", 1)[0]:
+                raw_plain = raw_plain.split("</think>", 1)[1].strip()
+            if "<think>" in raw_plain:
+                raw_plain = ""
             if raw_plain.startswith("```") and raw_plain.endswith("```"):
-                lines = raw_plain.splitlines()
-                if len(lines) >= 3:
-                    raw_plain = "\n".join(lines[1:-1]).strip()
+                first_nl = raw_plain.find("\n")
+                if first_nl > 0:
+                    inner = raw_plain[first_nl + 1 : -3].strip()
+                    if "```" not in inner:
+                        raw_plain = inner
             clean_prompt = raw_plain
             if not clean_prompt:
                 if res.stop_reason == "max_tokens":
                     raise RuntimeError(
-                        "heylook stopped at max_tokens before producing a prompt. "
+                        f"heylook stopped at max_tokens before producing a prompt ({exc}). "
                         "Raise max_tokens in your heylook model/preset config or set thinking='off'."
-                    )
-                raise ValueError("heylook returned an empty prompt")
+                    ) from exc
+                raise ValueError(f"heylook returned no usable prompt ({exc})") from exc
     else:
         try:
             clean_prompt, ratio = parse_expander_reply(res.text)
@@ -698,11 +705,11 @@ class MiniMaxH3ImagePromptExpander(io.ComfyNode):
                 ),
                 io.String.Input(
                     "base_url",
-                    default=HEYLOOK_DEFAULT_BASE_URL,
+                    default="",
                     tooltip=(
-                        "Base URL of your running heylookitsanllm server (e.g. http://127.0.0.1:8080 "
-                        "locally, or http://<lan-or-tailscale-ip>:<port> on another machine; address "
-                        "LAN hosts by IP so heylook's Host check passes)."
+                        "Optional heylookitsanllm server URL override. Leave blank to read H3_HEYLOOK_URL "
+                        "from your environment or gitignored h3.env, falling back to http://127.0.0.1:8080 "
+                        "(or http://<lan-or-tailscale-ip>:<port> on another machine)."
                     ),
                 ),
                 io.Combo.Input(
@@ -878,7 +885,7 @@ class MiniMaxH3ImagePromptExpander(io.ComfyNode):
         cls,
         prompt: str = "",
         enabled: bool = True,
-        base_url: str = HEYLOOK_DEFAULT_BASE_URL,
+        base_url: str = "",
         mode: str = "auto",
         model: str = "",
         thinking: str = "model default",
@@ -925,7 +932,7 @@ class MiniMaxH3ImagePromptExpander(io.ComfyNode):
 def build_expander_catalog(base_url: str = "") -> dict:
     """Return local system prompts plus best-effort live `heylook` models & presets for UI autofill."""
     local_prompts = {name: _read_local_prompt(name) for name in EXPANDER_PROMPT_FILES}
-    heylook_info = probe_heylook_server_info(base_url, fallback_env=False)
+    heylook_info = probe_heylook_server_info(base_url, fallback_env=True)
     return {
         "local_prompts": local_prompts,
         "aspect_ratio_footers": {

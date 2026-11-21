@@ -317,6 +317,7 @@ def heylook_expander() -> None:
     import base64
     from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
     import io as _pyio
+    import os
     import threading
     from PIL import Image
     import httpx
@@ -496,6 +497,23 @@ def heylook_expander() -> None:
                 return
             if state["mode"] == "truncated_stream":
                 emit("content_block_delta", {"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": "partial"}})
+                return
+            if state["mode"] in ("unclosed_think_max", "unclosed_think_end", "prefill_bad_ratio"):
+                stop_r = "max_tokens" if state["mode"] == "unclosed_think_max" else "end_turn"
+                text_out = (
+                    "<think>still thinking without close"
+                    if state["mode"].startswith("unclosed_think")
+                    else "prefilled reasoning</think>\nWarm clay mug.\naspect_ratio: bogus"
+                )
+                for ev, obj in (
+                    ("content_block_start", {"type": "content_block_start", "index": 0, "content_block": {"type": "text", "text": ""}}),
+                    ("content_block_delta", {"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": text_out}}),
+                    ("content_block_stop", {"type": "content_block_stop", "index": 0}),
+                    ("message_delta", {"type": "message_delta", "delta": {"stop_reason": stop_r}, "usage": {"input_tokens": 20, "output_tokens": 10}}),
+                    ("message_stop", {"type": "message_stop", "performance": {"generation_duration_ms": 100.0}}),
+                ):
+                    if not emit(ev, obj):
+                        return
                 return
 
             is_vlm = body.get("model") == "vlm-chat-local"
@@ -731,6 +749,69 @@ def heylook_expander() -> None:
                 pass
         controls_ok &= len(state["cancelled_ids"]) == 1 and state["cancelled_ids"][0] == state["seen_request_ids"][-1]
         report(bool(controls_ok), "control: capability mismatch, in-band error, truncated stream, 403 and cancel all hold")
+
+        # Blank base_url="" resolves H3_HEYLOOK_URL in both build_expander_catalog and expand_image_prompt.
+        prev_hl_env = os.environ.get("H3_HEYLOOK_URL")
+        os.environ["H3_HEYLOOK_URL"] = base
+        try:
+            env_cat = build_expander_catalog("")
+            env_res = _expand_img_helper(
+                prompt="Quiet greenhouse morning.",
+                enabled=True,
+                base_url="",
+                mode="auto",
+                prepared_images=[],
+            )
+            report(
+                env_cat["heylook"]["reachable"] is True
+                and env_cat["heylook"]["base_url"] == ""
+                and env_res["prompt"] == t2i_caption,
+                "blank base_url='' resolves H3_HEYLOOK_URL in build_expander_catalog and expand_image_prompt",
+            )
+        finally:
+            if prev_hl_env is None:
+                os.environ.pop("H3_HEYLOOK_URL", None)
+            else:
+                os.environ["H3_HEYLOOK_URL"] = prev_hl_env
+
+        # Plain-text fallback refuses unclosed <think> and strips prefilled ...</think> cleanly.
+        fallback_think_ok = True
+        state["mode"] = "unclosed_think_max"
+        try:
+            _expand_img_helper(
+                prompt="Test.", enabled=True, base_url=base, mode="auto", preset="crisp_preset", prepared_images=[]
+            )
+            fallback_think_ok = False
+        except RuntimeError as exc:
+            fallback_think_ok &= "max_tokens" in str(exc) and "still thinking" not in str(exc)
+
+        state["mode"] = "unclosed_think_end"
+        try:
+            _expand_img_helper(
+                prompt="Test.", enabled=True, base_url=base, mode="auto", preset="crisp_preset", prepared_images=[]
+            )
+            fallback_think_ok = False
+        except ValueError as exc:
+            fallback_think_ok &= "unclosed <think>" in str(exc)
+
+        state["mode"] = "prefill_bad_ratio"
+        prefill_res = _expand_img_helper(
+            prompt="Test.",
+            enabled=True,
+            base_url=base,
+            mode="auto",
+            prepared_images=[],
+            allow_plain_fallback=True,
+        )
+        fallback_think_ok &= (
+            prefill_res["prompt"] == "Warm clay mug.\naspect_ratio: bogus"
+            and "prefilled reasoning" not in prefill_res["prompt"]
+        )
+        state["mode"] = "ok"
+        report(
+            fallback_think_ok,
+            "plain-text fallback refuses unclosed <think> on max_tokens/end_turn and strips prefilled </think>",
+        )
     finally:
         server.shutdown()
         server.server_close()
@@ -777,7 +858,7 @@ def graphs() -> None:
             exp_id, exp_in = expanders[0]
             ok &= len(expanders) == 1
             ok &= cond["prompt"] == [exp_id, 0] and size.get("shape_from_expander") == [exp_id, 1]
-            ok &= exp_in.get("base_url") == h3_config.HEYLOOK_DEFAULT_BASE_URL and exp_in.get("model") == ""
+            ok &= exp_in.get("base_url") == "" and exp_in.get("model") == ""
         else:
             ok &= isinstance(cond["prompt"], str) and bool(cond["prompt"].strip())
         vaedec = [(nid, n["inputs"]) for nid, n in g.items() if n["class_type"] == "VAEDecode"]

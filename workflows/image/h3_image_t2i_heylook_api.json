@@ -131,7 +131,7 @@
     "inputs": {
       "prompt": "A rustic, overhead shot of a farm-to-table feast, showcasing a variety of colorful, seasonal vegetables, artisanal cheeses, and freshly baked bread on a weathered wooden table.",
       "enabled": true,
-      "base_url": "http://127.0.0.1:8080",
+      "base_url": "",
       "mode": "auto",
       "model": "",
       "thinking": "model default",
