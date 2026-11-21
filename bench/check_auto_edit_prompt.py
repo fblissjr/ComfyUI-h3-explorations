@@ -1248,6 +1248,24 @@ def check_shipped_workflows() -> None:
     refreshed_141 = pc.stamp_part_one(fl_res["edited_prompt"], mode="fl2va", length=141)
     ok("5.88-second mark" in refreshed_141.splitlines()[0] and refreshed_141.count("How the reference pictures") == 1,
        "stamp_part_one refreshes FL2VA S.SS cleanly when length changes without duplicating Part One")
+    u_fl2v = aep.build_fresh_prompt_user_prompt(
+        concept_brief=None,
+        edit_intent="Ferry glides into harbor at dawn.",
+        n_images=2,
+        resolved_mode="fl2va",
+        length=192,
+    )
+    ok("one continuous [Shot 1]" in u_fl2v and "2-3 concrete cinematic shots" not in u_fl2v,
+       "build_fresh_prompt_user_prompt prefers one continuous [Shot 1] for fl2va")
+    u_t2v = aep.build_fresh_prompt_user_prompt(
+        concept_brief=None,
+        edit_intent="Ferry glides into harbor at dawn.",
+        n_images=0,
+        resolved_mode="t2va",
+        length=192,
+    )
+    ok("2-3 concrete cinematic shots" in u_t2v and "unless the user explicitly asks for a single unbroken shot" in u_t2v,
+       "build_fresh_prompt_user_prompt allows explicit single-take override on long non-fl2va runs")
 
     # Multimodal H3References manifest via reference_order.assign_labels: <Audio 1> before <Video 1>, plus synthetic video
     class _FakeImgRef:

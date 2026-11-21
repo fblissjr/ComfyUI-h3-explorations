@@ -1338,16 +1338,24 @@ def build_fresh_prompt_user_prompt(
 
     snapped = _rules.snap_length(max(5, int(length)))
     dur_s = _rules.duration_of(snapped)
-    pacing_note = (
-        f"Target duration: {dur_s:.2f}s ({snapped} frames) — structure 2-3 concrete cinematic shots "
-        "([Shot 1] establishing action/dialogue -> [Shot 2] close-up reaction/payoff) with real motion "
-        "and never write meta-duration filler like 'across the six-second take'."
-        if dur_s >= 7.5
-        else (
+    if eff_mode == "fl2va":
+        pacing_note = (
+            f"Target duration: {dur_s:.2f}s ({snapped} frames) — bridge cleanly from start frame to end "
+            "frame in one continuous [Shot 1] (or add a justified cut only if the transition clearly "
+            "calls for it); never write meta-duration filler like 'across the six-second take'."
+        )
+    elif dur_s >= 7.5:
+        pacing_note = (
+            f"Target duration: {dur_s:.2f}s ({snapped} frames) — structure 2-3 concrete cinematic shots "
+            "([Shot 1] establishing action/dialogue -> [Shot 2] close-up reaction/payoff) with real motion "
+            "unless the user explicitly asks for a single unbroken shot; never write meta-duration filler "
+            "like 'across the six-second take'."
+        )
+    else:
+        pacing_note = (
             f"Target duration: {dur_s:.2f}s ({snapped} frames) — concrete continuous action and camera "
             "motion; never write meta-duration filler like 'across the six-second take'."
         )
-    )
 
     if eff_mode == "ref2va":
         lines = [
@@ -1483,7 +1491,11 @@ def validate_fresh_h3_prompt(
     )
     cleaned = _strip_think_and_fence(raw_reply)
     is_legacy = bool(
-        re.search(r"(?m)^#{1,4}\s*section\s*:", cleaned, re.I)
+        re.search(
+            r"(?m)^#{1,4}\s*(?:section\s*:|(?:subject_definitions|summary|retention_analysis|detailed_description|integrated_multimodal_description|overall_soundscape|non_diegetic_music)\b)",
+            cleaned,
+            re.I,
+        )
         or cleaned.lstrip().startswith("{")
     )
     if is_legacy:

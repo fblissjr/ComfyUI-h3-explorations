@@ -473,6 +473,7 @@ def expand_image_prompt(
     client: httpx.Client | None = None,
     interrupt_check: Callable[[], None] | None = None,
     prefer_preset_system: bool = False,
+    custom_sampler_overrides: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Expand a short T2I or 1..16-image edit request via local/LAN `heylook` and `parse_expander_reply`."""
     if not enabled:
@@ -552,17 +553,21 @@ def expand_image_prompt(
                 eff_sys_prompt = ""
 
         sampler_overrides = (
-            {
-                "temperature": float(temperature),
-                "top_p": float(top_p),
-                "top_k": int(top_k),
-                "min_p": float(min_p),
-                "max_tokens": int(max_tokens),
-                "repetition_penalty": float(repetition_penalty),
-                "presence_penalty": float(presence_penalty),
-            }
-            if sampler_mode == "custom"
-            else None
+            dict(custom_sampler_overrides)
+            if custom_sampler_overrides is not None
+            else (
+                {
+                    "temperature": float(temperature),
+                    "top_p": float(top_p),
+                    "top_k": int(top_k),
+                    "min_p": float(min_p),
+                    "max_tokens": int(max_tokens),
+                    "repetition_penalty": float(repetition_penalty),
+                    "presence_penalty": float(presence_penalty),
+                }
+                if sampler_mode == "custom"
+                else None
+            )
         )
         body = build_heylook_request_body(
             model_row=model_row,
@@ -575,6 +580,7 @@ def expand_image_prompt(
             sampler_mode=sampler_mode,
             sampler_overrides=sampler_overrides,
             reasoning_effort_override=reasoning_effort,
+            default_reasoning_effort=reasoning_effort,
         )
         res = with_heylook_backoff(
             lambda: stream_heylook_message(

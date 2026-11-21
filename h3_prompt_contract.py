@@ -396,7 +396,7 @@ def _speaker_id_fails(main_body: str, *, require_ref_sx: bool) -> list[str]:
                 continue
             head = " ".join(before.split())[-60:]
             fails.append(
-                f"a <d> dialogue block has no (Sx) speaker ID earlier in its shot (vendor_guides/ref_en.md:278); "
+                f"a <d> dialogue block has no (Sx) speaker ID earlier in its shot; "
                 f"bind `<Subject N> (S1)` before `<d>` near ...{head!r}"
             )
             prev_end = d.end()
@@ -467,7 +467,7 @@ def validate_h3_prompt_mechanics(
         ret = sections.get("retention_analysis", "")
         if ret:
             if _SPEAKER_ID_RE.search(ret):
-                fails.append("retention_analysis must NEVER contain speaker IDs like (S1) (vendor_guides/ref_en.md)")
+                fails.append("retention_analysis must NEVER contain speaker IDs like (S1)")
             for raw_ln in ret.splitlines():
                 ln = raw_ln.strip()
                 if not ln:
@@ -494,12 +494,12 @@ def validate_h3_prompt_mechanics(
         if not editing_task and not (350 <= desc_words <= 500):
             if desc_words < 350:
                 msg = (
-                    f"detailed_description is {desc_words} words; vendor_guides/ref_en.md requires "
+                    f"detailed_description is {desc_words} words; target requires "
                     "350-500 words of concrete multi-beat staging, camera motion, lighting, and foley"
                 )
             else:
                 msg = (
-                    f"detailed_description is {desc_words} words (> 500 ceiling); vendor_guides/ref_en.md "
+                    f"detailed_description is {desc_words} words (> 500 ceiling); target "
                     "requires 350-500 words — tighten prose without dropping shot structure or speaker tags"
                 )
             if enforce_min_words:

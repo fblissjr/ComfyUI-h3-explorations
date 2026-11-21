@@ -40,15 +40,19 @@ graphs.
 our shipped prompts diverged and what happened to each. Do not pattern-match a
 fix across the base and reference formats; section 12 owns the boundary.
 
+**Auto-expanding with `heylook` (`1x` Easy Button & `2x` Auto-Edit).** `h3_prompt_expander.py` (`MiniMaxH3PromptExpander`), `auto_edit_prompt.py` (`MiniMaxH3AutoEditPrompt`, `resolve_fresh_system_prompt`), `h3_prompt_contract.py`, and `docs/wiki/control_vectors/heylook_auto_edit_guidance_design.md` own the `1x` fresh expansion and `2x` surgical rewrite contract across `t2va`, `i2va`, `fl2va`, `l2va`, `ref2va`, and `single_frame` (and `h3_image_nodes.py::expand_image_prompt` owns `MiniMax-H3-Image` expansion).
+
 **Deciding whether a prompt is good.** `python bench/grade_prompt_text.py --mode <mode> <prompt.txt>`
 grades loose text; `python bench/preflight_graph.py` grades a prompt already in a graph
-and prices the sequence; `python bench/diff_prompt_corpus.py` reports where our
+and prices the sequence; `h3_prompt_contract.py` runs the live mechanical contract in-process for `MiniMaxH3PromptExpander`, `MiniMaxH3AutoEditPrompt`, and `app/`; `python bench/diff_prompt_corpus.py` reports where our
 prompts diverge from vendor practice. Each docstring is its contract. None of
 them can see whether a prompt pinned what the scene turns on; `docs/wiki/prompting/16_specificity.md` (section 16.4) says
 what can.
 
 **Handing the rules to an LLM or someone outside this repo.**
-`docs/wiki/system_prompts/h3_system_prompt.md` (general video+audio scene prompts),
+`docs/wiki/system_prompts/h3_video/README.md` (dedicated standalone zero-lore single-mode video prompts & `heylook` presets: `ref2va`, `t2va`, `i2va`, `fl2va`, `l2va`),
+`docs/wiki/system_prompts/h3_system_prompt.md` (combined general video+audio scene prompts),
+`docs/wiki/system_prompts/README.md` (`h3_auto_edit/fresh_prompt_system_prompt.md`, `section_edits_system_prompt.md`, and `edit_lines_system_prompt.md` node prompts),
 `docs/wiki/system_prompts/general_image_edit_system_prompt.md` (cross-model 4-section `ref2va`-minus-audio still-image editing prompts for open-weights VLMs),
 `docs/wiki/system_prompts/h3_image/README.md` (standalone MiniMax-H3-Image T2I, design/typography T2I, and 1–16 reference editing prompts),
 `docs/wiki/system_prompts/h3_p_h3_image_system_prompt.md` (P-H3-Image single-frame T2I and 1–8 reference image editing prompts), and
