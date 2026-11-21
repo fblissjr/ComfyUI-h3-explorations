@@ -219,7 +219,7 @@ def _repair_multichange_markdown_pairs(md_text: str) -> str:
 def _extract_system_prompt_text() -> str:
     candidates = [
         REPO_ROOT / "docs" / "wiki" / "system_prompts" / "h3_control_vector_system_prompt.md",
-        REPO_ROOT / "docs" / "research" / "control_vectors" / "2026-11-05_control_vector_system_prompt.md",
+        REPO_ROOT / "docs" / "wiki" / "research" / "control_vectors" / "2026-11-05_control_vector_system_prompt.md",
     ]
     open_fence = "````markdown\n"
     for sp_path in candidates:
@@ -555,15 +555,66 @@ def _generate_pairs_with_llm(
 
 
 
+def _resolve_concept_prompt_for_generation(args: argparse.Namespace) -> tuple[str, dict[str, Any]]:
+    """Build `(concept_prompt, concept_meta)` from positional/flag `--concept` and optional `--from-concept`."""
+    concept = str(getattr(args, "concept_flag", "") or getattr(args, "concept", "") or "").strip()
+    from_concept = str(getattr(args, "from_concept", "") or "").strip()
+    meta: dict[str, Any] = {}
+    if from_concept and from_concept.lower() != "none":
+        import auto_edit_prompt as aep
+
+        brief = aep.load_concept_brief(from_concept, exemplar_count=4)
+        notes_clean = aep.clean_concept_notes(brief.notes)
+        block_lines = [
+            f"Concept Stem: {brief.stem}",
+            f"Concept Title: {brief.title}",
+            f"Core Intent: {brief.summary}",
+        ]
+        if brief.a_side and brief.b_side:
+            block_lines.append(f"Axis: {brief.a_side} -> {brief.b_side}")
+        if notes_clean:
+            block_lines.append(f"Creative Notes: {notes_clean}")
+        if brief.avoid:
+            block_lines.append(f"Avoid: {brief.avoid}")
+        if brief.exemplars:
+            block_lines.append("Reference Concept Shifts (author 10 fresh, distinct non-overlapping pairs matching these style cues):")
+            for sec_s, ea, eb in brief.exemplars[:3]:
+                block_lines.append(f"  - [{sec_s}] {ea} -> {eb}")
+        brief_txt = "\n".join(block_lines)
+        concept = f"{concept}\n\n{brief_txt}".strip() if concept else brief_txt
+        meta = {
+            "stem": brief.stem,
+            "a_side": brief.a_side or "varied everyday neutral scene baselines",
+            "b_side": brief.b_side or brief.summary,
+            "quality": f"{brief.b_side or brief.summary} vs. {brief.a_side or 'varied neutral scene baselines'}",
+        }
+    if not concept:
+        raise ValueError("concept description is required (pass positional concept, --concept, or --from-concept)")
+    return concept, meta
+
+
+def _lint_markdown_pairs_text(md_text: str, *, frame: str = "scene") -> list[str]:
+    """Parse Markdown pair text and return `cv.lint_pair_set` warnings or structural errors."""
+    try:
+        parsed = cv.parse_markdown_pairs(md_text)
+    except Exception as exc:
+        return [f"parse_error: {exc}"]
+    pairs = parsed.get("pairs") or []
+    if not pairs:
+        return ["no pairs parsed"]
+    try:
+        return list(cv.lint_pair_set(pairs, frame=frame))
+    except Exception as exc:
+        return [f"span_error: {exc}"]
+
+
 def _generate_pairs_from_args(args: argparse.Namespace, *, llm_cache: Any = None) -> dict[str, Any]:
     """The LLM call `generate-pairs` makes, from a parsed namespace. `cmd_generate_pairs` prints or
     writes its Markdown; the studio's route hands it to the page's editor. `llm_cache` lets the
     studio keep a loaded model between calls."""
-    concept = str(getattr(args, "concept_flag", "") or getattr(args, "concept", "") or "").strip()
-    if not concept:
-        raise ValueError("concept description is required (pass positional concept or --concept)")
+    concept, c_meta = _resolve_concept_prompt_for_generation(args)
     extra = {"llm_cache": llm_cache} if llm_cache is not None else {}
-    return _generate_pairs_with_llm(
+    res = _generate_pairs_with_llm(
         provider=args.llm_provider,
         model_spec=args.llm_model,
         concept_prompt=concept,
@@ -574,6 +625,42 @@ def _generate_pairs_from_args(args: argparse.Namespace, *, llm_cache: Any = None
         heylook_url=str(getattr(args, "heylook_url", "") or ""),
         **extra,
     )
+    lint_warns = _lint_markdown_pairs_text(res["markdown"])
+    if lint_warns and bool(getattr(args, "repair", False)):
+        repair_prompt = (
+            f"{concept}\n\n"
+            "Fix the draft Markdown pack below so it has ZERO lint warnings:\n"
+            "- All 10 pairs must be 100% unique `a_span` and `b_span` across diverse scenes with distinct >=10-word shared prefixes\n"
+            "- Use varied concrete Pole-A baselines so rank-8 erasure captures the baseline subspace\n"
+            "- Zero rate/onset adverbs (`slowly`, `gradually`, `begins to`), zero content-noun overlap between A and B spans, `[Language]` tags on all `<d>...</d>`, zero default `#### Hold` blocks\n\n"
+            "Lint issues found:\n"
+            + "\n".join(f"- {w}" for w in lint_warns[:12])
+            + "\n\nDraft Markdown to repair:\n"
+            + res["markdown"]
+        )
+        rep_res = _generate_pairs_with_llm(
+            provider=args.llm_provider,
+            model_spec=args.llm_model,
+            concept_prompt=repair_prompt,
+            load_in_4bit=not bool(getattr(args, "no_4bit", False)),
+            max_new_tokens=int(getattr(args, "max_new_tokens", DEFAULT_LLM_MAX_TOKENS)),
+            temperature=max(0.2, min(float(getattr(args, "temperature", 0.7)), 0.5)),
+            exl3_root=getattr(args, "exl3_root", None) or None,
+            heylook_url=str(getattr(args, "heylook_url", "") or ""),
+            **extra,
+        )
+        rep_warns = _lint_markdown_pairs_text(rep_res["markdown"])
+        if len(rep_warns) <= len(lint_warns):
+            res = {
+                **rep_res,
+                "elapsed_s": round(float(res["elapsed_s"]) + float(rep_res["elapsed_s"]), 2),
+                "repaired": True,
+            }
+            lint_warns = rep_warns
+    res["lint_warnings"] = lint_warns
+    if c_meta:
+        res["concept_meta"] = c_meta
+    return res
 
 
 def _derive_concept_sides(
@@ -616,13 +703,15 @@ def cmd_generate_pairs(args: argparse.Namespace) -> int:
         print(f"wrote {out_p} ({res['elapsed_s']}s via {res['provider']})")
     else:
         print(md_text)
+    c_meta = res.get("concept_meta") or {}
     concept = str(getattr(args, "concept_flag", "") or getattr(args, "concept", "") or "").strip()
     a_side_val, b_side_val, quality_val = _derive_concept_sides(
         concept,
-        a_side=getattr(args, "a_side", None),
-        b_side=getattr(args, "b_side", None),
-        quality=getattr(args, "quality", None),
+        a_side=getattr(args, "a_side", None) or c_meta.get("a_side"),
+        b_side=getattr(args, "b_side", None) or c_meta.get("b_side"),
+        quality=getattr(args, "quality", None) or c_meta.get("quality"),
     )
+    eff_name = str(getattr(args, "name", "") or c_meta.get("stem") or "").strip()
     saved: Path | None = None
     out_toml = str(getattr(args, "out_toml", "") or "").strip()
     if out_toml:
@@ -639,11 +728,11 @@ def cmd_generate_pairs(args: argparse.Namespace) -> int:
             bank_dir=cv_nodes.PROMPT_BANK_DIR,
         )
         print(f"wrote {_display_path(saved)}")
-    elif getattr(args, "save_toml", False) and getattr(args, "name", ""):
+    elif getattr(args, "save_toml", False) and eff_name:
         saved = cv.write_markdown_to_toml(
             md_text,
             cv_nodes.USER_PAIR_BANK_DIR,
-            name=str(args.name).strip(),
+            name=eff_name,
             a_side=a_side_val,
             b_side=b_side_val,
             quality=quality_val,
@@ -660,5 +749,11 @@ def cmd_generate_pairs(args: argparse.Namespace) -> int:
                 print(f"  - {w}", file=sys.stderr)
         else:
             print(f"lint OK: 0 pair-quality warnings ({len(ps_check.pairs)} pairs, {len(ps_check.holds)} holds)")
+    else:
+        draft_warns = res.get("lint_warnings") or []
+        if draft_warns:
+            print(f"WARNING: {len(draft_warns)} pair-quality lint warning(s) on generated draft:", file=sys.stderr)
+            for w in draft_warns:
+                print(f"  - {w}", file=sys.stderr)
     return 0
 

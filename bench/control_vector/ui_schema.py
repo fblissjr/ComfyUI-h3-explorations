@@ -206,6 +206,7 @@ def method_schema() -> dict[str, Any]:
             "prompt_fields": list(h3_spans.PROMPT_FIELDS),
             "fields_join": h3_spans.FIELDS_JOIN,
             "defaults": dict(h3_rules.CONTROL_VECTOR_DEFAULTS),
+            "steer_defaults": {**h3_rules.STEER_DEFAULTS, "mask": h3_rules.STEER_DEFAULTS["target"]},
         },
     }
 

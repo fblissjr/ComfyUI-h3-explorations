@@ -68,7 +68,9 @@ def cmd_make_media(args: argparse.Namespace) -> int:
     elif families_raw:
         fams = _resolve_requested_families(families_raw, auto_family="ref2va")
         dit_names = [
-            h3_config.MODELS["unet_ref2va"] if f == "ref2va" else h3_config.MODELS["unet_fl2va"]
+            h3_config.MODELS["unet_ref2va"]
+            if f == "ref2va"
+            else (h3_config.H3_IMAGE_UNET if f == "h3_image" else h3_config.MODELS["unet_fl2va"])
             for f in fams
         ]
     else:
@@ -87,14 +89,14 @@ def cmd_make_media(args: argparse.Namespace) -> int:
     for dit_name in dit_names:
         dit_path = Path(_h.folder_paths.get_full_path_or_raise("diffusion_models", dit_name))
         model_or_path = getattr(args, "_model_override", None) or dit_path
+        fam_detected = cv.detect_family(dit_path)
         if getattr(args, "no_lora", False):
             loras_fam: list[dict[str, Any]] = []
         elif loras:
             loras_fam = loras
-        elif getattr(args, "_model_override", None) is not None or dit_override:
+        elif getattr(args, "_model_override", None) is not None or dit_override or fam_detected == "h3_image":
             loras_fam = []
         else:
-            fam_detected = cv.detect_family(dit_path)
             default_lora_name = (
                 h3_config.PIKA_REF2VA_SVD995_LORA
                 if fam_detected == "ref2va"
@@ -197,7 +199,7 @@ def cmd_make(args: argparse.Namespace) -> int:
     dit_name = getattr(args, "dit", None) or getattr(args, "unet", None) or (
         h3_config.MODELS["unet_ref2va"]
         if primary_fam == "ref2va"
-        else h3_config.MODELS["unet_fl2va"]
+        else (h3_config.H3_IMAGE_UNET if primary_fam == "h3_image" else h3_config.MODELS["unet_fl2va"])
     )
     dit_path = Path(_h.folder_paths.get_full_path_or_raise("diffusion_models", dit_name))
     encoder_name = args.encoder or h3_config.MODELS["clip"]
@@ -207,7 +209,7 @@ def cmd_make(args: argparse.Namespace) -> int:
     explicit_loras = _parse_lora_specs(args.lora)
 
     def _resolve_make_loras(fam: str) -> list[dict[str, Any]]:
-        if getattr(args, "no_lora", False):
+        if getattr(args, "no_lora", False) or fam == "h3_image":
             return []
         if explicit_loras:
             return explicit_loras
@@ -547,12 +549,12 @@ def cmd_make(args: argparse.Namespace) -> int:
         and not explicit_loras
     ):
         for sib_fam in req_fams:
-            if sib_fam == family or sib_fam not in ("fl2va", "ref2va"):
+            if sib_fam == family or sib_fam not in ("fl2va", "ref2va", "h3_image"):
                 continue
             sib_dit_name = (
                 h3_config.MODELS["unet_ref2va"]
                 if sib_fam == "ref2va"
-                else h3_config.MODELS["unet_fl2va"]
+                else (h3_config.H3_IMAGE_UNET if sib_fam == "h3_image" else h3_config.MODELS["unet_fl2va"])
             )
             try:
                 sib_dit_file = _h.folder_paths.get_full_path("diffusion_models", sib_dit_name)

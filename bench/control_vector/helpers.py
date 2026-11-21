@@ -307,28 +307,30 @@ def _resolve_vector_for_family(
 ) -> Path:
     """Resolve a vector path, filename, or short stem (e.g. 'handheld_urgency') for `family`."""
     cand = Path(str(spec).strip())
-    fam = "ref2va" if "ref2va" in str(family).lower() else "fl2va"
-    other_fam = "fl2va" if fam == "ref2va" else "ref2va"
+    fam_lower = str(family).lower()
+    fam = "ref2va" if "ref2va" in fam_lower else ("h3_image" if "h3_image" in fam_lower else "fl2va")
+    other_fams = [f for f in ("fl2va", "ref2va", "h3_image") if f != fam]
 
     def _maybe_swap_sibling(found: Path) -> Path:
-        tag_other = f"__{other_fam}"
-        if tag_other not in found.name:
-            return found
-        s_stem = found.name.split(tag_other, 1)[0]
-        pooling_hint = (
-            "diff_span"
-            if "__diff_span" in found.name
-            else ("from_first_diff" if "__from_first_diff" in found.name else None)
-        )
-        sib = cv_nodes._match_sibling_or_stem_in_dir(
-            found.parent,
-            s_stem,
-            fam,
-            preferred_pooling=pooling_hint,
-            prefer_lora="__lora_" in found.name,
-        )
-        if sib is not None and sib.is_file():
-            return sib
+        for other_fam in other_fams:
+            tag_other = f"__{other_fam}"
+            if tag_other not in found.name:
+                continue
+            s_stem = found.name.split(tag_other, 1)[0]
+            pooling_hint = (
+                "diff_span"
+                if "__diff_span" in found.name
+                else ("from_first_diff" if "__from_first_diff" in found.name else None)
+            )
+            sib = cv_nodes._match_sibling_or_stem_in_dir(
+                found.parent,
+                s_stem,
+                fam,
+                preferred_pooling=pooling_hint,
+                prefer_lora=(fam != "h3_image" and "__lora_" in found.name),
+            )
+            if sib is not None and sib.is_file():
+                return sib
         return found
 
     if cand.is_file():

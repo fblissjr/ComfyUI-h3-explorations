@@ -604,6 +604,18 @@ def cmd_build(args: argparse.Namespace) -> int:
             rec_band = [round(x, 2) for x in cv.strength_ranges(raw_norm)[0]]
             mpc_raw = q_report.get("mean_pairwise_cosine")
             sh_raw = q_report.get("split_half_cosine")
+            d_mat = (b_mat - a_mat).to(dtype=torch.float64)
+            mean_d_sq = float(torch.mean(torch.sum(d_mat ** 2, dim=-1)).item()) if d_mat.numel() else 0.0
+            mean_d_norm = float(torch.mean(torch.linalg.vector_norm(d_mat, dim=-1)).item()) if d_mat.numel() else 0.0
+            mu_d_tensor = tensors_to_save.get("erasure.mu_d")
+            mu_d_norm = (
+                float(torch.linalg.vector_norm(mu_d_tensor.to(dtype=torch.float64)).item())
+                if mu_d_tensor is not None
+                else float(torch.linalg.vector_norm(d_mat.mean(dim=0)).item())
+            )
+            erasure_rank = int(tensors_to_save["erasure.vr"].shape[0]) if "erasure.vr" in tensors_to_save else 0
+            one_d_energy_pct = (100.0 * (mu_d_norm ** 2) / max(mean_d_sq, 1e-12)) if mean_d_sq > 1e-12 else 0.0
+            mu_over_e_d = (mu_d_norm / max(mean_d_norm, 1e-12)) if mean_d_norm > 1e-12 else 0.0
             summary_rows.append(
                 {
                     "file": saved.name,
@@ -618,6 +630,9 @@ def cmd_build(args: argparse.Namespace) -> int:
                     "pair_spans": pair_spans,
                     "rec_strength": _recommended_strength_text(raw_norm),
                     "recommended_strength_band": rec_band,
+                    "erasure_rank": erasure_rank,
+                    "one_d_energy_pct": round(one_d_energy_pct, 1),
+                    "mu_over_e_d": round(mu_over_e_d, 3),
                     "j_lens": jl_build_readout,
                 }
             )
@@ -643,10 +658,16 @@ def cmd_build(args: argparse.Namespace) -> int:
         health_s = f"WEAK ({', '.join(weak_reasons)})" if weak_reasons else "PASS"
         if b_aln.get("warning"):
             health_s += " [j_lens eyeball note]"
+        er_rank = int(row.get("erasure_rank") or 0)
+        er_note = (
+            f"  erasure=r{er_rank} 1D_E={row['one_d_energy_pct']:.1f}% |mu_d|/E|d|={row['mu_over_e_d']:.3f}"
+            if er_rank > 0
+            else ""
+        )
         print(
             f"  * {row['file']}\n"
             f"      family={row['family']}  pooling={row['pooling']}  "
-            f"raw_norm={row['raw_norm']:.2f}  cos={cos_s} (split_half={sh_s})  health={health_s}\n"
+            f"raw_norm={row['raw_norm']:.2f}  cos={cos_s} (split_half={sh_s}){er_note}  health={health_s}\n"
             f"      recommended strength: {row['rec_strength']}"
         )
         if isinstance(jl_row, dict) and jl_row.get("pos_summary"):
@@ -713,8 +734,10 @@ def _existing_families_for_items(
     *,
     default: str = "fl2va",
 ) -> str:
-    """Return existing `(fl2va / ref2va)` family selector preserved from saved `.safetensors` metadata."""
-    fams = sorted({str(m.get("family", "")) for _, _, m in items if m.get("family") in ("fl2va", "ref2va")})
+    """Return existing `(fl2va / ref2va / h3_image)` family selector preserved from saved `.safetensors` metadata."""
+    fams = sorted(
+        {str(m.get("family", "")) for _, _, m in items if m.get("family") in ("fl2va", "ref2va", "h3_image")}
+    )
     if fams == ["fl2va", "ref2va"]:
         return "both"
     return ",".join(fams) if fams else default
@@ -791,7 +814,9 @@ def cmd_rebuild(args: argparse.Namespace) -> int:
         if families_override:
             fams = _resolve_requested_families(families_override)
         else:
-            fams = sorted({str(m.get("family", "fl2va")) for _, _, m in items if m.get("family") in ("fl2va", "ref2va")}) or ["fl2va", "ref2va"]
+            fams = sorted(
+                {str(m.get("family", "fl2va")) for _, _, m in items if m.get("family") in ("fl2va", "ref2va", "h3_image")}
+            ) or ["fl2va", "ref2va"]
         sub_args = argparse.Namespace(**vars(args))
         sub_args.build_all = False
         sub_args.from_words = pos_words
@@ -828,7 +853,9 @@ def cmd_rebuild(args: argparse.Namespace) -> int:
         if families_override:
             fams = _resolve_requested_families(families_override)
         else:
-            fams = sorted({str(m.get("family", "fl2va")) for _, _, m in items if m.get("family") in ("fl2va", "ref2va")}) or ["fl2va", "ref2va"]
+            fams = sorted(
+                {str(m.get("family", "fl2va")) for _, _, m in items if m.get("family") in ("fl2va", "ref2va", "h3_image")}
+            ) or ["fl2va", "ref2va"]
         words_spec_saved = str(pairs_meta.get("words_spec", "")).strip()
         raw_pairs_ab = pairs_meta.get("pairs_ab")
         raw_holds_ab = pairs_meta.get("holds_ab")

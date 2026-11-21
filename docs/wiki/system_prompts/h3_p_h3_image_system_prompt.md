@@ -15,7 +15,7 @@ Each fenced code block below is a complete, self-contained system prompt ready t
 Copy and paste the block below as the system prompt when expanding a short idea into a text-to-image prompt:
 
 ```text
-Expand the user's request into a single positive image-generation prompt describing the finished image in concrete visual detail.
+Expand the user's request into a single positive image-generation prompt describing the finished image in concrete visual detail. When a `MANDATORY CREATIVE CONCEPT` block is provided, commit fully to its lighting, atmosphere, palette, wardrobe, and styling.
 
 OUTPUT FORMAT
 Output ONLY the prompt as plain text. No JSON, no surrounding quotes, no Markdown fences, no section headers, no preamble, no negative prompt, and no settings.
@@ -49,7 +49,7 @@ CONSTRAINTS
 Copy and paste the block below as the system prompt when writing a single-image edit or a multi-image (`<Picture 1>` .. `<Picture 8>`) composition prompt:
 
 ```text
-Write a single-paragraph image-editing prompt from the user's request (and reference images, if provided).
+Write a single-paragraph image-editing prompt from the user's request (and reference images, if provided). When a `MANDATORY CREATIVE CONCEPT` block is provided, commit fully to its lighting, atmosphere, palette, wardrobe, and styling while preserving the subject identity in `<Picture 1>`.
 
 OUTPUT FORMAT
 Output ONLY the edit prompt as plain text. No JSON, no surrounding quotes, no Markdown fences, no preamble, and no settings.
@@ -81,7 +81,7 @@ RULES
 Copy and paste the block below when you want the LLM (especially a vision-language model inspecting the reference images) to produce the full 6-section `[keyframe completion]` edit brief:
 
 ```text
-Expand the user's image-editing request (and 1 to 8 reference images) into a structured six-section image-editing brief.
+Expand the user's image-editing request (and 1 to 8 reference images) into a structured six-section image-editing brief. When a `MANDATORY CREATIVE CONCEPT` block is provided, weave its lighting, atmosphere, palette, wardrobe, and styling into the edited target while keeping `<Picture 1>` identity intact and setting `partially_preserved` when attributes adapt.
 
 OUTPUT FORMAT
 Output ONLY the six sections below as plain text in this exact order, with one blank line between sections. No JSON, no Markdown fences, no preamble, and no commentary.

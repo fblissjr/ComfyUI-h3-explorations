@@ -80,7 +80,7 @@ import control_vectors as cv
 import h3_pair_compiler
 import h3_rules
 import h3_spans
-from workflows import h3_config
+from workflows import h3_config, h3_env
 
 from .build_cmd import cmd_build, cmd_rebuild, cmd_status, cmd_words
 from .grading import cmd_grade, cmd_inspect
@@ -95,7 +95,7 @@ CLI_DESCRIPTION = """Build, inspect, meter, and grade MiniMax H3 control vectors
 CLI_EPILOG = """Four Control Vector Creation Methods:
   1. from-prompt               In-place contextual contrast ('pole_a -> pole_b') on your exact --target-prompt (~7s GPU)
   2. from-toml (alias: build)  Multi-scene reusable vector from a 10-pair .toml file (or --all) (~10s GPU)
-  3. from-words (alias: words) Instant <2 ms CPU synthesis from 3-5 words via J-Lens (0 GB VRAM; also inline in ComfyUI)
+  3. from-words (alias: words) Instant <2 ms CPU synthesis from 3-5 words via J-Lens (0 GB VRAM; also inline in MiniMaxH3WordVector)
   4. from-images (make-media)  Visual <Picture 1> image-pair contrast (--image-a / --image-b) with 32-px M-RoPE matching
 
 J-Lens Operator Bundle:
@@ -103,21 +103,29 @@ J-Lens Operator Bundle:
   status                       Check J-Lens bundle & control vector staleness/permissions (--rebuild-stale to fix)
 
 H3 Model Families (--families):
-  MiniMax H3 has 2 DiT text-path (condition_proj + token_refiner) families:
-    fl2va  : (default) Video T2VA / FL2VA / I2VA, P-H3-Image, and shared Video Ref2VA
-             (fl2va/ref2va post-refiner spaces sit at cos ~0.985-0.994; MiniMaxH3Steer
-             resolves fl2va siblings cleanly across {fl2va, ref2va} and auto-projects
-             vector.encoder onto MiniMax-H3-Image)
-    ref2va : Video Ref2VA / Guide Video Edit / Masked V2V (default for make-media)
-    both   : Optional; builds both <name>__fl2va__*.safetensors and <name>__ref2va__*.safetensors
-             in a single pass when you explicitly want separate family siblings."""
+  MiniMax H3 has 3 DiT text-path (condition_proj + token_refiner) families:
+    fl2va    : (default) Video T2VA / FL2VA / I2VA, P-H3-Image, and shared Video Ref2VA
+               (fl2va/ref2va post-refiner spaces sit at cos ~0.985-0.994; MiniMaxH3Steer
+               resolves fl2va siblings cleanly across {fl2va, ref2va} and auto-projects
+               vector.encoder onto MiniMax-H3-Image when no h3_image sibling exists)
+    ref2va   : Video Ref2VA / Guide Video Edit / Masked V2V (default for make-media)
+    h3_image : Native MiniMax-H3-Image still-image DiT (minimax_h3_image_pruned_int8_convrot.safetensors, zero LoRAs)
+    both     : Builds both <name>__fl2va__*.safetensors and <name>__ref2va__*.safetensors siblings"""
 
-_FAMILIES_METAVAR = "{both,fl2va,ref2va}"
+_FAMILIES_METAVAR = "{both,fl2va,ref2va,h3_image}"
 _FAMILIES_HELP = (
     "H3 text-path family to build: 'fl2va' (default: Video T2VA/FL2VA/I2VA + P-H3-Image + "
-    "shared across Video Ref2VA at cos ~0.99; aliases: 'image', 't2i', 'image_edit'), "
-    "'ref2va' (Video Ref2VA), or 'both' (writes both fl2va + ref2va siblings)"
+    "shared across Video Ref2VA), 'ref2va' (Video Ref2VA), 'h3_image' (native MiniMax-H3-Image, zero LoRAs), "
+    "or 'both' (writes both fl2va + ref2va siblings)"
 )
+
+
+def _default_llm_provider() -> str:
+    h3_env.load()
+    explicit = os.environ.get("H3_LLM_PROVIDER", "").strip()
+    if explicit:
+        return explicit
+    return "heylook" if os.environ.get("H3_HEYLOOK_URL", "").strip() else "transformers"
 
 
 def _validate_families_arg(raw: str) -> str:
@@ -469,7 +477,7 @@ def build_parser() -> argparse.ArgumentParser:
         type=_validate_families_arg,
         metavar=_FAMILIES_METAVAR,
         default="ref2va",
-        help="H3 text-path family to build media vectors for ('both', 'fl2va', or 'ref2va'; default: 'ref2va')",
+        help="H3 text-path family to build media vectors for ('both', 'fl2va', 'ref2va', or 'h3_image'; default: 'ref2va')",
     )
     pmm.add_argument("--pooling", choices=cv.VALID_MEDIA_POOLING, default="scene_text")
     pmm.add_argument("--short-edge", type=int, default=512, help="Target shorter edge in pixels (snapped to 32)")
@@ -494,8 +502,8 @@ def build_parser() -> argparse.ArgumentParser:
     psculpt.add_argument("vectors", nargs="+", help="One or more .safetensors vector files or stems to compose")
     psculpt.add_argument(
         "--modes",
-        default="add",
-        help="Comma-separated modes matching 'vectors' ('add', 'add_norm_matched', 'add_norm_matched_erasure', 'hold'; default: 'add')",
+        default="add_norm_matched_erasure",
+        help="Comma-separated modes matching 'vectors' ('add', 'add_norm_matched', 'add_norm_matched_erasure', 'hold'; default: 'add_norm_matched_erasure')",
     )
     psculpt.add_argument(
         "--strengths",
@@ -673,12 +681,18 @@ def build_parser() -> argparse.ArgumentParser:
         help="Target control-vector concept or 'pole_a -> pole_b' description",
     )
     pgen.add_argument(
+        "--from-concept",
+        dest="from_concept",
+        default="",
+        help="Load a concept brief from data/edit_concepts/<stem>.toml or pair TOML to drive generation",
+    )
+    pgen.add_argument(
         "--llm-provider",
         "--provider",
         dest="llm_provider",
         choices=SUPPORTED_LLM_PROVIDERS,
-        default=os.environ.get("H3_LLM_PROVIDER", "transformers") or "transformers",
-        help="Generative LLM provider ('heylook', 'transformers', or 'exllamav3'; default: 'transformers' or $H3_LLM_PROVIDER)",
+        default=_default_llm_provider(),
+        help="Generative LLM provider ('heylook', 'transformers', or 'exllamav3'; default: $H3_LLM_PROVIDER, 'heylook' if H3_HEYLOOK_URL is set, else 'transformers')",
     )
     pgen.add_argument(
         "--heylook-url",
@@ -714,6 +728,7 @@ def build_parser() -> argparse.ArgumentParser:
     pgen.add_argument("--a-side", dest="a_side", default=None, help="Optional vector.a_side override (defaults to concept pole A instead of scraping Pair 1)")
     pgen.add_argument("--b-side", dest="b_side", default=None, help="Optional vector.b_side override (defaults to concept pole B instead of scraping Pair 1)")
     pgen.add_argument("--quality", dest="quality", default=None, help="Optional vector.quality summary override")
+    pgen.add_argument("--repair", action="store_true", help="Run 1-shot LLM repair when lint_pair_set flags pair-quality warnings")
     pgen.add_argument("--overwrite", action="store_true", help="Overwrite existing output files")
 
     pjl = sub.add_parser(
@@ -772,7 +787,7 @@ def build_parser() -> argparse.ArgumentParser:
         type=_validate_families_arg,
         metavar=_FAMILIES_METAVAR,
         default=None,
-        help="H3 text-path family to rebuild: defaults to the file's own family when rebuilding a single .safetensors file, or 'fl2va' otherwise ('fl2va', 'ref2va', or 'both')",
+        help="H3 text-path family to rebuild: defaults to all existing on-disk families ('fl2va', 'ref2va', 'h3_image') when rebuilding an existing stem, or 'fl2va' otherwise",
     )
     preb.add_argument(
         "--pooling",
