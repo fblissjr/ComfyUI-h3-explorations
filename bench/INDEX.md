@@ -187,7 +187,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_subject_tracks.py`](check_subject_tracks.py) | The model-free judgements about a tracked subject (`subject_tracks.py`), on made-up masks. No model, no card. |
 | [`check_subject_yaw.py`](check_subject_yaw.py) | The turn metric's arithmetic: angles across the seam, the verdict, and the comparison with the eye. |
 | [`check_sweep_loads.py`](check_sweep_loads.py) | `bench/sweep_loads.py` against job files made here: a copy differs from its source in the named change and the names only. |
-| [`check_sync_heylook_presets.py`](check_sync_heylook_presets.py) | Offline checks for `bench/sync_heylook_presets.py`: sentinel preservation, legacy migration, params retention, & idempotency. |
+| [`check_sync_heylook_presets.py`](check_sync_heylook_presets.py) | Offline checks for `bench/sync_heylook_presets.py`: catalog, exact matching, legacy boundary stops, `--prefix`, & `[overlay_preset]` idempotency. |
 | [`check_timeline_page.py`](check_timeline_page.py) | Check ``bench/timeline_page.py``: whole-video NLE timeline data file and HTML builder. |
 | [`check_token_routing.py`](check_token_routing.py) | `token_routing` on MiniMaxH3Sol becomes a {block: budget} map; assert which. |
 | [`check_two_shot_load.py`](check_two_shot_load.py) | Two neighbouring shots as one load (`bench/two_shot_load.py`) on a made video: what it lays end to end, writes and refuses. |

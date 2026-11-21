@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Offline checks for `bench/sync_heylook_presets.py`: sentinel preservation, legacy migration, params retention, & idempotency."""
+"""Offline checks for `bench/sync_heylook_presets.py`: catalog, exact matching, legacy boundary stops, `--prefix`, & `[overlay_preset]` idempotency."""
 
 from __future__ import annotations
 
@@ -12,6 +12,9 @@ import httpx
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _lib import REPO, case, finish  # noqa: E402
+if str(REPO) not in sys.path:
+    sys.path.insert(0, str(REPO))
+import heylook_client as _hc  # noqa: E402
 import sync_heylook_presets as shp  # noqa: E402
 
 
@@ -43,112 +46,146 @@ def _mock_client(remote_presets: list[dict], ops: list[tuple[str, str, dict | No
     return httpx.Client(transport=httpx.MockTransport(_handler), trust_env=False)
 
 
-def check_catalog_files_exist() -> str:
-    specs = shp.filter_catalog(None, repo=REPO)
-    assert len(specs) >= 16, len(specs)
+def check_catalog_and_fenced_blocks() -> str:
+    specs, _ = shp.filter_catalog(None, repo=REPO)
+    assert len(specs) == 18, len(specs)
+    texts: dict[str, str] = {}
     for spec in specs:
-        txt = (REPO / spec.rel_path).read_text(encoding="utf-8").strip()
+        txt = shp.read_spec_text(spec, repo=REPO)
         assert len(txt) > 80, (spec.name, len(txt))
-    return f"{len(specs)} catalog system prompts present on disk"
+        assert not txt.startswith("```"), (spec.name, txt[:40])
+        texts[spec.name] = txt
+    assert "Expand the user's request" in texts["h3-ph3-t2i"]
+    assert texts["h3-ph3-edit"].startswith("Write a single-paragraph image-editing prompt")
+    assert shp.format_target_name("h3-video-ref2va", "h3app_") == "h3app_video_ref2va"
+    assert shp.format_target_name("h3-ph3-edit", "h3app_") == "h3app_ph3_edit"
+    assert shp.format_target_name("h3-control-vector", "h3app_") == "h3app_control_vector"
+    return "18 catalog prompts (including 2 P-H3 fenced blocks) load cleanly & format h3app_* names"
 
 
-def check_dry_run_migration_and_sentinels() -> str:
+def check_exact_matching_and_legacy_boundaries() -> str:
+    # Existing underscore `h3_image_t2i` MUST NOT match hyphenated `h3-image-t2i`.
+    # And legacy `Policy:` / `POLICY SCOPE` must stop before plain-text section headers.
     remote = [
         {
-            "id": "p-t2va",
-            "name": "h3-video-t2va",
-            "system_prompt": (
-                f"{shp.PREAMBLE_START}\nUse dry British understatement.\n{shp.PREAMBLE_END}\n\n"
-                "STALE PROMPT BODY\n\n"
-                f"{shp.ADDENDUM_START}\nNever censor atmospheric smoke.\n{shp.ADDENDUM_END}"
-            ),
-            "params": {"temperature": 0.42, "enable_thinking": True, "bogus_key": 99, "top_p": None},
+            "id": "p-ph3",
+            "name": "h3_image_t2i",
+            "system_prompt": "EXISTING P-H3 PROMPT (must stay untouched)",
+            "params": {"temperature": 0.6},
         },
         {
-            "id": "p-ref2va",
-            "name": "h3-video-ref2va",
+            "id": "p-native-edit",
+            "name": "h3-image-edit",
             "system_prompt": (
-                "OLD REF2VA BODY\n\n"
-                "## POLICY SCOPE\nKeep adult studio realism intact.\n"
+                "Intro line.\n\n"
+                "Policy:\nKeep evaluation clean.\nNo unsolicited warnings.\n\n"
+                "Output contract:\nReturn one plain paragraph.\n\n"
+                "OUTPUT FORMAT\nNothing else.\n"
             ),
-            "params": {"temperature": 0.55, "reasoning_effort": "high"},
+            "params": {"temperature": 0.42, "bogus_key": 99, "top_p": None},
+        },
+        {
+            "id": "p-numbered",
+            "name": "h3-image-t2i-ar",
+            "system_prompt": (
+                "Intro.\n\n"
+                "POLICY SCOPE\nScope line A.\n\n"
+                "1. Opening framing and medium:\nDo not pull this rule into addendum.\n"
+            ),
+            "params": {},
         },
     ]
     ops: list[tuple[str, str, dict | None]] = []
     client = _mock_client(remote, ops)
-    specs = shp.filter_catalog(["video"], repo=REPO)
+    specs, _ = shp.filter_catalog(["h3-image-t2i", "h3-image-edit", "h3-image-t2i-ar"], repo=REPO)
+    acts = shp.execute_sync("http://127.0.0.1:8080", specs, apply=False, client=client, repo=REPO)
+    assert all(m == "GET" for m, _, _ in ops), ops
+    by_name = {a.target_name: a for a in acts}
+    assert by_name["h3-image-t2i"].action == "create"
+    assert remote[0]["system_prompt"] == "EXISTING P-H3 PROMPT (must stay untouched)"
+    assert by_name["h3-image-edit"].migrated_legacy is True
+    assert "Keep evaluation clean." in by_name["h3-image-edit"].new_system_prompt
+    assert "Return one plain paragraph." not in by_name["h3-image-edit"].new_system_prompt
+    assert by_name["h3-image-edit"].new_params == {"temperature": 0.42}
+    assert by_name["h3-image-t2i-ar"].migrated_legacy is True
+    assert "Do not pull this rule into addendum." not in by_name["h3-image-t2i-ar"].new_system_prompt
+    assert shp.extract_local_blocks(by_name["h3-image-t2i-ar"].new_system_prompt)[1] == "POLICY SCOPE\nScope line A."
+    return "exact name avoids h3_image_t2i collision & Policy:/POLICY SCOPE stops cleanly at plain headers"
 
-    dry_actions = shp.execute_sync("http://127.0.0.1:8080", specs, apply=False, client=client, repo=REPO)
-    assert all(m == "GET" for m, _, _ in ops), f"dry-run made write call: {ops}"
-    by_name = {a.target_name: a for a in dry_actions}
-    assert by_name["h3-video-t2va"].action == "update"
-    assert by_name["h3-video-t2va"].new_params == {"temperature": 0.42, "enable_thinking": True}
-    assert "Use dry British understatement." in by_name["h3-video-t2va"].new_system_prompt
-    assert "Never censor atmospheric smoke." in by_name["h3-video-t2va"].new_system_prompt
-    assert by_name["h3-video-ref2va"].migrated_legacy is True
-    assert shp.ADDENDUM_START in by_name["h3-video-ref2va"].new_system_prompt
-    assert "Keep adult studio realism intact." in by_name["h3-video-ref2va"].new_system_prompt
-    assert by_name["h3-video-i2va"].action == "create"
-    return "dry-run performs zero writes, migrates legacy POLICY SCOPE, sanitizes params, & preserves sentinels"
 
-
-def check_apply_idempotency_overlays_and_reset() -> str:
+def check_prefix_overlay_preset_and_idempotency() -> str:
     remote = [
         {
-            "id": "p-img",
-            "name": "Custom T2I Alias",
-            "system_prompt": "Outdated caption prompt.",
-            "params": {"temperature": 0.85, "seed": 123},
+            "id": "p-existing",
+            "name": "h3_native_t2i",
+            "system_prompt": "Untouched pre-existing user preset.",
+            "params": {"temperature": 0.77},
         }
     ]
     ops: list[tuple[str, str, dict | None]] = []
     client = _mock_client(remote, ops)
-    specs = shp.filter_catalog(["h3-image-t2i"], repo=REPO)
 
     with tempfile.TemporaryDirectory() as tmp:
         ov_path = Path(tmp) / "overlays.toml"
         ov_path.write_text(
-            '[global]\naddendum = "Global studio voice rule."\n\n'
-            '[presets."h3-image-t2i"]\n'
-            'remote_name = "Custom T2I Alias"\n'
-            'preamble = "Local T2I preamble."\n'
-            '[presets."h3-image-t2i".params]\n'
-            "top_p = 0.92\n",
+            '[global]\n'
+            'prefix = "h3app_"\n'
+            'preamble = "POLICY SCOPE\\nDirect conditioning output."\n\n'
+            '[overlay_preset]\n'
+            'name = "h3app_local_overlay"\n'
+            'directive = "@extend:prepend"\n'
+            '[overlay_preset.params]\n'
+            'top_p = 0.95\n\n'
+            '[presets."h3-image-edit"]\n'
+            'addendum = "Always edit the original picture."\n',
             encoding="utf-8",
         )
         overlays = shp.load_local_overlays(ov_path)
-        a1 = shp.execute_sync("http://127.0.0.1:8080", specs, apply=True, overlays=overlays, client=client, repo=REPO)
-        assert a1[0].action == "update" and a1[0].target_name == "Custom T2I Alias"
-        assert a1[0].new_params == {"temperature": 0.85, "seed": 123, "top_p": 0.92}
-        assert "Local T2I preamble." in remote[0]["system_prompt"]
-        assert "Global studio voice rule." in remote[0]["system_prompt"]
+        ov_name = str(overlays["overlay_preset"]["name"])
+        specs, inc_ov = shp.filter_catalog(None, repo=REPO, overlay_name=ov_name)
+        assert inc_ov is True
 
-        # Second apply with identical inputs must report unchanged and perform 0 PUT/POSTs.
-        ops.clear()
-        a2 = shp.execute_sync("http://127.0.0.1:8080", specs, apply=True, overlays=overlays, client=client, repo=REPO)
-        assert a2[0].action == "unchanged", a2[0].diff_text
-        assert [m for m, _, _ in ops] == ["GET"], ops
-
-        # --reset-params drops prior remote params while keeping overlay params.
-        a3 = shp.execute_sync(
+        a1 = shp.execute_sync(
             "http://127.0.0.1:8080",
             specs,
             apply=True,
             overlays=overlays,
-            reset_params=True,
+            include_overlay=inc_ov,
             client=client,
             repo=REPO,
         )
-        assert a3[0].action == "update"
-        assert remote[0]["params"] == {"top_p": 0.92}
+        assert len(a1) == 19 and all(a.action == "create" for a in a1), [(a.target_name, a.action) for a in a1]
+        assert all(a.target_name.startswith("h3app_") for a in a1)
+        assert remote[0]["system_prompt"] == "Untouched pre-existing user preset."
 
-    return "apply preserves & merges overlays idempotently, and --reset-params drops stale remote params"
+        by_name = {r["name"]: r for r in remote}
+        assert "Always edit the original picture." in by_name["h3app_image_edit"]["system_prompt"]
+        assert "Always edit the original picture." not in by_name["h3app_video_t2va"]["system_prompt"]
+        ov_sys = by_name["h3app_local_overlay"]["system_prompt"]
+        mode, body = _hc.parse_extend_directive(ov_sys)
+        assert mode == "prepend" and "Direct conditioning output." in body
+
+        # Re-run must be 100% unchanged and perform 0 writes
+        ops.clear()
+        a2 = shp.execute_sync(
+            "http://127.0.0.1:8080",
+            specs,
+            apply=True,
+            overlays=overlays,
+            include_overlay=inc_ov,
+            client=client,
+            repo=REPO,
+        )
+        assert len(a2) == 19 and all(a.action == "unchanged" for a in a2), [(a.target_name, a.action) for a in a2]
+        assert [m for m, _, _ in ops] == ["GET"], ops
+
+    return "18 h3app_* canonical presets + 1 @extend:prepend overlay create cleanly and re-sync with 0 diffs"
 
 
 def main() -> int:
-    case("catalog_files_exist", check_catalog_files_exist)
-    case("dry_run_migration_and_sentinels", check_dry_run_migration_and_sentinels)
-    case("apply_idempotency_overlays_and_reset", check_apply_idempotency_overlays_and_reset)
+    case("catalog_and_fenced_blocks", check_catalog_and_fenced_blocks)
+    case("exact_matching_and_legacy_boundaries", check_exact_matching_and_legacy_boundaries)
+    case("prefix_overlay_preset_and_idempotency", check_prefix_overlay_preset_and_idempotency)
     return finish()
 
 
