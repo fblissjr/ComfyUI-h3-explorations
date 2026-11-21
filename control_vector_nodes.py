@@ -1779,7 +1779,8 @@ def _make_control_vector_wrapper(
                         per_layout = None
                 cache_entry = per_layout.get(flags_key) if per_layout is not None else None
                 if cache_entry is not None:
-                    released_layout, dropped_vis_rows, dropped_aud_rows = cache_entry
+                    cached_layout, dropped_vis_rows, dropped_aud_rows = cache_entry
+                    released_layout = orig_layout if cached_layout is None else cached_layout
                 else:
                     released_layout, dropped_vis_rows, dropped_aud_rows = _drop_cond_from_layout(
                         orig_layout,
@@ -1795,8 +1796,9 @@ def _make_control_vector_wrapper(
                             if per_layout is None:
                                 per_layout = {}
                                 released_layout_cache[orig_layout] = per_layout
+                            cached_layout = None if released_layout is orig_layout else released_layout
                             per_layout[flags_key] = (
-                                released_layout,
+                                cached_layout,
                                 dropped_vis_rows,
                                 dropped_aud_rows,
                             )

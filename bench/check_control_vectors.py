@@ -6392,6 +6392,40 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
                     b_vlats = pg_both.get("cond_video_latents") or []
                     if b_vlats != [kf_first_lat, kf_last_lat, pic90_lat] or [r.get("kind") for r in (pg_both.get("refs") or ())] != ["image"]:
                         errs.append(f"simultaneous guide+video release failed: vlats={len(b_vlats)}, refs={pg_both.get('refs')}")
+                    # WeakKeyDictionary GC regression: both non-trivial drop and no-op drop (released is orig) must release orig_layout
+                    import gc as _gc
+                    import weakref as _weakref
+                    cap_gc_dm = _CaptureAVDM()
+                    gc_patcher = cv_nodes.MiniMaxH3ReleaseReferences.execute(
+                        _MockPatcher(cap_gc_dm, ckpt_path),
+                        end_percent=0.50,
+                        clean_level=0.999,
+                        audio_end_percent=1.0,
+                        audio_clean_level=1.0,
+                        video_end_percent=1.0,
+                        guide_end_percent=0.50,
+                    ).args[0]
+                    gc_refs: list[_weakref.ReferenceType[Any]] = []
+                    for _noop_case in (False, True):
+                        if _noop_case:
+                            _tmp_lay = PackedLayout(6, 1, 4, 4, 2)
+                            _tmp_payload = {"keyframes": [{"resolved_frame_index": 0, "latent": kf_first_lat}], "cond_video_latents": [kf_first_lat], "layout": _tmp_lay}
+                        else:
+                            _tmp_lay = PackedLayout(6, 27, 4, 4, 150, keyframes=kfs_90, refs=refs_90)
+                            _tmp_payload = {"keyframes": kfs_90, "refs": refs_90, "cond_video_latents": [kf_first_lat, kf_mid_lat, kf_mask_lat, kf_last_lat, pic90_lat, vid90_lat], "layout": _tmp_lay}
+                        gc_refs.append(_weakref.ref(_tmp_lay))
+                        gc_patcher.invoke_diffusion_model(
+                            [x90_vid, x90_aud],
+                            torch.tensor([570.0]),
+                            ctx_av,
+                            {"sample_sigmas": sched6, "sigmas": torch.tensor([0.57])},
+                            minimax_payload=_tmp_payload,
+                        )
+                        cap_gc_dm.seen_payloads.clear()
+                        del _tmp_payload, _tmp_lay
+                    _gc.collect()
+                    if any(r() is not None for r in gc_refs):
+                        errs.append("released_layout_cache retained strong reference to orig_layout after render (non-trivial or no-op drop)")
                     # Paired single-frame endpoint guard: total_frames=1 keyframe at idx=0 never drops
                     sf_kfs = [{"resolved_frame_index": 0, "latent": kf_first_lat}]
                     sf_lay = PackedLayout(6, 1, 4, 4, 2, keyframes=sf_kfs)
