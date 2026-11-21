@@ -1,0 +1,129 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 940 390" width="100%" height="100%" role="img" aria-label="Comparison of 1D additive steering versus Clamped Prompt-Centered Pole-A Subspace Erasure in H3 5376-D conditioning space">
+  <defs>
+    <filter id="cardShadowEr" x="-4%" y="-4%" width="108%" height="112%">
+      <feDropShadow dx="0" dy="3" stdDeviation="5" flood-color="#0f172a" flood-opacity="0.05"/>
+    </filter>
+    <marker id="arrTealEr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 1 1.5 L 8.5 5 L 1 8.5 z" fill="#0d9488"/>
+    </marker>
+    <marker id="arrAmberEr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 1 1.5 L 8.5 5 L 1 8.5 z" fill="#d97706"/>
+    </marker>
+    <marker id="arrRoseEr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 1 1.5 L 8.5 5 L 1 8.5 z" fill="#e11d48"/>
+    </marker>
+    <marker id="arrSlateEr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 1 1.5 L 8.5 5 L 1 8.5 z" fill="#64748b"/>
+    </marker>
+  </defs>
+
+  <style>
+    .canvas { fill: #faf9f5; stroke: #e5e3dc; stroke-width: 1.5; rx: 16px; }
+    .card { fill: #ffffff; stroke: #e5e7eb; stroke-width: 1.2; rx: 12px; filter: url(#cardShadowEr); }
+    .heading { font-family: Georgia, "Newsreader", "Charter", serif; font-size: 19px; font-weight: 600; fill: #18181b; }
+    .subhead { font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 12.5px; fill: #64748b; }
+    .card-title { font-family: Georgia, "Newsreader", "Charter", serif; font-size: 15px; font-weight: 600; fill: #1e293b; }
+    .label { font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 11.5px; font-weight: 600; }
+    .mono { font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; font-size: 11px; font-weight: 600; }
+    .caption { font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 11px; fill: #64748b; }
+    .erase-dash { stroke-dasharray: 5 4; animation: eraseFlow 3.6s ease-in-out infinite; }
+    .pulse-ok { animation: pulseTarget 3.6s ease-in-out infinite; }
+    @keyframes eraseFlow {
+      0%, 15% { opacity: 0.35; stroke-dashoffset: 18; }
+      50%, 85% { opacity: 1; stroke-dashoffset: 0; }
+      100% { opacity: 0.35; stroke-dashoffset: -18; }
+    }
+    @keyframes pulseTarget {
+      0%, 20% { opacity: 0.65; }
+      55%, 85% { opacity: 1; }
+      100% { opacity: 0.65; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .erase-dash, .pulse-ok { animation: none; }
+    }
+  </style>
+
+  <!-- Warm Paper Background -->
+  <rect x="4" y="4" width="932" height="382" class="canvas"/>
+
+  <!-- Header -->
+  <text x="32" y="38" class="heading">Breaking the 1D Prompt Veto via Clamped Pole-A Subspace Erasure</text>
+  <text x="32" y="58" class="subhead">Why adding a constant arrow leaves conflicting prompt cues intact, while surgical rank-8 Vr erasure flips 1x renders cleanly.</text>
+
+  <!-- ===================================================================== -->
+  <!-- LEFT CARD: LEGACY 1D VECTOR (PROMPT VETO)                             -->
+  <!-- ===================================================================== -->
+  <rect x="26" y="76" width="430" height="290" class="card"/>
+  <text x="46" y="103" class="card-title">1. Legacy 1D Addition (add_norm_matched)</text>
+  <text x="46" y="121" class="caption">H' = H + s · v_1D — shifts every token equally, leaving Pole-A color intact</text>
+
+  <rect x="46" y="134" width="390" height="196" rx="10" fill="#f8fafc" stroke="#e2e8f0"/>
+
+  <!-- Axes: Origin (122, 286) -->
+  <!-- Horizontal Conflicting Pole-A Subspace Vr -->
+  <rect x="218" y="146" width="204" height="170" rx="8" fill="#fffbeb" stroke="#fde68a" stroke-dasharray="4 3"/>
+  <text x="230" y="164" class="caption" fill="#b45309">Pole-A Color Zone (DiT Veto)</text>
+
+  <line x1="94" y1="286" x2="416" y2="286" stroke="#cbd5e1" stroke-width="1.4" marker-end="url(#arrSlateEr)"/>
+  <text x="242" y="318" class="label" fill="#b45309">Conflicting Pole-A Subspace V_r (warm / sunlit)</text>
+
+  <!-- Vertical Pole-B Target Axis -->
+  <line x1="122" y1="304" x2="122" y2="150" stroke="#cbd5e1" stroke-width="1.4" marker-end="url(#arrSlateEr)"/>
+  <text x="58" y="152" class="label" fill="#334155">Pole-B Target</text>
+
+  <!-- Neutral subject tokens ("porter", "crates") near V_r = 0 -->
+  <circle cx="132" cy="276" r="4.5" fill="#64748b"/>
+  <text x="142" y="280" class="mono" fill="#475569">"porter"</text>
+  <line x1="132" y1="272" x2="132" y2="206" stroke="#d97706" stroke-width="2" marker-end="url(#arrAmberEr)"/>
+  <circle cx="132" cy="198" r="5" fill="#d97706"/>
+
+  <!-- Conflicting tokens ("sunlit", "warm") deep inside V_r -->
+  <circle cx="328" cy="274" r="5" fill="#d97706"/>
+  <text x="338" y="278" class="mono" fill="#b45309">"sunlit"</text>
+  <line x1="328" y1="268" x2="328" y2="202" stroke="#d97706" stroke-width="2.2" marker-end="url(#arrAmberEr)"/>
+  <circle cx="328" cy="194" r="5.5" fill="#e11d48"/>
+  <text x="262" y="186" class="label" fill="#be123c">Still warm color! (0/5 B&amp;W)</text>
+
+  <circle cx="272" cy="282" r="4.5" fill="#d97706"/>
+  <text x="279" y="297" class="mono" fill="#b45309">"warm"</text>
+  <line x1="272" y1="276" x2="272" y2="210" stroke="#d97706" stroke-width="2" marker-end="url(#arrAmberEr)"/>
+  <circle cx="272" cy="202" r="5" fill="#e11d48"/>
+
+  <text x="46" y="350" class="caption">Result: Cranking strength only darkens fruit into spotted blobs without erasing daylight.</text>
+
+  <!-- ===================================================================== -->
+  <!-- RIGHT CARD: CLAMPED POLE-A SUBSPACE ERASURE                           -->
+  <!-- ===================================================================== -->
+  <rect x="484" y="76" width="430" height="290" class="card"/>
+  <text x="504" y="103" class="card-title">2. Clamped Pole-A Erasure (add_norm_matched_erasure)</text>
+  <text x="504" y="121" class="caption">H' = H − clip(s,0,1)·e_cap·P_{V_r,λ}(H − H̄) + s · μ̂_d  (RMS = |s|·67.5)</text>
+
+  <rect x="504" y="134" width="390" height="196" rx="10" fill="#f8fafc" stroke="#e2e8f0"/>
+
+  <!-- Clean Pole-B Zone -->
+  <rect x="536" y="146" width="144" height="80" rx="8" fill="#f0fdfa" stroke="#99f6e4"/>
+  <text x="546" y="163" class="label" fill="#0f766e">5/5 Silver-Gelatin B&amp;W</text>
+
+  <line x1="552" y1="286" x2="874" y2="286" stroke="#cbd5e1" stroke-width="1.4" marker-end="url(#arrSlateEr)"/>
+  <text x="706" y="318" class="label" fill="#64748b">Pole-A Subspace V_r Zeroed Out</text>
+
+  <line x1="580" y1="304" x2="580" y2="150" stroke="#cbd5e1" stroke-width="1.4" marker-end="url(#arrSlateEr)"/>
+
+  <!-- "porter" has ||E(h_i)|| ≈ 0: untouched horizontally, lifted cleanly by +s * mu_d -->
+  <circle cx="592" cy="276" r="4.5" fill="#64748b"/>
+  <text x="600" y="281" class="mono" fill="#334155">"porter" (||E||≈0)</text>
+  <line x1="592" y1="270" x2="592" y2="196" stroke="#0d9488" stroke-width="2.6" class="pulse-ok" marker-end="url(#arrTealEr)"/>
+  <circle cx="592" cy="188" r="5.5" fill="#0d9488"/>
+
+  <!-- "sunlit" deep in V_r: Step 1 erases V_r projection horizontally, Step 2 lifts by +s * mu_d -->
+  <circle cx="806" cy="274" r="5" fill="#d97706"/>
+  <text x="774" y="295" class="mono" fill="#be123c">"sunlit" (||E|| high)</text>
+  <line x1="800" y1="274" x2="622" y2="274" stroke="#e11d48" stroke-width="2.2" class="erase-dash" marker-end="url(#arrRoseEr)"/>
+  <text x="678" y="264" class="label" fill="#be123c">−P_{V_r,λ}(h_i − h̄)</text>
+
+  <line x1="614" y1="270" x2="614" y2="196" stroke="#0d9488" stroke-width="2.6" class="pulse-ok" marker-end="url(#arrTealEr)"/>
+  <circle cx="614" cy="188" r="5.5" fill="#0d9488"/>
+  <text x="626" y="192" class="mono" fill="#0f766e">+s·μ_d ("black +1.52")</text>
+
+  <text x="504" y="350" class="caption">Result: "sunlit/warm" erased, "porter/crates" preserved intact, 193.5 KB payload, 0 extra DiT steps.</text>
+</svg>

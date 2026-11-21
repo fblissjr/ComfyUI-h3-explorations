@@ -1,0 +1,347 @@
+{
+  "1": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+      "weight_dtype": "default"
+    }
+  },
+  "2": {
+    "class_type": "MiniMaxH3EncoderLoader",
+    "inputs": {
+      "encoder_name": "qwen3vl_32b_minimax_h3_bf16_pruned.safetensors",
+      "device": "default"
+    }
+  },
+  "3": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "minimax_h3_video_vae_int8_convrot.safetensors"
+    }
+  },
+  "4": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "minimax_h3_audio_vae_fp32.safetensors"
+    }
+  },
+  "6": {
+    "class_type": "RandomNoise",
+    "inputs": {
+      "noise_seed": 730451892
+    }
+  },
+  "7": {
+    "class_type": "KSamplerSelect",
+    "inputs": {
+      "sampler_name": "lcm"
+    }
+  },
+  "9": {
+    "class_type": "BasicGuider",
+    "inputs": {
+      "model": [
+        "115",
+        0
+      ],
+      "conditioning": [
+        "26",
+        0
+      ]
+    }
+  },
+  "10": {
+    "class_type": "SamplerCustomAdvanced",
+    "inputs": {
+      "noise": [
+        "6",
+        0
+      ],
+      "guider": [
+        "9",
+        0
+      ],
+      "sampler": [
+        "7",
+        0
+      ],
+      "sigmas": [
+        "60",
+        0
+      ],
+      "latent_image": [
+        "26",
+        1
+      ]
+    }
+  },
+  "11": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": [
+        "10",
+        0
+      ],
+      "vae": [
+        "3",
+        0
+      ]
+    }
+  },
+  "12": {
+    "class_type": "VAEDecodeAudio",
+    "inputs": {
+      "samples": [
+        "10",
+        0
+      ],
+      "vae": [
+        "4",
+        0
+      ]
+    }
+  },
+  "13": {
+    "class_type": "VHS_VideoCombine",
+    "inputs": {
+      "images": [
+        "161",
+        0
+      ],
+      "audio": [
+        "12",
+        0
+      ],
+      "frame_rate": 24.0,
+      "loop_count": 0,
+      "filename_prefix": "Video/h3_t2v_pika_1d_vs_erasure_ab",
+      "format": "video/h264-mp4",
+      "pix_fmt": "yuv420p",
+      "crf": 19,
+      "save_metadata": true,
+      "trim_to_audio": false,
+      "pingpong": false,
+      "save_output": true
+    }
+  },
+  "27": {
+    "class_type": "MiniMaxH3Resolution",
+    "inputs": {
+      "shape": "wide",
+      "shape.wide_resolution": "1152x768  3/2  864 tok/frame  0.73x",
+      "length": 141
+    }
+  },
+  "5": {
+    "class_type": "MiniMaxH3Conditioning",
+    "inputs": {
+      "clip": [
+        "2",
+        0
+      ],
+      "vae": [
+        "3",
+        0
+      ],
+      "prompt": "integrated_multimodal_description: [Shot 1] Live-action, a 1970s television sitcom style with warm tungsten lighting and avocado green kitchen cabinetry captures a domestic mishap across the fourteen-second take. A flustered suburban father in a brown polyester knit vest, on-screen, forties, with a bright, excitable tenor and an urgent delivery (S1), grapples with an electric coffee percolator spurting brown foam across the counter beneath a wall clock reading \"SUNBEAM\" in black lettering. A golden retriever rests on the linoleum floor beside the kitchen table and produces no vocal sound. The father (S1) waves a kitchen towel toward the table and calls out: <d>[English] Grab the unplug cord before the whole counter floats away!</d> His mouth closes into an aghast round shape and his jaw tightens. The camera pans left with small amplitude at slow speed from the sink to the breakfast nook. [Shot 2] The shot transitions to a medium shot of his teenage daughter seated at the laminate table in denim bell-bottoms, on-screen, late teens, with a flat, dry contralto and a deadpan delivery (S2), calmly buttering a piece of toast. The daughter (S2) looks up over her horn-rimmed glasses toward her father and remarks: <d>[English] You said you wanted extra strong brew this morning.</d> Her lips press shut into a slight smirk and she takes a leisurely bite of toast. The camera zooms in with small amplitude at fast speed on her unbothered expression. [Shot 3] The shot changes to a wide view framing both father and daughter as the percolator lid pops loose with a puff of white steam, sending the father hopping backward onto one foot. The camera holds a static shot as coffee foam bubbles gently down the cabinet doors.\n\noverall_soundscape: Coffee liquid hisses and spatters rhythmically against hot metal, followed by the metallic pop of an aluminum lid bouncing. Studio audience laughter and chuckles swell across the room as linoleum squeaks under shuffling slippers.\n\nnon_diegetic_music: A jaunty 1970s television sitcom cue at a brisk tempo, featuring funky clavinet chords, bouncy electric bass, and a sharp brass accent that punctuates the final comedic beat.",
+      "width": [
+        "27",
+        0
+      ],
+      "height": [
+        "27",
+        1
+      ],
+      "length": [
+        "27",
+        2
+      ],
+      "canvas": "explicit"
+    }
+  },
+  "18": {
+    "class_type": "MiniMaxH3LoRABranch",
+    "inputs": {
+      "model": [
+        "1",
+        0
+      ],
+      "lora_name": "h3/pika_h3_flex_fl2va_svd995_bf16.safetensors",
+      "strength": 1.0,
+      "modules": "all",
+      "blocks": "all",
+      "start_percent": 0.0,
+      "end_percent": 1.0
+    }
+  },
+  "19": {
+    "class_type": "MiniMaxH3SigmaShift",
+    "inputs": {
+      "model": [
+        "18",
+        0
+      ],
+      "shift_video": 12.0,
+      "shift_audio": 3.0
+    }
+  },
+  "58": {
+    "class_type": "ModelAttentionBackend",
+    "inputs": {
+      "model": [
+        "19",
+        0
+      ],
+      "attention": "comfy kitchen attention"
+    }
+  },
+  "21": {
+    "class_type": "MiniMaxH3Sol",
+    "inputs": {
+      "model": [
+        "58",
+        0
+      ],
+      "tau": 1.0,
+      "start_percent": 0.2,
+      "end_percent": 1.0,
+      "min_tokens": 12288,
+      "sink_conditioning": "exact_kv_and_all_rows",
+      "verbose": true,
+      "dense_blocks": "49",
+      "quantizer": "rotated",
+      "token_routing": "off",
+      "rows": "per segment",
+      "rows.text_rows": "exact",
+      "rows.reference_rows": "exact",
+      "rows.audio_rows": "exact",
+      "rows.video_reference_rows": "routed"
+    }
+  },
+  "115": {
+    "class_type": "MiniMaxH3Steer",
+    "inputs": {
+      "model": [
+        "21",
+        0
+      ],
+      "vector": "noir",
+      "strength": 1.55,
+      "mode": "add_norm_matched_erasure",
+      "target": "scene_only",
+      "start_percent": 0.0,
+      "end_percent": 1.0,
+      "streams": "both",
+      "hold_words": "",
+      "hold_alpha": 1.0,
+      "allow_recipe_mismatch": true
+    }
+  },
+  "26": {
+    "class_type": "MiniMaxH3Preflight",
+    "inputs": {
+      "conditioning": [
+        "5",
+        0
+      ],
+      "samples": [
+        "5",
+        1
+      ]
+    }
+  },
+  "60": {
+    "class_type": "ManualSigmas",
+    "inputs": {
+      "sigmas": "1.0, 0.972973, 0.923077, 0.8, 0.571429, 0.333333, 0.0"
+    }
+  },
+  "170": {
+    "class_type": "MiniMaxH3Steer",
+    "inputs": {
+      "vector": "noir",
+      "strength": 1.55,
+      "mode": "add_norm_matched",
+      "target": "scene_only",
+      "start_percent": 0.0,
+      "end_percent": 1.0,
+      "streams": "both",
+      "hold_words": "",
+      "hold_alpha": 1.0,
+      "allow_recipe_mismatch": true,
+      "model": [
+        "21",
+        0
+      ]
+    }
+  },
+  "171": {
+    "class_type": "BasicGuider",
+    "inputs": {
+      "model": [
+        "170",
+        0
+      ],
+      "conditioning": [
+        "26",
+        0
+      ]
+    }
+  },
+  "172": {
+    "class_type": "SamplerCustomAdvanced",
+    "inputs": {
+      "noise": [
+        "6",
+        0
+      ],
+      "guider": [
+        "171",
+        0
+      ],
+      "sampler": [
+        "7",
+        0
+      ],
+      "sigmas": [
+        "60",
+        0
+      ],
+      "latent_image": [
+        "26",
+        1
+      ]
+    }
+  },
+  "173": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": [
+        "172",
+        0
+      ],
+      "vae": [
+        "3",
+        0
+      ]
+    }
+  },
+  "161": {
+    "class_type": "MiniMaxH3DirectorHUD",
+    "inputs": {
+      "images": [
+        "11",
+        0
+      ],
+      "director_plan": "",
+      "hud_layout": "split_ab_card",
+      "title": "SAME-SEED A/B · 1D vs POLE-A ERASURE",
+      "subtitle": "Left: 1D add_norm_matched | Right: add_norm_matched_erasure (noir +1.55)",
+      "ring_opacity": 0.85,
+      "baseline_images": [
+        "173",
+        0
+      ]
+    }
+  }
+}

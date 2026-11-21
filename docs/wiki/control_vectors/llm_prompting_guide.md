@@ -1,6 +1,6 @@
 # Authoring Contrastive Pairs with an LLM
 
-Last updated: 2026-11-11.
+Last updated: 2026-11-21 (added Rule 6: The Pole-A Coverage Law for rank-8 `erasure.vr`).
 
 You can author a validated 6–10 pair `.toml` control-vector pack with any frontier chat LLM (copy-paste workflow) or with a local GPU LLM via `bench/control_vectors.py generate-pairs`.
 
@@ -15,9 +15,9 @@ You can author a validated 6–10 pair `.toml` control-vector pack with any fron
 
 ---
 
-## 2. Five rules that decide whether LLM-authored pairs work or fail
+## 2. Six rules that decide whether LLM-authored pairs work or fail
 
-Every rule below comes directly from measured failure modes in our 2026-11-05..2026-11-11 builds:
+Every rule below comes directly from measured failure modes in our 2026-11-05..2026-11-21 builds:
 
 1. **One coherent physical/optical/acoustic mechanism across all pairs—never a grab-bag of different nouns**:
    - *Good*: Every pair in `claymation_stopmotion` turns a different scene (kitchen, street, workshop, harbor) into hand-sculpted plasticine clay with thumbprints and 12-fps stepped motion. Scene nouns cancel; plasticine physics reinforces.
@@ -34,6 +34,9 @@ Every rule below comes directly from measured failure modes in our 2026-11-05..2
 5. **Add a `#### Hold` group whenever your concept has an obvious unwanted twin**:
    - If you ask for 1970s 16mm grain without warm sepia tint, add a `Hold` group contrasting neutral daylight balance against warm amber tungsten cast (`film_16mm_1974_neutral`).
    - If you ask for surveillance grit without panicked movement, add a `Hold` group contrasting calm pedestrians against frantic running crowds.
+6. **Obey the Pole-A Coverage Law (`8–12` pairs spanning every conflicting baseline facet for `erasure.vr`)**:
+   - Under default `add_norm_matched_erasure`, Pole A (`diff_a`) is not throwaway scaffolding—thin SVD over centered Pole-A tokens builds the 8-dimensional **erasure subspace `erasure.vr`** that zeroes conflicting cues in user prompts at render time.
+   - Across Monte-Carlo subsample curves (`bench/control_vector/eval_multivector_erasure.py`), `1–2` pairs capture only `33%–60%` of the full Grassmannian Pole-A subspace, whereas **`8–10` pairs reach `81%–89%+` coverage**. Make Pole A actively span the real-world defaults your slider will have to override (e.g., for `noir`: sunlit windows, warm tungsten bulbs, golden-hour street light, vibrant clothing, natural skin warmth) rather than repeating one verbatim copy-pasted Pole-A phrase across every pair.
 
 ---
 

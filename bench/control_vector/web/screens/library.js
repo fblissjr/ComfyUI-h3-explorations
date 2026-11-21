@@ -1,7 +1,8 @@
 // The library: the vectors and pair files on disk, and `rebuild`.
 
-import { studio, onListing, h } from '../api.js';
+import { studio, onListing, apiPost, h } from '../api.js';
 import { methodCard } from '../form.js';
+import { readoutView } from '../readout.js';
 
 function num(value) {
   return typeof value === 'number' ? value.toFixed(3) : '';
@@ -12,6 +13,18 @@ export function mount(root, nav) {
   const vecBody = h('tbody');
   const tomlBody = h('tbody');
   const count = h('span', { class: 'field-hint' });
+  const xrayDrawer = h('div', { class: 'note-panel' });
+
+  const showXray = async (file) => {
+    if (!studio.init.j_lens_available) return;
+    xrayDrawer.replaceChildren(h('div', { class: 'field-hint' }, `Decoding ${file}...`));
+    try {
+      const res = await apiPost('/api/j-lens', { vector: file });
+      xrayDrawer.replaceChildren(readoutView(res.readout, `Subspace X-Ray — ${file}`));
+    } catch (e) {
+      xrayDrawer.replaceChildren(h('div', { class: 'run-err' }, e.message));
+    }
+  };
 
   const draw = () => {
     const q = filter.value.trim().toLowerCase();
@@ -29,6 +42,10 @@ export function mount(root, nav) {
       h('td', {}, (v.differing_sections || []).join(', ')),
       h('td', {}, v.rec_strength),
       h('td', {},
+        studio.init.j_lens_available
+          ? h('button', { type: 'button', class: 'btn btn-sm', onclick: () => showXray(v.file) }, 'X-Ray')
+          : null,
+        studio.init.j_lens_available ? ' ' : null,
         h('button', { type: 'button', class: 'btn btn-sm', onclick: () => nav.go('inspect', { vector: v.file }) }, 'Inspect'),
         ' ',
         h('button', { type: 'button', class: 'btn btn-sm', onclick: () => nav.go('sculpt', { vector: v.file }) }, 'Sculpt')))));
@@ -52,7 +69,8 @@ export function mount(root, nav) {
       filter,
       h('div', { class: 'table-scroll' }, h('table', { class: 'lib-table' },
         head(['file', 'family', 'pooling', 'erasure', 'pairs / holds', 'norm', 'pairwise cosine', 'split half', 'sections that differ', 'recommended strength', '']),
-        vecBody))),
+        vecBody)),
+      xrayDrawer),
     h('section', { class: 'card' },
       h('div', { class: 'card-header' }, h('h3', { class: 'card-title' }, 'Pair files'),
         h('span', { class: 'field-hint' }, `${studio.init.toml_dir} and the pack's bank`)),

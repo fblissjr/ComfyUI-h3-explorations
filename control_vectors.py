@@ -1461,6 +1461,81 @@ def compose_erasure_payload(
     )
 
 
+def per_token_erasure_profile(
+    rows: torch.Tensor,
+    mask: torch.Tensor,
+    vr: torch.Tensor,
+    diag: torch.Tensor,
+) -> dict[str, list[float] | float]:
+    """Return per-active-token Pole-A erasure norm `||E(h_i)||_2`, fractional ratio, and RMS summary."""
+    m_bool = mask.flatten().to(device="cpu", dtype=torch.bool)
+    h = rows.detach().to(device="cpu", dtype=torch.float64)[m_bool]
+    if h.shape[0] <= 1 or vr.ndim != 2 or vr.shape[0] < 1 or diag.numel() < 1:
+        n_h = int(h.shape[0])
+        return {"erasure_norms": [0.0] * n_h, "erasure_ratios": [0.0] * n_h, "erasure_rms": 0.0}
+    hc = h - h.mean(dim=0, keepdim=True)
+    vr64 = vr.detach().to(device="cpu", dtype=torch.float64)
+    d64 = diag.detach().to(device="cpu", dtype=torch.float64).flatten().clamp(0.0, 1.0)
+    r_use = min(int(vr64.shape[0]), int(d64.numel()))
+    e_rows = ((hc @ vr64[:r_use].T) * d64[:r_use].unsqueeze(0)) @ vr64[:r_use]
+    norms = torch.linalg.vector_norm(e_rows, dim=-1)
+    hc_norms = torch.linalg.vector_norm(hc, dim=-1).clamp(min=1e-12)
+    ratios = (norms / hc_norms).clamp(0.0, 1.0)
+    rms = float(torch.sqrt(torch.mean(norms ** 2)).item())
+    return {
+        "erasure_norms": [float(x) for x in norms.tolist()],
+        "erasure_ratios": [float(x) for x in ratios.tolist()],
+        "erasure_rms": rms,
+    }
+
+
+def erasure_spectral_summary(
+    a_spans: Sequence[torch.Tensor],
+    b_spans: Sequence[torch.Tensor],
+    *,
+    mu_d: torch.Tensor | None = None,
+    v_1d: torch.Tensor | None = None,
+    vr: torch.Tensor | None = None,
+    diag: torch.Tensor | None = None,
+) -> dict[str, Any]:
+    """Compute `rank1_energy_share` (`1D_E%`), Pole-A `effective_rank`, and `cos_mu_d_v1d` in `float64`."""
+    if not a_spans or not b_spans:
+        return {}
+    a_cat = torch.cat([s.detach().to(device="cpu", dtype=torch.float64) for s in a_spans if s.numel() > 0], dim=0)
+    b_cat = torch.cat([s.detach().to(device="cpu", dtype=torch.float64) for s in b_spans if s.numel() > 0], dim=0)
+    if a_cat.shape[0] < 2 or b_cat.shape[0] < 1:
+        return {}
+    mu_a = a_cat.mean(dim=0, keepdim=True)
+    shifts = b_cat - mu_a
+    mean_sh = shifts.mean(dim=0, keepdim=True)
+    denom_sh = float((shifts ** 2).sum(dim=-1).mean().item())
+    rank1_share = float((mean_sh ** 2).sum().item() / max(denom_sh, 1e-12))
+
+    ac = a_cat - mu_a
+    _u, sv, _vh = torch.linalg.svd(ac, full_matrices=False)
+    p_sv = (sv ** 2) / (sv ** 2).sum().clamp(min=1e-12)
+    p_nz = p_sv[p_sv > 1e-12]
+    eff_rank = float(torch.exp(-(p_nz * torch.log(p_nz)).sum()).item()) if p_nz.numel() > 0 else 0.0
+
+    out: dict[str, Any] = {
+        "rank1_energy_share": round(rank1_share, 4),
+        "pole_a_effective_rank": round(eff_rank, 2),
+        "n_a_tokens": int(a_cat.shape[0]),
+        "n_b_tokens": int(b_cat.shape[0]),
+    }
+    if mu_d is not None and v_1d is not None:
+        m64 = mu_d.detach().to(device="cpu", dtype=torch.float64).flatten()
+        v64 = v_1d.detach().to(device="cpu", dtype=torch.float64).flatten()
+        mn = float(torch.linalg.vector_norm(m64).item())
+        vn = float(torch.linalg.vector_norm(v64).item())
+        if mn > 1e-12 and vn > 1e-12:
+            out["cos_mu_d_v1d"] = round(float(torch.dot(m64, v64).item() / (mn * vn)), 4)
+    if vr is not None and diag is not None:
+        out["erasure_rank"] = int(vr.shape[0])
+        out["diag"] = [round(float(x), 4) for x in diag.detach().cpu().flatten().tolist()]
+    return out
+
+
 def _pool_rows(rows: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
     """The mean of the masked rows, summed in float64 and returned in float32."""
     return rows.to(dtype=torch.float64)[mask].mean(dim=0).to(dtype=torch.float32)

@@ -375,7 +375,9 @@ def _r_preview_words(state: ControlVectorUIState, req: dict[str, Any]) -> dict[s
             alpha=float(getattr(ns, "hold_alpha", 1.0)),
             prompt=str(getattr(ns, "prompt", "") or "").strip() or None,
         )
-        ro = synth["readout"]
+        ro = dict(synth["readout"])
+        if synth.get("erasure_readout"):
+            ro["erasure_readout"] = synth["erasure_readout"]
         out.append(
             {
                 "family": fam,
@@ -383,6 +385,7 @@ def _r_preview_words(state: ControlVectorUIState, req: dict[str, Any]) -> dict[s
                 "pos_words_unmatched": synth.get("pos_words_unmatched", []),
                 "neg_words_matched": synth["neg_words_matched"],
                 "hold_words": synth["hold_words"],
+                "used_model2vec_lexicon": bool(synth.get("used_model2vec_lexicon", False)),
                 "rec_strength": _recommended_strength_text(float(ro.get("norm_after_holds", ro.get("norm_before_holds", 0.0)))),
                 "readout": ro,
             }
@@ -426,7 +429,9 @@ def _r_j_lens(state: ControlVectorUIState, req: dict[str, Any]) -> dict[str, Any
         alpha=float(req.get("hold_alpha", 1.0)),
         prompt=str(req.get("prompt", "") or "").strip() or None,
     )
-    ro = rep.get("post_refiner") or rep.get("readout") or {}
+    ro = dict(rep.get("post_refiner") or rep.get("readout") or {})
+    if rep.get("erasure_readout") and "erasure_readout" not in ro:
+        ro["erasure_readout"] = rep["erasure_readout"]
     return {"ok": True, **rep, "readout": ro}
 
 

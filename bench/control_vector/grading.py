@@ -77,6 +77,23 @@ def cmd_inspect(args: argparse.Namespace) -> int:
             )
         print(f"  j_lens (PR +)   : {pr_jl['pos_summary']}")
         print(f"  j_lens (PR -)   : {pr_jl['neg_summary']}")
+        er_jl = jl_rep.get("erasure_readout") or pr_jl.get("erasure_readout") or {}
+        if er_jl:
+            rescued_note = (
+                f"  [rescued vs 1D: {', '.join(er_jl['rescued_words'])}]"
+                if er_jl.get("rescued_words")
+                else ""
+            )
+            print(
+                f"  erasure payload : rank={er_jl.get('rank')}  cos(mu_d,v_1d)={er_jl.get('cos_mu_d_v1d', 1.0):.4f}  "
+                f"diag={er_jl.get('diag', [])}{rescued_note}"
+            )
+            if er_jl.get("mu_d_pos_summary"):
+                print(f"  j_lens (mu_d +) : {er_jl['mu_d_pos_summary']}")
+            if er_jl.get("erased_summary"):
+                print(f"  erases (Pole A) : {er_jl['erased_summary']}")
+            for ax in er_jl.get("vr_axes", ())[:4]:
+                print(f"    vr[{ax['axis']}] (d={ax['diag']:.2f}): {ax['erases_summary']}")
         if "encoder" in jl_rep:
             enc_jl = jl_rep["encoder"]
             print(f"  j_lens (EN +)   : {enc_jl['pos_summary']}")
@@ -183,6 +200,17 @@ def cmd_inspect(args: argparse.Namespace) -> int:
                 if len(tok_str) >= 2 and any(ch.isalnum() for ch in tok_str):
                     scored_toks.append((tok_str, float(tok_cos_all[idx_t])))
             scored_toks.sort(key=lambda x: x[1], reverse=True)
+            erased_toks: list[tuple[str, float]] = []
+            erase_rms_val = 0.0
+            if "erasure.vr" in tensors and "erasure.diag" in tensors and len(active_idxs) > 1:
+                prof = cv.per_token_erasure_profile(r64_cpu, m_bool, tensors["erasure.vr"], tensors["erasure.diag"])
+                e_norms = prof["erasure_norms"]
+                erase_rms_val = float(prof["erasure_rms"])
+                for idx_t, en_val in zip(active_idxs, e_norms):
+                    tok_str = dec_fn([int(tids[idx_t])]).strip() if idx_t < len(tids) else ""
+                    if len(tok_str) >= 2 and any(ch.isalnum() for ch in tok_str):
+                        erased_toks.append((tok_str, float(en_val)))
+                erased_toks.sort(key=lambda x: x[1], reverse=True)
             rows.append(
                 (
                     label,
@@ -193,18 +221,24 @@ def cmd_inspect(args: argparse.Namespace) -> int:
                     max_tcos,
                     p90_tcos,
                     scored_toks[:5],
+                    erase_rms_val,
+                    erased_toks[:5],
                 )
             )
         anchor_units = rows[0][1] if rows else 0.0
-        for label, p_units, s_proj, cos_val, n_tok, max_tc, p90_tc, top_toks in rows:
+        for label, p_units, s_proj, cos_val, n_tok, max_tc, p90_tc, top_toks, er_rms, top_erased in rows:
             delta_u = p_units - anchor_units
             top_str = ", ".join(f"{w} ({c:+.3f})" for w, c in top_toks)
+            er_str = ", ".join(f"{w} ({en:.1f})" for w, en in top_erased)
+            er_suffix = f"  erase_rms={er_rms:5.2f}" if er_rms > 0.0 else ""
             print(
                 f"  {label:<36s} units={p_units:+8.4f} (delta={delta_u:+8.4f})  "
-                f"proj={s_proj:+8.4f}  cos={cos_val:+7.4f}  p90_tok={p90_tc:+6.3f}  max_tok={max_tc:+6.3f}  tokens={n_tok:3d}"
+                f"proj={s_proj:+8.4f}  cos={cos_val:+7.4f}  p90_tok={p90_tc:+6.3f}  max_tok={max_tc:+6.3f}  tokens={n_tok:3d}{er_suffix}"
             )
             if top_str:
                 print(f"      top_receptors: {top_str}")
+            if er_str:
+                print(f"      top_erased   : {er_str}")
     return 0
 
 

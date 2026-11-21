@@ -54,12 +54,16 @@ export function mount(root, nav) {
   guarded(meterBtn, meterPanel, 'Metering (loads the encoder)...', async () => {
     const res = await apiPost('/api/prompt-meter', { vector: meterVec.value, prompt: meterPrompt.value, mask: meterMask.get() });
     const tokens = res.tokens || [];
+    const erNote = res.erasure_rms ? ` · Pole-A erase RMS ${Number(res.erasure_rms).toFixed(2)}` : '';
     meterPanel.note(
-      h('div', { class: 'field-hint' }, `${tokens.length} token(s), mask ${res.pooling}. Amber leans toward the vector, green away; hover for the cosine.`),
+      h('div', { class: 'field-hint' }, `${tokens.length} token(s), mask ${res.pooling}${erNote}. Amber leans toward the vector, green away (or high Pole-A erasure); hover for cosine & ||E(h_i)||.`),
       h('div', { class: 'token-strip' }, tokens.map((t) => {
         const score = Number(t.cosine ?? t.score ?? 0);
-        const cls = score > 0.08 ? 'tok-chip tok-toward' : score < -0.08 ? 'tok-chip tok-away' : 'tok-chip';
-        return h('span', { class: cls, title: `cosine ${score.toFixed(4)}` }, t.token || t.text || '');
+        const erRatio = Number(t.erasure_ratio ?? 0);
+        const erNorm = Number(t.erasure_norm ?? 0);
+        const cls = score > 0.08 ? 'tok-chip tok-toward' : (score < -0.08 || erRatio >= 0.36) ? 'tok-chip tok-away' : 'tok-chip';
+        const tip = erNorm > 0 ? `cosine ${score.toFixed(4)} | ||E(h)|| ${erNorm.toFixed(2)} (${(erRatio * 100).toFixed(1)}%)` : `cosine ${score.toFixed(4)}`;
+        return h('span', { class: cls, title: tip }, t.token || t.text || '');
       })));
   });
 

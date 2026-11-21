@@ -5709,6 +5709,22 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
             "matched the 24,912-word j-lens vocabulary",
             "MiniMaxH3ApplyControlVectors refusal on unmatched inline words",
         )
+        wv_spec = cv_nodes.MiniMaxH3WordVector.execute(
+            words="noir, monochrome",
+            against_words="@replace_digital, sunlit, warm",
+            hold_words="coat",
+            hold_alpha=0.5,
+        ).args[0]
+        steered_wv = cv_nodes.MiniMaxH3Steer.execute(
+            model=patcher_with_init,
+            vector="none",
+            strength=1.4,
+            mode="add_norm_matched_erasure",
+            custom_vector=wv_spec,
+        ).args[0]
+        wv_attached = steered_wv.model_options.get("transformer_options", {}).get(cv_nodes.WRAPPER_KEY, ())
+        if not wv_attached or wv_attached[-1].erasure_vr is None:
+            errs.append("MiniMaxH3WordVector -> MiniMaxH3Steer did not attach erasure_vr")
 
         # Verify extract_prompt_subject_words and analyze_prompt_coupling (Token-Wise Prompt Receptor Scan)
         noodle_subj = j_lens.extract_prompt_subject_words(REPO / "prompt_bank" / "t2va_noodle_bar.txt")
@@ -7466,6 +7482,49 @@ def _check_nov15_steer_prose_and_ph3_family() -> list[str]:
             errs.append("MiniMaxH3Steer.validate_inputs rejected valid token_focus=0.25")
         if cv_nodes.MiniMaxH3Steer.validate_inputs(token_focus=0.0) is True:
             errs.append("MiniMaxH3Steer.validate_inputs accepted invalid token_focus=0.0")
+
+        # Subspace X-Ray, per_token_erasure_profile, erasure_spectral_summary, and WordVector against-SVD erasure
+        vr_prof = torch.zeros((2, cv.POST_REFINER_DIM), dtype=torch.float32)
+        vr_prof[0, 0] = 1.0
+        vr_prof[1, 1] = 1.0
+        diag_prof = torch.tensor([1.0, 0.5], dtype=torch.float32)
+        rows_prof = torch.zeros((4, cv.POST_REFINER_DIM), dtype=torch.float32)
+        rows_prof[0, 0] = 4.0
+        rows_prof[1, 0] = -4.0
+        mask_prof = torch.tensor([True, True, True, True])
+        prof_res = cv.per_token_erasure_profile(rows_prof, mask_prof, vr_prof, diag_prof)
+        if len(prof_res["erasure_norms"]) != 4 or prof_res["erasure_norms"][0] <= prof_res["erasure_norms"][2]:
+            errs.append(f"per_token_erasure_profile did not rank Pole-A row 0 above neutral row 2: {prof_res}")
+        spec_sum = cv.erasure_spectral_summary(
+            [rows_prof[:2], rows_prof[2:]],
+            [rows_prof[:2] + 2.0, rows_prof[2:] + 2.0],
+            mu_d=v_aim,
+            v_1d=v_aim,
+            vr=vr_prof,
+            diag=diag_prof,
+        )
+        if spec_sum.get("erasure_rank") != 2 or spec_sum.get("cos_mu_d_v1d") != 1.0:
+            errs.append(f"erasure_spectral_summary unexpected output: {spec_sum}")
+
+        if j_lens.bundle_available():
+            synth_er = j_lens.synthesize_from_words(
+                "noir, monochrome, 35mm",
+                "@replace_digital, sunlit, warm",
+                hold_words="rain",
+                alpha=0.5,
+                family="fl2va",
+            )
+            if "erasure.vr" not in synth_er or "erasure.diag" not in synth_er or "erasure.mu_d" not in synth_er:
+                errs.append("synthesize_from_words with explicit against_words did not emit erasure.{mu_d,vr,diag}")
+            elif synth_er["erasure.vr"].ndim != 2 or synth_er["erasure.vr"].shape[1] != cv.POST_REFINER_DIM:
+                errs.append(f"synthesize_from_words erasure.vr bad shape: {tuple(synth_er['erasure.vr'].shape)}")
+            if not synth_er.get("erasure_readout") or not synth_er["erasure_readout"].get("vr_axes"):
+                errs.append("synthesize_from_words did not populate erasure_readout.vr_axes")
+            with tempfile.TemporaryDirectory() as td_we:
+                we_p = j_lens.save_synthesized_vector(Path(td_we) / "wv_er.safetensors", synth_er)
+                we_t, _we_m = cv.load_vector(we_p)
+                if "erasure.vr" not in we_t:
+                    errs.append("save_synthesized_vector dropped erasure.vr on round-trip")
 
     return errs
 

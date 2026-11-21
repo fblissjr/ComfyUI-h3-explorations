@@ -1,8 +1,9 @@
 # How Clamped Pole-A Subspace Erasure Works (`add_norm_matched_erasure`)
 
 Last updated: 2026-11-21  
-Research study & retrieval SOTA lineage: [`2026-11-20_unpooled_multivector_sliders.md`](../research/control_vectors/2026-11-20_unpooled_multivector_sliders.md) · [`2026-11-20_multivector_retrieval_sota_to_dit_steering.md`](../research/control_vectors/2026-11-20_multivector_retrieval_sota_to_dit_steering.md)  
-Reproducible CPU proof: [`bench/verify_pole_a_erasure.py`](../../../bench/verify_pole_a_erasure.py)  
+Hands-on 4-lab progressive tutorial: [`tutorials_progressive_guide.md`](tutorials_progressive_guide.md)  
+Research paper & retrieval SOTA lineage: [`2026-11-21_from_late_interaction_retrieval_to_av_dit_steering.md`](../research/control_vectors/2026-11-21_from_late_interaction_retrieval_to_av_dit_steering.md) · [`2026-11-20_unpooled_multivector_sliders.md`](../research/control_vectors/2026-11-20_unpooled_multivector_sliders.md) · [`2026-11-20_multivector_retrieval_sota_to_dit_steering.md`](../research/control_vectors/2026-11-20_multivector_retrieval_sota_to_dit_steering.md)  
+Reproducible proof & benchmark ledger: [`bench/verify_pole_a_erasure.py`](../../../bench/verify_pole_a_erasure.py) · [`bench/control_vector/eval_multivector_erasure.py`](../../../bench/control_vector/eval_multivector_erasure.py) · [`2026-11-21_multivector_erasure_benchmark.md`](../../../bench/results/2026-11-21_multivector_erasure_benchmark.md)  
 Node default: `MiniMaxH3Steer.mode = "add_norm_matched_erasure"` (`MiniMaxH3ApplyControlVectors` keeps `1D` `add_norm_matched`; [`control_vectors.py`](../../../control_vectors.py), [`director/compiler.py`](../../../director/compiler.py))
 
 ---
@@ -20,6 +21,8 @@ The problem is **what stayed untouched inside $H$**: all the bright studio flood
 - On `noir`, `add_norm_matched` stayed **full color on `5/5` stills (`0/5` B&W)**, stayed **full color on `3/3` `192f` AV runs**, stayed **full bright studio color on the TV cooking show (`sat_mean = 0.2141`)**, and stayed **warm full color on native `4.0 MP` `MiniMax-H3-Image` (`sat_mean = 0.2355`)**.
 - Turning `strength` up only creates localized artifacts (blackened puree in a color studio, iridescent purple/cyan splatter, or collapsing `watercolor_wash` lips past shift norm `~110`) because **adding a constant arrow never erases the conflicting signal inside each token**.
 
+![Breaking the 1D Prompt Veto via Clamped Pole-A Subspace Erasure](assets/subspace_erasure_xray.svg)
+
 ---
 
 ## 2. How `add_norm_matched_erasure` Fixes It in Three Simple Steps
@@ -36,7 +39,26 @@ At runtime, for every token row $h_i$ in your prompt's selected section (`_erasu
    - **Polarity & magnitude clamps (`max(0.0, min(s, 1.0))` and `e_cap = min(1.0, 67.5 / rms(e_own))`):** For negative `strength` (`s <= 0`, e.g., warming toward daylight), erasure switches cleanly off to match 1D bit-for-bit. Above `s = 1.0`, the erasure term caps cleanly at `1.0` so cranking `strength = 1.3..1.6` deepens the look without shredding scene structure.
 3. **Strict energy matching + per-row `hold` protection:**  
    The combined `[M, 5376]` shift `s * mu_n - E(H)` is normalized to strict RMS **`|s| * 67.5`** (`NORM_MATCHED_TARGET`), and any `hold_vector` or `hold_words` are projected out of **every token row** (`_apply_holds_to_rows64`) so erasing Pole A never leaks along something you asked to protect (such as `"coat, parka"` or another trait).  
-   *(Graceful fallback: zero-file word vectors from `MiniMaxH3WordVector`, vectors without `erasure.*`, `strength <= 0`, and cross-family `h3_image` `vector.encoder` auto-projection automatically skip `erasure.vr` and run pure `1D` `add_norm_matched` without errors.)*
+   *(Zero-file word & media vectors: `MiniMaxH3WordVector` with `against_words` such as `@replace_digital, sunlit, warm` synthesizes `< 2 ms` CPU `against`-SVD `erasure.{mu_d,vr,diag}` using `Model2Vec` whole-word/phrase vectors + `j_lens_h3.safetensors`, and `MiniMaxH3MakeMediaControlVector` extracts `ColQwen`-style patch/token `erasure.{mu_d,vr,diag}` from `<Picture 1>` pairs. Vectors without `erasure.*`, unipolar word vectors without `against_words`, `strength <= 0`, and cross-family `h3_image` `vector.encoder` auto-projection automatically skip `erasure.vr` and run pure `1D` `add_norm_matched` without errors.)*
+
+### 2b. Seeing Inside a Vector Before Rendering: CPU Subspace X-Ray (`Adds` vs. `Erases`)
+
+Using a Jacobian-lens word readout for H3 control vectors, adapted from Anthropic's Jacobian lens (J-lens) ([`j_lens.py::decode_erasure_payload`](../../../j_lens.py)) plus `WARP`-style per-token erasure norms (`control_vectors.py::per_token_erasure_profile`), `bench/control_vectors.py inspect <stem> --prompt <scene.txt>` (and the **X-Ray** drawer in Control Vector Studio) shows both halves of an erasure payload on CPU in `< 15 ms` without loading a GPU checkpoint:
+
+```text
+$ CUDA_VISIBLE_DEVICES="" "$PY" bench/control_vectors.py inspect noir --prompt prompt_bank/t2va_sitcom_kitchen.txt
+  erasure payload : rank=8  cos(mu_d,v_1d)=0.9702  diag=[0.87, 0.811, 0.802, 0.744, 0.709, 0.67, 0.635, 0.629]  [rescued vs 1D: black, footage, archival]
+  j_lens (mu_d +) : vintage (+1.77), stark (+1.60), noir (+1.56), black (+1.52), film (+1.49), footage (+1.49), grain (+1.42), archival (+1.23)
+  erases (Pole A) : warm, natural, lighting, pattern, gray, uniform, street, nighttime
+    vr[1] (d=0.81): warm (+2.02), natural (+1.91), lighting (+1.67), warmth (+1.63), tone (+1.54), tones (+1.50)
+  prompt coupling : receptors=[black (+0.35), white (+0.23), golden (+0.20), tungsten (+0.17)]
+                    subject=[suburban (+0.06), father (+0.10), golden (+0.20), retriever (+0.04)]
+                    erases=[wall (0.41), warm (0.36), brown (0.33), tungsten (0.33)]
+```
+
+Notice what the word readout reveals across the 38-concept bank (`28 / 38` concepts rescue key target words into `erasure.mu_d` that washed out of `v_1d`):
+- **Sharper target push (`mu_d`):** Softmax token matching at `tau = 0.15` rescues `black (+1.52)`, `footage (+1.49)`, and `archival (+1.23)` into `noir`'s top-8 readout (and rescues `grain, tape` on `film_16mm_1974` and `puppet` on `claymation_stopmotion`).
+- **Surgical prompt erasure (`erases=[...]`):** On `t2va_sitcom_kitchen.txt`, `erasure.vr` concentrates its subtraction on `wall (0.41)`, `warm (0.36)`, `brown (0.33)`, and `tungsten (0.33)` while leaving scene entities (`father`, `retriever`, `daughter`) untouched. Remember that the word readout is a linear approximation of what the text encoder would predict next — always confirm visual behavior on a render ([`workflows/h3_text_to_video_pika_1d_vs_erasure_ab_api.json`](../../../workflows/h3_text_to_video_pika_1d_vs_erasure_ab_api.json)).
 
 ---
 

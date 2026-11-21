@@ -35,6 +35,7 @@ logger = logging.getLogger(__name__)
 REPO_ROOT = Path(__file__).resolve().parent
 COMFY_ROOT = REPO_ROOT.parent.parent
 DEFAULT_BUNDLE_REL = Path("models") / "j_lens" / "j_lens_h3.safetensors"
+DEFAULT_LEXICON_REL = Path("models") / "j_lens" / "model2vec_h3_lexicon.safetensors"
 
 # Reasoned and measured starting constants from docs/wiki/research/control_vectors/2026-11-06_j_lens_and_refiner_jacobian.md:
 # - DEFAULT_STEER_SCALE = 90.0 (~0.31 * median_tok1+_row_norm 292.3 at layers.49)
@@ -175,6 +176,50 @@ _DEFAULT_RECIPES: dict[str, dict[str, Any]] = {
 }
 
 _BUNDLE_CACHE: dict[Path, dict[str, Any]] = {}
+_LEXICON_CACHE: dict[Path, dict[str, Any] | None] = {}
+
+
+def default_model2vec_lexicon_path() -> Path:
+    """Return the default path to optional `model2vec_h3_lexicon.safetensors` under `<ComfyUI>/models/j_lens/`."""
+    env_override = os.environ.get("H3_MODEL2VEC_LEXICON", "").strip()
+    if env_override:
+        return Path(env_override).resolve()
+    store_env = os.environ.get("H3_MODEL_STORE", "").strip()
+    if store_env:
+        cand_store = (Path(store_env) / "j_lens" / "model2vec_h3_lexicon.safetensors").resolve()
+        if cand_store.is_file():
+            return cand_store
+    fp_mod = sys.modules.get("folder_paths")
+    models_root = getattr(fp_mod, "models_dir", None) if fp_mod is not None else None
+    if models_root:
+        cand = (Path(models_root) / "j_lens" / "model2vec_h3_lexicon.safetensors").resolve()
+        if cand.is_file():
+            return cand
+    return (COMFY_ROOT / DEFAULT_LEXICON_REL).resolve()
+
+
+def load_model2vec_lexicon(lexicon_path: str | os.PathLike | None = None) -> dict[str, Any] | None:
+    """Load and cache the optional H3 `Model2Vec` multi-token/phrase static lexicon on CPU (`None` if absent)."""
+    path = Path(lexicon_path).resolve() if lexicon_path is not None else default_model2vec_lexicon_path()
+    if path in _LEXICON_CACHE:
+        return _LEXICON_CACHE[path]
+    if not path.is_file() or not os.access(path, os.R_OK):
+        return None
+    with safe_open(str(path), framework="pt", device="cpu") as f:
+        meta = f.metadata() or {}
+        if meta.get("format") != "h3_model2vec_lexicon_v1":
+            return None
+        terms: list[str] = json.loads(meta["terms_json"])
+        term_to_idx = {str(t).strip().lower(): idx for idx, t in enumerate(terms)}
+        payload: dict[str, Any] = {
+            "path": str(path),
+            "terms": terms,
+            "term_to_idx": term_to_idx,
+        }
+        for key in f.keys():
+            payload[key] = f.get_tensor(key).to(dtype=torch.float32)
+    _LEXICON_CACHE[path] = payload
+    return payload
 
 
 def default_bundle_path() -> Path:
@@ -856,6 +901,142 @@ def _load_vector_from_source(
     return tensor, path.name, meta
 
 
+def decode_erasure_payload(
+    v_pr: torch.Tensor,
+    erasure_vr: torch.Tensor,
+    erasure_diag: torch.Tensor,
+    *,
+    erasure_mu_d: torch.Tensor | None = None,
+    v1d_readout: Mapping[str, Any] | None = None,
+    family: str = "fl2va",
+    scale: float = DEFAULT_STEER_SCALE,
+    min_logprob: float = DEFAULT_MIN_LOGPROB,
+    top_k: int = 8,
+    max_axes: int = 4,
+    holds: Sequence[torch.Tensor] | None = None,
+    alpha: float = 1.0,
+    erasure_spectrum: Mapping[str, Any] | None = None,
+    bundle: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Decode `(erasure.mu_d, erasure.vr, erasure.diag)` on CPU (`< 15 ms`) into human-readable
+    *Adds (`mu_d`)* vs. *Erases (`V_r` Pole-A subspace)* word summaries.
+
+    Because SVD singular vectors have arbitrary `±1` sign while `V_r^T diag V_r` is sign-invariant,
+    each row `vr[k]` is oriented against the target push (`dot(vr_vis, -ref_push) >= 0`) so its `(+)`
+    readout consistently names the Pole-A prompt traits suppressed by that subspace axis.
+    """
+    b = dict(bundle) if bundle is not None else load_j_lens_bundle()
+    v_base = v_pr.detach().to(device="cpu", dtype=torch.float32).flatten()
+    if holds:
+        v_base = apply_soft_holds(v_base, holds, alpha=alpha)
+    vr_cpu = erasure_vr.detach().to(device="cpu", dtype=torch.float32)
+    diag_cpu = erasure_diag.detach().to(device="cpu", dtype=torch.float32).flatten()
+    rank = int(vr_cpu.shape[0]) if vr_cpu.ndim == 2 else 0
+
+    mu_d_eff = v_base
+    cos_mu_v1d = 1.0
+    mu_d_ro: dict[str, Any] | None = None
+    rescued_words: list[str] = []
+    if erasure_mu_d is not None:
+        mu_raw = erasure_mu_d.detach().to(device="cpu", dtype=torch.float32).flatten()
+        if float(torch.linalg.vector_norm(mu_raw).item()) > 1e-12 and float(torch.linalg.vector_norm(v_pr).item()) > 1e-12:
+            cos_mu_v1d = round(
+                float(F.cosine_similarity(mu_raw.unsqueeze(0), v_pr.detach().cpu().float().flatten().unsqueeze(0)).item()),
+                4,
+            )
+        mu_d_eff = apply_soft_holds(mu_raw, holds, alpha=alpha) if holds else mu_raw
+        mu_d_ro = decode_vector(
+            mu_d_eff,
+            space="post_refiner",
+            family=family,
+            scale=scale,
+            min_logprob=min_logprob,
+            top_k=top_k,
+            bundle=b,
+        )
+        v1d_ro = v1d_readout or decode_vector(
+            v_base,
+            space="post_refiner",
+            family=family,
+            scale=scale,
+            min_logprob=min_logprob,
+            top_k=top_k,
+            bundle=b,
+        )
+        v1d_pos_set = {str(x["word"]).lower() for x in (v1d_ro.get("positive_words") or ())}
+        rescued_words = [
+            str(x["word"])
+            for x in (mu_d_ro.get("positive_words") or ())
+            if str(x["word"]).lower() not in v1d_pos_set
+        ]
+
+    ref_push = mu_d_eff.to(dtype=torch.float64)
+    axes_out: list[dict[str, Any]] = []
+    erased_words: list[str] = []
+    seen_erased: set[str] = set()
+    n_show = min(int(max_axes), rank)
+    _erased_filler = {
+        "possibly", "likely", "elsewhere", "similarly", "perhaps", "stuff",
+        "notably", "maybe", "consistently", "unlike", "particular", "akin",
+        "further", "surprisingly", "unfortunately", "admittedly", "potentially",
+    }
+    for k in range(n_show):
+        vk = vr_cpu[k].flatten()
+        if holds and float(alpha) > 0.0:
+            vk = apply_soft_holds(vk, holds, alpha=min(float(alpha), 1.0))
+        if float(torch.linalg.vector_norm(vk).item()) <= 1e-9:
+            continue
+        # Orient vk toward -ref_push (Pole A) so positive_words name what gets erased.
+        if float(torch.dot(vk.to(dtype=torch.float64), -ref_push).item()) < 0.0:
+            vk = -vk
+        ro_k = decode_vector(
+            vk,
+            space="post_refiner",
+            family=family,
+            scale=scale,
+            min_logprob=min_logprob,
+            top_k=min(int(top_k), 6),
+            bundle=b,
+        )
+        d_val = round(float(diag_cpu[k].item()), 3) if k < diag_cpu.numel() else 0.0
+        pos_k = list(ro_k.get("positive_words") or ())
+        picked_k = 0
+        for item in pos_k:
+            w_s = str(item["word"])
+            wl = w_s.lower()
+            if wl not in seen_erased and wl not in _PROMPT_RECEPTOR_STOPWORDS and wl not in _erased_filler:
+                seen_erased.add(wl)
+                erased_words.append(w_s)
+                picked_k += 1
+                if picked_k >= 3:
+                    break
+        axes_out.append(
+            {
+                "axis": k,
+                "diag": d_val,
+                "erases_words": pos_k,
+                "opposing_words": list(ro_k.get("negative_words") or ()),
+                "erases_summary": ro_k.get("pos_summary", ""),
+                "opposing_summary": ro_k.get("neg_summary", ""),
+            }
+        )
+
+    out_er: dict[str, Any] = {
+        "rank": rank,
+        "diag": [round(float(x), 3) for x in diag_cpu[:rank].tolist()],
+        "cos_mu_d_v1d": cos_mu_v1d,
+        "mu_d_pos_summary": mu_d_ro.get("pos_summary", "") if mu_d_ro else "",
+        "mu_d_positive_words": list(mu_d_ro.get("positive_words") or ()) if mu_d_ro else [],
+        "rescued_words": rescued_words,
+        "erased_pole_a_words": erased_words[:10],
+        "erased_summary": ", ".join(erased_words[:8]),
+        "vr_axes": axes_out,
+    }
+    if erasure_spectrum:
+        out_er["spectrum"] = dict(erasure_spectrum)
+    return out_er
+
+
 def decode_safetensors(
     path: str | os.PathLike,
     *,
@@ -916,10 +1097,19 @@ def decode_safetensors(
         "post_refiner": pr_readout,
     }
 
-    # If vector.encoder is also present in the file, decode it and report refiner agreement cosine
+    # If vector.encoder or erasure.* are present in the file, decode them on CPU
     v_enc_eff: torch.Tensor | None = None
+    erasure_vr_t: torch.Tensor | None = None
+    erasure_diag_t: torch.Tensor | None = None
+    erasure_mud_t: torch.Tensor | None = None
     with safe_open(str(resolved_path), framework="pt", device="cpu") as f:
-        if "vector.encoder" in f.keys():
+        f_keys = set(f.keys())
+        if "erasure.vr" in f_keys and "erasure.diag" in f_keys:
+            erasure_vr_t = f.get_tensor("erasure.vr").to(dtype=torch.float32)
+            erasure_diag_t = f.get_tensor("erasure.diag").to(dtype=torch.float32)
+            if "erasure.mu_d" in f_keys:
+                erasure_mud_t = f.get_tensor("erasure.mu_d").to(dtype=torch.float32)
+        if "vector.encoder" in f_keys:
             v_enc = f.get_tensor("vector.encoder").to(dtype=torch.float32).flatten()
             v_enc_eff = (
                 apply_soft_holds(v_enc, hold_tensors_enc, alpha=alpha)
@@ -945,6 +1135,27 @@ def decode_safetensors(
             out["encoder"] = enc_readout
             out["refiner_forward_cosine"] = round(fwd_cos, 4)
             out["wiener_j63_cosine"] = round(w_cos_63, 4)
+
+    if erasure_vr_t is not None and erasure_diag_t is not None:
+        qrep_meta = meta.get("quality_report") if isinstance(meta.get("quality_report"), Mapping) else {}
+        spec_meta = qrep_meta.get("erasure_spectrum") if isinstance(qrep_meta, Mapping) else None
+        er_rep = decode_erasure_payload(
+            v_pr,
+            erasure_vr_t,
+            erasure_diag_t,
+            erasure_mu_d=erasure_mud_t,
+            v1d_readout=pr_readout,
+            family=family,
+            scale=scale,
+            min_logprob=min_logprob,
+            top_k=top_k,
+            holds=hold_tensors_pr if hold_tensors_pr else None,
+            alpha=alpha,
+            erasure_spectrum=spec_meta if isinstance(spec_meta, Mapping) else None,
+            bundle=b,
+        )
+        out["erasure_readout"] = er_rep
+        pr_readout["erasure_readout"] = er_rep
 
     v_pr_eff = apply_soft_holds(v_pr, hold_tensors_pr, alpha=alpha) if hold_tensors_pr else v_pr
     pairs_meta_rd = meta.get("pairs") if isinstance(meta.get("pairs"), Mapping) else {}
@@ -989,6 +1200,8 @@ def decode_safetensors(
             readout=pr_readout,
             family=family,
             already_contrasted=has_explicit_a,
+            erasure_vr=erasure_vr_t,
+            erasure_diag=erasure_diag_t,
             bundle=b,
         )
 
@@ -1172,6 +1385,7 @@ def decode_recipe(
         "combined_norm_after_holds": readout["norm_after_holds"],
         "pairwise_interactions": interactions,
         "readout": readout,
+        "erasure_readout": readout.get("erasure_readout"),
         "readiness": readout["readiness"],
         "prompt_coupling": readout.get("prompt_coupling"),
     }
@@ -1267,6 +1481,25 @@ _SHORT_WORD_FALLBACKS: dict[str, tuple[str, ...]] = {
     "claymation": ("clay", "puppet", "miniature", "cartoon"),
     "stop-motion": ("clay", "puppet", "miniature", "frame"),
     "watercolor": ("painted", "brush", "canvas", "color"),
+    "origami": ("paper", "folded", "fold", "sharp", "flat", "crafted"),
+    "muppet": ("felt", "puppet", "cloth", "soft"),
+    "plasticine": ("clay", "puppet", "miniature", "shaped"),
+    "halation": ("glow", "glowing", "vintage", "film", "grain"),
+    "pyrotechnics": ("sparks", "fireworks", "fiery", "bright"),
+    "kodachrome": ("vintage", "film", "grain", "warm", "vivid"),
+    "anamorphic": ("wide", "cinematic", "lens", "horizontal"),
+    "cyanotype": ("blue", "vintage", "archival", "stark"),
+    "monochrome": ("black", "white", "gray", "silver", "stark"),
+    "reverb": ("reverberation", "echo", "cathedral", "acoustic"),
+    "16mm": ("vintage", "film", "grain", "faded"),
+    "35mm": ("film", "grain", "cinematic", "silver"),
+    "asmr": ("whisper", "soft", "close", "intimate"),
+    "verdigris": ("copper", "green", "aged", "brass"),
+    "darkroom": ("crimson", "shadow", "dark", "film"),
+    "bioluminescent": ("glowing", "glow", "neon", "blue"),
+    "gelatin": ("silver", "film", "archival", "grain"),
+    "sunlit": ("sunlight", "sunny", "bright", "daylight", "warm"),
+    "tungsten": ("warm", "amber", "indoor", "lighting", "glow"),
     "cat": ("cats", "kitten", "animal"),
     "dog": ("dogs", "canine", "puppy"),
     "live-action": ("realistic", "photograph", "real", "human", "person", "flesh"),
@@ -1698,6 +1931,8 @@ def analyze_prompt_coupling(
     readout: Mapping[str, Any] | None = None,
     family: str = "fl2va",
     already_contrasted: bool = False,
+    erasure_vr: torch.Tensor | None = None,
+    erasure_diag: torch.Tensor | None = None,
     top_k: int = 6,
     bundle: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
@@ -1769,6 +2004,8 @@ def analyze_prompt_coupling(
 
     scored: list[dict[str, Any]] = []
     word_cos_map: dict[str, float] = {}
+    matched_uwords: list[str] = []
+    matched_mvecs: list[torch.Tensor] = []
     for w in uniq_words:
         w_ids, _, _ = _resolve_word_indices([w], w2i)
         if not w_ids:
@@ -1776,10 +2013,36 @@ def analyze_prompt_coupling(
         mw = F.normalize(m_centered[w_ids].mean(dim=0), dim=0)
         c_val = round(float(torch.dot(mu_steer, mw).item()), 3)
         word_cos_map[w] = c_val
+        matched_uwords.append(w)
+        matched_mvecs.append(mw)
         scored.append({"word": w, "cosine": c_val})
 
     scored.sort(key=lambda item: float(item["cosine"]), reverse=True)
     top_receptors = scored[:top_k]
+
+    top_erased_words: list[dict[str, Any]] = []
+    word_erase_map: dict[str, float] = {}
+    if erasure_vr is not None and erasure_diag is not None and len(matched_mvecs) >= 2:
+        s_p030_pc = b["Sigma_49_p030"]
+        j_ref_pc = _select_j_ref(b, family)
+        m_stack = torch.stack(matched_mvecs, dim=0)
+        w_pr_mat = F.normalize((m_stack @ s_p030_pc.T) @ j_ref_pc.T, dim=-1).to(dtype=torch.float64)
+        w_pr_c = w_pr_mat - w_pr_mat.mean(dim=0, keepdim=True)
+        vr64 = erasure_vr.detach().to(device="cpu", dtype=torch.float64)
+        d64 = erasure_diag.detach().to(device="cpu", dtype=torch.float64).flatten().clamp(0.0, 1.0)
+        r_eff = min(int(vr64.shape[0]), int(d64.numel()))
+        if r_eff >= 1:
+            e_mat = ((w_pr_c @ vr64[:r_eff].T) * d64[:r_eff].unsqueeze(0)) @ vr64[:r_eff]
+            e_nrms = torch.linalg.vector_norm(e_mat, dim=-1)
+            c_nrms = torch.linalg.vector_norm(w_pr_c, dim=-1).clamp(min=1e-9)
+            ratios = (e_nrms / c_nrms).tolist()
+            erased_scored: list[dict[str, Any]] = []
+            for w_k, rat_k, en_k in zip(matched_uwords, ratios, e_nrms.tolist()):
+                r_round = round(float(rat_k), 3)
+                word_erase_map[w_k] = r_round
+                erased_scored.append({"word": w_k, "erasure_ratio": r_round, "erasure_norm": round(float(en_k), 3)})
+            erased_scored.sort(key=lambda item: float(item["erasure_ratio"]), reverse=True)
+            top_erased_words = erased_scored[:top_k]
 
     subj_words = extract_prompt_subject_words(txt)
     subj_receptors: list[dict[str, Any]] = []
@@ -1805,13 +2068,14 @@ def analyze_prompt_coupling(
             token_heatmap.append({"word": raw_tok, "cosine": 0.0, "role": "stopword"})
             continue
         c_tok = float(word_cos_map.get(w_low, 0.0))
+        er_tok = float(word_erase_map.get(w_low, 0.0))
         if w_low in subj_set:
             role = "subject"
         elif w_low in top_rec_set and c_tok >= 0.12:
             role = "receptor"
         else:
             role = "neutral"
-        token_heatmap.append({"word": raw_tok, "cosine": c_tok, "role": role})
+        token_heatmap.append({"word": raw_tok, "cosine": c_tok, "erasure_ratio": er_tok, "role": role})
 
     max_rec_cos = float(top_receptors[0]["cosine"]) if top_receptors else 0.0
     mean_subj_cos = (
@@ -1834,10 +2098,14 @@ def analyze_prompt_coupling(
 
     rec_str = ", ".join(f"{x['word']} ({x['cosine']:+.2f})" for x in top_receptors[:4])
     sub_str = ", ".join(f"{x['word']} ({x['cosine']:+.2f})" for x in subj_receptors[:4])
-    summary = f"receptors=[{rec_str}]  subject=[{sub_str or 'none'}]"
+    er_str = ", ".join(f"{x['word']} ({x['erasure_ratio']:.2f})" for x in top_erased_words[:4])
+    summary = f"receptors=[{rec_str}]  subject=[{sub_str or 'none'}]" + (
+        f"  erases=[{er_str}]" if er_str else ""
+    )
     return {
         "subject_words": subj_words,
         "top_receptors": top_receptors,
+        "top_erased_words": top_erased_words,
         "subject_receptors": subj_receptors,
         "token_heatmap": token_heatmap,
         "max_receptor_cos": max_rec_cos,
@@ -1865,6 +2133,20 @@ def _resolve_word_indices(word_list: Sequence[str], word_to_idxs: Mapping[str, l
                 matched_ids.extend(fb_ids)
                 matched_words.append(w)
                 continue
+
+        # 1b. Multi-word phrase decomposition (e.g. "silver gelatin", "direct flash", "paper origami")
+        if " " in w:
+            sub_tokens = [
+                tok.strip("-")
+                for tok in re.findall(r"[a-zA-Z0-9][a-zA-Z0-9-]*", w)
+                if len(tok.strip("-")) >= 3 and tok.strip("-").lower() not in _PROMPT_RECEPTOR_STOPWORDS
+            ]
+            if sub_tokens:
+                sub_ids, _, _ = _resolve_word_indices(sub_tokens, word_to_idxs)
+                if sub_ids:
+                    matched_ids.extend(sub_ids)
+                    matched_words.append(w)
+                    continue
 
         # 2. Check hyphenated or compound words (e.g. steampunk -> steam + punk, clockwork -> clock + work)
         comp_ids: list[int] = []
@@ -1986,7 +2268,25 @@ def synthesize_from_words(
         pos_words = rhs_raw.strip()
         if neg_words is None or (isinstance(neg_words, str) and not neg_words.strip()):
             neg_words = lhs_raw.strip()
-    pos_list = _parse_word_list(pos_words)
+    lexicon = load_model2vec_lexicon()
+    lex_t2i = lexicon["term_to_idx"] if lexicon is not None else {}
+
+    def _parse_terms_preserving_lexicon(raw_in: str | Sequence[str] | None) -> list[str]:
+        if raw_in is None:
+            return []
+        if not isinstance(raw_in, str):
+            return _parse_word_list(raw_in)
+        chunks = [c.strip() for c in re.split(r"[,;\n]+", raw_in) if c.strip()]
+        out_t: list[str] = []
+        for ch in chunks:
+            norm_ch = re.sub(r"\s+", " ", ch.lower()).strip(".,;:!?\"'()[]{}")
+            if " " in norm_ch and norm_ch in lex_t2i:
+                out_t.append(norm_ch)
+            else:
+                out_t.extend(_parse_word_list(ch))
+        return out_t
+
+    pos_list = _parse_terms_preserving_lexicon(pos_words)
     if not pos_list:
         raise ValueError("pos_words must contain at least one word")
     explicit_neg = False
@@ -2013,10 +2313,18 @@ def synthesize_from_words(
             neg_list = list(AGAINST_PRESETS[raw_neg_key])
             explicit_neg = raw_neg_key != "neutral"
         else:
-            neg_list = _parse_word_list(neg_words)
+            raw_neg_items = [p.strip() for p in re.split(r"[,;\n]+", neg_words) if p.strip()]
+            expanded_neg: list[str] = []
+            for item_n in raw_neg_items:
+                preset_k = item_n.lower().lstrip("@")
+                if item_n.startswith("@") and preset_k in AGAINST_PRESETS:
+                    expanded_neg.extend(AGAINST_PRESETS[preset_k])
+                else:
+                    expanded_neg.extend(_parse_terms_preserving_lexicon(item_n))
+            neg_list = expanded_neg
             explicit_neg = bool(neg_list)
     elif neg_words:
-        neg_list = _parse_word_list(neg_words)
+        neg_list = _parse_terms_preserving_lexicon(neg_words)
         explicit_neg = bool(neg_list)
     else:
         neg_list = list(DEFAULT_NEUTRAL_WORDS)
@@ -2026,19 +2334,59 @@ def synthesize_from_words(
     p_weights = b.get("piece_weights")
     s_p030 = b["Sigma_49_p030"]
     j_ref = _select_j_ref(b, family)
+    lex_fam_key = (
+        f"post_refiner.{family}"
+        if (lexicon is not None and f"post_refiner.{family}" in lexicon)
+        else ("post_refiner.fl2va" if (lexicon is not None and "post_refiner.fl2va" in lexicon) else "")
+    )
 
-    mu_pos, pos_ids, pos_matched, pos_unmatched = _mean_word_direction(pos_list, w2i, m_centered, p_weights)
-    if not pos_ids:
-        raise ValueError(f"None of pos_words {pos_list!r} matched the 24,912-word J-Lens vocabulary")
+    def _collect_word_bank(words_in: Sequence[str]) -> tuple[list[torch.Tensor], list[torch.Tensor], list[str], list[str], bool]:
+        enc_rows_out: list[torch.Tensor] = []
+        pr_rows_out: list[torch.Tensor] = []
+        matched_out: list[str] = []
+        unmatched_out: list[str] = []
+        used_lex = False
+        for w in words_in:
+            # Prefer exact single-token entries in the 24,912-word J-Lens bundle when present;
+            # consult the contextual Model2Vec lexicon for multi-token BPE words & 2-word phrases.
+            if w not in w2i and lexicon is not None and lex_fam_key and w in lex_t2i and "encoder" in lexicon:
+                l_idx = lex_t2i[w]
+                le = lexicon["encoder"][l_idx]
+                lp = lexicon[lex_fam_key][l_idx]
+                if float(torch.linalg.vector_norm(le).item()) > 1e-12 and float(torch.linalg.vector_norm(lp).item()) > 1e-12:
+                    enc_rows_out.append(F.normalize(le.to(dtype=torch.float32), dim=0))
+                    pr_rows_out.append(F.normalize(lp.to(dtype=torch.float32), dim=0))
+                    matched_out.append(w)
+                    used_lex = True
+                    continue
+            w_ids, w_m, w_u = _resolve_word_indices([w], w2i)
+            if w_ids:
+                matched_out.extend(w_m)
+                rows_m = m_centered[w_ids]
+                if p_weights is not None and len(w_ids) > 1:
+                    pw = p_weights[w_ids].unsqueeze(-1)
+                    wm_vec = F.normalize((rows_m * pw).sum(dim=0) / pw.sum().clamp_min(1e-8), dim=0)
+                else:
+                    wm_vec = F.normalize(rows_m.mean(dim=0), dim=0)
+                we_raw = s_p030 @ wm_vec
+                enc_rows_out.append(F.normalize(we_raw, dim=0))
+                pr_rows_out.append(F.normalize(j_ref @ we_raw, dim=0))
+            else:
+                unmatched_out.extend(w_u)
+        return enc_rows_out, pr_rows_out, matched_out, unmatched_out, used_lex
+
+    pos_enc_list, pos_pr_list, pos_matched, pos_unmatched, pos_used_lex = _collect_word_bank(pos_list)
+    if not pos_pr_list:
+        raise ValueError(f"None of pos_words {pos_list!r} matched the 24,912-word J-Lens vocabulary (or Model2Vec lexicon)")
     if pos_unmatched:
         logger.warning(
             "[h3] J-Lens word synthesis: unmatched pos_words %r (matched=%r; use MiniMaxH3MakeControlVector or bench/control_vectors.py build --words for multi-token OOV phrases)",
             pos_unmatched,
             pos_matched,
         )
-    mu_neg, neg_ids, neg_matched, neg_unmatched = _mean_word_direction(neg_list, w2i, m_centered, p_weights)
-    if not neg_ids:
-        raise ValueError(f"None of neg_words {neg_list!r} matched the 24,912-word J-Lens vocabulary")
+    neg_enc_list, neg_pr_list, neg_matched, neg_unmatched, neg_used_lex = _collect_word_bank(neg_list)
+    if not neg_pr_list:
+        raise ValueError(f"None of neg_words {neg_list!r} matched the 24,912-word J-Lens vocabulary (or Model2Vec lexicon)")
     if neg_unmatched:
         logger.warning(
             "[h3] J-Lens word synthesis: unmatched neg_words %r (matched=%r)",
@@ -2047,20 +2395,41 @@ def synthesize_from_words(
         )
 
     neg_weight = 0.60 if explicit_neg else 0.35
-    delta_m = F.normalize(mu_pos - neg_weight * mu_neg, dim=0)
-
-    v_enc_raw = s_p030 @ delta_m
-    v_enc = F.normalize(v_enc_raw, dim=0)
-    v_pr_raw = j_ref @ v_enc_raw
-    v_pr = F.normalize(v_pr_raw, dim=0) * float(target_norm)
+    if pos_used_lex or neg_used_lex:
+        pos_enc_mean = F.normalize(torch.stack(pos_enc_list, dim=0).mean(dim=0), dim=0)
+        neg_enc_mean = F.normalize(torch.stack(neg_enc_list, dim=0).mean(dim=0), dim=0)
+        pos_pr_mean = F.normalize(torch.stack(pos_pr_list, dim=0).mean(dim=0), dim=0)
+        neg_pr_mean = F.normalize(torch.stack(neg_pr_list, dim=0).mean(dim=0), dim=0)
+        v_enc = F.normalize(pos_enc_mean - neg_weight * neg_enc_mean, dim=0)
+        v_pr = F.normalize(pos_pr_mean - neg_weight * neg_pr_mean, dim=0) * float(target_norm)
+        mu_neg: torch.Tensor | None = None
+    else:
+        mu_pos, _pos_ids, _, _ = _mean_word_direction(pos_list, w2i, m_centered, p_weights)
+        mu_neg, _neg_ids, _, _ = _mean_word_direction(neg_list, w2i, m_centered, p_weights)
+        delta_m = F.normalize(mu_pos - neg_weight * mu_neg, dim=0)
+        v_enc_raw = s_p030 @ delta_m
+        v_enc = F.normalize(v_enc_raw, dim=0)
+        v_pr_raw = j_ref @ v_enc_raw
+        v_pr = F.normalize(v_pr_raw, dim=0) * float(target_norm)
 
     hold_list = _parse_word_list(hold_words)
+    v_hold_pr_unit: torch.Tensor | None = None
     if hold_list and a_val > 0.0:
-        mu_hold_pos, h_ids, _, _ = _mean_word_direction(hold_list, w2i, m_centered, p_weights)
-        if h_ids:
-            mu_hold = F.normalize(mu_hold_pos - neg_weight * mu_neg, dim=0)
-            v_hold_enc = F.normalize(s_p030 @ mu_hold, dim=0)
-            v_hold_pr = F.normalize(j_ref @ (s_p030 @ mu_hold), dim=0)
+        h_enc_list, h_pr_list, _h_m, _h_u, h_used_lex = _collect_word_bank(hold_list)
+        if h_pr_list:
+            if h_used_lex or mu_neg is None:
+                neg_enc_ref = F.normalize(torch.stack(neg_enc_list, dim=0).mean(dim=0), dim=0)
+                neg_pr_ref = F.normalize(torch.stack(neg_pr_list, dim=0).mean(dim=0), dim=0)
+                h_enc_mean = F.normalize(torch.stack(h_enc_list, dim=0).mean(dim=0), dim=0)
+                h_pr_mean = F.normalize(torch.stack(h_pr_list, dim=0).mean(dim=0), dim=0)
+                v_hold_enc = F.normalize(h_enc_mean - neg_weight * neg_enc_ref, dim=0)
+                v_hold_pr = F.normalize(h_pr_mean - neg_weight * neg_pr_ref, dim=0)
+            else:
+                mu_hold_pos, h_ids, _, _ = _mean_word_direction(hold_list, w2i, m_centered, p_weights)
+                mu_hold = F.normalize(mu_hold_pos - neg_weight * mu_neg, dim=0)
+                v_hold_enc = F.normalize(s_p030 @ mu_hold, dim=0)
+                v_hold_pr = F.normalize(j_ref @ (s_p030 @ mu_hold), dim=0)
+            v_hold_pr_unit = v_hold_pr
             v_enc_held = apply_soft_holds(v_enc, [v_hold_enc], alpha=a_val)
             v_pr = apply_soft_holds(v_pr, [v_hold_pr], alpha=a_val)
             if float(torch.linalg.vector_norm(v_pr.to(dtype=torch.float64)).item()) <= 1e-3 * max(1.0, float(target_norm)):
@@ -2068,7 +2437,36 @@ def synthesize_from_words(
             v_enc = F.normalize(v_enc_held, dim=0)
             v_pr = F.normalize(v_pr, dim=0) * float(target_norm)
 
+    erasure_mu_d: torch.Tensor | None = None
+    erasure_vr: torch.Tensor | None = None
+    erasure_diag: torch.Tensor | None = None
+    if explicit_neg and neg_pr_list:
+        u_neg64 = torch.stack([row.to(dtype=torch.float64) for row in neg_pr_list], dim=0)
+        if v_hold_pr_unit is not None and a_val > 0.0:
+            hu64 = F.normalize(v_hold_pr_unit.to(dtype=torch.float64), dim=0)
+            eff_ha = min(a_val, 1.0)
+            u_neg64 = u_neg64 - eff_ha * (u_neg64 @ hu64).unsqueeze(-1) * hu64.unsqueeze(0)
+        _u_s, s_vals, vh_s = torch.linalg.svd(u_neg64, full_matrices=False)
+        if s_vals.numel() > 0 and float(s_vals[0].item()) > 1e-9:
+            r_keep = min(8, int((s_vals > 1e-6 * s_vals[0]).sum().item()))
+            if r_keep >= 1:
+                lam_s = 0.15 * float(s_vals[0].item() ** 2)
+                s_sq = s_vals[:r_keep] ** 2
+                erasure_vr = vh_s[:r_keep].to(dtype=torch.float32).clone().contiguous()
+                erasure_diag = (s_sq / (s_sq + lam_s)).clamp(0.0, 1.0).to(dtype=torch.float32).clone().contiguous()
+                erasure_mu_d = v_pr.detach().to(device="cpu", dtype=torch.float32).clone().contiguous()
+
     readout = decode_vector(v_pr, space="post_refiner", family=family, bundle=b)
+    if erasure_vr is not None and erasure_diag is not None:
+        readout["erasure_readout"] = decode_erasure_payload(
+            v_pr,
+            erasure_vr,
+            erasure_diag,
+            erasure_mu_d=erasure_mu_d,
+            v1d_readout=readout,
+            family=family,
+            bundle=b,
+        )
     readout["readiness"] = assess_steering_readiness(
         v_pr,
         v_enc=v_enc,
@@ -2086,12 +2484,14 @@ def synthesize_from_words(
             readout=readout,
             family=family,
             already_contrasted=explicit_neg,
+            erasure_vr=erasure_vr,
+            erasure_diag=erasure_diag,
             bundle=b,
         )
         for rec in readout["prompt_coupling"].get("recommendations", ()):
             if rec not in readout["readiness"]["recommendations"]:
                 readout["readiness"]["recommendations"].append(rec)
-    return {
+    out_synth: dict[str, Any] = {
         "family": family,
         "pos_words_matched": pos_matched,
         "pos_words_unmatched": pos_unmatched,
@@ -2099,12 +2499,19 @@ def synthesize_from_words(
         "neg_words_unmatched": neg_unmatched,
         "hold_words": hold_list,
         "alpha": float(alpha) if hold_list else 0.0,
+        "used_model2vec_lexicon": bool(pos_used_lex or neg_used_lex),
         "vector.post_refiner": v_pr,
         "vector.encoder": v_enc,
         "readout": readout,
+        "erasure_readout": readout.get("erasure_readout"),
         "readiness": readout["readiness"],
         "prompt_coupling": readout.get("prompt_coupling"),
     }
+    if erasure_vr is not None and erasure_diag is not None and erasure_mu_d is not None:
+        out_synth["erasure.mu_d"] = erasure_mu_d
+        out_synth["erasure.vr"] = erasure_vr
+        out_synth["erasure.diag"] = erasure_diag
+    return out_synth
 
 
 def save_synthesized_vector(
@@ -2183,7 +2590,12 @@ def save_synthesized_vector(
         },
     }
     encoded_meta = {k: json.dumps(v, sort_keys=True) for k, v in meta_dict.items()}
-    tensors_dict = {"vector.post_refiner": v_pr, "vector.encoder": v_enc}
+    tensors_dict: dict[str, torch.Tensor] = {"vector.post_refiner": v_pr, "vector.encoder": v_enc}
+    if "erasure.vr" in synth and "erasure.diag" in synth:
+        tensors_dict["erasure.vr"] = synth["erasure.vr"].detach().to(device="cpu", dtype=torch.float32).contiguous()
+        tensors_dict["erasure.diag"] = synth["erasure.diag"].detach().to(device="cpu", dtype=torch.float32).contiguous()
+        if "erasure.mu_d" in synth:
+            tensors_dict["erasure.mu_d"] = synth["erasure.mu_d"].detach().to(device="cpu", dtype=torch.float32).clone().contiguous()
     path.write_bytes(
         save_safetensors_bytes(
             tensors_dict,
@@ -2350,7 +2762,7 @@ def save_composed_recipe_vector(
     composed_erasure = _cv_mod.compose_erasure_payload(erasure_entries, holds=erasure_holds)
 
     encoded_meta = {k: json.dumps(v, sort_keys=True) for k, v in meta_dict.items()}
-    tensors_dict = {"vector.post_refiner": v_pr, "vector.encoder": v_enc}
+    tensors_dict: dict[str, torch.Tensor] = {"vector.post_refiner": v_pr, "vector.encoder": v_enc}
     if composed_erasure is not None:
         (
             tensors_dict["erasure.mu_d"],

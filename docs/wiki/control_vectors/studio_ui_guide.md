@@ -1,6 +1,6 @@
 # Control Vector Studio (`bench/control_vectors.py ui`)
 
-Last updated: 2026-11-11.
+Last updated: 2026-11-21 (Subspace X-Ray `X-Ray` drawer in Library/Inspect/Word Lab, rank-16 `sculpt` erasure composition, and per-token `||E(h_i)||_2` meter).
 
 `bench/control_vectors.py ui` launches a self-contained local browser workbench (`bench/control_vector/ui_server.py` + `bench/control_vector/web/`) for authoring, inspecting, sculpting, metering, and grading H3 control vectors without leaving your browser.
 
@@ -32,11 +32,11 @@ Studio is a thin, schema-driven front end over `bench/control_vectors.py`—not 
 
 | Screen | Backed by | What you do there |
 |---|---|---|
-| **Library & Inspect** | `inspect` + `j_lens.py` | Browse every `.safetensors` vector in `models/control_vectors/`, view J-Lens `+`/`-` word gains, `raw_norm`, LoRA compatibility, per-pair `pooled_tokens`, preview live `--hold-words` / `--hold` scrubbing in `< 15 ms` on CPU, and run a **Token-Wise Prompt Receptor Scan** against any prompt. |
-| **Word Lab (`words`)** | `words` (`j_lens.synthesize_from_words`) | Type positive, negative (`@prompt_subject`, `@replace_human`, or custom words), and `hold_words` on CPU (`< 2 ms`), inspect the resulting J-Lens readout and `off_target_words` immediately, and save `fl2va` + `ref2va` `.safetensors` files to `models/control_vectors/`. |
-| **Sculpt (`sculpt`)** | `sculpt` (`control_vectors.APPLY_MODES`) | Combine multiple library vectors (`add`, `add_norm_matched`, `hold`) and `hold_words` in `< 5 ms` on CPU into a single Ready-to-Render `.safetensors` file. |
-| **Build (`from-prompt`, `from-toml`, `make-media`, `from-md`)** | `build`, `from-prompt`, `make-media`, `from-md`, `generate-pairs` | Author or import LLM Markdown pairs, preview exact `diff_span` token highlights before loading the GPU, or upload two contrasting `<Picture 1>` images (`make-media`) and build `fl2va`/`ref2va` `.safetensors` files. |
-| **Meter & Grade** | `inspect --meter` & `grade` | Unified `maskControl` picker (`cd5cd228`) supporting lever masks (`scene_only` default across CLI `inspect --meter`, `grade`, and `/api/prompt-meter` as of `f8cdd538`), single H3 fields (`subject_definitions`, `description_only`, `overall_soundscape`, ...), and multi-field `a+b` selections, plus `--mode` (`add_norm_matched` default as of `1a216404`). |
+| **Library & Inspect** | `inspect` + `j_lens.py` | Browse every `.safetensors` vector in `models/control_vectors/`, see its `erasure` rank (`r=8` / `r=16` vs. `1D only`), click **X-Ray** for an instant `< 15 ms` **Subspace X-Ray** (`Adds mu_d` + `Erases Pole A: vr[0..3]`), preview live `--hold-words` / `--hold` scrubbing, and run a **Token-Wise Prompt Receptor & Erasure Scan** against any prompt. |
+| **Word Lab (`words`)** | `words` (`j_lens.synthesize_from_words`) | Type single words, `Model2Vec` multi-token terms/phrases (`silver gelatin`, `paper origami`, `muppet`), `against_words` (`@replace_digital, sunlit, warm`), and `hold_words` on CPU (`< 2 ms`), preview both the 1D readout and synthesized `against`-SVD **Subspace X-Ray**, and save `fl2va` + `ref2va` `.safetensors` files. |
+| **Sculpt (`sculpt`)** | `sculpt` (`control_vectors.APPLY_MODES`) | Combine multiple library vectors (`add_norm_matched_erasure`, `add_norm_matched`, `add`, `hold`) and `hold_words` in `< 5 ms` on CPU into a single Ready-to-Render `.safetensors` file preserving up to **`COMPOSED_ERASURE_MAX_RANK = 16`** union erasure directions. |
+| **Build (`from-prompt`, `from-toml`, `make-media`, `from-md`)** | `build`, `from-prompt`, `make-media`, `from-md`, `generate-pairs` | Author or import LLM Markdown pairs, preview exact `diff_span` token highlights before loading the GPU, or upload two contrasting `<Picture 1>` images (`make-media` `ColQwen`-style patch erasure) and build `fl2va`/`ref2va`/`h3_image` `.safetensors` files. |
+| **Meter & Grade** | `inspect --meter` & `grade` | Unified `maskControl` picker (`scene_only` default) supporting lever masks, single H3 fields (`subject_definitions`, `description_only`, `overall_soundscape`, ...), and multi-field `a+b` selections, reporting both 1D projection and **Top Erased Prompt Tokens (`||E(h_i)||_2`)**, plus `--mode` (`add_norm_matched_erasure` supported in `grade`). |
 | **Methods Reference** | Parser schema (`methods.js`) | Auto-generated interactive reference of every `bench/control_vectors.py` subcommand and argument. |
 
 ![Data flow from pair source to models/control_vectors](assets/studio_build_data_flow.svg)

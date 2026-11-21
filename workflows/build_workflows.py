@@ -1714,6 +1714,8 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
               sprite_trajectory: bool | str | dict | None = None,
               spatial_director: bool | dict | None = None,
               director_hud: bool | dict | None = None,
+              ab_baseline_control_vector: dict | None = None,
+              media_control_vector: dict | None = None,
               release_references: bool | dict | None = None,
               task_lora: tuple[str, float] | None = None,
               out_prefix: str | None = None, **canvas) -> dict:
@@ -2235,7 +2237,51 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
                    "inputs": {"model": model_src, "blocks": exact_blocks}}
         model_src = ["51", 0]
 
-    if control_vector is not None:
+    pre_cv_model_src = list(model_src)
+    if media_control_vector is not None:
+        if control_vector is not None:
+            raise SystemExit("media_control_vector and control_vector are mutually exclusive")
+        mcv = dict(media_control_vector)
+        g["180"] = {"class_type": "LoadImage", "inputs": {"image": mcv.get("image_a", PLACEHOLDER_IMAGE_A)}}
+        g["181"] = {"class_type": "LoadImage", "inputs": {"image": mcv.get("image_b", PLACEHOLDER_IMAGE_B)}}
+        g["182"] = {
+            "class_type": "MiniMaxH3MakeMediaControlVector",
+            "inputs": {
+                "model": list(pre_cv_model_src),
+                "clip": ["2", 0],
+                "image_a": ["180", 0],
+                "image_b": ["181", 0],
+                "output_name": str(mcv.get("output_name", "media_contrast")),
+                "pooling": str(mcv.get("pooling", "scene_text")),
+                "short_edge": int(mcv.get("short_edge", 512)),
+                "scene_prompt": str(mcv.get("scene_prompt", prompt)),
+                "overwrite": bool(mcv.get("overwrite", True)),
+            },
+        }
+        steer_mcv_in: dict[str, Any] = dict(
+            STEER_DEFAULTS,
+            model=list(pre_cv_model_src),
+            vector="none",
+            strength=float(mcv.get("strength", 1.45)),
+            mode=str(mcv.get("mode", STEER_DEFAULTS["mode"])),
+            target=str(mcv.get("target", "description_only")),
+            custom_vector=["182", 2],
+        )
+        g["115"] = {"class_type": STEER_NODE, "inputs": steer_mcv_in}
+        model_src = ["115", 0]
+        if mcv.get("release_references"):
+            rel_mcv = mcv["release_references"]
+            rel_in_mcv = (
+                {
+                    "end_percent": float(RELEASE_REFERENCES_DEFAULTS["end_percent"]),
+                    "clean_level": float(RELEASE_REFERENCES_DEFAULTS["clean_level"]),
+                }
+                if rel_mcv is True
+                else dict(rel_mcv)
+            )
+            g["135"] = {"class_type": RELEASE_REFERENCES_NODE, "inputs": {"model": model_src, **rel_in_mcv}}
+            model_src = ["135", 0]
+    elif control_vector is not None:
         # Post-refiner control-vector steering (MiniMaxH3Steer at node 115 and
         # 125+ for chained vectors, plus MiniMaxH3ReleaseReferences at 135 when
         # reference hold/release is configured): wraps DIFFUSION_MODEL before any
@@ -2893,6 +2939,58 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
                 filename_prefix=f"{vhs_inputs['filename_prefix']}_clean",
             ),
         }
+
+    if ab_baseline_control_vector is not None:
+        if director_hud is not None or spatial_director is not None or single_frame or "13" not in g:
+            raise SystemExit(
+                "ab_baseline_control_vector requires a standard video graph ('13') without spatial_director/director_hud"
+            )
+        ab_cfg = dict(ab_baseline_control_vector)
+        base_steer_in: dict[str, Any] = dict(
+            STEER_DEFAULTS,
+            model=list(pre_cv_model_src),
+            vector=str(ab_cfg["vector"]),
+            strength=float(ab_cfg.get("strength", 1.55)),
+            mode=str(ab_cfg.get("mode", "add_norm_matched")),
+            target=str(ab_cfg.get("target", "scene_only")),
+        )
+        g["170"] = {"class_type": STEER_NODE, "inputs": base_steer_in}
+        g["171"] = {
+            "class_type": "BasicGuider",
+            "inputs": {"model": ["170", 0], "conditioning": list(g["9"]["inputs"]["conditioning"])},
+        }
+        g["172"] = {
+            "class_type": "SamplerCustomAdvanced",
+            "inputs": {
+                "noise": list(g["10"]["inputs"]["noise"]),
+                "guider": ["171", 0],
+                "sampler": list(g["10"]["inputs"]["sampler"]),
+                "sigmas": list(g["10"]["inputs"]["sigmas"]),
+                "latent_image": list(g["10"]["inputs"]["latent_image"]),
+            },
+        }
+        g["173"] = {
+            "class_type": "VAEDecode",
+            "inputs": {"samples": ["172", 0], "vae": list(g["11"]["inputs"]["vae"])},
+        }
+        g["161"] = {
+            "class_type": DIRECTOR_HUD_NODE,
+            "inputs": {
+                "images": list(g["13"]["inputs"]["images"]),
+                "director_plan": "",
+                "hud_layout": "split_ab_card",
+                "title": str(ab_cfg.get("title", "SAME-SEED A/B · 1D vs POLE-A ERASURE")),
+                "subtitle": str(
+                    ab_cfg.get(
+                        "subtitle",
+                        "Left: 1D add_norm_matched | Right: add_norm_matched_erasure (shared noise & sigmas)",
+                    )
+                ),
+                "ring_opacity": float(DIRECTOR_HUD_DEFAULTS["ring_opacity"]),
+                "baseline_images": ["173", 0],
+            },
+        }
+        g["13"]["inputs"]["images"] = ["161", 0]
 
     if prompt_expander is not None:
         if edit_guidance is not None:
@@ -5156,6 +5254,38 @@ def validate_api(graph: dict, oi: dict, label: str) -> list[str]:
                 and graph[str(li[0])]["class_type"] == "SamplerCustomAdvanced"
                 and graph[str(sig[0])]["class_type"] == "ManualSigmas"):
             refine_ids.add(str(gd[0]))
+    # A same-seed side-by-side Split-A/B comparison (`MiniMaxH3DirectorHUD` with
+    # `hud_layout == "split_ab_card"` and `baseline_images` fed from a twin
+    # `VAEDecode -> SamplerCustomAdvanced` sharing the primary sampler's exact
+    # `noise`, `sigmas`, and `latent_image`) legitimately runs a second `BasicGuider`
+    # on the baseline steering branch.
+    for n in graph.values():
+        if n["class_type"] != "MiniMaxH3DirectorHUD":
+            continue
+        bi = n["inputs"].get("baseline_images")
+        if (
+            n["inputs"].get("hud_layout") == "split_ab_card"
+            and isinstance(bi, list)
+            and str(bi[0]) in graph
+            and graph[str(bi[0])]["class_type"] == "VAEDecode"
+        ):
+            bsmp_ref = graph[str(bi[0])]["inputs"].get("samples")
+            if (
+                isinstance(bsmp_ref, list)
+                and str(bsmp_ref[0]) in graph
+                and graph[str(bsmp_ref[0])]["class_type"] == "SamplerCustomAdvanced"
+                and "10" in graph
+            ):
+                bsmp = graph[str(bsmp_ref[0])]["inputs"]
+                psmp = graph["10"]["inputs"]
+                if (
+                    bsmp.get("noise") == psmp.get("noise")
+                    and bsmp.get("sigmas") == psmp.get("sigmas")
+                    and bsmp.get("latent_image") == psmp.get("latent_image")
+                    and isinstance(bsmp.get("guider"), list)
+                ):
+                    refine_ids.add(str(bsmp["guider"][0]))
+
     consumers = [(nid, n) for nid, n in graph.items()
                  if n["class_type"] in ("BasicScheduler", "BasicGuider")
                  and nid not in refine_ids]
@@ -6205,6 +6335,63 @@ def main():
               ],
               out_prefix="Video/h3_t2v_pika_stacked_erasure"),
          "TV cooking-show studio (`t2va_cooking_show_meltdown`) -> 192f (8.00s) 1152x768 video + audio on Pika H3 Flex 6-step LCM chaining three MiniMaxH3Steer nodes in one 1x pass (noir +1.55 add_norm_matched_erasure + chaos_panic +0.90 on scene_only + reverb_cathedral +1.25 on soundscape_only)"),
+        ("h3_text_to_video_pika_1d_vs_erasure_ab.json", "t2v-pika-1d-vs-erasure-ab", "t2v",
+         _bank_prompt("t2va_sitcom_kitchen"),
+         dict(width=1152, height=768, length=141,
+              lora=(PIKA_FL2VA_SVD995_LORA, PIKA_STRENGTH), lora_branch=True,
+              steps=PIKA_STEPS, sampler_name=PIKA_SAMPLER,
+              manual_sigmas=PIKA_MANUAL_SIGMAS,
+              control_vector=dict(
+                  vector="noir",
+                  strength=1.55,
+                  target="scene_only",
+              ),
+              ab_baseline_control_vector=dict(
+                  vector="noir",
+                  strength=1.55,
+                  mode="add_norm_matched",
+                  target="scene_only",
+                  title="SAME-SEED A/B · 1D vs POLE-A ERASURE",
+                  subtitle="Left: 1D add_norm_matched | Right: add_norm_matched_erasure (noir +1.55)",
+              ),
+              out_prefix="Video/h3_t2v_pika_1d_vs_erasure_ab"),
+         "1970s sitcom kitchen (`t2va_sitcom_kitchen`) -> 1-click same-seed side-by-side Split-A/B video + audio (`MiniMaxH3DirectorHUD(hud_layout='split_ab_card')`) comparing legacy 1D `add_norm_matched` (left) vs Clamped Pole-A Subspace Erasure `add_norm_matched_erasure` (right) on `noir +1.55` across shared noise, conditioning, and sigmas"),
+        ("h3_text_to_video_pika_word_vector_erasure.json", "t2v-pika-word-vector-erasure", "t2v",
+         _bank_prompt("t2va_hardware_aisle_short"),
+         dict(width=1152, height=768, length=141,
+              lora=(PIKA_FL2VA_SVD995_LORA, PIKA_STRENGTH), lora_branch=True,
+              steps=PIKA_STEPS, sampler_name=PIKA_SAMPLER,
+              manual_sigmas=PIKA_MANUAL_SIGMAS,
+              control_vector=dict(
+                  vector="none",
+                  strength=1.60,
+                  target="scene_only",
+                  words="blizzard, snowstorm, frost, freezing, gale",
+                  against_words="@replace_digital, sunny, warm, indoor, afternoon",
+                  hold_words="coat, parka",
+                  hold_alpha=0.5,
+              ),
+              out_prefix="Video/h3_t2v_pika_word_vector_erasure"),
+         "hardware aisle (`t2va_hardware_aisle_short`) -> zero-build `< 2 ms` CPU `MiniMaxH3WordVector` (`Model2Vec` + `against`-SVD subspace erasure + `hold_words='coat, parka'`) wired into `MiniMaxH3Steer(mode='add_norm_matched_erasure', strength=1.60)` on Pika H3 Flex 6-step LCM"),
+        ("h3_image_ref_make_media_erasure_pika.json", "r2v-pika-make-media-erasure", "r2v",
+         _ref_prompt(images=("character",), scene="kitchen"),
+         dict(ref_images=SCENE_REF_IMAGES["kitchen"], ref_image_count=1,
+              width=1152, height=768, length=141,
+              lora=(PIKA_REF2VA_SVD995_LORA, PIKA_STRENGTH), lora_branch=True,
+              steps=PIKA_STEPS, sampler_name=PIKA_SAMPLER,
+              manual_sigmas=PIKA_MANUAL_SIGMAS,
+              media_control_vector=dict(
+                  image_a=PLACEHOLDER_IMAGE_A,
+                  image_b=PLACEHOLDER_IMAGE_B,
+                  pooling="scene_text",
+                  short_edge=512,
+                  strength=1.45,
+                  target="description_only",
+                  overwrite=True,
+                  release_references=True,
+              ),
+              out_prefix="Video/h3_r2v_make_media_erasure_pika"),
+         "2-still `ColQwen`-style visual contrast slider (`MiniMaxH3MakeMediaControlVector` extracting unpooled M-RoPE-aligned `erasure.{mu_d,vr,diag}` from `image_a` vs `image_b` -> `MiniMaxH3Steer(mode='add_norm_matched_erasure', target='description_only')`) on 141f `<Picture 1>` kitchen dialogue"),
         ("h3_first_last_frame_pika_control_vector.json", "fl2v-pika-control-vector", "i2v", None,
          dict(length=141, last_frame=True, out_prefix="Video/h3_fl2v_pika_control_vector", **FL2V_CANVAS,
               lora=(PIKA_FL2VA_SVD995_LORA, PIKA_STRENGTH), lora_branch=True,

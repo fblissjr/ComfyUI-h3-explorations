@@ -532,6 +532,39 @@ DECLARED: dict[tuple[str, str], tuple] = {
                 "h3_spatial_portal_pika_erasure so 32%..70% of the canvas crosses H3's 3D "
                 "self-attention spatial continuity threshold under zero-rewrite steering, "
                 "against DEFAULT_DIRECTOR_EVENTS_JSON (2026-11-21)."),
+    ("MiniMaxH3Steer", "mode"):
+        ("ARM", "'add_norm_matched' on the baseline 1D branch (node 170) of "
+                "h3_text_to_video_pika_1d_vs_erasure_ab so one click compares legacy 1D "
+                "against the right-hand 'add_norm_matched_erasure' default on identical "
+                "seed and sigmas (2026-11-21, docs/wiki/control_vectors/tutorials_progressive_guide.md)"),
+    ("MiniMaxH3Steer", "hold_words"):
+        ("ARM", "'coat, parka' on h3_text_to_video_pika_word_vector_erasure against the empty "
+                "default: scrubs winter-parka garment drift per token row while steering the "
+                "hardware aisle into a snowstorm (2026-11-21, docs/wiki/control_vectors/j_lens_diagnostics_and_word_lab.md)"),
+    ("MiniMaxH3Steer", "hold_alpha"):
+        ("ARM", "0.5 soft per-row hold scrubbing on h3_text_to_video_pika_word_vector_erasure "
+                "against the node default 1.0 (2026-11-21, docs/wiki/control_vectors/j_lens_diagnostics_and_word_lab.md)"),
+    ("MiniMaxH3WordVector", "words"):
+        ("ARM", "positive target words ('blizzard, snowstorm, frost, freezing, gale') on "
+                "h3_text_to_video_pika_word_vector_erasure against the empty default "
+                "(2026-11-21, docs/wiki/control_vectors/tutorials_progressive_guide.md)"),
+    ("MiniMaxH3WordVector", "against_words"):
+        ("ARM", "'@replace_digital, sunny, warm, indoor, afternoon' on "
+                "h3_text_to_video_pika_word_vector_erasure against the empty default: "
+                "builds an on-CPU rank-r against-SVD erasure subspace in < 2 ms "
+                "(2026-11-21, docs/wiki/control_vectors/tutorials_progressive_guide.md)"),
+    ("MiniMaxH3MakeMediaControlVector", "scene_prompt"):
+        ("ARM", "the graph's ref2va scene prompt on h3_image_ref_make_media_erasure_pika "
+                "against the empty default: required text context when encoding <Picture 1> "
+                "image_a vs image_b pairs (2026-11-21, docs/wiki/control_vectors/building_pairs_and_vectors.md)"),
+    ("MiniMaxH3MakeMediaControlVector", "overwrite"):
+        ("ARM", "True on h3_image_ref_make_media_erasure_pika against the node default False "
+                "so re-queuing the playground overwrites media_contrast__ref2va cleanly "
+                "(2026-11-21, docs/wiki/control_vectors/tutorials_progressive_guide.md)"),
+    ("MiniMaxH3DirectorHUD", "hud_layout"):
+        ("ARM", "'split_ab_card' on h3_text_to_video_pika_1d_vs_erasure_ab against the node "
+                "default 'director_card': renders baseline_images (1D) and images (Pole-A Erasure) "
+                "side by side in one comparison MP4 (2026-11-21)"),
     ("MiniMaxH3DirectorHUD", "title"):
         ("ARM", "Scene-specific HUD header title on h3_spatial_portal_pika, "
                 "h3_spatial_portal_pika_erasure, "

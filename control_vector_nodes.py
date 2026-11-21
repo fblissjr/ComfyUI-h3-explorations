@@ -2059,9 +2059,16 @@ def _make_control_vector_wrapper(
             )
         )
 
-        def _spec_effective_vector(sp: _AppliedVectorSpec) -> torch.Tensor:
+        def _spec_effective_vector_and_erasure(
+            sp: _AppliedVectorSpec,
+        ) -> tuple[torch.Tensor, tuple[Any, ...] | None]:
             eff_prompt = (sp.prompt or live_tail_text or "").strip()
             vec_out = sp.vector
+            er_out: tuple[Any, ...] | None = (
+                (sp.erasure_vr, sp.erasure_diag, sp.erasure_mu_d, sp.erasure_holds)
+                if (sp.erasure_vr is not None and sp.erasure_diag is not None)
+                else None
+            )
             if sp.metadata.get("deferred_against_prompt"):
                 if eff_prompt:
                     cache_key = (sp.vector_name, eff_prompt)
@@ -2075,7 +2082,17 @@ def _make_control_vector_wrapper(
                                 alpha=float(sp.metadata.get("hold_alpha", 1.0)),
                                 prompt=eff_prompt,
                             )
-                            resolved_prompt_vectors[cache_key] = res_synth["vector.post_refiner"]
+                            res_er = (
+                                (
+                                    res_synth["erasure.vr"],
+                                    res_synth["erasure.diag"],
+                                    res_synth.get("erasure.mu_d"),
+                                    sp.erasure_holds,
+                                )
+                                if ("erasure.vr" in res_synth and "erasure.diag" in res_synth)
+                                else er_out
+                            )
+                            resolved_prompt_vectors[cache_key] = (res_synth["vector.post_refiner"], res_er)
                             logger.info(
                                 "[h3] resolved %s against live prompt subject %s -> PR(+) %s | PR(-) %s",
                                 sp.vector_name,
@@ -2084,13 +2101,13 @@ def _make_control_vector_wrapper(
                                 res_synth["readout"].get("neg_summary", ""),
                             )
                         else:
-                            resolved_prompt_vectors[cache_key] = sp.vector
+                            resolved_prompt_vectors[cache_key] = (sp.vector, er_out)
                         while len(resolved_prompt_vectors) > 64:
                             resolved_prompt_vectors.popitem(last=False)
                     else:
                         resolved_prompt_vectors.move_to_end(cache_key)
-                    vec_out = resolved_prompt_vectors[cache_key]
-                    last_resolved_by_spec[sp.vector_name] = vec_out
+                    vec_out, er_out = resolved_prompt_vectors[cache_key]
+                    last_resolved_by_spec[sp.vector_name] = (vec_out, er_out)
                 else:
                     if (sp.vector_name, "missing_prompt_warn") not in logged_prompt_couplings:
                         logged_prompt_couplings.add((sp.vector_name, "missing_prompt_warn"))
@@ -2100,7 +2117,7 @@ def _make_control_vector_wrapper(
                             sp.vector_name,
                             sp.metadata.get("against_raw", "@prompt_subject"),
                         )
-                    vec_out = last_resolved_by_spec.get(sp.vector_name, sp.vector)
+                    vec_out, er_out = last_resolved_by_spec.get(sp.vector_name, (sp.vector, er_out))
             if eff_prompt:
                 pc_key = (sp.vector_name, eff_prompt[:120])
                 if pc_key not in logged_prompt_couplings:
@@ -2126,7 +2143,7 @@ def _make_control_vector_wrapper(
                             )
                         except Exception:
                             pass
-            return vec_out
+            return vec_out, er_out
 
         for sp in active_specs:
             vec_prefix = sp.metadata.get("measured_under", {}).get("prefix", "none")
@@ -2178,17 +2195,13 @@ def _make_control_vector_wrapper(
                 mask_vision = sp.mask != "all_rows"
                 group_specs: list[_AppliedVectorSpec] = [sp]
                 s0 = _effective_spec_strength(sp, stream_attr)
-                v0 = _spec_effective_vector(sp)
+                v0, er0 = _spec_effective_vector_and_erasure(sp)
                 batch_entries: list[tuple[torch.Tensor, float, str]] = [
                     (v0, s0, _effective_entry_mode(sp))
                 ]
                 batch_erasure_specs: list[
                     tuple[Any, ...] | None
-                ] = [
-                    (sp.erasure_vr, sp.erasure_diag, sp.erasure_mu_d, sp.erasure_holds)
-                    if (sp.erasure_vr is not None and sp.erasure_diag is not None)
-                    else None
-                ]
+                ] = [er0]
                 j = i + 1
                 while (
                     j < n
@@ -2205,7 +2218,7 @@ def _make_control_vector_wrapper(
                     gnext = active_specs[j]
                     group_specs.append(gnext)
                     sj = _effective_spec_strength(gnext, stream_attr)
-                    vj = _spec_effective_vector(gnext)
+                    vj, erj = _spec_effective_vector_and_erasure(gnext)
                     batch_entries.append(
                         (
                             vj,
@@ -2213,11 +2226,7 @@ def _make_control_vector_wrapper(
                             _effective_entry_mode(gnext),
                         )
                     )
-                    batch_erasure_specs.append(
-                        (gnext.erasure_vr, gnext.erasure_diag, gnext.erasure_mu_d, gnext.erasure_holds)
-                        if (gnext.erasure_vr is not None and gnext.erasure_diag is not None)
-                        else None
-                    )
+                    batch_erasure_specs.append(erj)
                     j += 1
 
                 if (
@@ -2936,6 +2945,20 @@ def attach_control_vector(
             "hold_alpha": ha_f,
             "synth_family": synth_fam,
         }
+        w_erasure_vr = synth.get("erasure.vr")
+        w_erasure_diag = synth.get("erasure.diag")
+        w_erasure_mu_d = synth.get("erasure.mu_d")
+        w_erasure_holds: tuple[tuple[torch.Tensor, float], ...] = ()
+        if extra_hold_words:
+            w_synth_holds: list[tuple[torch.Tensor, float]] = []
+            for ew_raw, ea_raw in extra_hold_words:
+                ew_clean = str(ew_raw or "").strip()
+                ea_f = _validate_float_bounds("hold_alpha", ea_raw, lo=0.0, hi=2.0)
+                if ew_clean and ea_f > 0.0:
+                    hs = _j_lens.synthesize_from_words(ew_clean, family=synth_fam)
+                    w_synth_holds.append((hs["vector.post_refiner"].detach().to(device="cpu", dtype=torch.float32), ea_f))
+            if w_synth_holds:
+                w_erasure_holds = tuple(w_synth_holds)
         w_spec = _AppliedVectorSpec(
             vector_name=w_label,
             vector=synth["vector.post_refiner"],
@@ -2959,6 +2982,10 @@ def attach_control_vector(
             guide_cond_end_percent=gcep_f,
             edit_pass=edit_pass,
             token_focus=tf_f,
+            erasure_vr=w_erasure_vr,
+            erasure_diag=w_erasure_diag,
+            erasure_mu_d=w_erasure_mu_d,
+            erasure_holds=w_erasure_holds,
         )
         updated = updated + (w_spec,)
         rd_summary = (synth.get("readiness") or {}).get("summary", "")
@@ -3420,6 +3447,8 @@ def make_control_vector_from_media_pairs(
         )
 
     # Pass 2: Run `condition_proj + token_refiner` across all cached media encodings.
+    media_a_spans: list[torch.Tensor] = []
+    media_b_spans: list[torch.Tensor] = []
     for idx, f_idx, enc_a, tags_a, ids_a, dec_a, enc_b, tags_b, ids_b, dec_b in encoded_media_pairs:
         ref_a = refiner_run(enc_a)
         ref_b = refiner_run(enc_b)
@@ -3434,6 +3463,8 @@ def make_control_vector_from_media_pairs(
         mask_a = _media_pooling_mask(spans_a, tags_a, pooling)
         mask_b = _media_pooling_mask(spans_b, tags_b, pooling)
 
+        media_a_spans.append(ref_a[mask_a].detach().to(device="cpu", dtype=torch.float32))
+        media_b_spans.append(ref_b[mask_b].detach().to(device="cpu", dtype=torch.float32))
         pool_a = ref_a.to(dtype=torch.float64)[mask_a].mean(dim=0).to(dtype=torch.float32)
         pool_b = ref_b.to(dtype=torch.float64)[mask_b].mean(dim=0).to(dtype=torch.float32)
         a_pooled_list.append(pool_a)
@@ -3480,6 +3511,15 @@ def make_control_vector_from_media_pairs(
     w_vec = torch.tensor(weights_list, dtype=torch.float32)
     final_vec = _cv.mean_difference(a_mat, b_mat, w_vec)
     tensors_to_save: dict[str, torch.Tensor] = {"vector.post_refiner": final_vec}
+    media_erasure = _cv.build_pole_a_erasure(
+        media_a_spans, media_b_spans, weights=weights_list
+    )
+    if media_erasure is not None:
+        (
+            tensors_to_save["erasure.mu_d"],
+            tensors_to_save["erasure.vr"],
+            tensors_to_save["erasure.diag"],
+        ) = media_erasure
 
     gen = torch.Generator(device="cpu").manual_seed(0)
     q_report = _cv.quality_report(a_mat, b_mat, w_vec, generator=gen)
@@ -3488,6 +3528,15 @@ def make_control_vector_from_media_pairs(
             jl_media_readout = _j_lens.decode_vector(
                 final_vec, space="post_refiner", family=family, top_k=12
             )
+            if media_erasure is not None and hasattr(_j_lens, "decode_erasure_payload"):
+                jl_media_readout["erasure_readout"] = _j_lens.decode_erasure_payload(
+                    final_vec,
+                    media_erasure[1],
+                    media_erasure[2],
+                    erasure_mu_d=media_erasure[0],
+                    v1d_readout=jl_media_readout,
+                    family=family,
+                )
             q_report["j_lens_readout"] = jl_media_readout
             logger.info(
                 "[h3] built media control vector %r (%s): j_lens (+) %s | (-) %s",
@@ -4208,6 +4257,7 @@ def _attach_h3_vector_spec(
             hold_alpha=float(eff_hold_alpha),
             edit_pass=edit_pass,
             token_focus=float(token_focus),
+            extra_hold_words=extra_hold_words,
         )
     raise ValueError(f"unsupported H3VectorSpec.kind={spec.kind!r}")
 

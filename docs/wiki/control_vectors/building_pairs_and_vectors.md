@@ -1,6 +1,6 @@
 # Building Pairs and Control Vectors
 
-Last updated: 2026-11-20 (`build_pole_a_erasure`, `erasure.{mu_d,vr,diag}` `float32` payload, and `orthogonalize_erasure_against_holds`).
+Last updated: 2026-11-21 (`build_pole_a_erasure`, Pole-A Coverage Law, `Model2Vec` + `against`-SVD word erasure, and `ColQwen`-style `make-media` patch erasure).
 
 A MiniMax H3 control vector is the mean post-refiner difference (`Pole B - Pole A`) across one or more matched contrastive pairs, computed in `float64`, scrubbed of any declared `[[hold]]` nuisance subspace via Gram-Schmidt projection, and saved to `models/control_vectors/<stem>__<family>__<pooling>[__lora_<hash>].safetensors`.
 
@@ -62,6 +62,12 @@ When pairs average **mutually incompatible concrete targets** under an umbrella 
 ### Build-field invariance
 We also tested building the exact same clothing contrast inside `subject_definitions:` vs. `detailed_description:` vs. a 3-field `t2va` prompt (`2026-11-11`). All three produced nearly collinear directions (`diff_span` pools only the differing clause). **What a vector steers is determined by what the words mean and which runtime `target` (`mask`) or `fields` you apply it to—not which prompt header held the clause during `build`.**
 
+### The Pole-A Coverage Law (`V_r` needs diverse baselines, not just `B - A` cancellation)
+Under legacy 1D steering (`add_norm_matched`), 5 pairs were already enough for the 1D mean `mu_d` to converge (`cos(mu_d_sub, mu_d_full) = 0.949–0.981` at `N = 5` across our Monte-Carlo subsample curves in [`bench/control_vector/eval_multivector_erasure.py`](../../../bench/control_vector/eval_multivector_erasure.py)). Under default **`add_norm_matched_erasure`**, your Pole-A `diff_span` clauses also span the rank-`r` (`r <= 8`) **erasure trap `erasure.vr`** that zeroes conflicting cues inside a user's prompt:
+
+- **Subspace coverage scales much slower than 1D cosine:** At `N = 1` pair, `erasure.vr` covers only **`32.6%–48.8%`** of the full 10–12 pair Grassmannian Pole-A subspace (`0.406` on `noir`, `0.488` on `paper_origami`, `0.401` on `chaos_panic`, `0.326` on `wes_anderson_symmetry`). At `N = 5`, coverage rises to `68.6%–74.5%`; at **`N = 8..10` diverse pairs**, coverage reaches **`80.5%–89.2%+`**.
+- **Vary the conflicting baseline facets across Pole A:** If you build `noir`, make Pole A span *sunlit daylight*, *warm tungsten lamps*, *golden-hour amber*, *saturated clothing*, and *soft natural skin tones* across your 8–12 pairs—not 10 near-identical copies of `"lit by natural light"`. And keep surrounding scene settings balanced so a 5-pair file doesn't spend `vr[0..1]` erasing between-pair scene drift (`urban/nighttime/professor`, as observed on legacy 5-pair `watercolor_wash`).
+
 ---
 
 ## 4. Scrubbing correlated side effects with `[[hold]]`
@@ -120,11 +126,11 @@ Builds `fl2va` (default; shared cleanly across `{fl2va, ref2va}` at `cos ~0.99`,
 - When building `ref2va` vectors that specifically steer `<Subject 1>` interaction with encoded `<Picture 1>` vision tokens, pass `--ref-images path/to/ref.png` (or wire `encoded_references` into `MiniMaxH3MakeControlVector`).
 
 ### Method 3 — `words` and `sculpt` (`< 5 ms` on CPU, zero GPU load)
-- **`words`**: synthesizes `fl2va` + `ref2va` vectors from single-token English words via J-Lens (see [`j_lens_diagnostics_and_word_lab.md`](j_lens_diagnostics_and_word_lab.md)).
-- **`sculpt`**: algebraically combines existing `.safetensors` vectors (`add`, `add_norm_matched`, `add_norm_matched_erasure`, `hold`) and/or `--hold-words` in `< 5 ms` on CPU with full provenance tracking.
+- **`words`**: synthesizes `fl2va` + `ref2va` vectors from single words, multi-token domain terms, and 2-word phrases via the Jacobian-lens word bundle + optional `Model2Vec` contextual lexicon (`models/j_lens/model2vec_h3_lexicon.safetensors`), and automatically extracts rank-`r` `against`-SVD `erasure.{mu_d,vr,diag}` when two or more `against` words (or `@replace_*` presets) are supplied (see [`j_lens_diagnostics_and_word_lab.md`](j_lens_diagnostics_and_word_lab.md)).
+- **`sculpt`**: algebraically combines existing `.safetensors` vectors (`add`, `add_norm_matched`, `add_norm_matched_erasure`, `hold`) and/or `--hold-words` in `< 5 ms` on CPU with full provenance tracking and up to rank-`16` (`COMPOSED_ERASURE_MAX_RANK = 16`) union erasure preservation.
 
-### Method 4 — `make-media` / `MiniMaxH3MakeMediaControlVector` (image-pair contrast)
-Extracts `B - A` from two contrasting `<Picture 1>` reference images (`--image-a baseline.png --image-b stylized.png`) encoded under the same `--scene-prompt`:
+### Method 4 — `make-media` / `MiniMaxH3MakeMediaControlVector` (`ColQwen`-style image-pair contrast + patch erasure)
+Extracts both 1D `B - A` and unpooled token/patch-level `erasure.{mu_d,vr,diag}` from two contrasting `<Picture 1>` reference images (`--image-a baseline.png --image-b stylized.png`) encoded under the same `--scene-prompt`:
 ```bash
 /path/to/comfy-venv/bin/python bench/control_vectors.py make-media \
   --image-a "$H3_INPUT_DIR/clean_portrait.png" \
@@ -132,4 +138,4 @@ Extracts `B - A` from two contrasting `<Picture 1>` reference images (`--image-a
   --scene-prompt prompt_bank/16_ref2va_diner.txt \
   --short-edge 512 --pooling scene_text --name oil_impasto_from_img
 ```
-- **Why `--short-edge` snaps both images to the exact same 32-px grid**: `Qwen3-VL` assigns 3D M-RoPE `position_ids` from image patch dimensions `(grid_t, grid_h, grid_w)`. Resizing `image_a` and `image_b` to identical 32-px-snapped `(target_w, target_h)` guarantees equal vision token counts and aligned RoPE positions so `B - A` captures visual style rather than sequence-offset artifacts.
+- **Why `--short-edge` snaps both images to the exact same 32-px grid**: `Qwen3-VL` assigns 3D M-RoPE `position_ids` from image patch dimensions `(grid_t, grid_h, grid_w)`. Resizing `image_a` and `image_b` to identical 32-px-snapped `(target_w, target_h)` guarantees equal vision token counts and aligned RoPE positions so both `vector.post_refiner` and unpooled `erasure.{mu_d,vr,diag}` (`make_control_vector_from_media_pairs` in [`control_vector_nodes.py`](../../../control_vector_nodes.py)) capture pure visual contrast rather than sequence-offset artifacts.

@@ -677,7 +677,9 @@ Arm manifests and the like; a manifest's line is its own `what`.
 |---|---|
 | [`__init__.py`](control_vector/__init__.py) | Modular implementation package for `bench/control_vectors.py` and the H3 Control Vector UI. |
 | [`build_cmd.py`](control_vector/build_cmd.py) | One-shot and batch `build` and `words` CLI commands for H3 control vectors. |
+| [`build_model2vec_lexicon.py`](control_vector/build_model2vec_lexicon.py) | Build the H3 `Model2Vec`-style contextual multi-token & phrase static lexicon. |
 | [`cli.py`](control_vector/cli.py) | Argument parser and CLI command router for `bench/control_vectors.py`. |
+| [`eval_multivector_erasure.py`](control_vector/eval_multivector_erasure.py) | Reproducible Benchmark & 8-Part Ablation Suite for Multi-Vector Pole-A Subspace Erasure. |
 | [`grading.py`](control_vector/grading.py) | Inspection, prompt metering (`inspect`), and DiT velocity grading (`grade`) for H3 control vectors. |
 | [`helpers.py`](control_vector/helpers.py) | Shared helpers for the MiniMax H3 control vector CLI and UI package. |
 | [`j_lens_builder.py`](control_vector/j_lens_builder.py) | Reproducible builder and verifier for `<ComfyUI>/models/j_lens/j_lens_h3.safetensors` (`h3_j_lens_v1`). |
@@ -754,7 +756,7 @@ Arm manifests and the like; a manifest's line is its own `what`.
 
 ### results
 
-248 tracked files: [`results/INDEX.md`](results/INDEX.md).
+249 tracked files: [`results/INDEX.md`](results/INDEX.md).
 
 ### rubrics
 

@@ -16,11 +16,21 @@ function wordBadges(words, cls) {
 export function readoutView(readout, heading) {
   const ro = readout || {};
   const readiness = ro.readiness || {};
+  const er = ro.erasure_readout || null;
   return h('div', { class: 'readout' },
     heading ? h('div', { class: 'readout-head' }, heading) : null,
     readiness.summary ? h('div', { class: 'mono field-hint' }, readiness.summary) : null,
     h('div', { class: 'readout-row' }, h('strong', {}, 'Toward: '), wordBadges(ro.positive_words || ro.top_positive, 'pole-b')),
     h('div', { class: 'readout-row' }, h('strong', {}, 'Away from: '), wordBadges(ro.negative_words || ro.top_negative, 'pole-a')),
+    er ? h('div', { class: 'readout-row' },
+      h('strong', {}, `Subspace X-Ray (r=${er.rank}, cos=${Number(er.cos_mu_d_v1d ?? 1).toFixed(3)}): `),
+      er.mu_d_positive_words && er.mu_d_positive_words.length
+        ? h('span', {}, 'Adds ', wordBadges(er.mu_d_positive_words.slice(0, 6), 'pole-b'), ' · ')
+        : null,
+      h('span', {}, 'Erases Pole A: '),
+      (er.erased_pole_a_words || []).length
+        ? er.erased_pole_a_words.slice(0, 8).map((w) => h('span', { class: 'badge pole-a' }, w))
+        : h('span', { class: 'field-hint' }, 'none')) : null,
     ro.prompt_coupling && ro.prompt_coupling.summary
       ? h('div', { class: 'mono field-hint' }, `prompt coupling: ${ro.prompt_coupling.summary}`) : null);
 }

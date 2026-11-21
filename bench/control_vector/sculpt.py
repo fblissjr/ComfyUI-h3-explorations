@@ -382,6 +382,26 @@ def _meter_prompt_tokens(
     v_unit = v64 / max(v_norm, 1e-12)
     rows64 = ref_rows.detach().to(dtype=torch.float64)
 
+    erasure_norm_by_idx: dict[int, float] = {}
+    erasure_ratio_by_idx: dict[int, float] = {}
+    erasure_rms = 0.0
+    m_bool = mask.flatten().to(device="cpu", dtype=torch.bool)
+    active_idxs = [i for i, flag in enumerate(m_bool.tolist()) if flag]
+    if "erasure.vr" in tensors and "erasure.diag" in tensors and len(active_idxs) > 1:
+        vr64 = tensors["erasure.vr"].detach().to(device="cpu", dtype=torch.float64)
+        d64 = tensors["erasure.diag"].detach().to(device="cpu", dtype=torch.float64).flatten().clamp(0.0, 1.0)
+        r_eff = min(int(vr64.shape[0]), int(d64.numel()))
+        if r_eff >= 1:
+            h_act = rows64[m_bool]
+            h_c = h_act - h_act.mean(dim=0, keepdim=True)
+            e_act = ((h_c @ vr64[:r_eff].T) * d64[:r_eff].unsqueeze(0)) @ vr64[:r_eff]
+            e_nrms = torch.linalg.vector_norm(e_act, dim=-1).tolist()
+            c_nrms = torch.linalg.vector_norm(h_c, dim=-1).clamp(min=1e-9).tolist()
+            erasure_rms = float(torch.sqrt(torch.mean(torch.sum(e_act ** 2, dim=-1))).item())
+            for i_tok, en_v, cn_v in zip(active_idxs, e_nrms, c_nrms):
+                erasure_norm_by_idx[i_tok] = round(float(en_v), 3)
+                erasure_ratio_by_idx[i_tok] = round(float(en_v / cn_v), 4)
+
     tokens_out: list[dict[str, Any]] = []
     for t_idx in range(len(tids)):
         piece = dec_fn([int(tids[t_idx])])
@@ -399,6 +419,8 @@ def _meter_prompt_tokens(
                 "in_scene_mask": in_mask,
                 "cosine": round(cos_t, 4),
                 "projection": round(proj_t, 4),
+                "erasure_norm": erasure_norm_by_idx.get(t_idx, 0.0),
+                "erasure_ratio": erasure_ratio_by_idx.get(t_idx, 0.0),
             }
         )
     elapsed_ms = round((time.perf_counter() - t0) * 1000.0, 1)
@@ -409,6 +431,7 @@ def _meter_prompt_tokens(
         "pooling": eff_pooling,
         "elapsed_ms": elapsed_ms,
         "meter": m,
+        "erasure_rms": round(erasure_rms, 3),
         "tokens": tokens_out,
     }
 

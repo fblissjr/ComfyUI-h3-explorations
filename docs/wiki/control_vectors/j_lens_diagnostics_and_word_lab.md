@@ -1,10 +1,10 @@
 # J-Lens: CPU X-Ray Diagnostics, Side-Effect Scrubbing, and Live Word Lab
 
-Last updated: 2026-11-15.
+Last updated: 2026-11-21 (Subspace X-Ray `decode_erasure_payload`, per-token `||E(h_i)||_2` scan, `Model2Vec` contextual lexicon, and `< 2 ms` `against`-SVD word erasure).
 
 > **What to call it.** "J-Lens" is this repo's name for it. In anything written for other people, call it "a Jacobian-lens word readout for H3 control vectors, adapted from Anthropic's Jacobian lens (J-lens)": "the word readout" when it reads or scrubs, "a word vector" when it builds. Why, and what can be claimed for it, is in [`which_tool_and_what_to_call_it.md`](which_tool_and_what_to_call_it.md). A plain-words walk through the mechanism is in [`how_the_word_readout_works.md`](how_the_word_readout_works.md).
 
-[`j_lens.py`](../../../j_lens.py) (backed by `models/j_lens/j_lens_h3.safetensors`, derivation in [`../../research/control_vectors/2026-11-06_j_lens_and_refiner_jacobian.md`](../research/control_vectors/2026-11-06_j_lens_and_refiner_jacobian.md)) translates directly between H3's `5376`-d post-refiner space (`fl2va`, `fl2va_base`, `ref2va`, and `h3_image`) and `24,912` single-token English words on **CPU in `< 15 ms`** (`0 GB` VRAM).
+[`j_lens.py`](../../../j_lens.py) (backed by `models/j_lens/j_lens_h3.safetensors` plus the optional `Model2Vec`-style contextual multi-token lexicon `models/j_lens/model2vec_h3_lexicon.safetensors`, derivation in [`../../research/control_vectors/2026-11-06_j_lens_and_refiner_jacobian.md`](../research/control_vectors/2026-11-06_j_lens_and_refiner_jacobian.md)) translates directly between H3's `5376`-d post-refiner space (`fl2va`, `fl2va_base`, `ref2va`, and `h3_image`) and `24,912` single-token English words + `180` curated multi-token/2-word film, material, optical, and acoustic terms on **CPU in `< 15 ms`** (`0 GB` VRAM).
 
 ---
 
@@ -27,17 +27,17 @@ J-Lens bridges both gaps analytically:
 
 ## 2. The three high-leverage jobs J-Lens wins at
 
-### A. Pre-render X-ray audit (`inspect` and automatic build readouts)
-Every `build`, `from-prompt`, `make-media`, `words`, and `sculpt` command automatically runs `j_lens.decode_vector` (plus `j_lens.check_b_side_alignment` on pair builds, warning immediately if `b_side` target words drop out of `(+)` or Pole-A baseline words dominate `(-)`) and prints the top `+` and `-` English words into `<vector>.md`:
+### A. Pre-render Subspace X-ray audit (`inspect`, `decode_erasure_payload`, and `WARP` token-erasure scan)
+Every `build`, `from-prompt`, `make-media`, `words`, and `sculpt` command automatically runs `j_lens.decode_vector` + `j_lens.decode_erasure_payload` (plus `j_lens.check_b_side_alignment` on pair builds, warning immediately if `b_side` target words drop out of `(+)` or Pole-A baseline words dominate `(-)`) and prints both the 1D and Subspace Erasure readouts:
 ```bash
 CUDA_VISIBLE_DEVICES= /path/to/comfy-venv/bin/python bench/control_vectors.py inspect \
-  film_16mm_1974__ref2va__diff_span__lora_865ee189.safetensors \
-  --prompt prompt_bank/16_ref2va_diner.txt
+  noir --prompt prompt_bank/t2va_sitcom_kitchen.txt
 ```
-- **Why you should read this before rendering**:
-  - When a vector has a sharp physical target (`film_16mm_1974`, `claymation_stopmotion`, `blizzard`), concrete nouns and textures lead the `+` list.
-  - When `wardrobe_1970s` averaged 6 incompatible 1970s outfits on 2026-11-11, its J-Lens readout printed `vintage (+1.82), psychedelic (+1.38), nostalgic (+1.34), disco (+1.20)` with **no clothing words at all**—predicting in `< 15 ms` on CPU that the render would tint the diner's mood without changing `<Subject 1>`'s sweater.
-  - Passing `--prompt <scene.txt>` adds a **Token-Wise Prompt Receptor Scan** (`analyze_prompt_coupling`), ranking which exact tokens in your prompt align or clash with the vector.
+- **What the Subspace X-Ray reveals in `< 15 ms` on CPU**:
+  - **Adds (`erasure.mu_d +` & `rescued vs 1D`):** Shows what asymmetric row-softmax matching (`tau = 0.15`) adds vs. naive 1D averaging. Across our 38-concept bank (`76` files), **`28/38` concepts rescue key target words** into `erasure.mu_d` that washed out of `v_1d`—for example, `noir` rescues **`black (+1.52), footage, archival`** (`v_1d` lost `"black"` completely!), `film_16mm_1974` rescues **`grain, tape`**, and `claymation_stopmotion` rescues **`puppet`**.
+  - **Erases (`erasure.vr[0..3]`):** Decodes each orthonormal Pole-A singular axis weighted by `erasure.diag` (`vr[1] (d=0.81): warm (+2.02), natural (+1.91), lighting (+1.68), warmth (+1.63)` on `noir`).
+  - **Token-Wise Prompt Receptor & `WARP` Erasure Scan (`--prompt` / `--meter`):** Ranks both alignment (`aligns=[...]`) and per-token Pole-A erasure energy (`erases=[warm (0.36), ...]` on CPU via `analyze_prompt_coupling`, or exact post-refiner `||E(h_i)||_2` via `--meter <prompt.txt>`), showing why conflicting lighting words get erased while `"porter"` and `"crates"` stay near zero.
+  - When `wardrobe_1970s` averaged 6 incompatible 1970s outfits on 2026-11-11, its word readout printed `vintage (+1.82), psychedelic (+1.38), nostalgic (+1.34), disco (+1.20)` with **no clothing words at all**—predicting before any GPU render that it would tint mood without changing `<Subject 1>`'s sweater.
 
 ### B. Surgical side-effect scrubbing (`hold_words` / `--hold-words`)
 Projects single-token nuisance words out of **any** `.safetensors` vector or live `words` vector in `< 1 ms` on CPU (`hold_alpha` in `[0.0, 2.0]`, default `1.0`):
@@ -49,34 +49,32 @@ Projects single-token nuisance words out of **any** `.safetensors` vector or liv
   - Result: snowdrifts cover the crates, awning, and cobblestones and snowflakes blow across the stall, while the vendor remains in his dark-green canvas apron and rolled sleeves instead of growing a parka.
 - **Checking for hitchhiking words**: J-Lens's own `readiness.off_target_words` flags unexpected high-gain words that ride along with a word list so you can add them straight into `hold_words`.
 
-### C. Zero-file `< 2 ms` live Word Lab (`MiniMaxH3WordVector` or CLI `words`)
-Wire `MiniMaxH3WordVector` (`words`, `against_words`, `hold_words`) into `MiniMaxH3Steer.custom_vector` (with `vector = "none"`), or save a reusable `.safetensors` pair on CPU via:
+### C. Zero-file `< 2 ms` live Word Lab + `against`-Subspace Erasure (`MiniMaxH3WordVector` or CLI `words`)
+Wire `MiniMaxH3WordVector` (`words`, `against_words`, `hold_words`) into `MiniMaxH3Steer.custom_vector` (with `vector = "none"` and default `mode = "add_norm_matched_erasure"`), or save reusable `.safetensors` files on CPU via:
 ```bash
 CUDA_VISIBLE_DEVICES= /path/to/comfy-venv/bin/python bench/control_vectors.py words \
-  "blizzard, snowdrift, freezing, snow, frost" \
-  --against-words "warm, sunny, indoor, summer" \
-  --hold-words "coat, parka" --hold-alpha 0.5 \
-  --name winter_squall_no_parka
+  "noir, chiaroscuro, monochrome, silver gelatin, 35mm" \
+  --against-words "@replace_digital, sunlit, warm, daylight, tungsten, color" \
+  --hold-words "rain, coat" --hold-alpha 0.5 \
+  --name quick_noir_erasure
 ```
-- **Built-in `against_words` presets**:
-  - `@neutral` (or empty): contrasts against J-Lens's neutral cloze baseline.
-  - `@prompt_subject` (or `@prompt`): inspects the active prompt at step 0 and automatically contrasts against its existing medium and subject words.
-  - `@replace_human`, `@replace_live_action`, `@replace_digital`: built-in negative anchors for non-human/animation/analog style shifts.
+- **Zero-GPU `against`-Subspace Erasure (`erasure.{mu_d,vr,diag}` in `< 2 ms`):** Instead of collapsing `against_words` down to a single 1D mean `mu_neg`, `synthesize_from_words` projects each individual `against` word/preset item into `5376`-d post-refiner space, scrubs `hold_words`, and extracts an orthonormal rank-`r` (`r <= 8`) erasure basis `erasure.vr` + ridge weights `erasure.diag`. When wired into `MiniMaxH3Steer` (`mode = "add_norm_matched_erasure"`), `MiniMaxH3WordVector` erases conflicting prompt tokens on the fly with zero `.toml` authoring!
+- **Built-in `against_words` presets (usable standalone or mixed inside comma lists like `"@replace_digital, sunlit, warm"`)**:
+  - `@neutral` (or empty): contrasts against the neutral cloze baseline (1D only).
+  - `@prompt_subject` (or `@prompt`): inspects the active prompt at step 0 and automatically builds a dynamic per-prompt `against` erasure subspace over its medium and subject words.
+  - `@replace_human`, `@replace_live_action`, `@replace_digital`: built-in multi-word negative anchors that automatically populate `erasure.vr` for non-human, animation, and analog film shifts.
 
 ---
 
-## 3. Measured limits of J-Lens synthesis vs. 10-pair GPU vectors
+## 3. `Model2Vec` Multi-Token Lexicon & Remaining Limits vs. 10-Pair GPU Vectors
 
-Across our starter bank, CPU-synthesized J-Lens vectors (`synthesize_from_words`) achieve **`cos = +0.30` to `+0.52`** against 10-pair GPU `.safetensors` vectors (`cyberpunk_neon_rain +0.52`, `crystallize_ice +0.50`, `film_16mm_1974 +0.50`, `balloon_head_inflate +0.46`, `claymation_stopmotion +0.37`, `felt_muppet +0.35`, `bioluminescent_glow +0.30`).
+Across single-token unigrams alone, CPU word vectors (`synthesize_from_words`) achieved `cos = +0.30` to `+0.52` against 10-pair GPU `.safetensors` vectors. On `2026-11-21`, we closed the biggest vocabulary gap while keeping a clear boundary for full GPU builds:
 
-Two structural limits explain the gap:
-
-1. **Single-token BPE vocabulary ceiling (`24,912` words)**:
-   - J-Lens's lexicon intentionally contains only **complete single-token** English words in Qwen's BPE tokenizer.
-   - Multi-token domain words—including `halation`, `plasticine`, `muppet`, `bioluminescent`, `luminescent`, `iridescent`, `rime`, `tuxedo`, `pyrotechnics`, `inferno`, and `scorching`—are **dropped as OOV** (`pos_words_unmatched`), with a warning logged.
-   - If you use J-Lens `words`, pick punchy single-token English words (`clay, puppet, sculpting, felt, blizzard, frost, neon, grain, blast, flame, smoke`). When your concept hinges on multi-token phrases or relational prose, build a 6–10 pair GPU vector (`build` / `from-prompt`) or use [`MiniMaxH3EditGuider`](../edit_guidance.md).
-2. **Unigram bag-of-words vs. 50-layer contextual physics**:
-   - J-Lens adds unigram directions linearly; a 10-pair GPU build runs full sentences through 50 causal Qwen layers + 2 bidirectional `TokenRefiner` blocks, capturing coupled motion + `overall_soundscape:` dynamics that single words alone only approximate.
+1. **`Model2Vec`-style contextual multi-token & phrase lexicon + BPE subword fallbacks**:
+   - Previously, multi-token domain terms (`origami`, `muppet`, `plasticine`, `halation`, `pyrotechnics`, `kodachrome`, `anamorphic`, `cyanotype`, `monochrome`, `reverb`, `16mm`, `35mm`, `silver gelatin`, `direct flash`, `paper origami`) dropped as `unmatched` because Qwen's BPE splits them into subwords.
+   - [`bench/control_vector/build_model2vec_lexicon.py`](../../../bench/control_vector/build_model2vec_lexicon.py) distills `180` curated visual, lighting, material, audio, and baseline terms across contextual cloze templates through `Qwen3-VL-32B` + all 4 H3 `TokenRefiner` recipes (`fl2va`, `ref2va`, `fl2va_base`, `h3_image`) with Minish Lab top-2 common-mode PC removal into `$H3_MODEL_STORE/j_lens/model2vec_h3_lexicon.safetensors`. When that optional file is absent, `j_lens.py` automatically falls back to curated semantic subword decompositions (`_SHORT_WORD_FALLBACKS` + phrase splitting) so core film/material terms never silently drop to `unmatched`.
+2. **Static word bag vs. 50-layer sentence physics**:
+   - Even with `Model2Vec` + `against`-SVD erasure (which turns `MiniMaxH3WordVector` into a genuine zero-build playground—see [`workflows/h3_text_to_video_pika_word_vector_erasure_api.json`](../../../workflows/h3_text_to_video_pika_word_vector_erasure_api.json)), an 8–12 pair GPU `.toml` build still encodes full multi-clause sentences through 50 causal Qwen layers + 2 bidirectional `TokenRefiner` blocks, capturing richer coupled motion + `overall_soundscape:` dynamics and broader Pole-A subspace coverage (`N = 8..12` pairs). Use `MiniMaxH3WordVector` to sketch and iterate in `< 2 ms`, then graduate keeper concepts to an 8–10 pair `.toml` vector (`build` / `from-prompt`), or use [`MiniMaxH3EditGuider`](../edit_guidance.md) for named noun/wardrobe swaps.
 
 ---
 
