@@ -1,9 +1,10 @@
 # Breaking the Frozen-Anchor Steering Paradox: From Late-Interaction Multi-Vector Retrieval to Parametric Subspace EQ in Diffusion and Input-Injected Iterative Transformers
 
-**Date:** 2026-11-21 (v3 — Complete Standalone Research Monograph with Formal Proofs, Algorithms 1–2, $2\times 2$ Synergy Factorial, 50-Block Mechanistic Trace, & 6 Vector Figures)  
+**Date:** 2026-11-21 (v4 — Complete Standalone Research Monograph with Formal Proofs, Algorithms 1–2, $2\times 2$ Synergy Factorial, 50-Block Mechanistic & Causal Block-Band Proof, Dual-Lock `fl2va` Law, `YIN` $F_0$ Probes, & 6 Vector Figures)  
 **Authors:** MiniMax H3 Explorations Research Hub  
-**Reference Implementation & Algebraic Verifiers:** [`control_vectors.py`](../../../../control_vectors.py) · [`j_lens.py`](../../../../j_lens.py) · [`control_vector_nodes.py`](../../../../control_vector_nodes.py) · [`bench/verify_pole_a_erasure.py`](../../../../bench/verify_pole_a_erasure.py) · [`bench/control_vector/eval_multivector_erasure.py`](../../../../bench/control_vector/eval_multivector_erasure.py)  
-**Empirical Benchmark Ledger:** [`bench/results/2026-11-21_multivector_erasure_benchmark.md`](../../../../bench/results/2026-11-21_multivector_erasure_benchmark.md)  
+**Reproduction Guide (Code & LLM Wiki Map):** [`2026-11-21_reproducing_late_interaction_to_dit_steering.md`](2026-11-21_reproducing_late_interaction_to_dit_steering.md)  
+**Reference Implementation & Verifiers:** [`control_vectors.py`](../../../../control_vectors.py) · [`j_lens.py`](../../../../j_lens.py) · [`control_vector_nodes.py`](../../../../control_vector_nodes.py) · [`bench/verify_pole_a_erasure.py`](../../../../bench/verify_pole_a_erasure.py) · [`bench/control_vector/eval_multivector_erasure.py`](../../../../bench/control_vector/eval_multivector_erasure.py) · [`bench/control_vector/run_phase3_steering_experiments.py`](../../../../bench/control_vector/run_phase3_steering_experiments.py) · [`bench/probe_yin_f0_drift.py`](../../../../bench/probe_yin_f0_drift.py)  
+**Empirical Benchmark Ledgers:** [`bench/results/2026-11-21_multivector_erasure_benchmark.md`](../../../../bench/results/2026-11-21_multivector_erasure_benchmark.md) · [`bench/results/2026-11-21_phase3_de_slop_and_vision_block_steering.md`](../../../../bench/results/2026-11-21_phase3_de_slop_and_vision_block_steering.md)  
 **Companion Studies & Practitioner Guides:** [`VISION.md`](../../../../VISION.md) · [`2026-11-20_unpooled_multivector_sliders.md`](2026-11-20_unpooled_multivector_sliders.md) · [`2026-11-20_multivector_retrieval_sota_to_dit_steering.md`](2026-11-20_multivector_retrieval_sota_to_dit_steering.md) · [`how_pole_a_erasure_works.md`](../../steering/how_pole_a_erasure_works.md) · [`tutorials_progressive_guide.md`](../../steering/tutorials_progressive_guide.md)
 
 ---
@@ -453,11 +454,13 @@ Because Algorithms 1–2 depend **only** on the existence of a Prelude condition
 
 ## Appendix B: Reproducibility & Code Symbol Map
 
-All theorems, censuses, 9 GPU/CPU ablation stages, 50-block DiT traces, and 6 vector `.svg` figures reproduce deterministically from tracked scripts:
+See [`2026-11-21_reproducing_late_interaction_to_dit_steering.md`](2026-11-21_reproducing_late_interaction_to_dit_steering.md) for the complete zero-data section-by-section reproduction runbook mapping every theorem, table, figure, workflow, and LLM wiki ledger to tracked repository scripts:
 
-- **Core Operators:** `control_vectors.py::build_pole_a_erasure`, `control_vectors.py::compose_erasure_payload`, `control_vectors.py::apply_post_refiner`, `control_vectors.py::per_token_erasure_profile`, `j_lens.py::decode_erasure_payload`, `j_lens.py::synthesize_from_words`, `control_vector_nodes.py::MiniMaxH3Steer`, `control_vector_nodes.py::make_control_vector_from_media_pairs`.
-- **Algebraic `float64` Proof Suite (`< 3s` CPU):** `CUDA_VISIBLE_DEVICES="" "$PY" bench/verify_pole_a_erasure.py --cpu-only`
-- **8-Stage Benchmark & Figure Generator:** `"$PY" bench/control_vector/eval_multivector_erasure.py --stage {census,cpu_math,ablations,word_media,audio_video,base50,dit_blocks,figures}`
+- **Core Operators:** `control_vectors.py::build_pole_a_erasure`, `control_vectors.py::build_spatial_vision_erasure`, `control_vectors.py::compose_erasure_payload`, `control_vectors.py::apply_post_refiner`, `control_vectors.py::per_token_erasure_profile`, `j_lens.py::decode_erasure_payload`, `control_vector_nodes.py::MiniMaxH3Steer`, `control_vector_nodes.py::MiniMaxH3WordVector`, `control_vector_nodes.py::MiniMaxH3MakeMediaControlVector`.
+- **Algebraic `float64` Proof & Unit Suites (`< 5s` CPU):** `CUDA_VISIBLE_DEVICES="" "$PY" bench/verify_pole_a_erasure.py --cpu-only` and `CUDA_VISIBLE_DEVICES="" "$PY" bench/check_control_vectors.py`
+- **8-Stage Benchmark, 50-Block Trace, & Figure Generator:** `"$PY" bench/control_vector/eval_multivector_erasure.py --stage {census,cpu_math,ablations,word_media,audio_video,base50,dit_blocks,figures}` ([`2026-11-21_multivector_erasure_benchmark.md`](../../../../bench/results/2026-11-21_multivector_erasure_benchmark.md))
+- **Phase 3 Causal Block-Band K/V (`blocks.20..49`), `de_llm_slop`, & Dual-Lock `fl2va`:** `"$PY" bench/control_vector/run_phase3_steering_experiments.py --stage {de_slop,exp1,exp2,exp3}` ([`2026-11-21_phase3_de_slop_and_vision_block_steering.md`](../../../../bench/results/2026-11-21_phase3_de_slop_and_vision_block_steering.md))
+- **Objective `YIN` $F_0$ Vocal Pitch Drift (`0` GPU):** `CUDA_VISIBLE_DEVICES="" "$PY" bench/probe_yin_f0_drift.py --baseline <BASE-audio.mp4> --steered <STEER-audio.mp4>`
 
 ---
 
