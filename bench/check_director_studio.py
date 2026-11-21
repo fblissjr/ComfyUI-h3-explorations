@@ -696,6 +696,74 @@ def check_compiler_contracts() -> str:
     assert g_rd2["84"]["class_type"] == "BasicScheduler" and g_rd2["87"]["inputs"]["sigmas"] == ["84", 0]
     assert g_rd2["85"]["inputs"]["sampler_name"] == "euler"
     assert abs(float(g_rd2["84"]["inputs"]["denoise"]) - 0.5) < 1e-6
+    assert abs(float(g_rd2["83"]["inputs"]["audio_mask"]) - 1.0) < 1e-6
+
+    res_rd3 = compiler_mod.compile_audio_redub(
+        {
+            "video_ref": "h3_spatial_director/shot1.mp4",
+            "length": 141,
+            "redub_mode": "polish",
+            "audio_mask": 0.25,
+        },
+        object_info=MOCK_OBJECT_INFO_WITH_KJ,
+    )
+    assert abs(float(res_rd3["audio_mask"]) - 0.25) < 1e-6
+    assert abs(float(res_rd3["graph"]["83"]["inputs"]["audio_mask"]) - 0.25) < 1e-6
+    assert res_rd3["graph"]["94"]["class_type"] == "MiniMaxH3EncodeTrack"
+
+    res_rd4 = compiler_mod.compile_audio_redub(
+        {
+            "video_ref": "h3_spatial_director/shot1.mp4",
+            "length": 141,
+            "redub_mode": "fresh",
+            "audio_mask": 0.25,
+        },
+        object_info=MOCK_OBJECT_INFO_WITH_KJ,
+    )
+    assert res_rd4["redub_mode"] == "fresh" and abs(float(res_rd4["audio_mask"]) - 0.25) < 1e-6
+    assert res_rd4["graph"]["94"]["class_type"] == "MiniMaxH3EncodeTrack"
+    assert res_rd4["nodes_summary"]["audio_source"] == "MiniMaxH3EncodeTrack"
+
+    res_cs1 = compiler_mod.compile_continue_shot(
+        {
+            "video_ref": "h3_spatial_director/shot1.mp4",
+            "last_frame_ref": "h3_spatial_director/shot1_last.png",
+            "strategy": "ref_tail_39f",
+            "source_frames": 192,
+            "length": 141,
+            "context_frames": 39,
+        },
+        object_info=MOCK_OBJECT_INFO_WITH_KJ,
+    )
+    g_cs1 = res_cs1["graph"]
+    assert res_cs1["strategy"] == "ref_tail_39f" and res_cs1["length"] == 141
+    assert g_cs1["28"]["class_type"] == "VHS_LoadVideoFFmpeg"
+    assert int(g_cs1["28"]["inputs"]["frame_load_cap"]) == 39
+    assert g_cs1["50"]["class_type"] == "MiniMaxH3AppendRefVideo"
+    assert g_cs1["132"]["class_type"] == "MiniMaxH3EncodeReferences"
+    assert g_cs1["5"]["class_type"] == "MiniMaxH3PromptOnReferences"
+    assert g_cs1["169"]["class_type"] == "MiniMaxH3GuideLatent"
+    assert g_cs1["162"]["class_type"] == "VHS_VideoCombine" and g_cs1["162"]["inputs"]["save_output"] is False
+
+    res_cs2 = compiler_mod.compile_continue_shot(
+        {
+            "video_ref": "h3_spatial_director/shot1.mp4",
+            "strategy": "latent_overlap_39f",
+            "source_frames": 192,
+            "length": 141,
+            "context_frames": 39,
+        },
+        object_info=MOCK_OBJECT_INFO_WITH_KJ,
+    )
+    g_cs2 = res_cs2["graph"]
+    assert res_cs2["strategy"] == "latent_overlap_39f"
+    assert g_cs2["62"]["class_type"] == "MiniMaxH3FreezeAudioWindow"
+    assert g_cs2["62"]["inputs"]["context_profile"] == "seam_taper"
+    assert g_cs2["62"]["inputs"]["previous"] == ["95", 0]
+    assert g_cs2["163"]["class_type"] == "ImageFromBatch" and int(g_cs2["163"]["inputs"]["length"]) == 102
+    assert g_cs2["164"]["class_type"] == "TrimAudioDuration"
+    assert g_cs2["162"]["inputs"]["images"] == ["163", 0] and g_cs2["162"]["inputs"]["audio"] == ["164", 0]
+    assert g_cs2["13"]["inputs"]["images"] == ["11", 0] and g_cs2["13"]["inputs"]["save_output"] is False
 
     res_lf = compiler_mod.compile_spatial_take(
         {**common_base, "mode": "i2v_portal", "last_frame": "h3_spatial_director/shot_end.png"},

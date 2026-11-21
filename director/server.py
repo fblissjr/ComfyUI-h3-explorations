@@ -1848,6 +1848,8 @@ async def handle_redub(request: web.Request) -> web.Response:
         compile_params["redub_mode"] = str(body["redub_mode"])
     if "denoise" in body and body["denoise"] is not None:
         compile_params["denoise"] = body["denoise"]
+    if "audio_mask" in body and body["audio_mask"] is not None:
+        compile_params["audio_mask"] = float(body["audio_mask"])
     if "use_distill" in body and body["use_distill"] is not None:
         compile_params["use_distill"] = bool(body["use_distill"])
     if body.get("sigmas"):
@@ -1950,6 +1952,7 @@ async def handle_redub(request: web.Request) -> web.Response:
             "height": compiled["height"],
             "seed": compiled["seed"],
             "denoise": compiled["denoise"],
+            "audio_mask": compiled["audio_mask"],
             "nodes_summary": compiled["nodes_summary"],
         }
     )

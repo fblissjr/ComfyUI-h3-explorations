@@ -2653,14 +2653,21 @@ def compile_audio_redub(
         denoise = 1.0
     resolved_redub_mode = "fresh" if denoise >= 0.999 else "polish"
 
+    am_raw = cfg.get("audio_mask")
+    if am_raw is not None and str(am_raw).strip() != "":
+        audio_mask = max(0.0, min(1.0, float(am_raw)))
+    else:
+        audio_mask = 1.0
+
     if cfg.get("use_distill") is not None:
         use_distill = bool(cfg["use_distill"])
     else:
         use_distill = bool(denoise >= 0.999)
 
+    keep_source_audio = (denoise < 0.999) or (audio_mask < 0.999)
     for aux_nid in ("94a", "94b"):
         graph.pop(aux_nid, None)
-    if denoise >= 0.999:
+    if not keep_source_audio:
         graph["94"] = {"class_type": "LTXVSeparateAVLatent", "inputs": {"av_latent": ["5", 1]}}
         graph["95"] = {
             "class_type": "LTXVConcatAVLatent",
@@ -2767,7 +2774,7 @@ def compile_audio_redub(
     }
     graph["83"] = {
         "class_type": "MiniMaxH3AudioRefineMask",
-        "inputs": {"latent": ["26", 1], "video_mask": 0.0, "audio_mask": 1.0},
+        "inputs": {"latent": ["26", 1], "video_mask": 0.0, "audio_mask": audio_mask},
     }
 
     if not use_distill:
@@ -2859,6 +2866,7 @@ def compile_audio_redub(
         "width": width,
         "height": height,
         "denoise": denoise,
+        "audio_mask": round(audio_mask, 4),
         "steps": steps,
         "use_distill": use_distill,
         "has_audio_refine": True,
@@ -2869,10 +2877,329 @@ def compile_audio_redub(
             "schedule": schedule_kind,
             "use_distill": use_distill,
             "denoise": round(denoise, 3),
+            "audio_mask": round(audio_mask, 4),
             "steps": steps,
             "video_source": "LoadVideo->VAEEncode",
-            "audio_source": "fresh_empty" if denoise >= 0.999 else "MiniMaxH3EncodeTrack",
+            "audio_source": "MiniMaxH3EncodeTrack" if keep_source_audio else "fresh_empty",
             "hud_save_output": False,
+            "clean_save_output": False,
+        },
+        "graph": graph,
+    }
+
+
+CONTINUE_STRATEGIES = ("ref_tail_39f", "latent_overlap_39f")
+VALID_CONTEXT_FRAMES = (39, 90, 141)
+
+
+def compile_continue_shot(
+    params: dict[str, Any] | None = None,
+    object_info: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Compile a dual-clock ``on_both_clocks`` continuation graph (``ref_tail_39f`` or ``latent_overlap_39f``)."""
+    cfg = dict(params or {})
+    video_ref = str(cfg.get("video_ref") or cfg.get("source_video") or "").strip()
+    if not video_ref:
+        raise ValueError("video_ref is required for compile_continue_shot")
+
+    strategy = str(cfg.get("strategy") or "ref_tail_39f").strip().lower()
+    if strategy not in CONTINUE_STRATEGIES:
+        raise ValueError(
+            f"Unknown continuation strategy {strategy!r}; expected one of {CONTINUE_STRATEGIES}"
+        )
+
+    tpl_path = _WORKFLOWS_DIR / "h3_image_ref_plus_text_to_video_pika_api.json"
+    if not tpl_path.is_file():
+        raise FileNotFoundError(f"Continuation base template missing: {tpl_path}")
+    graph = _load_json(tpl_path)
+
+    rules = _h3_rules()
+    clocks = all_on_both_clocks()
+    chain = tuple(int(n) for n in rules.chain_lengths())
+    context_frames = int(cfg.get("context_frames", 39))
+    if context_frames not in VALID_CONTEXT_FRAMES:
+        raise ValueError(
+            f"context_frames={context_frames} must be one of {VALID_CONTEXT_FRAMES}"
+        )
+
+    default_target = 141
+    raw_len = cfg.get("length", cfg.get("target_length", default_target))
+    target_length = int(raw_len)
+    if target_length not in clocks:
+        raise ValueError(
+            f"target_length={target_length} must lie on H3 on_both_clocks {list(clocks)}"
+        )
+
+    source_frames = max(context_frames, int(cfg.get("source_frames", 192)))
+    if strategy == "latent_overlap_39f":
+        if target_length not in chain or target_length <= context_frames:
+            raise ValueError(
+                f"latent_overlap_39f target_length={target_length} must be in chain_lengths {list(chain)} "
+                f"and exceed context_frames={context_frames}"
+            )
+        if source_frames not in chain or source_frames <= context_frames:
+            raise ValueError(
+                f"latent_overlap_39f source_frames={source_frames} must be in chain_lengths {list(chain)} "
+                f"and exceed context_frames={context_frames}"
+            )
+
+    width = int(cfg.get("width", 1152))
+    height = int(cfg.get("height", 768))
+    _set_resolution_node(graph, width=width, height=height, length=target_length, canvas="explicit")
+
+    seed = _resolve_seed(cfg, graph)
+    graph["6"]["inputs"]["noise_seed"] = seed
+
+    tail_start_s = round(max(0.0, float(source_frames - context_frames) / 24.0), 4)
+    dur_s = f"{float(target_length) / 24.0:.3f}".rstrip("0").rstrip(".")
+
+    default_prompt = (
+        "subject_definitions:\n"
+        "<Subject 1> is the person continuing from <Video 1>, whose appearance, clothing, and lighting remain unchanged.\n"
+        "<Video 1> is the trailing source clip whose final frame, motion, and spatial framing the target video continues seamlessly.\n"
+        "<Audio 1> is the synchronized audio track of <Video 1>, whose vocal tone and acoustic ambience continue seamlessly without copying.\n\n"
+        "summary:\n"
+        f"[video continuation + audio reference] The target video resumes cleanly from the final frame of <Video 1> over {dur_s} seconds.\n\n"
+        "retention_analysis:\n"
+        "<Subject 1> (appears in [Shot 1]): fully_preserved - face, expression, clothing, and pose continue cleanly.\n"
+        "<Video 1> (continuation source): fully_preserved - framing, palette, and directional motion continue seamlessly.\n"
+        "<Audio 1>: reference - voice timbre and ambient room tone continue in character.\n\n"
+        "detailed_description:\n"
+        "The target video matches the cinematic lighting and lens perspective of <Video 1>.\n"
+        "[Shot 1] Opening smoothly on the final frame and posture of <Video 1>, the camera holds steady as motion and action carry forward cleanly across a single unbroken take.\n\n"
+        "overall_soundscape:\n"
+        "Natural room tone and ambient acoustics continue evenly from <Audio 1>.\n\n"
+        "non_diegetic_music:\n"
+        "N/A"
+    )
+    prompt_text = str(cfg.get("prompt") or cfg.get("target_prompt") or "").strip() or default_prompt
+
+    graph.pop("15", None)
+    graph.pop("165", None)
+    graph.pop("135", None)
+    for stale in ("169", "62", "90", "91", "92", "93", "94", "95", "163", "164"):
+        graph.pop(stale, None)
+
+    graph["133"] = {"class_type": "PrimitiveStringMultiline", "inputs": {"value": prompt_text}}
+    graph["28"] = {
+        "class_type": "VHS_LoadVideoFFmpeg",
+        "inputs": {
+            "video": video_ref,
+            "force_rate": 24.0,
+            "custom_width": 0,
+            "custom_height": 0,
+            "frame_load_cap": context_frames,
+            "start_time": tail_start_s,
+            "format": "AnimateDiff",
+        },
+    }
+    graph["50"] = {
+        "class_type": "MiniMaxH3AppendRefVideo",
+        "inputs": {
+            "frames": ["28", 0],
+            "video_info": ["28", 3],
+            "soundtrack": ["28", 2],
+        },
+    }
+    graph["132"] = {
+        "class_type": "MiniMaxH3EncodeReferences",
+        "inputs": {
+            "clip": ["2", 0],
+            "vae": ["3", 0],
+            "audio_vae": ["4", 0],
+            "references": ["50", 0],
+            "width": ["27", 0],
+            "height": ["27", 1],
+            "length": ["27", 2],
+            "video_policy": "comfy",
+            "image_policy": "comfy",
+        },
+    }
+    graph["5"] = {
+        "class_type": "MiniMaxH3PromptOnReferences",
+        "inputs": {"encoded_references": ["132", 0], "prompt": ["133", 0]},
+    }
+
+    last_frame_ref = str(cfg.get("last_frame_ref") or "").strip()
+    if strategy == "ref_tail_39f" and last_frame_ref:
+        graph["15"] = {"class_type": "LoadImage", "inputs": {"image": last_frame_ref}}
+        graph["169"] = {
+            "class_type": "MiniMaxH3GuideLatent",
+            "inputs": {
+                "positive": ["5", 0],
+                "latent": ["132", 1],
+                "vae": ["3", 0],
+                "guide": ["15", 0],
+                "frame_idx": 0,
+                "single_frame": False,
+            },
+        }
+        cond_ref: list[Any] = ["169", 0]
+        lat_ref: list[Any] = ["169", 1]
+    else:
+        cond_ref = ["5", 0]
+        lat_ref = ["132", 1]
+
+    graph["26"] = {
+        "class_type": "MiniMaxH3Preflight",
+        "inputs": {"conditioning": cond_ref, "samples": lat_ref},
+    }
+
+    vid_end = float(cfg.get("video_end_percent", 1.0))
+    aud_end = float(cfg.get("audio_end_percent", 1.0))
+    if vid_end < 0.999 or aud_end < 0.999:
+        graph["135"] = {
+            "class_type": "MiniMaxH3ReleaseReferences",
+            "inputs": {
+                "model": ["21", 0],
+                "end_percent": 1.0,
+                "clean_level": 0.999,
+                "video_end_percent": vid_end,
+                "audio_end_percent": aud_end,
+            },
+        }
+        model_head: list[Any] = ["135", 0]
+    else:
+        model_head = ["21", 0]
+
+    graph["9"] = {
+        "class_type": "BasicGuider",
+        "inputs": {"model": model_head, "conditioning": ["26", 0]},
+    }
+
+    if strategy == "latent_overlap_39f":
+        ctx_noise = max(0.0, min(1.0, float(cfg.get("context_noise", 0.6))))
+        ctx_profile = str(cfg.get("context_profile") or "seam_taper").strip()
+        aud_mask = max(0.0, min(1.0, float(cfg.get("audio_mask", 1.0))))
+        graph["90"] = {"class_type": "LoadVideo", "inputs": {"file": video_ref}}
+        graph["91"] = {"class_type": "GetVideoComponents", "inputs": {"video": ["90", 0]}}
+        graph["92"] = {
+            "class_type": "ImageScale",
+            "inputs": {
+                "image": ["91", 0],
+                "upscale_method": "bilinear",
+                "width": ["27", 0],
+                "height": ["27", 1],
+                "crop": "disabled",
+            },
+        }
+        graph["93"] = {"class_type": "VAEEncode", "inputs": {"pixels": ["92", 0], "vae": ["3", 0]}}
+        graph["94"] = {
+            "class_type": "MiniMaxH3EncodeTrack",
+            "inputs": {"audio_vae": ["4", 0], "audio": ["91", 1], "level": "clip_guard"},
+        }
+        graph["95"] = {
+            "class_type": "LTXVConcatAVLatent",
+            "inputs": {"video_latent": ["93", 0], "audio_latent": ["94", 0]},
+        }
+        graph["62"] = {
+            "class_type": "MiniMaxH3FreezeAudioWindow",
+            "inputs": {
+                "latent": ["26", 1],
+                "audio_vae": ["4", 0],
+                "audio": ["91", 1],
+                "start_seconds": tail_start_s,
+                "context_frames": context_frames,
+                "previous": ["95", 0],
+                "audio_mask": aud_mask,
+                "level": "clip_guard",
+                "context_noise": ctx_noise,
+                "context_profile": ctx_profile,
+            },
+        }
+        sampler_latent: list[Any] = ["62", 0]
+    else:
+        sampler_latent = ["26", 1]
+
+    graph["10"] = {
+        "class_type": "SamplerCustomAdvanced",
+        "inputs": {
+            "noise": ["6", 0],
+            "guider": ["9", 0],
+            "sampler": ["7", 0],
+            "sigmas": ["60", 0],
+            "latent_image": sampler_latent,
+        },
+    }
+    graph["11"] = {"class_type": "VAEDecode", "inputs": {"samples": ["10", 0], "vae": ["3", 0]}}
+    graph["12"] = {"class_type": "VAEDecodeAudio", "inputs": {"samples": ["10", 0], "vae": ["4", 0]}}
+
+    base_combine = copy.deepcopy(graph.get(HUD_COMBINE_NODE_ID) or {})
+    base_inputs = dict(base_combine.get("inputs") or {})
+    base_inputs.update(
+        {
+            "frame_rate": 24.0,
+            "loop_count": 0,
+            "format": "video/h264-mp4",
+            "pix_fmt": "yuv420p",
+            "crf": 19,
+            "save_metadata": True,
+            "trim_to_audio": False,
+            "pingpong": False,
+            "save_output": False,
+        }
+    )
+
+    if strategy == "latent_overlap_39f":
+        keep_len = target_length - context_frames
+        trim_s = round(float(context_frames) / 24.0, 4)
+        trim_dur_s = round(float(keep_len) / 24.0, 4)
+        graph["163"] = {
+            "class_type": "ImageFromBatch",
+            "inputs": {"image": ["11", 0], "batch_index": context_frames, "length": keep_len},
+        }
+        graph["164"] = {
+            "class_type": "TrimAudioDuration",
+            "inputs": {"audio": ["12", 0], "start_index": trim_s, "duration": trim_dur_s},
+        }
+        clean_inputs = copy.deepcopy(base_inputs)
+        clean_inputs["images"] = ["163", 0]
+        clean_inputs["audio"] = ["164", 0]
+        clean_inputs["filename_prefix"] = "h3_spatial_director/continue_shot_clean"
+        graph[CLEAN_DECODE_NODE_ID] = {"class_type": "VHS_VideoCombine", "inputs": clean_inputs}
+
+        full_inputs = copy.deepcopy(base_inputs)
+        full_inputs["images"] = ["11", 0]
+        full_inputs["audio"] = ["12", 0]
+        full_inputs["filename_prefix"] = "h3_spatial_director/continue_shot_full"
+        graph[HUD_COMBINE_NODE_ID] = {"class_type": "VHS_VideoCombine", "inputs": full_inputs}
+    else:
+        clean_inputs = copy.deepcopy(base_inputs)
+        clean_inputs["images"] = ["11", 0]
+        clean_inputs["audio"] = ["12", 0]
+        clean_inputs["filename_prefix"] = "h3_spatial_director/continue_shot_clean"
+        graph[CLEAN_DECODE_NODE_ID] = {"class_type": "VHS_VideoCombine", "inputs": clean_inputs}
+        graph.pop(HUD_COMBINE_NODE_ID, None)
+
+    preview_override = bool(cfg.get("preview_override", True))
+    preview_frames, preview_fps = video_preview_schedule(target_length)
+    injected = _inject_kj_preview_override(
+        graph,
+        object_info=object_info,
+        tiny_vae_filename=TAEH3_VIDEO_FILE,
+        preview_frames=preview_frames,
+        preview_fps=preview_fps,
+        enabled=preview_override,
+    )
+
+    return {
+        "mode": "continue_shot",
+        "strategy": strategy,
+        "video_ref": video_ref,
+        "last_frame_ref": last_frame_ref or None,
+        "seed": seed,
+        "length": target_length,
+        "source_frames": source_frames,
+        "context_frames": context_frames,
+        "width": width,
+        "height": height,
+        "preview_override_injected": injected,
+        "nodes_summary": {
+            "strategy": strategy,
+            "context_frames": context_frames,
+            "target_length": target_length,
+            "stride_frames": (target_length - context_frames) if strategy == "latent_overlap_39f" else target_length,
+            "has_guide_f0": bool(strategy == "ref_tail_39f" and last_frame_ref),
             "clean_save_output": False,
         },
         "graph": graph,
