@@ -3110,18 +3110,25 @@ def _erasure_row_shift64(
     base_rows64: torch.Tensor,
     vec: torch.Tensor,
     strength: float,
-    erasure_spec: tuple[torch.Tensor, torch.Tensor, torch.Tensor | None] | None,
+    erasure_spec: tuple[Any, ...] | None,
 ) -> torch.Tensor:
     """Compute per-row `[M, D]` RMS-matched clamped prompt-centered Pole-A erasure shift in float64.
+
+    `erasure_spec` is `(vr, diag, mu_d)` or `(vr, diag, mu_d, per_spec_holds)`, where optional
+    `per_spec_holds` (`[(hold_vec, alpha), ...]`) scrubs strictly this vector's `[M, D]` shift
+    without affecting other stacked vectors in the same additive block.
 
     Guarantees:
     - `strength == 0.0`: returns zeros (caller skips `0.0`).
     - `strength < 0.0`: `max(0.0, min(s, 1.0)) == 0.0`, so erasure is cleanly disabled and only `s * mu_n` applies.
     - `M <= 1` or `e_own_rms <= 1e-9` or `erasure_spec is None`: falls back cleanly to `s * mu_n`.
-    - Active erasure: strictly RMS-matched to `abs(s) * NORM_MATCHED_TARGET`."""
+    - Active erasure: strictly RMS-matched to `abs(s) * NORM_MATCHED_TARGET` before any `per_spec_holds`."""
     device = base_rows64.device
     s_f = float(strength)
-    vr_t, diag_t, mu_d_t = erasure_spec if erasure_spec is not None else (None, None, None)
+    vr_t = erasure_spec[0] if (erasure_spec is not None and len(erasure_spec) >= 1) else None
+    diag_t = erasure_spec[1] if (erasure_spec is not None and len(erasure_spec) >= 2) else None
+    mu_d_t = erasure_spec[2] if (erasure_spec is not None and len(erasure_spec) >= 3) else None
+    per_spec_holds = erasure_spec[3] if (erasure_spec is not None and len(erasure_spec) >= 4) else None
     base_vec = mu_d_t if (mu_d_t is not None and s_f > 0.0 and vr_t is not None) else vec
     v64 = base_vec.detach().to(device=device, dtype=torch.float64)
     v_nrm = float(torch.linalg.vector_norm(v64).item())
@@ -3129,8 +3136,14 @@ def _erasure_row_shift64(
         raise ValueError("control vector has zero norm; cannot apply mode='add_norm_matched_erasure'")
     mu_n = v64 * (NORM_MATCHED_TARGET / v_nrm)
     add_rows = (s_f * mu_n).unsqueeze(0).expand_as(base_rows64)
+
+    def _finish(shift_rows64: torch.Tensor) -> torch.Tensor:
+        if per_spec_holds:
+            return _apply_holds_to_rows64(shift_rows64, per_spec_holds, device)
+        return shift_rows64
+
     if s_f <= 0.0 or base_rows64.shape[0] < 2 or vr_t is None or diag_t is None:
-        return add_rows
+        return _finish(add_rows)
 
     vr64 = vr_t.detach().to(device=device, dtype=torch.float64)
     diag64 = diag_t.detach().to(device=device, dtype=torch.float64)
@@ -3138,7 +3151,7 @@ def _erasure_row_shift64(
     e_own = ((centered @ vr64.T) * diag64.unsqueeze(0)) @ vr64
     e_own_rms = _rms_row_norm64(e_own)
     if not math.isfinite(e_own_rms) or e_own_rms <= 1e-9:
-        return add_rows
+        return _finish(add_rows)
     e_cap = min(1.0, NORM_MATCHED_TARGET / e_own_rms)
     clamp_s = max(0.0, min(s_f, 1.0))
     ref_e_rms = clamp_s * e_cap * e_own_rms
@@ -3146,9 +3159,9 @@ def _erasure_row_shift64(
     raw = add_rows - e
     raw_rms = _rms_row_norm64(raw)
     if not math.isfinite(raw_rms) or raw_rms <= 1e-12:
-        return add_rows
+        return _finish(add_rows)
     target_rms = abs(s_f) * NORM_MATCHED_TARGET
-    return raw * (target_rms / raw_rms)
+    return _finish(raw * (target_rms / raw_rms))
 
 
 def apply_post_refiner(
@@ -3162,7 +3175,7 @@ def apply_post_refiner(
     mask_vision: bool = True,
     warn_if_stacked_norm: bool = True,
     token_focus: float = 1.0,
-    erasure_specs: Sequence[tuple[torch.Tensor, torch.Tensor, torch.Tensor | None] | None] | None = None,
+    erasure_specs: Sequence[tuple[Any, ...] | None] | None = None,
 ) -> torch.Tensor:
     """Apply one or more `(vector_post_refiner, strength[, mode])` specs to refined
     text conditioning `context` (`[B, L, 5376]`).
@@ -3219,7 +3232,7 @@ def apply_post_refiner(
             f"erasure_specs length {len(erasure_specs)} != vectors length {len(vectors)}"
         )
 
-    active: list[tuple[torch.Tensor, float, str, tuple[torch.Tensor, torch.Tensor, torch.Tensor | None] | None]] = []
+    active: list[tuple[torch.Tensor, float, str, tuple[Any, ...] | None]] = []
     for idx_v, entry in enumerate(vectors):
         if len(entry) == 2:
             vec, strength = entry
@@ -3310,10 +3323,13 @@ def apply_post_refiner(
                     add_shift64 = add_shift64 + s_a * v_a.detach().to(device=context.device, dtype=torch.float64)
                 elif em_a == "add_norm_matched_erasure":
                     has_add_aim = True
-                    base_v = e_a[2] if (e_a is not None and e_a[2] is not None) else v_a
+                    base_v = e_a[2] if (e_a is not None and len(e_a) >= 3 and e_a[2] is not None) else v_a
                     bv64 = base_v.detach().to(device=context.device, dtype=torch.float64)
                     bn = max(float(torch.linalg.vector_norm(bv64).item()), 1e-12)
-                    add_shift64 = add_shift64 + (s_a * NORM_MATCHED_TARGET / bn) * bv64
+                    term64 = (s_a * NORM_MATCHED_TARGET / bn) * bv64
+                    if e_a is not None and len(e_a) >= 4 and e_a[3]:
+                        term64 = _apply_holds_to_shift64(term64, e_a[3], context.device)
+                    add_shift64 = add_shift64 + term64
                 elif em_a == "hold":
                     hold_aim.append((v_a, s_a))
             if has_add_aim:

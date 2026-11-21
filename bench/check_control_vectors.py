@@ -7033,9 +7033,104 @@ def _check_nov15_steer_prose_and_ph3_family() -> list[str]:
                 hw_leak = float(((ctx_hw_out[0] - ctx_er[0]).to(torch.float64) @ hold_u).abs().max().item())
                 if hw_leak > 1e-3:
                     errs.append(f"attach_control_vector add_norm_matched_erasure + hold_words leaked {hw_leak:.6f}")
+
+                # Stacked Node 1 (erasure + hold_words) + Node 2 (1D along hold_dir, no holds):
+                # Node 1's hold_words MUST NOT scrub Node 2's additive shift.
+                node2_path = st_tmp / "vec" / "er_node2__fl2va__diff_span.safetensors"
+                cv.save_vector(
+                    node2_path,
+                    {"vector.post_refiner": hold_dir.clone()},
+                    {**er_meta, "name": "er_node2"},
+                )
+                stacked_m = cv_nodes.attach_control_vector(
+                    hw_attached,
+                    node2_path,
+                    strength=1.0,
+                    mode="add_norm_matched",
+                    mask="non_vision",
+                )
+                st_specs = stacked_m.model_options["transformer_options"][cv_nodes.WRAPPER_KEY]
+                st_wrap = cv_nodes._make_control_vector_wrapper(st_specs)
+                ctx_st_out = st_wrap(
+                    lambda x, ts, ctx, topts, **kw: ctx,
+                    None,
+                    torch.tensor([1000.0]),
+                    ctx_er,
+                    {"sample_sigmas": torch.tensor([1.0, 0.0]), "sigmas": torch.tensor([1.0])},
+                    minimax_payload={"text_token_tags": tags_er},
+                )
+                node2_proj = ((ctx_st_out[0] - ctx_er[0]).to(torch.float64) @ hold_u)
+                max_node2_err = float((node2_proj - cv.NORM_MATCHED_TARGET).abs().max().item())
+                if max_node2_err > 5e-2:
+                    errs.append(
+                        f"Node 1 erasure hold_words contaminated stacked Node 2 shift: max_err={max_node2_err:.4f}"
+                    )
+
+                # Zero-cancellation guard must still fire on MiniMaxH3Steer(mode='add_norm_matched_erasure', hold_words=...)
+                cv_nodes._j_lens.synthesize_from_words = (  # type: ignore[assignment]
+                    lambda *a, **kw: {"vector.post_refiner": er_v1d, "readout": {"pos_summary": "self", "neg_summary": ""}}
+                )
+                errs.extend(
+                    _expect_refusal(
+                        lambda: cv_nodes.MiniMaxH3Steer.execute(
+                            model=_MiniPatcher(),
+                            vector="none",
+                            custom_vector=cv_nodes.H3VectorSpec(kind="file", vector_name=str(er_path)),
+                            strength=1.0,
+                            mode="add_norm_matched_erasure",
+                            hold_words="cancel_all",
+                            hold_alpha=1.0,
+                        ),
+                        "completely cancelled",
+                        "MiniMaxH3Steer add_norm_matched_erasure zero-cancellation refusal",
+                    )
+                )
             finally:
                 cv_nodes._j_lens.synthesize_from_words = orig_synth_fn  # type: ignore[assignment]
                 cv.detect_family = orig_det_hw  # type: ignore[assignment]
+
+            # _inspect_vectors_status detects missing_erasure on 1D-only files and clears once erasure.{vr,diag} exist
+            st_er_dir = st_tmp / "status_erasure_check"
+            (st_er_dir / "toml").mkdir(parents=True, exist_ok=True)
+            (st_er_dir / "vec").mkdir(parents=True, exist_ok=True)
+            (st_er_dir / "toml" / "demo_card.toml").write_text(
+                (st_tmp / "toml" / "demo_card.toml").read_text(encoding="utf-8"),
+                encoding="utf-8",
+            )
+            ps_st_er = cv.load_pairs(st_er_dir / "toml" / "demo_card.toml")
+            st_er_meta = {
+                **er_meta,
+                "name": "demo_card",
+                "pairs": {**er_meta["pairs"], "path": "demo_card.toml", "sha256": ps_st_er.sha256},
+                "quality_report": {**er_meta["quality_report"], "j_lens_readout": {}},
+            }
+            st_er_path = st_er_dir / "vec" / "demo_card__fl2va__diff_span.safetensors"
+            cv.save_vector(st_er_path, {"vector.post_refiner": er_v1d.clone(), "vector.encoder": er_enc.clone()}, st_er_meta)
+            stale_1d, _ = _build_cmd._inspect_vectors_status(st_er_dir / "toml", st_er_dir / "vec", {"fl2va"})
+            if not stale_1d or "missing_erasure" not in stale_1d[0]:
+                errs.append(f"_inspect_vectors_status did not flag missing_erasure on 1D-only vector: {stale_1d!r}")
+            from bench.control_vector import ui_state as _ui_st_er
+            rows_1d = _ui_st_er._list_ui_vectors(st_er_dir / "vec")
+            if len(rows_1d) != 1 or rows_1d[0].get("has_erasure") is not False or rows_1d[0].get("erasure_rank") != 0:
+                errs.append(f"_list_ui_vectors expected has_erasure=False/rank=0 on 1D vector, got {rows_1d!r}")
+            cv.save_vector(
+                st_er_path,
+                {
+                    "vector.post_refiner": er_v1d.clone(),
+                    "vector.encoder": er_enc.clone(),
+                    "erasure.mu_d": er_mu.clone(),
+                    "erasure.vr": er_vr.clone(),
+                    "erasure.diag": er_diag.clone(),
+                },
+                st_er_meta,
+                overwrite=True,
+            )
+            stale_er, _ = _build_cmd._inspect_vectors_status(st_er_dir / "toml", st_er_dir / "vec", {"fl2va"})
+            if stale_er:
+                errs.append(f"_inspect_vectors_status unexpectedly flagged vector with erasure as stale: {stale_er!r}")
+            rows_er = _ui_st_er._list_ui_vectors(st_er_dir / "vec")
+            if len(rows_er) != 1 or rows_er[0].get("has_erasure") is not True or rows_er[0].get("erasure_rank") != int(er_vr.shape[0]):
+                errs.append(f"_list_ui_vectors expected has_erasure=True/rank={int(er_vr.shape[0])}, got {rows_er!r}")
 
             # j_lens.decode_recipe accepts mode="add_norm_matched_erasure"
             if cv_nodes._j_lens.bundle_available():

@@ -1241,6 +1241,8 @@ def _inspect_vectors_status(
                 reasons.append(f"{sp.name}:missing_vector.encoder")
             if "j_lens_readout" not in (m.get("quality_report") or {}):
                 reasons.append(f"{sp.name}:missing_j_lens_readout")
+            if not _has_erasure_tensors(t):
+                reasons.append(f"{sp.name}:missing_erasure")
         if reasons:
             stale_stems.append(f"{stem} ({'; '.join(reasons)})")
     return stale_stems, perm_paths

@@ -1170,6 +1170,7 @@ class _AppliedVectorSpec:
     erasure_vr: torch.Tensor | None = None
     erasure_diag: torch.Tensor | None = None
     erasure_mu_d: torch.Tensor | None = None
+    erasure_holds: tuple[tuple[torch.Tensor, float], ...] = ()
 
 
 def _step_in_window(
@@ -2182,9 +2183,9 @@ def _make_control_vector_wrapper(
                     (v0, s0, _effective_entry_mode(sp))
                 ]
                 batch_erasure_specs: list[
-                    tuple[torch.Tensor, torch.Tensor, torch.Tensor | None] | None
+                    tuple[Any, ...] | None
                 ] = [
-                    (sp.erasure_vr, sp.erasure_diag, sp.erasure_mu_d)
+                    (sp.erasure_vr, sp.erasure_diag, sp.erasure_mu_d, sp.erasure_holds)
                     if (sp.erasure_vr is not None and sp.erasure_diag is not None)
                     else None
                 ]
@@ -2213,7 +2214,7 @@ def _make_control_vector_wrapper(
                         )
                     )
                     batch_erasure_specs.append(
-                        (gnext.erasure_vr, gnext.erasure_diag, gnext.erasure_mu_d)
+                        (gnext.erasure_vr, gnext.erasure_diag, gnext.erasure_mu_d, gnext.erasure_holds)
                         if (gnext.erasure_vr is not None and gnext.erasure_diag is not None)
                         else None
                     )
@@ -2238,12 +2239,16 @@ def _make_control_vector_wrapper(
                             if (em == "add_norm_matched_erasure" and gs_eff > 0.0 and gsp.erasure_mu_d is not None)
                             else gv
                         )
-                        v_nrm = float(torch.linalg.vector_norm(eff_v.detach().to(dtype=torch.float64)).item())
+                        eff_v64 = eff_v.detach().to(dtype=torch.float64)
+                        v_nrm = float(torch.linalg.vector_norm(eff_v64).item())
                         eff_s = (
                             gs_eff * (_cv.NORM_MATCHED_TARGET / v_nrm)
                             if (_cv.is_norm_matched_mode(em) and v_nrm > 1e-12)
                             else gs_eff
                         )
+                        if em == "add_norm_matched_erasure" and gs_eff > 0.0 and gsp.erasure_holds:
+                            eff_v = _cv._apply_holds_to_shift64(eff_s * eff_v64, gsp.erasure_holds, eff_v64.device)
+                            eff_s = 1.0
                         add_inter_entries.append((gsp.vector_name, eff_v, eff_s))
                 if len(add_inter_entries) >= 2:
                     inter_key = tuple(
@@ -2302,7 +2307,10 @@ def _make_control_vector_wrapper(
                                             if _cv.is_norm_matched_mode(em)
                                             else gs_eff
                                         )
-                                        aim_shift64 = aim_shift64 + eff_gs * gv64
+                                        term_aim64 = eff_gs * gv64
+                                        if em == "add_norm_matched_erasure" and gs_eff > 0.0 and gsp_a.erasure_holds:
+                                            term_aim64 = _cv._apply_holds_to_shift64(term_aim64, gsp_a.erasure_holds, cur_ctx.device)
+                                        aim_shift64 = aim_shift64 + term_aim64
                                     elif em == "hold":
                                         aim_holds.append((gv, gs_eff))
                                 if has_aim_add and aim_holds:
@@ -2616,6 +2624,7 @@ def attach_control_vector(
     hold_alpha: float = 1.0,
     edit_pass: str = "both",
     token_focus: float = 1.0,
+    extra_hold_words: Sequence[tuple[str, float]] = (),
 ) -> Any:
     """Clone `model` with `vector_name` and/or inline J-Lens `words` attached on
     `WrappersMP.DIFFUSION_MODEL`.
@@ -2820,50 +2829,39 @@ def attach_control_vector(
                 if "erasure.mu_d" in tensors:
                     erasure_mu_d = tensors["erasure.mu_d"].detach().to(device="cpu", dtype=torch.float32)
 
-        runtime_hold_spec: _AppliedVectorSpec | None = None
+        erasure_holds: tuple[tuple[torch.Tensor, float], ...] = ()
+        word_hold_pairs: list[tuple[str, float]] = []
         if hold_clean and ha_f > 0.0:
+            word_hold_pairs.append((hold_clean, ha_f))
+        for ew_raw, ea_raw in (extra_hold_words or ()):
+            ew_clean = str(ew_raw or "").strip()
+            ea_f = _validate_float_bounds("hold_alpha", ea_raw, lo=0.0, hi=2.0)
+            if ew_clean and ea_f > 0.0:
+                word_hold_pairs.append((ew_clean, ea_f))
+        if word_hold_pairs:
             synth_fam = _j_lens._canonical_synth_family(synth_family_arg)
-            hold_synth = _j_lens.synthesize_from_words(
-                hold_clean,
-                family=synth_fam,
-            )
-            hold_vec_pr = hold_synth["vector.post_refiner"]
             orig_nrm = float(torch.linalg.vector_norm(vec_pr.to(dtype=torch.float64)).item())
-            vec_held = _j_lens.apply_soft_holds(
-                vec_pr,
-                [hold_vec_pr],
-                alpha=ha_f,
-            )
+            vec_held = vec_pr
+            synth_holds: list[tuple[torch.Tensor, float]] = []
+            for wh_text, wh_alpha in word_hold_pairs:
+                hold_synth = _j_lens.synthesize_from_words(
+                    wh_text,
+                    family=synth_fam,
+                )
+                hold_vec_pr = hold_synth["vector.post_refiner"]
+                vec_held = _j_lens.apply_soft_holds(
+                    vec_held,
+                    [hold_vec_pr],
+                    alpha=wh_alpha,
+                )
+                synth_holds.append((hold_vec_pr.detach().to(device="cpu", dtype=torch.float32), wh_alpha))
             res_nrm = float(torch.linalg.vector_norm(vec_held.to(dtype=torch.float64)).item())
             if res_nrm <= 1e-3 * max(1.0, orig_nrm):
                 raise ValueError("hold_words completely cancelled control vector (residual norm is zero)")
-            if mode == "add_norm_matched_erasure" and erasure_vr is not None:
-                # Scrub the full per-row shift (mu_d - e(H)) at runtime via mode="hold" so -e(H) cannot
-                # leak along held directions (leaving vec_pr/erasure_mu_d un-held avoids double-hold).
-                runtime_hold_spec = _AppliedVectorSpec(
-                    vector_name=f"hold_words:{hold_clean[:40]}",
-                    vector=hold_vec_pr.detach().to(device="cpu", dtype=torch.float32),
-                    strength=0.0 if float(strength) == 0.0 else ha_f,
-                    mode="hold",
-                    mask=mask,
-                    start_percent=sp_f,
-                    end_percent=ep_f,
-                    metadata={"words_raw": hold_clean},
-                    advisories=(),
-                    scale_mode="raw",
-                    prompt=str(prompt or ""),
-                    video_scale=vs_f,
-                    audio_scale=as_f,
-                    split_end_percent=sep_f,
-                    ref_vae_end_percent=rvep_f,
-                    ref_vae_aug=rva_f,
-                    audio_cond_end_percent=acep_f,
-                    audio_cond_aug=aca_f,
-                    video_ref_end_percent=vrep_f,
-                    guide_cond_end_percent=gcep_f,
-                    edit_pass=edit_pass,
-                    token_focus=tf_f,
-                )
+            if mode == "add_norm_matched_erasure" and erasure_vr is not None and float(strength) > 0.0:
+                # Scope hold_words strictly to this vector's [M, D] shift inside _erasure_row_shift64
+                # so -e(H) cannot leak along held directions and other stacked nodes stay untouched.
+                erasure_holds = tuple(synth_holds)
             else:
                 vec_pr = vec_held.to(dtype=vec_pr.dtype)
 
@@ -2893,8 +2891,9 @@ def attach_control_vector(
             erasure_vr=erasure_vr,
             erasure_diag=erasure_diag,
             erasure_mu_d=erasure_mu_d,
+            erasure_holds=erasure_holds,
         )
-        updated = updated + (new_spec,) + ((runtime_hold_spec,) if runtime_hold_spec is not None else ())
+        updated = updated + (new_spec,)
         logger.info(
             "[h3] control vector %s attached (family=%s, strength=%g, mode=%s, scale_mode=%s, mask=%s, window=[%.2f, %.2f), video_scale=%g, audio_scale=%g, ref_vae_end=%.2f, edit_pass=%s, token_focus=%.2f)",
             vec_path.name,
@@ -4167,6 +4166,7 @@ def _attach_h3_vector_spec(
     hold_alpha_override: float | None = None,
     edit_pass: str = "both",
     token_focus: float = 1.0,
+    extra_hold_words: Sequence[tuple[str, float]] = (),
 ) -> Any:
     eff_hold_words = spec.hold_words if hold_words_override is None else hold_words_override
     eff_hold_alpha = spec.hold_alpha if hold_alpha_override is None else hold_alpha_override
@@ -4187,6 +4187,7 @@ def _attach_h3_vector_spec(
             hold_alpha=float(eff_hold_alpha),
             edit_pass=edit_pass,
             token_focus=float(token_focus),
+            extra_hold_words=extra_hold_words,
         )
     if spec.kind == "words":
         return attach_control_vector(
@@ -4836,22 +4837,16 @@ class MiniMaxH3Steer(io.ComfyNode):
         wired_holds = _flatten_hold_specs(primary_spec.holds, hold_vector, ha_f)
         eff_hold_words = primary_spec.hold_words
         eff_hold_alpha = primary_spec.hold_alpha
-        if mode == "add_norm_matched_erasure":
-            # Route hold_words through runtime mode="hold" so _apply_holds_to_rows64 scrubs the
-            # full per-row shift (mu_d - e(H)) cleanly at exact alpha without double-holding.
-            if primary_spec.hold_words:
-                wired_holds.append(
-                    (H3VectorSpec(kind="words", words=primary_spec.hold_words), float(primary_spec.hold_alpha))
-                )
-            if node_hold_words:
-                wired_holds.append((H3VectorSpec(kind="words", words=node_hold_words), ha_f))
-            eff_hold_words = ""
-        elif node_hold_words:
+        extra_hw: list[tuple[str, float]] = []
+        if node_hold_words:
             if not primary_spec.hold_words:
                 eff_hold_words = node_hold_words
                 eff_hold_alpha = ha_f
             elif abs(float(primary_spec.hold_alpha) - ha_f) <= 1e-9 or mode == "project_out":
                 eff_hold_words = f"{primary_spec.hold_words}, {node_hold_words}"
+            elif mode == "add_norm_matched_erasure" and primary_spec.kind == "file":
+                # Keep both hold_words sets scoped strictly to this vector's erasure_holds.
+                extra_hw.append((node_hold_words, ha_f))
             else:
                 wired_holds.append((H3VectorSpec(kind="words", words=node_hold_words), ha_f))
 
@@ -4884,6 +4879,7 @@ class MiniMaxH3Steer(io.ComfyNode):
             hold_alpha_override=eff_hold_alpha,
             edit_pass=edit_pass,
             token_focus=tf_f,
+            extra_hold_words=tuple(extra_hw),
         )
         for h_spec, h_alpha in wired_holds:
             eff_h_strength = 0.0 if s_val == 0.0 else float(h_alpha)

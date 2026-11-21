@@ -57,6 +57,7 @@ def _compose_and_save_sculpted_vector(
     enc_hold_terms: list[tuple[torch.Tensor, float]] = []
     base_meta: dict[str, Any] | None = None
     step_labels: list[str] = []
+    erasure_dropped = False
 
     for item in steps:
         raw_src = item["vector"]
@@ -64,6 +65,8 @@ def _compose_and_save_sculpted_vector(
         strength = float(item.get("strength", 1.0))
         vpath = _resolve_vector_for_family(raw_src, family=family, extra_dir=target_dir)
         tensors, meta = cv.load_vector(vpath)
+        if mode == "add_norm_matched_erasure" or (cv.is_additive_mode(mode) and "erasure.vr" in tensors):
+            erasure_dropped = True
         if base_meta is None and cv.is_additive_mode(mode):
             base_meta = meta
         resolved_steps.append({"vector": vpath, "mode": mode, "strength": strength})
@@ -100,6 +103,12 @@ def _compose_and_save_sculpted_vector(
         _, saved_meta = cv.load_vector(saved_path)
         r_norm = float(saved_meta["points"]["post_refiner"]["raw_norm"])
         jl_rep = saved_meta.get("quality_report", {}).get("j_lens_readout")
+        erasure_note = (
+            "sculpt composes 1D vector.post_refiner only; erasure.{mu_d,vr,diag} is not preserved "
+            "(render-time add_norm_matched_erasure falls back to 1D add_norm_matched on this file)"
+            if erasure_dropped
+            else ""
+        )
         return {
             "file": saved_path.name,
             "path": saved_path,
@@ -108,6 +117,7 @@ def _compose_and_save_sculpted_vector(
             "net_norm": r_norm,
             "rec_strength": _recommended_strength_text(r_norm),
             "j_lens": jl_rep,
+            "erasure_note": erasure_note,
         }
 
     # Compose directly via j_lens.apply_soft_holds + decode_vector
@@ -232,6 +242,12 @@ def _compose_and_save_sculpted_vector(
         loras=loras_meta,
     )
     saved = cv.save_vector(target_dir / fname, tensors_to_save, metadata, overwrite=overwrite)
+    erasure_note = (
+        "sculpt composes 1D vector.post_refiner only; erasure.{mu_d,vr,diag} is not preserved "
+        "(render-time add_norm_matched_erasure falls back to 1D add_norm_matched on this file)"
+        if erasure_dropped
+        else ""
+    )
     return {
         "file": saved.name,
         "path": saved,
@@ -239,6 +255,7 @@ def _compose_and_save_sculpted_vector(
         "raw_norm": raw_norm,
         "rec_strength": _recommended_strength_text(raw_norm),
         "j_lens": jl_readout,
+        "erasure_note": erasure_note,
     }
 
 
@@ -437,5 +454,7 @@ def cmd_sculpt(args: argparse.Namespace) -> int:
         if jl.get("pos_summary"):
             print(f"      j_lens (+): {jl['pos_summary']}")
             print(f"      j_lens (-): {jl['neg_summary']}")
+        if row.get("erasure_note"):
+            print(f"      note      : {row['erasure_note']}")
     return 0
 

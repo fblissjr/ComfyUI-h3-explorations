@@ -15,12 +15,13 @@ export function mount(root, nav) {
 
   const draw = () => {
     const q = filter.value.trim().toLowerCase();
-    const rows = studio.vectors.filter((v) => !q || `${v.file} ${v.family} ${v.pooling}`.toLowerCase().includes(q));
+    const rows = studio.vectors.filter((v) => !q || `${v.file} ${v.family} ${v.pooling} ${v.has_erasure ? 'erasure' : '1d'}`.toLowerCase().includes(q));
     count.textContent = `${rows.length} of ${studio.vectors.length} vector file(s) in ${studio.init.vec_dir}`;
     vecBody.replaceChildren(...rows.map((v) => h('tr', {},
       h('td', { class: 'mono' }, v.file),
       h('td', {}, v.family),
       h('td', {}, v.pooling),
+      h('td', {}, v.has_erasure ? `r=${v.erasure_rank}` : '1D only'),
       h('td', {}, `${v.n_pairs} / ${v.n_holds}`),
       h('td', {}, num(v.raw_norm)),
       h('td', {}, num(v.mpc)),
@@ -50,7 +51,7 @@ export function mount(root, nav) {
       h('div', { class: 'card-header' }, h('h3', { class: 'card-title' }, 'Vectors'), count),
       filter,
       h('div', { class: 'table-scroll' }, h('table', { class: 'lib-table' },
-        head(['file', 'family', 'pooling', 'pairs / holds', 'norm', 'pairwise cosine', 'split half', 'sections that differ', 'recommended strength', '']),
+        head(['file', 'family', 'pooling', 'erasure', 'pairs / holds', 'norm', 'pairwise cosine', 'split half', 'sections that differ', 'recommended strength', '']),
         vecBody))),
     h('section', { class: 'card' },
       h('div', { class: 'card-header' }, h('h3', { class: 'card-title' }, 'Pair files'),

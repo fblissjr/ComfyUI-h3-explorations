@@ -19,7 +19,7 @@ import h3_pair_compiler as pair_compiler
 import h3_spans
 import j_lens
 import substrate
-from workflows import h3_config
+from workflows import h3_config, h3_env
 
 from .llm_pairs import _repair_multichange_markdown_pairs
 from . import helpers as _h
@@ -58,15 +58,20 @@ class ControlVectorUIState:
         self.default_device: str = (
             default_device or os.environ.get("H3_DEVICE", "").strip() or "default"
         )
+        h3_env.load()
         self.default_llm_provider: str = (
             default_llm_provider
             or os.environ.get("H3_LLM_PROVIDER", "").strip()
-            or ("exllamav3" if os.environ.get("H3_EXL3_MODEL_DIR", "").strip() else "transformers")
+            or (
+                "heylook"
+                if os.environ.get("H3_HEYLOOK_URL", "").strip()
+                else ("exllamav3" if os.environ.get("H3_EXL3_MODEL_DIR", "").strip() else "transformers")
+            )
         )
         self.default_llm_model: str = (
             default_llm_model
             or os.environ.get("H3_LLM_MODEL", "").strip()
-            or os.environ.get("H3_EXL3_MODEL_DIR", "").strip()
+            or ("" if self.default_llm_provider == "heylook" else os.environ.get("H3_EXL3_MODEL_DIR", "").strip())
         )
         self._tokenizer: Any = None
         self._clips: dict[tuple[str, str], Any] = {}
@@ -175,7 +180,9 @@ def _list_ui_vectors(vec_dir: Path) -> list[dict[str, Any]]:
         if "j_lens" in rel_p.parts:
             continue
         try:
-            _, meta = cv.load_vector(p)
+            tensors, meta = cv.load_vector(p)
+            has_erasure = "erasure.vr" in tensors and "erasure.diag" in tensors
+            erasure_rank = int(tensors["erasure.vr"].shape[0]) if has_erasure else 0
             pr_meta = meta.get("points", {}).get("post_refiner", {})
             raw_norm = float(pr_meta.get("raw_norm", 0.0))
             qr = meta.get("quality_report", {})
@@ -208,6 +215,8 @@ def _list_ui_vectors(vec_dir: Path) -> list[dict[str, Any]]:
                     "loras": loras_list,
                     "differing_sections": list(pairs_meta.get("differing_sections") or ()),
                     "mode": str(meta.get("measured_under", {}).get("mode", "")),
+                    "has_erasure": has_erasure,
+                    "erasure_rank": erasure_rank,
                     "j_lens": qr.get("j_lens_readout"),
                 }
             )
