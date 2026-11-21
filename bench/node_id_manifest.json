@@ -764,7 +764,8 @@
       "prompt",
       "video_end_percent",
       "thinking",
-      "report"
+      "report",
+      "ref_end_percent"
     ]
   },
   "MiniMaxH3PromptList": {

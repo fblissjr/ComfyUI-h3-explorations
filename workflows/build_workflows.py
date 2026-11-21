@@ -1717,6 +1717,7 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
               ab_baseline_control_vector: dict | None = None,
               media_control_vector: dict | None = None,
               release_references: bool | dict | None = None,
+              split_references: bool = False,
               task_lora: tuple[str, float] | None = None,
               out_prefix: str | None = None, **canvas) -> dict:
     """API-format graph, submittable as {"prompt": <this>} to POST /prompt.
@@ -2992,6 +2993,9 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
         }
         g["13"]["inputs"]["images"] = ["161", 0]
 
+    if split_references:
+        _split_h3_video_references(g)
+
     if prompt_expander is not None:
         if edit_guidance is not None:
             raise SystemExit("prompt_expander and edit_guidance are mutually exclusive")
@@ -3061,6 +3065,29 @@ def _split_h3_image_references(g: dict) -> None:
                 node["inputs"][key] = ["132", 1]
 
 
+def _split_h3_video_references(g: dict) -> None:
+    """Node 5 (`MiniMaxH3ReferenceConditioning`) becomes `132=MiniMaxH3EncodeReferences` + `5=MiniMaxH3PromptOnReferences`."""
+    cond = g["5"]
+    if cond["class_type"] == "MiniMaxH3PromptOnReferences":
+        return
+    if cond["class_type"] != "MiniMaxH3ReferenceConditioning":
+        raise SystemExit(
+            f"_split_h3_video_references needs MiniMaxH3ReferenceConditioning at node 5, got {cond['class_type']!r}"
+        )
+    g["132"] = {
+        "class_type": "MiniMaxH3EncodeReferences",
+        "inputs": {k: v for k, v in cond["inputs"].items() if k != "prompt"},
+    }
+    g["5"] = {
+        "class_type": "MiniMaxH3PromptOnReferences",
+        "inputs": {"encoded_references": ["132", 0], "prompt": cond["inputs"]["prompt"]},
+    }
+    for node in g.values():
+        for key, val in node["inputs"].items():
+            if val == ["5", 1]:
+                node["inputs"][key] = ["132", 1]
+
+
 def _wire_kj_preview_override(g: dict[str, Any], *, single_frame: bool) -> None:
     """Attach KJNodes `ModelPreviewOverrideKJ` (`165`) + `GetPreviewOverrideFramesKJ` (`166`) +
     `PreviewImage` (`167`) onto interactive preview workflows, leaving `vae`/`audio_vae` unwired."""
@@ -3102,8 +3129,14 @@ def _wire_kj_preview_override(g: dict[str, Any], *, single_frame: bool) -> None:
 def _collect_auto_edit_ref_images(g: dict, cond: dict) -> list[list]:
     """Collect up to 4 upstream IMAGE links attached to a reference conditioning node."""
     links: list[list] = []
+    cur = None
     if cond["class_type"] == "MiniMaxH3ReferenceConditioning":
         cur = cond["inputs"].get("references")
+    elif cond["class_type"] == "MiniMaxH3PromptOnReferences":
+        enc_ref = cond["inputs"].get("encoded_references")
+        if isinstance(enc_ref, list) and len(enc_ref) >= 1 and str(enc_ref[0]) in g:
+            cur = (g[str(enc_ref[0])].get("inputs") or {}).get("references")
+    if cur is not None:
         seen: set[str] = set()
         while isinstance(cur, list) and len(cur) >= 1:
             nid = str(cur[0])
@@ -3179,18 +3212,15 @@ def _wire_prompt_expander(g: dict, prompt: str, spec: dict) -> None:
             exp_inputs["references"] = cond["inputs"]["references"]
         # Split into MiniMaxH3EncodeReferences (132) + MiniMaxH3PromptOnReferences (5) so
         # Qwen3-VL vision/KV prefixes and VAE reference latents stay cached across prompt tweaks.
-        g["132"] = {
-            "class_type": "MiniMaxH3EncodeReferences",
-            "inputs": {k: v for k, v in cond["inputs"].items() if k != "prompt"},
-        }
-        g["5"] = {
-            "class_type": "MiniMaxH3PromptOnReferences",
-            "inputs": {"encoded_references": ["132", 0], "prompt": ["14", 0]},
-        }
-        for node in g.values():
-            for key, val in node["inputs"].items():
-                if val == ["5", 1]:
-                    node["inputs"][key] = ["132", 1]
+        _split_h3_video_references(g)
+        g["5"]["inputs"]["prompt"] = ["14", 0]
+    elif cond["class_type"] == "MiniMaxH3PromptOnReferences":
+        enc_ref = cond["inputs"].get("encoded_references")
+        if isinstance(enc_ref, list) and len(enc_ref) >= 1 and str(enc_ref[0]) in g:
+            enc_ins = g[str(enc_ref[0])].get("inputs", {})
+            if "references" in enc_ins:
+                exp_inputs["references"] = enc_ins["references"]
+        cond["inputs"]["prompt"] = ["14", 0]
     elif cond["class_type"] == "MiniMaxH3Conditioning":
         if "first_frame" in cond["inputs"]:
             exp_inputs["first_frame"] = cond["inputs"]["first_frame"]
@@ -3210,6 +3240,7 @@ def _wire_prompt_expander(g: dict, prompt: str, spec: dict) -> None:
     g["75"] = {"class_type": "PreviewAny", "inputs": {"source": ["14", 0]}}
     if "135" in g and g["135"]["class_type"] == RELEASE_REFERENCES_NODE:
         g["135"]["inputs"]["video_end_percent"] = ["14", 1]
+        g["135"]["inputs"]["end_percent"] = ["14", 4]
 
 
 def _wire_edit_guidance(g: dict, prompt: str, spec: dict) -> None:
@@ -3368,16 +3399,12 @@ def _wire_edit_guidance(g: dict, prompt: str, spec: dict) -> None:
     if same_prompt:
         orig_prompt_src = list(written)
     if cond["class_type"] == "MiniMaxH3ReferenceConditioning":
-        g["132"] = {"class_type": "MiniMaxH3EncodeReferences",
-                    "inputs": {k: v for k, v in cond["inputs"].items() if k != "prompt"}}
-        g["5"] = {"class_type": "MiniMaxH3PromptOnReferences",
-                  "inputs": {"encoded_references": ["132", 0], "prompt": orig_prompt_src}}
+        _split_h3_video_references(g)
+        cond = g["5"]
+    if cond["class_type"] == "MiniMaxH3PromptOnReferences":
         g["131"] = {"class_type": "MiniMaxH3PromptOnReferences",
-                    "inputs": {"encoded_references": ["132", 0], "prompt": edited_prompt_src}}
-        for node in g.values():
-            for key, val in node["inputs"].items():
-                if val == ["5", 1]:
-                    node["inputs"][key] = ["132", 1]
+                    "inputs": dict(cond["inputs"], prompt=edited_prompt_src)}
+        cond["inputs"]["prompt"] = orig_prompt_src
     elif cond["class_type"] in ("MiniMaxH3ImageConditioning", "MiniMaxH3PromptOnImageReferences"):
         if any(k.startswith("images.") for k in cond["inputs"]):
             # a graph that still carries core's node with pictures: encode them once, as the edit graphs do
@@ -6287,11 +6314,12 @@ def main():
         ("h3_image_ref_plus_text_to_video_pika.json", "r2v-pika", "r2v",
          _ref_prompt(images=("character",), scene="kitchen"),
          dict(ref_images=SCENE_REF_IMAGES["kitchen"], ref_image_count=1,
+              split_references=True,
               lora=(PIKA_REF2VA_SVD995_LORA, PIKA_STRENGTH), lora_branch=True,
               steps=PIKA_STEPS, sampler_name=PIKA_SAMPLER,
               manual_sigmas=PIKA_MANUAL_SIGMAS,
               out_prefix="Video/h3_r2v_pika"),
-         "reference image + text -> video + audio on Pika H3 Flex 6-step LCM (SVD995 branch)"),
+         "reference image + text -> video + audio on Pika H3 Flex 6-step LCM (SVD995 branch); references encoded once (MiniMaxH3EncodeReferences) and cached across prompt tweaks (MiniMaxH3PromptOnReferences)"),
 
         # --- Post-refiner control vectors on Pika H3 Flex 6-step LCM (2026-11-06) ---
         # Single-vector t2va, dual-vector chained t2va (nodes 115 + 125 summed in
@@ -6407,6 +6435,7 @@ def main():
         ("h3_image_ref_plus_text_to_video_pika_control_vector.json", "r2v-pika-control-vector", "r2v",
          _ref_prompt(images=("character",), scene="kitchen"),
          dict(ref_images=SCENE_REF_IMAGES["kitchen"], ref_image_count=1,
+              split_references=True,
               lora=(PIKA_REF2VA_SVD995_LORA, PIKA_STRENGTH), lora_branch=True,
               steps=PIKA_STEPS, sampler_name=PIKA_SAMPLER,
               manual_sigmas=PIKA_MANUAL_SIGMAS,

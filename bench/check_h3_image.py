@@ -374,6 +374,7 @@ def heylook_expander() -> None:
         "bodies": [],
         "overload_next": True,
         "mode": "ok",
+        "extra_presets": [],
     }
 
     class _MockHeylook(BaseHTTPRequestHandler):
@@ -437,12 +438,15 @@ def heylook_expander() -> None:
                 self._json(200, {"models": {"text-chat-resident": {"active": 0}}})
             elif self.path == "/v1/presets":
                 self._json(200, {
-                    "presets": [{
-                        "id": "crisp",
-                        "name": "crisp_preset",
-                        "system_prompt": "PRESET SYSTEM PROMPT",
-                        "params": {"temperature": 0.8, "enable_thinking": True, "reasoning_effort": "unoffered"},
-                    }],
+                    "presets": [
+                        {
+                            "id": "crisp",
+                            "name": "crisp_preset",
+                            "system_prompt": "PRESET SYSTEM PROMPT",
+                            "params": {"temperature": 0.8, "enable_thinking": True, "reasoning_effort": "unoffered"},
+                        },
+                        *state["extra_presets"],
+                    ],
                 })
             else:
                 self._json(404, {"detail": "not found"})
@@ -841,6 +845,55 @@ def heylook_expander() -> None:
         report(
             fallback_think_ok,
             "plain-text fallback refuses unclosed <think> on max_tokens/end_turn and strips prefilled </think>",
+        )
+
+        # @extend:prepend / <!-- H3_EXTEND:append --> compose with local H3-Image prompts and forward preset params.
+        state["extra_presets"].extend([
+            {
+                "id": "img_extend_pre",
+                "name": "img_extend_pre",
+                "system_prompt": "@extend:prepend\nLOCAL IMAGE VOICE: crisp 35mm contact sheet fidelity.",
+                "params": {"temperature": 0.62},
+            },
+            {
+                "id": "img_extend_app",
+                "name": "img_extend_app",
+                "system_prompt": "<!-- H3_EXTEND:append -->\nLOCAL IMAGE RULE: avoid plastic highlights.",
+                "params": {"temperature": 0.58},
+            },
+        ])
+        ext_pre_res = _expand_img_helper(
+            prompt="Quiet greenhouse morning.",
+            enabled=True,
+            base_url=base,
+            mode="auto",
+            preset="img_extend_pre",
+            prepared_images=[],
+        )
+        ext_pre_body = state["bodies"][-1]
+        ext_app_res = _expand_img_helper(
+            prompt="Quiet greenhouse morning.",
+            enabled=True,
+            base_url=base,
+            mode="heylook preset + aspect_ratio",
+            preset="img_extend_app",
+            prepared_images=[],
+        )
+        ext_app_body = state["bodies"][-1]
+        report(
+            ext_pre_res["prompt"] == t2i_caption
+            and ext_pre_res["shape"] == "4:3"
+            and "sys=local+extend:img_extend_pre" in ext_pre_res["report"]
+            and str(ext_pre_body.get("system", "")).startswith("LOCAL IMAGE VOICE:")
+            and "@extend:" not in str(ext_pre_body.get("system", ""))
+            and "aspect_ratio:" in str(ext_pre_body.get("system", ""))
+            and ext_pre_body.get("temperature") == 0.62
+            and "sys=local+extend:img_extend_app" in ext_app_res["report"]
+            and str(ext_app_body.get("system", "")).endswith("LOCAL IMAGE RULE: avoid plastic highlights.")
+            and "H3_EXTEND" not in str(ext_app_body.get("system", ""))
+            and "aspect_ratio:" in str(ext_app_body.get("system", ""))
+            and ext_app_body.get("temperature") == 0.58,
+            "expand_image_prompt honors @extend:prepend/append overlays, keeps aspect_ratio contract, & forwards preset params",
         )
     finally:
         server.shutdown()

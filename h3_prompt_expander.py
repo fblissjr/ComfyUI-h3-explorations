@@ -126,10 +126,11 @@ def expand_video_prompt(
             "thinking": "",
             "report": (
                 f"expander disabled (passthrough) | mode={eff_mode} len={eff_length} "
-                f"({dur_s}s) rel_vid={video_end_percent:g}"
+                f"({dur_s}s) rel_vid={video_end_percent:g} rel_ref=1"
             ),
             "resolved_mode": eff_mode,
             "cache_hit": False,
+            "ref_end_percent": 1.0,
         }
 
     if not prompt_text and concept_name.lower() == "none":
@@ -161,9 +162,11 @@ def expand_video_prompt(
         prompt_mode=eff_mode,
     )
     out_prompt = res["edited_prompt"]
+    plan = res.get("edit_plan")
+    ref_end_percent = float(plan.ref_end_percent) if plan is not None else 1.0
     report = (
         f"mode={eff_mode} len={eff_length} ({dur_s}s) "
-        f"rel_vid={video_end_percent:g} | {res['report']}"
+        f"rel_vid={video_end_percent:g} rel_ref={ref_end_percent:g} | {res['report']}"
     )
     return {
         "prompt": out_prompt,
@@ -172,6 +175,7 @@ def expand_video_prompt(
         "report": report,
         "resolved_mode": eff_mode,
         "cache_hit": bool(res.get("cache_hit")),
+        "ref_end_percent": ref_end_percent,
     }
 
 
@@ -343,6 +347,7 @@ class MiniMaxH3PromptExpander(io.ComfyNode):
                 io.Float.Output(display_name="video_end_percent"),
                 io.String.Output(display_name="thinking"),
                 io.String.Output(display_name="report"),
+                io.Float.Output(display_name="ref_end_percent"),
             ],
         )
 
@@ -393,4 +398,5 @@ class MiniMaxH3PromptExpander(io.ComfyNode):
             float(res["video_end_percent"]),
             res["thinking"],
             res["report"],
+            float(res.get("ref_end_percent", 1.0)),
         )

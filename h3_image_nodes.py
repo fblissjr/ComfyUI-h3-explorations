@@ -82,10 +82,12 @@ try:
         _iter_sse,
         build_heylook_request_body,
         cancel_heylook_request,
+        compose_preset_system_prompt,
         discover_heylook_model,
         expand_heylook_preset,
         format_heylook_report,
         normalize_heylook_base_url,
+        parse_extend_directive,
         prepare_heylook_image,
         prepare_heylook_tensor,
         probe_heylook_server_info,
@@ -113,10 +115,12 @@ except ImportError:  # run from the repo root by a check
         _iter_sse,
         build_heylook_request_body,
         cancel_heylook_request,
+        compose_preset_system_prompt,
         discover_heylook_model,
         expand_heylook_preset,
         format_heylook_report,
         normalize_heylook_base_url,
+        parse_extend_directive,
         prepare_heylook_image,
         prepare_heylook_tensor,
         probe_heylook_server_info,
@@ -577,8 +581,27 @@ def expand_image_prompt(
         eff_resolved_mode = resolved_mode
         sys_source = "custom" if custom_clean else "local"
         preset_won = False
-        if not eff_sys_prompt and preset_fields:
-            preset_sys = (preset_fields.get("system") or "").strip()
+        active_preset_fields = preset_fields
+        preset_sys = str((preset_fields or {}).get("system") or "").strip()
+        extend_mode, _extend_body = parse_extend_directive(preset_sys) if preset_sys else (None, "")
+        if not custom_clean and preset_fields and preset_sys and extend_mode is not None:
+            local_base = eff_sys_prompt
+            if not local_base:
+                _, local_base = resolve_expander_system_prompt(
+                    "auto",
+                    has_images=has_images,
+                    custom_system_prompt="",
+                    has_preset=False,
+                )
+            eff_sys_prompt, sys_source, _ = compose_preset_system_prompt(
+                local_base,
+                preset_sys,
+                preset_name=preset_name,
+            )
+            if resolved_mode == "heylook preset + aspect_ratio" and "aspect_ratio:" not in eff_sys_prompt:
+                eff_sys_prompt = append_aspect_ratio_footer(eff_sys_prompt, has_images=has_images)
+            active_preset_fields = {k: v for k, v in preset_fields.items() if k != "system"}
+        elif not eff_sys_prompt and preset_fields:
             if uses_server_preset and not preset_sys:
                 raise ValueError(
                     f"mode is {mode!r}, but the resolved heylook preset has an empty system_prompt"
@@ -591,7 +614,7 @@ def expand_image_prompt(
                 sys_source = f"preset:{preset_name}" if preset_name else "preset"
                 preset_won = True
         elif prefer_preset_system and not custom_clean and preset_fields:
-            if (preset_fields.get("system") or "").strip():
+            if preset_sys:
                 eff_sys_prompt = ""
                 sys_source = f"preset:{preset_name}" if preset_name else "preset"
                 preset_won = True
@@ -622,7 +645,7 @@ def expand_image_prompt(
             prepared_images=prepared,
             thinking=thinking,
             request_seed=int(seed) & 0x7FFFFFFF,
-            preset_fields=preset_fields,
+            preset_fields=active_preset_fields,
             sampler_mode=sampler_mode,
             sampler_overrides=sampler_overrides,
             reasoning_effort_override=reasoning_effort,

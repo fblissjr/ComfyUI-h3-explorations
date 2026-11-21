@@ -318,6 +318,66 @@ def expand_heylook_preset(
     return body
 
 
+_EXTEND_TOKENS: tuple[tuple[str, str], ...] = (
+    ("@extend:prepend", "prepend"),
+    ("@extend:append", "append"),
+    ("<!-- h3_extend:prepend -->", "prepend"),
+    ("<!-- h3_extend:append -->", "append"),
+)
+
+
+def parse_extend_directive(system_prompt: str) -> tuple[str | None, str]:
+    """Parse an optional first-line `@extend:prepend|append` overlay directive from a preset prompt.
+
+    Returns `(mode, body)` where `mode` is `'prepend'`, `'append'`, or `None` when the preset
+    is a normal standalone full-override `system_prompt`.
+    """
+    norm = (system_prompt or "").replace("\r\n", "\n").replace("\r", "\n")
+    lines = norm.split("\n")
+    first_idx: int | None = None
+    for idx, line in enumerate(lines):
+        if line.strip():
+            first_idx = idx
+            break
+    if first_idx is None:
+        return None, ""
+    head = lines[first_idx].strip().lower()
+    for token, mode in _EXTEND_TOKENS:
+        if head == token or head.startswith(token + " "):
+            inline_rest = lines[first_idx].strip()[len(token):].strip()
+            tail = "\n".join(lines[first_idx + 1 :]).strip()
+            parts = [p for p in (inline_rest, tail) if p]
+            return mode, "\n\n".join(parts)
+    return None, norm.strip()
+
+
+def compose_preset_system_prompt(
+    local_system_prompt: str,
+    preset_system_prompt: str,
+    *,
+    preset_name: str = "",
+) -> tuple[str, str, str | None]:
+    """Compose a tracked local `.md` prompt with a preset under Direction A + `@extend` overlay rules.
+
+    Returns `(effective_system_prompt, sys_source, extend_mode)`.
+    """
+    local_clean = (local_system_prompt or "").strip()
+    mode, body = parse_extend_directive(preset_system_prompt)
+    pname = (preset_name or "").strip()
+    if mode == "prepend":
+        parts = [p for p in (body, local_clean) if p]
+        src = f"local+extend:{pname}" if pname else "local+extend"
+        return "\n\n".join(parts), src, mode
+    if mode == "append":
+        parts = [p for p in (local_clean, body) if p]
+        src = f"local+extend:{pname}" if pname else "local+extend"
+        return "\n\n".join(parts), src, mode
+    if body:
+        src = f"preset:{pname}" if pname else "preset"
+        return body, src, None
+    return local_clean, "local", None
+
+
 def build_heylook_request_body(
     *,
     model_row: dict,

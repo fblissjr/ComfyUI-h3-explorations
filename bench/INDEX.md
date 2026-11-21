@@ -8,14 +8,14 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 178 |
+| [`check_*`](#check) | 180 |
 | [`measure_*`](#measure) | 39 |
 | [`analyze_*`](#analyze) | 18 |
 | [`grade_*`](#grade) | 19 |
 | [`compare_*`](#compare) | 15 |
 | [`build_*`](#build) | 13 |
-| [`probe_*`](#probe) | 18 |
-| [the rest](#the-rest) | 205 |
+| [`probe_*`](#probe) | 20 |
+| [the rest](#the-rest) | 206 |
 
 ## check
 
@@ -103,6 +103,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_lora_branch.py`](check_lora_branch.py) | `MiniMaxH3LoRABranch` computes the merged LoRA exactly, on every module an H3 LoRA targets. |
 | [`check_lowvram_handoff.py`](check_lowvram_handoff.py) | Check that the sage forward survives KJNodes' low-VRAM block patch. |
 | [`check_lse_balance.py`](check_lse_balance.py) | Verify clean-room LSE subset attention balance, Sol/Provenance composition, and CUDA kernels. |
+| [`check_m1_m2_probes.py`](check_m1_m2_probes.py) | Offline unit tests for M1 (`probe_dinov3_copy_freeze.py`) and M2 (`probe_yin_f0_drift.py`). |
 | [`check_marker_arms.py`](check_marker_arms.py) | A marker-corpus arm that was declared and not applied must go red. |
 | [`check_masked_code_map.py`](check_masked_code_map.py) | Check `bench/masked_code_map.py` AST symbol extraction, dependency/call/data/step chains, and code-map gates. |
 | [`check_masked_job.py`](check_masked_job.py) | Check the masked job builder: the graphs it writes and what it refuses. |
@@ -186,6 +187,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_subject_tracks.py`](check_subject_tracks.py) | The model-free judgements about a tracked subject (`subject_tracks.py`), on made-up masks. No model, no card. |
 | [`check_subject_yaw.py`](check_subject_yaw.py) | The turn metric's arithmetic: angles across the seam, the verdict, and the comparison with the eye. |
 | [`check_sweep_loads.py`](check_sweep_loads.py) | `bench/sweep_loads.py` against job files made here: a copy differs from its source in the named change and the names only. |
+| [`check_sync_heylook_presets.py`](check_sync_heylook_presets.py) | Offline checks for `bench/sync_heylook_presets.py`: sentinel preservation, legacy migration, params retention, & idempotency. |
 | [`check_timeline_page.py`](check_timeline_page.py) | Check ``bench/timeline_page.py``: whole-video NLE timeline data file and HTML builder. |
 | [`check_token_routing.py`](check_token_routing.py) | `token_routing` on MiniMaxH3Sol becomes a {block: budget} map; assert which. |
 | [`check_two_shot_load.py`](check_two_shot_load.py) | Two neighbouring shots as one load (`bench/two_shot_load.py`) on a made video: what it lays end to end, writes and refuses. |
@@ -339,6 +341,7 @@ this file is only a way to find a script by what it says it does.
 | [`probe_bucket2_seam_and_gain.py`](probe_bucket2_seam_and_gain.py) | Live `:8188` Bucket 2 probe: AudioAttentionGain guard/scoping & Song seam_taper A/B. |
 | [`probe_bucket3_section_anchor.py`](probe_bucket3_section_anchor.py) | Bucket 3 probe: Timeline-scoped Frame-0 `section_anchor` + `anchor_end_percent=0.33` release. |
 | [`probe_bucket4_lse_balance.py`](probe_bucket4_lse_balance.py) | Bucket 4 probe: Mass-conserving `return_lse=True` subset balance + `section_anchor` `0.33` release. |
+| [`probe_dinov3_copy_freeze.py`](probe_dinov3_copy_freeze.py) | M1 (`docs/wiki/next_steps.md`): CPU-safe DINOv3 `<Picture 1>` copy & temporal pose-freeze triage probe. |
 | [`probe_encoder_rope_kitchen.py`](probe_encoder_rope_kitchen.py) | Did core's move of the text encoder's RoPE onto comfy-kitchen change its numbers? |
 | [`probe_grade_row_selection.py`](probe_grade_row_selection.py) | Does the video-and-audio row selector in `grade_dense_kernels_on_captures.py` select and grade the right rows? |
 | [`probe_h3_image_vae_tiles.py`](probe_h3_image_vae_tiles.py) | How the MiniMax-H3-Image VAE's 256 px decode tiles shape its pictures, measured on real pictures with no DiT. |
@@ -351,6 +354,7 @@ this file is only a way to find a script by what it says it does.
 | [`probe_token_aug_admitted_count.py`](probe_token_aug_admitted_count.py) | Does the admitted token count exceed the budget, and is that where the output moves? |
 | [`probe_token_aug_determinism.py`](probe_token_aug_determinism.py) | Is token_aug's run-to-run variation a selection flip or accumulation order? |
 | [`probe_token_aug_selection_structure.py`](probe_token_aug_selection_structure.py) | Where does token_aug's run-to-run variation sit, and does it have the shape of a per-centroid selection set? |
+| [`probe_yin_f0_drift.py`](probe_yin_f0_drift.py) | M2 (`docs/wiki/next_steps.md`): Pure-PyTorch `YIN` F0 pitch-drift triage helper (0 renders, zero external ASR/WavLM). |
 
 ## the rest
 
@@ -540,6 +544,7 @@ this file is only a way to find a script by what it says it does.
 | [`sweep_loads.py`](sweep_loads.py) | The same loads again with one thing changed: copies of masked job files, a record of the sweep, the commands in order. |
 | [`sweep_routing_density.py`](sweep_routing_density.py) | Per-head routed density across the capture grid: where the routing structure is. |
 | [`sweep_sol_block_size_on_capture.py`](sweep_sol_block_size_on_capture.py) | Is 64 tokens per block the limit? Float reference, on captures. |
+| [`sync_heylook_presets.py`](sync_heylook_presets.py) | Sync tracked `docs/wiki/system_prompts/` presets to `heylook` without clobbering local rules or params. |
 | [`tally_judge_verdicts.py`](tally_judge_verdicts.py) | How often does the judge call a pair "same" or "can't tell", and does the slot order pull? |
 | [`telemetry_report.py`](telemetry_report.py) | Read a pipeline telemetry record into per-node phases. |
 | [`time_dense_blocks.py`](time_dense_blocks.py) | What does a dense block actually COST, in seconds, on this box? |

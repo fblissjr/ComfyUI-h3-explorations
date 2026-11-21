@@ -951,6 +951,18 @@ def check_url_resolution_and_mock_sse() -> None:
                             "system_prompt": "CUSTOM 2X SYSTEM\nOutput ## section: <name> and ## axes.",
                             "params": {"temperature": 0.3},
                         },
+                        {
+                            "id": "extend_prepend_preset",
+                            "name": "extend_prepend_preset",
+                            "system_prompt": "@extend:prepend\nLOCAL VOICE PREAMBLE: favor moody natural twilight.",
+                            "params": {"temperature": 0.45},
+                        },
+                        {
+                            "id": "extend_append_preset",
+                            "name": "extend_append_preset",
+                            "system_prompt": "<!-- H3_EXTEND:append -->\nLOCAL ADDENDUM: keep concrete foley crisp.",
+                            "params": {"temperature": 0.52},
+                        },
                     ]
                 }
             else:
@@ -1247,6 +1259,45 @@ def check_url_resolution_and_mock_sse() -> None:
                and "sys=preset:h3_native_preset" in r_img_def["report"],
                "expand_image_prompt defaults prefer_preset_system=True under Direction A and reports sys=preset")
 
+            # 4i. @extend:prepend & <!-- H3_EXTEND:append --> compose cleanly on 1x fresh and 2x rewrite (even under user_only)
+            state["mode"] = "fresh_native_preset"
+            r_ext_1x = aep.run_auto_edit_rewrite(
+                original="",
+                edit_intent="Commuter waiting in amber station rain.",
+                preset="extend_prepend_preset",
+                base_url=srv_url,
+                use_cache=False,
+                length=192,
+                prompt_mode="t2va",
+            )
+            ext1_post = state["posts"][-1]
+            ext1_sys = str(ext1_post.get("system") or "")
+            ok(ext1_sys.startswith("LOCAL VOICE PREAMBLE: favor moody natural twilight.")
+               and "@extend:" not in ext1_sys
+               and "integrated_multimodal_description:" in ext1_sys
+               and ext1_post.get("temperature") == 0.45
+               and "sys=local+extend:extend_prepend_preset" in r_ext_1x["report"],
+               "1x @extend:prepend composes local .md below overlay preamble, strips directive, applies params, & logs sys=local+extend")
+
+            state["mode"] = "good_md"
+            r_ext_2x = aep.run_auto_edit_rewrite(
+                original=SAMPLE_T2VA,
+                edit_intent="Pouring neon rain on wet pier.",
+                preset="extend_append_preset",
+                prompt_layout="user_only",
+                base_url=srv_url,
+                use_cache=False,
+            )
+            ext2_post = state["posts"][-1]
+            ext2_user = str(ext2_post["messages"][0]["content"])
+            ok(ext2_post.get("system") in (None, "")
+               and "H3_EXTEND" not in ext2_user
+               and "## section:" in ext2_user
+               and "LOCAL ADDENDUM: keep concrete foley crisp." in ext2_user
+               and ext2_post.get("temperature") == 0.52
+               and "sys=local+extend:extend_append_preset" in r_ext_2x["report"],
+               "2x <!-- H3_EXTEND:append --> works safely without triggering non-2x refusal and avoids leaking raw directive under user_only")
+
         # 5. 503 backoff retry generates distinct X-Request-ID
         state["mode"] = "503_once"
         state["attempt"] = 0
@@ -1476,8 +1527,8 @@ def check_shipped_workflows() -> None:
     pe_out_names = [o.display_name for o in pe_schema.outputs]
     ok("prompt" in pe_in_names and "references" in pe_in_names and "first_frame" in pe_in_names
        and "last_frame" in pe_in_names and "length" in pe_in_names
-       and pe_out_names == ["prompt", "video_end_percent", "thinking", "report"],
-       "MiniMaxH3PromptExpander exposes clean 1x Easy-Button inputs and (prompt, video_end_percent, thinking, report) outputs")
+       and pe_out_names == ["prompt", "video_end_percent", "thinking", "report", "ref_end_percent"],
+       "MiniMaxH3PromptExpander exposes clean 1x Easy-Button inputs and (prompt, video_end_percent, thinking, report, ref_end_percent) outputs")
     ok(pe.resolve_expander_mode("auto", length=141) == "t2va"
        and pe.resolve_expander_mode("auto", length=1) == "single_frame"
        and pe.resolve_expander_mode("auto", first_frame=object(), length=141) == "i2va"
@@ -1492,7 +1543,9 @@ def check_shipped_workflows() -> None:
         last_frame=object(),
         length=192,
     )
-    ok("8.00-second mark" in pass_res["prompt"].splitlines()[0] and abs(pass_res["video_end_percent"] - 1.0) < 1e-6,
+    ok("8.00-second mark" in pass_res["prompt"].splitlines()[0]
+       and abs(pass_res["video_end_percent"] - 1.0) < 1e-6
+       and abs(pass_res["ref_end_percent"] - 1.0) < 1e-6,
        "MiniMaxH3PromptExpander enabled=False passes prompt through offline and stamps exact FL2VA 8.00s Part One")
     syn_pass = pe.expand_video_prompt(
         prompt="subject_definitions:\n<Subject 1> from <Picture 1>.\n",
@@ -1500,7 +1553,8 @@ def check_shipped_workflows() -> None:
         references=(_FakeImgRef(), _FakeVidRef()),
         length=141,
     )
-    ok(abs(syn_pass["video_end_percent"] - 0.33) < 1e-6,
+    ok(abs(syn_pass["video_end_percent"] - 0.33) < 1e-6
+       and abs(syn_pass["ref_end_percent"] - 1.0) < 1e-6,
        "MiniMaxH3PromptExpander outputs video_end_percent=0.33 when references contains synthetic trajectory video")
 
     # Verify all 3 shipped 1x Easy-Button workflows wire MiniMaxH3PromptExpander -> BasicGuider (zero EditGuider)
@@ -1546,8 +1600,23 @@ def check_shipped_workflows() -> None:
                and wf.get("5", {}).get("class_type") == "MiniMaxH3PromptOnReferences"
                and wf.get("5", {}).get("inputs", {}).get("encoded_references") == ["132", 0]
                and wf.get("135", {}).get("inputs", {}).get("video_end_percent") == ["14", 1]
+               and wf.get("135", {}).get("inputs", {}).get("end_percent") == ["14", 4]
                and wf.get("14", {}).get("inputs", {}).get("references") == wf["132"]["inputs"]["references"],
-               f"{wf_name} caches references via EncodeReferences/PromptOnReferences and links video_end_percent")
+               f"{wf_name} caches references via EncodeReferences/PromptOnReferences and links video_end_percent + ref_end_percent")
+
+    # Verify base desktop Pika r2v workflows now also split-cache EncodeReferences + PromptOnReferences
+    for r2v_rel in (
+        "workflows/h3_image_ref_plus_text_to_video_pika_api.json",
+        "workflows/h3_image_ref_plus_text_to_video_pika_control_vector_api.json",
+        "workflows/daily/h3_preview_pika_ref2va_api.json",
+    ):
+        rwf = json.loads((REPO / r2v_rel).read_text(encoding="utf-8"))
+        ok(rwf.get("132", {}).get("class_type") == "MiniMaxH3EncodeReferences"
+           and rwf.get("5", {}).get("class_type") == "MiniMaxH3PromptOnReferences"
+           and rwf.get("5", {}).get("inputs", {}).get("encoded_references") == ["132", 0]
+           and rwf.get("26", {}).get("inputs", {}).get("samples") == ["132", 1]
+           and rwf.get("10", {}).get("inputs", {}).get("latent_image") == ["26", 1],
+           f"{r2v_rel} split-caches references via 132=MiniMaxH3EncodeReferences + 5=MiniMaxH3PromptOnReferences")
     _ = ro
 
 

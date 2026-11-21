@@ -45,9 +45,11 @@ try:
         _comfy_interrupt_check,
         _extract_inline_thinking,
         build_heylook_request_body,
+        compose_preset_system_prompt,
         discover_heylook_model,
         expand_heylook_preset,
         format_heylook_report,
+        parse_extend_directive,
         prepare_heylook_tensor,
         probe_heylook_server_info,
         resolve_heylook_base_url,
@@ -67,9 +69,11 @@ except ImportError:  # run from the repo root by a check or script
         _comfy_interrupt_check,
         _extract_inline_thinking,
         build_heylook_request_body,
+        compose_preset_system_prompt,
         discover_heylook_model,
         expand_heylook_preset,
         format_heylook_report,
+        parse_extend_directive,
         prepare_heylook_tensor,
         probe_heylook_server_info,
         resolve_heylook_base_url,
@@ -1984,11 +1988,24 @@ def run_auto_edit_rewrite(
         )
         custom_sys = (custom_system_prompt or "").strip()
         preset_sys = str((preset_fields or {}).get("system") or "").strip()
+        extend_mode, _extend_body = parse_extend_directive(preset_sys) if preset_sys else (None, "")
         if is_fresh_mode:
             if custom_sys:
                 base_sys_prompt = custom_sys
                 sys_source = "custom"
                 use_native = "## section:" not in custom_sys
+            elif preset_sys and extend_mode is not None:
+                local_sys = resolve_fresh_system_prompt(
+                    resolved_mode,
+                    has_images=bool(prepared_images),
+                )
+                base_sys_prompt, sys_source, _ = compose_preset_system_prompt(
+                    local_sys,
+                    preset_sys,
+                    preset_name=preset_name,
+                )
+                preset_fields = {k: v for k, v in (preset_fields or {}).items() if k != "system"}
+                use_native = True
             elif preset_sys:
                 base_sys_prompt = ""
                 sys_source = f"preset:{preset_name}"
@@ -2013,6 +2030,14 @@ def run_auto_edit_rewrite(
             if custom_sys:
                 base_sys_prompt = custom_sys
                 sys_source = "custom"
+            elif preset_sys and extend_mode is not None:
+                local_sys = _read_system_prompt_file(rewrite_mode)
+                base_sys_prompt, sys_source, _ = compose_preset_system_prompt(
+                    local_sys,
+                    preset_sys,
+                    preset_name=preset_name,
+                )
+                preset_fields = {k: v for k, v in (preset_fields or {}).items() if k != "system"}
             elif preset_sys:
                 req_marker = "## edit_lines" if rewrite_mode == "edit_lines" else "## section:"
                 if req_marker in preset_sys and "## axes" in preset_sys:
