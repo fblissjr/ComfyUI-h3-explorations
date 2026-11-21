@@ -11,6 +11,7 @@ temporal curve, `fast_1x` 1-pass override) and `MiniMaxH3ReleaseReferences`
 from __future__ import annotations
 
 from collections import Counter, OrderedDict
+import contextlib
 from dataclasses import dataclass
 import hashlib
 import json
@@ -19,7 +20,7 @@ from pathlib import Path
 import re
 import sys
 import tomllib
-from typing import Any, Mapping, Sequence
+from typing import Any, Callable, Mapping, Sequence
 
 import httpx
 
@@ -1753,6 +1754,8 @@ def run_auto_edit_rewrite(
     references: Any = None,
     length: int = 141,
     prompt_mode: str = "auto",
+    client: httpx.Client | None = None,
+    interrupt_check: Callable[[], None] | None = None,
 ) -> dict[str, Any]:
     """Execute or cache-hit one `MiniMaxH3AutoEditPrompt` rewrite (or fresh generation when `original` is blank) and compile its `EditPlan`."""
     orig_norm = _rules.normalize_prompt(original)
@@ -1870,7 +1873,7 @@ def run_auto_edit_rewrite(
         if sampler_mode == "custom"
         else ()
     )
-    cache_key = (
+    base_cache_key = (
         base,
         (model or "").strip(),
         orig_norm,
@@ -1895,9 +1898,11 @@ def run_auto_edit_rewrite(
         manifest.labels,
     )
 
-    cached = _REWRITE_CACHE.get(cache_key) if use_cache else None
-    if cached is not None:
-        _REWRITE_CACHE.move_to_end(cache_key)
+    def _hit_cached(ck: tuple[Any, ...]) -> dict[str, Any] | None:
+        cached = _REWRITE_CACHE.get(ck) if use_cache else None
+        if cached is None:
+            return None
+        _REWRITE_CACHE.move_to_end(ck)
         plan = compile_edit_plan(
             axes=cached["axes"],
             changed_sections=cached["changed_sections"],
@@ -1924,6 +1929,127 @@ def run_auto_edit_rewrite(
             "cache_hit": True,
             "report": cached_report,
         }
+
+    custom_sys = (custom_system_prompt or "").strip()
+    custom_extend_mode, _custom_extend_body = parse_extend_directive(custom_sys) if custom_sys else (None, "")
+
+    def _resolve_prompts_for_request(
+        preset_fields: dict[str, Any] | None,
+    ) -> tuple[str, str, str, bool, dict[str, Any] | None]:
+        preset_sys = str((preset_fields or {}).get("system") or "").strip()
+        extend_mode, _extend_body = parse_extend_directive(preset_sys) if preset_sys else (None, "")
+        eff_preset_fields = preset_fields
+        if is_fresh_mode:
+            local_sys = resolve_fresh_system_prompt(
+                resolved_mode,
+                has_images=bool(prepared_images),
+            )
+            if custom_sys and custom_extend_mode is not None:
+                base_sys_prompt, sys_source, _ = compose_preset_system_prompt(
+                    local_sys,
+                    custom_sys,
+                    preset_name=preset_name or "custom",
+                )
+                eff_preset_fields = (
+                    {k: v for k, v in (preset_fields or {}).items() if k != "system"}
+                    if preset_fields
+                    else None
+                )
+                use_native = "## section:" not in base_sys_prompt
+            elif custom_sys:
+                base_sys_prompt = custom_sys
+                sys_source = "custom"
+                use_native = "## section:" not in custom_sys
+            elif preset_sys and extend_mode is not None:
+                base_sys_prompt, sys_source, _ = compose_preset_system_prompt(
+                    local_sys,
+                    preset_sys,
+                    preset_name=preset_name,
+                )
+                eff_preset_fields = {k: v for k, v in (preset_fields or {}).items() if k != "system"}
+                use_native = True
+            elif preset_sys:
+                base_sys_prompt = ""
+                sys_source = f"preset:{preset_name}"
+                use_native = "## section:" not in preset_sys
+            else:
+                base_sys_prompt = local_sys
+                sys_source = "local"
+                use_native = True
+            user_prompt = build_fresh_prompt_user_prompt(
+                concept_brief=concept_brief,
+                edit_intent=intent_clean,
+                n_images=len(prepared_images),
+                resolved_mode=resolved_mode,
+                manifest=manifest,
+                length=eff_length,
+                native_format=use_native,
+            )
+        else:
+            local_sys = _read_system_prompt_file(rewrite_mode)
+            if custom_sys and custom_extend_mode is not None:
+                base_sys_prompt, sys_source, _ = compose_preset_system_prompt(
+                    local_sys,
+                    custom_sys,
+                    preset_name=preset_name or "custom",
+                )
+                eff_preset_fields = (
+                    {k: v for k, v in (preset_fields or {}).items() if k != "system"}
+                    if preset_fields
+                    else None
+                )
+            elif custom_sys:
+                base_sys_prompt = custom_sys
+                sys_source = "custom"
+            elif preset_sys and extend_mode is not None:
+                base_sys_prompt, sys_source, _ = compose_preset_system_prompt(
+                    local_sys,
+                    preset_sys,
+                    preset_name=preset_name,
+                )
+                eff_preset_fields = {k: v for k, v in (preset_fields or {}).items() if k != "system"}
+            elif preset_sys:
+                req_marker = "## edit_lines" if rewrite_mode == "edit_lines" else "## section:"
+                if req_marker in preset_sys and "## axes" in preset_sys:
+                    base_sys_prompt = ""
+                    sys_source = f"preset:{preset_name}"
+                else:
+                    raise ValueError(
+                        f"MiniMaxH3AutoEditPrompt: heylook preset {preset_name!r} has a non-2x system_prompt "
+                        f"(missing {req_marker!r} and '## axes'); clear 'preset', choose a sampler-only preset "
+                        "(blank system_prompt), or choose a 2x rewrite preset."
+                    )
+            else:
+                base_sys_prompt = local_sys
+                sys_source = "local"
+            user_prompt = build_auto_edit_user_prompt(
+                original=orig_norm,
+                allowed_sections=allowed_sections,
+                allow_retention_relax=bool(allow_retention_relax),
+                rewrite_mode=rewrite_mode,
+                concept_brief=concept_brief,
+                edit_intent=intent_clean,
+                has_images=bool(prepared_images),
+            )
+            use_native = False
+        if prompt_layout == "user_only" and not custom_sys and base_sys_prompt:
+            eff_sys = ""
+            eff_user = f"{base_sys_prompt}\n\n---\n\n{user_prompt}"
+        else:
+            eff_sys = base_sys_prompt
+            eff_user = user_prompt
+        return eff_sys, eff_user, sys_source, use_native, eff_preset_fields
+
+    if not preset_name:
+        pre_sys, pre_user, _pre_src, _pre_native, _pre_pf = _resolve_prompts_for_request(None)
+        cache_key = base_cache_key + (
+            hashlib.sha256(pre_sys.encode("utf-8")).hexdigest()[:16],
+            hashlib.sha256(pre_user.encode("utf-8")).hexdigest()[:16],
+            "",
+        )
+        hit = _hit_cached(cache_key)
+        if hit is not None:
+            return hit
 
     sys_prompt = ""
     final_user_prompt = ""
@@ -1979,94 +2105,41 @@ def run_auto_edit_rewrite(
     repair_used = False
     thinking_parts: list[str] = []
     req_effort = "" if thinking == "off" else eff_effort
-    with httpx.Client(trust_env=False, timeout=httpx.Timeout(None, connect=10.0)) as client:
-        model_row = discover_heylook_model(client, base, model, need=need_caps)
-        preset_fields = (
-            expand_heylook_preset(client, base, preset_name, model_row)
+    eff_interrupt = interrupt_check if interrupt_check is not None else _comfy_interrupt_check
+    client_cm = (
+        contextlib.nullcontext(client)
+        if client is not None
+        else httpx.Client(trust_env=False, timeout=httpx.Timeout(None, connect=10.0))
+    )
+    with client_cm as req_client:
+        model_row = discover_heylook_model(req_client, base, model, need=need_caps)
+        raw_preset_fields = (
+            expand_heylook_preset(req_client, base, preset_name, model_row)
             if preset_name
             else None
         )
-        custom_sys = (custom_system_prompt or "").strip()
-        preset_sys = str((preset_fields or {}).get("system") or "").strip()
-        extend_mode, _extend_body = parse_extend_directive(preset_sys) if preset_sys else (None, "")
-        if is_fresh_mode:
-            if custom_sys:
-                base_sys_prompt = custom_sys
-                sys_source = "custom"
-                use_native = "## section:" not in custom_sys
-            elif preset_sys and extend_mode is not None:
-                local_sys = resolve_fresh_system_prompt(
-                    resolved_mode,
-                    has_images=bool(prepared_images),
-                )
-                base_sys_prompt, sys_source, _ = compose_preset_system_prompt(
-                    local_sys,
-                    preset_sys,
-                    preset_name=preset_name,
-                )
-                preset_fields = {k: v for k, v in (preset_fields or {}).items() if k != "system"}
-                use_native = True
-            elif preset_sys:
-                base_sys_prompt = ""
-                sys_source = f"preset:{preset_name}"
-                use_native = "## section:" not in preset_sys
-            else:
-                base_sys_prompt = resolve_fresh_system_prompt(
-                    resolved_mode,
-                    has_images=bool(prepared_images),
-                )
-                sys_source = "local"
-                use_native = True
-            user_prompt = build_fresh_prompt_user_prompt(
-                concept_brief=concept_brief,
-                edit_intent=intent_clean,
-                n_images=len(prepared_images),
-                resolved_mode=resolved_mode,
-                manifest=manifest,
-                length=eff_length,
-                native_format=use_native,
-            )
-        else:
-            if custom_sys:
-                base_sys_prompt = custom_sys
-                sys_source = "custom"
-            elif preset_sys and extend_mode is not None:
-                local_sys = _read_system_prompt_file(rewrite_mode)
-                base_sys_prompt, sys_source, _ = compose_preset_system_prompt(
-                    local_sys,
-                    preset_sys,
-                    preset_name=preset_name,
-                )
-                preset_fields = {k: v for k, v in (preset_fields or {}).items() if k != "system"}
-            elif preset_sys:
-                req_marker = "## edit_lines" if rewrite_mode == "edit_lines" else "## section:"
-                if req_marker in preset_sys and "## axes" in preset_sys:
-                    base_sys_prompt = ""
-                    sys_source = f"preset:{preset_name}"
-                else:
-                    raise ValueError(
-                        f"MiniMaxH3AutoEditPrompt: heylook preset {preset_name!r} has a non-2x system_prompt "
-                        f"(missing {req_marker!r} and '## axes'); clear 'preset', choose a sampler-only preset "
-                        "(blank system_prompt), or choose a 2x rewrite preset."
-                    )
-            else:
-                base_sys_prompt = _read_system_prompt_file(rewrite_mode)
-                sys_source = "local"
-            user_prompt = build_auto_edit_user_prompt(
-                original=orig_norm,
-                allowed_sections=allowed_sections,
-                allow_retention_relax=bool(allow_retention_relax),
-                rewrite_mode=rewrite_mode,
-                concept_brief=concept_brief,
-                edit_intent=intent_clean,
-                has_images=bool(prepared_images),
-            )
-        if prompt_layout == "user_only" and not custom_sys and base_sys_prompt:
-            sys_prompt = ""
-            final_user_prompt = f"{base_sys_prompt}\n\n---\n\n{user_prompt}"
-        else:
-            sys_prompt = base_sys_prompt
-            final_user_prompt = user_prompt
+        sys_prompt, final_user_prompt, sys_source, use_native, preset_fields = _resolve_prompts_for_request(
+            raw_preset_fields
+        )
+        resolved_preset_sig = (
+            json.dumps(raw_preset_fields or {}, sort_keys=True, default=str)
+            if preset_name
+            else ""
+        )
+        preset_sig_hash = (
+            hashlib.sha256(f"{model_row.get('id', '')}|{resolved_preset_sig}".encode("utf-8")).hexdigest()[:16]
+            if preset_name
+            else ""
+        )
+        cache_key = base_cache_key + (
+            hashlib.sha256(sys_prompt.encode("utf-8")).hexdigest()[:16],
+            hashlib.sha256(final_user_prompt.encode("utf-8")).hexdigest()[:16],
+            preset_sig_hash,
+        )
+        if preset_name:
+            hit = _hit_cached(cache_key)
+            if hit is not None:
+                return hit
 
         sampler_overrides = (
             {"temperature": float(temperature), "max_tokens": int(max_tokens)}
@@ -2087,8 +2160,8 @@ def run_auto_edit_rewrite(
             default_reasoning_effort=req_effort,
         )
         res: HeylookStreamResult = with_heylook_backoff(
-            lambda: stream_heylook_message(base, body, client=client, interrupt_check=_comfy_interrupt_check),
-            interrupt_check=_comfy_interrupt_check,
+            lambda: stream_heylook_message(base, body, client=req_client, interrupt_check=eff_interrupt),
+            interrupt_check=eff_interrupt,
         )
         t1 = res.thinking or _extract_inline_thinking(res.text)
         if t1:
@@ -2156,9 +2229,9 @@ def run_auto_edit_rewrite(
             )
             res = with_heylook_backoff(
                 lambda: stream_heylook_message(
-                    base, repair_body, client=client, interrupt_check=_comfy_interrupt_check
+                    base, repair_body, client=req_client, interrupt_check=eff_interrupt
                 ),
-                interrupt_check=_comfy_interrupt_check,
+                interrupt_check=eff_interrupt,
             )
             t2 = res.thinking or _extract_inline_thinking(res.text)
             if t2:

@@ -2,7 +2,7 @@
 
 Last updated: 2026-11-21  
 Companion plain-English overview: [`how_pole_a_erasure_works.md`](how_pole_a_erasure_works.md)  
-Full paper & benchmark: [`2026-11-21_from_late_interaction_retrieval_to_av_dit_steering.md`](../research/control_vectors/2026-11-21_from_late_interaction_retrieval_to_av_dit_steering.md) · [`2026-11-21_multivector_erasure_benchmark.md`](../../../bench/results/2026-11-21_multivector_erasure_benchmark.md)
+Full paper & benchmark: [`2026-11-21_from_late_interaction_retrieval_to_av_dit_steering.md`](../research/control_vectors/2026-11-21_from_late_interaction_retrieval_to_av_dit_steering.md) · [`2026-11-21_multivector_erasure_benchmark.md`](../../../bench/results/2026-11-21_multivector_erasure_benchmark.md) · [`2026-11-21_phase3_de_slop_and_vision_block_steering.md`](../../../bench/results/2026-11-21_phase3_de_slop_and_vision_block_steering.md)
 
 This guide is written for engineers and creators who have worked with LLMs, DiT video/image models, and embedding or multi-vector retrieval (`ColBERT`, `PLAID`/`WARP`, `PyLate`, `Model2Vec`, `ColQwen`) and want to **see, hear, and build** with single-pass (`1x`) multi-vector subspace steering in MiniMax H3.
 
@@ -61,7 +61,7 @@ Inspect the four diagnostic lines in the output:
                     erases=[wall (0.41), warm (0.36), brown (0.33), tungsten (0.33)]
 ```
 
-1. **Why `v_1d` washed out `"black"`:** In 1D mean-pooling (`j_lens (PR +)`), `"black"` dropped to rank 9 (`+1.10`) behind generic era words (`original, decades, outdated`). Asymmetric `tau = 0.15` token matching (`erasure.mu_d`) rescues **`black (+1.52)`**, `footage`, and `archival` into the top 8 (`28 / 38` bank vectors show similar target-word rescues).
+1. **Why `v_1d` washed out `"black"`:** In 1D mean-pooling (`j_lens (PR +)`), `"black"` dropped to rank 9 (`+1.10`) behind generic era words (`original, decades, outdated`). Asymmetric `tau = 0.15` token matching (`erasure.mu_d`) rescues **`black (+1.52)`**, `footage`, and `archival` into the top 8 (`28 / 38` vectors in the 38-concept census show similar target-word rescues; starter bank now includes `de_llm_slop`).
 2. **Why `erasure.vr` spares the characters:** On `t2va_sitcom_kitchen.txt`, `vr[1]` (`diag = 0.81`) zeroes `wall (0.41)`, `warm (0.36)`, `brown (0.33)`, and `tungsten (0.33)` while leaving `father`, `daughter`, and `retriever` intact. *(You can also view this interactively in Control Vector Studio via `./bench/control_vector/studio.sh start` $\to$ **Library** $\to$ **X-Ray**.)*
 
 ### Step 1.2 — Queue the 1-Click Same-Seed Split-Screen Workflow
@@ -134,7 +134,7 @@ CUDA_VISIBLE_DEVICES="" "$PY" bench/control_vectors.py sculpt \
 ```
 
 **Which one should you choose?**
-- **Chain separate `MiniMaxH3Steer` nodes** when stacking **two strong visual overrides** (like `noir +1.55` + `chaos_panic +0.90`) or targeting **different prompt sections** (`scene_only` + `soundscape_only`): each chained node evaluates its full `|s_i| * 67.5` RMS shift against unsteered `base_rows64` before summing in `float64` (`control_vectors.py:3454-3492`), giving `noir` full erasure authority.
+- **Chain separate `MiniMaxH3Steer` nodes** when stacking **two strong visual overrides** (like `noir +1.55` + `chaos_panic +0.90`) or targeting **different prompt sections** (`scene_only` + `soundscape_only`): each chained node evaluates its full `|s_i| * 67.5` RMS shift against unsteered `base_rows64` before summing in `float64` (`control_vectors.py:3454-3492`), giving `noir` full erasure authority. *(Phase 3 `Exp 1` caveat: keep heavy visual `scene_only` sliders to `<= 2`, or dial an Anti-Slop EQ strip like `de_llm_slop` down to `0.6..0.8` alongside heavy `noir`, because stacking `3+` competing visual sliders on `scene_only` dilutes monochrome authority.)*
 - **Use `sculpt` (`COMPOSED_ERASURE_MAX_RANK = 16`)** when you want a **single reusable preset knob** with baked `hold_words` (`calm_cursed_cctv`) where one shared `|s| * 67.5` RMS budget is split across subtle blended traits.
 
 ---
@@ -151,7 +151,7 @@ Load [`workflows/h3_image_ref_make_media_erasure_pika_api.json`](../../../workfl
 - **Two-gear `<Picture 1>` rule:**
   - Setting `MiniMaxH3Steer(target="description_only")` steers the kitchen environment while leaving `<Subject 1>`'s `subject_definitions:` and `retention_analysis:` untouched (**Selective-Color / Room-Grade Subject Lock**).
   - Remember from the **Pole-A Coverage Law** (`ablation7`): a single image pair (`N = 1`) captures `~40%` of an 8-D Pole-A subspace — great for cooling/warming ambient room lighting from reference stills, while 3–4 diverse `image_a / image_b` slots on `MiniMaxH3MakeMediaControlVector` (or a 10-pair `.toml`) are needed for hard monochrome flips.
-  - And remember the **`fl2va` vision-token lock** ([`workflows/h3_first_last_frame_pika_control_vector_api.json`](../../../workflows/h3_first_last_frame_pika_control_vector_api.json)): when both `first_frame` and `last_frame` are bright color stills, their `843 + 843` unsteered `tags == 0` vision tokens lock the clip's color palette even if `MiniMaxH3ReleaseReferences(0.33)` releases motion. Pre-grade keyframe stills in `MiniMax-H3-Image` first if you want a full-frame `fl2va` palette swap.
+  - And remember the **Dual-Lock `fl2va` Law** ([`workflows/h3_first_last_frame_pika_control_vector_api.json`](../../../workflows/h3_first_last_frame_pika_control_vector_api.json)): when both `first_frame` and `last_frame` are bright color stills, BOTH their `843 + 843` unsteered `tags == 0` vision tokens AND raw VAE `cond_video_latents` in steps `[0, 0.33]` lock the clip's color palette even if `MiniMaxH3ReleaseReferences(0.33)` releases motion. Pre-grade keyframe stills in `MiniMax-H3-Image` first if you want a full-frame `fl2va` palette swap.
 
 ### Step 4.2 — Zero-Rewrite Moving `vertical_split` Reality Wipe (`t2va_disco_roller_rink`)
 

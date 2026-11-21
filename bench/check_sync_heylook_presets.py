@@ -182,10 +182,49 @@ def check_prefix_overlay_preset_and_idempotency() -> str:
     return "18 h3app_* canonical presets + 1 @extend:prepend overlay create cleanly and re-sync with 0 diffs"
 
 
+def check_legacy_scope_and_overlay_directive_validation() -> str:
+    from bench import sync_heylook_presets as ps
+
+    # 1. Legacy POLICY SCOPE must preserve numbered rules and Allowed:, stopping only
+    # at blank-line-preceded canonical headers (e.g. Output contract:).
+    legacy_prompt = (
+        "Canonical body.\n\n"
+        "POLICY SCOPE:\n"
+        "1. Never rewrite dialogue.\n"
+        "2. Keep tone neutral.\n\n"
+        "Allowed:\n"
+        "Keep grain.\n\n"
+        "Output contract:\n"
+        "Return one paragraph.\n"
+    )
+    scope = ps._extract_legacy_policy_scope(legacy_prompt)
+    assert "1. Never rewrite dialogue." in scope, f"lost numbered rule 1: {scope!r}"
+    assert "2. Keep tone neutral." in scope, f"lost numbered rule 2: {scope!r}"
+    assert "Allowed:" in scope and "Keep grain." in scope, f"lost Allowed section: {scope!r}"
+    assert "Output contract:" not in scope and "Return one paragraph." not in scope, (
+        f"leaked past Output contract header: {scope!r}"
+    )
+
+    # 2. Invalid [overlay_preset].directive must raise ValueError instead of silent header mismatch.
+    try:
+        ps._build_overlay_action(
+            {"name": "bad_overlay", "directive": "prepend", "content": "Test overlay"},
+            {},
+            [],
+            reset_params=False,
+        )
+        raise AssertionError("expected ValueError for unprefixed directive 'prepend'")
+    except ValueError:
+        pass
+
+    return "legacy POLICY SCOPE keeps rules/Allowed before Output contract, and overlay directive validation rejects bare 'prepend'"
+
+
 def main() -> int:
     case("catalog_and_fenced_blocks", check_catalog_and_fenced_blocks)
     case("exact_matching_and_legacy_boundaries", check_exact_matching_and_legacy_boundaries)
     case("prefix_overlay_preset_and_idempotency", check_prefix_overlay_preset_and_idempotency)
+    case("legacy_scope_and_overlay_directive_validation", check_legacy_scope_and_overlay_directive_validation)
     return finish()
 
 

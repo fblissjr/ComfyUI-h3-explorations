@@ -406,11 +406,14 @@ The two default graphs (`h3_image_t2i_api.json`, `h3_image_edit_api.json`) take
 a finished description directly. `h3_image_t2i_heylook_api.json` and
 `h3_image_edit_heylook_api.json` wire `MiniMax H3 Image Prompt Expander (heylook)`
 (`h3_image_nodes.py::MiniMaxH3ImagePromptExpander`) ahead of conditioning and
-`MiniMax H3 Image Size.shape_from_expander`, expanding a short request or
-`1..16`-picture edit instruction over `POST /v1/messages` on a local or LAN
-`heylookitsanllm` server (`base_url` defaults to `http://127.0.0.1:8080`; model
-ids are resolved at runtime from `GET /v1/models`, gating on `vision` when
-pictures are wired). Do not feed `general_image_edit_system_prompt.md` (`[Shot 1]`
+`MiniMax H3 Image Size.shape_from_expander`, expanding a short request,
+optional `concept` preset (`data/edit_concepts/*.toml`, usable alone or with
+`prompt`), or `1..16`-picture edit instruction over `POST /v1/messages` on a
+local or LAN `heylookitsanllm` server (supporting `@extend:prepend|append`
+additive preset/custom overlays via `heylook_client.py`, `base_url` resolving
+`H3_HEYLOOK_URL` or defaulting to `http://127.0.0.1:8080`; model ids are
+resolved at runtime from `GET /v1/models`, gating on `vision` when pictures
+are wired). Do not feed `general_image_edit_system_prompt.md` (`[Shot 1]`
 4-section schema) to `MiniMax-H3-Image`: `[Shot N]` splits the canvas into panels
 and unanchored attributes override `<Picture 1>`.
 

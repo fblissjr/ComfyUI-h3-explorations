@@ -1620,12 +1620,173 @@ def check_shipped_workflows() -> None:
     _ = ro
 
 
+def check_cache_invalidation_and_custom_extend() -> None:
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+    import threading
+
+    print("[6/6] preset cache invalidation, custom_system_prompt @extend, & interrupt_check")
+    state: dict[str, Any] = {
+        "preset_sys": "@extend:prepend\nFIRST OVERLAY LINE.",
+        "posted_bodies": [],
+    }
+    reply_md = (
+        "## section: integrated_multimodal_description\n"
+        "Shot 1: A lantern swings gently beside a damp stone wall as amber reflections ripples across puddles.\n\n"
+        "## section: overall_soundscape\nDistant harbor bell and soft rain.\n\n"
+        "## section: non_diegetic_music\nN/A\n\n"
+        "## axes\n"
+        "visual_changed: true\n"
+        "audio_changed: false\n"
+        "preserve_step0_layout: false\n"
+        "deforms_ref_silhouette: false\n"
+        "temporal_curve: whole_clip\n"
+        "reason: test\n"
+    )
+    sse_payload = (
+        f"event: content_block_delta\ndata: {json.dumps({'type': 'content_block_delta', 'index': 0, 'delta': {'type': 'text_delta', 'text': reply_md}})}\n\n"
+        f"event: message_delta\ndata: {json.dumps({'type': 'message_delta', 'delta': {'stop_reason': 'end_turn'}, 'usage': {'output_tokens': 24}})}\n\n"
+        f"event: message_stop\ndata: {json.dumps({'type': 'message_stop', 'performance': {}})}\n\n"
+    ).encode("utf-8")
+
+    class _Handler(BaseHTTPRequestHandler):
+        def log_message(self, format: str, *args: Any) -> None:  # noqa: A002
+            return
+
+        def do_GET(self) -> None:
+            if self.path == "/v1/models":
+                body = {
+                    "data": [{
+                        "id": "mock-chat",
+                        "capabilities": ["chat", "vision"],
+                        "engine": {"thinking": {"depth": {"values": ["low", "medium", "high"]}}},
+                    }]
+                }
+            elif self.path == "/v1/presets":
+                body = {
+                    "presets": [{
+                        "id": "dyn_ext",
+                        "name": "dyn_ext",
+                        "system_prompt": state["preset_sys"],
+                        "temperature": 0.45,
+                    }]
+                }
+            else:
+                self.send_response(404)
+                self.end_headers()
+                return
+            raw = json.dumps(body).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(raw)))
+            self.end_headers()
+            self.wfile.write(raw)
+
+        def do_POST(self) -> None:
+            n = int(self.headers.get("Content-Length") or 0)
+            req = json.loads(self.rfile.read(n).decode("utf-8"))
+            state["posted_bodies"].append(req)
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream")
+            self.send_header("Content-Length", str(len(sse_payload)))
+            self.end_headers()
+            self.wfile.write(sse_payload)
+
+    srv = ThreadingHTTPServer(("127.0.0.1", 0), _Handler)
+    t = threading.Thread(target=srv.serve_forever, daemon=True)
+    t.start()
+    url = f"http://127.0.0.1:{srv.server_port}"
+    orig_txt = (
+        "overall_soundscape:\nRain on stone.\n\n"
+        "non_diegetic_music:\nN/A\n\n"
+        "integrated_multimodal_description:\n"
+        "Shot 1: A lantern hangs beside a damp stone wall."
+    )
+    try:
+        r1 = aep.run_auto_edit_rewrite(
+            original=orig_txt,
+            edit_intent="Make the lantern swing gently in amber light.",
+            base_url=url,
+            preset="dyn_ext",
+            use_cache=True,
+            thinking="off",
+        )
+        r2 = aep.run_auto_edit_rewrite(
+            original=orig_txt,
+            edit_intent="Make the lantern swing gently in amber light.",
+            base_url=url,
+            preset="dyn_ext",
+            use_cache=True,
+            thinking="off",
+        )
+        state["preset_sys"] = "@extend:prepend\nUPDATED OVERLAY LINE."
+        r3 = aep.run_auto_edit_rewrite(
+            original=orig_txt,
+            edit_intent="Make the lantern swing gently in amber light.",
+            base_url=url,
+            preset="dyn_ext",
+            use_cache=True,
+            thinking="off",
+        )
+        ok(
+            (not r1["cache_hit"])
+            and bool(r2["cache_hit"])
+            and (not r3["cache_hit"])
+            and len(state["posted_bodies"]) == 2
+            and "FIRST OVERLAY LINE." in state["posted_bodies"][0].get("system", "")
+            and "UPDATED OVERLAY LINE." in state["posted_bodies"][1].get("system", "")
+            and "@extend:" not in state["posted_bodies"][1].get("system", ""),
+            "run_auto_edit_rewrite hits cache when preset unchanged and invalidates cache when preset prompt changes",
+        )
+
+        # Defensive @extend inside custom_system_prompt composes cleanly around local prompt.
+        r_cust = aep.run_auto_edit_rewrite(
+            original=orig_txt,
+            edit_intent="Add warm reflections.",
+            base_url=url,
+            custom_system_prompt="@extend:append\nCUSTOM APPEND OVERLAY.",
+            use_cache=False,
+            thinking="off",
+        )
+        cust_sys = state["posted_bodies"][-1].get("system", "")
+        ok(
+            "CUSTOM APPEND OVERLAY." in cust_sys
+            and "@extend:" not in cust_sys
+            and "sys=local+extend:custom" in r_cust["report"],
+            "custom_system_prompt @extend:append composes cleanly around local contract without leaking raw directive",
+        )
+
+        # Custom interrupt_check callback aborts stream cleanly before completion.
+        class _Abort(RuntimeError):
+            pass
+
+        def _abort_cb() -> None:
+            raise _Abort("cancelled_by_bridge")
+
+        aborted = False
+        try:
+            aep.run_auto_edit_rewrite(
+                original=orig_txt,
+                edit_intent="Abort check.",
+                base_url=url,
+                use_cache=False,
+                thinking="off",
+                interrupt_check=_abort_cb,
+            )
+        except _Abort:
+            aborted = True
+        ok(aborted, "run_auto_edit_rewrite honors custom interrupt_check callback cleanly")
+    finally:
+        srv.shutdown()
+        srv.server_close()
+
+
 def main() -> int:
     check_concepts_and_sections()
     check_validators_and_repair()
     check_edit_plan_compilation_and_wiring()
     check_url_resolution_and_mock_sse()
     check_shipped_workflows()
+    check_cache_invalidation_and_custom_extend()
     if FAILURES:
         print(f"\n{len(FAILURES)} failure(s): {FAILURES}")
         return 1

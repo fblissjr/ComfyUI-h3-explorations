@@ -43,6 +43,10 @@ function withSuppressedAutofill(node, fn) {
     }
 }
 
+function isExtendOverlayPrompt(text) {
+    return /^\s*(?:@extend:(?:prepend|append)(?:\s|$)|<!--\s*H3_EXTEND:(?:prepend|append)\s*-->)/i.test(text || "");
+}
+
 function appendAspectRatioFooter(text, hasImages, footers) {
     const clean = (text || "").trim();
     if (clean.toLowerCase().includes("aspect_ratio:")) return clean;
@@ -172,25 +176,35 @@ function applySystemPromptForSelection(node, catalog, { forceAuto = false } = {}
     const localPrompts = catalog.local_prompts || {};
 
     let nextText = null;
-    if (Object.prototype.hasOwnProperty.call(localPrompts, mode)) {
-        nextText = localPrompts[mode];
+    const curEntry = findPresetEntry(presetW?.value, catalog);
+    const curIsExtend = Boolean(curEntry?.system_prompt && isExtendOverlayPrompt(curEntry.system_prompt));
+    if (curIsExtend && (mode === "heylook preset" || mode === "heylook preset + aspect_ratio")) {
+        withSuppressedAutofill(node, () => {
+            modeW.value = "auto";
+        });
+        if (!sysW.value || sysW.value === node.__h3LastAutoPrompt || isExtendOverlayPrompt(sysW.value)) {
+            nextText = "";
+        }
+    } else if (Object.prototype.hasOwnProperty.call(localPrompts, mode)) {
+        nextText = curIsExtend ? "" : localPrompts[mode];
     } else if (mode === "auto") {
-        if (forceAuto) {
+        if (forceAuto && !curIsExtend) {
             nextText = localPrompts[hasImages ? "edit + aspect_ratio" : "t2i + aspect_ratio"] || "";
-        } else if (sysW.value && sysW.value === node.__h3LastAutoPrompt) {
+        } else if (sysW.value && (sysW.value === node.__h3LastAutoPrompt || curIsExtend)) {
             nextText = "";
         }
     } else if (mode === "heylook preset" || mode === "heylook preset + aspect_ratio") {
-        const entry = findPresetEntry(presetW?.value, catalog);
+        const entry = curEntry;
         if (entry) {
-            nextText =
-                mode === "heylook preset + aspect_ratio"
-                    ? appendAspectRatioFooter(entry.system_prompt, hasImages, catalog.aspect_ratio_footers)
-                    : (entry.system_prompt || "").trim();
+            nextText = curIsExtend
+                ? ""
+                : mode === "heylook preset + aspect_ratio"
+                  ? appendAspectRatioFooter(entry.system_prompt, hasImages, catalog.aspect_ratio_footers)
+                  : (entry.system_prompt || "").trim();
         }
     } else if (mode === "custom" && forceAuto && presetW?.value) {
-        const entry = findPresetEntry(presetW.value, catalog);
-        if (entry?.system_prompt) {
+        const entry = curEntry;
+        if (entry?.system_prompt && !curIsExtend) {
             nextText = entry.system_prompt.trim();
         }
     }
@@ -299,7 +313,21 @@ app.registerExtension({
                     }
                     const hasImages = hasWiredImages(node);
                     const entry = findPresetEntry(trimmed, catalog);
-                    if (entry?.system_prompt) {
+                    if (entry?.system_prompt && isExtendOverlayPrompt(entry.system_prompt)) {
+                        const modeW = findWidget(node, "mode");
+                        if (modeW && (modeW.value === "heylook preset" || modeW.value === "heylook preset + aspect_ratio")) {
+                            withSuppressedAutofill(node, () => {
+                                modeW.value = "auto";
+                            });
+                        }
+                        const sysW = findWidget(node, "custom_system_prompt");
+                        if (sysW && (!sysW.value || sysW.value === node.__h3LastAutoPrompt || isExtendOverlayPrompt(sysW.value))) {
+                            withSuppressedAutofill(node, () => {
+                                sysW.value = "";
+                                node.__h3LastAutoPrompt = "";
+                            });
+                        }
+                    } else if (entry?.system_prompt) {
                         const modeW = findWidget(node, "mode");
                         if (modeW && modeW.value === "auto") {
                             withSuppressedAutofill(node, () => {

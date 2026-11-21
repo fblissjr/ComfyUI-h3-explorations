@@ -1016,6 +1016,78 @@ def graphs() -> None:
     )
 
 
+def heylook_custom_extend() -> None:
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+    import threading
+    import h3_image_nodes as hin
+
+    posted: list[dict[str, Any]] = []
+    reply_json = json.dumps({
+        "aspect_ratio": "3:2",
+        "expanded_caption": "A weathered brass compass resting on an oak workbench in amber lamplight.",
+    })
+    sse_payload = (
+        f"event: content_block_delta\ndata: {json.dumps({'type': 'content_block_delta', 'index': 0, 'delta': {'type': 'text_delta', 'text': reply_json}})}\n\n"
+        f"event: message_delta\ndata: {json.dumps({'type': 'message_delta', 'delta': {'stop_reason': 'end_turn'}, 'usage': {'output_tokens': 16}})}\n\n"
+        f"event: message_stop\ndata: {json.dumps({'type': 'message_stop', 'performance': {}})}\n\n"
+    ).encode("utf-8")
+
+    class _Handler(BaseHTTPRequestHandler):
+        def log_message(self, format: str, *args: Any) -> None:  # noqa: A002
+            return
+
+        def do_GET(self) -> None:
+            if self.path == "/v1/models":
+                raw = json.dumps({
+                    "data": [{
+                        "id": "mock-chat",
+                        "capabilities": ["chat", "vision"],
+                        "engine": {"thinking": {"depth": {"values": ["low", "medium", "high"]}}},
+                    }]
+                }).encode("utf-8")
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(raw)))
+                self.end_headers()
+                self.wfile.write(raw)
+                return
+            self.send_response(404)
+            self.end_headers()
+
+        def do_POST(self) -> None:
+            n = int(self.headers.get("Content-Length") or 0)
+            posted.append(json.loads(self.rfile.read(n).decode("utf-8")))
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream")
+            self.send_header("Content-Length", str(len(sse_payload)))
+            self.end_headers()
+            self.wfile.write(sse_payload)
+
+    srv = ThreadingHTTPServer(("127.0.0.1", 0), _Handler)
+    t = threading.Thread(target=srv.serve_forever, daemon=True)
+    t.start()
+    try:
+        out = hin.expand_image_prompt(
+            prompt="a brass compass",
+            base_url=f"http://127.0.0.1:{srv.server_port}",
+            custom_system_prompt="@extend:prepend\nCUSTOM OVERLAY",
+            thinking="off",
+        )
+        sys_txt = str(posted[-1].get("system") or "") if posted else ""
+        report(
+            bool(
+                "CUSTOM OVERLAY" in sys_txt
+                and "aspect_ratio:" in sys_txt
+                and "@extend:" not in sys_txt
+                and out.get("shape") == "3:2"
+            ),
+            "expand_image_prompt composes @extend:prepend inside custom_system_prompt cleanly with local aspect_ratio contract",
+        )
+    finally:
+        srv.shutdown()
+        srv.server_close()
+
+
 def release_grid(folder: Path | None) -> None:
     if folder is None:
         print("  skip  the grid constant against the release's pdd_config.json (no --release)")
@@ -1035,6 +1107,7 @@ def main() -> int:
     sizes()
     expander_replies()
     heylook_expander()
+    heylook_custom_extend()
     graphs()
     release_grid(args.release)
     print("")

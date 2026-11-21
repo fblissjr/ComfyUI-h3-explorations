@@ -1,6 +1,6 @@
 # Edit Guidance: Steering a Render by Editing Your Own Prompt
 
-Last updated: 2026-11-20.
+Last updated: 2026-11-21.
 
 **Edit Guidance** lets you take an existing prompt, write `old wording -> new wording`, and control **when** the change kicks in (`first_step`) and **how strongly** it pulls (`scale`)—without building a control vector or training anything first.
 
@@ -23,8 +23,8 @@ On H3 Pika, normal `1x` prompt edits (with `BasicGuider`) already handle most st
    - *Tip*: You can still wire **`MiniMax H3 Prompt Edit`** into `BasicGuider` at `1x` speed whenever you want safe `old -> new` text replacements that refuse to touch `<d>...</d>` dialogue or `<Picture 1>` tags.
 
 2. **[Control Vectors](steering.md) (`MiniMax H3 Steer`, `1x` speed by default)**
-   - Operates in H3's LoRA-aware post-refiner space—built from multi-scene prompt pairs (`--families fl2va`, `[[hold]]` scrubbing), reference image pairs (`MiniMax H3 Make Media Control Vector`), or `< 2 ms` on-the-fly J-Lens word synthesis (`MiniMax H3 Word Vector`).
-   - Use when you want **reusable orthogonal style/film-stock/material/acoustic-timbre dials** across any prompt at `1x` speed (`token_focus = 1.0`), **independent video vs. audio streams** (`streams = "video_only"` or `"audio_only"`), **section masks** (`target = "description_only"`, `"soundscape_only"`), or **geometric concept removal** (`mode = "project_out"`, `hold_words`).
+   - Operates in H3's LoRA-aware post-refiner space—defaulting to `add_norm_matched_erasure` (including `de_llm_slop` Anti-Slop EQ in `bank/` and optional `erasure.mu_a` vision centering) and built from multi-scene prompt pairs (`--families fl2va` or `h3_image`, `[[hold]]` scrubbing), reference image pairs (`MiniMax H3 Make Media Control Vector`), or `< 2 ms` on-the-fly J-Lens word synthesis (`MiniMax H3 Word Vector`).
+   - Use when you want **reusable orthogonal style/film-stock/material/acoustic-timbre/anti-slop dials** across any prompt at `1x` speed (`token_focus = 1.0`), **independent video vs. audio streams** (`streams = "video_only"` or `"audio_only"`), **section masks** (`target = "description_only"`, `"soundscape_only"`), or **geometric concept removal** (`mode = "project_out"`, `hold_words`).
 
 3. **Edit Guidance (`MiniMax H3 Edit Guider`, `1.5x–2x` render time)**
    - Use **only** when a single `1x` prompt (`scale = 1.0` from step `0`) mechanically fails your edit (for manual `old -> new` edits via `MiniMax H3 Prompt Edit`, or automated plain-Markdown `section_edits` via [`MiniMaxH3AutoEditPrompt`](../../auto_edit_prompt.py), which lazily skips the `[original]` encode on unmasked `1x` `fast_1x` overrides). Across head-to-head renders (`Original` vs. `Plain Prompt Edit` vs. `Edit Guidance` on identical seeds), Edit Guidance wins in **five specific cases**:
@@ -45,7 +45,7 @@ On H3 Pika, normal `1x` prompt edits (with `BasicGuider`) already handle most st
 
 Open any ready-to-run workflow:
 
-- **1x Fresh / Overhaul Easy Button (no `EditGuider`)**: [`workflows/h3_text_to_video_pika_prompt_expander_api.json`](../../workflows/h3_text_to_video_pika_prompt_expander_api.json), [`workflows/h3_first_last_frame_pika_prompt_expander_api.json`](../../workflows/h3_first_last_frame_pika_prompt_expander_api.json), and [`workflows/h3_image_ref_plus_text_to_video_pika_prompt_expander_api.json`](../../workflows/h3_image_ref_plus_text_to_video_pika_prompt_expander_api.json)
+- **1x Fresh / Overhaul Easy Button (no `EditGuider`)**: [`workflows/h3_text_to_video_pika_prompt_expander_api.json`](../../workflows/h3_text_to_video_pika_prompt_expander_api.json), [`workflows/h3_first_last_frame_pika_prompt_expander_api.json`](../../workflows/h3_first_last_frame_pika_prompt_expander_api.json), and split-cached [`workflows/h3_image_ref_plus_text_to_video_pika_prompt_expander_api.json`](../../workflows/h3_image_ref_plus_text_to_video_pika_prompt_expander_api.json) (supporting `@extend:prepend|append` runtime overlays via `heylook_client.py` synced from canonical prompts by `bench/sync_heylook_presets.py`, and wiring trailing `MiniMaxH3PromptExpander.ref_end_percent` -> `MiniMaxH3ReleaseReferences.end_percent`)
 - **Text-to-video (`t2va`, `2x` surgical / auto-edit)**: [`workflows/h3_text_to_video_pika_edit_guidance_api.json`](../../workflows/h3_text_to_video_pika_edit_guidance_api.json) and [`workflows/h3_text_to_video_pika_auto_edit_guidance_api.json`](../../workflows/h3_text_to_video_pika_auto_edit_guidance_api.json)
 - **Reference image + text-to-video (`ref2va`, `2x` surgical / auto-edit)**: [`workflows/h3_image_ref_plus_text_to_video_pika_edit_guidance_api.json`](../../workflows/h3_image_ref_plus_text_to_video_pika_edit_guidance_api.json) and [`workflows/h3_image_ref_plus_text_to_video_pika_auto_edit_guidance_api.json`](../../workflows/h3_image_ref_plus_text_to_video_pika_auto_edit_guidance_api.json)
 - **Timeline sound-island action choreography (`t2va` `0`-vs-`K` `cond_audio`, `streams = "video_only"`)**: [`workflows/h3_text_to_video_pika_sound_guide_api.json`](../../workflows/h3_text_to_video_pika_sound_guide_api.json) *(run `<comfy-venv-python> bench/make_sound_guide_wavs.py` once if `$H3_INPUT_DIR` does not yet have `h3_guide_hop_200ms.wav` and `h3_guide_yank_slam_300ms.wav`, or drop in zero-file [`MiniMaxH3SoundCues`](../../sound_cues.py))*

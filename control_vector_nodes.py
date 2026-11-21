@@ -978,6 +978,11 @@ def make_control_vector_from_pairs(
         pooling=pooling,
         unit_mean=unit_mean,
         include_encoder=include_encoder,
+        min_erasure_pairs=(
+            _cv.MIN_ERASURE_PAIRS
+            if str(pair_set.path).startswith("<compiled:")
+            else 1
+        ),
     )
     a_mat, b_mat, w_vec = pooled.a_mat, pooled.b_mat, pooled.w_vec
     pair_spans = pooled.pair_spans

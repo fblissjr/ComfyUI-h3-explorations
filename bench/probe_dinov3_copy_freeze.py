@@ -219,7 +219,7 @@ def score_clip_embeddings(
                 f"high temporal self-similarity (mean={out['temporal_self_cos_mean']:.4f}) — inspect for pose freeze"
             )
 
-    if ref_vec is not None:
+    if ref_vec is not None and n_frames > 0:
         rv = F.normalize(ref_vec.float().reshape(1, -1), dim=-1)
         rcos = (fv @ rv.T).squeeze(-1)
         out["ref_cos_f0"] = round(float(rcos[0].item()), 5)
@@ -302,12 +302,12 @@ def main(argv: list[str] | None = None) -> int:
         targets.extend(args.video)
     if args.dir:
         for p in sorted(args.dir.glob("*.mp4")):
-            if ".1fps." in p.name or p.name.endswith("-audio.mp4"):
+            if ".1fps." in p.name or p.stem.endswith("_hud") or p.name.endswith("-audio.mp4"):
                 continue
             targets.append(p)
         if not targets:
             for p in sorted(args.dir.glob("*.mp4")):
-                if ".1fps." not in p.name:
+                if ".1fps." not in p.name and not p.stem.endswith("_hud"):
                     targets.append(p)
     if not targets:
         raise SystemExit("pass --video CLIP.mp4 or --dir FOLDER")

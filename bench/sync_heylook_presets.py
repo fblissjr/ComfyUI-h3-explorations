@@ -32,6 +32,7 @@ import re
 import sys
 import tomllib
 from typing import Any
+from urllib.parse import quote
 
 import httpx
 
@@ -130,7 +131,11 @@ _LEGACY_POLICY_HEAD_RE = re.compile(
     re.IGNORECASE,
 )
 _LEGACY_STOP_RE = re.compile(
-    r"^(?:\s*#{1,4}\s+\S|\s*---+\s*$|\s*[A-Z][A-Z0-9 _/-]{3,}\s*$|\s*\d+\.\s+\S|\s*[A-Za-z][A-Za-z0-9 _/-]{1,40}:\s*$)"
+    r"^(?:\s*#{1,4}\s+\S|\s*---+\s*$|\s*[A-Z][A-Z0-9 _/-]{3,}\s*$)"
+)
+_LEGACY_BLANKLINE_CANONICAL_STOP_RE = re.compile(
+    r"^(?:\s*\d+\.\s+[^:\n]+:\s*$|\s*(?:output\s+contract|output\s+format|hard\s+constraints|(?:target\s+)?aspect-ratio\s+(?:decision\s+)?policy|follow\s+these\s+(?:captioning\s+|editing\s+|strict\s+)?(?:principles|rules)|write\s+(?:the\s+caption|one\s+paragraph)\b[^:\n]*|plan\s+silently\b[^:\n]*|before\s+writing\b[^:\n]*|subject_definitions|summary|retention_analysis|detailed_description|integrated_multimodal_description|overall_soundscape|non_diegetic_music)\s*:\s*$)",
+    re.IGNORECASE,
 )
 _FENCED_TEXT_RE = re.compile(r"```text\s*\n(.*?)```", re.DOTALL)
 
@@ -159,6 +164,9 @@ def _extract_legacy_policy_scope(text: str) -> str:
     end_idx = len(lines)
     for idx in range(start_idx + 1, len(lines)):
         if _LEGACY_STOP_RE.match(lines[idx]):
+            end_idx = idx
+            break
+        if idx > start_idx + 1 and not lines[idx - 1].strip() and _LEGACY_BLANKLINE_CANONICAL_STOP_RE.match(lines[idx]):
             end_idx = idx
             break
     return "\n".join(lines[start_idx:end_idx]).strip()
@@ -321,9 +329,17 @@ def _build_overlay_action(
 ) -> SyncAction:
     ov_name = str(ov_cfg.get("name") or "").strip()
     directive = str(ov_cfg.get("directive") or "@extend:prepend").strip()
+    dir_mode, dir_inline = _hc.parse_extend_directive(directive)
+    if dir_mode is None:
+        raise ValueError(
+            f"[overlay_preset].directive must start with '@extend:prepend|append' or "
+            f"'<!-- H3_EXTEND:prepend|append -->', got {directive!r}"
+        )
     raw_body = ov_cfg.get("body") if "body" in ov_cfg else g_ov.get("preamble", "")
     _mode, clean_body = _hc.parse_extend_directive(str(raw_body or ""))
-    new_sys = f"{directive}\n\n{clean_body}" if clean_body else directive
+    new_sys = f"{directive}\n\n{clean_body}" if (clean_body and not dir_inline) else (
+        f"{directive}\n{clean_body}".strip() if clean_body else directive
+    )
 
     remote = _find_remote_preset(remote_presets, ov_name)
     old_sys = str((remote or {}).get("system_prompt") or "")
@@ -487,7 +503,7 @@ def execute_sync(
         )
         if not apply:
             return actions
-        for act in actions:
+        for applied_idx, act in enumerate(actions):
             body: dict[str, Any] = {
                 "name": act.target_name,
                 "system_prompt": act.new_system_prompt,
@@ -496,16 +512,23 @@ def execute_sync(
             if act.action == "create":
                 r = c.post(f"{base}/v1/presets", json=body, timeout=10.0)
                 if r.status_code >= 400:
-                    raise _hc._http_error(r, base, "/v1/presets")
+                    err = _hc._http_error(r, base, "/v1/presets")
+                    raise RuntimeError(
+                        f"failed creating preset {act.target_name!r} (after {applied_idx} prior action(s)): {err}"
+                    ) from err
                 created = r.json()
                 if isinstance(created, dict) and created.get("id"):
                     act.remote_id = str(created["id"])
             elif act.action == "update":
                 if not act.remote_id:
                     raise RuntimeError(f"cannot PUT preset {act.target_name!r}: missing remote id")
-                r = c.put(f"{base}/v1/presets/{act.remote_id}", json=body, timeout=10.0)
+                quoted_id = quote(act.remote_id, safe="")
+                r = c.put(f"{base}/v1/presets/{quoted_id}", json=body, timeout=10.0)
                 if r.status_code >= 400:
-                    raise _hc._http_error(r, base, f"/v1/presets/{act.remote_id}")
+                    err = _hc._http_error(r, base, f"/v1/presets/{quoted_id}")
+                    raise RuntimeError(
+                        f"failed updating preset {act.target_name!r} (id={act.remote_id!r}, after {applied_idx} prior action(s)): {err}"
+                    ) from err
         return actions
 
     if client is not None:
@@ -533,8 +556,11 @@ def main(argv: list[str] | None = None) -> int:
     eff_prefix = str(args.prefix if args.prefix is not None else ((overlays.get("global") or {}).get("prefix") or ""))
     specs, include_overlay = filter_catalog(args.only or None, overlay_name=ov_name)
     if args.list:
+        p_map = overlays.get("presets") or {}
         for s in specs:
-            tname = format_target_name(s.name, eff_prefix)
+            p_ov = p_map.get(s.name) if isinstance(p_map.get(s.name), dict) else {}
+            default_name = format_target_name(s.name, eff_prefix)
+            tname = str(p_ov.get("remote_name") or default_name).strip() or default_name
             print(f"{tname:<28} [{s.group:<12}] {s.rel_path} -- {s.description}")
         if include_overlay:
             print(f"{ov_name:<28} [{'overlay':<12}] <local_overlay> -- Sticky {(overlays.get('overlay_preset') or {}).get('directive', '@extend:prepend')} overlay")

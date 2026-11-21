@@ -343,7 +343,7 @@ def parse_extend_directive(system_prompt: str) -> tuple[str | None, str]:
         return None, ""
     head = lines[first_idx].strip().lower()
     for token, mode in _EXTEND_TOKENS:
-        if head == token or head.startswith(token + " "):
+        if head == token or (len(head) > len(token) and head.startswith(token) and head[len(token)].isspace()):
             inline_rest = lines[first_idx].strip()[len(token):].strip()
             tail = "\n".join(lines[first_idx + 1 :]).strip()
             parts = [p for p in (inline_rest, tail) if p]

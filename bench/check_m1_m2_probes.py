@@ -102,10 +102,41 @@ def check_m1_score_clip_embeddings() -> str:
     return "DINOv3 copy & freeze scoring flags identical traces and stays silent on normal motion"
 
 
+def check_m1_m2_edge_guards() -> str:
+    import torch
+    import probe_yin_f0_drift as yin
+    import probe_dinov3_copy_freeze as dinov3
+
+    # 1. Hop-count mismatch between base and synth with explicit span_mask must not fail on shape mismatch.
+    b = torch.zeros(100, dtype=torch.float32)
+    s = torch.zeros(101, dtype=torch.float32)
+    b[10:60] = 220.0
+    s[10:60] = 220.0
+    mask = torch.zeros(101, dtype=torch.bool)
+    mask[10:60] = True
+    cmp_res = yin.compare_f0_drift(b, s, span_mask=mask)
+    assert isinstance(cmp_res, dict), f"unexpected compare_f0_drift output: {cmp_res!r}"
+
+    # 2. frame_len - tau_max < 256 must raise ValueError cleanly before negative window sizing.
+    try:
+        yin.yin_f0(torch.zeros(4000, dtype=torch.float32), sr=32000, frame_len=200)
+        raise AssertionError("expected ValueError for short frame_len")
+    except ValueError:
+        pass
+
+    # 3. Empty video embedding sequence must return zero sampled_frames without IndexError.
+    ref = torch.ones(1024, dtype=torch.float32)
+    res = dinov3.score_clip_embeddings(torch.empty((0, 1024), dtype=torch.float32), ref_vec=ref)
+    assert res["sampled_frames"] == 0, f"expected 0 sampled_frames: {res!r}"
+
+    return "YIN hop-mismatch span_mask, short frame_len guard, and 0-frame DINOv3 guard pass"
+
+
 def main() -> int:
     case("m2_yin_sine_and_harmonic_shift", check_m2_yin_sine_and_harmonic_shift)
     case("m2_silence_gate_and_voice_spans", check_m2_silence_gate_and_voice_spans)
     case("m1_score_clip_embeddings", check_m1_score_clip_embeddings)
+    case("m1_m2_edge_guards", check_m1_m2_edge_guards)
     return finish()
 
 

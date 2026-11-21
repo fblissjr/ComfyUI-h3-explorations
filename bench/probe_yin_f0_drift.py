@@ -85,10 +85,12 @@ def yin_f0(
 
     tau_min = max(2, int(sr // fmax))
     tau_max_wanted = max(tau_min + 2, int(math.ceil(sr / fmin)))
-    win_len = max(256, int(frame_len) - tau_max_wanted)
+    win_len = int(frame_len) - tau_max_wanted
     if win_len < 256:
         raise ValueError(f"frame_len={frame_len} too small for fmin={fmin} at sr={sr}")
-    tau_max = min(tau_max_wanted, frame_len - win_len)
+    tau_max = min(tau_max_wanted, int(frame_len) - win_len)
+    if tau_max <= tau_min:
+        raise ValueError(f"invalid lag window tau_min={tau_min} >= tau_max={tau_max}")
 
     frames = wav.unfold(0, frame_len, hop_len)  # [N_frames, frame_len]
     n_frames = int(frames.shape[0])
@@ -146,7 +148,7 @@ def yin_f0(
         if 0 < tau < tau_max:
             y0, y1, y2 = float(row[tau - 1]), float(row[tau]), float(row[tau + 1])
             denom = 2.0 * (y0 - 2.0 * y1 + y2)
-            if abs(denom) > 1e-12:
+            if denom > 1e-12:
                 delta = max(-0.5, min(0.5, (y0 - y2) / denom))
                 tau_ref += delta
         if tau_ref > 0.0:
@@ -186,7 +188,16 @@ def summarize_f0_series(
     span_mask: torch.Tensor | None = None,
 ) -> dict[str, Any]:
     """Summarize voiced F0 median (Hz), IQR (semitones), and voiced fraction."""
-    active = torch.ones_like(f0_hz, dtype=torch.bool) if span_mask is None else span_mask.bool()
+    if span_mask is None:
+        active = torch.ones_like(f0_hz, dtype=torch.bool)
+    else:
+        sm = span_mask.bool().flatten()
+        n_f = int(f0_hz.numel())
+        if sm.numel() >= n_f:
+            active = sm[:n_f]
+        else:
+            active = torch.zeros((n_f,), dtype=torch.bool, device=f0_hz.device)
+            active[: sm.numel()] = sm.to(device=f0_hz.device)
     n_active = int(active.sum().item())
     valid = active & torch.isfinite(f0_hz) & (f0_hz > 0.0)
     vals = f0_hz[valid]
@@ -219,8 +230,10 @@ def compare_f0_drift(
     drift_warn_semitones: float = 1.5,
 ) -> dict[str, Any]:
     """Compare a steered track against a `strength=0.0` baseline and emit advisory notes."""
-    b_sum = summarize_f0_series(base_f0, span_mask=span_mask)
-    s_sum = summarize_f0_series(steered_f0, span_mask=span_mask)
+    b_mask = span_mask[: base_f0.numel()] if span_mask is not None else None
+    s_mask = span_mask[: steered_f0.numel()] if span_mask is not None else None
+    b_sum = summarize_f0_series(base_f0, span_mask=b_mask)
+    s_sum = summarize_f0_series(steered_f0, span_mask=s_mask)
 
     median_shift_st: float | None = None
     if b_sum["median_f0_hz"] is not None and s_sum["median_f0_hz"] is not None:
@@ -309,7 +322,7 @@ def main(argv: list[str] | None = None) -> int:
         res = compare_f0_drift(
             base_f0,
             s_f0,
-            span_mask=mask[: min(base_f0.numel(), s_f0.numel())] if mask is not None else None,
+            span_mask=mask,
         )
         rows.append({"clip": sp.name, **res})
         bf = f"{res['baseline_median_f0_hz']:.1f}" if res["baseline_median_f0_hz"] is not None else "-"

@@ -1,21 +1,22 @@
 # Control Vector & Mobile Steering UI (`app/` + `bench/control_vectors.py ui`)
 
-Last updated: 2026-11-21 (integrated Mobile Studio `/` **Steering Deck + `2x` Remix** & **`/lab`** J-Lens/Word/Sculpt/Pairs workbench in [`app/`](../../../app/README.md) alongside Subspace X-Ray `X-Ray` drawer, rank-16 `sculpt`, and per-token `||E(h_i)||_2` metering in standalone `bench/control_vectors.py ui`).
+Last updated: 2026-11-21 (**H3 Pocket Console** [`app/`](../../../app/README.md) `/` **Steering Deck + `2x` Remix** & **`/lab`** J-Lens/Word/Sculpt/Pairs workbench, alongside Subspace X-Ray `X-Ray` drawer, rank-16 `sculpt`, and per-token `||E(h_i)||_2` metering in standalone `bench/control_vectors.py ui`).
 
 ---
 
-## 0. Unified Mobile Studio (`app/`, `/` + `/lab`) — Primary iPhone & Browser Surface
+## 0. H3 Pocket Console (`app/`, `/` + `/lab`) — Primary iPhone & Desktop Studio Surface
 
-For everyday creation and mobile tweaking on iOS 27.x Safari WebKit (`app/` commit `b1406c6`), **Mobile Studio** ([`app/server.py`](../../../app/server.py), [`app/cv_lab.py`](../../../app/cv_lab.py)) hosts both creation and vector authoring in one Tailscale/localhost server (keeping [`director/`](../../../director/AGENTS.md) separate for interactive Spatial World Director timelines):
+For everyday creation and mobile tweaking on iOS 27.x Safari WebKit (`app/` [`VISION.md`](../../../app/VISION.md), [`DESIGN.md`](../../../app/DESIGN.md)), **H3 Pocket Console** ([`app/server.py`](../../../app/server.py), [`app/cv_lab.py`](../../../app/cv_lab.py)) hosts both creation and vector authoring in one Tailscale/localhost server (`app/studio.sh` preserves exported `h3.env` / `--heylook-url` overrides; [`director/`](../../../director/AGENTS.md) stays separate for interactive Spatial World Director timelines):
 
 - **Main Studio (`/`):**
-  - **1-tap Create (`1x` Expand) vs. Remix (`2x` Auto-Edit):** Switches between `1x` fresh expansion (`MiniMaxH3PromptExpander` / `MiniMaxH3ImagePromptExpander` + `data/edit_concepts/*.toml`) and `2x` surgical rewrites (`MiniMaxH3AutoEditPrompt` + `EditGuider`) with switches (`Lock take`, `Audio only`).
-  - **Steering Deck:** Primary `-1.5 .. +2.0` continuous strength slider, primary **`Hold vector`** selector, stackable **Multi-Vector Mixer Chips** (up to `5` `extra_vectors` with anchored Quick-Tune `popover="auto"` HUD for per-chip strength/target/step window), and an instant **`<dialog>` CPU Subspace X-Ray** readout.
+  - **1-tap Create (`1x` Expand) vs. Remix (`2x` Auto-Edit):** Switches between `1x` fresh expansion (`MiniMaxH3PromptExpander` / `MiniMaxH3ImagePromptExpander` + `data/edit_concepts/*.toml`, `@extend:prepend|append` overlays via `app/heylook_bridge.py`, and split-cached `1x` `r2v` in `app/graph_builder.py`) and `2x` surgical rewrites (`MiniMaxH3AutoEditPrompt` + `EditGuider`) with `Lock take`, `Audio only`, and `ref_end_percent` auto-release wiring.
+  - **5-Bus Mixing Console & Fader Finder:** Color-coded bus strips (`Look`, `Motion`, `Audio`, `Anti-Slop` including `de_llm_slop`, `Hold`) with `M`/`S`/`Route` pills, `-1.50 .. +2.00` `0.00`-detent rail, Monolithic Collision Guard, `.strip-regime-hint` strength hints, `< 3 ms` dual `max(cos_v1, cos_mu)` CPU Vibe Search (`POST /api/lab/vibe_search`), `<dialog id="fader-finder-dialog" closedby="any">`, primary **`Hold vector`**, up to `5` stacked `extra_vectors` chips, and CPU Subspace X-Ray (`POST /api/xray_vector`).
+  - **Responsive Desktop 3-column Studio Desk (`>= 64rem`), Take Player Groove Bar & Attention Annotation:** Simultaneous prompt/canvas, mixer console, and monitor/X-Ray panes on wide viewports, inline `Ride Faders` / `Remix 2x` / `Save Take` + audio toggle on playback, and `int8_convrot` rotated-safe attention badge (`app/recipes.py`).
 - **Integrated Vector Lab (`/lab`, 4 tabs):**
-  - **Library:** Browse `<comfy>/models/control_vectors/bank/`, inspect rank-8/rank-16 erasure payloads, run `< 15 ms` CPU Subspace X-Ray, or send any vector to `/` with **Use**.
+  - **Library & Vibe Search:** Browse `<comfy>/models/control_vectors/bank/`, query `< 3 ms` semantic Vibe Search (`?mint_query=` deep linking), inspect rank-8/rank-16 erasure payloads, run `< 15 ms` CPU Subspace X-Ray, or send any vector to `/` with **Use** (`/?use_vector=`).
   - **Word Lab:** `< 2 ms` CPU `words` + `against_words` (`@replace_digital`) + `hold_words` synthesis & X-Ray.
   - **Sculpt:** Rank-16 union `add_norm_matched_erasure` / `hold` composition saved directly into `bank/`.
-  - **Pairs:** Generate or validate Gates A–D pair TOMLs (`heylook --from-concept` / `--repair` or pasted LLM Markdown) and launch isolated single-job GPU builds without duplicating the ComfyUI server lock.
+  - **Pairs:** Generate or validate Gates A–D pair TOMLs (`heylook --from-concept` / `--repair` or pasted LLM Markdown) and launch isolated single-job GPU builds (`from-toml`, `from-prompt` with `--bank-scenes` / `--force-low-pair-erasure`, `make-media` with `pooling`) without duplicating the ComfyUI server lock.
 
 ---
 
@@ -31,7 +32,7 @@ By default, the server binds only to `127.0.0.1` on an ephemeral free port, prin
 
 ---
 
-## 1. The CLI the page stands on
+## 2. The CLI the page stands on
 
 <a id="the-cli-the-page-stands-on"></a>
 

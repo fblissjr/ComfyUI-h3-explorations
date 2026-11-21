@@ -187,11 +187,14 @@ def cmd_build(args: argparse.Namespace) -> int:
     test_prompt_saved: Path | None = None
     stem_override = (getattr(args, "name", None) or getattr(args, "output_name", None) or "").strip() or None
     tp_arg = _resolve_cli_target_prompt(args)
+    is_compiled_inplace = False
 
     if compiled_override is not None:
         pair_set = compiled_override
+        is_compiled_inplace = str(pair_set.path).startswith("<compiled:")
     elif words_arg:
         pair_set = _compile_pair_set_from_args(args)
+        is_compiled_inplace = True
         toml_out_arg = getattr(args, "toml_out", None) or (
             cv_nodes.USER_PAIR_BANK_DIR if getattr(args, "save_toml", False) else None
         )
@@ -324,7 +327,7 @@ def cmd_build(args: argparse.Namespace) -> int:
     print(f"=== Control Vector One-Shot Build: {stem} ===")
     pairs_label = _display_path(resolved_pair_path) if resolved_pair_path is not None else str(pair_set.path)
     print(f"  pairs_toml        : {pairs_label} ({len(pair_set.pairs)} pairs)")
-    is_compiled_inplace = str(pair_set.path).startswith("<compiled:")
+    is_compiled_inplace = is_compiled_inplace or str(pair_set.path).startswith("<compiled:")
     force_low_erasure = bool(getattr(args, "force_low_pair_erasure", False))
     min_erasure_pairs = cv.MIN_ERASURE_PAIRS if (is_compiled_inplace and not force_low_erasure) else 1
     if is_compiled_inplace and len(pair_set.pairs) < cv.MIN_ERASURE_PAIRS and not force_low_erasure:
@@ -1156,7 +1159,14 @@ def cmd_rebuild(args: argparse.Namespace) -> int:
         needs_encoder = bool(getattr(args, "include_encoder", True)) and any(
             "vector.encoder" not in t for _, t, _ in items
         )
-        needs_erasure = any(not _has_erasure_tensors(t) for _, t, _ in items)
+        is_compiled_low_pair = (
+            pairs_path.startswith("<compiled:")
+            and int((meta0.get("pairs") or {}).get("n_pairs", 0) or 0) < cv.MIN_ERASURE_PAIRS
+            and not bool(getattr(args, "force_low_pair_erasure", False))
+        )
+        needs_erasure = False if is_compiled_low_pair else any(
+            not _has_erasure_tensors(t) for _, t, _ in items
+        )
         if made_by.startswith("j_lens.synthesize_from_words") or pairs_path == "j_lens.synthesize_from_words":
             print(f"\n[{idx}/{len(all_stems)}] Rebuilding J-Lens word vector `{stem}` ...")
             _rebuild_jlens_words(stem, items, item_out_dir, stem_fams_str, all_rows)

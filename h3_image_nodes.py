@@ -584,7 +584,31 @@ def expand_image_prompt(
         active_preset_fields = preset_fields
         preset_sys = str((preset_fields or {}).get("system") or "").strip()
         extend_mode, _extend_body = parse_extend_directive(preset_sys) if preset_sys else (None, "")
-        if not custom_clean and preset_fields and preset_sys and extend_mode is not None:
+        custom_extend_mode, _custom_extend_body = parse_extend_directive(custom_clean) if custom_clean else (None, "")
+        if custom_clean and custom_extend_mode is not None:
+            local_mode = (
+                mode
+                if mode in ("t2i", "edit", "t2i + aspect_ratio", "edit + aspect_ratio")
+                else "auto"
+            )
+            _, local_base = resolve_expander_system_prompt(
+                local_mode,
+                has_images=has_images,
+                custom_system_prompt="",
+                has_preset=False,
+            )
+            if not local_base:
+                local_base = fallback_clean
+            eff_sys_prompt, sys_source, _ = compose_preset_system_prompt(
+                local_base,
+                custom_clean,
+                preset_name=preset_name or "custom",
+            )
+            if resolved_mode == "heylook preset + aspect_ratio" and "aspect_ratio:" not in eff_sys_prompt:
+                eff_sys_prompt = append_aspect_ratio_footer(eff_sys_prompt, has_images=has_images)
+            if preset_fields:
+                active_preset_fields = {k: v for k, v in preset_fields.items() if k != "system"}
+        elif not custom_clean and preset_fields and preset_sys and extend_mode is not None:
             local_base = eff_sys_prompt
             if not local_base:
                 _, local_base = resolve_expander_system_prompt(

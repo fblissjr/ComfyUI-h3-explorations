@@ -1,6 +1,6 @@
 # Building Pairs and Control Vectors
 
-Last updated: 2026-11-21 (`build_pole_a_erasure`, Pole-A Coverage Law, `Model2Vec` + `against`-SVD word erasure, and `ColQwen`-style `make-media` patch erasure).
+Last updated: 2026-11-21 (`build_pole_a_erasure`, `build_spatial_vision_erasure` (`erasure.mu_a` for `pooling="vision_tokens"`), Gates A–D with `med_fd >= 10` & contradiction lint, `MIN_ERASURE_PAIRS = 6` / `--force-low-pair-erasure`, Pole-A Coverage Law, `Model2Vec` + `against`-SVD word erasure, and `ColQwen`-style `make-media` patch erasure).
 
 A MiniMax H3 control vector is the mean post-refiner difference (`Pole B - Pole A`) across one or more matched contrastive pairs, computed in `float64`, scrubbed of any declared `[[hold]]` nuisance subspace via Gram-Schmidt projection, and saved to `models/control_vectors/<stem>__<family>__<pooling>[__lora_<hash>].safetensors`.
 
@@ -11,7 +11,7 @@ A MiniMax H3 control vector is the mean post-refiner difference (`Pole B - Pole 
 As of `fb3c978d` (2026-11-11), there is **one** pair-encoding and pooling implementation across the entire pack:
 
 1. **Encoding** ([`control_vector_nodes.py::encode_pair_set`](../../../control_vector_nodes.py)): encodes every `(a, b)` pair and every `[[hold]]` pair through `Qwen3-VL-32B` (`layers.0..49`, `5120`-d) and the loaded DiT's `condition_proj` + 2-block `TokenRefiner` (`5376`-d), with any active LoRAs applied in memory.
-2. **Pooling, Pole-A erasure & orthogonal hold projection** ([`control_vectors.py::pool_pair_set`](../../../control_vectors.py)): pools the selected span rows on each side in `float64` (excluding token `0` on the encoder side because row `0` is a `52.4x` attention sink: `15,309` norm vs. `292.3` median), averages `B - A` across pairs, builds an orthonormal Gram-Schmidt basis from any `[[hold]]` group means, projects that basis out of both `vector.post_refiner` (`5376`-d, kept in raw mean-difference units) and `vector.encoder` (`5120`-d, saved at unit norm for J-Lens / EXL3 inspection), and runs [`build_pole_a_erasure`](../../../control_vectors.py) to embed optional `float32` `erasure.mu_d [5376]` (row-softmax cosine cross-attention at `tau = 0.15`), `erasure.vr [r, 5376]` (`r <= 8` thin SVD of centered Pole-A rows), and `erasure.diag [r]` (`~193.5 KB` total) with `holds.post_refiner` projected out of both `mu_d` and `A_c` before SVD.
+2. **Pooling, Pole-A erasure & orthogonal hold projection** ([`control_vectors.py::pool_pair_set`](../../../control_vectors.py)): pools the selected span rows on each side in `float64` (excluding token `0` on the encoder side because row `0` is a `52.4x` attention sink: `15,309` norm vs. `292.3` median), averages `B - A` across pairs, builds an orthonormal Gram-Schmidt basis from any `[[hold]]` group means, projects that basis out of both `vector.post_refiner` (`5376`-d, kept in raw mean-difference units) and `vector.encoder` (`5120`-d, saved at unit norm for J-Lens / EXL3 inspection), and runs [`build_pole_a_erasure`](../../../control_vectors.py) (when `len(pairs) >= MIN_ERASURE_PAIRS (6)` on compiled builds, or `--force-low-pair-erasure`) to embed optional `float32` `erasure.mu_d [5376]` (row-softmax cosine cross-attention at `tau = 0.15`), `erasure.vr [r, 5376]` (`r <= 8` thin SVD of centered Pole-A rows), and `erasure.diag [r]` (plus optional dataset-centered `erasure.mu_a [5376]` via `build_spatial_vision_erasure` when `pooling="vision_tokens"`) with `holds.post_refiner` projected out of both `mu_d` and `A_c` before SVD.
 3. **Provenance record** ([`control_vectors.py::pairs_record`](../../../control_vectors.py)): writes identical `pairs` and `pooled_tokens` metadata whether you build from:
    - `bench/control_vectors.py build` / `from-toml` / `from-prompt` / `rebuild`,
    - `bench/control_vectors.py make`,
@@ -33,7 +33,7 @@ When a 120-token scene prompt differs only in a 10-token clause (`Pole A` vs. `P
 | `scene_text` | All steerable prose rows (`scene_only` span) | Default for `make-media` image pairs (where the text prompt is identical on both sides and `<Picture 1>` differs); diluted on localized text pairs. |
 | `all_tag1` | Every tag-`1` text row (excluding row `0` on the encoder side) | Diagnostic baseline only (includes headers/punctuation). |
 
-> **Shared-prefix rule for `diff_span`**: Because `Qwen3-VL` is causal, keep grammatical lead-in words (`"The scene is lit by ..."`, `"framed in a shot with ..."`) **identical** on both Pole A and Pole B so `first_diff` lands directly on the contrasting content words rather than averaging boilerplate wrapper tokens.
+> **Gates A–D prefix & baseline rules (`lint_pair_set`, `ebf049f9`):** Because `Qwen3-VL` is causal, keep grammatical lead-in words identical per pair so `first_diff` lands cleanly on the contrasting content words, **vary scene prefixes across pairs** (**Gate B** requires `med_fd >= 10` words ahead of the diff, raised from `4`), avoid boundary-append `, while ...` diffs (**Gate A**), and **never leak Pole-A baseline state adjectives (`warm`, `sunny`, `bright`, `glossy`, `_BASELINE_STATE_WORDS`) into shared non-`<d>` prefixes** (**Gate D**, using `_DIALOGUE_SPAN_STRIP_RE` so dialogue lines inside `<d>...</d>` don't false-positive).
 
 ---
 
@@ -65,7 +65,7 @@ We also tested building the exact same clothing contrast inside `subject_definit
 ### The Pole-A Coverage Law (`V_r` needs diverse baselines, not just `B - A` cancellation)
 Under legacy 1D steering (`add_norm_matched`), 5 pairs were already enough for the 1D mean `mu_d` to converge (`cos(mu_d_sub, mu_d_full) = 0.949–0.981` at `N = 5` across our Monte-Carlo subsample curves in [`bench/control_vector/eval_multivector_erasure.py`](../../../bench/control_vector/eval_multivector_erasure.py)). Under default **`add_norm_matched_erasure`**, your Pole-A `diff_span` clauses also span the rank-`r` (`r <= 8`) **erasure trap `erasure.vr`** that zeroes conflicting cues inside a user's prompt:
 
-- **Subspace coverage scales much slower than 1D cosine:** At `N = 1` pair, `erasure.vr` covers only **`32.6%–48.8%`** of the full 10–12 pair Grassmannian Pole-A subspace (`0.406` on `noir`, `0.488` on `paper_origami`, `0.401` on `chaos_panic`, `0.326` on `wes_anderson_symmetry`). At `N = 5`, coverage rises to `68.6%–74.5%`; at **`N = 8..10` diverse pairs**, coverage reaches **`80.5%–89.2%+`**.
+- **Subspace coverage scales much slower than 1D cosine (`MIN_ERASURE_PAIRS = 6`):** At `N = 1` pair, `erasure.vr` covers only **`32.6%–48.8%`** of the full 10–12 pair Grassmannian Pole-A subspace (`0.406` on `noir`, `0.488` on `paper_origami`, `0.401` on `chaos_panic`, `0.326` on `wes_anderson_symmetry`). At `N = 5`, coverage rises to `68.6%–74.5%`; at **`N = 8..10` diverse pairs**, coverage reaches **`80.5%–89.2%+`**. Accordingly, compiled `<compiled:...>` builds (`from-prompt` / `--words`) skip rank-deficient `erasure.vr` when `len(pairs) < MIN_ERASURE_PAIRS (6)` unless `--force-low-pair-erasure` is passed ([`bench/control_vector/build_cmd.py`](../../../bench/control_vector/build_cmd.py)).
 - **Vary the conflicting baseline facets across Pole A:** If you build `noir`, make Pole A span *sunlit daylight*, *warm tungsten lamps*, *golden-hour amber*, *saturated clothing*, and *soft natural skin tones* across your 8–12 pairs—not 10 near-identical copies of `"lit by natural light"`. And keep surrounding scene settings balanced so a 5-pair file doesn't spend `vr[0..1]` erasing between-pair scene drift (`urban/nighttime/professor`, as observed on legacy 5-pair `watercolor_wash`).
 
 ---
@@ -106,14 +106,14 @@ Compiles `"pole_a -> pole_b"` inside `--target-prompt-file` (plus `--bank-scenes
   --hold-words "horror, panic" \
   --name fluorescent_kitchen
 
-# B. Target-only multi-scene build across 5 rotated Pole-A baselines (no --target-prompt needed):
+# B. Target-only multi-scene build across 8 rotated Pole-A baselines (no --target-prompt needed; >= 6 emits erasure.vr):
 /path/to/comfy-venv/bin/python bench/control_vectors.py from-prompt \
-  --bank-scenes 5 \
+  --bank-scenes 8 \
   --words "dressed in tricorn hats, linen tunics, and weathered coats aboard a wooden tall ship" \
   --name pirate_tall_ship
 ```
-- **Target-prompt mode**: when `--target-prompt` / `--target-prompt-file` is provided, either `pole_a` or `pole_b` must match a literal substring in `--target-prompt`.
-- **Multi-baseline Pole-A rotation (`a1 | a2 | a3 -> b` or bare `pole_b`)**: in [`h3_pair_compiler.py`](../../../h3_pair_compiler.py), separating Pole-A variants with `|` rotates them across auxiliary `prompt_bank/` scenes (automatically skipping any Pole-A variant that shares `>=4`-char content words or `>=5`-char stems with `pole_b`). When `words` omits `->` in a bank-only build (`--bank-scenes 5`, or `MiniMaxH3MakeControlVector` with `target_prompt` left blank), the compiler automatically rotates its 7 domain-neutral `DEFAULT_AUX_BASELINES` so no single baseline noun phrase contaminates `(-)`.
+- **Target-prompt mode**: when `--target-prompt` / `--target-prompt-file` is provided, either `pole_a` or `pole_b` must match a literal substring in `--target-prompt` (if `< 6` pairs are compiled, pass `--force-low-pair-erasure` to force `erasure.vr` or raise `--bank-scenes >= 6`).
+- **Multi-baseline Pole-A rotation (`a1 | a2 | a3 -> b` or bare `pole_b`)**: in [`h3_pair_compiler.py`](../../../h3_pair_compiler.py), separating Pole-A variants with `|` rotates them across auxiliary `prompt_bank/` scenes (automatically skipping any Pole-A variant that shares `>=4`-char content words or `>=5`-char stems with `pole_b`). When `words` omits `->` in a bank-only build (`--bank-scenes 8`, or `MiniMaxH3MakeControlVector` with `target_prompt` left blank), the compiler automatically rotates its 7 domain-neutral `DEFAULT_AUX_BASELINES` so no single baseline noun phrase contaminates `(-)`.
 - Separate multiple simultaneous clause swaps with `;` or newlines; prefix acoustic swaps with `soundscape: old -> new` and hold clauses with `hold: neutral -> nuisance`.
 
 ### Method 2 — `build` / `from-toml` (reusable 6–10 pair library vector)
@@ -136,13 +136,14 @@ Builds `fl2va` (default; shared cleanly across `{fl2va, ref2va}` at `cos ~0.99`;
 - **`words`**: synthesizes `fl2va` + `ref2va` vectors from single words, multi-token domain terms, and 2-word phrases via the Jacobian-lens word bundle + optional `Model2Vec` contextual lexicon (`models/j_lens/model2vec_h3_lexicon.safetensors`), and automatically extracts rank-`r` `against`-SVD `erasure.{mu_d,vr,diag}` when two or more `against` words (or `@replace_*` presets) are supplied (see [`j_lens_diagnostics_and_word_lab.md`](j_lens_diagnostics_and_word_lab.md)).
 - **`sculpt`**: algebraically combines existing `.safetensors` vectors (`add`, `add_norm_matched`, `add_norm_matched_erasure`, `hold`) and/or `--hold-words` in `< 5 ms` on CPU with full provenance tracking and up to rank-`16` (`COMPOSED_ERASURE_MAX_RANK = 16`) union erasure preservation.
 
-### Method 4 — `make-media` / `MiniMaxH3MakeMediaControlVector` (`ColQwen`-style image-pair contrast + patch erasure)
-Extracts both 1D `B - A` and unpooled token/patch-level `erasure.{mu_d,vr,diag}` from two contrasting `<Picture 1>` reference images (`--image-a baseline.png --image-b stylized.png`) encoded under the same `--scene-prompt`:
+### Method 4 — `make-media` / `MiniMaxH3MakeMediaControlVector` (`ColQwen`-style image-pair contrast + `vision_tokens` erasure)
+Extracts both 1D `B - A` and unpooled token/patch-level `erasure.{mu_d,vr,diag}` (or dataset-centered `erasure.mu_a [5376]` via `build_spatial_vision_erasure` when `--pooling vision_tokens` is chosen to center `tags == 0` vision patches) from contrasting `<Picture 1>` reference images (`--image-a baseline.png --image-b stylized.png`) encoded under the same `--scene-prompt`:
 ```bash
 /path/to/comfy-venv/bin/python bench/control_vectors.py make-media \
   --image-a "$H3_INPUT_DIR/clean_portrait.png" \
   --image-b "$H3_INPUT_DIR/oil_painted_portrait.png" \
   --scene-prompt prompt_bank/16_ref2va_diner.txt \
-  --short-edge 512 --pooling scene_text --name oil_impasto_from_img
+  --short-edge 512 --pooling vision_tokens --name oil_impasto_from_img
 ```
-- **Why `--short-edge` snaps both images to the exact same 32-px grid**: `Qwen3-VL` assigns 3D M-RoPE `position_ids` from image patch dimensions `(grid_t, grid_h, grid_w)`. Resizing `image_a` and `image_b` to identical 32-px-snapped `(target_w, target_h)` guarantees equal vision token counts and aligned RoPE positions so both `vector.post_refiner` and unpooled `erasure.{mu_d,vr,diag}` (`make_control_vector_from_media_pairs` in [`control_vector_nodes.py`](../../../control_vector_nodes.py)) capture pure visual contrast rather than sequence-offset artifacts.
+- **Why `--short-edge` snaps both images to the exact same 32-px grid**: `Qwen3-VL` assigns 3D M-RoPE `position_ids` from image patch dimensions `(grid_t, grid_h, grid_w)`. Resizing `image_a` and `image_b` to identical 32-px-snapped `(target_w, target_h)` guarantees equal vision token counts and aligned RoPE positions so both `vector.post_refiner` and unpooled `erasure.*` (`make_control_vector_from_media_pairs` in [`control_vector_nodes.py`](../../../control_vector_nodes.py)) capture pure visual contrast rather than sequence-offset artifacts.
+- **Dual-Lock `fl2va` caveat (`stage_c`, Paper v4):** Even when `erasure.mu_a` removes baseline color from `tags == 0` vision rows (cooling saturation `-10.4%`), raw VAE `cond_video_latents` injected during steps `[0, 0.33]` still anchor keyframe RGB chroma unless the input stills themselves are pre-graded or VAE refs are released earlier.

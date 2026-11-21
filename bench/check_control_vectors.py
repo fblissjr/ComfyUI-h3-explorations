@@ -1789,6 +1789,24 @@ def check_math_and_synthetic_statistics() -> list[str]:
     no_holds = cv.pool_pair_set([e0, e1], [e0["ref"], e1["ref"]], pooling="from_first_diff", include_encoder=False)
     if no_holds.hold_basis is not None or no_holds.enc_raw_vec is not None or not torch.equal(no_holds.vector, want_raw):
         errs.append("pool_pair_set without holds or the encoder point returned a basis, an encoder direction or a changed vector")
+    er_skip = cv.pool_pair_set(
+        [e0, e1],
+        [e0["ref"], e1["ref"]],
+        pooling="from_first_diff",
+        include_encoder=False,
+        min_erasure_pairs=cv.MIN_ERASURE_PAIRS,
+    )
+    if er_skip.erasure_vr is not None:
+        errs.append("pool_pair_set emitted erasure_vr when len(pairs) < min_erasure_pairs")
+    er_force = cv.pool_pair_set(
+        [e0, e1],
+        [e0["ref"], e1["ref"]],
+        pooling="from_first_diff",
+        include_encoder=False,
+        min_erasure_pairs=1,
+    )
+    if er_force.erasure_vr is None:
+        errs.append("pool_pair_set failed to emit erasure_vr with min_erasure_pairs=1")
     unit, norm = cv.encoder_point(pooled.enc_raw_vec)
     if unit is None or abs(float(torch.linalg.vector_norm(unit.double())) - 1.0) > 1e-6 or norm <= 0.0:
         errs.append(f"encoder_point is not unit length: norm {norm}")

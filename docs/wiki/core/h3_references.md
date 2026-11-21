@@ -179,8 +179,14 @@ budget were removed (efc99317; "No keyed keep" below).*
 the last bits, by far less than the shipped int8 encoder differs from bf16;
 `data/results/2026-10-03_reference_split.json` has each span's distance with
 one reference and with two, and `2026-10-03_encoder_prefix_reuse.json` the
-mechanism. The owner accepted that difference on 2026-10-03. No shipped graph
-wires these nodes; the one-node path is the default and the reference for
+mechanism. The owner accepted that difference on 2026-10-03. Starting `2026-11-21`
+(`06c64f9f`), shipped desktop Pika `r2v` workflows
+(`workflows/h3_image_ref_plus_text_to_video_pika_api.json`, `_control_vector_api.json`,
+`_prompt_expander_api.json`, `_edit_guidance_api.json`, `_auto_edit_guidance_api.json`,
+and `daily/h3_preview_pika_ref2va_api.json`) wire `MiniMaxH3EncodeReferences` +
+`MiniMaxH3PromptOnReferences` so reference Qwen3-VL vision tokens and VAE
+conditioning are cached across prompt edits, while single-node
+`MiniMaxH3ReferenceConditioning` remains the reference baseline for
 "today's conditioning".
 
 **No keyed keep (2026-10-10).** Until that day the encode kept each
