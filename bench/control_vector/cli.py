@@ -771,8 +771,8 @@ def build_parser() -> argparse.ArgumentParser:
         "--families",
         type=_validate_families_arg,
         metavar=_FAMILIES_METAVAR,
-        default="fl2va",
-        help=_FAMILIES_HELP,
+        default=None,
+        help="H3 text-path family to rebuild: defaults to the file's own family when rebuilding a single .safetensors file, or 'fl2va' otherwise ('fl2va', 'ref2va', or 'both')",
     )
     preb.add_argument(
         "--pooling",

@@ -946,12 +946,16 @@ def cmd_rebuild(args: argparse.Namespace) -> int:
             if toml_cand is None:
                 toml_cand = _resolve_existing_toml_from_meta(m, default_toml_dir)
 
-        # If the user pointed at a single .safetensors file with a specific family, rebuild that family unless --families was explicitly passed
-        single_fam_override = getattr(args, "families", "fl2va")
-        if len(loaded_items) == 1 and target_path.suffix.lower() == ".safetensors" and single_fam_override == "both":
+        # If the user pointed at a single .safetensors file without --families, rebuild that file's own family;
+        # otherwise honor an explicit --families flag or default to 'fl2va'.
+        raw_fam_arg = getattr(args, "families", None)
+        if raw_fam_arg:
+            single_fam_override = str(raw_fam_arg)
+        elif len(loaded_items) == 1 and target_path.suffix.lower() == ".safetensors":
             fam_single = str(loaded_items[0][2].get("family", ""))
-            if fam_single in ("fl2va", "ref2va"):
-                single_fam_override = fam_single
+            single_fam_override = fam_single if fam_single in ("fl2va", "ref2va") else "fl2va"
+        else:
+            single_fam_override = "fl2va"
 
         single_vec_dir = loaded_items[0][0].parent if loaded_items else default_vec_dir
         if toml_cand is not None:
@@ -1025,7 +1029,7 @@ def cmd_rebuild(args: argparse.Namespace) -> int:
     print(
         f"=== Rebuilding {len(all_stems)} Control Vector Stem(s) (vec_dir={vec_dir}, toml_dir={_display_path(toml_dir)}) ==="
     )
-    req_fams_str = getattr(args, "families", "fl2va")
+    req_fams_str = getattr(args, "families", None) or "fl2va"
     req_fams_set = set(_resolve_requested_families(req_fams_str))
     force_rebuild = bool(getattr(args, "force", False))
     for idx, stem in enumerate(all_stems, start=1):
@@ -1253,7 +1257,7 @@ def cmd_status(args: argparse.Namespace) -> int:
         else Path(_h.folder_paths.get_folder_paths(cv_nodes.CONTROL_VECTORS_FOLDER)[0]).resolve()
     )
     toml_dir = Path(args.toml_dir).resolve() if getattr(args, "toml_dir", None) else cv_nodes.PAIR_BANK_DIR
-    req_fams_str = getattr(args, "families", "fl2va")
+    req_fams_str = getattr(args, "families", None) or "fl2va"
     req_fams_set = set(_resolve_requested_families(req_fams_str))
 
     bundle_issues, bundle_perms, bundle_info = _inspect_bundle_status(bundle_path)

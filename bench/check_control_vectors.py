@@ -5869,6 +5869,64 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
                 if rc_reb_missing != 2:
                     errs.append(f"CLI rebuild on nonexistent stem expected exit code 2, got {rc_reb_missing}")
 
+                # Single-.safetensors rebuild without --families preserves the file's own family (e.g. ref2va),
+                # while explicit --families both writes both siblings.
+                rc_ref_w = bench_cv.main(
+                    [
+                        "words",
+                        "blizzard, snowdrift, frost",
+                        "--name",
+                        "reb_ref_sample",
+                        "--families",
+                        "ref2va",
+                        "--out-dir",
+                        str(reb_dir),
+                    ]
+                )
+                if rc_ref_w != 0:
+                    errs.append(f"CLI words ref2va setup for rebuild test failed with exit code {rc_ref_w}")
+                else:
+                    ref_st_file = next(reb_dir.glob("reb_ref_sample__ref2va__*.safetensors"))
+                    rc_ref_own = bench_cv.main(
+                        [
+                            "rebuild",
+                            str(ref_st_file),
+                            "--dir",
+                            str(reb_dir),
+                            "--toml-dir",
+                            str(reb_dir),
+                        ]
+                    )
+                    if rc_ref_own != 0:
+                        errs.append(f"CLI rebuild on single ref2va .safetensors failed with exit code {rc_ref_own}")
+                    got_after_own = sorted(p.name for p in reb_dir.glob("reb_ref_sample__*.safetensors"))
+                    if got_after_own != [ref_st_file.name]:
+                        errs.append(
+                            f"CLI rebuild on single ref2va .safetensors without --families should preserve only ref2va, got {got_after_own}"
+                        )
+                    rc_ref_both = bench_cv.main(
+                        [
+                            "rebuild",
+                            str(ref_st_file),
+                            "--dir",
+                            str(reb_dir),
+                            "--toml-dir",
+                            str(reb_dir),
+                            "--families",
+                            "both",
+                        ]
+                    )
+                    if rc_ref_both != 0:
+                        errs.append(f"CLI rebuild on single ref2va .safetensors --families both failed with exit code {rc_ref_both}")
+                    got_after_both = sorted(p.name for p in reb_dir.glob("reb_ref_sample__*.safetensors"))
+                    if not (
+                        any("__fl2va__" in n for n in got_after_both)
+                        and any("__ref2va__" in n for n in got_after_both)
+                    ):
+                        errs.append(
+                            f"CLI rebuild with explicit --families both should produce fl2va+ref2va siblings, got {got_after_both}"
+                        )
+
                 # Multi-variant `(stem, family)` preservation in `_canonical_vector_stem` + `validate_api` multiselect `__value__`
                 mv_dir = reb_dir / "mv_cv"
                 mv_dir.mkdir()
