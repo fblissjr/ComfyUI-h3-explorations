@@ -58,3 +58,4 @@
 | [`drift_frontier.md`](drift_frontier.md) | Drift work: the open frontier | [`../core/h3_audio_freeze.md`](../core/h3_audio_freeze.md) |
 | [`prompt_length_experiment.md`](prompt_length_experiment.md) | Prompt length, paired render: pre-registration | [`../prompting/prompting.md`](../prompting/prompting.md) |
 | [`scene_arm_renders.md`](scene_arm_renders.md) | The two scene arms: what to look for, and what these renders cannot tell you | [`../ops/eval_comparison.md`](../ops/eval_comparison.md) |
+| [`2026-11-12_control_vector_worked_examples.md`](2026-11-12_control_vector_worked_examples.md) | Worked Examples: Reading, Checking and Choosing (early Q&A bank, archived `2026-11-21`) | [`../steering.md`](../steering.md), [`../steering/tutorials_progressive_guide.md`](../steering/tutorials_progressive_guide.md), [`../steering/examples_and_recipes.md`](../steering/examples_and_recipes.md) |

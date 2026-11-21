@@ -4,7 +4,7 @@
 **Authors:** MiniMax H3 Explorations Research Hub  
 **Reproducible Code & Verifiers:** [`control_vectors.py`](../../../../control_vectors.py) · [`j_lens.py`](../../../../j_lens.py) · [`control_vector_nodes.py`](../../../../control_vector_nodes.py) · [`bench/verify_pole_a_erasure.py`](../../../../bench/verify_pole_a_erasure.py) · [`bench/control_vector/eval_multivector_erasure.py`](../../../../bench/control_vector/eval_multivector_erasure.py)  
 **Empirical Benchmark Ledger:** [`bench/results/2026-11-21_multivector_erasure_benchmark.md`](../../../../bench/results/2026-11-21_multivector_erasure_benchmark.md)  
-**Companion Investigation Logs & Practitioner Guides:** [`2026-11-20_unpooled_multivector_sliders.md`](2026-11-20_unpooled_multivector_sliders.md) · [`2026-11-20_multivector_retrieval_sota_to_dit_steering.md`](2026-11-20_multivector_retrieval_sota_to_dit_steering.md) · [`how_pole_a_erasure_works.md`](../../control_vectors/how_pole_a_erasure_works.md) · [`tutorials_progressive_guide.md`](../../control_vectors/tutorials_progressive_guide.md)
+**Companion Investigation Logs & Practitioner Guides:** [`2026-11-20_unpooled_multivector_sliders.md`](2026-11-20_unpooled_multivector_sliders.md) · [`2026-11-20_multivector_retrieval_sota_to_dit_steering.md`](2026-11-20_multivector_retrieval_sota_to_dit_steering.md) · [`how_pole_a_erasure_works.md`](../../steering/how_pole_a_erasure_works.md) · [`tutorials_progressive_guide.md`](../../steering/tutorials_progressive_guide.md)
 
 ---
 

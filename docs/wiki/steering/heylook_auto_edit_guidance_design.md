@@ -21,10 +21,12 @@ The shipped implementation separates `1x` fresh scene authoring (native plain-te
    - [`heylook_client.py`](../../../heylook_client.py) is shared across `MiniMaxH3ImagePromptExpander`, `MiniMaxH3PromptExpander`, and `MiniMaxH3AutoEditPrompt` (`resolve_heylook_base_url`, capability-gated `reasoning_effort`, client-side `2048 px` image resize, `503` backoff, interrupt `DELETE /v1/requests/{id}`, and `concept=` telemetry in `format_heylook_report()`).
    - [`auto_edit_prompt.py`](../../../auto_edit_prompt.py) resolves presets from `data/edit_concepts/*.toml` first (inspecting TOML tables directly so both `[concept]` cards and `[vector]`-table TOMLs such as `look_crimson_darkroom`, `look_direct_1990s_flash`, `look_lurid_magenta_neon`, and `ankle_deep_flood` resolve consistently), followed by `data/control_vectors/*.toml` and `prompt_bank/control_vectors/*.toml`.
    - `clean_concept_notes()` strips stale diagnostic notes and `format_concept_brief_block(..., mode="fresh"|"edit"|"image")` preserves short `<25`-word exemplars as explicit `Concept visual/action cues` rather than filtering them out — fixing the earlier bug where fresh video expansions ignored short concept cards.
-   - **Cross-surface concept parity (`2026-11-21`):** Both [`MiniMaxH3PromptExpander`](../../../h3_prompt_expander.py) (with `~410-440w` `ref2va` repair `band_hint`) and [`MiniMaxH3ImagePromptExpander`](../../../h3_image_nodes.py) (accepting an optional `concept` widget at the end, including empty `prompt` + active `concept`), as well as Mobile Studio `app/` (`#guide-expand-concept` via `GET /api/options`), share the same `data/edit_concepts/` catalog (`MiniMaxH3PromptExpander` & `MiniMaxH3ImagePromptExpander` A/B verified on GPU with `look_crimson_darkroom` and `ankle_deep_flood`).
+   - **Cross-surface concept parity (`2026-11-21`):** Both [`MiniMaxH3PromptExpander`](../../../h3_prompt_expander.py) (with `~410-440w` `ref2va` repair `band_hint`) and [`MiniMaxH3ImagePromptExpander`](../../../h3_image_nodes.py) (accepting an optional `concept` widget at the end including empty `prompt` + active `concept`, backed by `MANDATORY CREATIVE CONCEPT` directives in `h3_image` & `P-H3-Image` system prompts), as well as Mobile Studio `app/` (`/` **Create `1x`** / **Remix `2x`** + `#guide-expand-concept` via `GET /api/options`), share the same `data/edit_concepts/` catalog (`MiniMaxH3PromptExpander` & `MiniMaxH3ImagePromptExpander` A/B verified on GPU with `look_crimson_darkroom` and `ankle_deep_flood`).
 4. **Shipped `2x` Auto-Edit API Workflows**: [`workflows/h3_text_to_video_pika_auto_edit_guidance_api.json`](../../../workflows/h3_text_to_video_pika_auto_edit_guidance_api.json) and [`workflows/h3_image_ref_plus_text_to_video_pika_auto_edit_guidance_api.json`](../../../workflows/h3_image_ref_plus_text_to_video_pika_auto_edit_guidance_api.json) leave `base_url=""` and `model=""` so no host-specific addresses are tracked.
 
-This note explains the two-stage H3 text/DiT mechanism behind **Edit Guidance** ([`edit_guidance.md`](../edit_guidance.md)) vs. **Control Vectors** ([`control_vectors.md`](../control_vectors.md))—plugging a local `heylook` (`heylookitsanllm`) server upstream via [`heylook_client.py`](../../../heylook_client.py).
+![Three-rung H3 steering architecture](assets/heylook_concepts_and_auto_edit.svg)
+
+This note explains the two-stage H3 text/DiT mechanism behind **Edit Guidance** ([`edit_guidance.md`](../edit_guidance.md)) vs. **Control Vectors** ([`steering.md`](../steering.md))—plugging a local `heylook` (`heylookitsanllm`) server upstream via [`heylook_client.py`](../../../heylook_client.py).
 
 ---
 
@@ -32,7 +34,7 @@ This note explains the two-stage H3 text/DiT mechanism behind **Edit Guidance** 
 
 ### The two-stage H3 text bottleneck
 
-Every MiniMax H3 prompt runs through two text stages before the 50 DiT blocks see it ([`control_vectors.md`](../control_vectors.md#2-how-the-three-mechanisms-fit-h3s-architecture)):
+Every MiniMax H3 prompt runs through two text stages before the 50 DiT blocks see it ([`steering.md`](../steering.md#2-how-the-three-mechanisms-fit-h3s-architecture)):
 
 1. **Causal Qwen3-VL-32B encoder (`5120`-d)** + **bidirectional `condition_proj` & 2-block `TokenRefiner` (`5376`-d)** produce a sequence of `L` post-refiner context rows `[B, L, 5376]`.
 2. **50 joint audio-video DiT blocks** cross-attend video and audio queries to every token row independently across `L`.
@@ -139,7 +141,7 @@ Suppose `base_prompt` has `<Subject 1>` in `subject_definitions:` wearing `"a bl
   - `subject_definitions:`: replaces `"black sweater"` $\rightarrow$ `"1970s rust-orange wide-collar blouse and flared blue denim jeans"`.
   - `retention_analysis:`: updates `"and black sweater are retained"` $\rightarrow$ `"are retained; clothing changes to a 1970s rust-orange wide-collar blouse and flared jeans"`.
   - `detailed_description:` / `overall_soundscape:`: left byte-identical so the room, camera motion, and acoustics cancel out cleanly in $(\mathbf{v}_{\text{edited}} - \mathbf{v}_{\text{original}})$.
-- **Why this beats a pooled vector**: In [`control_vectors.md` §1](../control_vectors.md#1-which-tool-to-reach-for-and-why), pooling the `6 -> 22` token rewrite into one `5376`-d vector lost color-to-garment binding (rendering a cream blouse), whereas tokenized `MiniMaxH3EditGuider` at `scale = 1.5` preserved `<Subject 1>`'s face, hair, room, and exact rust-orange/blue garment binding.
+- **Why this beats a pooled vector**: In [`steering.md` §1](../steering.md#1-which-tool-to-reach-for-and-why), pooling the `6 -> 22` token rewrite into one `5376`-d vector lost color-to-garment binding (rendering a cream blouse), whereas tokenized `MiniMaxH3EditGuider` at `scale = 1.5` preserved `<Subject 1>`'s face, hair, room, and exact rust-orange/blue garment binding.
 
 ---
 

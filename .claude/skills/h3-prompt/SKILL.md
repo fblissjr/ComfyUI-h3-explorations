@@ -40,7 +40,7 @@ graphs.
 our shipped prompts diverged and what happened to each. Do not pattern-match a
 fix across the base and reference formats; section 12 owns the boundary.
 
-**Auto-expanding with `heylook` (`1x` Easy Button & `2x` Auto-Edit).** `h3_prompt_expander.py` (`MiniMaxH3PromptExpander`), `auto_edit_prompt.py` (`MiniMaxH3AutoEditPrompt`, `resolve_fresh_system_prompt`), `h3_prompt_contract.py`, and `docs/wiki/control_vectors/heylook_auto_edit_guidance_design.md` own the `1x` fresh expansion and `2x` surgical rewrite contract across `t2va`, `i2va`, `fl2va`, `l2va`, `ref2va`, and `single_frame` (and `h3_image_nodes.py::expand_image_prompt` owns `MiniMax-H3-Image` expansion).
+**Auto-expanding with `heylook` (`1x` Easy Button & `2x` Auto-Edit).** `h3_prompt_expander.py` (`MiniMaxH3PromptExpander`), `auto_edit_prompt.py` (`MiniMaxH3AutoEditPrompt`, `resolve_fresh_system_prompt`), `h3_prompt_contract.py`, and `docs/wiki/steering/heylook_auto_edit_guidance_design.md` own the `1x` fresh expansion and `2x` surgical rewrite contract across `t2va`, `i2va`, `fl2va`, `l2va`, `ref2va`, and `single_frame` (and `h3_image_nodes.py::expand_image_prompt` owns `MiniMax-H3-Image` expansion).
 
 **Deciding whether a prompt is good.** `python bench/grade_prompt_text.py --mode <mode> <prompt.txt>`
 grades loose text; `python bench/preflight_graph.py` grades a prompt already in a graph

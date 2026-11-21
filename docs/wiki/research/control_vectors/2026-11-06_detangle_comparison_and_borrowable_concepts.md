@@ -2,7 +2,7 @@
 
 **Date**: 2026-11-06  
 **Reference credit**: [`DeTangle`](https://github.com/matlowai/DeTangle) by Dylan Matlow (MatlowAI), inspected in `coderef/DeTangle` at commit `9945346` (`2026-10-21`).  
-**Related docs**: [`docs/wiki/control_vectors.md`](../../control_vectors.md), [`docs/wiki/research/control_vectors/2026-11-04_h3_control_vectors.md`](2026-11-04_h3_control_vectors.md), [`docs/wiki/research/control_vectors/2026-11-05_control_vector_system_prompt.md`](2026-11-05_control_vector_system_prompt.md), [`docs/wiki/research/control_vectors/2026-11-06_mainodes_comparison_and_pika_roadmap.md`](2026-11-06_mainodes_comparison_and_pika_roadmap.md), [`docs/wiki/references.md`](../../references.md).
+**Related docs**: [`docs/wiki/steering.md`](../../steering.md), [`docs/wiki/research/control_vectors/2026-11-04_h3_control_vectors.md`](2026-11-04_h3_control_vectors.md), [`docs/wiki/research/control_vectors/2026-11-05_control_vector_system_prompt.md`](2026-11-05_control_vector_system_prompt.md), [`docs/wiki/research/control_vectors/2026-11-06_mainodes_comparison_and_pika_roadmap.md`](2026-11-06_mainodes_comparison_and_pika_roadmap.md), [`docs/wiki/references.md`](../../references.md).
 
 ---
 

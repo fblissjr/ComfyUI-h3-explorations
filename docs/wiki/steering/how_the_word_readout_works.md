@@ -42,7 +42,7 @@ That is the whole readout. The rest of this page is how those two lines are made
 
 H3's text encoder is a language model with its top cut off. H3 takes the encoder's state part of the way up
 and hands it to the video model. The layers above that point, and the head that turns a state into words, are
-not in the shipped encoder file at all. [`../control_vectors.md`](../control_vectors.md) section 2 describes
+not in the shipped encoder file at all. [`../steering.md`](../steering.md) section 2 describes
 the two text stages, and section 10 of
 [`../../research/control_vectors/2026-11-12_chain_lens_digest_and_experiment_plan.md`](../research/control_vectors/2026-11-12_chain_lens_digest_and_experiment_plan.md)
 has the command that shows which encoder files carry a head.

@@ -41,7 +41,7 @@ jq '.render_catalogue[] | {date, batch, highlights}' docs/wiki/projects/2026-11-
 
 | Track | Status | Primary Wiki Hub | Key Shipped Nodes / Modules |
 | :--- | :--- | :--- | :--- |
-| **Control Vectors & J-Lens** | Active | [`../../control_vectors.md`](../../control_vectors.md) | `MiniMaxH3Steer`, `WordVector`, `ReleaseReferences`, [`j_lens.py`](../../../../j_lens.py), [`bench/control_vector/ui_server.py`](../../../../bench/control_vector/ui_server.py) |
+| **Control Vectors & J-Lens** | Active | [`../../control_vectors.md`](../../steering.md) | `MiniMaxH3Steer`, `WordVector`, `ReleaseReferences`, [`j_lens.py`](../../../../j_lens.py), [`bench/control_vector/ui_server.py`](../../../../bench/control_vector/ui_server.py) |
 | **Edit Guidance** | Active | [`../../edit_guidance.md`](../../edit_guidance.md) | [`edit_guidance.py`](../../../../edit_guidance.py) (`MiniMaxH3EditGuider`, `e0a5bb35`), [`h3_prompt_edit.py`](../../../../h3_prompt_edit.py) |
 | **Sound Cues & 2D D-Pad** | Active | [`2026-11-12_sound_cues_dpad_and_033_release_law.md`](../../research/control_vectors/2026-11-12_sound_cues_dpad_and_033_release_law.md) | [`sound_cues.py`](../../../../sound_cues.py), [`sprite_trajectory.py`](../../../../sprite_trajectory.py), `video_end_percent=0.33` |
 | **H3-Image & P-H3-Image** | Shipped | [`../../image/h3_image.md`](../../image/h3_image.md), [`../../image/p_h3_image.md`](../../image/p_h3_image.md) | [`h3_image_nodes.py`](../../../../h3_image_nodes.py), [`ph3_image_nodes.py`](../../../../ph3_image_nodes.py), `MiniMaxH3EncodeImageReferences` |

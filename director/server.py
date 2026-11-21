@@ -128,19 +128,19 @@ _PINNED_STARTER_DOCS: tuple[str, ...] = (
     "director/VISION.md",
     "director/ROADMAP.md",
     "docs/wiki/edit_guidance.md",
-    "docs/wiki/control_vectors.md",
+    "docs/wiki/steering.md",
     "director/AGENTS.md",
-    "docs/wiki/control_vectors/how_pole_a_erasure_works.md",
-    "docs/wiki/control_vectors/which_tool_and_what_to_call_it.md",
-    "docs/wiki/control_vectors/sound_cues_and_timed_masks.md",
-    "docs/wiki/control_vectors/studio_ui_guide.md",
+    "docs/wiki/steering/how_pole_a_erasure_works.md",
+    "docs/wiki/steering/which_tool_and_what_to_call_it.md",
+    "docs/wiki/steering/sound_cues_and_timed_masks.md",
+    "docs/wiki/steering/studio_ui_guide.md",
 )
 _DOC_GROUP_ORDER: tuple[str, ...] = (
     "1. Spatial Director & Steering",
     "2. Overview & Wiki Routers",
     "3. Core Video, Clocks & Audio",
     "4. Single-Frame Image",
-    "5. Control Vectors & J-Lens",
+    "5. Steering & J-Lens",
     "6. Attention, Sol & Quant",
     "7. Prompting & System Prompts",
     "8. Masked V2V Pipeline",
@@ -482,8 +482,8 @@ def _categorize_doc_rel(rel: str) -> str:
         return "3. Core Video, Clocks & Audio"
     if rel.startswith("docs/wiki/image/"):
         return "4. Single-Frame Image"
-    if rel.startswith("docs/wiki/control_vectors/"):
-        return "5. Control Vectors & J-Lens"
+    if rel.startswith("docs/wiki/steering/"):
+        return "5. Steering & J-Lens"
     if rel.startswith("docs/wiki/attention/"):
         return "6. Attention, Sol & Quant"
     if rel.startswith("docs/wiki/prompting/") or rel.startswith("docs/wiki/system_prompts/"):

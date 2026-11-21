@@ -24,7 +24,7 @@ A fourth thing is sometimes counted as a method and is not one: a **word vector*
 control vector made from a word list instead of from pairs. It goes through the same `MiniMaxH3Steer` node.
 Section 6 gives the word-vector equivalent of each concept; none was rendered here.
 
-[`../../wiki/control_vectors/which_tool_and_what_to_call_it.md`](../../control_vectors/which_tool_and_what_to_call_it.md)
+[`../../wiki/control_vectors/which_tool_and_what_to_call_it.md`](../../steering/which_tool_and_what_to_call_it.md)
 has the comparison in full.
 
 ## 2. The eight concepts

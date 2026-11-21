@@ -2,7 +2,7 @@
 
 **Date**: 2026-11-06 (All 5 holistic invariants landed on `main` at `93dbe8d3`, `0d2ad8a9`, and `4ea73adb`)  
 **Companion docs**: [`2026-11-06_fresh_eye_audit_and_holistic_resolution.md`](2026-11-06_fresh_eye_audit_and_holistic_resolution.md), [`2026-11-06_holistic_stack_review_and_invariants.md`](2026-11-06_holistic_stack_review_and_invariants.md)  
-**Related docs**: [`../../wiki/control_vectors.md`](../../control_vectors.md), [`2026-11-06_j_lens_and_refiner_jacobian.md`](2026-11-06_j_lens_and_refiner_jacobian.md), [`2026-11-06_mainodes_comparison_and_pika_roadmap.md`](2026-11-06_mainodes_comparison_and_pika_roadmap.md), [`2026-11-06_detangle_comparison_and_borrowable_concepts.md`](2026-11-06_detangle_comparison_and_borrowable_concepts.md).
+**Related docs**: [`../../wiki/control_vectors.md`](../../steering.md), [`2026-11-06_j_lens_and_refiner_jacobian.md`](2026-11-06_j_lens_and_refiner_jacobian.md), [`2026-11-06_mainodes_comparison_and_pika_roadmap.md`](2026-11-06_mainodes_comparison_and_pika_roadmap.md), [`2026-11-06_detangle_comparison_and_borrowable_concepts.md`](2026-11-06_detangle_comparison_and_borrowable_concepts.md).
 
 ---
 
@@ -148,7 +148,7 @@ In [`control_vector_nodes.py:1289-1400`](../../../../control_vector_nodes.py#L12
         s0 = max(0.0, min(2.0, s0))
     ```
     (and identically for `sj` at `L1322`). This allows `video_scale=0.0, audio_scale=1.0` on a `mode="hold"` node to scrub a nuisance direction from audio only (`alpha_aud = 1.0, alpha_vid = 0.0`) while guaranteeing a negative stream scale can never invert a hold into an addition.
-- **Documentation alignment**: Update [`docs/wiki/control_vectors.md`](../../control_vectors.md) so the prose states the per-stream conditioning + `[out_vid[0], out_aud[1]]` splice formula accurately.
+- **Documentation alignment**: Update [`docs/wiki/steering.md`](../../steering.md) so the prose states the per-stream conditioning + `[out_vid[0], out_aud[1]]` splice formula accurately.
 
 ### 5.2 Cross-Family `fingerprint_inputs` ([`control_vector_nodes.py:2614-2628`](../../../../control_vector_nodes.py#L2614-L2628))
 - Stat all family-resolved candidates `(None, "fl2va", "ref2va")` in `fingerprint_inputs` (unwrapping when a single file resolves so existing 3-tuple `(path, mtime_ns, size)` callers stay compatible, and returning a tuple of 3-tuples when both `__fl2va__` and `__ref2va__` siblings exist) so rebuilding either family sibling on disk invalidates ComfyUI's execution cache:
@@ -191,4 +191,4 @@ In [`control_vector_nodes.py:1289-1400`](../../../../control_vector_nodes.py#L12
 2. **`jlens-holistic-readout` (`0d2ad8a9`)** — **Landed on `main`**:
    - `basis`/`basis_note` in `assess_steering_readiness`, `token_heatmap` in `analyze_prompt_coupling`, `decode_recipe`, `save_composed_recipe_vector`, and `"->"` / `"|||"` split in `synthesize_from_words`.
 3. **`cvman-holistic-workbench` + `dials-holistic-checks` (`4ea73adb`)** — **Landed on `main`**:
-   - Enforced Invariants 1–5 across `control_vector_nodes.py`, `control_vectors.py`, `h3_spans.py`, `h3_pair_compiler.py`, `j_lens.py`, `bench/control_vectors.py`, `bench/control_vector_ui.html` (since refactored into `bench/control_vector/web/`), and `docs/wiki/control_vectors.md`, with `C1`–`C7` green in `bench/check_control_vectors.py` and all worktrees removed.
+   - Enforced Invariants 1–5 across `control_vector_nodes.py`, `control_vectors.py`, `h3_spans.py`, `h3_pair_compiler.py`, `j_lens.py`, `bench/control_vectors.py`, `bench/control_vector_ui.html` (since refactored into `bench/control_vector/web/`), and `docs/wiki/steering.md`, with `C1`–`C7` green in `bench/check_control_vectors.py` and all worktrees removed.

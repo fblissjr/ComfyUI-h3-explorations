@@ -117,12 +117,19 @@ Compiles `"pole_a -> pole_b"` inside `--target-prompt-file` (plus `--bank-scenes
 - Separate multiple simultaneous clause swaps with `;` or newlines; prefix acoustic swaps with `soundscape: old -> new` and hold clauses with `hold: neutral -> nuisance`.
 
 ### Method 2 — `build` / `from-toml` (reusable 6–10 pair library vector)
-Builds `fl2va` (default; shared cleanly across `{fl2va, ref2va}` at `cos ~0.99`, pass `--families both` only if you want a separate `ref2va` sibling) `.safetensors` files + companion `.md` J-Lens audit cards from a `.toml` or LLM `.md` file:
+Builds `fl2va` (default; shared cleanly across `{fl2va, ref2va}` at `cos ~0.99`; pass `--families both` only if you want a separate `ref2va` sibling) or native `MiniMax-H3-Image` **`h3_image`** (`--families h3_image`, zero LoRAs, `H3_IMAGE_UNET`, verified on `4.0 MP` stills with `J_ref_h3_image`) `.safetensors` files + companion `.md` J-Lens audit cards from a `.toml` or LLM `.md` file:
 ```bash
+# Video (fl2va, shared with ref2va):
 /path/to/comfy-venv/bin/python bench/control_vectors.py build \
   prompt_bank/control_vectors/film_16mm_1974_neutral.toml \
   --families fl2va --overwrite
+
+# Native MiniMax-H3-Image look vector:
+/path/to/comfy-venv/bin/python bench/control_vectors.py build \
+  prompt_bank/control_vectors/noir.toml \
+  --families h3_image --overwrite
 ```
+- When authoring pairs from an idea or existing card via `generate-pairs`, the CLI defaults to `heylook` and accepts `--from-concept <toml>` (synthesizing 10 Gates A–D pairs from a `data/edit_concepts/*.toml` brief) or `--repair <toml>` (repairing warnings in an older pair file).
 - When building `ref2va` vectors that specifically steer `<Subject 1>` interaction with encoded `<Picture 1>` vision tokens, pass `--ref-images path/to/ref.png` (or wire `encoded_references` into `MiniMaxH3MakeControlVector`).
 
 ### Method 3 — `words` and `sculpt` (`< 5 ms` on CPU, zero GPU load)

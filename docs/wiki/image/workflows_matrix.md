@@ -9,7 +9,7 @@ Prose guides & companion index: [`image/h3_image.md`](h3_image.md), [`image/p_h3
 
 ## Architecture & Data Flow by Model Variant
 
-### MiniMax-H3-Image (6 workflows: 3 T2I, 3 Edit)
+### MiniMax-H3-Image (8 workflows: 4 T2I, 4 Edit)
 
 - **Latent & stream structure**: 1-stream image latent `[1, 24, 1, H//16, W//16]` (no audio stream, no `MiniMaxH3SigmaShift`, no `MiniMaxH3Preflight`)
 - **DiT(s)**: `minimax_h3_image_pruned_int8_convrot.safetensors`
@@ -20,8 +20,10 @@ Prose guides & companion index: [`image/h3_image.md`](h3_image.md), [`image/p_h3
 - **Sampler / steps / shift**: `euler · 6 · shift none`
 - **Output node(s)**: `PreviewImage`
 - **T2I data flow**: `MiniMaxH3ImageSize -> MiniMaxH3ImageConditioning -> SamplerCustomAdvanced -> VAEDecode -> MiniMaxH3ImageDownscale -> PreviewImage`
+- **T2I data flow**: `MiniMaxH3ImageSize -> MiniMaxH3ImageConditioning -> SamplerCustomAdvanced (MiniMaxH3Steer) -> VAEDecode -> MiniMaxH3ImageDownscale -> PreviewImage`
 - **T2I + heylook data flow**: `MiniMaxH3ImagePromptExpander -> MiniMaxH3ImageSize -> MiniMaxH3ImageConditioning -> SamplerCustomAdvanced -> VAEDecode -> MiniMaxH3ImageDownscale -> PreviewImage`
 - **Edit data flow**: `LoadImage x1 -> MiniMaxH3ImageSize -> MiniMaxH3VAEPrecision(enc=fp32) -> MiniMaxH3EncodeImageReferences -> MiniMaxH3PromptOnImageReferences -> SamplerCustomAdvanced -> VAEDecode -> MiniMaxH3ImageDownscale -> PreviewImage`
+- **Edit data flow**: `LoadImage x1 -> MiniMaxH3ImageSize -> MiniMaxH3VAEPrecision(enc=fp32) -> MiniMaxH3EncodeImageReferences -> MiniMaxH3PromptOnImageReferences -> SamplerCustomAdvanced (MiniMaxH3Steer + MiniMaxH3ReleaseReferences) -> VAEDecode -> MiniMaxH3ImageDownscale -> PreviewImage`
 - **Edit + heylook data flow**: `MiniMaxH3ImagePromptExpander -> LoadImage x1 -> MiniMaxH3ImageSize -> MiniMaxH3VAEPrecision(enc=fp32) -> MiniMaxH3EncodeImageReferences -> MiniMaxH3PromptOnImageReferences -> SamplerCustomAdvanced -> VAEDecode -> MiniMaxH3ImageDownscale -> PreviewImage`
 
 ### P-H3-Image (10 workflows: 5 T2I, 5 Edit)
@@ -58,14 +60,16 @@ Prose guides & companion index: [`image/h3_image.md`](h3_image.md), [`image/p_h3
 - **Edit (guide latent) data flow**: `LoadImage x1 -> MiniMaxH3Resolution -> MiniMaxH3Conditioning(single_frame=True) -> MiniMaxH3GuideLatent(frame=0, single_frame=True) -> MiniMaxH3Preflight -> SamplerCustomAdvanced -> VAEDecode -> PreviewImage`
 - **Edit (guide latent) data flow**: `LoadImage x1 -> MiniMaxH3Resolution -> MiniMaxH3Conditioning(single_frame=True) -> MiniMaxH3GuideLatent(frame=0, single_frame=True) -> MiniMaxH3Preflight -> SamplerCustomAdvanced (MiniMaxH3Steer + MiniMaxH3ReleaseReferences) -> VAEDecode -> PreviewImage`
 
-## Image Workflows Matrix (24 graphs)
+## Image Workflows Matrix (26 graphs)
 
 | Workflow | Variant | Task & Flow | DiT & LoRA | Qwen TE | VAE & Precision | Size / MP Defaults | Sampler · Steps · Shift | Steering / Seed / Output |
 |---|---|---|---|---|---|---|---|---|
 | [`h3_image_t2i_api.json`](../../../workflows/image/h3_image_t2i_api.json) | MiniMax-H3-Image | T2I | `minimax_h3_image_pruned_int8_convrot.safetensors` | `qwen3vl_32b_minimax_h3_bf16_pruned.safetensors` | `p-h3-image_vae_int8_convrot.safetensors` | `4:3`: 16 -> 4 MP (downscale) | `euler · 6 · shift none` | seed `42` · `PreviewImage` |
+| [`h3_image_t2i_control_vector_api.json`](../../../workflows/image/h3_image_t2i_control_vector_api.json) | MiniMax-H3-Image | T2I + CV | `minimax_h3_image_pruned_int8_convrot.safetensors` | `qwen3vl_32b_minimax_h3_bf16_pruned.safetensors` | `p-h3-image_vae_int8_convrot.safetensors` | `4:3`: 16 -> 4 MP (downscale) | `euler · 6 · shift none` | `MiniMaxH3Steer(noir, 1.15, add_norm_matched_erasure, scene_only)` · seed `42` · `PreviewImage` |
 | [`h3_image_t2i_heylook_api.json`](../../../workflows/image/h3_image_t2i_heylook_api.json) | MiniMax-H3-Image | T2I + `MiniMaxH3ImagePromptExpander` (`auto`) | `minimax_h3_image_pruned_int8_convrot.safetensors` | `qwen3vl_32b_minimax_h3_bf16_pruned.safetensors` | `p-h3-image_vae_int8_convrot.safetensors` | `4:3 (expander)`: 16 -> 4 MP (downscale) | `euler · 6 · shift none` | seed `42` · `PreviewImage` |
 | [`h3_preview_image_t2i_api.json`](../../../workflows/image/h3_preview_image_t2i_api.json) | MiniMax-H3-Image | T2I | `minimax_h3_image_pruned_int8_convrot.safetensors` | `qwen3vl_32b_minimax_h3_bf16_pruned.safetensors` | `p-h3-image_vae_int8_convrot.safetensors` | `4:3`: 16 -> 4 MP (downscale) | `euler · 6 · shift none` | seed `42` · `PreviewImage` |
 | [`h3_image_edit_api.json`](../../../workflows/image/h3_image_edit_api.json) | MiniMax-H3-Image | Edit 1 ref (supports 1..16, `crop_32`) | `minimax_h3_image_pruned_int8_convrot.safetensors` | `qwen3vl_32b_minimax_h3_bf16_pruned.safetensors` | `p-h3-image_vae_int8_convrot.safetensors (enc=fp32, dec=native)` | `same as the picture`: 16 -> 4 MP (downscale) | `euler · 6 · shift none` | seed `1234` · `PreviewImage` |
+| [`h3_image_edit_control_vector_api.json`](../../../workflows/image/h3_image_edit_control_vector_api.json) | MiniMax-H3-Image | Edit 1 ref (supports 1..16, `crop_32`) + CV | `minimax_h3_image_pruned_int8_convrot.safetensors` | `qwen3vl_32b_minimax_h3_bf16_pruned.safetensors` | `p-h3-image_vae_int8_convrot.safetensors (enc=fp32, dec=native)` | `same as the picture`: 16 -> 4 MP (downscale) | `euler · 6 · shift none` | `MiniMaxH3Steer(film_16mm_1974, 1.15, add_norm_matched_erasure, scene_only)` · `MiniMaxH3ReleaseReferences(end=0.5, clean=0.999)` · seed `1234` · `PreviewImage` |
 | [`h3_image_edit_heylook_api.json`](../../../workflows/image/h3_image_edit_heylook_api.json) | MiniMax-H3-Image | Edit 1 ref (supports 1..16, `crop_32`) + `MiniMaxH3ImagePromptExpander` (`auto`) | `minimax_h3_image_pruned_int8_convrot.safetensors` | `qwen3vl_32b_minimax_h3_bf16_pruned.safetensors` | `p-h3-image_vae_int8_convrot.safetensors (enc=fp32, dec=native)` | `same as the picture (expander)`: 16 -> 4 MP (downscale) | `euler · 6 · shift none` | seed `1234` · `PreviewImage` |
 | [`h3_preview_image_edit_api.json`](../../../workflows/image/h3_preview_image_edit_api.json) | MiniMax-H3-Image | Edit 1 ref (supports 1..16, `crop_32`) | `minimax_h3_image_pruned_int8_convrot.safetensors` | `qwen3vl_32b_minimax_h3_bf16_pruned.safetensors` | `p-h3-image_vae_int8_convrot.safetensors (enc=fp32, dec=native)` | `same as the picture`: 16 -> 4 MP (downscale) | `euler · 6 · shift none` | seed `1234` · `PreviewImage` |
 | [`h3_p_h3_image_lora_t2i_api.json`](../../../workflows/image/h3_p_h3_image_lora_t2i_api.json) | P-H3-Image | T2I LoRA on `fl2va` | `minimax_h3_fl2va_pruned_int8_convrot.safetensors + h3/p-h3-image_lora_bf16.safetensors (1)` | `qwen3vl_32b_minimax_h3_bf16_pruned.safetensors` | `p-h3-image_vae_int8_convrot.safetensors` | `1:1`: 8 -> 4 MP (downscale) | `euler · 8 · shift 1 / 1` | seed `730451892` · `PreviewImage` |

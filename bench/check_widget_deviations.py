@@ -393,29 +393,33 @@ DECLARED: dict[tuple[str, str], tuple] = {
                 "'reverb_cathedral' on the second chained node of "
                 "h3_text_to_video_pika_dual_control_vectors, 'noir'/'chaos_panic'/'reverb_cathedral' "
                 "on h3_text_to_video_pika_stacked_erasure, and 'noir' on "
-                "h3_first_last_frame_pika_control_vector and h3_spatial_portal_pika_erasure, "
-                "auto-resolved at run time to the loaded fl2va/ref2va + LoRA sibling) applied on "
+                "h3_first_last_frame_pika_control_vector, h3_spatial_portal_pika_erasure, and "
+                "h3_image_t2i_control_vector, "
+                "auto-resolved at run time to the loaded fl2va/ref2va/h3_image + LoRA sibling) applied on "
                 "h3_text_to_video_pika_control_vector, "
                 "h3_text_to_video_pika_dual_control_vectors, "
                 "h3_text_to_video_pika_stacked_erasure, "
                 "h3_first_last_frame_pika_control_vector, "
                 "h3_image_ref_plus_text_to_video_pika_control_vector, "
                 "h3_spatial_portal_pika_erasure, "
+                "h3_image_t2i_control_vector, "
+                "h3_image_edit_control_vector, "
                 "h3_p_h3_image_t2i_control_vector, "
                 "h3_p_h3_image_edit_control_vector, "
                 "h3_pika_image_t2i_control_vector, "
                 "h3_pika_image_edit_control_vector, and "
                 "h3_probe_pika_image_guide_edit_control_vector, against the node default 'none' "
-                "(2026-11-11, docs/wiki/control_vectors.md)"),
+                "(2026-11-11, docs/wiki/steering.md)"),
     ("MiniMaxH3Steer", "strength"):
         ("ARM", "the arm's post-refiner control-vector multiplier in add_norm_matched_erasure / "
                 "add_norm_matched units (+1.15 on film_16mm_1974 across the t2va, dual t2va, ref2va, "
-                "P-H3-Image, Pika image, and Pika guide-edit arms, +1.25 on reverb_cathedral on "
+                "H3-Image, P-H3-Image, Pika image, and Pika guide-edit arms and on noir in "
+                "h3_image_t2i_control_vector, +1.25 on reverb_cathedral on "
                 "the dual/stacked t2va arms, +1.55 on noir and +0.90 on chaos_panic in "
                 "h3_text_to_video_pika_stacked_erasure, +1.55 on noir in "
                 "h3_first_last_frame_pika_control_vector, and +1.6 on noir in "
                 "h3_spatial_portal_pika_erasure), "
-                "against the node default 1.0 (2026-11-11, docs/wiki/control_vectors.md)"),
+                "against the node default 1.0 (2026-11-11, docs/wiki/steering.md)"),
     ("MiniMaxH3Steer", "target"):
         ("ARM", "task-specific prompt-row targets against the node default 'scene_only': "
                 "'description_only' on h3_image_ref_plus_text_to_video_pika_control_vector and "
@@ -424,12 +428,12 @@ DECLARED: dict[tuple[str, str], tuple] = {
                 "'soundscape_only' on node 125 of h3_text_to_video_pika_dual_control_vectors and "
                 "node 126 of h3_text_to_video_pika_stacked_erasure so "
                 "reverb_cathedral steers overall_soundscape independently of the visual prose "
-                "(2026-11-11, docs/wiki/control_vectors.md)"),
+                "(2026-11-11, docs/wiki/steering.md)"),
     ("MiniMaxH3Steer", "edit_pass"):
         ("ARM", "'edited_only' on h3_spatial_portal_pika_erasure against the node default 'both': "
                 "applies Pole-A erasure noir steering exclusively inside the MiniMaxH3EditGuider "
                 "edited branch while leaving the original branch unsteered under same_prompt=True "
-                "(2026-11-21, docs/wiki/control_vectors/how_pole_a_erasure_works.md)"),
+                "(2026-11-21, docs/wiki/steering/how_pole_a_erasure_works.md)"),
     ("MiniMaxH3PromptEdit", "edits"):
         ("ARM", "the graph's edit lines, data from prompt_bank/edit_guidance/, on "
                 "h3_text_to_video_pika_edit_guidance and "
@@ -474,16 +478,17 @@ DECLARED: dict[tuple[str, str], tuple] = {
                 "against the node default 0 on the frame-0 visual guide graphs "
                 "(2026-11-12, docs/wiki/research/2026-11-12_guide_sound_islands_and_kinematic_dpad.md)."),
     ("MiniMaxH3ReleaseReferences", "end_percent"):
-        ("ARM", "0.33 on h3_first_last_frame_pika_control_vector, against the node default 1.0: "
-                "releases first/last-frame VAE keyframe locks after step 1 (midpoint b = 0.50) "
-                "so Pole-A erasure noir converts sunlit keyframe color across steps 2..5 while "
-                "holding framing and pose anchors from steps 0..1 (2026-11-21)."),
+        ("ARM", "0.33 on h3_first_last_frame_pika_control_vector and 0.50 on "
+                "h3_image_edit_control_vector, against the node default 1.0: "
+                "releases first/last-frame or <Picture N> VAE reference locks mid-denoise "
+                "so Pole-A erasure transfers palette/film stock while preserving framing and "
+                "early subject identity (2026-11-21)."),
     ("MiniMaxH3ReleaseReferences", "audio_end_percent"):
         ("ARM", "0.60 (h3_config.SOUND_GUIDE_AUDIO_RELEASE_END) on "
-                "h3_text_to_video_pika_sound_guide and h3_image_ref_dpad_sound_pika, "
+                "h3_text_to_video_pika_sound_guide and h3_image_ref_dpad_sound_pika, and "
+                "0.33 on 1x BasicGuider h3_text_to_video_pika_sound_cues_1x, "
                 "against the node default 1.0: releases the timeline cond_audio islands "
-                "after step 3 (frac < 0.60 on 6-step Pika LCM) so steps 4..5 run 1-pass "
-                "[original] cleanly (2026-11-12, "
+                "mid-denoise so foley timing locks without muting inter-event ambience (2026-11-12, "
                 "docs/wiki/research/control_vectors/2026-11-12_sound_cues_dpad_and_033_release_law.md)."),
     ("MiniMaxH3ReleaseReferences", "video_end_percent"):
         ("ARM", "0.33 (h3_config.DPAD_VIDEO_RELEASE_END) on h3_image_ref_dpad_sound_pika, "
@@ -493,10 +498,11 @@ DECLARED: dict[tuple[str, str], tuple] = {
                 "end_percent = 1.0 across all 6 steps, unlocking articulated backward leg "
                 "strides on steps 2..5 instead of a static cutout glide (2026-11-12)."),
     ("MiniMaxH3SoundCues", "cues"):
-        ("ARM", "'54: hop' (h3_config.DPAD_SOUND_CUES) on h3_image_ref_dpad_sound_pika, "
-                "anchoring a single 200 ms touchdown hop cue at frame 54 to match the "
-                "sprite trajectory's hop 44..54 landing, against the node default 3-event "
-                "beat sheet ('24: hop\\n54: snap\\n57: slam\\n96: hop') (2026-11-12)."),
+        ("ARM", "'54: hop' (h3_config.DPAD_SOUND_CUES) on h3_image_ref_dpad_sound_pika, and "
+                "'24: thud\\n72: click\\n114: slam' on 1x h3_text_to_video_pika_sound_cues_1x, "
+                "anchoring 3f-snapped foley cues on freight elevator / sprite beats, "
+                "against the node default 3-event beat sheet ('24: hop\\n54: snap\\n57: slam\\n96: hop') "
+                "(2026-11-12)."),
     ("MiniMaxH3EditGuider", "scale"):
         ("ARM", "1.6 (h3_config.SOUND_GUIDE_EDIT_GUIDANCE['scale']) on "
                 "h3_text_to_video_pika_sound_guide and h3_image_ref_dpad_sound_pika "
@@ -536,31 +542,31 @@ DECLARED: dict[tuple[str, str], tuple] = {
         ("ARM", "'add_norm_matched' on the baseline 1D branch (node 170) of "
                 "h3_text_to_video_pika_1d_vs_erasure_ab so one click compares legacy 1D "
                 "against the right-hand 'add_norm_matched_erasure' default on identical "
-                "seed and sigmas (2026-11-21, docs/wiki/control_vectors/tutorials_progressive_guide.md)"),
+                "seed and sigmas (2026-11-21, docs/wiki/steering/tutorials_progressive_guide.md)"),
     ("MiniMaxH3Steer", "hold_words"):
         ("ARM", "'coat, parka' on h3_text_to_video_pika_word_vector_erasure against the empty "
                 "default: scrubs winter-parka garment drift per token row while steering the "
-                "hardware aisle into a snowstorm (2026-11-21, docs/wiki/control_vectors/j_lens_diagnostics_and_word_lab.md)"),
+                "hardware aisle into a snowstorm (2026-11-21, docs/wiki/steering/j_lens_diagnostics_and_word_lab.md)"),
     ("MiniMaxH3Steer", "hold_alpha"):
         ("ARM", "0.5 soft per-row hold scrubbing on h3_text_to_video_pika_word_vector_erasure "
-                "against the node default 1.0 (2026-11-21, docs/wiki/control_vectors/j_lens_diagnostics_and_word_lab.md)"),
+                "against the node default 1.0 (2026-11-21, docs/wiki/steering/j_lens_diagnostics_and_word_lab.md)"),
     ("MiniMaxH3WordVector", "words"):
         ("ARM", "positive target words ('blizzard, snowstorm, frost, freezing, gale') on "
                 "h3_text_to_video_pika_word_vector_erasure against the empty default "
-                "(2026-11-21, docs/wiki/control_vectors/tutorials_progressive_guide.md)"),
+                "(2026-11-21, docs/wiki/steering/tutorials_progressive_guide.md)"),
     ("MiniMaxH3WordVector", "against_words"):
         ("ARM", "'@replace_digital, sunny, warm, indoor, afternoon' on "
                 "h3_text_to_video_pika_word_vector_erasure against the empty default: "
                 "builds an on-CPU rank-r against-SVD erasure subspace in < 2 ms "
-                "(2026-11-21, docs/wiki/control_vectors/tutorials_progressive_guide.md)"),
+                "(2026-11-21, docs/wiki/steering/tutorials_progressive_guide.md)"),
     ("MiniMaxH3MakeMediaControlVector", "scene_prompt"):
         ("ARM", "the graph's ref2va scene prompt on h3_image_ref_make_media_erasure_pika "
                 "against the empty default: required text context when encoding <Picture 1> "
-                "image_a vs image_b pairs (2026-11-21, docs/wiki/control_vectors/building_pairs_and_vectors.md)"),
+                "image_a vs image_b pairs (2026-11-21, docs/wiki/steering/building_pairs_and_vectors.md)"),
     ("MiniMaxH3MakeMediaControlVector", "overwrite"):
         ("ARM", "True on h3_image_ref_make_media_erasure_pika against the node default False "
                 "so re-queuing the playground overwrites media_contrast__ref2va cleanly "
-                "(2026-11-21, docs/wiki/control_vectors/tutorials_progressive_guide.md)"),
+                "(2026-11-21, docs/wiki/steering/tutorials_progressive_guide.md)"),
     ("MiniMaxH3DirectorHUD", "hud_layout"):
         ("ARM", "'split_ab_card' on h3_text_to_video_pika_1d_vs_erasure_ab against the node "
                 "default 'director_card': renders baseline_images (1D) and images (Pole-A Erasure) "

@@ -9,7 +9,7 @@ All active repository documentation lives in the **LLM Wiki** under [`wiki/index
 | `docs/wiki/` | Front-and-center LLM Wiki router & top-level mode guides | [`wiki/index.md`](wiki/index.md), [`wiki/h3_uses.md`](wiki/h3_uses.md), [`wiki/stages.md`](wiki/stages.md) |
 | `docs/wiki/core/` | Core H3 temporal/VAE clocks, conditioning, references, distills, audio freeze | [`wiki/core/h3_frame_rules.md`](wiki/core/h3_frame_rules.md) |
 | `docs/wiki/image/` | Single-frame image generation & editing (`MiniMax-H3-Image`, `P-H3-Image`, Pika `t=1`) | [`wiki/image/h3_image.md`](wiki/image/h3_image.md), [`wiki/image/p_h3_image.md`](wiki/image/p_h3_image.md) |
-| `docs/wiki/control_vectors/` | User/agent guides for post-refiner steering, J-Lens readouts, Studio UI, CLI | [`wiki/control_vectors.md`](wiki/control_vectors.md), [`wiki/edit_guidance.md`](wiki/edit_guidance.md) |
+| `docs/wiki/steering/` | User/agent guides for post-refiner steering, J-Lens readouts, Mobile Studio `/lab` & CLI UI | [`wiki/steering.md`](wiki/steering.md), [`wiki/edit_guidance.md`](wiki/edit_guidance.md) |
 | `docs/wiki/attention/` | `MiniMaxH3Sol`, `comfy-kitchen` kernels, quantization policy, Block 49 | [`wiki/attention/SOLATTN.md`](wiki/attention/SOLATTN.md), [`wiki/attention/comfy_kitchen.md`](wiki/attention/comfy_kitchen.md) |
 | `docs/wiki/prompting/` | Prompt rules, `grade_prompt_text.py` checks, sharded manual, prompt bank | [`wiki/prompting/prompting.md`](wiki/prompting/prompting.md) |
 | `docs/wiki/system_prompts/` | Runtime system prompt templates read by ComfyUI nodes & bench compilers | [`wiki/system_prompts/README.md`](wiki/system_prompts/README.md) |

@@ -9,7 +9,7 @@ is a snapshot of `856d4ac8`. Section 13 says what to check again before acting o
 
 Related: [`2026-11-06_j_lens_and_refiner_jacobian.md`](2026-11-06_j_lens_and_refiner_jacobian.md),
 [`../../../bench/results/2026-11-05_control_vectors_pika_and_ref2va.md`](../../../../bench/results/2026-11-05_control_vectors_pika_and_ref2va.md),
-[`../../wiki/control_vectors.md`](../../control_vectors.md).
+[`../../wiki/control_vectors.md`](../../steering.md).
 
 ## 0. Where things stand (read this first)
 
@@ -70,8 +70,8 @@ Running beside these, and blocking none of them: the J-Lens decision (section 17
 
 | Defect | Where |
 |---|---|
-| `completely_preserved` taught as a retention marker; the release's closed set is `fully_preserved`, `partially_preserved`, `attribute_transfer`, `weak_reference` | `docs/wiki/system_prompts/h3_control_vector_system_prompt.md` (the example and the list), `docs/wiki/control_vectors/examples_and_recipes.md` (the advice and the worked prompt); all from `7c01c792` |
-| The wiki says holds use `torch.linalg.qr`; the code is a two-pass Gram-Schmidt loop | `docs/wiki/control_vectors/building_pairs_and_vectors.md` against `control_vectors.py::hold_basis` |
+| `completely_preserved` taught as a retention marker; the release's closed set is `fully_preserved`, `partially_preserved`, `attribute_transfer`, `weak_reference` | `docs/wiki/system_prompts/h3_control_vector_system_prompt.md` (the example and the list), `docs/wiki/steering/examples_and_recipes.md` (the advice and the worked prompt); all from `7c01c792` |
+| The wiki says holds use `torch.linalg.qr`; the code is a two-pass Gram-Schmidt loop | `docs/wiki/steering/building_pairs_and_vectors.md` against `control_vectors.py::hold_basis` |
 | An image prompt compiles to `frame="raw"`, which the validator rejects | finding 2 |
 | The Pair 0 splice, its silent no-op and its truncation of the pair list | finding 3 |
 | A pole that occurs twice is replaced once in silence; `;` inside prose splits a clause | finding 4 |
@@ -806,7 +806,7 @@ pass.
 
 ## 18. The wiki pages: what is rewritten, and by what rules
 
-The pages under `docs/wiki/control_vectors.md`, `docs/wiki/control_vectors/` and
+The pages under `docs/wiki/steering.md`, `docs/wiki/control_vectors/` and
 `docs/wiki/system_prompts/h3_control_vector_system_prompt.md` were rewritten in `7c01c792`, before the fixes,
 the fork and the CLI change. Most of what they say about commands, defaults and methods will be wrong again
 when those land, so they are rewritten once more, after step 6 of 0.1 and not before.

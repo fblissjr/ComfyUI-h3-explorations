@@ -4023,7 +4023,7 @@ class MiniMaxH3ApplyControlVectors(io.ComfyNode):
         vec_fp: Any = "none"
         if raw and raw != "none":
             resolved_stats: list[tuple[str, int, int]] = []
-            for pref_fam in (None, "fl2va", "ref2va"):
+            for pref_fam in (None, "fl2va", "ref2va", "h3_image"):
                 try:
                     full = resolve_vector_file_path(
                         raw, preferred_family=pref_fam, log_swap=False
@@ -4165,7 +4165,7 @@ def _vector_file_fingerprint(raw_name: str) -> Any:
     if not raw or raw == "none":
         return "none"
     resolved_stats: list[tuple[str, int, int]] = []
-    for pref_fam in (None, "fl2va", "ref2va"):
+    for pref_fam in (None, "fl2va", "ref2va", "h3_image"):
         try:
             full = resolve_vector_file_path(raw, preferred_family=pref_fam, log_swap=False)
             st = os.stat(full)

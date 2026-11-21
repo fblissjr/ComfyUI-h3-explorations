@@ -11,7 +11,7 @@ Two timeline conditioning nodes and one selective release rule address this insi
 Companion records:
 - Raw experiment scripts, graphs, and per-arm metrics: `data/guide_sound_2026-11-12/` and `data/ref_signal_2026-11-12/`
 - Chronological lab notebook (`exp1`, `exp2`, and `exp2_dpad` initial runs): [`docs/wiki/research/2026-11-12_guide_sound_islands_and_kinematic_dpad.md`](../2026-11-12_guide_sound_islands_and_kinematic_dpad.md)
-- Node reference & wiki routers: [`docs/wiki/control_vectors/comfyui_nodes_and_controls.md`](../../control_vectors/comfyui_nodes_and_controls.md), [`docs/wiki/edit_guidance.md`](../../edit_guidance.md), [`docs/wiki/h3_uses.md`](../../h3_uses.md)
+- Node reference & wiki routers: [`docs/wiki/steering/comfyui_nodes_and_controls.md`](../../steering/comfyui_nodes_and_controls.md), [`docs/wiki/edit_guidance.md`](../../edit_guidance.md), [`docs/wiki/h3_uses.md`](../../h3_uses.md)
 
 ---
 

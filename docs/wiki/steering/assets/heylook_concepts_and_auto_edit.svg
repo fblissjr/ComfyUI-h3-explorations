@@ -1,0 +1,139 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 460" width="100%" height="100%" role="img" aria-label="Three-rung H3 steering architecture and unified Mobile Studio surfaces">
+  <defs>
+    <filter id="cardShadowH3" x="-4%" y="-4%" width="108%" height="112%">
+      <feDropShadow dx="0" dy="3" stdDeviation="5" flood-color="#0f172a" flood-opacity="0.06"/>
+    </filter>
+    <marker id="arrDark" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 1 1.5 L 8.5 5 L 1 8.5 z" fill="#475569"/>
+    </marker>
+    <marker id="arrTeal" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 1 1.5 L 8.5 5 L 1 8.5 z" fill="#0d9488"/>
+    </marker>
+    <marker id="arrAmber" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 1 1.5 L 8.5 5 L 1 8.5 z" fill="#b45309"/>
+    </marker>
+    <marker id="arrIndigo" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 1 1.5 L 8.5 5 L 1 8.5 z" fill="#4338ca"/>
+    </marker>
+  </defs>
+
+  <style>
+    .canvas { fill: #faf9f5; stroke: #e5e3dc; stroke-width: 1.5; rx: 16px; }
+    .card { fill: #ffffff; stroke: #e2e8f0; stroke-width: 1.4; rx: 12px; filter: url(#cardShadowH3); }
+    .heading { font-family: Georgia, "Newsreader", "Charter", serif; font-size: 20px; font-weight: 700; fill: #18181b; }
+    .subhead { font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 12.5px; fill: #475569; }
+    .sec-title { font-family: Georgia, "Newsreader", "Charter", serif; font-size: 15px; font-weight: 700; fill: #1e293b; }
+    .box-title { font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 12.5px; font-weight: 700; }
+    .mono { font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; font-size: 11px; font-weight: 600; fill: #1e293b; }
+    .caption { font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 11.2px; fill: #475569; }
+    .badge { font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 10.5px; font-weight: 700; fill: #ffffff; }
+    .pill-teal { fill: #0d9488; rx: 10px; }
+    .pill-indigo { fill: #4338ca; rx: 10px; }
+    .pill-amber { fill: #b45309; rx: 10px; }
+    .pill-slate { fill: #334155; rx: 10px; }
+    .subbox-teal { fill: #f0fdfa; stroke: #99f6e4; stroke-width: 1.2; rx: 8px; }
+    .subbox-indigo { fill: #eef2ff; stroke: #c7d2fe; stroke-width: 1.2; rx: 8px; }
+    .subbox-amber { fill: #fffbeb; stroke: #fde68a; stroke-width: 1.2; rx: 8px; }
+    .subbox-slate { fill: #f8fafc; stroke: #cbd5e1; stroke-width: 1.2; rx: 8px; }
+  </style>
+
+  <!-- Canvas -->
+  <rect x="4" y="4" width="952" height="452" class="canvas"/>
+
+  <!-- Header -->
+  <text x="28" y="38" class="heading">Three-Rung H3 Steering &amp; Authoring Architecture</text>
+  <text x="28" y="58" class="subhead">One prompt contract, orthogonal Pole-A erased look dials (1x), and lazy tokenized differential surgery (2x), unified in Mobile Studio (/ + /lab).</text>
+
+  <!-- ===================================================================== -->
+  <!-- RUNG 1: 1x PROMPT AUTHORING + EDIT CONCEPTS                           -->
+  <!-- ===================================================================== -->
+  <rect x="24" y="78" width="290" height="252" class="card"/>
+  <rect x="40" y="92" width="112" height="22" class="pill-indigo"/>
+  <text x="96" y="107" text-anchor="middle" class="badge">RUNG 1 · 1x PASS</text>
+  <text x="40" y="136" class="sec-title">Authoring &amp; Edit Concepts</text>
+  <text x="40" y="153" class="caption">Plots, wardrobe, mutually exclusive lights</text>
+
+  <rect x="40" y="166" width="258" height="44" class="subbox-indigo"/>
+  <text x="52" y="185" class="box-title" fill="#3730a3">Short Idea + Concept Card</text>
+  <text x="52" y="201" class="mono">data/edit_concepts/*.toml (99 cards)</text>
+
+  <path d="M 169 210 L 169 224" fill="none" stroke="#4338ca" stroke-width="1.8" marker-end="url(#arrIndigo)"/>
+
+  <rect x="40" y="226" width="258" height="50" class="subbox-indigo"/>
+  <text x="52" y="245" class="mono">MiniMaxH3PromptExpander</text>
+  <text x="52" y="261" class="mono">MiniMaxH3ImagePromptExpander</text>
+
+  <path d="M 169 276 L 169 290" fill="none" stroke="#4338ca" stroke-width="1.8" marker-end="url(#arrIndigo)"/>
+
+  <rect x="40" y="292" width="258" height="26" class="subbox-slate"/>
+  <text x="169" y="309" text-anchor="middle" class="mono">heylook + h3_prompt_contract -> BasicGuider</text>
+
+  <!-- ===================================================================== -->
+  <!-- RUNG 2: 1x POST-REFINER STEERING (POLE-A ERASURE + STACKS)            -->
+  <!-- ===================================================================== -->
+  <rect x="334" y="78" width="292" height="252" class="card"/>
+  <rect x="350" y="92" width="128" height="22" class="pill-teal"/>
+  <text x="414" y="107" text-anchor="middle" class="badge">RUNG 2 · 1x DIALS</text>
+  <text x="350" y="136" class="sec-title">Post-Refiner Steering</text>
+  <text x="350" y="153" class="caption">Orthogonal film, weather, material, audio</text>
+
+  <rect x="350" y="166" width="260" height="56" class="subbox-teal"/>
+  <text x="362" y="185" class="box-title" fill="#0f766e">MiniMaxH3Steer (add_norm_matched_erasure)</text>
+  <text x="362" y="201" class="caption" fill="#115e59">Prompt-centered rank-8 / rank-16 Pole-A erasure</text>
+  <text x="362" y="216" class="mono">mu_d Adds · vr Erases · 10-pair causal bank/</text>
+
+  <path d="M 480 222 L 480 236" fill="none" stroke="#0d9488" stroke-width="1.8" marker-end="url(#arrTeal)"/>
+
+  <rect x="350" y="238" width="260" height="44" class="subbox-teal"/>
+  <text x="362" y="256" class="box-title" fill="#0f766e">Stackable Mixer + Native Families</text>
+  <text x="362" y="272" class="mono">fl2va · ref2va · h3_image · Hold · CPU J-Lens</text>
+
+  <text x="350" y="303" class="caption">Token masks: scene_only · description · soundscape</text>
+  <text x="350" y="319" class="caption">Model2Vec WordVector &lt;2 ms sketching &amp; holds</text>
+
+  <!-- ===================================================================== -->
+  <!-- RUNG 3: 2x AUTO-EDIT & SPATIAL / TIMED CHOREOGRAPHY                   -->
+  <!-- ===================================================================== -->
+  <rect x="646" y="78" width="290" height="252" class="card"/>
+  <rect x="662" y="92" width="128" height="22" class="pill-amber"/>
+  <text x="726" y="107" text-anchor="middle" class="badge">RUNG 3 · 2x SURGERY</text>
+  <text x="662" y="136" class="sec-title">Auto-Edit &amp; Spatial Masks</text>
+  <text x="662" y="153" class="caption">Keep-my-take swaps, portals, timed audio</text>
+
+  <rect x="662" y="166" width="258" height="44" class="subbox-amber"/>
+  <text x="674" y="185" class="mono">MiniMaxH3AutoEditPrompt + PromptEdit</text>
+  <text x="674" y="201" class="caption" fill="#92400e">heylook surgical rewrite + 4-axis EditPlan</text>
+
+  <path d="M 791 210 L 791 224" fill="none" stroke="#b45309" stroke-width="1.8" marker-end="url(#arrAmber)"/>
+
+  <rect x="662" y="226" width="258" height="50" class="subbox-amber"/>
+  <text x="674" y="245" class="mono">MiniMaxH3EditGuider (lazy=True orig)</text>
+  <text x="674" y="261" class="caption" fill="#92400e">lock_take · audio_only · [F, H, W] velocity diff</text>
+
+  <text x="662" y="299" class="caption">1x SoundCues (0.33) or 2x SpatialDirector portals</text>
+  <text x="662" y="315" class="caption">ReleaseReferences preserves &lt;Picture 1&gt; at b=0.50</text>
+
+  <!-- Cross-links between cards -->
+  <path d="M 314 204 L 334 204" fill="none" stroke="#475569" stroke-width="1.8" marker-end="url(#arrDark)"/>
+  <path d="M 626 204 L 646 204" fill="none" stroke="#475569" stroke-width="1.8" marker-end="url(#arrDark)"/>
+
+  <!-- ===================================================================== -->
+  <!-- BOTTOM SURFACE BAR: UNIFIED MOBILE STUDIO (app/) vs DIRECTOR          -->
+  <!-- ===================================================================== -->
+  <rect x="24" y="346" width="912" height="94" class="card"/>
+  <rect x="40" y="360" width="154" height="22" class="pill-slate"/>
+  <text x="117" y="375" text-anchor="middle" class="badge">USER SURFACES</text>
+  <text x="206" y="375" class="sec-title">Mobile Studio (app/, iPhone iOS 27.x Safari) · Director Stage (director/)</text>
+
+  <rect x="40" y="392" width="288" height="36" class="subbox-slate"/>
+  <text x="52" y="408" class="box-title" fill="#0f766e">app/ Page / — Create (1x) + Remix (2x)</text>
+  <text x="52" y="422" class="caption">Up to 5 Mixer Chips · Hold vector · CPU X-Ray</text>
+
+  <rect x="342" y="392" width="308" height="36" class="subbox-slate"/>
+  <text x="354" y="408" class="box-title" fill="#4338ca">app/ Page /lab — Integrated Vector Studio</text>
+  <text x="354" y="422" class="caption">Library X-Ray · Word Lab · Sculpt · Gate A/B Pairs</text>
+
+  <rect x="664" y="392" width="256" height="36" class="subbox-slate"/>
+  <text x="676" y="408" class="box-title" fill="#b45309">director/ — Separate Timeline Stage</text>
+  <text x="676" y="422" class="caption">SAM 3.1 Portals · D-Pad · Stereo SoundCues</text>
+</svg>

@@ -70,8 +70,8 @@
   <text x="48" y="102" class="sec-title">1. Token-Span Masking (Default: scene_only)</text>
 
   <!-- Control Vector Top Pill -->
-  <rect x="410" y="86" width="210" height="24" rx="12" fill="#0d9488"/>
-  <text x="454" y="102" class="badge" fill="#ffffff">Control Vector (+v)</text>
+  <rect x="405" y="86" width="220" height="24" rx="12" fill="#0d9488"/>
+  <text x="515" y="102" text-anchor="middle" class="badge" fill="#ffffff">MiniMaxH3Steer (Pole-A Erasure)</text>
 
   <!-- Animated Arrows into Steered Blocks Only -->
   <path d="M 465 110 L 366 132" fill="none" stroke="#0d9488" stroke-width="2" class="flow-arrow" marker-end="url(#arrTeal3)"/>

@@ -1,8 +1,27 @@
-# Control Vector Studio (`bench/control_vectors.py ui`)
+# Control Vector & Mobile Steering UI (`app/` + `bench/control_vectors.py ui`)
 
-Last updated: 2026-11-21 (Subspace X-Ray `X-Ray` drawer in Library/Inspect/Word Lab, rank-16 `sculpt` erasure composition, and per-token `||E(h_i)||_2` meter).
+Last updated: 2026-11-21 (integrated Mobile Studio `/` **Steering Deck + `2x` Remix** & **`/lab`** J-Lens/Word/Sculpt/Pairs workbench in [`app/`](../../../app/README.md) alongside Subspace X-Ray `X-Ray` drawer, rank-16 `sculpt`, and per-token `||E(h_i)||_2` metering in standalone `bench/control_vectors.py ui`).
 
-`bench/control_vectors.py ui` launches a self-contained local browser workbench (`bench/control_vector/ui_server.py` + `bench/control_vector/web/`) for authoring, inspecting, sculpting, metering, and grading H3 control vectors without leaving your browser.
+---
+
+## 0. Unified Mobile Studio (`app/`, `/` + `/lab`) — Primary iPhone & Browser Surface
+
+For everyday creation and mobile tweaking on iOS 27.x Safari WebKit (`app/` commit `b1406c6`), **Mobile Studio** ([`app/server.py`](../../../app/server.py), [`app/cv_lab.py`](../../../app/cv_lab.py)) hosts both creation and vector authoring in one Tailscale/localhost server (keeping [`director/`](../../../director/AGENTS.md) separate for interactive Spatial World Director timelines):
+
+- **Main Studio (`/`):**
+  - **1-tap Create (`1x` Expand) vs. Remix (`2x` Auto-Edit):** Switches between `1x` fresh expansion (`MiniMaxH3PromptExpander` / `MiniMaxH3ImagePromptExpander` + `data/edit_concepts/*.toml`) and `2x` surgical rewrites (`MiniMaxH3AutoEditPrompt` + `EditGuider`) with switches (`Lock take`, `Audio only`).
+  - **Steering Deck:** Primary `-1.5 .. +2.0` continuous strength slider, primary **`Hold vector`** selector, stackable **Multi-Vector Mixer Chips** (up to `5` `extra_vectors` with anchored Quick-Tune `popover="auto"` HUD for per-chip strength/target/step window), and an instant **`<dialog>` CPU Subspace X-Ray** readout.
+- **Integrated Vector Lab (`/lab`, 4 tabs):**
+  - **Library:** Browse `<comfy>/models/control_vectors/bank/`, inspect rank-8/rank-16 erasure payloads, run `< 15 ms` CPU Subspace X-Ray, or send any vector to `/` with **Use**.
+  - **Word Lab:** `< 2 ms` CPU `words` + `against_words` (`@replace_digital`) + `hold_words` synthesis & X-Ray.
+  - **Sculpt:** Rank-16 union `add_norm_matched_erasure` / `hold` composition saved directly into `bank/`.
+  - **Pairs:** Generate or validate Gates A–D pair TOMLs (`heylook --from-concept` / `--repair` or pasted LLM Markdown) and launch isolated single-job GPU builds without duplicating the ComfyUI server lock.
+
+---
+
+## 1. Standalone CLI Workbench (`bench/control_vectors.py ui`)
+
+`bench/control_vectors.py ui` launches the lightweight standalone local browser workbench (`bench/control_vector/ui_server.py` + `bench/control_vector/web/`) for terminal sessions without running `app/`.
 
 ```bash
 /path/to/comfy-venv/bin/python bench/control_vectors.py ui

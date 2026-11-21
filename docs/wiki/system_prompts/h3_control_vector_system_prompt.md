@@ -1,8 +1,8 @@
 # H3 Control Vector Authoring System Prompt & Steering Reference
 
 > **Canonical System Prompt for Control Vectors**: Copy the fenced block in [Section 1](#1-copyable-system-prompt) below (or click **Copy System Prompt** in `python bench/control_vectors.py ui`) to generate a **Test Scene Prompt**, **10 Stratified Contrastive Pairs (`Prompt A` vs. `Prompt B`)**, and optional **Hold Pairs (`[[hold]]`)** that compile directly via `python bench/control_vectors.py from-toml <output.md>` (or `build <output.md>` / `generate-pairs`), or an in-place **Target-Prompt Clause Contrast Spec (`from-prompt --target-prompt ... --words ...`)** for [`h3_pair_compiler.py`](../../../h3_pair_compiler.py).
-> - **End-to-End Workbench, J-Lens, CLI & ComfyUI Reference**: [`docs/wiki/control_vectors.md`](../control_vectors.md) (summarized in [Section 2](#2-how-the-system-prompt-connects-to-the-control-vector-j-lens-cli-and-comfyui-stack) below)
-> - **LLM Input Prompt Templates & Examples**: [`docs/wiki/control_vectors/llm_prompting_guide.md`](../control_vectors/llm_prompting_guide.md) and [`docs/wiki/control_vectors/examples_and_recipes.md`](../control_vectors/examples_and_recipes.md)
+> - **End-to-End Workbench, J-Lens, CLI & ComfyUI Reference**: [`docs/wiki/steering.md`](../steering.md) (summarized in [Section 2](#2-how-the-system-prompt-connects-to-the-control-vector-j-lens-cli-and-comfyui-stack) below)
+> - **LLM Input Prompt Templates & Examples**: [`docs/wiki/steering/llm_prompting_guide.md`](../steering/llm_prompting_guide.md) and [`docs/wiki/steering/examples_and_recipes.md`](../steering/examples_and_recipes.md)
 > - **Prompting Rules & Vendor Guides**: [`docs/wiki/prompting/prompting.md`](../prompting/prompting.md), [`vendor_guides/base_en.md`](../../../vendor_guides/base_en.md) (`t2va`, `i2va`, `fl2va`, `l2va`), and [`vendor_guides/ref_en.md`](../../../vendor_guides/ref_en.md) (`ref2va`)
 > - **General Scene-Prompt System Prompt**: [`docs/wiki/system_prompts/h3_system_prompt.md`](h3_system_prompt.md)
 > - **Historical `2026-11-05` Research Record**: [`docs/wiki/research/control_vectors/2026-11-05_control_vector_system_prompt.md`](../research/control_vectors/2026-11-05_control_vector_system_prompt.md)
@@ -200,7 +200,7 @@ Follow these six principles to ensure every 10-pair control vector set generaliz
 
 ## 2. How the System Prompt Connects to the Control Vector, J-Lens, CLI, and ComfyUI Stack
 
-This section summarizes how outputs from [Section 1](#1-copyable-system-prompt) fit into the authoring, inspection, and runtime steering architecture documented in [`docs/wiki/control_vectors.md`](../control_vectors.md) and [`docs/wiki/control_vectors/llm_prompting_guide.md`](../control_vectors/llm_prompting_guide.md).
+This section summarizes how outputs from [Section 1](#1-copyable-system-prompt) fit into the authoring, inspection, and runtime steering architecture documented in [`docs/wiki/steering.md`](../steering.md) and [`docs/wiki/steering/llm_prompting_guide.md`](../steering/llm_prompting_guide.md).
 
 ### 2.1 The Four Control Vector Creation Methods (Plus `sculpt`, `rebuild`, and `build-j-lens`)
 

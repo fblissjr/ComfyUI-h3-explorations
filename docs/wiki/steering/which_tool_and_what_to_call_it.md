@@ -4,7 +4,7 @@ Last updated: 2026-11-21.
 
 This pack has four parts that get mentioned together: **Prompt Expander**, **Control Vectors**, **Edit Guidance**, and the **J-Lens**. Prompt Expander authors complete `1x` prompts; Control Vectors and Edit Guidance steer renders; J-Lens mostly reads.
 
-Read this page first if you are explaining the pack to someone else. For how `MiniMaxH3Steer` erases prompt conflicts in `1x` (`add_norm_matched_erasure`) see [`how_pole_a_erasure_works.md`](how_pole_a_erasure_works.md). For the step-by-step mechanism of the word readout see [`how_the_word_readout_works.md`](how_the_word_readout_works.md). For worked cases see [`worked_examples.md`](worked_examples.md).
+Read this page first if you are explaining the pack to someone else. For how `MiniMaxH3Steer` erases prompt conflicts in `1x` (`add_norm_matched_erasure`) see [`how_pole_a_erasure_works.md`](how_pole_a_erasure_works.md). For the step-by-step mechanism of the word readout see [`how_the_word_readout_works.md`](how_the_word_readout_works.md). *(Early Q&A examples archived in [`../archive/2026-11-12_control_vector_worked_examples.md`](../archive/2026-11-12_control_vector_worked_examples.md).)*
 
 ---
 
@@ -22,7 +22,7 @@ Read this page first if you are explaining the pack to someone else. For how `Mi
 Where each lives in the code:
 
 - **Video Prompt Expander (`1x` Easy Button)**: [`h3_prompt_expander.py::MiniMaxH3PromptExpander`](../../../h3_prompt_expander.py) with [`h3_prompt_contract.py`](../../../h3_prompt_contract.py). Design note: [`heylook_auto_edit_guidance_design.md`](heylook_auto_edit_guidance_design.md).
-- **Control vector**: `control_vector_nodes.py::MiniMaxH3Steer` applies one. The hub page, [`../control_vectors.md`](../control_vectors.md), says how they are built and which rows they touch.
+- **Control vector**: `control_vector_nodes.py::MiniMaxH3Steer` applies one (supporting native `fl2va`, `ref2va`, `h3_image`, and `fl2va_base` `P-H3-Image`). The hub page, [`../steering.md`](../steering.md), says how they are built and which rows they touch.
 - **Edit guidance**: `edit_guidance.py::MiniMaxH3EditGuider` with `edit_guidance.py::MiniMaxH3PromptEdit` or [`auto_edit_prompt.py::MiniMaxH3AutoEditPrompt`](../../../auto_edit_prompt.py). [`../edit_guidance.md`](../edit_guidance.md) has the dials and the pass counts.
 - **Word readout**: `j_lens.py::decode_vector` reads, `j_lens.py::apply_soft_holds` scrubs, and `j_lens.py::synthesize_from_words` builds. The node that builds is `control_vector_nodes.py::MiniMaxH3WordVector`.
 

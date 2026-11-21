@@ -97,7 +97,7 @@ non_diegetic_music: N/A
   readout told apart the vectors that worked from the ones that did not before any render was looked at.
 - The plain clauses really do differ from pair to pair. On 2026-11-11 eight vectors were built with one plain
   clause repeated in every pair, and all eight came out carrying that clause's removal as strongly as their own
-  target (`docs/wiki/control_vectors/examples_and_recipes.md`, Recipe 3b).
+  target (`docs/wiki/steering/examples_and_recipes.md`, Recipe 3b).
 
 ## 3. Example: an edit list for a reference prompt
 
@@ -202,7 +202,7 @@ Anything not listed there is untested.
 | Changing the world around the subject: the look, the era, the weather | Good | In the record's ref2va arms the street and the light changed while the person from the picture stayed the same. |
 | Physical effects on things in the scene | Good | The arms with objects lifting and with smoke changed what happened while identity held. |
 | Changing how the subject speaks or moves | Plausible | Delivery changed in the ref2va arms that had speech; fewer arms cover it. |
-| Turning the referenced subject into another material (felt, rubber, clay) | Poor with the picture held | The reference picture holds the subject's appearance. In the record's arms the scene changed and the subject stayed a photographed person. Later stills (2026-11-10) changed her too once the picture was released early; see `docs/wiki/control_vectors/comfyui_nodes_and_controls.md`. |
+| Turning the referenced subject into another material (felt, rubber, clay) | Poor with the picture held | The reference picture holds the subject's appearance. In the record's arms the scene changed and the subject stayed a photographed person. Later stills (2026-11-10) changed her too once the picture was released early; see `docs/wiki/steering/comfyui_nodes_and_controls.md`. |
 | Changing the subject's identity, face or hair | Bad | That is what the reference picture is for. Change the picture. |
 | Changing the subject's clothing | Mixed; for an exact outfit use edit guidance | From the 2026-11-11 diner arms (one seed each): a whole-scene pair set with one tight target that moves the world dressed the subject to match in four cases of eight; a set of mixed outfits did not; changing the retention line to `partially_preserved` with the clothing named as not retained changed her clothing with no vector at all. An edit list on the subject's own line only works when that line names the old clothing, since the left side must be text that is there. |
 

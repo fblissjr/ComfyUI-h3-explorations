@@ -2,7 +2,7 @@
 
 This note records the mathematical derivation, empirical verification, and implementation of an analytical **Jacobian Lens (`J-Lens`)** for MiniMax H3 post-refiner control vectors (`vector.post_refiner` $\in \mathbb{R}^{5376}$ and `vector.encoder` $\in \mathbb{R}^{5120}$), adapting Gurnee, Lindsey et al. (*"Verbalizable Representations Form a Global Workspace in Language Models"*, Anthropic, July 2026; `anthropics/jacobian-lens`) to H3's two-stage text conditioning stack.
 
-For the control-vector math and runtime contract, see [`2026-11-04_h3_control_vectors.md`](2026-11-04_h3_control_vectors.md) and [`../../wiki/control_vectors.md`](../../control_vectors.md). For soft ridge hold attenuation ($\alpha \in [0, 1]$) and inference-time cross-vector holds (`mode = "hold"`), see [`2026-11-06_detangle_comparison_and_borrowable_concepts.md`](2026-11-06_detangle_comparison_and_borrowable_concepts.md) and [`2026-11-06_mainodes_comparison_and_pika_roadmap.md`](2026-11-06_mainodes_comparison_and_pika_roadmap.md).
+For the control-vector math and runtime contract, see [`2026-11-04_h3_control_vectors.md`](2026-11-04_h3_control_vectors.md) and [`../../wiki/control_vectors.md`](../../steering.md). For soft ridge hold attenuation ($\alpha \in [0, 1]$) and inference-time cross-vector holds (`mode = "hold"`), see [`2026-11-06_detangle_comparison_and_borrowable_concepts.md`](2026-11-06_detangle_comparison_and_borrowable_concepts.md) and [`2026-11-06_mainodes_comparison_and_pika_roadmap.md`](2026-11-06_mainodes_comparison_and_pika_roadmap.md).
 
 ---
 

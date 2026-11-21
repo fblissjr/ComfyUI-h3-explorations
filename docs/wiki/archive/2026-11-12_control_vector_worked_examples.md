@@ -1,15 +1,17 @@
-# Worked Examples: Reading, Checking and Choosing
+# Worked Examples: Reading, Checking and Choosing *(Archived 2026-11-21)*
+
+> **Archived / superseded:** Moved out of the active steering wiki on `2026-11-21`. Active hands-on walkthroughs, Pole-A Erasure Q&A, and copy-paste workflows now live in [`../steering.md`](../steering.md), [`../steering/tutorials_progressive_guide.md`](../steering/tutorials_progressive_guide.md), [`../steering/how_pole_a_erasure_works.md`](../steering/how_pole_a_erasure_works.md), and [`../steering/examples_and_recipes.md`](../steering/examples_and_recipes.md).
 
 Last updated: 2026-11-21.
 
 Seven questions a person runs into with control vectors, each with what to run or open and what the record
 shows. Every example here rests on a dated record, linked beside it. The figures stay in the records.
 
-For the mechanisms side by side see [`which_tool_and_what_to_call_it.md`](which_tool_and_what_to_call_it.md), for
+For the mechanisms side by side see [`which_tool_and_what_to_call_it.md`](../steering/which_tool_and_what_to_call_it.md), for
 **Clamped Pole-A Subspace Erasure (`add_norm_matched_erasure`)** see
-[`how_pole_a_erasure_works.md`](how_pole_a_erasure_works.md), and for the word readout see
-[`how_the_word_readout_works.md`](how_the_word_readout_works.md). For copy-paste render settings see
-[`examples_and_recipes.md`](examples_and_recipes.md).
+[`how_pole_a_erasure_works.md`](../steering/how_pole_a_erasure_works.md), and for the word readout see
+[`how_the_word_readout_works.md`](../steering/how_the_word_readout_works.md). For copy-paste render settings see
+[`examples_and_recipes.md`](../steering/examples_and_recipes.md).
 
 ---
 
@@ -27,7 +29,7 @@ Read the `j_lens (PR +)` line. Ask whether the words name the thing you wanted, 
 **What the record shows.** A vector called `wardrobe_1970s` was built from six different 1970s outfits. Its
 words came back as an era ("vintage", "psychedelic", "nostalgic") with no garment among them. On playback it
 tinted the room and left the subject's sweater alone. Nobody had read the words first.
-[`building_pairs_and_vectors.md`](building_pairs_and_vectors.md), section 3, and the 2026-11-11 entries in
+[`building_pairs_and_vectors.md`](../steering/building_pairs_and_vectors.md), section 3, and the 2026-11-11 entries in
 [`../decisions.md`](../decisions.md).
 
 **What it does not show.** Good words do not promise a good render. They catch one kind of failure early: a
@@ -122,7 +124,7 @@ judged. Section 6 of the same record says how they were made and what to look at
 
 - If the block came from **contradictory natural color or open daylight lighting prose** while steering an opposing
   grade (`noir`, `paper_origami`) in legacy `add_norm_matched`, switch to **`mode = "add_norm_matched_erasure"`**
-  (now the `MiniMaxH3Steer` default; see [`how_pole_a_erasure_works.md`](how_pole_a_erasure_works.md)). On `noir`,
+  (now the `MiniMaxH3Steer` default; see [`how_pole_a_erasure_works.md`](../steering/how_pole_a_erasure_works.md)). On `noir`,
   erasure flipped `5/5` stills and `3/3` `192f` market videos from color to crisp monochrome in one `1x` pass.
 - If the problem is **swapping a named object color, exact outfit, or scripted action** while the old noun or action
   stays in the prompt, stop turning strength up and switch to edit guidance: write `old wording -> new wording` in

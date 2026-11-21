@@ -61,7 +61,7 @@
 <text x="840.0" y="202.0" text-anchor="middle" class="mb">MiniMaxH3MakeMediaControlVector</text>
 <text x="840.0" y="218.0" text-anchor="middle" class="s">builds from two pictures</text>
 <rect x="716" y="236" width="248" height="44" rx="6" class="b acc"/>
-<text x="840.0" y="254.0" text-anchor="middle" class="mb">MiniMaxH3ApplyControlVectors</text>
+<text x="840.0" y="254.0" text-anchor="middle" class="mb">MiniMaxH3Steer</text>
 <text x="840.0" y="270.0" text-anchor="middle" class="s">adds a vector while sampling</text>
 <polyline points="840,104 840,130" class="a" marker-end="url(#f1-e-n)"/>
 <polyline points="622,84 698,84" class="a dash" marker-end="url(#f1-e-n)"/>

@@ -11,7 +11,7 @@ Router index for dated studies, experiment logs, and postmortems under `docs/wik
 
 ## Control Vectors, Readouts, Sound Cues & 2D D-Pad (`docs/wiki/research/control_vectors/`)
 
-For active nodes and recipes, start at [`../control_vectors.md`](../control_vectors.md) and [`../edit_guidance.md`](../edit_guidance.md).
+For active nodes and recipes, start at [`../control_vectors.md`](../steering.md) and [`../edit_guidance.md`](../edit_guidance.md).
 
 | Document | Topic |
 |---|---|

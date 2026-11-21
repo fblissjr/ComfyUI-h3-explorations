@@ -210,3 +210,20 @@ Compare how strongly a vector shifts `context` and step-0 DiT velocity on your e
 - **`ref2va` `<Picture 1>` Two-Gear Selective-Color Lock (`h3_image_ref_plus_text_to_video_pika_control_vector_api.json`):**
   - On `<Picture 1>` (`showcase4b_bookstore_selective_color`, `90f`, `noir +1.5`, `target = "scene_only"`), `1D` left the room warm yellow (`sat_mean = 0.3387`), whereas both Pole-A Erasure gears (`Gear 1 end_percent=1.0` `0.3017`; `Gear 2 end_percent=0.33` `0.3056`) cooled the background to silver-grey while locking `<Picture 1>`'s face, voice, oak book thump, and pink floral blazer (**Selective-Color Subject Lock** via `tags == 0` vision rows + unsteered `subject_definitions:`/`retention_analysis:`).
   - Conversely, pairing `<Picture 1>` `woman_blonde.jpg` (`ref2va_woman_blonde_street.txt`, `141f`) with structural material `paper_origami` (`+1.55`, `end_percent=0.50`, `rel=0.33`; `showcase4_ref2va_origami_stacked_141f.mp4`) grafts folded paper cones/masks onto her preserved face (`sat_mean = 0.2242` `1D` vs `0.2126` `Erasure`): strong structural material vectors fit whole-scene `t2va` / `P-H3-Image` better than anchored `<Picture 1>` human portraits.
+
+---
+
+## Recipe 12 — Native `MiniMax-H3-Image` Steering (`t2i` & `edit`, `4.0 MP`)
+
+**Use when**: You want native `MiniMax-H3-Image` look/style control on `16 -> 4 MP` single frames using `--families h3_image` builds (`noir`, `film_16mm_1974`, `watercolor_wash`, etc.) with rank-8 Pole-A erasure (`add_norm_matched_erasure`) and zero cross-family projection loss (verified cleanly on GPU renders at `19.5s` per still).
+
+- **API Workflows**: [`workflows/image/h3_image_t2i_control_vector_api.json`](../../../workflows/image/h3_image_t2i_control_vector_api.json) (`noir +1.15`) and [`workflows/image/h3_image_edit_control_vector_api.json`](../../../workflows/image/h3_image_edit_control_vector_api.json) (`film_16mm_1974 +1.15` + `MiniMaxH3ReleaseReferences` `end_percent = 0.50`, keeping `clean_level = 0.999` per H3-Image invariant)
+- **CLI build**: `bench/control_vectors.py build prompt_bank/control_vectors/noir.toml --families h3_image --overwrite`
+
+---
+
+## Recipe 13 — `1x` `BasicGuider` Sound Cues (`t2va_freight_elevator`, `audio_end_percent = 0.33`)
+
+**Use when**: You want zero-file percussive cues (`24: thud / 72: click / 114: slam`) aligned on H3's `3`-frame dual-clock grid at exact `1x` render speed (no `EditGuider` second pass).
+
+- **API Workflow**: [`workflows/h3_text_to_video_pika_sound_cues_1x_api.json`](../../../workflows/h3_text_to_video_pika_sound_cues_1x_api.json) (`prompt_bank/t2va_freight_elevator.txt`, `1344x768 @ 141f`, `MiniMaxH3SoundCues` + `MiniMaxH3ReleaseReferences(audio_end_percent=0.33)`)

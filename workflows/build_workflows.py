@@ -6298,7 +6298,7 @@ def main():
         # float64 inside one DIFFUSION_MODEL wrapper pass), and single-vector ref2va,
         # using MiniMaxH3Steer (bare stem auto-resolved to the loaded checkpoint's
         # fl2va/ref2va + LoRA sibling) and MiniMaxH3ReleaseReferences (node 135)
-        # where reference or guide VAE latents are present (`docs/wiki/control_vectors.md`).
+        # where reference or guide VAE latents are present (`docs/wiki/steering.md`).
         ("h3_text_to_video_pika_control_vector.json", "t2v-pika-control-vector", "t2v",
          LONG_T2V_PROMPT,
          dict(lora=(PIKA_FL2VA_SVD995_LORA, PIKA_STRENGTH), lora_branch=True,
@@ -6567,6 +6567,16 @@ def main():
               edit_guidance=SOUND_GUIDE_EDIT_GUIDANCE,
               out_prefix="Video/h3_t2v_pika_sound_guide"),
          "text + timeline short-sound islands -> video + native foley on Pika H3 Flex 6-step LCM (SVD995 branch): 3 MiniMaxH3GuideLatent cond_audio islands at [24, 54, 96] + MiniMaxH3ReleaseReferences(audio_end_percent=0.6) + 0-vs-3 keyframe-differential MiniMaxH3EditGuider(streams=video_only, scale=1.6, last_step=3)"),
+        ("h3_text_to_video_pika_sound_cues_1x.json", "t2v-pika-sound-cues-1x", "t2v",
+         _bank_prompt("t2va_freight_elevator"),
+         dict(length=141,
+              lora=(PIKA_FL2VA_SVD995_LORA, PIKA_STRENGTH), lora_branch=True,
+              steps=PIKA_STEPS, sampler_name=PIKA_SAMPLER,
+              manual_sigmas=PIKA_MANUAL_SIGMAS,
+              sound_cues="24: thud\n72: click\n114: slam",
+              release_references=dict(audio_end_percent=0.33),
+              out_prefix="Video/h3_t2v_pika_sound_cues_1x"),
+         "industrial freight elevator (`t2va_freight_elevator`) -> 141f 1x BasicGuider video + native foley on Pika H3 Flex 6-step LCM (SVD995 branch) with zero-file 3f-snapped MiniMaxH3SoundCues ('24: thud / 72: click / 114: slam') + MiniMaxH3ReleaseReferences(audio_end_percent=0.33) releasing cues after step 1 (b=0.50) without 2x EditGuider overhead"),
         ("h3_image_ref_dpad_sound_pika.json", "r2v-pika-dpad-sound", "r2v",
          DPAD_SOUND_REF2V_PROMPT,
          dict(length=124,
@@ -6804,6 +6814,25 @@ def main():
         ("h3_image_edit_heylook.json", "h3-image-edit-heylook", "h3img_edit", H3_IMAGE_EDIT_INSTRUCTION,
          dict(single_frame=True, heylook=True, out_prefix="Image/h3_image_edit_heylook"),
          "picture + short edit instruction -> heylook local VLM prompt expander -> 16 MP edited image on MiniMax-H3-Image (caption and shape from MiniMaxH3ImagePromptExpander)"),
+        ("h3_image_t2i_control_vector.json", "h3-image-t2i-control-vector", "h3img_t2i", H3_IMAGE_T2I_PROMPT,
+         dict(single_frame=True,
+              control_vector=dict(
+                  vector="noir",
+                  strength=1.15,
+                  target="scene_only",
+              ),
+              out_prefix="Image/h3_image_t2i_control_vector"),
+         "text -> 16 MP (4 MP delivered) image on MiniMax-H3-Image with native h3_image MiniMaxH3Steer (noir at +1.15, add_norm_matched_erasure, target=scene_only)"),
+        ("h3_image_edit_control_vector.json", "h3-image-edit-control-vector", "h3img_edit", H3_IMAGE_EDIT_PROMPT,
+         dict(single_frame=True,
+              control_vector=dict(
+                  vector="film_16mm_1974",
+                  strength=1.15,
+                  target="scene_only",
+                  release_references=dict(end_percent=0.5, clean_level=0.999),
+              ),
+              out_prefix="Image/h3_image_edit_control_vector"),
+         "picture + text -> edited image at the picture's shape on MiniMax-H3-Image with native h3_image MiniMaxH3Steer (film_16mm_1974 at +1.15, add_norm_matched_erasure, target=scene_only) and MiniMaxH3ReleaseReferences(end_percent=0.5, clean_level=0.999)"),
         # The bf16 arms (the release written whole by `bench/convert_h3_image_dit.py`, with INT8
         # attention and with core's exact attention, for both cases) were rendered on 2026-11-11
         # and their four probe graphs removed the same day with the file, at the owner's word:

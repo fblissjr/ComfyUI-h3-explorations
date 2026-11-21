@@ -85,8 +85,8 @@
 <polyline points="814,258 850,258" class="a acc" marker-end="url(#f2-e-acc)"/>
 <rect x="20" y="372" width="1000" height="78" rx="6" class="proc"/>
 <text x="36" y="394" text-anchor="start" class="h">LATER, IN A GRAPH</text>
-<text x="36" y="418" text-anchor="start" class="t">MiniMaxH3ApplyControlVectors reads the file and, on each sampling step in its window, adds</text>
-<text x="36" y="436" text-anchor="start" class="t">strength × vector to the refined prompt rows its mask selects. The prompt&#x27;s words are untouched.</text>
+<text x="36" y="418" text-anchor="start" class="t">MiniMaxH3Steer reads the file and, on each sampling step in its window, applies Pole-A</text>
+<text x="36" y="436" text-anchor="start" class="t">erasure and adds strength × vector to selected rows. The prompt&#x27;s words are untouched.</text>
 <polyline points="936,300 936,370" class="a acc" marker-end="url(#f2-e-acc)"/>
 <text x="926" y="340" text-anchor="end" class="al">read by the node</text>
 </svg>

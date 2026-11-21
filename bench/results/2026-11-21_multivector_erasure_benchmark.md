@@ -3,7 +3,7 @@
 Date: `2026-11-21`  
 Runner: [`bench/control_vector/eval_multivector_erasure.py`](../control_vector/eval_multivector_erasure.py) + [`bench/verify_pole_a_erasure.py`](../verify_pole_a_erasure.py)  
 Owning paper: [`docs/wiki/research/control_vectors/2026-11-21_from_late_interaction_retrieval_to_av_dit_steering.md`](../../docs/wiki/research/control_vectors/2026-11-21_from_late_interaction_retrieval_to_av_dit_steering.md)  
-Practitioner guide: [`docs/wiki/control_vectors/tutorials_progressive_guide.md`](../../docs/wiki/control_vectors/tutorials_progressive_guide.md)
+Practitioner guide: [`docs/wiki/steering/tutorials_progressive_guide.md`](../../docs/wiki/steering/tutorials_progressive_guide.md)
 
 ## 1. Reproducer Commands
 

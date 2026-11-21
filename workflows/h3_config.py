@@ -1195,7 +1195,7 @@ FROZEN_VIDEO_CACHE_NODE = "MiniMaxH3FrozenVideoCache"
 #: Composable control-vector nodes (`MiniMaxH3Steer`, `MiniMaxH3ReleaseReferences`,
 #: `MiniMaxH3WordVector`, `MiniMaxH3LoadControlVector`), legacy `MiniMaxH3ApplyControlVectors`,
 #: and `MiniMaxH3LayerNormMatch` node ids and schema defaults
-#: (`control_vector_nodes.py`, `h3_rules.py`, `docs/wiki/control_vectors.md`).
+#: (`control_vector_nodes.py`, `h3_rules.py`, `docs/wiki/steering.md`).
 CONTROL_VECTOR_NODE = "MiniMaxH3Steer"
 STEER_NODE = "MiniMaxH3Steer"
 STEER_DEFAULTS = dict(_h3_rules().STEER_DEFAULTS)

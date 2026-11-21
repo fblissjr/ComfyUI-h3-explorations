@@ -2,7 +2,7 @@
 
 Status: **Verified Architecture & Showcase Study (`49c0d57a`)** — documents the 3D `(x, y, t)` semantic velocity steering, joint audio-video modality decoupling, procedural `3f` sound cues, 2D+time sprite trajectory kinematics, and interactive ComfyUI Spatial World Director + HUD telemetry stack, compared strictly against **native ComfyUI core** (`BasicGuider`, `CFGGuider`, `SetLatentNoiseMask`, `ConditioningSetTimestepRange`, `MiniMaxH3AddGuide`, `MiniMaxH3ImageToVideo`, `MiniMaxH3ReferenceToVideo`) and backed by paired `141`-frame (`5.875 s` @ `24.0 fps`) 6-step Pika H3 Flex GPU measurements in `$H3_OUTPUT_DIR/Video/spatial_director_2026-11-15/metrics.json`.
 
-For daily node parameter tuning and recipe workflows, start at [`../edit_guidance.md`](../edit_guidance.md) and [`../control_vectors.md`](../control_vectors.md). For the desktop web-app architecture, full masking compatibility audit, sprite D-Pad analysis, and end-to-end UX/code diagrams, see [`2026-11-16_spatial_director_desktop_app_architecture.md`](2026-11-16_spatial_director_desktop_app_architecture.md).
+For daily node parameter tuning and recipe workflows, start at [`../edit_guidance.md`](../edit_guidance.md) and [`../control_vectors.md`](../steering.md). For the desktop web-app architecture, full masking compatibility audit, sprite D-Pad analysis, and end-to-end UX/code diagrams, see [`2026-11-16_spatial_director_desktop_app_architecture.md`](2026-11-16_spatial_director_desktop_app_architecture.md).
 
 ---
 

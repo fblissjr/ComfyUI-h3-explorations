@@ -55,7 +55,7 @@
 <text x="510.0" y="208.0" text-anchor="middle" class="m">holds.post_refiner</text>
 <text x="510.0" y="224.0" text-anchor="middle" class="s">recipe · pairs · quality</text>
 <rect x="720" y="46" width="260" height="48" rx="6" class="b acc"/>
-<text x="850.0" y="66.0" text-anchor="middle" class="mb">MiniMaxH3ApplyControlVectors</text>
+<text x="850.0" y="66.0" text-anchor="middle" class="mb">MiniMaxH3Steer</text>
 <text x="850.0" y="82.0" text-anchor="middle" class="s">steers a render</text>
 <polyline points="622,152 718,70" class="a" marker-end="url(#f3-e-n)"/>
 <text x="672" y="58" text-anchor="middle" class="al">reads</text>
