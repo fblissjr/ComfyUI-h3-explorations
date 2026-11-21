@@ -6716,6 +6716,174 @@ def _check_nov15_steer_prose_and_ph3_family() -> list[str]:
             if insp_p is not None and any("--allow-recipe-mismatch" in a.option_strings for a in insp_p._actions):
                 errs.append("CLI inspect must not expose --allow-recipe-mismatch")
 
+        # --- Opt-in add_norm_matched_erasure: build, payload contract, runtime math, holds, streams, h3_image skip ---
+        if "add_norm_matched_erasure" not in cv_nodes.STEER_MODES:
+            errs.append("MiniMaxH3Steer STEER_MODES missing 'add_norm_matched_erasure'")
+        if not cv.is_additive_mode("add_norm_matched_erasure") or not cv.is_norm_matched_mode("add_norm_matched_erasure"):
+            errs.append("is_additive_mode/is_norm_matched_mode must return True for 'add_norm_matched_erasure'")
+
+        g_er = torch.Generator(device="cpu").manual_seed(20261120)
+        a_sp1 = torch.randn((12, cv.POST_REFINER_DIM), generator=g_er, dtype=torch.float32)
+        b_sp1 = a_sp1[:10] + 2.0 * torch.randn((1, cv.POST_REFINER_DIM), generator=g_er, dtype=torch.float32)
+        b_sp1 = torch.cat([b_sp1, torch.randn((4, cv.POST_REFINER_DIM), generator=g_er, dtype=torch.float32) * 3.0], dim=0)
+        a_sp2 = torch.randn((10, cv.POST_REFINER_DIM), generator=g_er, dtype=torch.float32)
+        b_sp2 = a_sp2 + 1.5 * torch.randn((1, cv.POST_REFINER_DIM), generator=g_er, dtype=torch.float32)
+        h_raw = torch.randn((2, cv.POST_REFINER_DIM), generator=g_er, dtype=torch.float64)
+        q_h, _ = torch.linalg.qr(h_raw.T, mode="reduced")
+        hold_b = q_h.T.to(dtype=torch.float32).contiguous()
+
+        built_er = cv.build_pole_a_erasure([a_sp1, a_sp2], [b_sp1, b_sp2], [1.0, 1.0], hold_basis=hold_b)
+        if built_er is None:
+            errs.append("build_pole_a_erasure returned None on valid 22-row Pole-A spans")
+        else:
+            er_mu, er_vr, er_diag = built_er
+            if er_mu.dtype != torch.float32 or er_vr.dtype != torch.float32 or er_diag.dtype != torch.float32:
+                errs.append("build_pole_a_erasure must return float32 tensors")
+            if er_vr.shape != (8, cv.POST_REFINER_DIM) or er_diag.shape != (8,):
+                errs.append(f"unexpected erasure shapes: vr={tuple(er_vr.shape)}, diag={tuple(er_diag.shape)}")
+            # Verify hold_basis orthogonalization on BOTH erasure.mu_d and erasure.vr
+            mu_h_dot = float((er_mu.to(torch.float64) @ hold_b.to(torch.float64).T).abs().max().item())
+            vr_h_dot = float((er_vr.to(torch.float64) @ hold_b.to(torch.float64).T).abs().max().item())
+            if mu_h_dot > 1e-4 or vr_h_dot > 1e-4:
+                errs.append(f"build_pole_a_erasure did not orthogonalize hold_basis: mu_dot={mu_h_dot}, vr_dot={vr_h_dot}")
+
+            # Payload validation & safetensors round-trip
+            er_meta = {
+                "format": cv.FORMAT_VERSION,
+                "name": "er_test",
+                "quality": "q",
+                "family": "fl2va",
+                "recipe": {
+                    "checkpoint": {"file": "minimax_h3_fl2va_pruned_int8_convrot.safetensors", "sha256": "0" * 64},
+                    "encoder": {"file": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors", "sha256": "0" * 64},
+                    "loras": [],
+                },
+                "measured_under": {"mode": "t2va", "frame": "scene", "prefix": "none", "pooling": "diff_span"},
+                "points": {"post_refiner": {"unit": "mean_pair_difference", "raw_norm": float(torch.linalg.vector_norm(er_mu).item()), "median_row_norm": 265.0}},
+                "pairs": {"path": "x.toml", "sha256": "d" * 64, "n_pairs": 2, "n_holds": 1, "a_side": "a", "b_side": "b", "differing_sections": ["integrated_multimodal_description"], "pair_spans": []},
+                "quality_report": {"mean_pairwise_cosine": 0.65, "split_half_cosine": 0.65, "per_pair_cosine": [0.65, 0.65]},
+                "provenance": {"core_revision": "test", "pack_commit": "test", "created_utc": "2026-11-20T00:00:00Z", "made_by": "test"},
+            }
+            er_v1d = er_mu.clone()
+            er_enc = torch.randn((cv.ENCODER_DIM,), generator=g_er, dtype=torch.float32)
+            er_enc = er_enc / torch.linalg.vector_norm(er_enc)
+            er_path = st_tmp / "vec" / "er_test__fl2va__diff_span.safetensors"
+            cv.save_vector(
+                er_path,
+                {
+                    "vector.post_refiner": er_v1d,
+                    "vector.encoder": er_enc,
+                    "holds.post_refiner": hold_b,
+                    "erasure.mu_d": er_mu,
+                    "erasure.vr": er_vr,
+                    "erasure.diag": er_diag,
+                },
+                er_meta,
+            )
+            rt_t, _ = cv.load_vector(er_path)
+            if not ("erasure.vr" in rt_t and "erasure.diag" in rt_t and "erasure.mu_d" in rt_t):
+                errs.append("erasure tensors did not round-trip through save_vector/load_vector")
+            # Refusal checks on malformed erasure payloads
+            for bad_name, bad_tensors in (
+                ("missing diag", {"vector.post_refiner": er_v1d, "erasure.vr": er_vr}),
+                ("mu_d without vr", {"vector.post_refiner": er_v1d, "erasure.mu_d": er_mu}),
+                ("rank mismatch", {"vector.post_refiner": er_v1d, "erasure.vr": er_vr, "erasure.diag": er_diag[:3]}),
+                ("diag > 1", {"vector.post_refiner": er_v1d, "erasure.vr": er_vr, "erasure.diag": er_diag + 2.0}),
+                ("non-orthonormal vr", {"vector.post_refiner": er_v1d, "erasure.vr": er_vr * 2.0, "erasure.diag": er_diag}),
+            ):
+                try:
+                    cv._validate_vector_payload(bad_tensors, er_meta)
+                    errs.append(f"_validate_vector_payload accepted invalid erasure payload ({bad_name})")
+                except ValueError:
+                    pass
+
+            # Runtime math: s=0 identity, s<0 matches 1D, RMS match at s=1.5, M=1 guard, per-row hold scrubbing
+            ctx_er = torch.randn((1, 10, cv.POST_REFINER_DIM), generator=g_er, dtype=torch.float32) * 5.0
+            tags_er = torch.ones((1, 10), dtype=torch.long)
+            e_spec_list = [(er_vr, er_diag, er_mu)]
+            out_s0 = cv.apply_post_refiner(ctx_er, tags_er, [(er_v1d, 0.0, "add_norm_matched_erasure")], erasure_specs=e_spec_list)
+            if not torch.equal(out_s0, ctx_er):
+                errs.append("add_norm_matched_erasure at s=0.0 was not bitwise identity")
+            out_neg = cv.apply_post_refiner(ctx_er, tags_er, [(er_v1d, -1.0, "add_norm_matched_erasure")], erasure_specs=e_spec_list)
+            out_neg_1d = cv.apply_post_refiner(ctx_er, tags_er, [(er_v1d, -1.0, "add_norm_matched")])
+            if not torch.allclose(out_neg, out_neg_1d, atol=1e-5):
+                errs.append("add_norm_matched_erasure at s=-1.0 did not match 1D add_norm_matched")
+            out_pos = cv.apply_post_refiner(ctx_er, tags_er, [(er_v1d, 1.5, "add_norm_matched_erasure")], erasure_specs=e_spec_list)
+            diff_pos = (out_pos[0] - ctx_er[0]).to(torch.float64)
+            got_rms = float(torch.sqrt((diff_pos ** 2).sum(dim=-1).mean()).item())
+            if abs(got_rms - 1.5 * cv.NORM_MATCHED_TARGET) > 1e-2:
+                errs.append(f"add_norm_matched_erasure s=1.5 RMS={got_rms:.4f} != {1.5 * cv.NORM_MATCHED_TARGET:.4f}")
+            # M=1 single-row mask guard
+            m_one = torch.zeros((10,), dtype=torch.bool)
+            m_one[3] = True
+            out_m1 = cv.apply_post_refiner(ctx_er, tags_er, [(er_v1d, 1.5, "add_norm_matched_erasure")], mask=m_one, erasure_specs=e_spec_list)
+            if not bool(torch.isfinite(out_m1).all()):
+                errs.append("add_norm_matched_erasure produced non-finite output on M=1 mask")
+            # Per-row hold scrubbing: -e must NOT bypass a chained hold
+            hold_dir = torch.randn((cv.POST_REFINER_DIM,), generator=g_er, dtype=torch.float32)
+            hold_u = hold_dir.to(torch.float64) / torch.linalg.vector_norm(hold_dir.to(torch.float64))
+            out_held = cv.apply_post_refiner(
+                ctx_er,
+                tags_er,
+                [(er_v1d, 1.5, "add_norm_matched_erasure"), (hold_dir, 1.0, "hold")],
+                erasure_specs=[(er_vr, er_diag, er_mu), None],
+            )
+            max_hold_leak = float(((out_held[0] - ctx_er[0]).to(torch.float64) @ hold_u).abs().max().item())
+            if max_hold_leak > 1e-3:
+                errs.append(f"add_norm_matched_erasure + hold leaked {max_hold_leak:.6f} along held direction")
+
+            # Node-level checks: chained hold passes without refusal, streams="video_only" leaves audio untouched, h3_image skips erasure.vr
+            er_patcher = _MiniPatcher()
+            orig_det_fam_er = cv.detect_family
+            cv.detect_family = lambda _m: "fl2va"  # type: ignore[assignment]
+            try:
+                er_m1 = cv_nodes.attach_control_vector(
+                    er_patcher, er_path, strength=1.5, mode="add_norm_matched_erasure", mask="non_vision", video_scale=1.0, audio_scale=0.0
+                )
+                er_m2 = cv_nodes.attach_control_vector(er_m1, er_path, strength=1.0, mode="hold", mask="non_vision")
+                er_specs = er_m2.model_options["transformer_options"][cv_nodes.WRAPPER_KEY]
+                er_wrap = cv_nodes._make_control_vector_wrapper(er_specs)
+                # Invoke wrapper on 2-stream AV x=[vid, aud]: pass 1 (video) is steered, pass 2 (audio, sj=0) is bitwise unchanged
+                seen_stream_ctxs: list[torch.Tensor] = []
+                def _cap_av_exec(x_in, ts_in, ctx_in, topts_in, **kw_in):
+                    seen_stream_ctxs.append(ctx_in)
+                    return x_in
+                er_wrap(
+                    _cap_av_exec,
+                    [torch.zeros((1, 24, 1, 4, 4)), torch.zeros((1, 32, 2, 5))],
+                    torch.tensor([1000.0]),
+                    ctx_er,
+                    {"sample_sigmas": torch.tensor([1.0, 0.0]), "sigmas": torch.tensor([1.0])},
+                    minimax_payload={"text_token_tags": tags_er},
+                )
+                if len(seen_stream_ctxs) != 2:
+                    errs.append(f"expected 2 stream-split calls for video_scale=1.0/audio_scale=0.0, got {len(seen_stream_ctxs)}")
+                else:
+                    if torch.equal(seen_stream_ctxs[0], ctx_er):
+                        errs.append("add_norm_matched_erasure with video_scale=1.0 did not steer video stream")
+                    if not torch.equal(seen_stream_ctxs[1], ctx_er):
+                        errs.append("add_norm_matched_erasure with audio_scale=0.0 mutated audio stream context")
+            finally:
+                cv.detect_family = orig_det_fam_er  # type: ignore[assignment]
+            # Cross-family h3_image auto-projection must skip fl2va erasure.vr
+            h3img_dm = _MiniDM()
+            h3img_dm.is_h3_image = True  # type: ignore[attr-defined]
+            orig_is_h3img = cv_nodes._is_minimax_h3_image
+            orig_det_fam = cv.detect_family
+            cv_nodes._is_minimax_h3_image = lambda d: getattr(d, "is_h3_image", False)  # type: ignore[assignment]
+            cv.detect_family = lambda _m: "h3_image"  # type: ignore[assignment]
+            try:
+                h3img_patcher = _MiniPatcher(h3img_dm)
+                h3img_attached = cv_nodes.attach_control_vector(
+                    h3img_patcher, er_path, strength=1.5, mode="add_norm_matched_erasure"
+                )
+                h3img_specs = h3img_attached.model_options["transformer_options"][cv_nodes.WRAPPER_KEY]
+                if h3img_specs[0].erasure_vr is not None:
+                    errs.append("cross-family h3_image auto-projection must skip fl2va erasure.vr")
+            finally:
+                cv_nodes._is_minimax_h3_image = orig_is_h3img  # type: ignore[assignment]
+                cv.detect_family = orig_det_fam  # type: ignore[assignment]
+
         # Build a synthetic saved vector with legacy encoder + null refiner_transmission to test advisories
         legacy_vec_path = st_tmp / "vec" / "demo_card__fl2va__diff_span__lora_deadbeef.safetensors"
         ps_demo = cv.load_pairs(st_tmp / "toml" / "demo_card.toml")

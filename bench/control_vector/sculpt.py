@@ -64,13 +64,13 @@ def _compose_and_save_sculpted_vector(
         strength = float(item.get("strength", 1.0))
         vpath = _resolve_vector_for_family(raw_src, family=family, extra_dir=target_dir)
         tensors, meta = cv.load_vector(vpath)
-        if base_meta is None and mode in ("add", "add_norm_matched"):
+        if base_meta is None and cv.is_additive_mode(mode):
             base_meta = meta
         resolved_steps.append({"vector": vpath, "mode": mode, "strength": strength})
         step_labels.append(f"{mode}:{meta.get('name', vpath.stem)}@{strength:g}")
         if "vector.encoder" in tensors:
             ve = tensors["vector.encoder"].detach().to(device="cpu", dtype=torch.float32).flatten()
-            if mode in ("add", "add_norm_matched"):
+            if cv.is_additive_mode(mode):
                 enc_add_terms.append(strength * ve)
             elif mode == "hold":
                 enc_hold_terms.append((ve, strength))
@@ -121,7 +121,7 @@ def _compose_and_save_sculpted_vector(
         vn = float(torch.linalg.vector_norm(v64).item())
         if m_st == "add":
             add_vecs.append((s_st * v64).to(dtype=torch.float32))
-        elif m_st == "add_norm_matched":
+        elif cv.is_norm_matched_mode(m_st):
             scale_f = (j_lens.NORM_MATCHED_TARGET / vn) if vn > 1e-12 else 0.0
             add_vecs.append((s_st * scale_f * v64).to(dtype=torch.float32))
         elif m_st == "hold":
@@ -129,7 +129,7 @@ def _compose_and_save_sculpted_vector(
         else:
             raise ValueError(f"unsupported sculpt mode {m_st!r}")
     if not add_vecs:
-        raise ValueError("sculpt requires at least one 'add' or 'add_norm_matched' vector")
+        raise ValueError("sculpt requires at least one additive control vector")
 
     cur_vec = torch.stack([v.to(dtype=torch.float64) for v in add_vecs], dim=0).sum(dim=0).to(dtype=torch.float32)
     pre_hold_norm = float(torch.linalg.vector_norm(cur_vec.to(dtype=torch.float64)).item())

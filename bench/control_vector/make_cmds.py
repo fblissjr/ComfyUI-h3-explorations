@@ -340,6 +340,24 @@ def cmd_make(args: argparse.Namespace) -> int:
         )
 
     tensors_to_save["vector.post_refiner"] = final_vec
+    cv.attach_erasure_tensors(tensors_to_save, pooled)
+    if (
+        "erasure.mu_d" in tensors_to_save
+        and not args.no_holds
+        and (hold_specs_make or hold_words_make)
+    ):
+        mu_held_m, _, _, _ = _apply_post_refiner_holds(
+            tensors_to_save["erasure.mu_d"],
+            family=family,
+            hold_specs=hold_specs_make,
+            hold_words=hold_words_make,
+            hold_alpha=hold_alpha_make,
+            prompt=tp_arg or None,
+            extra_basis=tensors_to_save.get("holds.post_refiner"),
+            extra_dir=extra_hold_dir,
+        )
+        if float(torch.linalg.vector_norm(mu_held_m.to(dtype=torch.float64)).item()) > 1e-6:
+            tensors_to_save["erasure.mu_d"] = mu_held_m.to(dtype=torch.float32)
 
     gen = torch.Generator(device="cpu").manual_seed(int(args.seed))
     q_report = cv.quality_report(a_mat, b_mat, w_vec, generator=gen)
@@ -609,6 +627,24 @@ def cmd_make(args: argparse.Namespace) -> int:
                     extra_dir=out_dir,
                 )
             sib_tensors["vector.post_refiner"] = sib_final_vec
+            cv.attach_erasure_tensors(sib_tensors, sib_pooled)
+            if (
+                "erasure.mu_d" in sib_tensors
+                and not args.no_holds
+                and (hold_specs_make or hold_words_make)
+            ):
+                sib_mu_held, _, _, _ = _apply_post_refiner_holds(
+                    sib_tensors["erasure.mu_d"],
+                    family=sib_fam,
+                    hold_specs=hold_specs_make,
+                    hold_words=hold_words_make,
+                    hold_alpha=hold_alpha_make,
+                    prompt=tp_arg or None,
+                    extra_basis=sib_tensors.get("holds.post_refiner"),
+                    extra_dir=out_dir,
+                )
+                if float(torch.linalg.vector_norm(sib_mu_held.to(dtype=torch.float64)).item()) > 1e-6:
+                    sib_tensors["erasure.mu_d"] = sib_mu_held.to(dtype=torch.float32)
             if "vector.encoder" in tensors_to_save:
                 sib_tensors["vector.encoder"] = tensors_to_save["vector.encoder"]
             sib_gen = torch.Generator(device="cpu").manual_seed(int(args.seed))

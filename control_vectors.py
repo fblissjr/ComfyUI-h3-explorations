@@ -1226,7 +1226,8 @@ def _check_pair_tensors(
 @dataclass(frozen=True)
 class PooledPairSet:
     """What `pool_pair_set` makes of one encoded pair set at one pooling: the pooled rows, the direction
-    before and after the pair file's own holds, and the per-pair record that goes into the metadata."""
+    before and after the pair file's own holds, optional Pole-A subspace erasure tensors (`erasure.*`),
+    and the per-pair record that goes into the metadata."""
 
     a_mat: torch.Tensor
     b_mat: torch.Tensor
@@ -1237,6 +1238,103 @@ class PooledPairSet:
     pair_spans: list[dict[str, Any]]
     enc_raw_vec: torch.Tensor | None
     n_holds: int
+    erasure_mu_d: torch.Tensor | None = None
+    erasure_vr: torch.Tensor | None = None
+    erasure_diag: torch.Tensor | None = None
+
+
+ERASURE_MAX_RANK: int = 8
+ERASURE_RIDGE_REL: float = 0.15
+ERASURE_MATCH_TAU: float = 0.15
+
+
+def build_pole_a_erasure(
+    a_spans: Sequence[torch.Tensor],
+    b_spans: Sequence[torch.Tensor],
+    weights: Sequence[float] | None = None,
+    *,
+    hold_basis: torch.Tensor | None = None,
+    max_rank: int = ERASURE_MAX_RANK,
+    ridge_rel: float = ERASURE_RIDGE_REL,
+    tau: float = ERASURE_MATCH_TAU,
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor] | None:
+    """Build float32 `(erasure.mu_d [D], erasure.vr [r, D], erasure.diag [r])` from unpooled
+    per-pair post-refiner span rows `(A_p, B_p)`.
+
+    Uses row-softmax cosine cross-attention at temperature `tau = 0.15` (`P = softmax(cos(A_p, B_p) / tau, dim=-1)`,
+    `D_p = P @ B_p - A_p`) for `mu_d` (non-uniform column sums up-weight aligned Pole-B tokens) and thin SVD
+    on centered Pole-A rows `A_c` for the rank-`r` erasure projector `Vr` and ridge weights `diag = S^2 / (S^2 + lam)`.
+    When `hold_basis` is provided, projects it out of both `mu_d` and `A_c` before SVD so `Vr` is orthonormal
+    and strictly orthogonal to `holds.post_refiner`. Returns `None` if fewer than 2 Pole-A rows exist."""
+    if not a_spans or len(a_spans) != len(b_spans):
+        return None
+    w_list = [1.0] * len(a_spans) if weights is None else [float(w) for w in weights]
+    if len(w_list) != len(a_spans):
+        raise ValueError("build_pole_a_erasure: weights length mismatch")
+
+    a_all_list: list[torch.Tensor] = []
+    d_sum: torch.Tensor | None = None
+    w_tok_total = 0.0
+    for a_p, b_p, wp in zip(a_spans, b_spans, w_list):
+        if a_p.ndim != 2 or b_p.ndim != 2 or a_p.shape[0] < 1 or b_p.shape[0] < 1:
+            continue
+        a64 = a_p.detach().to(device="cpu", dtype=torch.float64)
+        b64 = b_p.detach().to(device="cpu", dtype=torch.float64)
+        a_u = a64 / torch.linalg.vector_norm(a64, dim=-1, keepdim=True).clamp(min=1e-12)
+        b_u = b64 / torch.linalg.vector_norm(b64, dim=-1, keepdim=True).clamp(min=1e-12)
+        p_mat = torch.softmax((a_u @ b_u.T) / float(tau), dim=-1)
+        d_p = p_mat @ b64 - a64
+        a_all_list.append(a64)
+        w_eff = abs(float(wp)) if float(wp) != 0.0 else 1.0
+        contrib = w_eff * d_p.sum(dim=0)
+        d_sum = contrib if d_sum is None else (d_sum + contrib)
+        w_tok_total += w_eff * float(a64.shape[0])
+
+    if not a_all_list or d_sum is None or w_tok_total <= 0.0:
+        return None
+    a_all = torch.cat(a_all_list, dim=0)
+    if a_all.shape[0] < 2:
+        return None
+
+    mu_d = d_sum / w_tok_total
+    a_c = a_all - a_all.mean(dim=0, keepdim=True)
+    if hold_basis is not None and hold_basis.numel() > 0:
+        bh = hold_basis.detach().to(device="cpu", dtype=torch.float64)
+        mu_d = mu_d - (mu_d @ bh.T) @ bh
+        a_c = a_c - (a_c @ bh.T) @ bh
+
+    mu_norm = float(torch.linalg.vector_norm(mu_d).item())
+    if not math.isfinite(mu_norm) or mu_norm <= 1e-12:
+        return None
+
+    _u, s_vals, vh = torch.linalg.svd(a_c, full_matrices=False)
+    if s_vals.numel() == 0 or float(s_vals[0].item()) <= 1e-12:
+        return None
+    n_pos = int((s_vals > 1e-9 * s_vals[0]).sum().item())
+    r = min(int(max_rank), n_pos)
+    if r < 1:
+        return None
+    vr = vh[:r].contiguous()
+    lam = float(ridge_rel) * float(s_vals[0].item() ** 2)
+    s_sq = s_vals[:r] ** 2
+    diag = (s_sq / (s_sq + lam)).clamp(0.0, 1.0).contiguous()
+    return (
+        mu_d.to(dtype=torch.float32).contiguous(),
+        vr.to(dtype=torch.float32).contiguous(),
+        diag.to(dtype=torch.float32).contiguous(),
+    )
+
+
+def attach_erasure_tensors(
+    tensors_to_save: dict[str, torch.Tensor],
+    pooled: PooledPairSet,
+) -> None:
+    """Attach optional `erasure.{mu_d,vr,diag}` float32 tensors from `pooled` into `tensors_to_save`."""
+    if pooled.erasure_vr is not None and pooled.erasure_diag is not None:
+        tensors_to_save["erasure.vr"] = pooled.erasure_vr
+        tensors_to_save["erasure.diag"] = pooled.erasure_diag
+        if pooled.erasure_mu_d is not None:
+            tensors_to_save["erasure.mu_d"] = pooled.erasure_mu_d
 
 
 def _pool_rows(rows: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
@@ -1291,6 +1389,8 @@ def pool_pair_set(
 
     a_rows: list[torch.Tensor] = []
     b_rows: list[torch.Tensor] = []
+    a_spans: list[torch.Tensor] = []
+    b_spans: list[torch.Tensor] = []
     enc_a_rows: list[torch.Tensor] = []
     enc_b_rows: list[torch.Tensor] = []
     weights: list[float] = []
@@ -1300,6 +1400,8 @@ def pool_pair_set(
         mask_a, mask_b = _pair_pooling_masks(enc, pooling)
         a_rows.append(_pool_rows(ref_a, mask_a))
         b_rows.append(_pool_rows(ref_b, mask_b))
+        a_spans.append(ref_a[mask_a])
+        b_spans.append(ref_b[mask_b])
         if include_encoder:
             enc_a_rows.append(_pool_rows(enc["enc_a"], _encoder_rows_mask(mask_a)))
             enc_b_rows.append(_pool_rows(enc["enc_b"], _encoder_rows_mask(mask_b)))
@@ -1357,6 +1459,10 @@ def pool_pair_set(
         )
         if enc_basis is not None:
             enc_raw_vec = project_out(enc_raw_vec, enc_basis)
+    erasure_built = build_pole_a_erasure(a_spans, b_spans, weights, hold_basis=basis)
+    erasure_mu_d, erasure_vr, erasure_diag = (
+        erasure_built if erasure_built is not None else (None, None, None)
+    )
     return PooledPairSet(
         a_mat=a_mat,
         b_mat=b_mat,
@@ -1367,6 +1473,9 @@ def pool_pair_set(
         pair_spans=pair_spans,
         enc_raw_vec=enc_raw_vec,
         n_holds=len(encoded_holds),
+        erasure_mu_d=erasure_mu_d,
+        erasure_vr=erasure_vr,
+        erasure_diag=erasure_diag,
     )
 
 
@@ -2078,8 +2187,40 @@ def _validate_vector_payload(
                 )
             if float(torch.linalg.vector_norm(t).item()) == 0.0:
                 raise ValueError(f"tensor {key!r} has zero norm")
+        elif key == "erasure.mu_d":
+            if tuple(t.shape) != (POST_REFINER_DIM,):
+                raise ValueError(
+                    f"tensor 'erasure.mu_d' must have shape ({POST_REFINER_DIM},), got {tuple(t.shape)}"
+                )
+            if float(torch.linalg.vector_norm(t).item()) == 0.0:
+                raise ValueError("tensor 'erasure.mu_d' has zero norm")
+        elif key == "erasure.vr":
+            if t.ndim != 2 or t.shape[1] != POST_REFINER_DIM or t.shape[0] < 1:
+                raise ValueError(
+                    f"tensor 'erasure.vr' must have shape [r, {POST_REFINER_DIM}], got {tuple(t.shape)}"
+                )
+            r_rows = t.shape[0]
+            vr64 = t.detach().to(dtype=torch.float64)
+            gram_vr = vr64 @ vr64.T
+            eye_vr = torch.eye(r_rows, dtype=torch.float64, device=vr64.device)
+            if not torch.allclose(gram_vr, eye_vr, atol=1e-4):
+                raise ValueError("tensor 'erasure.vr' rows are not orthonormal")
+        elif key == "erasure.diag":
+            if t.ndim != 1 or t.shape[0] < 1:
+                raise ValueError(f"tensor 'erasure.diag' must have shape [r] with r >= 1, got {tuple(t.shape)}")
+            if bool(((t < 0.0) | (t > 1.0)).any()):
+                raise ValueError("tensor 'erasure.diag' values must lie in [0.0, 1.0]")
         else:
             raise ValueError(f"unknown control vector tensor key {key!r}")
+
+    if ("erasure.vr" in tensors) != ("erasure.diag" in tensors):
+        raise ValueError("tensors 'erasure.vr' and 'erasure.diag' must be provided together")
+    if "erasure.vr" in tensors and tensors["erasure.vr"].shape[0] != tensors["erasure.diag"].shape[0]:
+        raise ValueError(
+            f"tensor 'erasure.vr' rank {tensors['erasure.vr'].shape[0]} != 'erasure.diag' len {tensors['erasure.diag'].shape[0]}"
+        )
+    if "erasure.mu_d" in tensors and "erasure.vr" not in tensors:
+        raise ValueError("tensor 'erasure.mu_d' requires paired 'erasure.vr' and 'erasure.diag'")
 
     if not has_known_vector:
         raise ValueError("control vector must contain at least one 'vector.*' tensor")
@@ -2665,8 +2806,25 @@ def _is_same_family_h3_recipe_compatible(
 _is_ph3_image_compatible = _is_same_family_h3_recipe_compatible
 
 
-APPLY_MODES: tuple[str, ...] = ("add", "add_norm_matched", "hold", "project_out", "amplify")
+APPLY_MODES: tuple[str, ...] = (
+    "add",
+    "add_norm_matched",
+    "add_norm_matched_erasure",
+    "hold",
+    "project_out",
+    "amplify",
+)
 SCALE_MODES: tuple[str, ...] = ("raw", "norm_matched")
+
+
+def is_additive_mode(mode: str) -> bool:
+    """Whether `mode` is an additive steering mode (`add`, `add_norm_matched`, or `add_norm_matched_erasure`)."""
+    return mode in ("add", "add_norm_matched", "add_norm_matched_erasure")
+
+
+def is_norm_matched_mode(mode: str) -> bool:
+    """Whether `mode` normalizes the push to `NORM_MATCHED_TARGET` (`67.5`)."""
+    return mode in ("add_norm_matched", "add_norm_matched_erasure")
 #: The post-refiner shift norms a push is meant to land in. **Measured**: the band of `raw_norm` across the
 #: bank's `diff_span` builds (`bench/results/2026-11-05_control_vectors_pika_and_ref2va.md`), rounded.
 NORM_SHIFT_WINDOW: tuple[float, float] = (50.0, 85.0)
@@ -2715,6 +2873,33 @@ def _apply_holds_to_shift64(
     for u_hat, h_alpha in ortho_holds:
         out_shift = out_shift - h_alpha * torch.dot(out_shift, u_hat) * u_hat
     return out_shift
+
+
+def _apply_holds_to_rows64(
+    shift_rows64: torch.Tensor,
+    hold_entries: Sequence[tuple[torch.Tensor, float]],
+    device: torch.device,
+) -> torch.Tensor:
+    """Project `hold_entries` (`[(v_hold, alpha), ...]`) out of per-row `[M, D]` shifts in float64."""
+    if not hold_entries or shift_rows64.numel() == 0:
+        return shift_rows64
+    ortho_holds: list[tuple[torch.Tensor, float]] = []
+    for h_vec, h_alpha in hold_entries:
+        h_alpha_f = float(h_alpha)
+        if not math.isfinite(h_alpha_f) or not (0.0 <= h_alpha_f <= 2.0):
+            raise ValueError(f"hold alpha must be finite and in [0.0, 2.0], got {h_alpha!r}")
+        u = h_vec.detach().to(device=device, dtype=torch.float64).clone()
+        for _pass in range(2):
+            for prev_u, _ in ortho_holds:
+                u = u - torch.dot(u, prev_u) * prev_u
+        nrm = torch.linalg.vector_norm(u)
+        if float(nrm) > 1e-12:
+            ortho_holds.append((u / nrm, h_alpha_f))
+    out_rows = shift_rows64
+    for u_hat, h_alpha in ortho_holds:
+        proj = out_rows @ u_hat
+        out_rows = out_rows - (h_alpha * proj).unsqueeze(-1) * u_hat.unsqueeze(0)
+    return out_rows
 
 
 def vector_interactions(
@@ -2878,6 +3063,57 @@ def focus_row_mask(
     return focused, (0.0 if min_abs_cos > 1.0 else min_abs_cos)
 
 
+def _rms_row_norm64(rows64: torch.Tensor) -> float:
+    if rows64.numel() == 0:
+        return 0.0
+    return float(torch.sqrt((rows64 ** 2).sum(dim=-1).mean()).item())
+
+
+def _erasure_row_shift64(
+    base_rows64: torch.Tensor,
+    vec: torch.Tensor,
+    strength: float,
+    erasure_spec: tuple[torch.Tensor, torch.Tensor, torch.Tensor | None] | None,
+) -> torch.Tensor:
+    """Compute per-row `[M, D]` RMS-matched clamped prompt-centered Pole-A erasure shift in float64.
+
+    Guarantees:
+    - `strength == 0.0`: returns zeros (caller skips `0.0`).
+    - `strength < 0.0`: `max(0.0, min(s, 1.0)) == 0.0`, so erasure is cleanly disabled and only `s * mu_n` applies.
+    - `M <= 1` or `e_own_rms <= 1e-9` or `erasure_spec is None`: falls back cleanly to `s * mu_n`.
+    - Active erasure: strictly RMS-matched to `abs(s) * NORM_MATCHED_TARGET`."""
+    device = base_rows64.device
+    s_f = float(strength)
+    vr_t, diag_t, mu_d_t = erasure_spec if erasure_spec is not None else (None, None, None)
+    base_vec = mu_d_t if (mu_d_t is not None and s_f > 0.0 and vr_t is not None) else vec
+    v64 = base_vec.detach().to(device=device, dtype=torch.float64)
+    v_nrm = float(torch.linalg.vector_norm(v64).item())
+    if v_nrm <= 1e-12:
+        raise ValueError("control vector has zero norm; cannot apply mode='add_norm_matched_erasure'")
+    mu_n = v64 * (NORM_MATCHED_TARGET / v_nrm)
+    add_rows = (s_f * mu_n).unsqueeze(0).expand_as(base_rows64)
+    if s_f <= 0.0 or base_rows64.shape[0] < 2 or vr_t is None or diag_t is None:
+        return add_rows
+
+    vr64 = vr_t.detach().to(device=device, dtype=torch.float64)
+    diag64 = diag_t.detach().to(device=device, dtype=torch.float64)
+    centered = base_rows64 - base_rows64.mean(dim=0, keepdim=True)
+    e_own = ((centered @ vr64.T) * diag64.unsqueeze(0)) @ vr64
+    e_own_rms = _rms_row_norm64(e_own)
+    if not math.isfinite(e_own_rms) or e_own_rms <= 1e-9:
+        return add_rows
+    e_cap = min(1.0, NORM_MATCHED_TARGET / e_own_rms)
+    clamp_s = max(0.0, min(s_f, 1.0))
+    ref_e_rms = clamp_s * e_cap * e_own_rms
+    e = e_own * (ref_e_rms / e_own_rms)
+    raw = add_rows - e
+    raw_rms = _rms_row_norm64(raw)
+    if not math.isfinite(raw_rms) or raw_rms <= 1e-12:
+        return add_rows
+    target_rms = abs(s_f) * NORM_MATCHED_TARGET
+    return raw * (target_rms / raw_rms)
+
+
 def apply_post_refiner(
     context: torch.Tensor,
     tags: torch.Tensor,
@@ -2889,6 +3125,7 @@ def apply_post_refiner(
     mask_vision: bool = True,
     warn_if_stacked_norm: bool = True,
     token_focus: float = 1.0,
+    erasure_specs: Sequence[tuple[torch.Tensor, torch.Tensor, torch.Tensor | None] | None] | None = None,
 ) -> torch.Tensor:
     """Apply one or more `(vector_post_refiner, strength[, mode])` specs to refined
     text conditioning `context` (`[B, L, 5376]`).
@@ -2940,8 +3177,13 @@ def apply_post_refiner(
         mask_vision=mask_vision,
     )
 
-    active: list[tuple[torch.Tensor, float, str]] = []
-    for entry in vectors:
+    if erasure_specs is not None and len(erasure_specs) != len(vectors):
+        raise ValueError(
+            f"erasure_specs length {len(erasure_specs)} != vectors length {len(vectors)}"
+        )
+
+    active: list[tuple[torch.Tensor, float, str, tuple[torch.Tensor, torch.Tensor, torch.Tensor | None] | None]] = []
+    for idx_v, entry in enumerate(vectors):
         if len(entry) == 2:
             vec, strength = entry
             entry_mode = mode
@@ -2958,17 +3200,30 @@ def apply_post_refiner(
         if not bool(torch.isfinite(vec).all()):
             raise ValueError("control vector contains non-finite values")
         v_norm_sq = float(torch.dot(vec.detach().to(dtype=torch.float64), vec.detach().to(dtype=torch.float64)).item())
+        e_spec = erasure_specs[idx_v] if erasure_specs is not None else None
+        has_active_erasure = (
+            entry_mode == "add_norm_matched_erasure"
+            and float(strength) > 0.0
+            and e_spec is not None
+            and e_spec[0] is not None
+            and e_spec[1] is not None
+        )
         use_norm_match = entry_mode == "add_norm_matched" or (
             entry_mode == "add" and scale_mode == "norm_matched"
-        )
-        if (entry_mode in ("hold", "project_out", "amplify") or use_norm_match) and v_norm_sq <= 1e-24:
+        ) or (entry_mode == "add_norm_matched_erasure" and not has_active_erasure)
+        if (
+            entry_mode in ("hold", "project_out", "amplify", "add_norm_matched_erasure")
+            or use_norm_match
+        ) and v_norm_sq <= 1e-24:
             raise ValueError(f"control vector has zero norm; cannot apply mode={entry_mode!r}")
         if strength != 0.0:
-            if use_norm_match:
+            if has_active_erasure:
+                active.append((vec, float(strength), "add_norm_matched_erasure", e_spec))
+            elif use_norm_match:
                 eff_strength = float(strength) * (NORM_MATCHED_TARGET / math.sqrt(v_norm_sq))
-                active.append((vec, eff_strength, "add"))
+                active.append((vec, eff_strength, "add", None))
             else:
-                active.append((vec, float(strength), entry_mode))
+                active.append((vec, float(strength), entry_mode, None))
 
     if not active or not bool(row_mask.any()):
         return context
@@ -2977,11 +3232,11 @@ def apply_post_refiner(
         raise ValueError("context contains non-finite values in steered rows")
 
     out = context.clone()
-    if all(em in ("add", "hold") for _, _, em in active):
+    if all(em in ("add", "hold") for _, _, em, _ in active):
         total_shift64 = torch.zeros(D, dtype=torch.float64, device=context.device)
         hold_entries: list[tuple[torch.Tensor, float]] = []
         n_add = 0
-        for vec, strength, em in active:
+        for vec, strength, em, _ in active:
             if em == "add":
                 n_add += 1
                 total_shift64 = total_shift64 + strength * vec.detach().to(
@@ -3012,10 +3267,16 @@ def apply_post_refiner(
             add_shift64 = torch.zeros(D, dtype=torch.float64, device=context.device)
             hold_aim: list[tuple[torch.Tensor, float]] = []
             has_add_aim = False
-            for v_a, s_a, em_a in active:
+            for v_a, s_a, em_a, e_a in active:
                 if em_a == "add":
                     has_add_aim = True
                     add_shift64 = add_shift64 + s_a * v_a.detach().to(device=context.device, dtype=torch.float64)
+                elif em_a == "add_norm_matched_erasure":
+                    has_add_aim = True
+                    base_v = e_a[2] if (e_a is not None and e_a[2] is not None) else v_a
+                    bv64 = base_v.detach().to(device=context.device, dtype=torch.float64)
+                    bn = max(float(torch.linalg.vector_norm(bv64).item()), 1e-12)
+                    add_shift64 = add_shift64 + (s_a * NORM_MATCHED_TARGET / bn) * bv64
                 elif em_a == "hold":
                     hold_aim.append((v_a, s_a))
             if has_add_aim:
@@ -3025,38 +3286,50 @@ def apply_post_refiner(
             else:
                 aim_vec = active[0][0]
             eff_mask, _ = focus_row_mask(context, row_mask, aim_vec, token_focus=tf_val)
-        rows64 = out[eff_mask].to(dtype=torch.float64)
-        idx = 0
-        while idx < len(active):
-            vec, strength, em = active[idx]
-            if em in ("add", "hold"):
-                total_shift64 = torch.zeros(D, dtype=torch.float64, device=context.device)
-                hold_entries_blk: list[tuple[torch.Tensor, float]] = []
-                while idx < len(active) and active[idx][2] in ("add", "hold"):
-                    v_i, s_i, em_i = active[idx]
-                    if em_i == "add":
-                        total_shift64 = total_shift64 + s_i * v_i.detach().to(
-                            device=context.device, dtype=torch.float64
+
+        # Process per batch item so prompt-centered Pole-A erasure centers each batch element independently
+        # on unsteered `base_rows64` (order-independent across stacked vectors).
+        for b_idx in range(B):
+            b_mask = eff_mask[b_idx]
+            if not bool(b_mask.any()):
+                continue
+            base_rows64 = context[b_idx, b_mask].to(dtype=torch.float64)
+            rows64 = out[b_idx, b_mask].to(dtype=torch.float64)
+            idx = 0
+            while idx < len(active):
+                vec, strength, em, _ = active[idx]
+                if em in ("add", "add_norm_matched_erasure", "hold"):
+                    block_shift64 = torch.zeros_like(rows64)
+                    hold_entries_blk: list[tuple[torch.Tensor, float]] = []
+                    while idx < len(active) and active[idx][2] in ("add", "add_norm_matched_erasure", "hold"):
+                        v_i, s_i, em_i, e_i = active[idx]
+                        if em_i == "add":
+                            block_shift64 = block_shift64 + (
+                                s_i * v_i.detach().to(device=context.device, dtype=torch.float64)
+                            ).unsqueeze(0)
+                        elif em_i == "add_norm_matched_erasure":
+                            block_shift64 = block_shift64 + _erasure_row_shift64(
+                                base_rows64, v_i, s_i, e_i
+                            )
+                        else:
+                            hold_entries_blk.append((v_i, s_i))
+                        idx += 1
+                    if hold_entries_blk:
+                        block_shift64 = _apply_holds_to_rows64(
+                            block_shift64, hold_entries_blk, context.device
                         )
-                    else:
-                        hold_entries_blk.append((v_i, s_i))
-                    idx += 1
-                if hold_entries_blk:
-                    total_shift64 = _apply_holds_to_shift64(
-                        total_shift64, hold_entries_blk, context.device
-                    )
-                rows64 = rows64 + total_shift64.unsqueeze(0)
-            else:
-                v64 = vec.detach().to(device=context.device, dtype=torch.float64)
-                v_norm_sq = float(torch.dot(v64, v64).item())
-                coeff = (rows64 @ v64) / v_norm_sq
-                delta = (strength * coeff).unsqueeze(-1) * v64.unsqueeze(0)
-                if em == "project_out":
-                    rows64 = rows64 - delta
+                    rows64 = rows64 + block_shift64
                 else:
-                    rows64 = rows64 + delta
-                idx += 1
-        out[eff_mask] = rows64.to(dtype=context.dtype)
+                    v64 = vec.detach().to(device=context.device, dtype=torch.float64)
+                    v_norm_sq = float(torch.dot(v64, v64).item())
+                    coeff = (rows64 @ v64) / v_norm_sq
+                    delta = (strength * coeff).unsqueeze(-1) * v64.unsqueeze(0)
+                    if em == "project_out":
+                        rows64 = rows64 - delta
+                    else:
+                        rows64 = rows64 + delta
+                    idx += 1
+            out[b_idx, b_mask] = rows64.to(dtype=context.dtype)
 
     if out.shape != (B, L, D):
         raise RuntimeError(f"apply_post_refiner changed context shape from {(B, L, D)} to {tuple(out.shape)}")

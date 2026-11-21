@@ -454,6 +454,24 @@ def cmd_build(args: argparse.Namespace) -> int:
                 )
 
             tensors_to_save["vector.post_refiner"] = final_vec
+            cv.attach_erasure_tensors(tensors_to_save, pooled)
+            if (
+                "erasure.mu_d" in tensors_to_save
+                and not getattr(args, "no_holds", False)
+                and (hold_specs_build or hold_words_build)
+            ):
+                mu_held_b, _, _, _ = _apply_post_refiner_holds(
+                    tensors_to_save["erasure.mu_d"],
+                    family=family,
+                    hold_specs=hold_specs_build,
+                    hold_words=hold_words_build,
+                    hold_alpha=hold_alpha_build,
+                    prompt=prompt_build,
+                    extra_basis=tensors_to_save.get("holds.post_refiner"),
+                    extra_dir=out_dir,
+                )
+                if float(torch.linalg.vector_norm(mu_held_b.to(dtype=torch.float64)).item()) > 1e-6:
+                    tensors_to_save["erasure.mu_d"] = mu_held_b.to(dtype=torch.float32)
             gen = torch.Generator(device="cpu").manual_seed(int(args.seed))
             q_report = cv.quality_report(a_mat, b_mat, w_vec, generator=gen)
             raw_norm_before_holds = float(torch.linalg.vector_norm(pooled.raw_vec.to(dtype=torch.float64)).item())

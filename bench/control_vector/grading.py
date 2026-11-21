@@ -456,8 +456,13 @@ def cmd_grade(args: argparse.Namespace) -> int:
     # `add_norm_matched` the vector is rescaled to `NORM_MATCHED_TARGET`; a null handed to that mode would be
     # rescaled to the same length, which erases what flip_null measures (its length against the vector's).
     # So the nulls take the vector's own factor and go in as `add`.
-    norm_matched = grade_mode == "add_norm_matched"
+    norm_matched = cv.is_norm_matched_mode(grade_mode)
     null_mode = "add" if norm_matched else grade_mode
+    grade_erasure_specs = (
+        [(tensors["erasure.vr"], tensors["erasure.diag"], tensors.get("erasure.mu_d"))]
+        if (grade_mode == "add_norm_matched_erasure" and "erasure.vr" in tensors and "erasure.diag" in tensors)
+        else None
+    )
     base_spans = h3_spans.spans(base_ids, base_tags.tolist(), base_dec_fn)
     base_infer_mask = (
         None
@@ -626,7 +631,13 @@ def cmd_grade(args: argparse.Namespace) -> int:
 
     for s in strengths:
         pushed_masked = cv.apply_post_refiner(
-            base_ctx_b, base_tags_b, [(vec, s)], mask_vision=grade_mask_vision, mask=base_infer_mask, mode=grade_mode
+            base_ctx_b,
+            base_tags_b,
+            [(vec, s)],
+            mask_vision=grade_mask_vision,
+            mask=base_infer_mask,
+            mode=grade_mode,
+            erasure_specs=grade_erasure_specs,
         )[0]
         rel_seq = _rel_l2(pushed_masked, base_ctx)
         vis_diff = (
@@ -638,7 +649,12 @@ def cmd_grade(args: argparse.Namespace) -> int:
         msg = f"  vector s={s:+6.2f}  : seq_rel_l2={rel_seq:.6f}  vis_max_diff={vis_diff:.2e}"
         if n_vis > 0:
             pushed_unmasked = cv.apply_post_refiner(
-                base_ctx_b, base_tags_b, [(vec, s)], mask_vision=False, mode=grade_mode
+                base_ctx_b,
+                base_tags_b,
+                [(vec, s)],
+                mask_vision=False,
+                mode=grade_mode,
+                erasure_specs=grade_erasure_specs,
             )[0]
             unmasked_vis_rel = _rel_l2(
                 pushed_unmasked[base_tags == 0], base_ctx[base_tags == 0]

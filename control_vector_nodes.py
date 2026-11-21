@@ -81,7 +81,7 @@ PROMPT_BANK_DIR = REPO_ROOT / "prompt_bank"
 CONTROL_VECTORS_FOLDER = "control_vectors"
 WRAPPER_KEY = "h3_control_vectors"
 MASK_MODES = _spans.INFERENCE_MASK_MODES
-STEER_MODES: tuple[str, ...] = ("add_norm_matched", "add", "project_out")
+STEER_MODES: tuple[str, ...] = ("add_norm_matched", "add_norm_matched_erasure", "add", "project_out")
 STEER_TARGETS: tuple[str, ...] = (
     "scene_only",
     "description_only",
@@ -986,6 +986,7 @@ def make_control_vector_from_pairs(
     if pooled.hold_basis is not None:
         tensors_to_save["holds.post_refiner"] = pooled.hold_basis
     tensors_to_save["vector.post_refiner"] = final_vec
+    _cv.attach_erasure_tensors(tensors_to_save, pooled)
 
     gen = torch.Generator(device="cpu").manual_seed(0)
     q_report = _cv.quality_report(a_mat, b_mat, w_vec, generator=gen)
@@ -1166,6 +1167,9 @@ class _AppliedVectorSpec:
     guide_cond_end_percent: float = 1.0
     edit_pass: str = "both"
     token_focus: float = 1.0
+    erasure_vr: torch.Tensor | None = None
+    erasure_diag: torch.Tensor | None = None
+    erasure_mu_d: torch.Tensor | None = None
 
 
 def _step_in_window(
@@ -2177,6 +2181,13 @@ def _make_control_vector_wrapper(
                 batch_entries: list[tuple[torch.Tensor, float, str]] = [
                     (v0, s0, _effective_entry_mode(sp))
                 ]
+                batch_erasure_specs: list[
+                    tuple[torch.Tensor, torch.Tensor, torch.Tensor | None] | None
+                ] = [
+                    (sp.erasure_vr, sp.erasure_diag, sp.erasure_mu_d)
+                    if (sp.erasure_vr is not None and sp.erasure_diag is not None)
+                    else None
+                ]
                 j = i + 1
                 while (
                     j < n
@@ -2201,12 +2212,17 @@ def _make_control_vector_wrapper(
                             _effective_entry_mode(gnext),
                         )
                     )
+                    batch_erasure_specs.append(
+                        (gnext.erasure_vr, gnext.erasure_diag, gnext.erasure_mu_d)
+                        if (gnext.erasure_vr is not None and gnext.erasure_diag is not None)
+                        else None
+                    )
                     j += 1
 
                 if (
                     j < n
                     and _effective_entry_mode(active_specs[j]) == "hold"
-                    and any(em in ("add", "add_norm_matched") for (_v, _s, em) in batch_entries)
+                    and any(_cv.is_additive_mode(em) for (_v, _s, em) in batch_entries)
                 ):
                     raise ValueError(
                         f"mode='hold' on {active_specs[j].vector_name!r} has mask={active_specs[j].mask!r}, "
@@ -2216,11 +2232,11 @@ def _make_control_vector_wrapper(
 
                 add_inter_entries: list[tuple[str, torch.Tensor, float]] = []
                 for gsp, (gv, gs_eff, em) in zip(group_specs, batch_entries):
-                    if em in ("add", "add_norm_matched") and gs_eff != 0.0:
+                    if _cv.is_additive_mode(em) and gs_eff != 0.0:
                         v_nrm = float(torch.linalg.vector_norm(gv.detach().to(dtype=torch.float64)).item())
                         eff_s = (
                             gs_eff * (_cv.NORM_MATCHED_TARGET / v_nrm)
-                            if (em == "add_norm_matched" and v_nrm > 1e-12)
+                            if (_cv.is_norm_matched_mode(em) and v_nrm > 1e-12)
                             else gs_eff
                         )
                         add_inter_entries.append((gsp.vector_name, gv, eff_s))
@@ -2244,7 +2260,7 @@ def _make_control_vector_wrapper(
                         )
 
                 for gsp, (_v, gs_eff, em) in zip(group_specs, batch_entries):
-                    if em in ("add", "add_norm_matched") and gs_eff != 0.0:
+                    if _cv.is_additive_mode(em) and gs_eff != 0.0:
                         applied_add_names.append(gsp.vector_name)
                 if any(s_eff != 0.0 for (_v, s_eff, _m) in batch_entries):
                     if not is_pure_uncond:
@@ -2268,12 +2284,12 @@ def _make_control_vector_wrapper(
                                 for gv, gs_eff, em in batch_entries:
                                     if gs_eff == 0.0:
                                         continue
-                                    if em in ("add", "add_norm_matched"):
+                                    if _cv.is_additive_mode(em):
                                         has_aim_add = True
                                         gv64 = gv.detach().to(device=cur_ctx.device, dtype=torch.float64)
                                         eff_gs = (
                                             gs_eff * (_cv.NORM_MATCHED_TARGET / max(float(torch.linalg.vector_norm(gv64).item()), 1e-12))
-                                            if em == "add_norm_matched"
+                                            if _cv.is_norm_matched_mode(em)
                                             else gs_eff
                                         )
                                         aim_shift64 = aim_shift64 + eff_gs * gv64
@@ -2315,6 +2331,7 @@ def _make_control_vector_wrapper(
                         mask_vision=mask_vision,
                         warn_if_stacked_norm=False,
                         token_focus=float(sp.token_focus),
+                        erasure_specs=batch_erasure_specs,
                     )
                 i = j
             if not is_pure_uncond and len(applied_add_names) >= 2:
@@ -2735,6 +2752,9 @@ def attach_control_vector(
             )
 
         vec_family = str(metadata.get("family", ""))
+        erasure_vr: torch.Tensor | None = None
+        erasure_diag: torch.Tensor | None = None
+        erasure_mu_d: torch.Tensor | None = None
         if (
             loaded_family == "h3_image"
             and vec_family in ("fl2va", "ref2va", "fasth3")
@@ -2760,6 +2780,13 @@ def attach_control_vector(
             )
             advisories = [proj_msg]
             logger.info("[h3] %s", proj_msg)
+            if mode == "add_norm_matched_erasure" and "erasure.vr" in tensors:
+                skip_msg = (
+                    f"skipping {vec_family!r} post-refiner erasure.vr on cross-family 'h3_image' "
+                    f"vector.encoder projection for {vec_path.name}; applying projected 1D direction"
+                )
+                advisories.append(skip_msg)
+                logger.info("[h3] %s", skip_msg)
         else:
             # Compare checkpoint + loras (encoder is only known at Make time unless passed)
             recipe_to_check = {
@@ -2777,6 +2804,11 @@ def attach_control_vector(
             for msg in advisories:
                 logger.warning("[h3] %s", msg)
             vec_pr = tensors["vector.post_refiner"]
+            if "erasure.vr" in tensors and "erasure.diag" in tensors:
+                erasure_vr = tensors["erasure.vr"].detach().to(device="cpu", dtype=torch.float32)
+                erasure_diag = tensors["erasure.diag"].detach().to(device="cpu", dtype=torch.float32)
+                if "erasure.mu_d" in tensors:
+                    erasure_mu_d = tensors["erasure.mu_d"].detach().to(device="cpu", dtype=torch.float32)
 
         if hold_clean and ha_f > 0.0:
             synth_fam = _j_lens._canonical_synth_family(synth_family_arg)
@@ -2794,6 +2826,14 @@ def attach_control_vector(
             if res_nrm <= 1e-3 * max(1.0, orig_nrm):
                 raise ValueError("hold_words completely cancelled control vector (residual norm is zero)")
             vec_pr = vec_held.to(dtype=vec_pr.dtype)
+            if erasure_mu_d is not None:
+                mu_held = _j_lens.apply_soft_holds(
+                    erasure_mu_d,
+                    [hold_synth["vector.post_refiner"]],
+                    alpha=ha_f,
+                )
+                if float(torch.linalg.vector_norm(mu_held.to(dtype=torch.float64)).item()) > 1e-6:
+                    erasure_mu_d = mu_held.to(dtype=torch.float32)
 
         new_spec = _AppliedVectorSpec(
             vector_name=vec_path.name,
@@ -2818,6 +2858,9 @@ def attach_control_vector(
             guide_cond_end_percent=gcep_f,
             edit_pass=edit_pass,
             token_focus=tf_f,
+            erasure_vr=erasure_vr,
+            erasure_diag=erasure_diag,
+            erasure_mu_d=erasure_mu_d,
         )
         updated = updated + (new_spec,)
         logger.info(
@@ -2902,7 +2945,7 @@ def attach_control_vector(
         if _effective_entry_mode(sp_chk) == "hold" and float(sp_chk.strength) != 0.0:
             prior = updated[:idx_sp]
             has_matching_add = any(
-                _effective_entry_mode(prev) in ("add", "add_norm_matched")
+                _cv.is_additive_mode(_effective_entry_mode(prev))
                 and float(prev.strength) != 0.0
                 and (prev.mask, prev.prompt) == (sp_chk.mask, sp_chk.prompt)
                 for prev in prior
@@ -2912,7 +2955,7 @@ def attach_control_vector(
                     {
                         prev.mask
                         for prev in prior
-                        if _effective_entry_mode(prev) in ("add", "add_norm_matched")
+                        if _cv.is_additive_mode(_effective_entry_mode(prev))
                         and float(prev.strength) != 0.0
                     }
                 )
@@ -4768,10 +4811,10 @@ class MiniMaxH3Steer(io.ComfyNode):
             else:
                 wired_holds.append((H3VectorSpec(kind="words", words=node_hold_words), ha_f))
 
-        if mode == "project_out" and wired_holds:
+        if not _cv.is_additive_mode(mode) and wired_holds:
             raise ValueError(
                 "MiniMaxH3Steer: hold_vector only applies to additive modes "
-                "('add_norm_matched' or 'add'), not mode='project_out' "
+                "('add_norm_matched', 'add_norm_matched_erasure', or 'add'), not mode='project_out' "
                 "(use hold_words to orthogonalize the vector before removing it from the prompt)"
             )
 
