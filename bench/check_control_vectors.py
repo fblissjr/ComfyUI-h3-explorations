@@ -6884,6 +6884,60 @@ def _check_nov15_steer_prose_and_ph3_family() -> list[str]:
                 cv_nodes._is_minimax_h3_image = orig_is_h3img  # type: ignore[assignment]
                 cv.detect_family = orig_det_fam  # type: ignore[assignment]
 
+            # orthogonalize_erasure_against_holds preserves orthonormality & removes held direction from Vr
+            orth_res = cv.orthogonalize_erasure_against_holds(er_vr, er_diag, [hold_dir])
+            if orth_res is None:
+                errs.append("orthogonalize_erasure_against_holds unexpectedly returned None")
+            else:
+                vr_o, diag_o = orth_res
+                orth_leak = float((vr_o.to(torch.float64) @ hold_u).abs().max().item())
+                gram_o = vr_o.to(torch.float64) @ vr_o.to(torch.float64).T
+                if orth_leak > 1e-4 or not torch.allclose(gram_o, torch.eye(vr_o.shape[0], dtype=torch.float64), atol=1e-4):
+                    errs.append(f"orthogonalize_erasure_against_holds failed: leak={orth_leak}")
+
+            # MiniMaxH3Steer / attach_control_vector(..., mode="add_norm_matched_erasure", hold_words=...) scrubs full [M, D] shift (<= 1e-3 leak)
+            orig_synth_fn = cv_nodes._j_lens.synthesize_from_words
+            orig_det_hw = cv.detect_family
+            cv.detect_family = lambda _m: "fl2va"  # type: ignore[assignment]
+            cv_nodes._j_lens.synthesize_from_words = (  # type: ignore[assignment]
+                lambda *a, **kw: {"vector.post_refiner": hold_dir, "readout": {"pos_summary": "hold", "neg_summary": ""}}
+            )
+            try:
+                hw_attached = cv_nodes.attach_control_vector(
+                    _MiniPatcher(),
+                    er_path,
+                    strength=1.5,
+                    mode="add_norm_matched_erasure",
+                    mask="non_vision",
+                    hold_words="nuisance",
+                    hold_alpha=1.0,
+                )
+                hw_specs = hw_attached.model_options["transformer_options"][cv_nodes.WRAPPER_KEY]
+                hw_wrap = cv_nodes._make_control_vector_wrapper(hw_specs)
+                ctx_hw_out = hw_wrap(
+                    lambda x, ts, ctx, topts, **kw: ctx,
+                    None,
+                    torch.tensor([1000.0]),
+                    ctx_er,
+                    {"sample_sigmas": torch.tensor([1.0, 0.0]), "sigmas": torch.tensor([1.0])},
+                    minimax_payload={"text_token_tags": tags_er},
+                )
+                hw_leak = float(((ctx_hw_out[0] - ctx_er[0]).to(torch.float64) @ hold_u).abs().max().item())
+                if hw_leak > 1e-3:
+                    errs.append(f"attach_control_vector add_norm_matched_erasure + hold_words leaked {hw_leak:.6f}")
+            finally:
+                cv_nodes._j_lens.synthesize_from_words = orig_synth_fn  # type: ignore[assignment]
+                cv.detect_family = orig_det_hw  # type: ignore[assignment]
+
+            # j_lens.decode_recipe accepts mode="add_norm_matched_erasure"
+            if cv_nodes._j_lens.bundle_available():
+                rec_eval = cv_nodes._j_lens.decode_recipe(
+                    [{"vector": str(er_path), "mode": "add_norm_matched_erasure", "strength": 1.0}],
+                    family="fl2va",
+                )
+                if not rec_eval or "readout" not in rec_eval:
+                    errs.append(f"j_lens.decode_recipe failed on mode='add_norm_matched_erasure': {list(rec_eval.keys()) if isinstance(rec_eval, dict) else rec_eval}")
+
         # Build a synthetic saved vector with legacy encoder + null refiner_transmission to test advisories
         legacy_vec_path = st_tmp / "vec" / "demo_card__fl2va__diff_span__lora_deadbeef.safetensors"
         ps_demo = cv.load_pairs(st_tmp / "toml" / "demo_card.toml")

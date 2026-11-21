@@ -412,6 +412,57 @@ def _apply_post_refiner_holds(
     return scrubbed.to(dtype=torch.float32), hold_labels, norm_before, norm_after_raw
 
 
+def _apply_erasure_holds(
+    tensors_to_save: dict[str, torch.Tensor],
+    *,
+    family: str,
+    hold_specs: list[str] | tuple[str, ...] | None = None,
+    hold_words: str | None = None,
+    hold_alpha: float = 1.0,
+    prompt: str | None = None,
+    extra_dir: Path | None = None,
+) -> None:
+    """Apply CLI `--hold` / `--hold-words` to `erasure.mu_d` and (at full hold_alpha >= 0.999)
+    orthogonalize `erasure.vr`/`erasure.diag` against the same hold vectors."""
+    a_val = float(hold_alpha)
+    if a_val <= 0.0 or "erasure.vr" not in tensors_to_save:
+        return
+    hold_tensors: list[torch.Tensor] = []
+    for h_spec in (hold_specs or ()):
+        if not str(h_spec).strip():
+            continue
+        h_path = _resolve_vector_for_family(str(h_spec).strip(), family=family, extra_dir=extra_dir)
+        ht, _hname, _ = j_lens._load_vector_from_source(h_path, space="post_refiner")
+        hold_tensors.append(ht)
+    hw_str = str(hold_words or "").strip()
+    if hw_str and j_lens.bundle_available():
+        hw_synth = j_lens.synthesize_from_words(hw_str, family=family, prompt=prompt)
+        hold_tensors.append(
+            hw_synth["vector.post_refiner"].detach().to(device="cpu", dtype=torch.float32).flatten()
+        )
+    if not hold_tensors:
+        return
+    if "erasure.mu_d" in tensors_to_save:
+        mu_scrub = j_lens.apply_soft_holds(tensors_to_save["erasure.mu_d"], hold_tensors, alpha=a_val)
+        extra_b = tensors_to_save.get("holds.post_refiner")
+        if extra_b is not None and extra_b.numel() > 0:
+            mu_scrub = cv.project_out(mu_scrub, extra_b)
+        if float(torch.linalg.vector_norm(mu_scrub.to(dtype=torch.float64)).item()) > 1e-6:
+            tensors_to_save["erasure.mu_d"] = mu_scrub.to(dtype=torch.float32)
+        else:
+            tensors_to_save.pop("erasure.mu_d", None)
+    if a_val >= 0.999:
+        res_orth = cv.orthogonalize_erasure_against_holds(
+            tensors_to_save["erasure.vr"], tensors_to_save["erasure.diag"], hold_tensors
+        )
+        if res_orth is None:
+            tensors_to_save.pop("erasure.vr", None)
+            tensors_to_save.pop("erasure.diag", None)
+            tensors_to_save.pop("erasure.mu_d", None)
+        else:
+            tensors_to_save["erasure.vr"], tensors_to_save["erasure.diag"] = res_orth
+
+
 def _compile_words_or_spec_to_pairset(
     words_arg: str,
     *,

@@ -1057,7 +1057,7 @@ def decode_recipe(
             if v_enc_step is not None:
                 enc_w = strength * (v_norm / NORM_MATCHED_TARGET) if NORM_MATCHED_TARGET > 0 else strength
                 add_terms_enc.append(enc_w * F.normalize(v_enc_step.to(dtype=torch.float64), dim=0))
-        elif mode == "add_norm_matched":
+        elif mode in ("add_norm_matched", "add_norm_matched_erasure"):
             scale_factor = (NORM_MATCHED_TARGET / v_norm) if v_norm > 1e-12 else 0.0
             add_terms.append((name, (strength * scale_factor * v64).to(dtype=torch.float32)))
             if v_enc_step is not None:
@@ -1067,7 +1067,9 @@ def decode_recipe(
                 raise ValueError(f"mode='hold' strength (alpha) must be in [0.0, 2.0], got {strength}")
             hold_steps.append((name, vec, v_enc_step, strength))
         else:
-            raise ValueError(f"Unsupported recipe mode {mode!r}; expected 'add', 'add_norm_matched', or 'hold'")
+            raise ValueError(
+                f"Unsupported recipe mode {mode!r}; expected 'add', 'add_norm_matched', 'add_norm_matched_erasure', or 'hold'"
+            )
 
     hw_list = _parse_word_list(hold_words)
     if hw_list and a_val > 0.0:
@@ -2243,7 +2245,7 @@ def save_composed_recipe_vector(
     add_desc = " + ".join(
         f"{s['name']}({s['mode']}@{s['strength']})"
         for s in step_list
-        if s.get("mode") in ("add", "add_norm_matched")
+        if s.get("mode") in ("add", "add_norm_matched", "add_norm_matched_erasure")
     )
     hold_desc = ", ".join(
         [f"{s['name']}({s['strength']})" for s in step_list if s.get("mode") == "hold"]
@@ -2257,7 +2259,7 @@ def save_composed_recipe_vector(
         else _DEFAULT_RECIPES.get(eff_family, _DEFAULT_RECIPES["fl2va"])
     )
 
-    n_add = sum(1 for s in step_list if s.get("mode") in ("add", "add_norm_matched"))
+    n_add = sum(1 for s in step_list if s.get("mode") in ("add", "add_norm_matched", "add_norm_matched_erasure"))
     n_hold = sum(1 for s in step_list if s.get("mode") == "hold") + (1 if hw_list else 0)
     meta_dict: dict[str, Any] = {
         "format": "h3-control-vector/1",

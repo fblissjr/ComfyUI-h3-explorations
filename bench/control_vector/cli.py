@@ -489,13 +489,13 @@ def build_parser() -> argparse.ArgumentParser:
 
     psculpt = sub.add_parser(
         "sculpt",
-        help="Compose multi-vector recipes (add, add_norm_matched, hold) + --hold-words (--hold-alpha) into Ready-to-Render .safetensors files in <5 ms on CPU",
+        help="Compose multi-vector recipes (add, add_norm_matched, add_norm_matched_erasure, hold) + --hold-words (--hold-alpha) into Ready-to-Render .safetensors files in <5 ms on CPU",
     )
     psculpt.add_argument("vectors", nargs="+", help="One or more .safetensors vector files or stems to compose")
     psculpt.add_argument(
         "--modes",
         default="add",
-        help="Comma-separated modes matching 'vectors' ('add', 'add_norm_matched', 'hold'; default: 'add')",
+        help="Comma-separated modes matching 'vectors' ('add', 'add_norm_matched', 'add_norm_matched_erasure', 'hold'; default: 'add')",
     )
     psculpt.add_argument(
         "--strengths",

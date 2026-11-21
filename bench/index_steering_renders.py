@@ -763,7 +763,7 @@ def extract_render_record(
         sh = st.get("split_half")
         if (mpc is not None and mpc < 0.62) or (sh is not None and sh < 0.88):
             problems.append((
-                "low_mpc_vector_inflated" if st.get("mode") == "add_norm_matched" else "low_mpc_vector",
+                "low_mpc_vector_inflated" if st.get("mode") in ("add_norm_matched", "add_norm_matched_erasure") else "low_mpc_vector",
                 f"{st['vector_name']} mpc={mpc} sh={sh} raw_norm={st.get('raw_norm')} mode={st.get('mode')}",
             ))
         if family == "ref2va" and st.get("target") == "look_only":

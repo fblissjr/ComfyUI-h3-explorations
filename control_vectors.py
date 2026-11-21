@@ -1337,6 +1337,43 @@ def attach_erasure_tensors(
             tensors_to_save["erasure.mu_d"] = pooled.erasure_mu_d
 
 
+def orthogonalize_erasure_against_holds(
+    vr: torch.Tensor,
+    diag: torch.Tensor,
+    hold_vecs: Sequence[torch.Tensor],
+) -> tuple[torch.Tensor, torch.Tensor] | None:
+    """Project `hold_vecs` out of the symmetric erasure operator `Vr^T diag Vr` while preserving
+    orthonormality of `Vr` and `[0, 1]` bounds on `diag` via an exact `r x D` thin SVD."""
+    if not hold_vecs or vr.ndim != 2 or vr.shape[0] < 1:
+        return vr, diag
+    basis_rows: list[torch.Tensor] = []
+    for hv in hold_vecs:
+        u = hv.detach().to(device="cpu", dtype=torch.float64).flatten().clone()
+        for _ in range(2):
+            for prev in basis_rows:
+                u = u - torch.dot(u, prev) * prev
+        nrm = float(torch.linalg.vector_norm(u).item())
+        if nrm > 1e-12:
+            basis_rows.append(u / nrm)
+    if not basis_rows:
+        return vr, diag
+    bh = torch.stack(basis_rows, dim=0)
+    vr64 = vr.detach().to(device="cpu", dtype=torch.float64)
+    d64 = diag.detach().to(device="cpu", dtype=torch.float64).clamp(0.0, 1.0)
+    # Factor M = diag^{1/2} Vr (I - B_h^T B_h), so M^T M = (I - B_h^T B_h) Vr^T diag Vr (I - B_h^T B_h).
+    vr_proj = vr64 - (vr64 @ bh.T) @ bh
+    m_mat = torch.sqrt(d64).unsqueeze(-1) * vr_proj
+    _u, s_vals, vh = torch.linalg.svd(m_mat, full_matrices=False)
+    d_new = (s_vals ** 2).clamp(0.0, 1.0)
+    keep = d_new > 1e-9
+    if not bool(keep.any()):
+        return None
+    return (
+        vh[keep].to(dtype=torch.float32).contiguous(),
+        d_new[keep].to(dtype=torch.float32).contiguous(),
+    )
+
+
 def _pool_rows(rows: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
     """The mean of the masked rows, summed in float64 and returned in float32."""
     return rows.to(dtype=torch.float64)[mask].mean(dim=0).to(dtype=torch.float32)
