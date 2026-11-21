@@ -78,6 +78,7 @@ Start at [`control_vectors.md`](control_vectors.md) and [`edit_guidance.md`](edi
 | [`research/control_vectors/2026-11-12_sound_cues_dpad_and_033_release_law.md`](research/control_vectors/2026-11-12_sound_cues_dpad_and_033_release_law.md) | **Sound Cues + 2D Sprite D-Pad + `0.33` Release Law**: `MiniMaxH3SoundCues`, `MiniMaxH3AppendSpriteTrajectory`, `MiniMaxH3ReleaseReferences`, `h3_image_ref_dpad_sound_pika_api.json` |
 | [`research/control_vectors/2026-11-12_exp5_ladder_and_temporal_guide_synthesis.md`](research/control_vectors/2026-11-12_exp5_ladder_and_temporal_guide_synthesis.md) | **`exp2`–`exp5` Forensic Audit & Roadmap**: `heavy_blizzard` / `watercolor_wash` 1:1 ladder, Pole-A shared direction, `EditGuider` spatiotemporal mask proposal |
 | [`research/control_vectors/2026-11-12_chain_lens_digest_and_experiment_plan.md`](research/control_vectors/2026-11-12_chain_lens_digest_and_experiment_plan.md) | **Chain Lens & Readout Plan (§15)**: blind readout score, whitened whole-word table, neighbor holds, upper-layer chain rollout |
+| [`research/control_vectors/2026-11-20_unpooled_multivector_sliders.md`](research/control_vectors/2026-11-20_unpooled_multivector_sliders.md) | **Unpooled Multi-Vector `1x` Sliders (`2026-11-20`)**: `rank 4..8` conditional transport formula, Nov-2026 retrieval SOTA shootout (Minish PCA/SIF, LightOn Ward, Khattab `WARP_SELECT`, Mixedbread *Latent Terms*), rank-sweep phase transition, and `M4` causal ablation |
 
 ---
 
