@@ -703,6 +703,23 @@ def _iter_vector_safetensors(vec_dir: Path) -> list[Path]:
     )
 
 
+def _existing_families_for_items(
+    items: Sequence[tuple[Path, dict[str, torch.Tensor], dict[str, Any]]],
+    *,
+    default: str = "fl2va",
+) -> str:
+    """Return existing `(fl2va / ref2va)` family selector preserved from saved `.safetensors` metadata."""
+    fams = sorted({str(m.get("family", "")) for _, _, m in items if m.get("family") in ("fl2va", "ref2va")})
+    if fams == ["fl2va", "ref2va"]:
+        return "both"
+    return ",".join(fams) if fams else default
+
+
+def _has_erasure_tensors(tensors: Mapping[str, torch.Tensor]) -> bool:
+    """Return True when paired `erasure.vr` and `erasure.diag` tensors are present."""
+    return "erasure.vr" in tensors and "erasure.diag" in tensors
+
+
 def cmd_rebuild(args: argparse.Namespace) -> int:
     """Rebuild all control vectors in a folder (defaults to `models/control_vectors/`
     + `prompt_bank/control_vectors/`) or a single specified control vector with zero
@@ -958,14 +975,13 @@ def cmd_rebuild(args: argparse.Namespace) -> int:
             if toml_cand is None:
                 toml_cand = _resolve_existing_toml_from_meta(m, default_toml_dir)
 
-        # If the user pointed at a single .safetensors file without --families, rebuild that file's own family;
-        # otherwise honor an explicit --families flag or default to 'fl2va'.
+        # If the user omitted --families and files already exist for this stem, preserve all on-disk
+        # families (`fl2va`, `ref2va`, or `both`) so siblings aren't stranded; new stems default to 'fl2va'.
         raw_fam_arg = getattr(args, "families", None)
         if raw_fam_arg:
             single_fam_override = str(raw_fam_arg)
-        elif len(loaded_items) == 1 and target_path.suffix.lower() == ".safetensors":
-            fam_single = str(loaded_items[0][2].get("family", ""))
-            single_fam_override = fam_single if fam_single in ("fl2va", "ref2va") else "fl2va"
+        elif loaded_items:
+            single_fam_override = _existing_families_for_items(loaded_items, default="fl2va")
         else:
             single_fam_override = "fl2va"
 
@@ -1041,19 +1057,25 @@ def cmd_rebuild(args: argparse.Namespace) -> int:
     print(
         f"=== Rebuilding {len(all_stems)} Control Vector Stem(s) (vec_dir={vec_dir}, toml_dir={_display_path(toml_dir)}) ==="
     )
-    req_fams_str = getattr(args, "families", None) or "fl2va"
-    req_fams_set = set(_resolve_requested_families(req_fams_str))
+    raw_fam_arg = getattr(args, "families", None)
     force_rebuild = bool(getattr(args, "force", False))
     for idx, stem in enumerate(all_stems, start=1):
         if stem in toml_by_stem:
             tp = toml_by_stem[stem]
             existing_items = vecs_by_stem.get(stem, [])
+            stem_fams_str = (
+                str(raw_fam_arg)
+                if raw_fam_arg
+                else _existing_families_for_items(existing_items, default="fl2va")
+            )
+            stem_fams_set = set(_resolve_requested_families(stem_fams_str))
             if not force_rebuild and existing_items:
                 try:
                     ps_check = cv.load_pairs(tp, bank_dir=cv_nodes.PROMPT_BANK_DIR)
                     existing_fams = {str(m.get("family", "")) for _, _, m in existing_items}
-                    all_complete = req_fams_set.issubset(existing_fams) and all(
+                    all_complete = stem_fams_set.issubset(existing_fams) and all(
                         ("vector.encoder" in t or not getattr(args, "include_encoder", True))
+                        and _has_erasure_tensors(t)
                         and "j_lens_readout" in (m.get("quality_report") or {})
                         and (m.get("pairs") or {}).get("sha256") == ps_check.sha256
                         for _, t, m in existing_items
@@ -1068,7 +1090,7 @@ def cmd_rebuild(args: argparse.Namespace) -> int:
                     continue
             print(f"\n[{idx}/{len(all_stems)}] Rebuilding `{stem}` from {_display_path(tp)} ...")
             target_out_dir = existing_items[0][0].parent if existing_items else vec_dir
-            _rebuild_from_toml(tp, target_out_dir, req_fams_str, all_rows)
+            _rebuild_from_toml(tp, target_out_dir, stem_fams_str, all_rows)
             continue
 
         items = vecs_by_stem.get(stem, [])
@@ -1079,23 +1101,30 @@ def cmd_rebuild(args: argparse.Namespace) -> int:
         made_by = str(meta0.get("provenance", {}).get("made_by", ""))
         pairs_path = str(meta0.get("pairs", {}).get("path", ""))
         b_side = str(meta0.get("pairs", {}).get("b_side", "")).strip()
+        stem_fams_str = (
+            str(raw_fam_arg)
+            if raw_fam_arg
+            else _existing_families_for_items(items, default="fl2va")
+        )
+        stem_fams_set = set(_resolve_requested_families(stem_fams_str))
         existing_fams = {str(m.get("family", "")) for _, _, m in items}
-        missing_fams = not req_fams_set.issubset(existing_fams)
+        missing_fams = not stem_fams_set.issubset(existing_fams)
         needs_encoder = bool(getattr(args, "include_encoder", True)) and any(
             "vector.encoder" not in t for _, t, _ in items
         )
+        needs_erasure = any(not _has_erasure_tensors(t) for _, t, _ in items)
         if made_by.startswith("j_lens.synthesize_from_words") or pairs_path == "j_lens.synthesize_from_words":
             print(f"\n[{idx}/{len(all_stems)}] Rebuilding J-Lens word vector `{stem}` ...")
-            _rebuild_jlens_words(stem, items, item_out_dir, req_fams_str, all_rows)
+            _rebuild_jlens_words(stem, items, item_out_dir, stem_fams_str, all_rows)
         elif (
-            (force_rebuild or needs_encoder or missing_fams)
+            (force_rebuild or needs_encoder or needs_erasure or missing_fams)
             and b_side
             and not pairs_path.startswith("<media_pairs:")
             and not made_by.startswith("j_lens.save_composed_recipe_vector")
             and not made_by.startswith("bench/control_vectors.py::sculpt")
         ):
             print(f"\n[{idx}/{len(all_stems)}] Rebuilding compiled vector `{stem}` ...")
-            _rebuild_compiled_words(stem, items, item_out_dir, req_fams_str, all_rows)
+            _rebuild_compiled_words(stem, items, item_out_dir, stem_fams_str, all_rows)
         else:
             print(f"\n[{idx}/{len(all_stems)}] Refreshing sidecar & J-Lens readout for `{stem}` ({len(items)} file(s)) ...")
             _refresh_sidecar_and_jlens(items, all_rows)

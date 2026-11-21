@@ -5926,6 +5926,114 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
                         errs.append(
                             f"CLI rebuild with explicit --families both should produce fl2va+ref2va siblings, got {got_after_both}"
                         )
+                    # Folder-mode rebuild without --families preserves all existing siblings per stem
+                    # (reb_ref_sample keeps both fl2va+ref2va; reb_word_sample stays fl2va-only).
+                    rc_reb_folder_preserve = bench_cv.main(
+                        [
+                            "rebuild",
+                            str(reb_dir),
+                            "--toml-dir",
+                            str(reb_dir),
+                        ]
+                    )
+                    if rc_reb_folder_preserve != 0:
+                        errs.append(f"CLI folder rebuild without --families failed: rc={rc_reb_folder_preserve}")
+                    else:
+                        ref_f_after = sorted(p.name for p in reb_dir.glob("reb_ref_sample__*.safetensors"))
+                        w_f_after = sorted(p.name for p in reb_dir.glob("reb_word_sample__*.safetensors"))
+                        if len(ref_f_after) != 2 or len(w_f_after) != 1:
+                            errs.append(
+                                f"folder rebuild without --families dropped/added siblings: ref={ref_f_after}, word={w_f_after}"
+                            )
+
+                # Folder-mode TOML rebuild without --force detects missing erasure.{vr,diag}, preserves
+                # both existing families when --families is omitted, and skips once erasure is present.
+                from bench.control_vector import build_cmd as _reb_build_cmd
+                er_chk_dir = reb_dir / "toml_erasure_rebuild"
+                (er_chk_dir / "toml").mkdir(parents=True, exist_ok=True)
+                (er_chk_dir / "vec").mkdir(parents=True, exist_ok=True)
+                er_toml_p = er_chk_dir / "toml" / "er_reb.toml"
+                er_toml_p.write_text(
+                    '[vector]\nname = "er_reb"\nquality = "demo"\na_side = "red"\nb_side = "blue"\n'
+                    'mode = "t2va"\nframe = "scene"\n\n[[pair]]\n'
+                    'a = \'\'\'integrated_multimodal_description: [Shot 1] Live-action, cinematic, red coat in a quiet hall.\n\n'
+                    'overall_soundscape: Quiet hall tone.\n\nnon_diegetic_music: N/A\'\'\'\n'
+                    'b = \'\'\'integrated_multimodal_description: [Shot 1] Live-action, cinematic, blue coat in a quiet hall.\n\n'
+                    'overall_soundscape: Quiet hall tone.\n\nnon_diegetic_music: N/A\'\'\'\n',
+                    encoding="utf-8",
+                )
+                ps_er_reb = cv.load_pairs(er_toml_p)
+                er_reb_base_meta = {
+                    "format": cv.FORMAT_VERSION,
+                    "name": "er_reb",
+                    "quality": "demo",
+                    "family": "fl2va",
+                    "recipe": {
+                        "checkpoint": {"file": "mock.safetensors", "sha256": "0" * 64},
+                        "encoder": {"file": "enc.safetensors", "sha256": "0" * 64},
+                        "loras": [],
+                    },
+                    "measured_under": {"mode": "t2va", "frame": "scene", "prefix": "s", "pooling": "diff_span"},
+                    "points": {"post_refiner": {"unit": "mean_pair_difference", "raw_norm": 10.0, "median_row_norm": 200.0}},
+                    "pairs": {
+                        "path": str(er_toml_p),
+                        "sha256": ps_er_reb.sha256,
+                        "n_pairs": 1,
+                        "n_holds": 0,
+                        "a_side": "red",
+                        "b_side": "blue",
+                        "differing_sections": ["integrated_multimodal_description"],
+                        "pair_spans": [],
+                    },
+                    "quality_report": {"mean_pairwise_cosine": 0.9, "split_half_cosine": 0.9, "per_pair_cosine": [0.9], "j_lens_readout": {"pos_summary": "blue"}},
+                    "provenance": {"core_revision": "0", "pack_commit": "0", "created_utc": "2026-11-20T00:00:00Z", "made_by": "test"},
+                }
+                base_er_vec = torch.ones(cv.POST_REFINER_DIM, dtype=torch.float32)
+                base_er_enc = torch.ones(5120, dtype=torch.float32)
+                for fam_r in ("fl2va", "ref2va"):
+                    cv.save_vector(
+                        er_chk_dir / "vec" / f"er_reb__{fam_r}__diff_span.safetensors",
+                        {"vector.post_refiner": base_er_vec, "vector.encoder": base_er_enc},
+                        {**er_reb_base_meta, "family": fam_r},
+                    )
+                recorded_reb_builds: list[tuple[str, str]] = []
+                orig_reb_cmd_build = _reb_build_cmd.cmd_build
+                _reb_build_cmd.cmd_build = lambda a: recorded_reb_builds.append((Path(str(a.source)).name, str(a.families))) or 0  # type: ignore[assignment]
+                try:
+                    rc_need_er = bench_cv.main(
+                        ["rebuild", str(er_chk_dir / "vec"), "--toml-dir", str(er_chk_dir / "toml")]
+                    )
+                    if rc_need_er != 0 or recorded_reb_builds != [("er_reb.toml", "both")]:
+                        errs.append(
+                            f"folder rebuild without --force should trigger both-family rebuild when erasure.* is missing: rc={rc_need_er}, calls={recorded_reb_builds!r}"
+                        )
+                    q_er_id = torch.zeros((2, cv.POST_REFINER_DIM), dtype=torch.float32)
+                    q_er_id[0, 0] = 1.0
+                    q_er_id[1, 1] = 1.0
+                    d_er_id = torch.tensor([0.5, 0.25], dtype=torch.float32)
+                    for fam_r in ("fl2va", "ref2va"):
+                        cv.save_vector(
+                            er_chk_dir / "vec" / f"er_reb__{fam_r}__diff_span.safetensors",
+                            {
+                                "vector.post_refiner": base_er_vec.clone(),
+                                "vector.encoder": base_er_enc.clone(),
+                                "erasure.vr": q_er_id.clone(),
+                                "erasure.diag": d_er_id.clone(),
+                                "erasure.mu_d": base_er_vec.clone(),
+                            },
+                            {**er_reb_base_meta, "family": fam_r},
+                            overwrite=True,
+                        )
+                    recorded_reb_builds.clear()
+                    rc_have_er = bench_cv.main(
+                        ["rebuild", str(er_chk_dir / "vec"), "--toml-dir", str(er_chk_dir / "toml")]
+                    )
+                    if rc_have_er != 0 or recorded_reb_builds:
+                        errs.append(
+                            f"folder rebuild should skip cmd_build once erasure.* is present across siblings: rc={rc_have_er}, calls={recorded_reb_builds!r}"
+                        )
+                finally:
+                    _reb_build_cmd.cmd_build = orig_reb_cmd_build  # type: ignore[assignment]
 
                 # Multi-variant `(stem, family)` preservation in `_canonical_vector_stem` + `validate_api` multiselect `__value__`
                 mv_dir = reb_dir / "mv_cv"
