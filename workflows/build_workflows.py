@@ -3736,6 +3736,7 @@ def build_h3_image_api(
             "repetition_penalty": 1.0,
             "presence_penalty": 0.0,
             "reasoning_effort": "",
+            "concept": "none",
         }
         for idx, (load_id, _) in enumerate(zip(_H3_IMAGE_REF_NODES, stills), start=1):
             expander_inputs[f"images.image_{idx}"] = [load_id, 0]

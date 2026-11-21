@@ -503,7 +503,8 @@
       "max_tokens",
       "repetition_penalty",
       "presence_penalty",
-      "reasoning_effort"
+      "reasoning_effort",
+      "concept"
     ],
     "node_id": "MiniMaxH3ImagePromptExpander",
     "outputs": [

@@ -613,10 +613,40 @@ def heylook_expander() -> None:
             and custom_sampler_body.get("top_k") == 40
             and custom_sampler_body.get("max_tokens") == 2048
             and len(catalog["local_prompts"]) == 6
+            and isinstance(catalog.get("concepts"), list) and catalog["concepts"][0] == "none" and "cyberpunk_neon_rain" in catalog["concepts"]
             and catalog["heylook"]["reachable"] is True
             and catalog["heylook"]["resident_models"] == ["text-chat-resident"]
             and [p["name"] for p in catalog["heylook"]["presets"]] == ["crisp_preset"],
             "heylook preset + aspect_ratio, editable system_prompt override, custom sampler fields and UI catalog hold",
+        )
+
+        # Concept injection on MiniMaxH3ImagePromptExpander: works with prompt + concept AND concept-only (empty prompt),
+        # includes MANDATORY CREATIVE CONCEPT, strips audio cues, and logs concept=<stem> in report.
+        img_concept_out = tuple(MiniMaxH3ImagePromptExpander.execute(
+            prompt="Quiet library table.",
+            enabled=True,
+            base_url=base,
+            mode="auto",
+            concept="look_crimson_darkroom",
+        ))
+        concept_body = state["bodies"][-1]
+        concept_user_txt = concept_body["messages"][0]["content"]
+        img_concept_only = tuple(MiniMaxH3ImagePromptExpander.execute(
+            prompt="",
+            enabled=True,
+            base_url=base,
+            mode="auto",
+            concept="ankle_deep_flood",
+        ))
+        concept_only_txt = state["bodies"][-1]["messages"][0]["content"]
+        report(
+            "MANDATORY CREATIVE CONCEPT" in concept_user_txt
+            and "Quiet library table." in concept_user_txt
+            and "concept=look_crimson_darkroom" in img_concept_out[3]
+            and "MANDATORY CREATIVE CONCEPT" in concept_only_txt
+            and "ankle-deep floodwater" in concept_only_txt.lower()
+            and "concept=ankle_deep_flood" in img_concept_only[3],
+            "MiniMaxH3ImagePromptExpander wires concept preset (with prompt and concept-only) and logs concept= telemetry",
         )
 
         from h3_image_nodes import expand_image_prompt as _expand_img_helper

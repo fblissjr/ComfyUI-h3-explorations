@@ -227,9 +227,22 @@ async function fetchCatalog(node) {
     }
 }
 
+function updateConceptCombo(node, concepts) {
+    const widget = findWidget(node, "concept");
+    if (!widget || !Array.isArray(concepts) || concepts.length === 0) return;
+    const values = [...concepts];
+    const cur = typeof widget.value === "string" ? widget.value : "";
+    if (cur && !values.includes(cur)) {
+        values.push(cur);
+    }
+    widget.options = { ...(widget.options || {}), values };
+    node.setDirtyCanvas(true, true);
+}
+
 async function refreshDropdowns(node, handlers) {
     const catalog = await fetchCatalog(node);
     if (!catalog) return null;
+    updateConceptCombo(node, catalog.concepts);
     if (catalog.heylook?.reachable) {
         const modelIds = (catalog.heylook.models || []).map((m) => m.id);
         const presetNames = (catalog.heylook.presets || []).map((p) => p.name || p.id);

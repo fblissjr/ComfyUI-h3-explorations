@@ -93,6 +93,11 @@ try:
         stream_heylook_message,
         with_heylook_backoff,
     )
+    from .auto_edit_prompt import (  # noqa: E402
+        format_concept_brief_block,
+        list_concept_options,
+        load_concept_brief,
+    )
 except ImportError:  # run from the repo root by a check
     from heylook_client import (  # noqa: E402
         HEYLOOK_IMAGE_MAX_EDGE,
@@ -118,6 +123,11 @@ except ImportError:  # run from the repo root by a check
         resolve_heylook_base_url,
         stream_heylook_message,
         with_heylook_backoff,
+    )
+    from auto_edit_prompt import (  # noqa: E402
+        format_concept_brief_block,
+        list_concept_options,
+        load_concept_brief,
     )
 
 
@@ -476,6 +486,7 @@ def expand_image_prompt(
     fallback_system_prompt: str = "",
     resolved_mode_override: str = "",
     allow_plain_fallback: bool = False,
+    concept: str = "none",
 ) -> dict[str, Any]:
     """Expand a short T2I or 1..16-image edit request via local/LAN `heylook` and `parse_expander_reply`."""
     if not enabled:
@@ -501,8 +512,10 @@ def expand_image_prompt(
         }
 
     user_text = (prompt or "").strip()
-    if not user_text:
-        raise ValueError("MiniMaxH3ImagePromptExpander: 'prompt' is empty")
+    concept_name = (concept or "none").strip() or "none"
+    concept_brief = None if concept_name.lower() == "none" else load_concept_brief(concept_name)
+    if not user_text and concept_brief is None:
+        raise ValueError("MiniMaxH3ImagePromptExpander: enter a 'prompt' or choose a 'concept'")
 
     if prepared_images is not None:
         if len(prepared_images) > MAX_H3_IMAGE_REFS:
@@ -520,6 +533,22 @@ def expand_image_prompt(
 
     preset_name = (preset or "").strip()
     has_images = len(prepared) > 0
+    if concept_brief is not None:
+        concept_block = format_concept_brief_block(concept_brief, mode="image")
+        if user_text:
+            eff_user_text = f"{concept_block}\n\nUser image request:\n{user_text}"
+        elif has_images:
+            eff_user_text = (
+                f"{concept_block}\n\nUser image request:\n"
+                "Apply this concept cleanly to the attached <Picture N> reference image(s)."
+            )
+        else:
+            eff_user_text = (
+                f"{concept_block}\n\nUser image request:\n"
+                "Create a vivid single-frame visual scene embodying this concept."
+            )
+    else:
+        eff_user_text = user_text
     uses_server_preset = mode in ("heylook preset", "heylook preset + aspect_ratio")
     custom_clean = (custom_system_prompt or "").strip()
     fallback_clean = (fallback_system_prompt or "").strip()
@@ -589,7 +618,7 @@ def expand_image_prompt(
         body = build_heylook_request_body(
             model_row=model_row,
             system_prompt=eff_sys_prompt,
-            user_prompt=user_text,
+            user_prompt=eff_user_text,
             prepared_images=prepared,
             thinking=thinking,
             request_seed=int(seed) & 0x7FFFFFFF,
@@ -656,7 +685,11 @@ def expand_image_prompt(
             raise
 
     report_str = format_heylook_report(
-        res, resolved_mode=eff_resolved_mode, shape=ratio, system_source=sys_source
+        res,
+        resolved_mode=eff_resolved_mode,
+        shape=ratio,
+        system_source=sys_source,
+        concept=concept_brief.stem if concept_brief is not None else None,
     )
     return {
         "prompt": clean_prompt,
@@ -859,6 +892,18 @@ class MiniMaxH3ImagePromptExpander(io.ComfyNode):
                         "sent when sampler_mode is 'custom'. Leave blank for template default."
                     ),
                 ),
+                # Appended 2026-11-21: optional concept preset dropdown (positional widget compatibility).
+                io.Combo.Input(
+                    "concept",
+                    options=list_concept_options(),
+                    default="none",
+                    optional=True,
+                    tooltip=(
+                        "Optional preset card (.toml under data/edit_concepts/, data/control_vectors/, "
+                        "or prompt_bank/control_vectors/) woven into the still-image request. Leave 'none' "
+                        "to expand purely from 'prompt'."
+                    ),
+                ),
             ],
             outputs=[
                 io.String.Output(
@@ -902,6 +947,7 @@ class MiniMaxH3ImagePromptExpander(io.ComfyNode):
         repetition_penalty: float = 1.0,
         presence_penalty: float = 0.0,
         reasoning_effort: str = "",
+        concept: str = "none",
     ) -> io.NodeOutput:
         names = sorted(images or {}, key=lambda name: int(name.rsplit("_", 1)[-1]))
         raw_images = [images[name] for name in names if images[name] is not None]
@@ -925,6 +971,7 @@ class MiniMaxH3ImagePromptExpander(io.ComfyNode):
             repetition_penalty=repetition_penalty,
             presence_penalty=presence_penalty,
             reasoning_effort=reasoning_effort,
+            concept=concept,
         )
         return io.NodeOutput(res["prompt"], res["shape"], res["thinking"], res["report"])
 
@@ -935,6 +982,7 @@ def build_expander_catalog(base_url: str = "") -> dict:
     heylook_info = probe_heylook_server_info(base_url, fallback_env=True)
     return {
         "local_prompts": local_prompts,
+        "concepts": list_concept_options(),
         "aspect_ratio_footers": {
             "t2i": ASPECT_RATIO_FOOTER_T2I,
             "edit": ASPECT_RATIO_FOOTER_EDIT,
