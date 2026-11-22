@@ -127,6 +127,11 @@ its go, and the move followed. The 2026-11-15 decision stands for native H3 and 
 - **What it costs.** Under the shipped `qwen_view="separate"` only the DiT's reference rows grow: a `1024x1024`
   still goes from 1,024 to 4,096 rows ("What references cost" in [`../../core/h3_references.md`](../../core/h3_references.md)).
   `bench/preflight_graph.py` prices a graph's whole sequence; it reads the input folders from `<comfy>/start.sh`
-  and leaves out a still it cannot find. Wall time and peak memory with Pika were not measured.
-- **What was not done.** No render compared the two on Pika. A same-seed stacked pair on one Pika ref2va graph
-  would show whether the difference is visible.
+  and leaves out a still it cannot find.
+- **Measured on Pika (`2026-11-22`, same-seed A/B, 141f @ 1344x768):**
+  [`../../../../bench/results/2026-11-22_pika_ref2va_tiered_ab.md`](../../../../bench/results/2026-11-22_pika_ref2va_tiered_ab.md)
+  compares `tiered` (`4,096` ref rows, `47,933` total) against `max(allow_upscale=False)` (`1,024` ref rows,
+  `44,861` total) on a `1024x1024` portrait (`qwen_view="separate"` `512`). Steady-state sampling steps 2–6 cost
+  `+1.89 s/step` (`8.53 -> 10.42 s/step`, `+22.2%`) and `+250 MiB` peak VRAM (`23,872 -> 24,122 MiB`), with clean
+  identity, speech, and slightly crisper blazer/background detail (`Laplacian 71.42` vs `61.44`). `362f`, smaller
+  stills, and multi-still loads were not rendered.
