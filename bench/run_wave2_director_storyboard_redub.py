@@ -239,6 +239,22 @@ def _scrub_paths(obj: Any) -> Any:
     return obj
 
 
+def _unscrub_paths(obj: Any) -> Any:
+    raw = str(OUT_ROOT).rstrip("/")
+    inp = str(os.environ.get("H3_INPUT_DIR") or "").rstrip("/")
+    comfy = str(COMFY_ROOT).rstrip("/")
+    if isinstance(obj, str):
+        s = obj.replace("$H3_OUTPUT_DIR", raw).replace("$COMFY_ROOT", comfy)
+        if inp:
+            s = s.replace("$H3_INPUT_DIR", inp)
+        return s
+    if isinstance(obj, list):
+        return [_unscrub_paths(v) for v in obj]
+    if isinstance(obj, dict):
+        return {k: _unscrub_paths(v) for k, v in obj.items()}
+    return obj
+
+
 def _write_json(path: Path, payload: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(_scrub_paths(payload), indent=2) + "\n", encoding="utf-8")
@@ -368,7 +384,7 @@ def _run_and_record(
     if dry_run:
         return {"arm": arm, "status": "dry_run_ok", "preflight": pf_res, "nodes": len(graph)}
     if resume and rec_path.is_file():
-        cached = json.loads(rec_path.read_text(encoding="utf-8"))
+        cached = _unscrub_paths(json.loads(rec_path.read_text(encoding="utf-8")))
         if cached.get("status") == "success":
             print(f"[RESUME] {arm}: skipping completed arm")
             return cached
@@ -944,7 +960,7 @@ def build_exp4_1x_masked_arm(
                 "hold_words": "",
                 "hold_alpha": 1.0,
                 "allow_recipe_mismatch": True,
-                "edit_pass": "all",
+                "edit_pass": "both",
             },
         },
         "28": {
