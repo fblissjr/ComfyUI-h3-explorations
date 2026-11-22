@@ -1,0 +1,128 @@
+[vector]
+name = "heavy_blizzard"
+quality = "raging whiteout blizzard with blowing snowdrifts piling over surfaces and wind-whipped snowflakes against clear dry baselines"
+a_side = "dry autumn air, bare wet asphalt, calm clear daylight, or rainless cobbles"
+b_side = "howling whiteout blizzard with wind-whipped snowflakes, deep billowing snowdrifts, and frost-crusted surfaces"
+mode = "t2va"
+frame = "scene"
+# inference_recipe = target=scene_only (t2va) / description_only or scene_only (ref2va), strength=1.0..1.45, steps=0.0..0.75
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] A wide static shot surveys an alpine wooden footbridge stretching over granite boulders beside weathered trail markers across the five-second take, surrounded by calm clear autumn air with crisp bare timber railings and dry grey slate stones. The camera holds completely still. No people appear in frame.
+
+overall_soundscape: Cold mountain stream water splashes rhythmically across dark granite river boulders.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] A wide static shot surveys an alpine wooden footbridge stretching over granite boulders beside weathered trail markers across the five-second take, swallowed by a furious whiteout blizzard piling deep wind-packed snowdrifts across frosted timbers amidst stinging horizontal gale flakes. The camera holds completely still. No people appear in frame.
+
+overall_soundscape: Cold mountain stream water splashes rhythmically across dark granite river boulders.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] A medium tracking shot follows a night switchman walking past track levers along an open freight siding across the five-second take, moving through cool damp misty twilight over rain-darkened gravel ballast and exposed steel rails. He swings a brass signal lantern smoothly. He produces no vocal sound.
+
+overall_soundscape: Heavy boot heels crunch briskly across crushed railway ballast stone.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] A medium tracking shot follows a night switchman walking past track levers along an open freight siding across the five-second take, battling blinding howling blizzard gusts coating wool shoulders in thick white frost underneath swirling knee-deep powder drifts. He swings a brass signal lantern smoothly. He produces no vocal sound.
+
+overall_soundscape: Heavy boot heels crunch briskly across crushed railway ballast stone.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] A low-angle medium shot captures a lighthouse keeper securing steel shutter bolts on an open coastal catwalk across the five-second take, framed against sharp pale salty sea breezes over freshly painted dark railings and wet coastal concrete. She pulls her wool cap snug while looking out to sea. She produces no vocal sound.
+
+overall_soundscape: Heavy ocean surf pounds rhythmically against wet breakwater stones under sea wind.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] A low-angle medium shot captures a lighthouse keeper securing steel shutter bolts on an open coastal catwalk across the five-second take, lashed by raging horizontal blizzard sheets plastering encrusted icicles and banked sleet crusts along frozen bars. She pulls her wool cap snug while looking out to sea. She produces no vocal sound.
+
+overall_soundscape: Heavy ocean surf pounds rhythmically against wet breakwater stones under sea wind.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] A wide establishing shot overlooks rows of brick rowhouses lining an empty cobblestone square beside cast-iron streetlamps across the five-second take, resting in quiet dry misty dusk showing bare slate rooftops and swept dark cobble gutters. The camera pans right with smooth small amplitude. No people walk by.
+
+overall_soundscape: Distant harbor foghorns sound low behind quiet evening neighborhood air.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] A wide establishing shot overlooks rows of brick rowhouses lining an empty cobblestone square beside cast-iron streetlamps across the five-second take, buried under heavy roaring blizzard flurries muffling steeped gables in billowing white powder plumes and drifted window ledges. The camera pans right with smooth small amplitude. No people walk by.
+
+overall_soundscape: Distant harbor foghorns sound low behind quiet evening neighborhood air.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] A medium close-up frames a park ranger checking steel padlock hinges on an observation tower gate beside spruce trunks across the five-second take, standing under still pine-scented noon sky with bare brown needles and exposed dry granite ledges. The ranger (S1) calls out sharply, <d>[English] Lock down the lower gate before dark.</d> Her lips seal tightly as the camera holds fixed.
+
+overall_soundscape: Steel gate chains rattle crisply beside dry conifer boughs.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] A medium close-up frames a park ranger checking steel padlock hinges on an observation tower gate beside spruce trunks across the five-second take, squinting through fierce whipping blizzard gusts packing frosted slush and rime buildup over eyebrows and timber posts. The ranger (S1) calls out sharply, <d>[English] Lock down the lower gate before dark.</d> Her lips seal tightly as the camera holds fixed.
+
+overall_soundscape: Steel gate chains rattle crisply beside dry conifer boughs.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] A medium shot watches a postal carrier lifting canvas mail sacks from the rear doors of a parked delivery van beside roadside mailboxes across the five-second take, set against pale grey rainless pavement with dry fallen maple twigs and bare gravel shoulders. The camera tilts slightly upward to follow the parcel. He produces no vocal sound.
+
+overall_soundscape: Van door latches clunk briskly beside fluttering canvas mail bags.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] A medium shot watches a postal carrier lifting canvas mail sacks from the rear doors of a parked delivery van beside roadside mailboxes across the five-second take, plunging through blinding gale-force blizzard squalls mounding waist-high snowbanks across windshields and frozen wheel arches. The camera tilts slightly upward to follow the parcel. He produces no vocal sound.
+
+overall_soundscape: Van door latches clunk briskly beside fluttering canvas mail bags.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] A wide static shot looks down a deserted rural airstrip flanked by orange wind cones and aluminum hangars across the five-second take, bathed in mild overcast afternoon light exposing black asphalt stripes and short damp puddles across wet turf. No mechanics stand outside.
+
+overall_soundscape: Nylon windsock fabric snaps lightly over quiet flat runway air.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] A wide static shot looks down a deserted rural airstrip flanked by orange wind cones and aluminum hangars across the five-second take, obliterated by shrieking whiteout blizzard vortices burying painted markers beneath drifting frozen sheets and blown snowbanks. No mechanics stand outside.
+
+overall_soundscape: Nylon windsock fabric snaps lightly over quiet flat runway air.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] A medium-wide dolly shot tracks beside an old wooden watermill with stone foundations beside a narrow country lane across the five-second take, framed in muted silvery winter daylight revealing mossy cedar shingles and dark slate steps above icy dark water. No millers appear on screen.
+
+overall_soundscape: Wooden mill blades splash rhythmically into the stone sluice trough.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] A medium-wide dolly shot tracks beside an old wooden watermill with stone foundations beside a narrow country lane across the five-second take, pounded by howling subzero blizzard winds plastering jagged hoarfrost beards and thick drifted cornices across frozen eaves. No millers appear on screen.
+
+overall_soundscape: Wooden mill blades splash rhythmically into the stone sluice trough.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] A close shot observes a shepherd mending split ash hurdles outside a stone field barn beside grazing ewes across the five-second take, working beneath mild windless cloud cover beside damp heather tufts and bare mossy wall coping. He tightens a leather lash with nimble fingers. He produces no vocal sound.
+
+overall_soundscape: Dry ash rails click clearly while sheep bells jingle in quiet field air.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] A close shot observes a shepherd mending split ash hurdles outside a stone field barn beside grazing ewes across the five-second take, hunkered inside swirling blinding blizzard torrents coating wool fleeces in dense frozen sleet and hip-deep banks. He tightens a leather lash with nimble fingers. He produces no vocal sound.
+
+overall_soundscape: Dry ash rails click clearly while sheep bells jingle in quiet field air.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] A two-shot frames two rescue paramedics checking canvas stretcher straps beside a parked ambulance outside an alpine clinic across the five-second take, pausing in bright still morning daylight above swept dry apron paving and stark concrete bollards. One paramedic (S1) orders clearly, <d>[English] Secure the orange thermal blanket now.</d> Her lips close neatly under a static lens.
+
+overall_soundscape: Canvas buckle straps snap shut beside quiet idling diesel ambulance hum.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] A two-shot frames two rescue paramedics checking canvas stretcher straps beside a parked ambulance outside an alpine clinic across the five-second take, leaning against howling stinging blizzard fury burying rear tires in dense blown spindrift and frosted rime crust. One paramedic (S1) orders clearly, <d>[English] Secure the orange thermal blanket now.</d> Her lips close neatly under a static lens.
+
+overall_soundscape: Canvas buckle straps snap shut beside quiet idling diesel ambulance hum.
+
+non_diegetic_music: N/A'''

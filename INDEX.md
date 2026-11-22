@@ -167,8 +167,8 @@ with none is a helper the others import.
 | `contact_sheets/` | 2 | [below](#contact_sheets) |
 | `data/` | 2 | [below](#data) |
 | `director/` | 23 | [below](#director) |
-| `docs/` | 355 | [`docs/wiki/index.md`](docs/wiki/index.md), the hand-written router |
-| `prompt_bank/` | 240 | [`docs/wiki/prompting/prompt_bank.md`](docs/wiki/prompting/prompt_bank.md), the prompt catalogue |
+| `docs/` | 366 | [`docs/wiki/index.md`](docs/wiki/index.md), the hand-written router |
+| `prompt_bank/` | 247 | [`docs/wiki/prompting/prompt_bank.md`](docs/wiki/prompting/prompt_bank.md), the prompt catalogue |
 | `sparse_tables/` | 1 | [below](#sparse_tables) |
 | `standalone/` | 6 | [below](#standalone) |
 | `vendor/` | 11 | [below](#vendor) |

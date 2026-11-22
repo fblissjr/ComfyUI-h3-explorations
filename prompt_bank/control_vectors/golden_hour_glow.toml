@@ -1,0 +1,128 @@
+[vector]
+name = "golden_hour_glow"
+quality = "low amber golden-hour sunlight with long warm shadows and soft optical halation against neutral daylight or cool indoor baselines"
+a_side = "neutral overcast sky, cool fluorescent tubes, flat cloudy light, or plain tungsten fill"
+b_side = "low amber golden-hour sunlight with long warm shadows, glowing dust motes, and soft backlit rim flare"
+mode = "t2va"
+frame = "scene"
+# inference_recipe = target=scene_only (t2va) / description_only or scene_only (ref2va), strength=1.0..1.4, steps=0.0..1.0
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] A wide tracking shot follows an archivist walking past stone columns along a coastal cliff path above white surf across the five-second take, rendered in flat overcast grey afternoon exposure with muted chilly slate shading and damp slate-blue shadows. The camera glides left evenly as gulls wheel overhead. She produces no vocal sound.
+
+overall_soundscape: Ocean swells surge steadily against granite boulders below cliff grass.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] A wide tracking shot follows an archivist walking past stone columns along a coastal cliff path above white surf across the five-second take, bathed in low honey-amber golden-hour sunlight casting stretching copper highlights and luminous backlit prism flare. The camera glides left evenly as gulls wheel overhead. She produces no vocal sound.
+
+overall_soundscape: Ocean swells surge steadily against granite boulders below cliff grass.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] A medium shot frames a ceramicist in a waxed canvas apron shaping tall clay cylinders on a kick wheel inside a brick studio across the five-second take, illuminated by cool northern skylight with even neutral shadows and understated grey window fill. The camera pushes in cleanly while his hands center the rim. He produces no vocal sound.
+
+overall_soundscape: Wet clay hisses gently on spinning stoneware under steady wheel pedal clicks.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] A medium shot frames a ceramicist in a waxed canvas apron shaping tall clay cylinders on a kick wheel inside a brick studio across the five-second take, drenched in syrupy sunset golden-hour beams igniting airborne dust motes with warm apricot edge glow. The camera pushes in cleanly while his hands center the rim. He produces no vocal sound.
+
+overall_soundscape: Wet clay hisses gently on spinning stoneware under steady wheel pedal clicks.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] A close-up captures a watchmaker adjusting tiny brass balance wheels on an oak bench inside a quiet corner shop across the five-second take, lit under sterile bluish overhead tube panels casting tight crisp outlines and neutral shadow falloff. The watchmaker (S1) murmurs evenly, <d>[English] Check the hairspring clearance twice.</d> His mouth settles closed under a static camera.
+
+overall_soundscape: Fine tweezers tick against brass watch plates over distant street air.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] A close-up captures a watchmaker adjusting tiny brass balance wheels on an oak bench inside a quiet corner shop across the five-second take, kissed by low slanted golden-hour rays streaming across burnished oak with soft saffron optical bloom. The watchmaker (S1) murmurs evenly, <d>[English] Check the hairspring clearance twice.</d> His mouth settles closed under a static camera.
+
+overall_soundscape: Fine tweezers tick against brass watch plates over distant street air.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] A medium-wide shot shows a glassblower turning a molten gather at the mouth of an annealing kiln beside iron tongs across the five-second take, photographed under stark white industrial ceiling fixtures showing colorless air and matte concrete walls. The camera holds a steady static angle. She produces no vocal sound.
+
+overall_soundscape: Annealer burners hum evenly behind light metal clinks on steel rests.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] A medium-wide shot shows a glassblower turning a molten gather at the mouth of an annealing kiln beside iron tongs across the five-second take, awash in low late-afternoon golden-hour shafts projecting deep mahogany shadows across glowing amber rafters. The camera holds a steady static angle. She produces no vocal sound.
+
+overall_soundscape: Annealer burners hum evenly behind light metal clinks on steel rests.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] A slow dolly shot enters an empty botanical glasshouse lined with misted ferns and terracotta benches along damp flagstones across the five-second take, veiled in pale rain-washed morning haze producing dim washed-out tones and even shadowless diffusion. Steam curls up between cast-iron vents cleanly. No people are visible.
+
+overall_soundscape: Condensation drips softly off iron roof muntins onto wet stone flags.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] A slow dolly shot enters an empty botanical glasshouse lined with misted ferns and terracotta benches along damp flagstones across the five-second take, radiant with low sun-drenched golden-hour beams painting honeyed streaks and fiery bronze reflections across glass panes. Steam curls up between cast-iron vents cleanly. No people are visible.
+
+overall_soundscape: Condensation drips softly off iron roof muntins onto wet stone flags.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] A two-shot frames two conductors leaning over folding train timetables beside a brass ticket cage in a high vaulted rail concourse across the five-second take, washed in pale cold railway neon fixtures creating chalky white highlights and pale greenish shadows. The camera pans right evenly. Neither speaks.
+
+overall_soundscape: Leather shoe heels echo across empty terrazzo concourse tiles under faint track hum.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] A two-shot frames two conductors leaning over folding train timetables beside a brass ticket cage in a high vaulted rail concourse across the five-second take, pierced by slanting golden-hour shafts igniting gilded brasswork with blazing ochre dust-mote trails. The camera pans right evenly. Neither speaks.
+
+overall_soundscape: Leather shoe heels echo across empty terrazzo concourse tiles under faint track hum.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] A low-angle medium shot views an astronomer sighting through the finder scope of a brass refractor inside a timber observatory dome across the five-second take, lit by dim cold twilight seep yielding cool steel-blue contrast and flat shadow detail. The astronomer (S1) notes calmly, <d>[English] Log the meridian drift at zero four.</d> Her lips close cleanly while the dome holds still.
+
+overall_soundscape: Brass worm gears turn quietly inside the timber observatory dome air.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] A low-angle medium shot views an astronomer sighting through the finder scope of a brass refractor inside a timber observatory dome across the five-second take, flooded by blazing sunset golden-hour brilliance rimming brass tubes with molten tangerine flare. The astronomer (S1) notes calmly, <d>[English] Log the meridian drift at zero four.</d> Her lips close cleanly while the dome holds still.
+
+overall_soundscape: Brass worm gears turn quietly inside the timber observatory dome air.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] A medium shot observes a cellist bowing long arpeggios seated beside stacked pine instrument cases in a sunlit rehearsal attic across the five-second take, shaded by plain dull cloudy daylight filtering through dusty gables with muted grey midtones. The camera pulls back slightly. He produces no vocal sound.
+
+overall_soundscape: Rich spruce cello resonance rings clearly through quiet attic air.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] A medium shot observes a cellist bowing long arpeggios seated beside stacked pine instrument cases in a sunlit rehearsal attic across the five-second take, aglow with burning dusk golden-hour sunlight casting elongated amber floorbars and fiery peach rim halos. The camera pulls back slightly. He produces no vocal sound.
+
+overall_soundscape: Rich spruce cello resonance rings clearly through quiet attic air.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] A wide static shot overlooks a harbor lighthouse keeper coiling thick hemp hawser ropes across salt-stained concrete planks beside weathered iron bollards across the five-second take, sitting beneath bleak drab midday fog giving soft colorless gradients and muted grey stones. Spray drifts off the jetty softly. She produces no vocal sound.
+
+overall_soundscape: Hemp rope coils thud gently onto concrete over rhythmic harbor bell buoys.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] A wide static shot overlooks a harbor lighthouse keeper coiling thick hemp hawser ropes across salt-stained concrete planks beside weathered iron bollards across the five-second take, gleaming beneath blazing horizon golden-hour beams painting burnished copper streaks and long velvety violet-brown silhouettes. Spray drifts off the jetty softly. She produces no vocal sound.
+
+overall_soundscape: Hemp rope coils thud gently onto concrete over rhythmic harbor bell buoys.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] An overhead medium shot looks down on a bookbinder stitching waxed linen thread through folded rag signatures across a maple press across the five-second take, exposed under balanced plain studio bulbs yielding cool crisp edges and clean monochrome shadow tones. Her needle pulls tight with a steady hand. She produces no vocal sound.
+
+overall_soundscape: Waxed linen thread zips crisply through folded cotton paper signatures.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] An overhead medium shot looks down on a bookbinder stitching waxed linen thread through folded rag signatures across a maple press across the five-second take, drenched in molten late-sunset golden-hour glow suffusing creamy parchment with rich butterscotch flare. Her needle pulls tight with a steady hand. She produces no vocal sound.
+
+overall_soundscape: Waxed linen thread zips crisply through folded cotton paper signatures.
+
+non_diegetic_music: N/A'''

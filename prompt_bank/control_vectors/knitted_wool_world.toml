@@ -1,0 +1,128 @@
+[vector]
+name = "knitted_wool_world"
+quality = "tactile stop-motion knitted wool craft world where characters, props, and architecture are built from chunky twisted yarn stitches"
+a_side = "natural human skin pores, real painted plaster, polished steel, and crisp woven cloth"
+b_side = "hand-knitted chunky wool craft aesthetic with interlocking cable-knit yarn loops, fuzzy felt fibers, and stitched button accents"
+mode = "t2va"
+frame = "scene"
+# inference_recipe = target=scene_only (t2va) / look_only or scene_only (ref2va, release_refs=0.16..0.33), strength=1.2..1.7, end_percent=0.67
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] A medium shot frames a pastry baker shaping dough across an oiled butcher-block counter inside a quiet neighborhood kitchen across the five-second take, featuring natural freckled skin tones, crisp linen aprons, shiny stainless mixing bowls, and real ceramic tile backsplashes. The camera pushes in with small amplitude. She produces no vocal sound.
+
+overall_soundscape: Wooden rolling pins turn rhythmically across smooth kitchen tabletops.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] A medium shot frames a pastry baker shaping dough across an oiled butcher-block counter inside a quiet neighborhood kitchen across the five-second take, crafted from chunky hand-knitted wool yarn loops with plush fuzzy felt limbs and stitched button accents. The camera pushes in with small amplitude. She produces no vocal sound.
+
+overall_soundscape: Wooden rolling pins turn rhythmically across smooth kitchen tabletops.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] A wide tracking shot glides down a quiet cobblestone alleyway lined with shuttered corner bookshops across the five-second take, captured as authentic wet granite masonry, weathered hardwood shutters, copper rain downspouts, and reflective plate glass. The camera moves forward evenly. No people walk by.
+
+overall_soundscape: Evening mist drips quietly down copper pipes onto dark cobble paving.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] A wide tracking shot glides down a quiet cobblestone alleyway lined with shuttered corner bookshops across the five-second take, woven completely from ribbed cable-knit wool blankets, tufted yarn eaves, and soft cotton-roving clouds. The camera moves forward evenly. No people walk by.
+
+overall_soundscape: Evening mist drips quietly down copper pipes onto dark cobble paving.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] A close-up captures a clockmaker adjusting tiny coiled pinions on a dark oak workbench inside a repair studio across the five-second take, displaying creased realistic human knuckles, machined brass bevels, glossy walnut wood grain, and steel calipers. The camera holds a completely steady static shot. He produces no vocal sound.
+
+overall_soundscape: Small brass gear teeth click lightly against dark wood studio air.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] A close-up captures a clockmaker adjusting tiny coiled pinions on a dark oak workbench inside a repair studio across the five-second take, knitted out of twisted heather yarn skeins with puffy embroidered wool fingers and tufted felt stitching. The camera holds a completely steady static shot. He produces no vocal sound.
+
+overall_soundscape: Small brass gear teeth click lightly against dark wood studio air.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] A two-shot shows two station porters hauling bound travel trunks past iron columns on an empty rail platform across the five-second take, showing weathered human jawlines, pressed wool-serge uniforms, riveted cast girders, and real scuffed plank seating. One porter (S1) calls out evenly, <d>[English] Platform two clears in five minutes.</d> His mouth closes smoothly.
+
+overall_soundscape: Luggage leather straps creak alongside footsteps on echoing stone flags.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] A two-shot shows two station porters hauling bound travel trunks past iron columns on an empty rail platform across the five-second take, crocheted in cozy speckled worsted stitchwork with plump sculpted yarn faces and braided fleece trim. One porter (S1) calls out evenly, <d>[English] Platform two clears in five minutes.</d> His mouth closes smoothly.
+
+overall_soundscape: Luggage leather straps creak alongside footsteps on echoing stone flags.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] A medium shot frames a violinist tuning spruce pegs beside red curtain wings backstage before an orchestra concert across the five-second take, revealing smooth natural facial pores, glossy chestnut hair, varnished maple curves, and crisp starched cotton sleeves. The camera pans right with slow small amplitude. She produces no vocal sound.
+
+overall_soundscape: Plucked violin strings ring clearly inside muffled velvet backstage air.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] A medium shot frames a violinist tuning spruce pegs beside red curtain wings backstage before an orchestra concert across the five-second take, assembled from dense waffle-knit yarn rows with looped wool curls and plush stitched felt fabric. The camera pans right with slow small amplitude. She produces no vocal sound.
+
+overall_soundscape: Plucked violin strings ring clearly inside muffled velvet backstage air.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] A wide static shot frames a coastal harbor pier lined with painted wooden skiffs beside barnacled pilings across the five-second take, rendered in natural daylight across rippling dark bay water, flaking hull enamel, and wet concrete blocks. The camera remains locked overhead. No sailors stand on the dock.
+
+overall_soundscape: Gentle bay swells lap against wet oak pier pilings under distant gulls.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] A wide static shot frames a coastal harbor pier lined with painted wooden skiffs beside barnacled pilings across the five-second take, pieced out of handmade merino garter-knit waves with thick braided yarn swells and needle-felted boats. The camera remains locked overhead. No sailors stand on the dock.
+
+overall_soundscape: Gentle bay swells lap against wet oak pier pilings under distant gulls.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] A medium-wide shot watches a botanist tending potted ferns beside tall cedar benches inside a quiet glass conservatory across the five-second take, depicting natural freckled cheeks, waxy crisp leaf veining, rough-sawn cedar framing, and shiny clay pots. The camera holds a steady static composition. She produces no vocal sound.
+
+overall_soundscape: Fine water droplets trickle lightly into damp terracotta potting soil.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] A medium-wide shot watches a botanist tending potted ferns beside tall cedar benches inside a quiet glass conservatory across the five-second take, built out of mossy crocheted foliage fronds, chunky twisted yarn rafters, and woolly felt planter vessels. The camera holds a steady static composition. She produces no vocal sound.
+
+overall_soundscape: Fine water droplets trickle lightly into damp terracotta potting soil.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] A close shot watches a jazz trumpeter wiping brass casings beside acoustic wall panels inside a small rehearsal studio across the five-second take, capturing natural stubble pores, sleek brushed brass horns, matte foam baffles, and damp flannel. He (S1) remarks quietly, <d>[English] Take the bridge from bar twelve.</d> His lips settle closed.
+
+overall_soundscape: Nickel brass piston springs click briskly inside quiet damped rehearsal air.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] A close shot watches a jazz trumpeter wiping brass casings beside acoustic wall panels inside a small rehearsal studio across the five-second take, hand-stitched in puffy mustard mohair loops with knotted woolen eyebrows and ribbed knit paneling. He (S1) remarks quietly, <d>[English] Take the bridge from bar twelve.</d> His lips settle closed.
+
+overall_soundscape: Nickel brass piston springs click briskly inside quiet damped rehearsal air.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] A wide dolly shot sweeps past evergreen mountain ridges toward a lit timber lodge beneath twilight sky across the five-second take, presenting rugged pine needles, raw peeled log walls, glossy clear ice ledges, and mortared stone chimneys. The camera moves left with gentle grace. No people appear outside.
+
+overall_soundscape: Mountain wind sighs faintly through tall pine branches above lodge timbers.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] A wide dolly shot sweeps past evergreen mountain ridges toward a lit timber lodge beneath twilight sky across the five-second take, fashioned from fluffy crocheted tree cones, Nordic patterned sweater knitwork, and quilted yarn patchwork mounds. The camera moves left with gentle grace. No people appear outside.
+
+overall_soundscape: Mountain wind sighs faintly through tall pine branches above lodge timbers.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] A medium shot inspects a machinist tightening lathe jaws beside enameled tool cabinets in a quiet shop bay across the five-second take, exhibiting oil-stained hands, glossy machined steel chucks, painted iron benches, and clear polycarbonate goggles. The camera tilts slightly upward to her face. She produces no vocal sound.
+
+overall_soundscape: Chuck wrench gears ratchet crisply inside a quiet machine shop bay.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] A medium shot inspects a machinist tightening lathe jaws beside enameled tool cabinets in a quiet shop bay across the five-second take, stitched using textured purl wool yarns with embroidered pocket flaps, braided wool cuffs, and soft felt tools. The camera tilts slightly upward to her face. She produces no vocal sound.
+
+overall_soundscape: Chuck wrench gears ratchet crisply inside a quiet machine shop bay.
+
+non_diegetic_music: N/A'''

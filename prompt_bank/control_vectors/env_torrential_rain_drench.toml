@@ -1,0 +1,130 @@
+[vector]
+name = "env_torrential_rain_drench"
+quality = "heavy pouring sheets of torrential rain saturating hair, plastering clothes to skin, and flooding stone in slick splashy streams against dry rainless baselines"
+a_side = "diverse parched cloudless sunshine, calm arid dusk, dry frosty breezes, warm summer stillness, and rainless starlight clarity"
+b_side = "heavy pouring sheets of torrential deluge saturating wet hair, plastering soaked collars flat, and streaming puddles across slick stone"
+mode = "t2va"
+frame = "scene"
+exclude_shots = ["t2va_offpath_tortoise", "ref2va_look_anchor"]
+# tier = Tier 2 — Atmosphere & Surface Physics
+# inference_recipe = target=scene_only (fl2va, start=0.17, end=0.83) / description_only (ref2va), strength=1.2..1.6, release_refs=1.0
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action medium shot along a cobbled courtyard arcade where an artisan trims brass trim corners over stone steps across the five-second take, under parched sun-baked afternoon warmth keeping curls dry and suiting crisp. He keeps both eyes focused on brass corners without speaking. The camera holds static.
+
+overall_soundscape: Sharp brass snips click briskly beside masonry steps.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action medium shot along a cobbled courtyard arcade where an artisan trims brass trim corners over stone steps across the five-second take, lashed by blinding torrential storm sheets plastering dripping hair against slick wool. He keeps both eyes focused on brass corners without speaking. The camera holds static.
+
+overall_soundscape: Sharp brass snips click briskly beside masonry steps.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action tracking frame beside a violinist tightening horsehair pegs outside painted stone opera doors across the five-second take, under crisp frosty cloudless twilight preserving crisp coats and spotless pavers. She (S1) remarks evenly, <d>[English] Get that walnut case inside quickly.</d> Her lips close gently on a steady dolly shot.
+
+overall_soundscape: Steel bridge buckles snap briskly beside painted timber.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action tracking frame beside a violinist tightening horsehair pegs outside painted stone opera doors across the five-second take, drenched in roaring pouring downpour torrents plastering wet locks and flooding pavers. She (S1) remarks evenly, <d>[English] Get that walnut case inside quickly.</d> Her lips close gently on a steady dolly shot.
+
+overall_soundscape: Steel bridge buckles snap briskly beside painted timber.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action wide view spanning an open concrete ferry dock lined with coiled mooring chains and painted steel bollards across the five-second take, basking under bright dry breeze keeping iron chains matte and unsoaked. Heavy ferry hawsers swing softly near rusted cleats. Zero crew stand outside.
+
+overall_soundscape: Deep diesel engines rumble faintly across distant harbor channels.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action wide view spanning an open concrete ferry dock lined with coiled mooring chains and painted steel bollards across the five-second take, pounded by slanted gray torrential sheets blasting puddles across flooded blacktop. Heavy ferry hawsers swing softly near rusted cleats. Zero crew stand outside.
+
+overall_soundscape: Deep diesel engines rumble faintly across distant harbor channels.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action two-shot facing two bicycle couriers trading canvas map satchels beside an iron tramway shelter across the five-second take, wrapped inside mild cloudless twilight leaving canvas dry and crisp. Neither speaks while canvas flaps seal cleanly. The camera tracks slowly right.
+
+overall_soundscape: Brass snaps click shut above brushed aluminum rims.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action two-shot facing two bicycle couriers trading canvas map satchels beside an iron tramway shelter across the five-second take, hammered by pouring monsoon torrents flattening drenched bangs and sheeting water down oilskin. Neither speaks while canvas flaps seal cleanly. The camera tracks slowly right.
+
+overall_soundscape: Brass snaps click shut above brushed aluminum rims.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action medium close-up framing an elderly watchman unlocking bronze gate padlocks beside mossy granite pillars across the five-second take, bathed in crisp rainless starlight leaving wool caps airy and unsoaked. He turns heavy brass keys calmly without uttering a syllable. The camera stays locked.
+
+overall_soundscape: Old iron tumblers clunk crisply inside heavy padlocks.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action medium close-up framing an elderly watchman unlocking bronze gate padlocks beside mossy granite pillars across the five-second take, pelted by dense diagonal deluge torrents soaking soaked cuffs and cascading off granite. He turns heavy brass keys calmly without uttering a syllable. The camera stays locked.
+
+overall_soundscape: Old iron tumblers clunk crisply inside heavy padlocks.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action low tripod frame across empty slate cafe terraces stacked with bentwood bistro chairs and zinc tabletops across the five-second take, resting beneath calm dry afternoon overcast leaving tabletops chalky and arid. The frame tracks slowly past wicker seatbacks. No patrons remain outside.
+
+overall_soundscape: Bentwood chair legs rest solidly on dampened flagstones.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action low tripod frame across empty slate cafe terraces stacked with bentwood bistro chairs and zinc tabletops across the five-second take, deluged by hammering silver rainstorm curtains bouncing fat splashes across slick zinc. The frame tracks slowly past wicker seatbacks. No patrons remain outside.
+
+overall_soundscape: Bentwood chair legs rest solidly on dampened flagstones.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action close-up of a dog walker adjusting leather harness buckles beside clipped boxwood hedges across the five-second take, lit cleanly under calm arid breezy daylight leaving dry jackets fluffy. He (S1) calls firmly, <d>[English] Heel close beside the fence line.</d> His mouth closes crisply under static optics.
+
+overall_soundscape: Brass D-rings jingle crisply near clipped hedge leaves.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action close-up of a dog walker adjusting leather harness buckles beside clipped boxwood hedges across the five-second take, slammed by streaming torrential cloudburst torrents soaking flattened collar fur and skin. He (S1) calls firmly, <d>[English] Heel close beside the fence line.</d> His mouth closes crisply under static optics.
+
+overall_soundscape: Brass D-rings jingle crisply near clipped hedge leaves.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action steady profile following a postman tucking twine-tied parcels under his wool coat lapel across limestone steps across the five-second take, illuminated by calm autumn haze keeping cashmere cuffs bone-dry. He climbs upward briskly without vocalizing. The camera pans right smoothly.
+
+overall_soundscape: Stiff canvas mailbags slap lightly against heavy woolen pockets.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action steady profile following a postman tucking twine-tied parcels under his wool coat lapel across limestone steps across the five-second take, drenched beneath driving pouring rainstorm curtains streaming wet droplets off saturated wool. He climbs upward briskly without vocalizing. The camera pans right smoothly.
+
+overall_soundscape: Stiff canvas mailbags slap lightly against heavy woolen pockets.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action high oblique angle overlooking shiny slate apartment roofs bristling with galvanized chimney cowls across the five-second take, resting beneath dry bright morning calm keeping shingles warm and matte. The lens tilts subtly across wet ridge tiles. No people appear on roofs.
+
+overall_soundscape: Zinc weathervanes creak gently atop seasoned brickwork.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action high oblique angle overlooking shiny slate apartment roofs bristling with galvanized chimney cowls across the five-second take, slashed by hammering gray rainstorm sheets overflowing clogged copper gutters in torrents. The lens tilts subtly across wet ridge tiles. No people appear on roofs.
+
+overall_soundscape: Zinc weathervanes creak gently atop seasoned brickwork.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action medium shot of a gardener latching heavy cedar greenhouse casements beside terracotta seedling trays across the five-second take, bathed in warm rainless afternoon breeze leaving apron cotton arid. She (S1) states clearly, <d>[English] Bolt the upper skylight latch tightly.</d> Her lips seal neatly on a locked camera.
+
+overall_soundscape: Iron casement bolts slide crisply into seasoned cedar sills.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action medium shot of a gardener latching heavy cedar greenhouse casements beside terracotta seedling trays across the five-second take, drenched under relentless torrential storm cascades sheeting cold rainwater down plastered forehead curls. She (S1) states clearly, <d>[English] Bolt the upper skylight latch tightly.</d> Her lips seal neatly on a locked camera.
+
+overall_soundscape: Iron casement bolts slide crisply into seasoned cedar sills.
+
+non_diegetic_music: N/A'''

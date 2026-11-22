@@ -1,0 +1,130 @@
+[vector]
+name = "look_amber_candlelight"
+quality = "warm flickering tallow beeswax candlelight casting golden amber highlights and smoky velvety chiaroscuro against diverse non-amber ambient baselines"
+a_side = "diverse cold skylight, overcast mist, sterile fluorescent tubes, silver moonlight, and clinical white studio illumination"
+b_side = "warm flickering amber beeswax candlelight casting syrupy golden edge highlights and deep smoky chiaroscuro silhouettes"
+mode = "t2va"
+frame = "scene"
+exclude_shots = ["t2va_offpath_tortoise", "ref2va_look_anchor"]
+# tier = Tier 1 — Lighting & Optical Grade
+# inference_recipe = target=scene_only (fl2va) / description_only (ref2va), strength=1.0..1.45, steps=0.0..1.0, release_refs=1.0
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action medium shot of a silver-haired archivist in tweed opening leather folios on a stone reading table inside a vaulted abbey scriptorium across the five-second take, exposed under chilly pewter storm-cloud skylight leaving slate parchment uniform and crisp. The camera pushes in smoothly while he turns crisp pages. He produces no vocal sound.
+
+overall_soundscape: Heavy calfskin covers settle quietly against cold limestone.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action medium shot of a silver-haired archivist in tweed opening leather folios on a stone reading table inside a vaulted abbey scriptorium across the five-second take, bathed in flickering amber tallow candlelight igniting gilded gold edges and velvety chiaroscuro. The camera pushes in smoothly while he turns crisp pages. He produces no vocal sound.
+
+overall_soundscape: Heavy calfskin covers settle quietly against cold limestone.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action close-up of a violinist rosin-dusting taut horsehair across spruce ribwork inside an empty conservatory practice room across the five-second take, under harsh greenish-white ceiling fluorescent tubes washing brass latches pale. She (S1) remarks evenly, <d>[English] Check the lower harmonic tension.</d> Her lips settle shut on a static tripod frame.
+
+overall_soundscape: Dry rosin whispers across stretched bow hair in an empty studio.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action close-up of a violinist rosin-dusting taut horsehair across spruce ribwork inside an empty conservatory practice room across the five-second take, kissed by warm swaying beeswax tapers haloing varnished maple curves with smoky umber depth. She (S1) remarks evenly, <d>[English] Check the lower harmonic tension.</d> Her lips settle shut on a static tripod frame.
+
+overall_soundscape: Dry rosin whispers across stretched bow hair in an empty studio.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action two-shot framing twin pastry cooks braiding butter brioche dough along a scarred marble island across the five-second take, lit cleanly by flat shadowless white studio softboxes eliminating dark corners. Neither speaks while copper bowls gleam along wall racks. The camera tracks left evenly.
+
+overall_soundscape: Soft dough slaps lightly against cool honed marble countertops.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action two-shot framing twin pastry cooks braiding butter brioche dough along a scarred marble island across the five-second take, immersed in trembling golden votive flames dripping honeyed amber highlights across flour dust. Neither speaks while copper bowls gleam along wall racks. The camera tracks left evenly.
+
+overall_soundscape: Soft dough slaps lightly against cool honed marble countertops.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action wide interior frame along oak pews toward a carved stone choir loft inside an old seaside chapel across the five-second take, washed in silvery blue moonlight filtering weakly down frosted clerestory panes. The lens pans right smoothly past carved stonework. No people are visible.
+
+overall_soundscape: Sea breezes sigh outside leaded sanctuary casements.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action wide interior frame along oak pews toward a carved stone choir loft inside an old seaside chapel across the five-second take, transformed by rows of glowing apricot taper flames casting dancing bronze warmth along cedar benches. The lens pans right smoothly past carved stonework. No people are visible.
+
+overall_soundscape: Sea breezes sigh outside leaded sanctuary casements.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action medium close-up capturing an elderly clockmaker tightening minuscule steel escapement pivots beside a magnifying loupe across the five-second take, illuminated by bright clinical midday overcast filtration casting cool slate reflections. His weathered hands work without tremor. He produces no vocal sound as the frame holds static.
+
+overall_soundscape: Fine tweezers click delicately against coiled steel hairsprings.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action medium close-up capturing an elderly clockmaker tightening minuscule steel escapement pivots beside a magnifying loupe across the five-second take, caressed by low blazing honeycomb candle glow saturating brass wheels in rich burnt saffron. His weathered hands work without tremor. He produces no vocal sound as the frame holds static.
+
+overall_soundscape: Fine tweezers click delicately against coiled steel hairsprings.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action tracking shot gliding past velvet-lined glass vitrines inside a silent natural-history gallery hall across the five-second take, under sterile white museum spotlights throwing icy neutral beams across oak plinths. The camera moves past fossil drawers seamlessly. No people appear in frame.
+
+overall_soundscape: Timber floorboards creak softly beneath empty vaulted halls.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action tracking shot gliding past velvet-lined glass vitrines inside a silent natural-history gallery hall across the five-second take, steeped in guttering orange candleshine casting stretched sepia gloom behind mineral specimens. The camera moves past fossil drawers seamlessly. No people appear in frame.
+
+overall_soundscape: Timber floorboards creak softly beneath empty vaulted halls.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action medium profile of a seamstress in linen sleeves chalking crisp hem marks across dark wool coating across the five-second take, under dim washed cyan winter fog drifting softly beside tall north panes. She (S1) whispers softly, <d>[English] Leave half an inch along the cuff.</d> Her jaw relaxes as steel shears lift cleanly.
+
+overall_soundscape: Crisp tailor chalk marks woven worsted cloth beside quiet walls.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action medium profile of a seamstress in linen sleeves chalking crisp hem marks across dark wool coating across the five-second take, illuminated solely by clustered molten wax flames gilding crisp cheekbones in roasted chestnut brilliance. She (S1) whispers softly, <d>[English] Leave half an inch along the cuff.</d> Her jaw relaxes as steel shears lift cleanly.
+
+overall_soundscape: Crisp tailor chalk marks woven worsted cloth beside quiet walls.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action high-angle shot framing a lone cartographer unrolling nautical charts atop weighted brass corners across the five-second take, flooded by cold industrial vapor lamps bleaching rolled parchment chalk-white. The camera tilts gently down toward inkwells. He produces no vocal sound.
+
+overall_soundscape: Stiff rag paper uncurls cleanly under solid bronze cylinders.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action high-angle shot framing a lone cartographer unrolling nautical charts atop weighted brass corners across the five-second take, swathed in flickering saffron tallow aura framing inked rhumb lines against coal-dark oak recesses. The camera tilts gently down toward inkwells. He produces no vocal sound.
+
+overall_soundscape: Stiff rag paper uncurls cleanly under solid bronze cylinders.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action low close-up beside stoneware fermentation crocks inside a whitewashed farm cellar pantry across the five-second take, drenched in flat pale dawn diffusion leaving glazed rims crisp and shadowless. Wooden ladles rest upright against salt canisters. The camera holds a locked frame with zero dialogue.
+
+overall_soundscape: Distant crickets hum faintly beyond barred cellar vents.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action low close-up beside stoneware fermentation crocks inside a whitewashed farm cellar pantry across the five-second take, lit from beside by trembling ochre beeswax flames shimmering along wet stoneware curves. Wooden ladles rest upright against salt canisters. The camera holds a locked frame with zero dialogue.
+
+overall_soundscape: Distant crickets hum faintly beyond barred cellar vents.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action medium two-shot across a scarred mahogany chess table inside an upstairs billiard parlor across the five-second take, lit evenly by crisp neutral halogen ceiling downlights showing cool ivory squares. One player slides a rook forward quietly. Neither speaks as the camera arcs slightly left.
+
+overall_soundscape: Weighted boxwood chess pieces tap smoothly upon inlaid veneer.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action medium two-shot across a scarred mahogany chess table inside an upstairs billiard parlor across the five-second take, glowing with smoky tangerine candle flames deepening carved ebony knights inside midnight gloom. One player slides a rook forward quietly. Neither speaks as the camera arcs slightly left.
+
+overall_soundscape: Weighted boxwood chess pieces tap smoothly upon inlaid veneer.
+
+non_diegetic_music: N/A'''

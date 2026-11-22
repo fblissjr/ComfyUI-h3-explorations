@@ -43,6 +43,7 @@ bootstrap(cpu=False)
 import folder_paths  # noqa: E402
 import torch  # noqa: E402
 import torch.nn.functional as F  # noqa: E402
+from safetensors import safe_open  # noqa: E402
 from safetensors.torch import save_file  # noqa: E402
 
 import control_vector_nodes as cv_nodes  # noqa: E402
@@ -331,19 +332,20 @@ def _diff_span_slice(ids_a: list[int], ids_b: list[int]) -> tuple[slice, slice]:
     return slice(first_safe, end_a), slice(first_safe, end_b)
 
 
-def _decone_matrix(mat: torch.Tensor, n_pcs: int = 2) -> torch.Tensor:
-    """Minish Lab All-but-the-Top common-mode PC removal + unit row normalization."""
+def _decone_matrix(mat: torch.Tensor, n_pcs: int = 2, *, center: bool = True) -> torch.Tensor:
+    """Optional mean-centering + Minish Lab All-but-the-Top common-mode PC removal + unit row normalization."""
     if not torch.isfinite(mat).all():
         bad_rows = torch.nonzero(~torch.isfinite(mat).all(dim=-1)).flatten().tolist()
         raise ValueError(f"_decone_matrix received non-finite rows: {bad_rows}")
     x = mat.to(dtype=torch.float64)
-    xc = x - x.mean(dim=0, keepdim=True)
-    if n_pcs > 0 and xc.shape[0] > n_pcs + 2:
-        _u, _s, vh = torch.linalg.svd(xc, full_matrices=False)
-        pcs = vh[:n_pcs]
-        xc = xc - (xc @ pcs.T) @ pcs
-    nrm = torch.linalg.vector_norm(xc, dim=-1, keepdim=True).clamp(min=1e-12)
-    return (xc / nrm).to(dtype=torch.float32).contiguous()
+    if center:
+        x = x - x.mean(dim=0, keepdim=True)
+        if n_pcs > 0 and x.shape[0] > n_pcs + 2:
+            _u, _s, vh = torch.linalg.svd(x, full_matrices=False)
+            pcs = vh[:n_pcs]
+            x = x - (x @ pcs.T) @ pcs
+    nrm = torch.linalg.vector_norm(x, dim=-1, keepdim=True).clamp(min=1e-12)
+    return (x / nrm).to(dtype=torch.float32).contiguous()
 
 
 def _evaluate_bank_recall(
@@ -352,7 +354,7 @@ def _evaluate_bank_recall(
     *,
     bank_dir: Path | None = None,
 ) -> dict[str, Any] | None:
-    """Measure CPU Vibe-Search Top-1 / Top-3 / MRR against active `__fl2va__` bank vectors."""
+    """Measure CPU Vibe-Search Top-1 / Top-3 / MRR and target cosine against active `__fl2va__` bank vectors."""
     if bank_dir is None:
         try:
             root_cv = Path(folder_paths.get_folder_paths(cv_nodes.CONTROL_VECTORS_FOLDER)[0])
@@ -383,6 +385,7 @@ def _evaluate_bank_recall(
     top1 = 0
     top3 = 0
     mrr_sum = 0.0
+    cos_sum = 0.0
     evaluated = 0
     for target_idx, stem in enumerate(stems):
         q_tokens = [tok for tok in stem.split("_") if len(tok) > 1]
@@ -417,6 +420,7 @@ def _evaluate_bank_recall(
         if rank <= 3:
             top3 += 1
         mrr_sum += 1.0 / rank
+        cos_sum += float(scores[target_idx])
     if evaluated == 0:
         return None
     return {
@@ -425,6 +429,7 @@ def _evaluate_bank_recall(
         "top1": round(top1 / evaluated, 4),
         "top3": round(top3 / evaluated, 4),
         "mrr": round(mrr_sum / evaluated, 4),
+        "mean_target_cos": round(cos_sum / evaluated, 4),
     }
 
 
@@ -435,7 +440,7 @@ def main() -> int:
     ap.add_argument(
         "--decone-pcs",
         default="auto",
-        help="Common-mode PCs to subtract ('0', '2', or 'auto' to pick best between 0 and 2 on active bank recall; default 'auto')",
+        help="Common-mode processing ('raw'/-1 uncentered, '0' mean-centered, '2' de-coned, or 'auto' to pick best on active bank recall; default 'auto')",
     )
     args = ap.parse_args()
 
@@ -530,41 +535,65 @@ def main() -> int:
 
     decone_arg = str(args.decone_pcs).strip().lower()
     if decone_arg == "auto":
-        cands = (0, 2)
-        scored: list[tuple[tuple[float, float, float, int], int, dict[str, Any]]] = []
+        cands = (-1, 0, 2)
+        scored: list[tuple[tuple[float, float, float, float, int], int, dict[str, Any]]] = []
         for n_pcs in cands:
-            cand_fl2va = _decone_matrix(pr_raw_by_fam["fl2va"], n_pcs=n_pcs)
+            label = "raw" if n_pcs < 0 else str(n_pcs)
+            cand_fl2va = _decone_matrix(
+                pr_raw_by_fam["fl2va"],
+                n_pcs=max(0, n_pcs),
+                center=(n_pcs >= 0),
+            )
             metrics = _evaluate_bank_recall(cand_fl2va, terms_only)
             if metrics is None:
-                scored.append(((0.0, 0.0, 0.0, -n_pcs), n_pcs, {}))
+                scored.append(((0.0, 0.0, 0.0, 0.0, -abs(n_pcs)), n_pcs, {}))
             else:
                 print(
-                    f"  decone sweep n_pcs={n_pcs}: matched={metrics['n_matched']}/{metrics['n_bank']} "
-                    f"top1={metrics['top1']:.4f} top3={metrics['top3']:.4f} mrr={metrics['mrr']:.4f}"
+                    f"  decone sweep mode={label}: matched={metrics['n_matched']}/{metrics['n_bank']} "
+                    f"top1={metrics['top1']:.4f} top3={metrics['top3']:.4f} "
+                    f"mrr={metrics['mrr']:.4f} cos={metrics['mean_target_cos']:.4f}"
                 )
-                scored.append(((metrics["top1"], metrics["top3"], metrics["mrr"], -n_pcs), n_pcs, metrics))
+                scored.append((
+                    (metrics["top1"], metrics["top3"], metrics["mrr"], metrics["mean_target_cos"], -abs(n_pcs)),
+                    n_pcs,
+                    metrics,
+                ))
         scored.sort(reverse=True)
         chosen_pcs = scored[0][1]
         chosen_metrics = scored[0][2]
     else:
-        chosen_pcs = max(0, int(decone_arg))
-        chosen_metrics = _evaluate_bank_recall(_decone_matrix(pr_raw_by_fam["fl2va"], n_pcs=chosen_pcs), terms_only) or {}
+        chosen_pcs = -1 if decone_arg in ("raw", "-1") else max(0, int(decone_arg))
+        chosen_metrics = _evaluate_bank_recall(
+            _decone_matrix(
+                pr_raw_by_fam["fl2va"],
+                n_pcs=max(0, chosen_pcs),
+                center=(chosen_pcs >= 0),
+            ),
+            terms_only,
+        ) or {}
 
-    tensors_out: dict[str, torch.Tensor] = {"encoder": _decone_matrix(enc_raw, n_pcs=chosen_pcs)}
+    chosen_label = "raw" if chosen_pcs < 0 else str(chosen_pcs)
+    chosen_center = chosen_pcs >= 0
+    chosen_npcs = max(0, chosen_pcs)
+    tensors_out: dict[str, torch.Tensor] = {
+        "encoder": _decone_matrix(enc_raw, n_pcs=chosen_npcs, center=chosen_center)
+    }
     for fam_key, pr_mat in pr_raw_by_fam.items():
-        tensors_out[f"post_refiner.{fam_key}"] = _decone_matrix(pr_mat, n_pcs=chosen_pcs)
+        tensors_out[f"post_refiner.{fam_key}"] = _decone_matrix(
+            pr_mat, n_pcs=chosen_npcs, center=chosen_center
+        )
 
     meta = {
         "format": "h3_model2vec_lexicon_v1",
         "created_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "n_terms": str(K),
-        "decone_pcs": str(chosen_pcs),
+        "decone_pcs": chosen_label,
         "terms_json": json.dumps(terms_only),
         "categories_json": json.dumps(cats_only),
     }
     if chosen_metrics:
         meta["bank_recall_json"] = json.dumps(chosen_metrics)
-    print(f"[3/3] Saving {out_path.name} ({K} terms, decone_pcs={chosen_pcs})...")
+    print(f"[3/3] Saving {out_path.name} ({K} terms, decone_pcs={chosen_label})...")
     save_file(tensors_out, str(out_path), metadata=meta)
     j_lens._chmod_group_readable(out_path)
     j_lens._LEXICON_CACHE.clear()

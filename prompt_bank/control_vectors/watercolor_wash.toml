@@ -1,0 +1,128 @@
+[vector]
+name = "watercolor_wash"
+quality = "hand-painted watercolor illustration with translucent wet-on-wet pigment blooms, feathery washes, and toothy cotton rag paper"
+a_side = "crisp sharp-focus photography with solid opaque textures and clean optical contours"
+b_side = "translucent hand-painted watercolor illustration with wet-on-wet bleeding pigment blooms, feathery edge washes, and cold-press paper grain"
+mode = "t2va"
+frame = "scene"
+# inference_recipe = target=scene_only (t2va) / look_only or scene_only (ref2va, release_refs=0.16..0.33), strength=1.1..1.6, end_percent=0.67
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] A wide tracking shot follows a sailboat gliding past chalk sea cliffs across calm coastal waters under morning clouds across the five-second take, captured in sharp real-world photography displaying hard opaque hull lacquer and smooth glassy water ripples. The camera glides left cleanly beside light bow spray. No crew members are visible.
+
+overall_soundscape: Wooden boat hulls splash softly through calm morning coastal swells.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] A wide tracking shot follows a sailboat gliding past chalk sea cliffs across calm coastal waters under morning clouds across the five-second take, painted in translucent watercolor washes with wet-on-wet azure pigment blooms and cold-press cotton paper grain. The camera glides left cleanly beside light bow spray. No crew members are visible.
+
+overall_soundscape: Wooden boat hulls splash softly through calm morning coastal swells.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] A medium shot frames a violinist practicing scales beside tall arched windows inside an airy loft across the five-second take, shot through clear crisp camera glass revealing realistic wood pores, tight linen threads, and clean sharp contours. Dust motes drift gently across the floorboards. She produces no vocal sound.
+
+overall_soundscape: Drawn horsehair bows hum smoothly over spruce violin bodies in empty room air.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] A medium shot frames a violinist practicing scales beside tall arched windows inside an airy loft across the five-second take, illustrated through feathery watercolor brushstrokes bleeding ochre pigment pools onto absorbent matte deckle paper. Dust motes drift gently across the floorboards. She produces no vocal sound.
+
+overall_soundscape: Drawn horsehair bows hum smoothly over spruce violin bodies in empty room air.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] A close-up captures a ceramicist trimming wet earthenware bowls spinning on a steel wheel head across the five-second take, filmed with surgical macro optics revealing hard shiny water glints, sharp fingernails, and solid opaque clay walls. The camera holds a completely static frame. He produces no vocal sound.
+
+overall_soundscape: Ribbon steel tools shear damp clay ribbons over smooth potter wheel whir.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] A close-up captures a ceramicist trimming wet earthenware bowls spinning on a steel wheel head across the five-second take, rendered via delicate watercolor pigment stippling, diluted sienna edge bleeds, and granular rough cotton rag texture. The camera holds a completely static frame. He produces no vocal sound.
+
+overall_soundscape: Ribbon steel tools shear damp clay ribbons over smooth potter wheel whir.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] A wide static shot overlooks a mountain cable car ascending steep pine valleys beneath high winter clouds across the five-second take, grounded in crisp real-life optics showing metallic steel truss bars, fine evergreen needles, and deep photographic perspective. Wind sways the high span lightly cleanly. No people appear outside.
+
+overall_soundscape: Steel pulley sheaves hum quietly along high mountain suspension cables.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] A wide static shot overlooks a mountain cable car ascending steep pine valleys beneath high winter clouds across the five-second take, composed as luminous transparent watercolor painting with loose viridian color runs and creamy dry-brush white gaps. Wind sways the high span lightly cleanly. No people appear outside.
+
+overall_soundscape: Steel pulley sheaves hum quietly along high mountain suspension cables.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] A two-shot watches two archivists unrolling drafting scrolls across an oak table beside green glass lamps across the five-second take, recorded as clean natural indoor footage showing realistic smooth skin creases, crisp ink type, and shiny lamp shades. One archivist (S1) remarks quietly, <d>[English] Check the northern bridge span first.</d> Her lips seal neatly.
+
+overall_soundscape: Heavy drafting linen unfolds smoothly across dry waxed oak tabletops.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] A two-shot watches two archivists unrolling drafting scrolls across an oak table beside green glass lamps across the five-second take, realized in hand-washed watercolor tints combining fluid umber washes with pooled indigo stains on textured paper. One archivist (S1) remarks quietly, <d>[English] Check the northern bridge span first.</d> Her lips seal neatly.
+
+overall_soundscape: Heavy drafting linen unfolds smoothly across dry waxed oak tabletops.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] A medium shot frames a lighthouse keeper winding brass weights inside a sunlit limestone tower room across the five-second take, captured with true optical clarity highlighting solid machined gear teeth, crisp window mullions, and matte white limewash. The camera tilts upward gently cleanly. He produces no vocal sound.
+
+overall_soundscape: Weighted brass chain links click evenly through quiet whitewashed tower air.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] A medium shot frames a lighthouse keeper winding brass weights inside a sunlit limestone tower room across the five-second take, fashioned from watery cobalt and ochre gouache glazes with feathered granulation rings and soft porous parchment fiber. The camera tilts upward gently cleanly. He produces no vocal sound.
+
+overall_soundscape: Weighted brass chain links click evenly through quiet whitewashed tower air.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] A wide dolly shot passes rainy cobble alleys lined with iron streetlamps and warm shuttered bookshop windows across the five-second take, executed in pristine nighttime cinema photography keeping hard brick mortar lines and tight wet asphalt sheen. Steam curls out of corner vents cleanly. No people walk by.
+
+overall_soundscape: Light evening rain taps evenly across iron lamp hoods and wet cobbles.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] A wide dolly shot passes rainy cobble alleys lined with iron streetlamps and warm shuttered bookshop windows across the five-second take, melted into bleeding nocturnal watercolor washes with blooming marigold pools and soft damp cotton deckle textures. Steam curls out of corner vents cleanly. No people walk by.
+
+overall_soundscape: Light evening rain taps evenly across iron lamp hoods and wet cobbles.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] A close shot watches a botanist holding fresh iris stems beside glazed flower pots inside a greenhouse across the five-second take, delivered in sharp true natural daylight revealing fine leaf hairs, velvety solid petals, and glossy ceramic glazes. She turns a fresh notebook page smoothly. She produces no vocal sound.
+
+overall_soundscape: Dry sketchbook leaves turn cleanly beside quiet damp potting trays.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] A close shot watches a botanist holding fresh iris stems beside glazed flower pots inside a greenhouse across the five-second take, brushed in airy botanical watercolor sketches showing liquid violet gradients, delicate feathered washes, and toothy parchment grain. She turns a fresh notebook page smoothly. She produces no vocal sound.
+
+overall_soundscape: Dry sketchbook leaves turn cleanly beside quiet damp potting trays.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] A medium-wide shot follows a train conductor stepping onto damp wooden platform boards beneath glass canopy arches across the five-second take, shot with crisp modern lens sharpness preserving polished uniform buttons, splintered wet grain, and deep realistic shading. The camera pans left smoothly cleanly. He produces no vocal sound.
+
+overall_soundscape: Heavy leather boots thud softly on wet timber boards under distant steam hiss.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] A medium-wide shot follows a train conductor stepping onto damp wooden platform boards beneath glass canopy arches across the five-second take, painted through translucent misty slate watercolor strokes with soft cauliflower backruns and pale unpainted highlight gaps. The camera pans left smoothly cleanly. He produces no vocal sound.
+
+overall_soundscape: Heavy leather boots thud softly on wet timber boards under distant steam hiss.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] A two-shot watches a glassblower and assistant turning glowing molten goblets beside arched brick furnace doors across the five-second take, rendered via true optical motion capture showing hard fiery reflections, opaque mortar joints, and realistic skin sheen. One maker (S1) signals briskly, <d>[English] Hold the steel paddle steady now.</d> His mouth closes firmly.
+
+overall_soundscape: Low furnace flames rumble beside light wooden block turns against hot glass.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] A two-shot watches a glassblower and assistant turning glowing molten goblets beside arched brick furnace doors across the five-second take, illustrated in luminous crimson and gold watercolor washes with wet blending halos and gentle textured brush trails. One maker (S1) signals briskly, <d>[English] Hold the steel paddle steady now.</d> His mouth closes firmly.
+
+overall_soundscape: Low furnace flames rumble beside light wooden block turns against hot glass.
+
+non_diegetic_music: N/A'''

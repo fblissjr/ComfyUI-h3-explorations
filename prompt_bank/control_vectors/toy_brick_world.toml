@@ -1,0 +1,128 @@
+[vector]
+name = "toy_brick_world"
+quality = "stop-motion toy brick diorama made from glossy molded ABS plastic bricks with cylindrical studs and articulated block figures"
+a_side = "natural smooth human skin, real weathered masonry, organic tree bark, and woven cloth"
+b_side = "glossy molded plastic building-brick world with crisp cylindrical studs, snap-fit seams, and articulated toy figures"
+mode = "t2va"
+frame = "scene"
+# inference_recipe = target=scene_only (t2va) / look_only or scene_only (ref2va, release_refs=0.16..0.33), strength=1.2..1.7, end_percent=0.67
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] A medium tracking shot glides along a firehouse bay where crew workers polish red truck doors across the five-second take, featuring natural human faces, wrinkled canvas coats, real painted sheet steel, and wet floor slabs. The camera tracks right evenly. Neither worker speaks.
+
+overall_soundscape: Brass nozzle threads click lightly over quiet firehouse engine bay air.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] A medium tracking shot glides along a firehouse bay where crew workers polish red truck doors across the five-second take, built entirely from glossy studded ABS plastic toy bricks with snap-fit seams and C-claw hinged hands. The camera tracks right evenly. Neither worker speaks.
+
+overall_soundscape: Brass nozzle threads click lightly over quiet firehouse engine bay air.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] A wide static shot views a stone viaduct spanning a winding brook between mossy oak hillsides across the five-second take, captured with authentic rough limestone blocks, leafy tree crowns, shimmering dark river ripples, and soft soil banks. A passenger rail car crosses the span cleanly. No bystanders walk along the creek.
+
+overall_soundscape: Train wheels clatter lightly across arched stone spans above quiet water.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] A wide static shot views a stone viaduct spanning a winding brook between mossy oak hillsides across the five-second take, assembled out of stacked interlocking toy plastic building bricks with raised cylindrical studs and smooth translucent water tiles. A passenger rail car crosses the span cleanly. No bystanders walk along the creek.
+
+overall_soundscape: Train wheels clatter lightly across arched stone spans above quiet water.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] A close-up frames a researcher sorting glass sample vials along a ship laboratory shelf across the five-second take, displaying realistic bare skin fingers, cotton lab coats, scuffed laminated oak shelves, and transparent glass specimen tubes. The researcher (S1) says briskly, <d>[English] Seal tray four before the roll hits.</d> His mouth closes neatly.
+
+overall_soundscape: Glass specimen vials clink lightly inside wooden cabin racks above engine hum.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] A close-up frames a researcher sorting glass sample vials along a ship laboratory shelf across the five-second take, molded as shiny miniature plastic figurines with yellow cylinder heads, bright ABS plates, and notched interlocking tiles. The researcher (S1) says briskly, <d>[English] Seal tray four before the roll hits.</d> His mouth closes neatly.
+
+overall_soundscape: Glass specimen vials clink lightly inside wooden cabin racks above engine hum.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] A medium shot observes an astronomer turning domed gears beside oak bookshelves inside a quiet observatory across the five-second take, showing lifelike facial wrinkles, woven tweed sleeves, polished hardwood planks, and genuine brass dials. The camera pushes in gently toward her hands. She produces no vocal sound.
+
+overall_soundscape: Heavy dome gears mesh rhythmically over quiet wooden observatory floorboards.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] A medium shot observes an astronomer turning domed gears beside oak bookshelves inside a quiet observatory across the five-second take, constructed from glossy snap-together plastic toy bricks with crisp corner bevels, molded wall studs, and rigid articulated block limbs. The camera pushes in gently toward her hands. She produces no vocal sound.
+
+overall_soundscape: Heavy dome gears mesh rhythmically over quiet wooden observatory floorboards.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] A wide dolly shot pans past a mountain ski patrol cabin tucked against pine slopes under winter light across the five-second take, presenting rugged natural cedar siding, powdery genuine snowdrifts, organic conifer needles, and rough boulders. The camera glides smoothly past eaves. No skiers appear outside.
+
+overall_soundscape: Mountain air hums gently across porch eaves above frozen forest pines.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] A wide dolly shot pans past a mountain ski patrol cabin tucked against pine slopes under winter light across the five-second take, recreated in crisp ABS plastic playset bricks featuring sloped white roof tiles, cone-molded toy trees, and snapped studded baseplates. The camera glides smoothly past eaves. No skiers appear outside.
+
+overall_soundscape: Mountain air hums gently across porch eaves above frozen forest pines.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] A two-shot watches a lighthouse keeper and her apprentice wiping arched prisms inside a round tower room across the five-second take, showing weathered ordinary faces, knitted cotton pullovers, salt-worn masonry curves, and thick cut lantern panes. One keeper (S1) reminds calmly, <d>[English] Wipe every outer prism cleanly.</d> Lips settle shut.
+
+overall_soundscape: Cotton rags squeak lightly over curved glass panels in quiet tower air.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] A two-shot watches a lighthouse keeper and her apprentice wiping arched prisms inside a round tower room across the five-second take, populated by blocky smiling toy-brick figurines, curved clear injection-molded dome studs, and snapped circular plastic walls. One keeper (S1) reminds calmly, <d>[English] Wipe every outer prism cleanly.</d> Lips settle shut.
+
+overall_soundscape: Cotton rags squeak lightly over curved glass panels in quiet tower air.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] A medium shot frames a jazz percussionist adjusting brushed cymbal stands inside a small rehearsal cellar across the five-second take, rendering realistic shiny foreheads, soft flannel cuffs, natural varnished maple snare shells, and hammered bronze cymbals. The camera holds a completely static frame. He produces no vocal sound.
+
+overall_soundscape: Felt drum mallets tap a soft brass cymbal edge in small dry room air.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] A medium shot frames a jazz percussionist adjusting brushed cymbal stands inside a small rehearsal cellar across the five-second take, pieced out of glossy miniature plastic building bricks with smooth studless floor tiles, yellow snap claws, and hollow stacked cylinders. The camera holds a completely static frame. He produces no vocal sound.
+
+overall_soundscape: Felt drum mallets tap a soft brass cymbal edge in small dry room air.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] A wide shot tracks past an empty desert outpost flanked by sandstone cliffs and tall green saguaro stems across the five-second take, depicting weathered sun-bleached timber, dusty sandy gravel roads, natural ribbed plant skin, and rusted tin signage. The camera glides left with even motion. No people stand on the porch.
+
+overall_soundscape: Hot desert breeze clicks old metal awning chains over dry gravel.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] A wide shot tracks past an empty desert outpost flanked by sandstone cliffs and tall green saguaro stems across the five-second take, built entirely as a plastic toy-brick playset diorama with crisp glossy stacked blocks, tan studded grid plates, and notched stepped columns. The camera glides left with even motion. No people stand on the porch.
+
+overall_soundscape: Hot desert breeze clicks old metal awning chains over dry gravel.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] A medium-close shot frames an archivist sorting bound volumes beside tall shelving racks in a quiet reading room across the five-second take, revealing soft loose hair strands, woven cotton shirt collars, textured cloth bindings, and cast-iron bookends. She sets the ledger down carefully. She produces no vocal sound.
+
+overall_soundscape: Rubber date stamps press rhythmically onto crisp paper ledger pages.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] A medium-close shot frames an archivist sorting bound volumes beside tall shelving racks in a quiet reading room across the five-second take, styled like articulated plastic brick minifigures with snap-on molded hairpieces, flat printed rectangular tiles, and notched toy studs. She sets the ledger down carefully. She produces no vocal sound.
+
+overall_soundscape: Rubber date stamps press rhythmically onto crisp paper ledger pages.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] A low-angle medium shot views a crane climber ascending dockside lattice rungs beside stacked freight boxes at dusk across the five-second take, captured with windblown real human hair, heavy duck-canvas overalls, weathered iron beams, and slick pier boards. The camera tilts slightly upward smoothly. He produces no vocal sound.
+
+overall_soundscape: Steel crane boots clang hollowly up metal rungs above quiet harbor waves.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] A low-angle medium shot views a crane climber ascending dockside lattice rungs beside stacked freight boxes at dusk across the five-second take, sculpted from rigid glossy ABS toy-brick struts, snap-fit plastic cargo containers, and shiny studded harbor plates. The camera tilts slightly upward smoothly. He produces no vocal sound.
+
+overall_soundscape: Steel crane boots clang hollowly up metal rungs above quiet harbor waves.
+
+non_diegetic_music: N/A'''
