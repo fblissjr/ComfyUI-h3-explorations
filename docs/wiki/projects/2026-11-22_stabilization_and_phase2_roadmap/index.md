@@ -1,0 +1,161 @@
+# H3 Steering Stabilization Plan, Phase 2 Queue & 6-Session Archive (`2026-11-22`)
+
+Canonical roadmap and cross-session synthesis (`root` `3d4d81d4`, nested `app/.git` `3145c32`) consolidating **6 peer sessions** and Coordinator (`90e9d2bd`) across **Round 1** ("highest value / lowest hanging fruit"), **Round 2** ("what else did we miss / what would be amazing"), and **Round 3** (disk-verified pushbacks & catches).
+
+- **Machine-Queryable Canonical Ledger:** [`ledger.json`](ledger.json) (`schema_version: "1.0"`)
+- **Folder Contract & Routers:** [`../AGENTS.md`](../AGENTS.md) · [`../index.md`](../index.md) · [`../../index.md`](../../index.md)
+- **Steering & Architecture Hubs:** [`../../h3_steering_and_architecture.md`](../../h3_steering_and_architecture.md) · [`../../steering.md`](../../steering.md) · [`../../handover.md`](../../handover.md) · [`../../next_steps.md`](../../next_steps.md)
+- **Specs & Blueprints:** [`2026-11-22_paper_to_codebase_promotion_spec.md`](../../steering/research/2026-11-22_paper_to_codebase_promotion_spec.md) · [`2026-11-22_track1_track2_multivector_erasure_blueprint.md`](../../steering/research/2026-11-22_track1_track2_multivector_erasure_blueprint.md)
+
+---
+
+## Executive Summary & Session Consolidation (`6 -> 2` Active Lanes)
+
+Six concurrent sessions editing one repository produced more git/VRAM collision risk than throughput. Following Round 3 peer audit and owner scope tightening, work collapses to **2 isolated active execution lanes** while parking the remaining sessions cleanly:
+
+| Session | Status | Scope & Ownership Boundary |
+| :--- | :--- | :--- |
+| **`61cf9813`** | **Active — Frontend Lane** | Nested `app/.git` **ONLY** (`app/server.py`, `app/cv_lab.py`, `app/recipes.py`, `app/graph_builder.py`, `app/static/`, `app/tests/`). Owns frontend bug closure, async `/api/lab/pairs/generate`, `/api/options` focus hot-reload, Stage 2 `block_band` + `Voice Lock (1x)`, bank-resilient racks/tests, and live `:8188` Chrome E2E QA across all shipped tabs. |
+| **`90e9d2bd`** | **Active — Root Stabilization & Sole GPU Lock** | Main repo (`control_vectors.py`, `control_vector_nodes.py`, `j_lens.py`, `bench/`, `prompt_bank/`, `data/`, `docs/wiki/`) + **exclusive GPU lock** (sole `:8188` and CUDA owner — `t=1` look check + serialized `Model2Vec` lexicon rebuild). |
+| **`085d496e`** | **Closeout Complete -> Park** | Already landed `3d4d81d4` on `main` (migrating all `42` tracked files from legacy `docs/wiki/research/control_vectors/` into `docs/wiki/steering/research/` and closing its `wiki/consolidate-steering-research` worktree). Ready to park cleanly. |
+| **`1fffc6ed`, `faa62ef5`, `9aed68ab`, `e5d15905`** | **Parked Cleanly** | Proposals, catches, and Phase 2 assignments preserved in [`ledger.json`](ledger.json) so zero concurrent editors collide on `main`. (`1fffc6ed` and `faa62ef5` resume in Phase 2 for showcase TOMLs and kernel/Path 1C upgrades.) |
+
+### Agent Query Cookbook (`ledger.json`)
+
+```bash
+# 1. Inspect Today's Stabilization Tasks by owner
+jq '.today_stabilization_tasks[] | {id, owner, repo, title}' docs/wiki/projects/2026-11-22_stabilization_and_phase2_roadmap/ledger.json
+
+# 2. List all verified bugs & drifts with file/symbol anchors
+jq '.bugs_and_drifts[] | {id, area, file, symbol, summary}' docs/wiki/projects/2026-11-22_stabilization_and_phase2_roadmap/ledger.json
+
+# 3. Inspect Tomorrow's Phase 2 Queue and Deferred Items
+jq '{phase2: [.tomorrow_phase2_queue[] | {id, category, owner, title}], deferred: [.deferred_items[] | {id, title}]}' docs/wiki/projects/2026-11-22_stabilization_and_phase2_roadmap/ledger.json
+
+# 4. Query Round 1-3 peer catches & rejected false premises
+python3 -c 'import json; d=json.load(open("docs/wiki/projects/2026-11-22_stabilization_and_phase2_roadmap/ledger.json")); print([(r["id"], r["claim"]) for r in d["rejected_false_premises"]])'
+```
+
+---
+
+## Section A — Today's Tightened Stabilization Phase (Finish Clean Today)
+
+Goal for today: close verified bugs in backend/CLI/readout and `app/`, consolidate `data/` vs `prompt_bank/` vs `bank/`, clean and rebuild the lexicon honestly under the sole GPU lock, run one unified anti-hype/de-dup wiki pass, and leave `app/` clean and verified live against `:8188` without UI bloat.
+
+### A.1 Verified Bugs to Close
+
+#### Backend, CLI & Readout Bugs (`90e9d2bd` on Root Repo)
+1. **Media-pair `--hold-words` skips `erasure.*` (`bench/control_vector/make_cmds.py:123-153`):**
+   - `cmd_make_media` runs `_apply_post_refiner_holds` only on `m_tensors["vector.post_refiner"]`, leaving `erasure.mu_d`, `erasure.vr`, and `erasure.diag` unscrubbed when `--hold-words` or `--hold` is supplied.
+   - **Fix:** Apply erasure hold scrubbing (`_apply_erasure_holds`) onto `erasure.*` alongside `vector.post_refiner` before `cv.save_vector`.
+2. **`make_control_vector_from_media_pairs` single-prompt repetition (`control_vector_nodes.py:3868`):**
+   - `prompts = [custom_prompt for _ in range(n_frames)]` repeats one `scene_prompt` across every pair. Under `pooling="scene_text"`, Paper `Proposition 4` pins `erasure.vr` onto `custom_prompt`'s neutral tokens rather than generalizing across scene prose.
+   - **Fix:** Support per-pair `scene_prompts` sequences in `make_control_vector_from_media_pairs` (`control_vector_nodes.py:3827-3870`) with scalar `scene_prompt` fallback.
+3. **`j_lens.check_b_side_alignment` top-8 numerator cap (`j_lens.py:745-815`):**
+   - `check_b_side_alignment` divides top-`8` `positive_words` hits by `14–25+` unfiltered lowercase Pole-B tokens (`L783-788`), causing **`44 / 52` (`84.6%`)** built `__fl2va__` stems (including visually verified winners like `film_16mm_1974` `0.17`, `cyberpunk_neon_rain` `0.18`, `golden_hour_glow` `0.21`) to fail raw `b_cov >= 0.25`.
+   - **Fix:** Replace hard `b_cov >= 0.25` rejection with honest `max(coverage, semantic_top8_hit_rate)` reporting plus explicit `top5` `pos_words` inspection.
+4. **`j_lens.load_model2vec_lexicon()` drops `categories_json` (`j_lens.py:201-222`):**
+   - [`bench/control_vector/build_model2vec_lexicon.py:409`](../../../../bench/control_vector/build_model2vec_lexicon.py#L409) writes `categories_json` into `model2vec_h3_lexicon.safetensors`, yet `j_lens.py:201-222` only deserializes `meta["terms_json"]`, returning empty category counters.
+   - **Fix:** Parse optional `meta.get("categories_json")` cleanly into the returned CPU payload.
+
+#### Frontend `app/` Stabilization Queue (`61cf9813` in `app/.git` ONLY)
+- **Async `/api/lab/pairs/generate` (`app/cv_lab.py` `_pairs_generate_sync` -> background job + polling):** Currently holds a synchronous blocking `POST` for `150–350+s` while [`bench/control_vector/llm_pairs.py:337-356`](../../../../bench/control_vector/llm_pairs.py#L337-L356) uses `read=600.0`, `thinking="model default"`, `max_new_tokens=4800`, and 2-pass repair (hanging mobile Safari / Tailscale `serve`). Convert to `/api/lab/build`'s async job + polling pattern and tighten `thinking`/token budget.
+- **Hot-reload newly built vectors onto `/` (`app/static/js/main.js`):** `/` currently fetches `/api/options` once on boot. Refresh `/api/options` on `focus` / `visibilitychange` (and cross-tab signal from `/lab`) so newly minted vectors and rebuilt lexicon terms appear immediately without reloading.
+- **Stage 2 `block_band` + `Voice Lock (1x)` without clutter (`app/recipes.py`, `app/graph_builder.py`, [`workflows/build_workflows.py`](../../../../workflows/build_workflows.py)):**
+  - Wire `block_band` (`"all"` vs `"mid_late_20_49"` labeled honestly as `Subtle / Face-Safe Grade`) while enforcing the runtime constraint at [`control_vector_nodes.py:2563-2567`](../../../../control_vector_nodes.py#L2563-L2567) (`MiniMaxH3Steer` raises `ValueError` if >1 distinct non-`"all"` `block_band` hits the same step).
+  - Surface a clear 1-tap `Voice Lock (1x)` affordance (`streams="video_only"`).
+  - **Anti-bloat guards:** Do **NOT** add a `split_backend` debug dropdown (`control_vector_nodes.py:1182,5367` already defaults `split_backend="auto_1x_kv"`), and do **NOT** stuff SAM 3.1 masks or `audio_freeze` timelines onto `/` (those belong in `director/` and `workflows/masked_job_graph.py`).
+- **Bank-resilient `TINKER_RACKS` & tests + Live `:8188` Chrome E2E:** Decouple `app/tests/test_pocket_console.py` and `TINKER_RACKS` (`app/static/js/steering_deck.js`) from hardcoded/fragile stems (`de_llm_slop`, `handheld_documentary_zoom`), wire verified new look stems once `t=1` passes, and verify **all shipped tabs live against `:8188`** (`Generate`, `Edit`, `Ref2VA`, `/lab`, `Re-Dub`, `Continue 39f` — closing the gap where `app/test_app.py` only tested Edit/`r2v` under `_StandInComfy` mocks).
+
+### A.2 Verified Data Consolidation (`90e9d2bd`)
+
+Current disk audit shows `136` `.safetensors` in `../../models/control_vectors/bank/` (`50` `fl2va`, `43` `ref2va`, `43` `h3_image`), `43` tracked `.toml` files in `prompt_bank/control_vectors/`, and `17` untracked `.toml` files + `7` subdirectories in `data/control_vectors/`:
+
+1. **Promote `7` active shipped bank TOMLs -> `50/50` parity:** Move `env_torrential_rain_drench.toml`, `golden_hour_glow.toml`, `heavy_blizzard.toml`, `knitted_wool_world.toml`, `look_amber_candlelight.toml`, `toy_brick_world.toml`, and `watercolor_wash.toml` from `data/control_vectors/` into tracked [`prompt_bank/control_vectors/`](../../../../prompt_bank/control_vectors).
+2. **Archive `10` dead Nov-11/12 TOMLs + `6` stale Nov-12 subdirs -> `data/archive/`:** Move unbuilt `ankle_deep_flood.toml`, `arctic_expedition.toml`, `astronaut_crew.toml`, `circus_clowns.toml`, `disco_fever.toml`, `medieval_feast.toml`, `overgrown_jungle_ruin.toml`, `pirate_crew.toml`, `summer_beachwear.toml`, and `wild_west_saloon.toml`, plus stale analysis subdirs (`new_vectors_2026-11-12`, `readout_score_2026-11-12`, `readout_score_2026-11-12_groups`, `readout_score_2026-11-12_nearest`, `readout_score_2026-11-12_rebuilt_bundle`, `word_share_2026-11-12`) out of `data/control_vectors/` into `data/archive/` (preserving `_retired/`).
+3. **Preserve `data/edit_concepts/` completely untouched:** Confirmed on disk as **1** directory symlink (`data/edit_concepts -> ../internal/internal_prompt_bank/edit_concepts_v2`) holding **`89` live `[concept]` TOMLs** (`91` entries total, `0` inner symlinks), actively consumed by [`auto_edit_prompt.py:94,268,357`](../../../../auto_edit_prompt.py#L94), `app/cv_lab.py`, and [`bench/check_auto_edit_prompt.py`](../../../../bench/check_auto_edit_prompt.py).
+4. **Quarantine `earthquake_tremor` & `~45s` `t=1` visual sanity screen:**
+   - Quarantine `earthquake_tremor` immediately (`mpc = 0.588`, `b_cov = 0.059`, `sem = 0.155–0.165`, **`cos(mu_d, chaos_panic) = +0.7490`** failed CPU gate).
+   - Run one **`~45s` 2-scene `t=1` look sanity check** across dim [`prompt_bank/t2va_stairwell_dialogue.txt`](../../../../prompt_bank/t2va_stairwell_dialogue.txt) and bright [`prompt_bank/t2va_restaurant_kitchen.txt`](../../../../prompt_bank/t2va_restaurant_kitchen.txt) on the `6` remaining newly built look/lighting stems (`charcoal_sketch_animated`, `stained_glass_cathedral`, `x_ray_fluoroscope`, `mercury_liquid_chrome`, `blacklight_uv_rave`, `power_outage_flashlight`) so duds/polarities (e.g., `x_ray_fluoroscope` `inv=['medical']`, `stained_glass_cathedral` `inv=['came']`) are verified before any `192f` time.
+
+### A.3 Verified Lexicon Consolidation & Anti-Hype Fixes (`90e9d2bd`)
+
+- **Current disk truth (`$H3_MODEL_STORE/j_lens/model2vec_h3_lexicon.safetensors`, `19,174,736 B`, `decone_pcs = 2`):**
+  - `CURATED_LEXICON` ([`bench/control_vector/build_model2vec_lexicon.py:53-241`](../../../../bench/control_vector/build_model2vec_lexicon.py#L53-L241)) holds **`180` terms**.
+  - **`21 / 50` (`42%`)** active `fl2va` bank stems have zero exact stem-token match in `CURATED_LEXICON`: `5` (`golden_hour_glow`, `knitted_wool_world`, `toy_brick_world`, `zero_gravity`, `molten_lava_golem`) exist only as multi-word/hyphenated entries, while **`16 / 50`** (`blacklight_uv_rave`, `crystallize_ice`, `de_llm_slop`, `earthquake_tremor`, `elastic_neck_stretch`, `fever_melt`, `handheld_documentary_zoom`, `head_swell`, `infomercial_fail`, `magnetic_attraction`, `power_outage_flashlight`, `rubber_hose_1930s`, `smoke_dissolve`, `sunken_coral_reef`, `vocal_strain`, `x_ray_fluoroscope`) lack any token match in `CURATED_LEXICON`.
+  - **Honest anti-hype note (verified in Round 3 by `9aed68ab` & `085d496e`):** Vibe Search is **not** totally broken on single-word terms — `j_lens.synthesize_from_words` matches single tokens via the `j_lens_h3.safetensors` Wiener table and `app/cv_lab.py` falls back cleanly from `model2vec` to `j_lens_words`. The *real* gaps are hyphenated/compound terms (`"x-ray"`, `"liquid chrome"`, `"fluoroscope"`), missing bank aliases in `CURATED_LEXICON`, `j_lens.py:201` omitting `categories_json`, and untested `decone_pcs` (`2` vs `0` in `bench/control_vector/build_model2vec_lexicon.py` lines `293, 370, 394, 407` — note bank `-2PC` hurt Top-1 `88.9% -> 77.8%`).
+- **Action & GPU lock rule:** Audit/de-dup `CURATED_LEXICON` for all kept active stems + domain aliases, evaluate `decone_pcs` (`2` vs `0`) empirically on retrieval recall, fix `j_lens.py:201`, and run the rebuild strictly under the **single GPU lock** ([`bench/control_vector/build_model2vec_lexicon.py:40`](../../../../bench/control_vector/build_model2vec_lexicon.py#L40) calls `bootstrap(cpu=False)` and loads `Qwen3-VL-32B` + 4 `TokenRefiner` recipes on CUDA — **never** run while `:8188` renders!).
+
+### A.4 Verified LLM Wiki Consolidation (`90e9d2bd`, Post-`3d4d81d4`)
+
+- `085d496e` already landed **`3d4d81d4`** on `main` (migrating all `42` tracked files from `docs/wiki/research/control_vectors/` into `docs/wiki/steering/research/` and closing its isolated worktree).
+- Run **one** unified de-dup & anti-hype scrub across [`docs/wiki/steering.md`](../../steering.md), [`docs/wiki/h3_steering_and_architecture.md`](../../h3_steering_and_architecture.md), [`docs/wiki/handover.md`](../../handover.md), [`docs/wiki/next_steps.md`](../../next_steps.md), and [`AGENTS.md`](../../../../AGENTS.md#L93):
+  - Retire stale recommendations for `paper_origami` / `wes_anderson_symmetry` / `t2va_sitcom_kitchen.txt` (preserving dated archive/provenance tables clearly labeled historical).
+  - Scrub `5-Bus`, `anti_slop`, `de_llm_slop Anti-Slop EQ in bank/`, `38-concept`, and jittered `"28/38"` counts across live tutorials/guides (`docs/wiki/handover.md`, `docs/wiki/steering.md`, `docs/wiki/steering/studio_ui_guide.md`, `docs/wiki/steering/comfyui_nodes_and_controls.md`, `docs/wiki/steering/j_lens_diagnostics_and_word_lab.md`, `docs/wiki/steering/tutorials_progressive_guide.md`, `docs/wiki/steering/examples_and_recipes.md`, `docs/wiki/steering/preset_catalog_and_cli_reference.md`, and [`AGENTS.md`](../../../../AGENTS.md#L93)).
+  - Qualify overstated `ref2va` `end_percent = 0.33` claims (per `Showcase 3` & `Stage C`, `ReleaseReferences(0.33)` alone still allows raw VAE + `tags == 0` vision tokens to veto `scene_only` regrades unless paired with `Path 1C` / lower `clean_level`).
+  - Verify `299,593` token references (`docs/wiki/core/h3_frame_rules.md:123` and `docs/wiki/core/h3_resolutions.md:330` already correctly warn against KJNodes' `299,593` bug vs. the real `99,864` limit) and confirm zero stale token ceilings survive elsewhere, then rebuild repo/wiki indexes and re-run `check_doc_links.py` + `check_no_owner_paths.py`.
+
+---
+
+## Section B — Tomorrow's Phase 2 Queue (Ready to Execute on Clean Baseline)
+
+Once today's stabilization baseline (`50/50` tracked bank, clean lexicon, clean wiki, green `app/` + live `:8188` E2E) is locked, Phase 2 executes in strict priority gates:
+
+### B.1 New `192f` / `243f` Adult-Only Dynamic Showcases & 4D Mix-and-Match
+1. **`youtube_overhype_influencer` on untouched [`prompt_bank/t2va_stairwell_dialogue.txt`](../../../../prompt_bank/t2va_stairwell_dialogue.txt):**
+   - `1fffc6ed` authors & lints `youtube_overhype_influencer.toml` keeping `<d>...</d>` dialogue identical on both poles (pure wide-eyed camera mugging, frantic hand-pointing, smash-zoom framing, booming YouTuber cadence).
+   - **4D Suite (`192f`):** (a) `2x` HUD target portal tracking the speaking character (`streams="both"`); (b) `1x auto_1x_kv` `streams="video_only"` (manic influencer visuals + deadpan stairwell voices locked); (c) **`1x` `streams="audio_only"` + `block_band="late_30_49"`** (first live GPU test of `late_30_49` audio steering — cold concrete faces speaking with overhyped YouTuber audio).
+2. **`sudden_takeoff_flight` on new adult `prompt_bank/t2va_motorcycle_highway.txt` (to be authored in Phase 2):**
+   - Verified `prompt_bank/` has no motorcycle scene yet, and [`prompt_bank/control_vectors/zero_gravity.toml`](../../../../prompt_bank/control_vectors/zero_gravity.toml) only floats light props/hair — not launching a heavy vehicle airborne.
+   - Author clean adult canyon highway prompt + `sudden_takeoff_flight.toml`. Render a **rising/expanding HUD portal** (`rx: 0.35 -> 0.58`, sweeping up into the sky above the motorcycle `f48 -> f168`) + `3f`-snapped `MiniMaxH3SoundCues` takeoff/lift transient (+ `1x` mid-take temporal flip if the probe clears).
+3. **Verified Look/Lighting Winners Across Contrasting Adult Scenes (`192f`):**
+   - Run top `t=1`-verified new concepts on bright [`prompt_bank/t2va_restaurant_kitchen.txt`](../../../../prompt_bank/t2va_restaurant_kitchen.txt) + dark [`prompt_bank/t2va_stairwell_dialogue.txt`](../../../../prompt_bank/t2va_stairwell_dialogue.txt), including an orthogonal cross-bus stack (e.g., `power_outage_flashlight + reverb_cathedral` on bright dry kitchen) and **1 paired `both` vs `1x auto_1x_kv` `YIN` $F_0$ check** at `192f`.
+
+### B.2 Gated Core Engine Upgrades
+1. **Promote `Bus-Scoped V_r` (`drop_look_pc16` + cross-bus `ROS`):** Already proven on CPU (`stage3_cpu_prototypes.json`: `7.94x` less `look<->audio` overlap, `6.66x` less `look<->motion` overlap, `0.0000` `look->audio` erosion at `100%` Look Regime A). Upgrades every multi-bus stack immediately.
+2. **Track 2 `Path 1C` `ColQwen` `tags == 0` Dual-Lock Breaker:** Unify `make_control_vector_from_media_pairs` ([`control_vector_nodes.py:3827-4027`](../../../../control_vector_nodes.py#L3827-L4027), using the fixed per-pair `scene_prompts` and `make_cmds.py` erasure holds) on `N >= 6` pixel-aligned pairs + `face_retain` `ROS` + early/noisy reference release (`0.17`, lowered `clean_level`) to crack Showcase 3's `<Picture 1>` / `fl2va` color lock.
+3. **Timeboxed `~90s` `90f` `1x Q_vid[mask]` Bleed & Wall-Clock Probe:** Test `t >= 45` temporal flip + `20%` moving portal (`alpha = 1.0` & `1.5` via attention-output extrapolation) strictly against **`2x` `MiniMaxH3Sol` `MiniMaxH3EditGuider`** on *both* inside/outside contrast (`>= 2.0x`) and actual wall-clock/VRAM (remembering `steer_attention_hooks.py:556` runs dense `bf16` SDPA after `sol_attn_h3.py:670-677`). Only promote `Split-Text Exact Online-Softmax Merge` (~`400x` fewer FLOPs via conditioning sinks) if `K_vid` bleed clears the gate; otherwise keep `1x` query-slicing focused on `~130–300`-row `Q_aud` (`1x EditGuider`) and contiguous `t >= t0` flips.
+4. **Optional `~5.6s` 4-Up `t=1` Live Slider/Seed Scout in Studio `/`:** Reuses already-loaded video DiT (`MiniMaxH3Conditioning(single_frame=True)`, `~1.4s/still x 4`, zero swap) to preview framing/strength before `80s` `192f` renders.
+
+### B.3 Explicitly Deferred / Parked Items
+- **`Spec E` (`Qwen-Image-2.1`):** Uses `Qwen3-VL-8B` and non-H3 DiT (`no TokenRefiner`); `~30–60 min` custom hook + throwaway `8B` vectors with zero H3 creator value and high Paper v4-style overreach risk.
+- **Pure `-P_{V_r}` (`boost = 0`) & Signed `Regime-B` / `gamma > 1` outer-RMS kernel rework:** [`control_vectors.py:3527-3562,3685-3701,3808`](../../../../control_vectors.py#L3527-L3562) currently skips `strength == 0.0`, disables signed `s <= 0`, and rescales to `67.5` RMS; keep out of Phase 1–2.
+- **SAM 3.1 masks / `audio_freeze` inside Studio `/`:** Keep strictly in `director/` and `workflows/masked_job_graph.py`.
+- **`345f` Sol `tau_profile` (`blocks.20..48`), `comfy-kitchen` wheel rebuild, `M3` `<94 px` sweep, loose-mask `audio_freeze`:** Parked behind Phase 1 stabilization and Phase 2 Dual-Lock.
+
+---
+
+## Section C — Complete 6-Session Feedback, Proposals & Pushback Record
+
+All verbatim messages across **Round 1** (steps `1045..1077`), **Round 2** (steps `1095..1109`), and **Round 3** (syntheses `1121..1131`, `1155` and pushbacks `1132..1156`) are structured in [`ledger.json`](ledger.json).
+
+### C.1 Cross-Session Alignment vs. Split Matrix
+
+| Topic | Alignment vs. Split | Resolution Adopted |
+| :--- | :--- | :--- |
+| **`t=1` Pre-Screen & Contrasting Adult Scenes** | **`5/6` converged in R1; `e5d15905` refined in R3:** Do not run `13–15 min` of blind `192f` on dark/reverberant `t2va_stairwell_dialogue.txt` alone (`4/5` caught `charcoal coat` + `caged bulb` + `long reflective tail`). | Run `~45s` `t=1` across `t2va_stairwell_dialogue.txt` + bright `t2va_restaurant_kitchen.txt` strictly as a look check on the `6` strong new visual stems; skip CPU-failed `earthquake_tremor`; test motion/audio concepts (`youtube_overhype_influencer`, `sudden_takeoff_flight`) on video. |
+| **Disk Hard Stops** | **Unanimous (`6/6`):** Preserve `data/edit_concepts/` (`89` live `[concept]` TOMLs); `Model2Vec` rebuild is GPU-only; `FrozenVideoCache` refuses Stage 2 hooks; `Sol` already defaults `dense_blocks="49"`. | Enforce all 4 hard invariants across Today + Phase 2. |
+| **Studio (`app/`) Scope & Anti-Bloat** | **Strong Alignment (`6/6` + owner):** Skip `split_backend` dropdown (`auto_1x_kv` already defaults); keep SAM 3.1 & `audio_freeze` out of `/`. | Fix async `/api/lab/pairs/generate`, `/api/options` focus hot-reload, `block_band` (`L2563` guard) + `Voice Lock (1x)`, bank-resilient tests, live `:8188` E2E. |
+| **`1x Q_vid[mask]` 4D Portals & Time Flips** | **Split:** `faa62ef5`/`9aed68ab`/`1fffc6ed` ranked it #1 moonshot (adding `alpha > 1.0` extrapolation + `Split-Text Online-Softmax Merge`); `085d496e`/`61cf9813`/`e5d15905` warned dense `bf16` SDPA on `>=30%` queries adds more FLOPs than `2x Sol` and risks `K_vid` bleed. | Settle empirically in Phase 2 with ONE timeboxed `~90s` `90f` probe (`t >= 45` flip + `20%` portal vs `2x Sol` on wall-clock AND contrast) before writing production code. |
+| **Track 2 Dual-Lock (`Path 1C`) vs. `Spec E`** | **Unanimous on `Path 1C` + `Bus-Scoped V_r` as #1 engine moat.** Split on `Spec E` (`faa62ef5`/`085d496e` pro-paper vs `9aed68ab`/`1fffc6ed`/`61cf9813`/`e5d15905` anti-sprawl). | Prioritize `Bus-Scoped V_r` + `Path 1C` `ColQwen` (`make-media` unified) in Phase 2; defer `Spec E`. |
+
+### C.2 Rejected False Premises & Code Catches Verified Against Disk
+
+1. **Do NOT delete `data/edit_concepts/*.toml` ("89 legacy symlinks")** — caught by all `6/6` in Round 3. On disk, `data/edit_concepts` is **1** directory symlink to `../internal/internal_prompt_bank/edit_concepts_v2` containing `89` active regular `.toml` `[concept]` briefs (`0` inner symlinks), required by [`auto_edit_prompt.py:94,268,357`](../../../../auto_edit_prompt.py#L94) and `app/cv_lab.py`.
+2. **`Model2Vec` lexicon rebuild is NOT a parallel CPU task** — caught by `1fffc6ed`, `61cf9813`, `e5d15905`. [`bench/control_vector/build_model2vec_lexicon.py:40`](../../../../bench/control_vector/build_model2vec_lexicon.py#L40) runs `bootstrap(cpu=False)` and loads `Qwen3-VL-32B` + 4 `TokenRefiner` passes on CUDA (`L331-394`), which would immediately OOM alongside `:8188`.
+3. **Vibe Search is NOT totally broken on single-word stems** — clarified by `9aed68ab`, `085d496e`, `e5d15905`. `j_lens.synthesize_from_words` matched `9/9` sample words via the `j_lens_h3.safetensors` Wiener table and `app/cv_lab.py` falls back to `j_lens_words` / existing `model2vec` phrases (`stained glass`, `claymation`, `felt puppet`, `film noir`, `tape hiss`). The genuine gaps are `21/50` active stems missing direct stem-token entries in `CURATED_LEXICON`, compound/hyphenated terms (`"x-ray"`, `"liquid chrome"`, `"fluoroscope"`), `j_lens.py:201` dropping `categories_json`, and untested `decone_pcs` (`2` vs `0`).
+4. **`streams="audio_only" + block_band="late_30_49"` CANNOT pair with `FrozenVideoCache`** — caught by `faa62ef5`, `085d496e`, `e5d15905` at [`control_vector_nodes.py:3485-3493`](../../../../control_vector_nodes.py#L3485-L3493) (`ValueError`: cached steps skip `double_block` hooks). Applies strictly to uncached `1x` AV renders; cached Re-Dub uses `Mode 0`.
+5. **Pure `-P_{V_r}` (`boost = 0`) is NOT an existing parameter** — caught by `faa62ef5`, `085d496e`, `e5d15905` at [`control_vectors.py:3527-3562,3685-3701,3808`](../../../../control_vectors.py#L3527-L3562). `strength == 0.0` is a no-op, `s <= 0.0` disables erasure/signed Regime-B, and `eff_target_rms <= 1e-6` bypasses RMS normalization.
+6. **`MiniMaxH3Sol` `blocks.0..19` is NOT dense** — caught by `085d496e`, `1fffc6ed` at [`sol_attn_h3.py:170`](../../../../sol_attn_h3.py#L170) (`SOL_DENSE_TAIL = "49"` already runs sparse across `blocks.0..48`, and `0..19` is the layout/identity lock band).
+7. **`1x Q_vid[mask]` FLOPs & scale assumptions** — `085d496e`, `61cf9813`, `1fffc6ed`, `e5d15905` proved dense `bf16` SDPA (`steer_attention_hooks.py:556`) after full-token `Sol` (`sol_attn_h3.py:670-677`) already added `+2.00s` on tiny `Mode 3` `Q_aud`, while `9aed68ab` proved `o_base + alpha * (o_steered - o_base)` allows `alpha > 1.0`, and `085d496e` flagged `L_A != L_B` equal-shape shadow copy breakage.
+8. **No `split_backend` UI dropdown needed & `origami_window` already fixed** — `61cf9813` & `faa62ef5` proved `split_backend="auto_1x_kv"` already defaults (`control_vector_nodes.py:1182,5367`), and Coordinator verified `app/static/js/steering_deck.js` (`app/.git` `3145c32`) already ships `claymation_window` rather than `origami_window`.
+9. **`make-media` `N = 8` `Proposition 4` & `b_cov >= 0.25` metric traps** — `e5d15905` caught `control_vector_nodes.py:3868` repeating one `custom_prompt` (`Proposition 4`), `1fffc6ed` caught `bench/control_vector/make_cmds.py:123-153` skipping erasure holds, and `e5d15905`/Promotion Spec caught `j_lens.py:745-815` rejecting `44/52` stems due to its top-8 numerator cap.
+
+### C.3 Per-Session Contributions (Rounds 1–3)
+
+- **`1fffc6ed` (Fresh-Eye Critique & Concept Authoring — Steps `1053`, `1109`, `1144`):** Exposed `t2va_stairwell_dialogue.txt` darkness/reverb confounds, proposed `Split-Text Exact Online-Softmax Merge` (`~400x` fewer FLOPs if bleed clears) + beat-synced `MiniMaxH3AudioFreeze` style switches, spotted the `bench/control_vector/make_cmds.py:123-153` `--hold-words` erasure bug, flagged the `Model2Vec` GPU OOM trap, and exposed `Spec E` (`Qwen3-VL-8B`) ~30–60m effort.
+- **`faa62ef5` (Lane A Runtime & Attention Hooks — Steps `1057`, `1095`, `1132`):** Championed `1x Q_vid[mask]` reality portals & temporal ramps (`min(in, out)` auto-flip, `<=4096` chunking, acoustic portals, `~90s` gate), prioritized `--stage spotlights_long` ([`bench/run_wave2_director_storyboard_redub.py:637-660`](../../../../bench/run_wave2_director_storyboard_redub.py#L637-L660)), caught `FrozenVideoCache` `ValueError` (`control_vector_nodes.py:3485-3493`), `boost=0` RMS behavior, and `data/edit_concepts/` safety stop.
+- **`085d496e` (Lane B Research & Wiki Consolidation — Steps `1063`, `1105`, `1143`):** Landed `79e5e388`, `c63f0eff`, and `3d4d81d4` (closing `wiki/consolidate-steering-research`), proved `Bus-Scoped drop_look_pc16` (`7.94x` overlap cut) ahead of `Path 1A`, flagged `1x EditGuider` `L_A != L_B` buffer shape & dense SDPA cost vs `2x Sol`, caught `SOL_DENSE_TAIL="49"`, and flagged step-0 `VISUAL_COND_TIMESTEP=0.999` RGB stamping on Dual-Lock.
+- **`9aed68ab` (Window 3 Operational Docs & UX — Steps `1073`, `1100`, `1135`):** Audited remaining pre-Stage-2 stale doc anchors ([`AGENTS.md`](../../../../AGENTS.md#L93), `docs/wiki/steering.md`, `docs/wiki/handover.md`, `docs/wiki/steering/studio_ui_guide.md`, `docs/wiki/steering/comfyui_nodes_and_controls.md`, `docs/wiki/next_steps.md`), proposed the `~5.6s` 4-up `t=1` Live Scout + `fl2va` A->B morphs, proved `o_base + alpha*(o_steered - o_base)` allows `alpha > 1.0`, verified `9/9` word synthesis via `j_lens`, and pushed cutting `Spec E` + merging `make-media` with `Path 1C`.
+- **`61cf9813` (Lane C Frontend `app/.git` — Steps `1077`, `1101`, `1148`):** Caught `auto_1x_kv` default making `split_backend` UI redundant, scoped `/api/lab/pairs/generate` async fix + `block_band` (`control_vector_nodes.py:2563-2567` guard) + `Voice Lock (1x)` + `/` hot-reload + bank-resilient tests + live `:8188` Edit/`Ref2VA` E2E, quantified Stage 2 Mode 3 dense SDPA `+2.00s` overhead, and raised `#viewer` A/B scrub / `Shot 1 + Continue 39f` playback.
+- **`e5d15905` (Diagnostic Audit Relay — Steps `1097`, `1156`):** Flagged the `180`-term lexicon gap + `j_lens.py:201` metadata loss, caught `control_vector_nodes.py:3868` `Proposition 4` single-prompt media-pair leak, documented `control_vectors.py:3527-3562,3808` `boost=0`/Regime-B/`gamma>1` constraints, clarified `app/cv_lab.py` sync POST vs `core.js` and `app/test_app.py` `_StandInComfy` mocks, kept SAM 3.1/`audio_freeze` out of `/`, and scoped `t=1` strictly to visual look checks excluding CPU-failed `earthquake_tremor`.

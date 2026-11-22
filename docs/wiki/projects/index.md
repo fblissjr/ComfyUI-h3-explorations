@@ -8,6 +8,7 @@ Router for structured multi-track dossiers in `docs/wiki/`. Format and invariant
 
 | Folder / Dossier | Scope | Human & Agent Entry | Machine Ledger | Offline Viewer |
 | :--- | :--- | :--- | :--- | :--- |
+| `2026-11-22_stabilization_and_phase2_roadmap/` | **Active Roadmap (`2026-11-22`)**: `6 -> 2` lane consolidation (`61cf9813` `app/.git` + `90e9d2bd` root/GPU), Today's stabilization queue (bugs, `50/50` bank parity, `Model2Vec` lexicon, unified wiki scrub), Tomorrow's Phase 2 showcases & gated engine upgrades, plus full Round 1–3 archive of 6 peer sessions | [`2026-11-22_stabilization_and_phase2_roadmap/index.md`](2026-11-22_stabilization_and_phase2_roadmap/index.md) | [`ledger.json`](2026-11-22_stabilization_and_phase2_roadmap/ledger.json) | — |
 | `2026-11-13_repo_audit_and_atlas/` | Full codebase, commit (`Nov 4–13`), `agy` (`16` sessions) + Claude (`11` roots, `51` subagents) transcript audit, 8-track matrix, Top 14 unfinished/forgotten ideas, code-vs-prose truth ledger, `$H3_OUTPUT_DIR` renders, & Phase-2 code reorg plan | [`2026-11-13_repo_audit_and_atlas/index.md`](2026-11-13_repo_audit_and_atlas/index.md) | [`ledger.json`](2026-11-13_repo_audit_and_atlas/ledger.json) | [`report.html`](2026-11-13_repo_audit_and_atlas/report.html) |
 
 ---
