@@ -40,9 +40,9 @@ set -a; . ./h3.env; set +a
 
 **Goal:** See *before spending 1 second of GPU time* why legacy 1D `noir` gets vetoed by a warm sitcom kitchen prompt, and prove the fix in one click with a matched-seed side-by-side `141`-frame (`5.88s`, `on_both_clocks`) audio-video render.
 
-### Step 1.1 — X-Ray `noir` Against `t2va_sitcom_kitchen.txt` on CPU (`< 15 ms`)
+### Step 1.1 — X-Ray `noir` Against Legacy Workflow Fixture `t2va_sitcom_kitchen.txt` on CPU (`< 15 ms`)
 
-`bench/control_vectors.py inspect` uses a Jacobian-lens word readout for H3 control vectors, adapted from Anthropic's Jacobian lens (J-lens) ([`j_lens.py`](../../../j_lens.py)), to decode both `erasure.mu_d` (*what the vector adds*) and `erasure.vr[0..3]` (*which Pole-A axes it erases*), alongside per-word erasure norms on your scene prompt:
+`bench/control_vectors.py inspect` uses a Jacobian-lens word readout for H3 control vectors, adapted from Anthropic's Jacobian lens (J-lens) ([`j_lens.py`](../../../j_lens.py)), to decode both `erasure.mu_d` (*what the vector adds*) and `erasure.vr[0..3]` (*which Pole-A axes it erases*), alongside per-word erasure norms on your scene prompt *(Note: `t2va_sitcom_kitchen.txt` stays only as the legacy Lab 1 workflow fixture; new showcases use adult scenes such as `prompt_bank/t2va_stairwell_dialogue.txt`)*:
 
 ```bash
 CUDA_VISIBLE_DEVICES="" "$PY" bench/control_vectors.py inspect noir \
@@ -61,7 +61,7 @@ Inspect the four diagnostic lines in the output:
                     erases=[wall (0.41), warm (0.36), brown (0.33), tungsten (0.33)]
 ```
 
-1. **Why `v_1d` washed out `"black"`:** In 1D mean-pooling (`j_lens (PR +)`), `"black"` dropped to rank 9 (`+1.10`) behind generic era words (`original, decades, outdated`). Asymmetric `tau = 0.15` token matching (`erasure.mu_d`) rescues **`black (+1.52)`**, `footage`, and `archival` into the top 8 (`28 / 38` vectors in the 38-concept census show similar target-word rescues; starter bank now includes `de_llm_slop`).
+1. **Why `v_1d` washed out `"black"`:** In 1D mean-pooling (`j_lens (PR +)`), `"black"` dropped to rank 9 (`+1.10`) behind generic era words (`original, decades, outdated`). Asymmetric `tau = 0.15` token matching (`erasure.mu_d`) rescues **`black (+1.52)`**, `footage`, and `archival` into the top 8 (`cos(mu_d, v_1d)` has median `0.9935` across the bank, with concrete `b_side` target-word rescues verified on high-divergence concepts such as `noir` `'black'` and `film_16mm_1974` `'grain, tape'`).
 2. **Why `erasure.vr` spares the characters:** On `t2va_sitcom_kitchen.txt`, `vr[1]` (`diag = 0.81`) zeroes `wall (0.41)`, `warm (0.36)`, `brown (0.33)`, and `tungsten (0.33)` while leaving `father`, `daughter`, and `retriever` intact. *(You can also view this interactively in Control Vector Studio via `./bench/control_vector/studio.sh start` $\to$ **Library** $\to$ **X-Ray**.)*
 
 ### Step 1.2 — Queue the 1-Click Same-Seed Split-Screen Workflow
@@ -80,9 +80,9 @@ Load [`workflows/h3_text_to_video_pika_1d_vs_erasure_ab_api.json`](../../../work
 
 **Goal:** Understand *why* subtracting the right rank-8 subspace preserves scene characters where blunt shrinkage deletes them, run a bipolar `-1.0 -> +1.5` sweep, and prototype zero-GPU multi-token concepts in `< 2 ms` with `MiniMaxH3WordVector` + `hold_words`.
 
-### Step 2.1 — Why Specific `V_r` Beats Blunt Prompt Dampening (`paper_origami`)
+### Step 2.1 — Historical Specificity Study: Why `V_r` Preserved Figures Better Than Blunt Prompt Dampening (`paper_origami`, now archived in `_retired/`)
 
-Run the CPU X-ray on `paper_origami` against the same `t2va_sitcom_kitchen.txt` scene:
+Run the CPU X-ray against the archival `paper_origami` specificity study (for active bank renders, prefer `claymation_stopmotion` or `charcoal_sketch_animated`):
 
 ```bash
 CUDA_VISIBLE_DEVICES="" "$PY" bench/control_vectors.py inspect paper_origami \
@@ -102,7 +102,7 @@ What if you want to test a brand-new idea right now without building a 10-pair `
 Load [`workflows/h3_text_to_video_pika_word_vector_erasure_api.json`](../../../workflows/h3_text_to_video_pika_word_vector_erasure_api.json) (`prompt_bank/t2va_hardware_aisle_short.txt`, `1152x768 @ 141f`).
 
 - **What changed under the hood (`j_lens.py::synthesize_from_words`):**
-  1. **Multi-token & 2-word `Model2Vec` lexicon:** Single-token words (`noir`, `frost`, `grain`) resolve from the `24,912`-word Wiener table, while multi-token BPE words and 2-word terms (`origami`, `muppet`, `chiaroscuro`, `plasticine`, `halation`, `silver gelatin`, `paper origami`, `direct flash`) resolve automatically from `$H3_MODEL_STORE/j_lens/model2vec_h3_lexicon.safetensors` (with BPE subword SIF fallback if absent).
+  1. **Multi-token & 2-word `Model2Vec` lexicon:** Single-token words (`noir`, `frost`, `grain`) resolve from the `24,912`-word Wiener table, while multi-token BPE words and 2-word terms (`claymation`, `muppet`, `chiaroscuro`, `plasticine`, `halation`, `silver gelatin`, `liquid chrome`, `direct flash`) resolve automatically from `$H3_MODEL_STORE/j_lens/model2vec_h3_lexicon.safetensors` (with BPE subword SIF fallback if absent).
   2. **Instant `against`-SVD erasure (`< 2 ms` CPU):** Passing `@replace_digital, sunny, warm, indoor, afternoon` (or any `>= 2` opposing words/presets in `against_words`) projects each individual `against` word into `5376`-D post-refiner space and computes a centered SVD `erasure.{mu_d,vr,diag}` on the fly — feeding straight into `MiniMaxH3Steer(mode="add_norm_matched_erasure")`.
   3. **Per-row `hold_words` protection:** Setting `hold_words = "coat, parka"` (`hold_alpha = 0.5`) projects winter-coat directions out of **every** steered row (`_apply_holds_to_rows64`) so pushing `blizzard, snowstorm, frost, freezing, gale` frosts the hardware aisle without forcing heavy parkas onto the shoppers.
 - **Know the honest lexical ceiling (Ablation 6 & the Pole-A Coverage Law):** Uncontextualized word vectors (`cos ≈ 0.35–0.52` with 10-pair GPU vectors) are awesome `< 2 ms` mood/weather/texture sketchpads, **not** replacements for 10-pair contextual `.toml` builds on hard global overrides (`WordVec` `noir` stays tinted at `sat = 0.323` where the 12-pair contextual `noir` bank hits pure B&W `0.0264`). Once a `WordVector` sketch excites you, graduate it to an **8–12 pair `.toml`** (`N >= 8` covers `80.5%–89.2%` of the true contextual Pole-A subspace vs. `40.6%` at `N = 1`; see [`building_pairs_and_vectors.md`](building_pairs_and_vectors.md)).
@@ -134,7 +134,7 @@ CUDA_VISIBLE_DEVICES="" "$PY" bench/control_vectors.py sculpt \
 ```
 
 **Which one should you choose?**
-- **Chain separate `MiniMaxH3Steer` nodes** when stacking **two strong visual overrides** (like `noir +1.55` + `chaos_panic +0.90`) or targeting **different prompt sections** (`scene_only` + `soundscape_only`): each chained node evaluates its full `|s_i| * 67.5` RMS shift against unsteered `base_rows64` before summing in `float64` (`control_vectors.py:3454-3492`), giving `noir` full erasure authority. *(Phase 3 `Exp 1` caveat: keep heavy visual `scene_only` sliders to `<= 2`, or dial an Anti-Slop EQ strip like `de_llm_slop` down to `0.6..0.8` alongside heavy `noir`, because stacking `3+` competing visual sliders on `scene_only` dilutes monochrome authority.)*
+- **Chain separate `MiniMaxH3Steer` nodes** when stacking **two strong visual overrides** (like `noir +1.55` + `chaos_panic +0.90`) or targeting **different prompt sections** (`scene_only` + `soundscape_only`): each chained node evaluates its full `|s_i| * 67.5` RMS shift against unsteered `base_rows64` before summing in `float64` (`control_vectors.py:3454-3492`), giving `noir` full erasure authority. *(Phase 3 `Exp 1` caveat: keep heavy visual `scene_only` sliders to `<= 2`, or dial a subtle third visual utility like `de_llm_slop` down to `0.6..0.8` alongside heavy `noir`, because stacking `3+` competing visual sliders on `scene_only` dilutes monochrome authority.)*
 - **Use `sculpt` (`COMPOSED_ERASURE_MAX_RANK = 16`)** when you want a **single reusable preset knob** with baked `hold_words` (`calm_cursed_cctv`) where one shared `|s| * 67.5` RMS budget is split across subtle blended traits.
 
 ---
@@ -167,6 +167,6 @@ Load [`workflows/h3_spatial_portal_pika_erasure_api.json`](../../../workflows/h3
 | What You Want to Do | Reach For | Cost | Why |
 | :--- | :--- | :---: | :--- |
 | Author a fresh scene, mutually exclusive lighting setup (`look_crimson_darkroom`), wardrobe, or multi-shot dialogue | **`MiniMaxH3PromptExpander`** (or `MiniMaxH3ImagePromptExpander`) | **`1x`** | Writes native `[Shot N]` blocking, lighting physics, and synced `<d>` speech cleanly from scratch. |
-| Dial film stock, monochrome/noir, tactile medium (`claymation_stopmotion`, `paper_origami`), weather, or acoustic space (`reverb_cathedral`, `whisper_asmr`) on *any* existing prompt | **`MiniMaxH3Steer`** (`mode="add_norm_matched_erasure"` default, 8–12 pair `bank/` vector) | **`1x`** | `erasure.vr` deletes conflicting daylight/live-action/dry-room tokens in place while `erasure.mu_d` steers cleanly at zero extra DiT passes. |
+| Dial film stock, monochrome/noir, tactile medium (`claymation_stopmotion`, `charcoal_sketch_animated`), weather, or acoustic space (`reverb_cathedral`, `whisper_asmr`) on *any* existing prompt | **`MiniMaxH3Steer`** (`mode="add_norm_matched_erasure"` default, 8–12 pair `bank/` vector) | **`1x`** | `erasure.vr` deletes conflicting daylight/live-action/dry-room tokens in place while `erasure.mu_d` steers cleanly at zero extra DiT passes. |
 | Rapidly test a new mood/material/weather idea + `hold_words` in `< 2 ms` without building a `.toml` | **`MiniMaxH3WordVector` $\to$ `MiniMaxH3Steer`** (`words` + `against_words` + `hold_words`) | **`1x`** | Uses `Model2Vec` phrases + `< 2 ms` CPU `against`-SVD erasure; promote winners to an 8–12 pair `.toml` when you need full contextual override power. |
 | Swap a specific garment/prop (`black sweater -> rust-orange 1970s blouse`), lock an exact existing take (`lock_take`), or carve a moving `[F, H, W]` spatial portal | **`MiniMaxH3EditGuider`** (+ `MiniMaxH3PromptEdit` / `MiniMaxH3AutoEditPrompt` / `MiniMaxH3SpatialDirector`) | **`2x`** *(~`1.5x` w/ `last_step`)* | Subtracts predicted latent velocities *after* all 50 DiT blocks, preserving exact clause-to-garment and `[F, H, W]` spatial binding. |

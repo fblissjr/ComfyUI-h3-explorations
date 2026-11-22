@@ -1,6 +1,6 @@
 # Next Steps
 
-**Short router to active queues (`2026-11-21`).** Full code-backed context across all 8 tracks lives in [`projects/2026-11-13_repo_audit_and_atlas/index.md`](projects/2026-11-13_repo_audit_and_atlas/index.md); current state sits in [`handover.md`](handover.md).
+**Short router to active queues (`2026-11-22`).** Active Phase 1 stabilization & Phase 2 roadmap (with all 6-session Round 1–3 feedback) live in [`projects/2026-11-22_stabilization_and_phase2_roadmap/index.md`](projects/2026-11-22_stabilization_and_phase2_roadmap/index.md), full historical repo atlas lives in [`projects/2026-11-13_repo_audit_and_atlas/index.md`](projects/2026-11-13_repo_audit_and_atlas/index.md), and current state sits in [`handover.md`](handover.md).
 
 ## Active Queues by Priority
 

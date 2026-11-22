@@ -1,6 +1,6 @@
 # Edit Guidance: Steering a Render by Editing Your Own Prompt
 
-Last updated: 2026-11-21.
+Last updated: 2026-11-22.
 
 **Edit Guidance** lets you take an existing prompt, write `old wording -> new wording`, and control **when** the change kicks in (`first_step`) and **how strongly** it pulls (`scale`)—without building a control vector or training anything first.
 
@@ -23,8 +23,8 @@ On H3 Pika, normal `1x` prompt edits (with `BasicGuider`) already handle most st
    - *Tip*: You can still wire **`MiniMax H3 Prompt Edit`** into `BasicGuider` at `1x` speed whenever you want safe `old -> new` text replacements that refuse to touch `<d>...</d>` dialogue or `<Picture 1>` tags.
 
 2. **[Control Vectors](steering.md) (`MiniMax H3 Steer`, `1x` speed by default)**
-   - Operates in H3's LoRA-aware post-refiner space—defaulting to `add_norm_matched_erasure` (including `de_llm_slop` Anti-Slop EQ in `bank/` and optional `erasure.mu_a` vision centering) and built from multi-scene prompt pairs (`--families fl2va` or `h3_image`, `[[hold]]` scrubbing), reference image pairs (`MiniMax H3 Make Media Control Vector`), or `< 2 ms` on-the-fly J-Lens word synthesis (`MiniMax H3 Word Vector`).
-   - Use when you want **reusable orthogonal style/film-stock/material/acoustic-timbre/anti-slop dials** across any prompt at `1x` speed (`token_focus = 1.0`), **independent video vs. audio streams** (`streams = "video_only"` or `"audio_only"`), **section masks** (`target = "description_only"`, `"soundscape_only"`), or **geometric concept removal** (`mode = "project_out"`, `hold_words`).
+   - Operates in H3's LoRA-aware post-refiner space—defaulting to `add_norm_matched_erasure` (`48` active stems in `bank/`, optional `erasure.mu_a` vision centering, Stage 1 `peer_ros`/smooth knee, Stage 2 `block_band`/`auto_1x_kv`) and built from multi-scene prompt pairs (`--families fl2va` or `h3_image`, `[[hold]]` scrubbing), reference image pairs (`MiniMax H3 Make Media Control Vector`), or `< 2 ms` on-the-fly J-Lens word synthesis (`MiniMax H3 Word Vector`).
+   - Use when you want **reusable orthogonal look/motion/material/acoustic-timbre dials** across any prompt at `1x` speed (`token_focus = 1.0`), **independent video vs. audio streams** (`streams = "video_only"` or `"audio_only"`), **section masks** (`target = "description_only"`, `"soundscape_only"`), or **geometric concept removal** (`mode = "project_out"`, `hold_words`).
 
 3. **Edit Guidance (`MiniMax H3 Edit Guider`, `1.5x–2x` render time)**
    - Use **only** when a single `1x` prompt (`scale = 1.0` from step `0`) mechanically fails your edit (for manual `old -> new` edits via `MiniMax H3 Prompt Edit`, or automated plain-Markdown `section_edits` via [`MiniMaxH3AutoEditPrompt`](../../auto_edit_prompt.py), which lazily skips the `[original]` encode on unmasked `1x` `fast_1x` overrides). Across head-to-head renders (`Original` vs. `Plain Prompt Edit` vs. `Edit Guidance` on identical seeds), Edit Guidance wins in **five specific cases**:

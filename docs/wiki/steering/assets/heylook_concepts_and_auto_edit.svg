@@ -55,7 +55,7 @@
 
   <rect x="40" y="166" width="258" height="44" class="subbox-indigo"/>
   <text x="52" y="185" class="box-title" fill="#3730a3">Short Idea + Concept Card</text>
-  <text x="52" y="201" class="mono">data/edit_concepts/*.toml (99 cards)</text>
+  <text x="52" y="201" class="mono">data/edit_concepts/*.toml (89 cards)</text>
 
   <path d="M 169 210 L 169 224" fill="none" stroke="#4338ca" stroke-width="1.8" marker-end="url(#arrIndigo)"/>
 
@@ -131,7 +131,7 @@
 
   <rect x="342" y="392" width="308" height="36" class="subbox-slate"/>
   <text x="354" y="408" class="box-title" fill="#4338ca">app/ Page /lab — Integrated Vector Studio</text>
-  <text x="354" y="422" class="caption">Library X-Ray · Word Lab · Sculpt · Gate A/B Pairs</text>
+  <text x="354" y="422" class="caption">Library X-Ray · Sculpt · Gate A–D Pairs</text>
 
   <rect x="664" y="392" width="256" height="36" class="subbox-slate"/>
   <text x="676" y="408" class="box-title" fill="#b45309">director/ — Separate Timeline Stage</text>

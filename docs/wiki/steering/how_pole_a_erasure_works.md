@@ -14,7 +14,7 @@ Node default: `MiniMaxH3Steer.mode = "add_norm_matched_erasure"` (with shipped S
 
 ## 1. The Plain-English Problem: "The Prompt Veto"
 
-Suppose you have an energetic, vividly colored scene prompt — *bright morning television studio floodlights*, *a 1970s disco roller rink under gold lamé and neon*, or *natural tungsten room fill* — and you dial up **35mm black-and-white film noir** (`noir`) or **folded-paper sculpture** (`paper_origami`) in a single `1x` render pass without rewriting every word of your prompt.
+Suppose you have an energetic, vividly colored scene prompt — *bright morning television studio floodlights*, *a 1970s disco roller rink under gold lamé and neon*, or *natural tungsten room fill* — and you dial up **35mm black-and-white film noir** (`noir`), **stop-motion plasticine** (`claymation_stopmotion`), or **animated charcoal sketch** (`charcoal_sketch_animated`) in a single `1x` render pass without rewriting every word of your prompt.
 
 With legacy **1D vectors (`add_norm_matched`)**, H3 computes one single average arrow (`mean(B) - mean(A)`) across training pairs and adds that exact same vector to every token in your prompt:
 
@@ -77,7 +77,7 @@ $ CUDA_VISIBLE_DEVICES="" "$PY" bench/control_vectors.py inspect noir --prompt p
                     erases=[wall (0.41), warm (0.36), brown (0.33), tungsten (0.33)]
 ```
 
-Notice what the word readout reveals across the 38-concept bank (`28 / 38` concepts rescue key target words into `erasure.mu_d` that washed out of `v_1d`):
+Notice what the word readout reveals (`cos(mu_d, v_1d)` median is `0.9935` across the bank, with the largest `mu_d` improvements on multi-facet concepts where 1D averaging washed out core nouns):
 - **Sharper target push (`mu_d`):** Softmax token matching at `tau = 0.15` rescues `black (+1.52)`, `footage (+1.49)`, and `archival (+1.23)` into `noir`'s top-8 readout (and rescues `grain, tape` on `film_16mm_1974` and `puppet` on `claymation_stopmotion`).
 - **Surgical prompt erasure (`erases=[...]`):** On `t2va_sitcom_kitchen.txt`, `erasure.vr` concentrates its subtraction on `wall (0.41)`, `warm (0.36)`, `brown (0.33)`, and `tungsten (0.33)` while leaving scene entities (`father`, `retriever`, `daughter`) untouched. Remember that the word readout is a linear approximation of what the text encoder would predict next — always confirm visual behavior on a render ([`workflows/h3_text_to_video_pika_1d_vs_erasure_ab_api.json`](../../../workflows/h3_text_to_video_pika_1d_vs_erasure_ab_api.json)).
 
@@ -135,7 +135,7 @@ Every claim above was tested against falsification hypotheses designed to break 
 
 ### Stage 1 (`dd45600e`) & Stage 2 (`340e8ded`) Production Hooks + Track 2 Horizon
 - **Production 4D Routing (`MiniMaxH3Steer` + [`steer_attention_hooks.py`](../../../steer_attention_hooks.py)):** Stage 2 exposed trailing `block_band` (`"mid_late_20_49"`, `"late_30_49"`, `"early_0_19"`) and `split_backend` (`"auto_1x_kv"` for zero-clone single-pass `1x Q_aud -> K_txt_base`) directly on `MiniMaxH3Steer`, verified with `+0` added `malloc_graph` breaks and `0` rogues across all `4` attention backends (`Sol+Sage`, `Sage`, `Kitchen`, `Exact49`) at `1.003x` base `fl2va` latency (`26.91s` vs `26.82s`, `YIN F0 = -0.014 st`).
-- **Bank Hygiene & Track 2 (`Path 1A` + `Path 1C` `ColQwen`):** Weak/drifted vectors (`wes_anderson_symmetry`, `paper_origami`, `lettering`, and 6 dud `.toml`s) are retired to `_retired/` (`fd09f150`, `c45410f9`), with `7` bold new creative `.toml` pairs added for Stage 3/4 adult-only `192f`/`243f` renders (`7541fb55`). Because implicit `Path 1B` token-cosine routing gained `< 1.1%` MSE on CPU (`stage3_cpu_prototypes.json`), Track 2 builds on **explicit `Path 1A` atomic sub-faders**, **bus-scoped `V_r`**, and **`Path 1C` `ColQwen` `tags == 0` vision-token patches** ([`2026-11-22_track1_track2_multivector_erasure_blueprint.md`](research/2026-11-22_track1_track2_multivector_erasure_blueprint.md)).
+- **Bank Hygiene & Track 2 (`Path 1A` + `Path 1C` `ColQwen`):** Weak/drifted vectors (`wes_anderson_symmetry`, `paper_origami`, `lettering`, `earthquake_tremor`, `stained_glass_cathedral`) live in `_retired/` (`fd09f150`, `c45410f9`, and `2026-11-22` triage), leaving `48` verified active stems in `prompt_bank/control_vectors/` (built across `48` `fl2va`, `48` `ref2va`, and `41` `h3_image`). Because implicit `Path 1B` token-cosine routing gained `< 1.1%` MSE on CPU (`stage3_cpu_prototypes.json`), Track 2 builds on **explicit `Path 1A` atomic sub-faders**, **bus-scoped `V_r`**, and **`Path 1C` `ColQwen` `tags == 0` vision-token patches** ([`2026-11-22_track1_track2_multivector_erasure_blueprint.md`](research/2026-11-22_track1_track2_multivector_erasure_blueprint.md)).
 
 ---
 
