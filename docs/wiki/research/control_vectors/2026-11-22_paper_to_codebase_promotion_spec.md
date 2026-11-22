@@ -233,6 +233,23 @@ Independently verified Lane A's Stage 1 (`dd45600e`) + Stage 2 (`340e8ded`) comm
    - Per owner clarification via Coordinator (`90e9d2bd`), do **not** re-run old spotlights or old showcases; net-new showcases pick `192f` or `243f` on adult-only dynamic `prompt_bank/` scenes, **defaulting to `192f` (`8.0s`)** when uncertain (`7541fb55` set `bench/run_wave2_director_storyboard_redub.py --spotlight-length` default to `192`).
    - `1fffc6ed` consolidated HUD portals + Stage 2 into [`docs/wiki/core/h3_inside_the_50_blocks.md`](../../core/h3_inside_the_50_blocks.md) (`d7825399`) + [`docs/wiki/core/assets/h3_hud_portal_pipeline.svg`](../../core/assets/h3_hud_portal_pipeline.svg) (`e9dc4866`) and handed consolidated wiki + Paper v5 ownership to Lane B (`085d496e`). Lane B added the explicit math formulas (PCRR decomposition $\mathbf{W}_D = \mathbf{W}_B - \mathbf{P}_{\mathbf{V}_r,\lambda}$, `_erasure_row_shift64`, and Stage 1 multi-vector `ROS` + clamped union + smooth knee `95.5 -> 98.5`) and Stage 1/2 production metrics across [`docs/wiki/core/h3_inside_the_50_blocks.md`](../../core/h3_inside_the_50_blocks.md) and [`docs/wiki/steering/how_pole_a_erasure_works.md`](../../steering/how_pole_a_erasure_works.md).
 
+### 3.13 7 Net-New Creative Control Vectors Build & Disk Audit (`2026-11-22`)
+
+Verified all `42` built artifacts (`21` `.safetensors` + `21` `.md` sidecars across `fl2va`, `ref2va`, and `h3_image`) on disk in `../../models/control_vectors/bank/` (`bench/control_vectors.py status`: `0 stale/missing, 0 permission warning(s)`, all carrying `erasure.{vr, diag, mu_d}`):
+
+1. **Top 5 High-Coherence Look / Material Vectors (`mpc = 0.702–0.778`, `sh = 0.921–0.948`):**
+   - `charcoal_sketch_animated`: `mpc = 0.759 / 0.758 / 0.778`, `sh = 0.942 / 0.941 / 0.948`, `b_cov = 0.250–0.312`, J-Lens `+` `['sketch', 'cartoon', 'animated', 'drawn', 'traced']`.
+   - `stained_glass_cathedral`: `mpc = 0.762 / 0.750 / 0.761`, `sh = 0.942 / 0.938 / 0.942`, J-Lens `+` `['kale', 'colors', 'dazzling', 'color', 'border']` (`h3_image` `['kale', 'dazzling', 'purple', 'herald', 'colors']`; note `inv=['came']`).
+   - `x_ray_fluoroscope`: `mpc = 0.722 / 0.728 / 0.741`, `sh = 0.927 / 0.930 / 0.934`, `h3_image` J-Lens `+` `['hologram', 'phantom', 'fused', 'anatomies', 'fractured']` (`ref2va sem = 0.483`; note `b_side_alignment.inverted_neg = ['medical']` — verify visual balance on render).
+   - `mercury_liquid_chrome`: `mpc = 0.714 / 0.709 / 0.720`, `sh = 0.925 / 0.924 / 0.926`, J-Lens `+` `['mirrored', 'mirror', 'hologram', 'futuristic', 'dazzling']`.
+   - `blacklight_uv_rave`: `mpc = 0.713 / 0.706 / 0.702`, `sh = 0.927 / 0.924 / 0.921`, `sem = 0.538` across all `3` families, J-Lens `+` `['neon', 'purple', 'hologram', 'psychedelic', 'intensified']`.
+   - Cross-pair `fl2va` Pole-A `V_r` singular values among these `5` visual styles confirm shared natural/live-action baseline clearing (`max_s = 0.856–0.961`).
+2. **Orthogonal Cross-Bus Lighting Vector (`power_outage_flashlight`):**
+   - Strong on video (`fl2va mpc = 0.640, sh = 0.903`; `ref2va mpc = 0.643, sh = 0.904`, `sem = 0.300`) and lighter on `h3_image` (`mpc = 0.592, sh = 0.884`, `sem = 0.414`); J-Lens `+` `['night', 'darkness', 'shadow', 'nighttime', 'stark']`. Very low `fl2va` `mu_d` cosines vs. cross-bus / look peers: `-0.1462` (`reverb_cathedral`), `+0.0898` (`operatic_bellow`), `+0.0910` (`stained_glass_cathedral`), `+0.1519` (`zero_gravity`), `+0.1794` (`whisper_asmr`); clean cross-bus visual+audio/motion cosines likewise hold for `stained_glass_cathedral + zero_gravity` (`+0.0576`), `charcoal_sketch_animated + reverb_cathedral` (`+0.1231`), and `blacklight_uv_rave + reverb_cathedral` (`+0.1343`).
+3. **Honest Weak Flag (`earthquake_tremor`):**
+   - `mpc = 0.588 / 0.583 / 0.604`, `sh = 0.875 / 0.873 / 0.883`, `b_cov = 0.059`, `sem = 0.155–0.165`, J-Lens `+` `['frantic', 'unstable', 'chaotic', 'desperate', 'violent']`, and **`cos(mu_d, chaos_panic) = +0.7490`**. Collapsed toward generic frantic instability; excluded from Blueprint §6.1 `T1-B` flagship recipes unless its `.toml` pairs isolate structural tremor kinematics cleanly.
+
+
 
 
 
