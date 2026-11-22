@@ -960,7 +960,7 @@ def build_exp6b_multimodal_expander(*, arm_name: str = "exp6b_multimodal_prompt_
                 "reasoning_effort": "medium",
                 "seed": 6301,
                 "references": ["53", 0],
-                "preset": "h3app_ref2va",
+                "preset": "h3app_video_ref2va",
             },
         },
         "75": {"class_type": "PreviewAny", "inputs": {"source": ["14", 0]}},

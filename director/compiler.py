@@ -1721,7 +1721,7 @@ def _wire_model_chain(
             "streams": str(vec.get("streams") or "both"),
             "hold_words": str(vec.get("hold_words") or ""),
             "hold_alpha": float(vec.get("hold_alpha", 1.0)),
-            "allow_recipe_mismatch": bool(vec.get("allow_recipe_mismatch", False)),
+            "allow_recipe_mismatch": bool(vec.get("allow_recipe_mismatch", True)),
             "edit_pass": str(vec.get("edit_pass") or "edited_only"),
         }
         if vec.get("fields"):
