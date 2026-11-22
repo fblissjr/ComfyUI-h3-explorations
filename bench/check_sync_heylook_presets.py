@@ -279,13 +279,22 @@ def check_access_gate_auth_forwarding() -> str:
     t.start()
     prev_key = os.environ.get("HEYLOOK_API_KEY")
     prev_kfile = os.environ.get("HEYLOOK_API_KEY_FILE")
+    prev_h3_kfile = os.environ.get("H3_HEYLOOK_API_KEY_FILE")
     try:
         base = f"http://127.0.0.1:{srv.server_address[1]}"
         specs = ps.filter_catalog(["h3-image-t2i", "h3-image-t2i-design"])[0]
         assert len(specs) == 2
 
+        # 0. Control: --api-key CLI flag is refused so secrets never appear on argv
+        try:
+            ps.main(["--api-key", secret, "--list"])
+            raise AssertionError("expected SystemExit for removed --api-key flag")
+        except SystemExit as exc:
+            assert exc.code == 2, exc
+
         # 1. Missing key -> 401 PermissionError without issuing any writes
         os.environ.pop("HEYLOOK_API_KEY", None)
+        os.environ.pop("H3_HEYLOOK_API_KEY_FILE", None)
         os.environ["HEYLOOK_API_KEY_FILE"] = ""
         try:
             ps.execute_sync(base, specs, apply=True)
@@ -294,7 +303,12 @@ def check_access_gate_auth_forwarding() -> str:
             assert "401" in str(exc) and secret not in str(exc), exc
         assert not any(m in ("POST", "PUT") for m, _p, _k in seen), seen
 
-        # 2. HEYLOOK_API_KEY forwards x-api-key on GET, PUT, and POST
+        # 2. Programmatic api_key arg still works when env/file are unset
+        seen.clear()
+        actions_arg = ps.execute_sync(base, specs, apply=True, api_key=secret)
+        assert len(actions_arg) == 2 and all(k == secret for _m, _p, k in seen), (actions_arg, seen)
+
+        # 3. HEYLOOK_API_KEY forwards x-api-key on GET, PUT, and POST
         seen.clear()
         os.environ["HEYLOOK_API_KEY"] = secret
         actions = ps.execute_sync(base, specs, apply=True)
@@ -311,7 +325,11 @@ def check_access_gate_auth_forwarding() -> str:
             os.environ.pop("HEYLOOK_API_KEY_FILE", None)
         else:
             os.environ["HEYLOOK_API_KEY_FILE"] = prev_kfile
-    return "sync_heylook_presets forwards x-api-key across GET/POST/PUT and fails fast on 401"
+        if prev_h3_kfile is None:
+            os.environ.pop("H3_HEYLOOK_API_KEY_FILE", None)
+        else:
+            os.environ["H3_HEYLOOK_API_KEY_FILE"] = prev_h3_kfile
+    return "sync_heylook_presets removes --api-key CLI flag, keeps programmatic api_key, forwards x-api-key, and fails fast on 401"
 
 
 def main() -> int:

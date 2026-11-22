@@ -411,9 +411,11 @@ optional `concept` preset (`data/edit_concepts/*.toml`, usable alone or with
 `prompt`), or `1..16`-picture edit instruction over `POST /v1/messages` on a
 local or LAN `heylookitsanllm` server (supporting `@extend:prepend|append`
 additive preset/custom overlays and `v2.0.263–2.0.264` `x-api-key` auth via
-`heylook_client.py` — `HEYLOOK_API_KEY`, mode-`0600` `~/.heylook/api_key` /
-`HEYLOOK_API_KEY_FILE`, or `H3_HEYLOOK_API_KEY_FILE` in `h3.env` when
-`comfyui.service` runs under `ProtectHome=tmpfs`; `base_url` resolving
+`heylook_client.py` — `HEYLOOK_API_KEY`, explicit `HEYLOOK_API_KEY_FILE` /
+`H3_HEYLOOK_API_KEY_FILE` in `h3.env` (mode `0640`/`0600` with no group-write
+or other bits, e.g. `/etc/heylook/api_key` shared via service group under
+`ProtectHome=tmpfs`), or auto-discovered mode-`0600` `~/.heylook/api_key`;
+`base_url` resolving
 `H3_HEYLOOK_URL` or defaulting to `http://127.0.0.1:8080`, failing fast on
 `401 auth_required`, `403 csrf_rejected`/Host check, and `503 auth_misconfigured`;
 model ids are resolved at runtime from `GET /v1/models`, gating on `vision` when pictures

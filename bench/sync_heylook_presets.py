@@ -501,11 +501,6 @@ def execute_sync(
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--base-url", default="", help="heylook server URL (defaults to H3_HEYLOOK_URL / h3.env)")
-    ap.add_argument(
-        "--api-key",
-        default=None,
-        help="Optional heylook API key (defaults to HEYLOOK_API_KEY, HEYLOOK_API_KEY_FILE, H3_HEYLOOK_API_KEY_FILE, or mode-0600 ~/.heylook/api_key)",
-    )
     mode_grp = ap.add_mutually_exclusive_group()
     mode_grp.add_argument("--dry-run", action="store_true", help="plan only without writing (default)")
     mode_grp.add_argument("--apply", action="store_true", help="POST/PUT changed presets to heylook")
@@ -541,7 +536,6 @@ def main(argv: list[str] | None = None) -> int:
         reset_params=bool(args.reset_params),
         prefix=args.prefix,
         include_overlay=include_overlay,
-        api_key=args.api_key,
     )
 
     counts = {"create": 0, "update": 0, "unchanged": 0}

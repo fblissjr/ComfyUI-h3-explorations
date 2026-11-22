@@ -87,7 +87,7 @@ A proposed `MiniMaxH3AutoEditPrompt` node accepts either:
 | Shared Helper in `heylook_client.py` | Role in Auto-Edit Prompt Rewriting & Expansion |
 |---|---|
 | `normalize_heylook_base_url` | Validates `http(s)://<host>:<port>` without trailing slash (`127.0.0.1` / LAN IP / listed HTTPS origin so `heylook`'s `Host` check passes). |
-| `resolve_heylook_api_key`, `heylook_auth_headers`, `make_heylook_client` | Resolves `HEYLOOK_API_KEY`, mode-`0600` `~/.heylook/api_key` (`HEYLOOK_API_KEY_FILE`, or `H3_HEYLOOK_API_KEY_FILE` in `h3.env` for `comfyui.service` `ProtectHome=tmpfs`), disables redirects (`follow_redirects=False`), and scopes `x-api-key` strictly to `base_url`'s origin (`v2.0.263–2.0.264`). |
+| `resolve_heylook_api_key`, `heylook_auth_headers`, `make_heylook_client` | Resolves `HEYLOOK_API_KEY`, explicit `0640`/`0600` key files (`HEYLOOK_API_KEY_FILE` or `H3_HEYLOOK_API_KEY_FILE` in `h3.env`, mask `0o027`), or auto-discovered mode-`0600` `~/.heylook/api_key` (mask `0o077`), disables redirects (`follow_redirects=False`), and scopes `x-api-key` strictly to `base_url`'s origin (`v2.0.263–2.0.264`). |
 | `discover_heylook_model` | Queries `GET /v1/models` at runtime (`capabilities` gated on `"chat"`—no hardcoded model IDs). |
 | `expand_heylook_preset` | Optional preset support from `GET /v1/presets`. |
 | `parse_extend_directive`, `compose_preset_system_prompt` | Parses `@extend:prepend|append` / `<!-- H3_EXTEND:prepend|append -->` directives and composes additive preset overlays around local H3 contracts (`sys=local+extend:<preset>`). |

@@ -1098,7 +1098,7 @@ def release_grid(folder: Path | None) -> None:
 
 
 def heylook_access_gate() -> None:
-    """Verify v2.0.263-2.0.264 access gate auth headers, mode-0600 key files, 401/403/503 fast-fail."""
+    """Verify v2.0.263-2.0.264 access gate auth headers, split explicit/auto file modes, and 401/403/503 fast-fail."""
     import os
     import tempfile
     import threading
@@ -1172,45 +1172,127 @@ def heylook_access_gate() -> None:
     srv = ThreadingHTTPServer(("127.0.0.1", 0), _GateHandler)
     t = threading.Thread(target=srv.serve_forever, daemon=True)
     t.start()
-    prev_env = {k: os.environ.get(k) for k in ("HEYLOOK_API_KEY", "HEYLOOK_API_KEY_FILE", "H3_HEYLOOK_API_KEY_FILE")}
+    tracked_env = ("HEYLOOK_API_KEY", "HEYLOOK_API_KEY_FILE", "H3_HEYLOOK_API_KEY_FILE", "H3_ENV_FILE", "HOME")
+    prev_env = {k: os.environ.get(k) for k in tracked_env}
     try:
         base = f"http://127.0.0.1:{srv.server_port}"
         with tempfile.TemporaryDirectory(prefix="h3_key_gate_") as td:
-            kpath = Path(td) / "api_key"
+            td_path = Path(td)
+            kpath = td_path / "api_key"
             kpath.write_text(secret + "\n", encoding="utf-8")
+            fake_home = td_path / "home"
+            (fake_home / ".heylook").mkdir(parents=True, exist_ok=True)
+            os.chmod(fake_home / ".heylook", 0o700)
+            home_kpath = fake_home / ".heylook" / "api_key"
+            home_kpath.write_text(secret + "\n", encoding="utf-8")
+            tmp_h3_env = td_path / "h3.env"
+            tmp_h3_env.write_text(f"H3_HEYLOOK_API_KEY_FILE={kpath}\n", encoding="utf-8")
 
             # 1. Missing credentials -> 401 PermissionError (never echoes secret)
+            os.environ["HOME"] = str(fake_home)
+            os.environ["H3_ENV_FILE"] = os.devnull
             os.environ.pop("HEYLOOK_API_KEY", None)
             os.environ.pop("H3_HEYLOOK_API_KEY_FILE", None)
             os.environ["HEYLOOK_API_KEY_FILE"] = ""
             cat_unauth = hc.probe_heylook_server_info(base)
             unauth_ok = cat_unauth["reachable"] is False and "401" in str(cat_unauth.get("error") or "")
 
-            # 2. Mode 0644 key file is refused on client side before sending
-            os.chmod(kpath, 0o644)
-            os.environ["HEYLOOK_API_KEY_FILE"] = str(kpath)
-            cat_badperm = hc.probe_heylook_server_info(base)
-            badperm_ok = (
-                cat_badperm["reachable"] is False
-                and "chmod 600" in str(cat_badperm.get("error") or "")
-                and secret not in str(cat_badperm)
-            )
+            # 2. Control: explicit HEYLOOK_API_KEY_FILE and H3_HEYLOOK_API_KEY_FILE refuse 0o660, 0o644, 0o604
+            explicit_refusals_ok = True
+            for bad_mode in (0o660, 0o644, 0o604):
+                os.chmod(kpath, bad_mode)
+                os.environ["HEYLOOK_API_KEY_FILE"] = str(kpath)
+                os.environ["H3_ENV_FILE"] = os.devnull
+                k_val, k_src, k_warn = hc._resolve_heylook_api_key_details()
+                cat_bad = hc.probe_heylook_server_info(base)
+                explicit_refusals_ok = explicit_refusals_ok and (
+                    k_val is None
+                    and k_src == "none"
+                    and k_warn is not None
+                    and "group-writable" in k_warn
+                    and "chmod 640 or 600" in k_warn
+                    and "run chmod 600" not in k_warn
+                    and cat_bad["reachable"] is False
+                    and "chmod 640 or 600" in str(cat_bad.get("error") or "")
+                    and secret not in str(cat_bad)
+                )
 
-            # 3. Mode 0600 key file works across probe + expand_image_prompt + H3_HEYLOOK_API_KEY_FILE
-            os.chmod(kpath, 0o600)
-            cat_0600 = hc.probe_heylook_server_info(base)
+                # Same refusal check via H3_HEYLOOK_API_KEY_FILE parsed from h3.env
+                os.environ.pop("HEYLOOK_API_KEY_FILE", None)
+                os.environ.pop("H3_HEYLOOK_API_KEY_FILE", None)
+                os.environ["H3_ENV_FILE"] = str(tmp_h3_env)
+                k2_val, k2_src, k2_warn = hc._resolve_heylook_api_key_details()
+                explicit_refusals_ok = explicit_refusals_ok and (
+                    k2_val is None
+                    and k2_src == "none"
+                    and k2_warn is not None
+                    and "H3_HEYLOOK_API_KEY_FILE" in k2_warn
+                    and "chmod 640 or 600" in k2_warn
+                )
+
+            # 3. Positive: that same explicit file at 0o640 and 0o600 succeeds across env & h3.env
+            os.chmod(kpath, 0o640)
+            os.environ["H3_ENV_FILE"] = os.devnull
+            os.environ["HEYLOOK_API_KEY_FILE"] = str(kpath)
+            cat_640 = hc.probe_heylook_server_info(base)
             os.environ.pop("HEYLOOK_API_KEY_FILE", None)
             os.environ["H3_HEYLOOK_API_KEY_FILE"] = str(kpath)
-            out = hin.expand_image_prompt(prompt="compass", base_url=base, thinking="off")
-            h3_file_ok = (
-                cat_0600["reachable"] is True
-                and cat_0600["auth_configured"] is True
-                and cat_0600["auth_source"] == "HEYLOOK_API_KEY_FILE"
-                and "brass compass" in out["prompt"]
-                and secret not in json.dumps(out)
+            cat_h3_env_640 = hc.probe_heylook_server_info(base)
+            os.environ.pop("H3_HEYLOOK_API_KEY_FILE", None)
+            os.environ["H3_ENV_FILE"] = str(tmp_h3_env)
+            cat_h3_file_640 = hc.probe_heylook_server_info(base)
+            out_640 = hin.expand_image_prompt(prompt="compass", base_url=base, thinking="off")
+
+            os.chmod(kpath, 0o600)
+            os.environ["H3_ENV_FILE"] = os.devnull
+            os.environ["HEYLOOK_API_KEY_FILE"] = str(kpath)
+            cat_600 = hc.probe_heylook_server_info(base)
+
+            explicit_accept_ok = (
+                cat_640["reachable"] is True
+                and cat_640["auth_configured"] is True
+                and cat_640["auth_source"] == "HEYLOOK_API_KEY_FILE"
+                and cat_h3_env_640["reachable"] is True
+                and cat_h3_env_640["auth_source"] == "H3_HEYLOOK_API_KEY_FILE"
+                and cat_h3_file_640["reachable"] is True
+                and cat_h3_file_640["auth_source"] == "H3_HEYLOOK_API_KEY_FILE"
+                and "brass compass" in out_640["prompt"]
+                and secret not in json.dumps(out_640)
+                and cat_600["reachable"] is True
+                and cat_600["auth_configured"] is True
             )
 
-            # 4. Wrong HEYLOOK_API_KEY -> distinct rejected hint
+            # 4. Auto-discovered ~/.heylook/api_key: 0o640 refused, same file at 0o600 accepted
+            os.environ.pop("HEYLOOK_API_KEY", None)
+            os.environ.pop("HEYLOOK_API_KEY_FILE", None)
+            os.environ.pop("H3_HEYLOOK_API_KEY_FILE", None)
+            os.environ["H3_ENV_FILE"] = os.devnull
+
+            os.chmod(home_kpath, 0o640)
+            ak_640, asrc_640, awarn_640 = hc._resolve_heylook_api_key_details()
+            cat_auto_640 = hc.probe_heylook_server_info(base)
+            auto_refuse_640_ok = (
+                ak_640 is None
+                and asrc_640 == "none"
+                and awarn_640 is not None
+                and "chmod 600" in awarn_640
+                and cat_auto_640["reachable"] is False
+                and "chmod 600" in str(cat_auto_640.get("error") or "")
+            )
+
+            os.chmod(home_kpath, 0o600)
+            ak_600, asrc_600, awarn_600 = hc._resolve_heylook_api_key_details()
+            cat_auto_600 = hc.probe_heylook_server_info(base)
+            auto_accept_600_ok = (
+                ak_600 == secret
+                and asrc_600 == "~/.heylook/api_key"
+                and awarn_600 is None
+                and cat_auto_600["reachable"] is True
+                and cat_auto_600["auth_configured"] is True
+                and cat_auto_600["auth_source"] == "~/.heylook/api_key"
+            )
+
+            # 5. Wrong HEYLOOK_API_KEY -> distinct rejected hint
             os.environ["HEYLOOK_API_KEY"] = "wrong_secret_000"
             cat_wrong = hc.probe_heylook_server_info(base)
             wrong_ok = (
@@ -1219,7 +1301,7 @@ def heylook_access_gate() -> None:
                 and "wrong_secret_000" not in str(cat_wrong)
             )
 
-            # 5. 503 auth_misconfigured fails fast on attempt 1; 403 csrf_rejected diagnoses CSRF
+            # 6. 503 auth_misconfigured fails fast on attempt 1; 403 csrf_rejected diagnoses CSRF
             os.environ["HEYLOOK_API_KEY"] = secret
             state["post_calls"] = 0
             state["mode"] = "auth_misconfigured"
@@ -1237,8 +1319,20 @@ def heylook_access_gate() -> None:
                 csrf_ok = "csrf_rejected" in str(exc)
 
             report(
-                unauth_ok and badperm_ok and h3_file_ok and wrong_ok and misc_ok and csrf_ok,
-                "heylook v2.0.263-2.0.264 access gate auth, mode-0600 enforcement, 401/403, and 503 auth_misconfigured fast-fail hold",
+                explicit_refusals_ok,
+                "control: explicit key files at 0660, 0644, and 0604 are refused without saying 'run chmod 600'",
+            )
+            report(
+                explicit_accept_ok,
+                "explicit key files (HEYLOOK_API_KEY_FILE and H3_HEYLOOK_API_KEY_FILE) at 0640 and 0600 succeed",
+            )
+            report(
+                auto_refuse_640_ok and auto_accept_600_ok,
+                "auto-discovered ~/.heylook/api_key refuses 0640 and accepts 0600 on the same file",
+            )
+            report(
+                unauth_ok and wrong_ok and misc_ok and csrf_ok,
+                "heylook v2.0.263-2.0.264 access gate 401/403/503 auth_misconfigured fast-fail and wrong-key refusal hold",
             )
     finally:
         srv.shutdown()

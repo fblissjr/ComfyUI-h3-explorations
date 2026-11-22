@@ -132,22 +132,22 @@ def _resolve_heylook_api_key_details(explicit: str | None = None) -> tuple[str |
     if env_key:
         return env_key, "HEYLOOK_API_KEY", None
 
-    candidate: tuple[Path, str] | None = None
+    candidate: tuple[Path, str, bool] | None = None
     if "HEYLOOK_API_KEY_FILE" in os.environ:
         raw_path = os.environ["HEYLOOK_API_KEY_FILE"].strip()
         if raw_path:
-            candidate = (Path(raw_path).expanduser(), "HEYLOOK_API_KEY_FILE")
+            candidate = (Path(raw_path).expanduser(), "HEYLOOK_API_KEY_FILE", True)
     else:
         h3_file = os.environ.get("H3_HEYLOOK_API_KEY_FILE", "").strip() or _read_h3_env_key_file()
         if h3_file:
-            candidate = (Path(h3_file).expanduser(), "H3_HEYLOOK_API_KEY_FILE")
+            candidate = (Path(h3_file).expanduser(), "H3_HEYLOOK_API_KEY_FILE", True)
         else:
-            candidate = (Path.home() / ".heylook" / "api_key", "~/.heylook/api_key")
+            candidate = (Path.home() / ".heylook" / "api_key", "~/.heylook/api_key", False)
 
     if candidate is None:
         return None, "none", None
 
-    p, src = candidate
+    p, src, is_explicit = candidate
     try:
         if not p.is_file():
             return None, "none", None
@@ -155,7 +155,14 @@ def _resolve_heylook_api_key_details(explicit: str | None = None) -> tuple[str |
     except OSError:
         return None, "none", None
 
-    if (st.st_mode & 0o077) != 0:
+    if is_explicit:
+        if (st.st_mode & 0o027) != 0:
+            return (
+                None,
+                "none",
+                f"ignored {src}: must not be group-writable or readable by others (chmod 640 or 600)",
+            )
+    elif (st.st_mode & 0o077) != 0:
         return None, "none", f"ignored {src}: permissions must be mode 0600 (run chmod 600)"
 
     try:
@@ -168,7 +175,7 @@ def _resolve_heylook_api_key_details(explicit: str | None = None) -> tuple[str |
 
 
 def resolve_heylook_api_key(explicit: str | None = None) -> tuple[str | None, str]:
-    """Resolve `heylook` access-gate key (`(key, source)`), enforcing mode `0600` on key files."""
+    """Resolve `heylook` access-gate key (`(key, source)`): explicit `0640`/`0600` (`0o027`) or auto-discovered `0600` (`0o077`)."""
     key, src, _warn = _resolve_heylook_api_key_details(explicit)
     return key, src
 
@@ -307,7 +314,7 @@ def _http_error(
             return PermissionError(
                 f"{base}{path} answered HTTP 503 (auth_misconfigured): "
                 f"{detail or 'access key file is misconfigured'}. "
-                "Fix server key-file permissions (chmod 600) or ensure the key file is non-empty."
+                "Fix server key-file permissions or ensure the key file is non-empty."
             )
         try:
             retry = float(r.headers.get("Retry-After", ""))
@@ -343,7 +350,7 @@ def _http_error(
         warn_suffix = f" ({key_warn}.)" if key_warn else ""
         return PermissionError(
             f"{base}{path} answered HTTP 401 (auth_required): heylook's access gate requires authentication. "
-            f"Set HEYLOOK_API_KEY, create a mode-0600 ~/.heylook/api_key, or set H3_HEYLOOK_API_KEY_FILE in h3.env.{warn_suffix}"
+            f"Set HEYLOOK_API_KEY, point HEYLOOK_API_KEY_FILE / H3_HEYLOOK_API_KEY_FILE at a 0640/0600 key file, or create a mode-0600 ~/.heylook/api_key.{warn_suffix}"
         )
     if r.status_code in (400, 422):
         return ValueError(f"heylook HTTP {r.status_code} on {path}: {detail}")
