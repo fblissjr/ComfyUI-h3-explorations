@@ -1646,6 +1646,14 @@ PIKA_MANUAL_SIGMAS = ", ".join(
     for k in PIKA_CONTRACT_KNOTS
 )
 assert PIKA_MANUAL_SIGMAS == "1.0, 0.972973, 0.923077, 0.8, 0.571429, 0.333333, 0.0"
+#: How `MiniMaxH3AppendRefImage` sizes a still on a Pika H3 Flex ref2va video graph:
+#: `tiered`, the release's own rule (a 2048 short edge from the 768 tier up, 1024
+#: below; `coderef/Pika-H3-Flex/src/pika_h3/core/buckets.py::reference_short_edge_for_canvas`,
+#: ported as `reference_geometry.py::tier_short_edge`), so a small still is enlarged.
+#: sglang's Pika has done the same since `44a391941a` (#51935). Native H3 graphs stay
+#: on `max` without enlarging (sglang #47907), and single-frame Pika edits keep
+#: `match`. Owner's go 2026-11-22 (`docs/wiki/upstream/topics/reference_sizing.md`).
+PIKA_REF_SIZE_POLICY = "tiered"
 
 #: PrunaAI P-H3-Image 8-step single-frame T2I and multi-image edit distillation
 #: (`PrunaAI/P-H3-Image`, `diffusers` `src/diffusers/modular_pipelines/p_h3_image/`).

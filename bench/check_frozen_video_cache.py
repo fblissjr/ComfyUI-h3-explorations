@@ -97,6 +97,14 @@ swapped unseen.
     (`archive/frozen_cache_masked/frozen_video_cache.py`), which removed the
     override: the backend saw no such call in any of the three.
 
+18. **The core source the copy was made from.** `_cached_block` is core's
+    `DiTBlock.forward` rewritten for the live rows and `_qkv_rope` is the first
+    half of core's `Attention.forward`, so each is pinned by the sha256 of its
+    source (`PINNED`, the pattern of `bench/check_reference_encode.py`). Item 3
+    catches a change in core that moves the math on this model; the pin also
+    catches one that does not, such as core #17775 chunking the MLP by tokens
+    (same math, less memory), which the copy would silently miss.
+
 **Not graded: whether a halo, or live text, brings a masked step closer to
 stock.** On this model the kept rows' reaction to the region is at bf16's
 resolution: over four seeds and four moves a one-token halo came out closer
@@ -128,6 +136,7 @@ sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(COMFY))
 
 import hashlib  # noqa: E402
+import inspect  # noqa: E402
 
 import torch  # noqa: E402
 
@@ -167,6 +176,28 @@ FLOOR = 2e-2
 #: far bound is a third of the smallest measured, the near one far above any
 #: rounding and a sixth of the far one.
 BLOCK0_SAME, BLOCK0_FAR = 1e-3, 6e-3
+
+#: Item 18: sha256 (first 16 hex) of the core sources `frozen_video_cache.py`
+#: copies. `_cached_block` copies `DiTBlock.forward`; `_qkv_rope` copies
+#: `Attention.forward` up to the attention call. Pinned 2026-11-22 at core
+#: `8b25bbc37`, after reading both against the copies.
+PINNED = {
+    "DiTBlock.forward": "96716317b035d6f0",
+    "Attention.forward": "07825744b57ba256",
+}
+
+
+def source_pin_problems() -> list[str]:
+    """Item 18: each pinned core function still has the source the copy was made from."""
+    out = []
+    for name, pinned in PINNED.items():
+        cls, fn = name.split(".")
+        got = hashlib.sha256(inspect.getsource(getattr(getattr(mm_h3, cls), fn)).encode()).hexdigest()[:16]
+        if got != pinned:
+            out.append(f"core's {name} changed (now {got}, pinned {pinned}): re-read it against "
+                       f"frozen_video_cache.py (_cached_block, _qkv_rope), port what moved, then "
+                       f"move the pin")
+    return out
 
 
 class _Base(torch.nn.Module):
@@ -338,6 +369,10 @@ def main() -> int:
 
     def fail(msg):
         problems.append(msg)
+
+    # 18. the core source the copy was made from
+    for msg in source_pin_problems():
+        fail(msg)
 
     stock = tiny_model()
     video, audio, context = inputs()
@@ -768,8 +803,8 @@ def main() -> int:
           "stock when nothing moved, departs when the region does and more so on the wrong rows, "
           "a new region or new kept content rebuilds, a large region, a misfit mask and a context "
           "window run stock, a halo adds the rows named and a full one is exact, verify "
-          "grades the video, and a cached step's attention reaches the backend the graph "
-          "installs, under Sol or not")
+          "grades the video, a cached step's attention reaches the backend the graph "
+          "installs, under Sol or not, and core's copied block source is the pinned one")
     return 0
 
 

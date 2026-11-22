@@ -363,6 +363,26 @@ def main():
                 got = (found.strengths or {}).get(distill_loras[0])
                 assert got == cfg.PIKA_STRENGTH, (
                     f"{path.name}: Pika H3 Flex strength {got}, want {cfg.PIKA_STRENGTH}")
+                # A ref2va video still is sized the way Pika's release sizes it:
+                # enlarged by canvas tier (h3_config.PIKA_REF_SIZE_POLICY, owner's
+                # go 2026-11-22). `max` with upscale on at the 2048 edge is the same
+                # size on every canvas from the 768 tier up, which is what the
+                # motion-transfer parity arms carry. Single-frame edits keep `match`.
+                single_frame = any(n.get("inputs", {}).get("single_frame") is True for n in nodes)
+                if pika_files[distill_loras[0]] == "unet_ref2va" and not single_frame:
+                    for n in nodes:
+                        if n.get("class_type") != "MiniMaxH3AppendRefImage":
+                            continue
+                        i = n["inputs"]
+                        enlarges = (i.get("size_policy") == cfg.PIKA_REF_SIZE_POLICY
+                                    or (i.get("size_policy") == "max"
+                                        and i.get("size_policy.allow_upscale") is True
+                                        and i.get("size_policy.dit_short_edge") == 2048))
+                        assert enlarges, (
+                            f"{path.name}: a Pika ref2va still is sized "
+                            f"{cfg.PIKA_REF_SIZE_POLICY!r} (Pika's release enlarges small "
+                            f"stills by canvas tier), graph sends "
+                            f"{ {k: v for k, v in i.items() if k.startswith('size_policy')} }")
                 distilled_graphs[path.name] = (found, pika)
                 continue
 

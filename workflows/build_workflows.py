@@ -114,7 +114,7 @@ from h3_config import (  # noqa: E402
     sol_for_graph,
     AUDIO_REFINE, FROZEN_VIDEO_CACHE, FROZEN_VIDEO_CACHE_NODE, LORA_BRANCH_NODE,
     PIKA_FL2VA_LORA, PIKA_FL2VA_SVD995_LORA, PIKA_REF2VA_LORA, PIKA_REF2VA_SVD995_LORA,
-    PIKA_STRENGTH, PIKA_STEPS, PIKA_SAMPLER,
+    PIKA_STRENGTH, PIKA_STEPS, PIKA_SAMPLER, PIKA_REF_SIZE_POLICY,
     PIKA_MANUAL_SIGMAS, PIKA_MOTION_TRANSFER_IMAGES, PIKA_MOTION_TRANSFER_VIDEO,
     PH3_IMAGE_UNET, PH3_IMAGE_LORA, PH3_IMAGE_STRENGTH,
     PH3_IMAGE_TE, PH3_IMAGE_UPSAMPLER, IMAGE_GRAPH_VAE,
@@ -2675,7 +2675,8 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
                 append_id = next(append_ids)
                 g[append_id] = {"class_type": "MiniMaxH3AppendRefImage",
                                 "inputs": _append_image_inputs(load_id, chain, ref_upscale,
-                                                               ref_qwen_short_edge)}
+                                                               ref_qwen_short_edge,
+                                                               size_policy=ref_size_policy)}
                 chain = [append_id, 0]
             g["74"]["inputs"]["references"] = chain
         if freeze_song_lists:
@@ -6316,6 +6317,7 @@ def main():
          dict(ref_images=SCENE_REF_IMAGES["kitchen"], ref_image_count=1,
               split_references=True,
               lora=(PIKA_REF2VA_SVD995_LORA, PIKA_STRENGTH), lora_branch=True,
+              ref_size_policy=PIKA_REF_SIZE_POLICY,
               steps=PIKA_STEPS, sampler_name=PIKA_SAMPLER,
               manual_sigmas=PIKA_MANUAL_SIGMAS,
               out_prefix="Video/h3_r2v_pika"),
@@ -6406,6 +6408,7 @@ def main():
          dict(ref_images=SCENE_REF_IMAGES["kitchen"], ref_image_count=1,
               width=1152, height=768, length=141,
               lora=(PIKA_REF2VA_SVD995_LORA, PIKA_STRENGTH), lora_branch=True,
+              ref_size_policy=PIKA_REF_SIZE_POLICY,
               steps=PIKA_STEPS, sampler_name=PIKA_SAMPLER,
               manual_sigmas=PIKA_MANUAL_SIGMAS,
               media_control_vector=dict(
@@ -6437,6 +6440,7 @@ def main():
          dict(ref_images=SCENE_REF_IMAGES["kitchen"], ref_image_count=1,
               split_references=True,
               lora=(PIKA_REF2VA_SVD995_LORA, PIKA_STRENGTH), lora_branch=True,
+              ref_size_policy=PIKA_REF_SIZE_POLICY,
               steps=PIKA_STEPS, sampler_name=PIKA_SAMPLER,
               manual_sigmas=PIKA_MANUAL_SIGMAS,
               control_vector=dict(
@@ -6464,6 +6468,7 @@ def main():
          _ref_prompt(images=("character",), scene="kitchen"),
          dict(ref_images=SCENE_REF_IMAGES["kitchen"], ref_image_count=1,
               lora=(PIKA_REF2VA_SVD995_LORA, PIKA_STRENGTH), lora_branch=True,
+              ref_size_policy=PIKA_REF_SIZE_POLICY,
               steps=PIKA_STEPS, sampler_name=PIKA_SAMPLER,
               manual_sigmas=PIKA_MANUAL_SIGMAS,
               edit_guidance=dict(
@@ -6495,6 +6500,7 @@ def main():
          "The character from Picture 1 cooks in a rain-drenched neon cyberpunk night market kitchen, stirring a glowing wok.",
          dict(ref_images=SCENE_REF_IMAGES["kitchen"], ref_image_count=1,
               lora=(PIKA_REF2VA_SVD995_LORA, PIKA_STRENGTH), lora_branch=True,
+              ref_size_policy=PIKA_REF_SIZE_POLICY,
               steps=PIKA_STEPS, sampler_name=PIKA_SAMPLER,
               manual_sigmas=PIKA_MANUAL_SIGMAS,
               width=1152, height=768, length=192,
@@ -6517,6 +6523,7 @@ def main():
          _ref_prompt(images=("character",), scene="kitchen"),
          dict(ref_images=SCENE_REF_IMAGES["kitchen"], ref_image_count=1,
               lora=(PIKA_REF2VA_SVD995_LORA, PIKA_STRENGTH), lora_branch=True,
+              ref_size_policy=PIKA_REF_SIZE_POLICY,
               steps=PIKA_STEPS, sampler_name=PIKA_SAMPLER,
               manual_sigmas=PIKA_MANUAL_SIGMAS,
               release_references=True,
@@ -6581,6 +6588,7 @@ def main():
          dict(ref_images=SCENE_REF_IMAGES["kitchen"], ref_image_count=1,
               guide_video=True,
               lora=(PIKA_REF2VA_SVD995_LORA, PIKA_STRENGTH), lora_branch=True,
+              ref_size_policy=PIKA_REF_SIZE_POLICY,
               steps=PIKA_STEPS, sampler_name=PIKA_SAMPLER,
               manual_sigmas=PIKA_MANUAL_SIGMAS,
               out_prefix="Video/h3_guide_video_edit"),
@@ -6613,6 +6621,7 @@ def main():
               sprite_trajectory=True,
               sound_cues=DPAD_SOUND_CUES,
               lora=(PIKA_REF2VA_SVD995_LORA, PIKA_STRENGTH), lora_branch=True,
+              ref_size_policy=PIKA_REF_SIZE_POLICY,
               steps=PIKA_STEPS, sampler_name=PIKA_SAMPLER,
               manual_sigmas=PIKA_MANUAL_SIGMAS,
               release_references=dict(
@@ -6681,6 +6690,7 @@ def main():
               sprite_trajectory="from_director",
               sound_cues="from_director",
               lora=(PIKA_REF2VA_SVD995_LORA, PIKA_STRENGTH), lora_branch=True,
+              ref_size_policy=PIKA_REF_SIZE_POLICY,
               steps=PIKA_STEPS, sampler_name=PIKA_SAMPLER,
               manual_sigmas=PIKA_MANUAL_SIGMAS,
               release_references=dict(
@@ -6703,6 +6713,7 @@ def main():
          dict(length=141,
               ref_images=SPATIAL_PORTAL_REF_IMAGES, ref_image_count=1,
               lora=(PIKA_REF2VA_SVD995_LORA, PIKA_STRENGTH), lora_branch=True,
+              ref_size_policy=PIKA_REF_SIZE_POLICY,
               steps=PIKA_STEPS, sampler_name=PIKA_SAMPLER,
               manual_sigmas=PIKA_MANUAL_SIGMAS,
               spatial_director=True,

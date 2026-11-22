@@ -471,7 +471,11 @@ DECLARED: dict[tuple[str, str], tuple] = {
                 "(2026-11-10): the picture is sized to the output it is edited into. "
                 "That is the size the render that showed the edit landing used; 'max' "
                 "was not rendered on this graph (docs/wiki/image/h3_image_editing.md). The "
-                "generator passes ref_size_policy='match' for it."),
+                "generator passes ref_size_policy='match' for it. "
+                "'tiered' on the Pika H3 Flex ref2va video graphs (h3_config."
+                "PIKA_REF_SIZE_POLICY, 2026-11-22): Pika's release sizes a still by "
+                "the canvas tier and enlarges small ones, and sglang's Pika does the "
+                "same since #51935 (docs/wiki/upstream/topics/reference_sizing.md)."),
     ("MiniMaxH3GuideLatent", "frame_idx"):
         ("ARM", "24, 54, and 96 across the three chained audio-guide islands on "
                 "h3_text_to_video_pika_sound_guide (h3_config.SOUND_GUIDE_ISLANDS), "

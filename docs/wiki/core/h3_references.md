@@ -254,7 +254,7 @@ both to condition the way sglang serves a request that leaves
 core's default exactly. *Corrected 2026-11-04: this paragraph used to call
 `match` "off-vendor" and sglang's 2048 short edge its only rule; since
 `5727f08932` (#35839) that is sglang's default mode, beside a `match` and a
-`max` equal to core's.* **Since 2026-11-15 a freshly dragged `MiniMaxH3AppendRefImage` defaults to shrink-only**: `size_policy=max`, `dit_short_edge=2048`, `allow_upscale=False`, and `qwen_view=separate` at `h3_rules.REF_QWEN_SHORT_EDGE` (`512`).
+`max` equal to core's.* **Since 2026-11-15 a freshly dragged `MiniMaxH3AppendRefImage` defaults to shrink-only**: `size_policy=max`, `dit_short_edge=2048`, `allow_upscale=False`, and `qwen_view=separate` at `h3_rules.REF_QWEN_SHORT_EDGE` (`512`). **The shipped Pika ref2va graphs send `size_policy=tiered` since 2026-11-22** (`h3_config.PIKA_REF_SIZE_POLICY`, Pika's release rule, which enlarges a small still; [`../upstream/topics/reference_sizing.md`](../upstream/topics/reference_sizing.md)); the node default is unchanged.
 *(History: on 2026-09-13 `allow_upscale=True` and `qwen_view=shared` matched sglang's old `diffusers` default; on 2026-10-03 `qwen_view` moved back to `separate` at 512; and on 2026-11-15 the owner flipped `allow_upscale` to `False` after sglang PR #47907 / `92a6910ef2` made `max` default, aligning sglang, vllm-omni, and core ComfyUI. Turn `allow_upscale=True` on when enlarging small stills is desired, or check `bench/refview2_arms.json` / `docs/wiki/upstream/topics/reference_sizing.md`.)* Read the values directly from the node's `define_schema`;
 `bench/refview2_arms.json` is the ablation that would move them.
 

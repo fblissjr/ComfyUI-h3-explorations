@@ -181,9 +181,7 @@
         "15",
         0
       ],
-      "size_policy": "max",
-      "size_policy.dit_short_edge": 2048,
-      "size_policy.allow_upscale": false,
+      "size_policy": "tiered",
       "qwen_view": "separate",
       "qwen_view.qwen_short_edge": 512
     }

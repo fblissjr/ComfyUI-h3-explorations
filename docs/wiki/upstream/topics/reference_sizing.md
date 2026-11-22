@@ -1,6 +1,6 @@
 # Reference stills: how each implementation sizes them (H3 video ref2va)
 
-last updated: 2026-11-22 (sglang's Pika enlarges small stills again, citing Pika's release; the decision below is unchanged and the new fact is in "2026-11-22: Pika" below); 2026-11-15 (owner decided to flip `MiniMaxH3AppendRefImage.allow_upscale` default to `False` following sglang #47907)
+last updated: 2026-11-22 (Pika ref2va graphs moved to `tiered` on the owner's go, "2026-11-22: Pika" below; sglang's Pika enlarges small stills again, citing Pika's release); 2026-11-15 (owner decided to flip `MiniMaxH3AppendRefImage.allow_upscale` default to `False` following sglang #47907)
 
 **Scope: H3 video ref2va reference stills**, the `<Picture N>` images that ride beside the target rows on every
 step. It does not cover MiniMax-H3-Image edit references (their own bounds:
@@ -11,6 +11,10 @@ alongside vllm-omni and ComfyUI core, the owner aligned `MiniMaxH3AppendRefImage
 on `allow_upscale=False`, while keeping `ref_upscale=True` on byte-pinned instruments (`_savelat`, `_x0`, `_stamped`),
 `h3_probe_refview2_*`, `h3_probe_r2v_pika_motion_transfer_6step*`, and masked-song head-crop graphs, and inverting
 `workflows/h3_probe_reference_upscale_api.json` back to `True` as the non-default upscale probe.
+
+**Pika ref2va: decided 2026-11-22 (moved to `tiered`).** The shipped Pika H3 Flex ref2va video graphs size stills
+by Pika's release rule (`h3_config.PIKA_REF_SIZE_POLICY`), so a small still is enlarged. Native H3 graphs and the
+node default are unchanged. See "2026-11-22: Pika" below.
 
 ---
 
@@ -31,7 +35,7 @@ Every mode keeps the aspect ratio and rounds each axis to 32.
 | ComfyUI core | trusted least | **not enlarged** in either `ref_image_size` mode (`match` default, `max`) | `comfy_extras/nodes_minimax_h3.py`, the reference-to-video node's `ref_image_size` and `ref_image` tooltips |
 | DiffSynth | periphery | **enlarged**: `scale = short_edge / min(w, h)`, unclamped, short edge 2048 | `coderef/DiffSynth-Studio/diffsynth/pipelines/minimax_h3_audio_video.py::_resolve_reference_image_shape` |
 | LightX2V | periphery | **enlarged** (`diffusers` mode) | `coderef/LightX2V/lightx2v/models/networks/minimax_h3/packing_ref2av.py::DEFAULT_REFERENCE_IMAGE_RESIZE_MODE` |
-| **this pack** | | **not enlarged** (`size_policy=max`, `dit_short_edge=2048`, `allow_upscale=False` default since 2026-11-15; `True` kept opt-in and pinned on historical instruments & masked head crops) | `reference_conditioning.py` (`allow_upscale` input); `reference_geometry.py` |
+| **this pack** | | **not enlarged** (`size_policy=max`, `dit_short_edge=2048`, `allow_upscale=False` default since 2026-11-15; `True` kept opt-in and pinned on historical instruments & masked head crops). **Pika ref2va graphs enlarge** (`size_policy=tiered`, `h3_config.PIKA_REF_SIZE_POLICY`) since 2026-11-22 | `reference_conditioning.py` (`allow_upscale` input); `reference_geometry.py` |
 
 By the owner's ranking ([`../index.md`](../index.md), "When upstreams disagree"), the top two engines and core now
 agree on not enlarging for native H3, and only the third engine and the periphery still enlarge. *2026-11-22: for
@@ -94,7 +98,8 @@ A stacked pair at one seed on a masked-lane head-crop load would decide it, judg
 
 ## 2026-11-22: Pika
 
-A new fact, recorded here for the owner; the 2026-11-15 decision above is unchanged until the owner says otherwise.
+**Decided 2026-11-22: the Pika ref2va graphs moved to `tiered`.** The owner relayed the Gemini lead's review with
+its go, and the move followed. The 2026-11-15 decision stands for native H3 and for the node default.
 
 - **What moved.** sglang `44a391941a` (#51935, a `[Fix]` PR, 2026-11-20) sets
   `PikaH3FlexSamplingParams.reference_resize_mode = "diffusers"`, so sglang's Pika enlarges small stills to a 2048
@@ -113,4 +118,15 @@ A new fact, recorded here for the owner; the 2026-11-15 decision above is unchan
   `allow_upscale=False` (node 50 of each `*pika*` ref2va graph). `size_policy="tiered"`
   (`reference_geometry.py::tier_short_edge`) is a port of Pika's `reference_short_edge_for_canvas`, and
   `workflows/build_workflows.py` takes `ref_size_policy`.
-- **What it would settle.** Whether Pika ref2va graphs move to `tiered` is the owner's call, through the Open List.
+- **What moved (2026-11-22).** `h3_config.PIKA_REF_SIZE_POLICY = "tiered"`, passed as `ref_size_policy` by the ten
+  Pika ref2va entries in `workflows/build_workflows.py`, eleven graphs with `workflows/daily/h3_preview_pika_ref2va_api.json`.
+  One of them is `workflows/h3_guide_video_edit_api.json`, whose name does not say Pika (found by the Gemini lead).
+  The single-frame Pika edits keep `match`; the motion-transfer parity arms keep `max` with upscale on, the same
+  size from the 768 tier up. `bench/check_distill_settings.py` now fails a Pika ref2va video graph whose stills
+  are not enlarged that way.
+- **What it costs.** Under the shipped `qwen_view="separate"` only the DiT's reference rows grow: a `1024x1024`
+  still goes from 1,024 to 4,096 rows ("What references cost" in [`../../core/h3_references.md`](../../core/h3_references.md)).
+  `bench/preflight_graph.py` prices a graph's whole sequence; it reads the input folders from `<comfy>/start.sh`
+  and leaves out a still it cannot find. Wall time and peak memory with Pika were not measured.
+- **What was not done.** No render compared the two on Pika. A same-seed stacked pair on one Pika ref2va graph
+  would show whether the difference is visible.
