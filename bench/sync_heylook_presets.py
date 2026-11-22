@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Sync tracked `docs/wiki/system_prompts/` presets to `heylook` without clobbering local rules or params.
+"""Sync tracked `docs/wiki/system_prompts/` presets to `heylook` without clobbering local overlays or params.
 
 Usage:
     <comfy-venv-python> bench/sync_heylook_presets.py --list
@@ -14,9 +14,7 @@ Preservation guarantees on every update (`PUT /v1/presets/{id}`):
        <!-- H3_LOCAL_ADDENDUM_START --> ... <!-- H3_LOCAL_ADDENDUM_END -->
    is extracted from the remote `system_prompt` and re-attached around the updated
    canonical repo prompt cleanly on every run (100% idempotent).
-3. One-time legacy compatibility: if an existing remote preset carries an un-fenced
-   `POLICY SCOPE` / `Policy:` block, it is migrated automatically into `H3_LOCAL_ADDENDUM` sentinels.
-4. Optional gitignored overlay TOML (default `internal/heylook_local_overlays.toml`
+3. Optional gitignored overlay TOML (default `internal/heylook_local_overlays.toml`
    when present, or `--overlays <path>`) can configure `[global]` (`prefix`, `preamble`,
    `addendum`, `params`), per-preset `[presets."<name>"]` (`remote_name`, `preamble`,
    `addendum`, `params`), and `[overlay_preset]` (`name`, `directive`, `body`, `params`).
@@ -113,7 +111,6 @@ class SyncAction:
     new_system_prompt: str
     old_params: dict[str, Any]
     new_params: dict[str, Any]
-    migrated_legacy: bool = False
     has_local_blocks: bool = False
     diff_text: str = ""
 
@@ -125,17 +122,6 @@ _PREAMBLE_RE = re.compile(
 _ADDENDUM_RE = re.compile(
     re.escape(ADDENDUM_START) + r"(.*?)" + re.escape(ADDENDUM_END),
     re.DOTALL,
-)
-_LEGACY_POLICY_HEAD_RE = re.compile(
-    r"^\s*(?:#{1,4}\s*|\*{2})?(?:POLICY\s+SCOPE\b|POLICY\s*:)",
-    re.IGNORECASE,
-)
-_LEGACY_STOP_RE = re.compile(
-    r"^(?:\s*#{1,4}\s+\S|\s*---+\s*$|\s*[A-Z][A-Z0-9 _/-]{3,}\s*$)"
-)
-_LEGACY_BLANKLINE_CANONICAL_STOP_RE = re.compile(
-    r"^(?:\s*\d+\.\s+[^:\n]+:\s*$|\s*(?:output\s+contract|output\s+format|hard\s+constraints|(?:target\s+)?aspect-ratio\s+(?:decision\s+)?policy|follow\s+these\s+(?:captioning\s+|editing\s+|strict\s+)?(?:principles|rules)|write\s+(?:the\s+caption|one\s+paragraph)\b[^:\n]*|plan\s+silently\b[^:\n]*|before\s+writing\b[^:\n]*|subject_definitions|summary|retention_analysis|detailed_description|integrated_multimodal_description|overall_soundscape|non_diegetic_music)\s*:\s*$)",
-    re.IGNORECASE,
 )
 _FENCED_TEXT_RE = re.compile(r"```text\s*\n(.*?)```", re.DOTALL)
 
@@ -151,47 +137,14 @@ def sanitize_preset_params(raw: dict[str, Any] | None) -> dict[str, Any]:
     return out
 
 
-def _extract_legacy_policy_scope(text: str) -> str:
-    """Extract an un-fenced `POLICY SCOPE` / `Policy:` section stopping at structural section boundaries."""
-    lines = text.splitlines()
-    start_idx: int | None = None
-    for idx, line in enumerate(lines):
-        if _LEGACY_POLICY_HEAD_RE.match(line):
-            start_idx = idx
-            break
-    if start_idx is None:
-        return ""
-    end_idx = len(lines)
-    for idx in range(start_idx + 1, len(lines)):
-        if _LEGACY_STOP_RE.match(lines[idx]):
-            end_idx = idx
-            break
-        if idx > start_idx + 1 and not lines[idx - 1].strip() and _LEGACY_BLANKLINE_CANONICAL_STOP_RE.match(lines[idx]):
-            end_idx = idx
-            break
-    return "\n".join(lines[start_idx:end_idx]).strip()
-
-
-def extract_local_blocks(remote_text: str) -> tuple[str, str, bool]:
-    """Extract `(preamble, addendum, migrated_legacy)` from a remote `system_prompt`."""
+def extract_local_blocks(remote_text: str) -> tuple[str, str]:
+    """Extract explicit sentinel-wrapped `(preamble, addendum)` blocks from a remote `system_prompt`."""
     norm = (remote_text or "").replace("\r\n", "\n").replace("\r", "\n")
     m_pre = _PREAMBLE_RE.search(norm)
     preamble = m_pre.group(1).strip() if m_pre else ""
     m_add = _ADDENDUM_RE.search(norm)
     addendum = m_add.group(1).strip() if m_add else ""
-    migrated = False
-    if not m_pre and not m_add and not addendum:
-        legacy = _extract_legacy_policy_scope(norm)
-        if legacy:
-            addendum = legacy
-            migrated = True
-    elif not m_add and not addendum:
-        un_fenced = _ADDENDUM_RE.sub("", _PREAMBLE_RE.sub("", norm))
-        legacy = _extract_legacy_policy_scope(un_fenced)
-        if legacy:
-            addendum = legacy
-            migrated = True
-    return preamble, addendum, migrated
+    return preamble, addendum
 
 
 def _merge_unique_blocks(remote_block: str, overlay_block: str) -> str:
@@ -376,7 +329,6 @@ def _build_overlay_action(
         new_system_prompt=new_sys,
         old_params=old_params,
         new_params=new_params,
-        migrated_legacy=False,
         has_local_blocks=bool(clean_body),
         diff_text="\n".join(diff_lines),
     )
@@ -411,7 +363,7 @@ def plan_sync(
         old_params_raw = (remote or {}).get("params") or {}
         old_params = sanitize_preset_params(old_params_raw)
 
-        remote_pre, remote_add, migrated = extract_local_blocks(old_sys)
+        remote_pre, remote_add = extract_local_blocks(old_sys)
         ov_pre = str(p_ov.get("preamble") if "preamble" in p_ov else g_ov.get("preamble") or "").strip()
         ov_add = str(p_ov.get("addendum") if "addendum" in p_ov else g_ov.get("addendum") or "").strip()
 
@@ -456,7 +408,6 @@ def plan_sync(
                 new_system_prompt=new_sys,
                 old_params=old_params,
                 new_params=new_params,
-                migrated_legacy=migrated,
                 has_local_blocks=bool(eff_pre or eff_add),
                 diff_text="\n".join(diff_lines),
             )
@@ -600,8 +551,6 @@ def main(argv: list[str] | None = None) -> int:
         flags = []
         if act.has_local_blocks:
             flags.append("local-blocks")
-        if act.migrated_legacy:
-            flags.append("migrated-policy-scope")
         if act.new_params:
             flags.append(f"params={len(act.new_params)}")
         flag_str = f" ({', '.join(flags)})" if flags else ""

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Offline checks for `bench/sync_heylook_presets.py`: catalog, exact matching, legacy boundary stops, `--prefix`, & `[overlay_preset]` idempotency."""
+"""Offline checks for `bench/sync_heylook_presets.py`: catalog, exact matching, sentinel blocks, `--prefix`, & `[overlay_preset]` idempotency."""
 
 from __future__ import annotations
 
@@ -63,9 +63,9 @@ def check_catalog_and_fenced_blocks() -> str:
     return "18 catalog prompts (including 2 P-H3 fenced blocks) load cleanly & format h3app_* names"
 
 
-def check_exact_matching_and_legacy_boundaries() -> str:
+def check_exact_matching_and_sentinel_blocks() -> str:
     # Existing underscore `h3_image_t2i` MUST NOT match hyphenated `h3-image-t2i`.
-    # And legacy `Policy:` / `POLICY SCOPE` must stop before plain-text section headers.
+    # Only explicit `H3_LOCAL_PREAMBLE` / `H3_LOCAL_ADDENDUM` sentinels are preserved across syncs.
     remote = [
         {
             "id": "p-ph3",
@@ -77,20 +77,18 @@ def check_exact_matching_and_legacy_boundaries() -> str:
             "id": "p-native-edit",
             "name": "h3-image-edit",
             "system_prompt": (
-                "Intro line.\n\n"
-                "Policy:\nKeep evaluation clean.\nNo unsolicited warnings.\n\n"
-                "Output contract:\nReturn one plain paragraph.\n\n"
-                "OUTPUT FORMAT\nNothing else.\n"
+                f"{shp.PREAMBLE_START}\nFavor 35mm film grain.\n{shp.PREAMBLE_END}\n\n"
+                "Outdated body text that must be replaced.\n\n"
+                f"{shp.ADDENDUM_START}\nPreserve subject lighting.\n{shp.ADDENDUM_END}\n"
             ),
             "params": {"temperature": 0.42, "bogus_key": 99, "top_p": None},
         },
         {
-            "id": "p-numbered",
+            "id": "p-unfenced",
             "name": "h3-image-t2i-ar",
             "system_prompt": (
-                "Intro.\n\n"
-                "POLICY SCOPE\nScope line A.\n\n"
-                "1. Opening framing and medium:\nDo not pull this rule into addendum.\n"
+                "Outdated intro.\n\n"
+                "1. Opening framing:\nOld text.\n"
             ),
             "params": {},
         },
@@ -103,14 +101,17 @@ def check_exact_matching_and_legacy_boundaries() -> str:
     by_name = {a.target_name: a for a in acts}
     assert by_name["h3-image-t2i"].action == "create"
     assert remote[0]["system_prompt"] == "EXISTING P-H3 PROMPT (must stay untouched)"
-    assert by_name["h3-image-edit"].migrated_legacy is True
-    assert "Keep evaluation clean." in by_name["h3-image-edit"].new_system_prompt
-    assert "Return one plain paragraph." not in by_name["h3-image-edit"].new_system_prompt
+    assert by_name["h3-image-edit"].has_local_blocks is True
+    assert shp.extract_local_blocks(by_name["h3-image-edit"].new_system_prompt) == (
+        "Favor 35mm film grain.",
+        "Preserve subject lighting.",
+    )
+    assert "Outdated body text that must be replaced." not in by_name["h3-image-edit"].new_system_prompt
     assert by_name["h3-image-edit"].new_params == {"temperature": 0.42}
-    assert by_name["h3-image-t2i-ar"].migrated_legacy is True
-    assert "Do not pull this rule into addendum." not in by_name["h3-image-t2i-ar"].new_system_prompt
-    assert shp.extract_local_blocks(by_name["h3-image-t2i-ar"].new_system_prompt)[1] == "POLICY SCOPE\nScope line A."
-    return "exact name avoids h3_image_t2i collision & Policy:/POLICY SCOPE stops cleanly at plain headers"
+    assert by_name["h3-image-t2i-ar"].has_local_blocks is False
+    assert shp.extract_local_blocks(by_name["h3-image-t2i-ar"].new_system_prompt) == ("", "")
+    assert "Old text." not in by_name["h3-image-t2i-ar"].new_system_prompt
+    return "exact name avoids h3_image_t2i collision, sanitizes params, & preserves only explicit sentinel blocks"
 
 
 def check_prefix_overlay_preset_and_idempotency() -> str:
@@ -130,7 +131,7 @@ def check_prefix_overlay_preset_and_idempotency() -> str:
         ov_path.write_text(
             '[global]\n'
             'prefix = "h3app_"\n'
-            'preamble = "POLICY SCOPE\\nDirect conditioning output."\n\n'
+            'preamble = "Favor crisp 35mm natural framing."\n\n'
             '[overlay_preset]\n'
             'name = "h3app_local_overlay"\n'
             'directive = "@extend:prepend"\n'
@@ -163,7 +164,7 @@ def check_prefix_overlay_preset_and_idempotency() -> str:
         assert "Always edit the original picture." not in by_name["h3app_video_t2va"]["system_prompt"]
         ov_sys = by_name["h3app_local_overlay"]["system_prompt"]
         mode, body = _hc.parse_extend_directive(ov_sys)
-        assert mode == "prepend" and "Direct conditioning output." in body
+        assert mode == "prepend" and "Favor crisp 35mm natural framing." in body
 
         # Re-run must be 100% unchanged and perform 0 writes
         ops.clear()
@@ -182,28 +183,17 @@ def check_prefix_overlay_preset_and_idempotency() -> str:
     return "18 h3app_* canonical presets + 1 @extend:prepend overlay create cleanly and re-sync with 0 diffs"
 
 
-def check_legacy_scope_and_overlay_directive_validation() -> str:
+def check_overlay_directive_validation() -> str:
     from bench import sync_heylook_presets as ps
 
-    # 1. Legacy POLICY SCOPE must preserve numbered rules and Allowed:, stopping only
-    # at blank-line-preceded canonical headers (e.g. Output contract:).
-    legacy_prompt = (
+    # 1. Sentinel extraction ignores un-fenced prose and parses both explicit sentinel blocks.
+    assert ps.extract_local_blocks("Plain un-fenced text\nwith multiple lines.") == ("", "")
+    fenced_prompt = (
+        f"{ps.PREAMBLE_START}\nLead rule.\n{ps.PREAMBLE_END}\n\n"
         "Canonical body.\n\n"
-        "POLICY SCOPE:\n"
-        "1. Never rewrite dialogue.\n"
-        "2. Keep tone neutral.\n\n"
-        "Allowed:\n"
-        "Keep grain.\n\n"
-        "Output contract:\n"
-        "Return one paragraph.\n"
+        f"{ps.ADDENDUM_START}\nTail rule.\n{ps.ADDENDUM_END}\n"
     )
-    scope = ps._extract_legacy_policy_scope(legacy_prompt)
-    assert "1. Never rewrite dialogue." in scope, f"lost numbered rule 1: {scope!r}"
-    assert "2. Keep tone neutral." in scope, f"lost numbered rule 2: {scope!r}"
-    assert "Allowed:" in scope and "Keep grain." in scope, f"lost Allowed section: {scope!r}"
-    assert "Output contract:" not in scope and "Return one paragraph." not in scope, (
-        f"leaked past Output contract header: {scope!r}"
-    )
+    assert ps.extract_local_blocks(fenced_prompt) == ("Lead rule.", "Tail rule.")
 
     # 2. Invalid [overlay_preset].directive must raise ValueError instead of silent header mismatch.
     try:
@@ -217,7 +207,7 @@ def check_legacy_scope_and_overlay_directive_validation() -> str:
     except ValueError:
         pass
 
-    return "legacy POLICY SCOPE keeps rules/Allowed before Output contract, and overlay directive validation rejects bare 'prepend'"
+    return "sentinel extraction ignores un-fenced text & overlay directive validation rejects bare 'prepend'"
 
 
 def check_access_gate_auth_forwarding() -> str:
@@ -326,9 +316,9 @@ def check_access_gate_auth_forwarding() -> str:
 
 def main() -> int:
     case("catalog_and_fenced_blocks", check_catalog_and_fenced_blocks)
-    case("exact_matching_and_legacy_boundaries", check_exact_matching_and_legacy_boundaries)
+    case("exact_matching_and_sentinel_blocks", check_exact_matching_and_sentinel_blocks)
     case("prefix_overlay_preset_and_idempotency", check_prefix_overlay_preset_and_idempotency)
-    case("legacy_scope_and_overlay_directive_validation", check_legacy_scope_and_overlay_directive_validation)
+    case("overlay_directive_validation", check_overlay_directive_validation)
     case("access_gate_auth_forwarding", check_access_gate_auth_forwarding)
     return finish()
 
