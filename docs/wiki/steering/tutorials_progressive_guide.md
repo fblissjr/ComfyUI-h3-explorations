@@ -82,11 +82,11 @@ Load [`workflows/h3_text_to_video_pika_1d_vs_erasure_ab_api.json`](../../../work
 
 ### Step 2.1 — Historical Specificity Study: Why `V_r` Preserved Figures Better Than Blunt Prompt Dampening (`paper_origami`, now archived in `_retired/`)
 
-Run the CPU X-ray against the archival `paper_origami` specificity study (for active bank renders, prefer `claymation_stopmotion` or `charcoal_sketch_animated`):
+The `paper_origami` specificity study is retained as historical background (`paper_origami` is now archived in `_retired/`). To run the live CPU X-ray against an active bank stem on the current stairwell scene:
 
 ```bash
-CUDA_VISIBLE_DEVICES="" "$PY" bench/control_vectors.py inspect paper_origami \
-  --prompt prompt_bank/t2va_sitcom_kitchen.txt
+CUDA_VISIBLE_DEVICES="" "$PY" bench/control_vectors.py inspect claymation_stopmotion \
+  --prompt prompt_bank/t2va_stairwell_dialogue.txt
 ```
 
 Look at `erases=[shape (0.34), live-action (0.28), kitchen (0.22), wall (0.21)]` and `vr[2..3]` (`realistic, realism, texture, real, natural`). In our controlled specificity benchmark (`ablation2_vr_variants_fl2va.png` and `ablation3_rank_and_ridge.png` at matched `RMS = 101.25`):

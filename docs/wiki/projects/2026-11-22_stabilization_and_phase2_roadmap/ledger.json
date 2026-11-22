@@ -4,23 +4,23 @@
   "dossier_slug": "2026-11-22_stabilization_and_phase2_roadmap",
   "title": "H3 Steering Stabilization Plan, Phase 2 Queue & 6-Session Feedback Archive",
   "head_commits": {
-    "root_repo_main": "3d4d81d4",
+    "root_repo_main": "7ae4cfa1",
     "root_preceding_commits": [
-      "79e5e388",
-      "c63f0eff",
-      "b8543654",
-      "340e8ded",
-      "dd45600e",
-      "7541fb55",
-      "c45410f9",
-      "fd09f150"
+      "6a45cff7",
+      "b657c6a8",
+      "6f7131dd",
+      "b42d443c",
+      "48031b0e",
+      "ec693dff",
+      "3d4d81d4"
     ],
-    "nested_app_repo": "3145c32",
+    "nested_app_repo": "70ac442",
     "nested_app_preceding_commits": [
+      "3145c32",
       "5eee0a7",
       "81572fe",
       "1974bdd",
-      "88b54d8"
+      "f9f43bb"
     ]
   },
   "session_consolidation": {
@@ -85,43 +85,70 @@
     {
       "session_id": "90e9d2bd",
       "role": "Coordinator & GPU Lock Holder",
-      "rounds_present": ["coordinator_r1", "coordinator_r2", "coordinator_r3"],
+      "rounds_present": [
+        "coordinator_r1",
+        "coordinator_r2",
+        "coordinator_r3"
+      ],
       "key_responsibility": "Sole GPU lock, file-ownership fences, cross-session synthesis and disk verification, root stabilization lane."
     },
     {
       "session_id": "61cf9813",
       "role": "Frontend Lane C (app/.git)",
-      "rounds_present": ["round1_step_1077", "round2_step_1101", "round3_step_1148"],
+      "rounds_present": [
+        "round1_step_1077",
+        "round2_step_1101",
+        "round3_step_1148"
+      ],
       "key_responsibility": "Pocket Console app/ server, static JS, /lab, Finder Vibe Search, Tinker Racks, CDP tests, live :8188 Chrome E2E."
     },
     {
       "session_id": "085d496e",
       "role": "Research & Wiki Consolidation Lead (Lane B)",
-      "rounds_present": ["round1_step_1063", "round2_step_1105", "round3_step_1143"],
+      "rounds_present": [
+        "round1_step_1063",
+        "round2_step_1105",
+        "round3_step_1143"
+      ],
       "key_responsibility": "Unified guide c63f0eff/79e5e388, steering/research migration 3d4d81d4, Bus-Scoped V_r CPU proof, Path 1C/Paper v5."
     },
     {
       "session_id": "faa62ef5",
       "role": "Core Runtime & Attention Hooks Lead (Lane A)",
-      "rounds_present": ["round1_step_1057", "round2_step_1095", "round3_step_1132"],
+      "rounds_present": [
+        "round1_step_1057",
+        "round2_step_1095",
+        "round3_step_1132"
+      ],
       "key_responsibility": "Stage 1 dd45600e, Stage 2 340e8ded (steer_attention_hooks.py, H3SteerStepWorkspace), 1x Q_vid[mask] probe, Path 1C runtime."
     },
     {
       "session_id": "1fffc6ed",
       "role": "Fresh-Eye Critique & Creative Concept Lead",
-      "rounds_present": ["round1_step_1053", "round2_step_1109", "round3_step_1144"],
+      "rounds_present": [
+        "round1_step_1053",
+        "round2_step_1109",
+        "round3_step_1144"
+      ],
       "key_responsibility": "Prompt/scene confounding checks, make_cmds.py hold catch, Split-Text Online-Softmax Merge insight, GPU OOM catch on Model2Vec."
     },
     {
       "session_id": "9aed68ab",
       "role": "Operational Wiki & UX Critique (Window 3)",
-      "rounds_present": ["round1_step_1073", "round2_step_1100", "round3_step_1135"],
+      "rounds_present": [
+        "round1_step_1073",
+        "round2_step_1100",
+        "round3_step_1135"
+      ],
       "key_responsibility": "Stale doc inventory, t=1 4-up Live Scout UX idea, alpha > 1.0 attention extrapolation insight, j_lens word fallback verification."
     },
     {
       "session_id": "e5d15905",
       "role": "Diagnostic Audit Relay",
-      "rounds_present": ["round2_step_1097", "round3_step_1156"],
+      "rounds_present": [
+        "round2_step_1097",
+        "round3_step_1156"
+      ],
       "key_responsibility": "180-term Model2Vec OOV catch, Proposition 4 single-prompt media-pair catch, app/ async & hot-reload catches, anti-bloat guard."
     }
   ],
@@ -134,7 +161,9 @@
       "lines": "123-153",
       "symbol": "cmd_make_media",
       "summary": "--hold-words / --hold only calls _apply_post_refiner_holds on tensors['vector.post_refiner'] and never calls _apply_erasure_holds on erasure.{mu_d,vr,diag}.",
-      "fix": "Scrub erasure.{mu_d,vr,diag} alongside vector.post_refiner whenever hold_specs or hold_words are supplied in make-media."
+      "fix": "Scrub erasure.{mu_d,vr,diag} alongside vector.post_refiner whenever hold_specs or hold_words are supplied in make-media.",
+      "status": "done",
+      "resolved_in": "48031b0e"
     },
     {
       "id": "BUG-02",
@@ -144,7 +173,9 @@
       "lines": "3868",
       "symbol": "make_control_vector_from_media_pairs",
       "summary": "Repeats a single custom_prompt across all n_frames (prompts = [custom_prompt for _ in range(n_frames)]), triggering Paper Proposition 4 token collapse on pooling='scene_text'.",
-      "fix": "Accept per-pair scene_prompts sequence alongside scalar scene_prompt fallback."
+      "fix": "Accept per-pair scene_prompts sequence alongside scalar scene_prompt fallback.",
+      "status": "done",
+      "resolved_in": "48031b0e"
     },
     {
       "id": "BUG-03",
@@ -153,8 +184,10 @@
       "file": "j_lens.py",
       "lines": "745-815",
       "symbol": "check_b_side_alignment",
-      "summary": "Numerator matches at most the top-8 positive_words against 14-25+ unfiltered Pole-B tokens, causing 44/52 (84.6%) active bank stems—including proven winners—to fail raw b_cov >= 0.25.",
-      "fix": "Stop gating bank quality on raw b_cov >= 0.25; compute semantic_top8_hit_rate / max(coverage, semantic_top8_hit_rate) and surface top-5 pos_words honestly."
+      "summary": "Numerator matches at most the top-8 positive_words against 14-25+ unfiltered Pole-B tokens, causing 44/52 (84.6%) active bank stems\u2014including proven winners\u2014to fail raw b_cov >= 0.25.",
+      "fix": "Stop gating bank quality on raw b_cov >= 0.25; compute semantic_top8_hit_rate / max(coverage, semantic_top8_hit_rate) and surface top-5 pos_words honestly.",
+      "status": "done",
+      "resolved_in": "48031b0e"
     },
     {
       "id": "BUG-04",
@@ -164,7 +197,9 @@
       "lines": "201-222",
       "symbol": "load_model2vec_lexicon",
       "summary": "Reads meta['terms_json'] from model2vec_h3_lexicon.safetensors but omits meta['categories_json'] (written at bench/control_vector/build_model2vec_lexicon.py:409), leaving loaded category counts empty.",
-      "fix": "Parse optional meta.get('categories_json') into payload['categories'] and payload['term_to_category']."
+      "fix": "Parse optional meta.get('categories_json') into payload['categories'] and payload['term_to_category'].",
+      "status": "done",
+      "resolved_in": "48031b0e"
     },
     {
       "id": "BUG-05",
@@ -174,7 +209,9 @@
       "lines": "53-241",
       "symbol": "CURATED_LEXICON",
       "summary": "180-term lexicon lacks standalone stem-token matches for 21/50 (42%) active fl2va bank stems (16 completely unrepresented even by component words, plus 5 multi-word/hyphenated matches and missing compound aliases like 'x-ray', 'fluoroscope', 'liquid chrome'). Also ships hardcoded decone_pcs=2 without empirical A/B against decone_pcs=0.",
-      "fix": "Audit, de-dup, and expand CURATED_LEXICON for all kept active stems + domain aliases, test decone_pcs 2 vs 0 empirically, and rebuild $H3_MODEL_STORE/j_lens/model2vec_h3_lexicon.safetensors under the single GPU lock (bootstrap(cpu=False))."
+      "fix": "Audit, de-dup, and expand CURATED_LEXICON for all kept active stems + domain aliases, test decone_pcs 2 vs 0 empirically, and rebuild $H3_MODEL_STORE/j_lens/model2vec_h3_lexicon.safetensors under the single GPU lock (bootstrap(cpu=False)).",
+      "status": "done",
+      "resolved_in": "6f7131dd"
     },
     {
       "id": "BUG-06",
@@ -184,7 +221,9 @@
       "symbol": "_pairs_generate_sync",
       "related_tracked": "bench/control_vector/llm_pairs.py:337-356",
       "summary": "/api/lab/pairs/generate runs a synchronous blocking POST holding connections open 150-350+s under thinking='model default' and max_new_tokens=4800 with 2-pass repair.",
-      "fix": "Convert /api/lab/pairs/generate to /api/lab/build's async background-job + polling pattern and tighten thinking/token budget."
+      "fix": "Convert /api/lab/pairs/generate to /api/lab/build's async background-job + polling pattern and tighten thinking/token budget.",
+      "status": "done",
+      "resolved_in": "app/.git@70ac442"
     },
     {
       "id": "BUG-07",
@@ -193,7 +232,9 @@
       "file": "app/static/js/main.js",
       "symbol": "/api/options",
       "summary": "Main Studio page / fetches /api/options only once on boot; newly built vectors from /lab do not appear in dropdowns or Vibe Search without a full page reload.",
-      "fix": "Refresh /api/options on window focus and document visibilitychange (and BroadcastChannel/storage signal from /lab)."
+      "fix": "Refresh /api/options on window focus and document visibilitychange (and BroadcastChannel/storage signal from /lab).",
+      "status": "done",
+      "resolved_in": "app/.git@70ac442"
     },
     {
       "id": "BUG-08",
@@ -202,7 +243,9 @@
       "file": "app/graph_builder.py",
       "related_tracked": "control_vector_nodes.py:2563-2567",
       "summary": "Stage 2 block_band has 0 wiring in app/recipes.py, app/graph_builder.py, and workflows/build_workflows.py. Also control_vector_nodes.py:2563-2567 raises ValueError if stacked vectors pass >1 distinct non-'all' block_band in the same step.",
-      "fix": "Wire block_band ('all' vs 'mid_late_20_49' labeled honestly as Subtle/Face-Safe) + Voice Lock (1x) toggle (streams='video_only'), enforcing single non-'all' band grouping/guard in Studio."
+      "fix": "Wire block_band ('all' vs 'mid_late_20_49' labeled honestly as Subtle/Face-Safe) + Voice Lock (1x) toggle (streams='video_only'), enforcing single non-'all' band grouping/guard in Studio.",
+      "status": "done",
+      "resolved_in": "app/.git@70ac442"
     },
     {
       "id": "BUG-09",
@@ -211,7 +254,9 @@
       "file": "app/tests/test_pocket_console.py",
       "symbol": "TINKER_RACKS",
       "summary": "Tests and TINKER_RACKS (app/static/js/steering_deck.js) hardcode specific stems (e.g. de_llm_slop, handheld_documentary_zoom) and miss the 6 new visual concepts; Edit and Ref2VA only verified under _StandInComfy mocks in app/test_app.py.",
-      "fix": "Make TINKER_RACKS/tests bank-resilient against dud pruning and run live :8188 Chrome E2E across Generate, Edit, Ref2VA, /lab, Re-Dub, and Continue 39f."
+      "fix": "Make TINKER_RACKS/tests bank-resilient against dud pruning and run live :8188 Chrome E2E across Generate, Edit, Ref2VA, /lab, Re-Dub, and Continue 39f.",
+      "status": "done",
+      "resolved_in": "app/.git@70ac442"
     },
     {
       "id": "DRIFT-01",
@@ -219,7 +264,9 @@
       "severity": "high",
       "file": "data/control_vectors/",
       "summary": "7 active shipped bank TOMLs sit untracked in data/control_vectors/ instead of tracked prompt_bank/control_vectors/ (43 tracked vs 50 active bank fl2va stems), alongside 10 unbuilt Nov-11/12 TOMLs and 6 stale Nov-12 subdirs.",
-      "fix": "Promote the 7 active TOMLs to prompt_bank/control_vectors/ (50/50 parity), archive the 10 dead TOMLs + 6 stale subdirs to data/archive/, leave data/edit_concepts/ untouched."
+      "fix": "Promote the 7 active TOMLs to prompt_bank/control_vectors/ (50/50 parity), archive the 10 dead TOMLs + 6 stale subdirs to data/archive/, leave data/edit_concepts/ untouched.",
+      "status": "done",
+      "resolved_in": "6f7131dd"
     },
     {
       "id": "DRIFT-02",
@@ -227,7 +274,31 @@
       "severity": "medium",
       "file": "docs/wiki/",
       "summary": "Pre-Stage-2 drifts remain after 79e5e388/c63f0eff/3d4d81d4: retired paper_origami/wes_anderson_symmetry/t2va_sitcom_kitchen examples, '5-Bus'/'anti_slop'/de_llm_slop references (including AGENTS.md:93, handover.md, studio_ui_guide.md), '38-concept'/'28/38' counts, and overstated ref2va end_percent=0.33 claims.",
-      "fix": "Single unified de-dup & anti-hype scrub across docs/wiki/steering/*.md, h3_steering_and_architecture.md, handover.md, next_steps.md, and AGENTS.md:93."
+      "fix": "Single unified de-dup & anti-hype scrub across docs/wiki/steering/*.md, h3_steering_and_architecture.md, handover.md, next_steps.md, and AGENTS.md:93.",
+      "status": "done",
+      "resolved_in": "b657c6a8; 6a45cff7; 7ae4cfa1"
+    },
+    {
+      "id": "BUG-10",
+      "area": "nested_app_tests",
+      "severity": "medium",
+      "status": "open_handed_to_61cf9813",
+      "file": "app/tests/test_pocket_console.py",
+      "lines": "198",
+      "symbol": "test_vibe_search_endpoint_and_options_capabilities",
+      "summary": "After the 204-term lexicon rebuild (decone_pcs=0 in 6f7131dd), POST /api/lab/vibe_search for 'noir' (fl2va) ranks 'noir' #1 at cosine 0.3345, failing assert 0.3345 >= 0.34.",
+      "fix": "Lower threshold in app/tests/test_pocket_console.py:198 (e.g. >= 0.30) and review dead main.js:244-246 branch + stale app/ docs."
+    },
+    {
+      "id": "BUG-11",
+      "area": "nested_app_guard",
+      "severity": "low",
+      "status": "open_handed_to_61cf9813",
+      "file": "app/recipes.py",
+      "lines": "986-990",
+      "symbol": "block_band guard vs app/graph_builder.py:1259-1266",
+      "summary": "3-way mismatch on P-H3-Image block_band support: app/recipes.py:986-990 returns False for P-H3-Image while app/graph_builder.py:1259-1266 only rejects h3image/h3_image and 70ac442 commit message claims Video + P-H3-Image.",
+      "fix": "Align app/recipes.py capability guard, app/graph_builder.py rejection, and UI copy ('Blocks 20-49 (Subtle / Face-Safe)')."
     }
   ],
   "today_stabilization_tasks": [
@@ -236,121 +307,152 @@
       "owner": "61cf9813",
       "repo": "app/.git",
       "title": "Convert /api/lab/pairs/generate to async job + tighten thinking/budget",
-      "details": "Move _pairs_generate_sync in app/cv_lab.py onto /api/lab/build's background-job + polling model and reduce default thinking/token budget so Draft 10 Pairs finishes cleanly without Safari/Tailscale hangs."
+      "details": "Move _pairs_generate_sync in app/cv_lab.py onto /api/lab/build's background-job + polling model and reduce default thinking/token budget so Draft 10 Pairs finishes cleanly without Safari/Tailscale hangs.",
+      "status": "done",
+      "commit": "app/.git@70ac442"
     },
     {
       "id": "STAB-FE-02",
       "owner": "61cf9813",
       "repo": "app/.git",
       "title": "Auto hot-reload /api/options on / focus & visibilitychange",
-      "details": "Update app/static/js/main.js so newly built vectors and rebuilt lexicon terms appear immediately in Studio dropdowns and Vibe Search without manual refresh."
+      "details": "Update app/static/js/main.js so newly built vectors and rebuilt lexicon terms appear immediately in Studio dropdowns and Vibe Search without manual refresh.",
+      "status": "done",
+      "commit": "app/.git@70ac442"
     },
     {
       "id": "STAB-FE-03",
       "owner": "61cf9813",
       "repo": "app/.git",
       "title": "Wire Stage 2 block_band + Voice Lock (1x) without debug/UI bloat",
-      "details": "Expose block_band ('all' vs 'mid_late_20_49' labeled Subtle/Face-Safe) with stack-level guard for control_vector_nodes.py:2563-2567 plus Voice Lock (1x) toggle for streams='video_only'. Skip split_backend dropdown (auto_1x_kv already default) and keep SAM 3.1 / audio_freeze off /."
+      "details": "Expose block_band ('all' vs 'mid_late_20_49' labeled Subtle/Face-Safe) with stack-level guard for control_vector_nodes.py:2563-2567 plus Voice Lock (1x) toggle for streams='video_only'. Skip split_backend dropdown (auto_1x_kv already default) and keep SAM 3.1 / audio_freeze off /.",
+      "status": "done",
+      "commit": "app/.git@70ac442"
     },
     {
       "id": "STAB-FE-04",
       "owner": "61cf9813",
       "repo": "app/.git",
       "title": "Bank-resilient TINKER_RACKS/tests + Live :8188 Chrome E2E QA",
-      "details": "Decouple app/tests/test_pocket_console.py and TINKER_RACKS (app/static/js/steering_deck.js) from fragile/retired stems, add verified new concepts after t=1 screen, and verify Generate, Edit, Ref2VA, /lab, Re-Dub, and Continue 39f live against :8188."
+      "details": "Decouple app/tests/test_pocket_console.py and TINKER_RACKS (app/static/js/steering_deck.js) from fragile/retired stems, add verified new concepts after t=1 screen, and verify Generate, Edit, Ref2VA, /lab, Re-Dub, and Continue 39f live against :8188.",
+      "status": "done",
+      "commit": "app/.git@70ac442",
+      "outcome": "Verified live :8188 Edit/Ref2VA//lab + 137/137 bank vectors pre-rebuild; post-6f7131dd test_pocket_console.py:198 noir threshold (0.3345 < 0.34) handed to 61cf9813."
     },
     {
       "id": "STAB-ROOT-01",
       "owner": "90e9d2bd",
       "repo": "main",
       "title": "Data consolidation: promote 7 active TOMLs, archive 10 dead TOMLs + 6 stale subdirs, preserve edit_concepts",
-      "details": "Move 7 active shipped TOMLs (env_torrential_rain_drench, golden_hour_glow, heavy_blizzard, knitted_wool_world, look_amber_candlelight, toy_brick_world, watercolor_wash) from data/control_vectors/ to tracked prompt_bank/control_vectors/ (50/50 parity). Move 10 unbuilt Nov-11/12 TOMLs + 6 stale Nov-12 analysis subdirs to data/archive/. Preserve data/edit_concepts/ (89 active [concept] TOMLs)."
+      "details": "Move 7 active shipped TOMLs (env_torrential_rain_drench, golden_hour_glow, heavy_blizzard, knitted_wool_world, look_amber_candlelight, toy_brick_world, watercolor_wash) from data/control_vectors/ to tracked prompt_bank/control_vectors/ (50/50 parity). Move 10 unbuilt Nov-11/12 TOMLs + 6 stale Nov-12 analysis subdirs to data/archive/. Preserve data/edit_concepts/ (89 active [concept] TOMLs).",
+      "status": "done",
+      "commit": "6f7131dd",
+      "outcome": "Consolidated 48 active tracked TOMLs, 137 bank safetensors (48 fl2va, 48 ref2va, 41 h3_image), 5 retired TOMLs, and 16 archived legacy items in data/archive/control_vectors_2026-11-12_legacy/."
     },
     {
       "id": "STAB-ROOT-02",
       "owner": "90e9d2bd",
       "repo": "main",
       "title": "Quarantine earthquake_tremor + ~45s 2-scene t=1 look sanity check on 6 new visual stems",
-      "details": "Quarantine earthquake_tremor (cos=+0.7490 with chaos_panic, b_cov=0.059) without wasting GPU time. Run ~45s t=1 2-scene check (dim t2va_stairwell_dialogue.txt + bright t2va_restaurant_kitchen.txt) on charcoal_sketch_animated, stained_glass_cathedral, x_ray_fluoroscope, mercury_liquid_chrome, blacklight_uv_rave, power_outage_flashlight."
+      "details": "Quarantine earthquake_tremor (cos=+0.7490 with chaos_panic, b_cov=0.059) without wasting GPU time. Run ~45s t=1 2-scene check (dim t2va_stairwell_dialogue.txt + bright t2va_restaurant_kitchen.txt) on charcoal_sketch_animated, stained_glass_cathedral, x_ray_fluoroscope, mercury_liquid_chrome, blacklight_uv_rave, power_outage_flashlight.",
+      "status": "done",
+      "commit": "6f7131dd",
+      "outcome": "Quarantined earthquake_tremor + stained_glass_cathedral (0/2 on t=1 2-scene check) into _retired/; verified 4 strong t=1 winners and documented power_outage_flashlight limitation."
     },
     {
       "id": "STAB-ROOT-03",
       "owner": "90e9d2bd",
       "repo": "main",
       "title": "Close backend/CLI/readout bugs (make_cmds, media-pair prompts, b_cov, categories_json)",
-      "details": "Fix bench/control_vector/make_cmds.py:123-153 to scrub erasure.* on --hold-words; support per-pair scene_prompts in control_vector_nodes.py:3868; fix j_lens.check_b_side_alignment top-8 false fail; load categories_json in j_lens.py:201."
+      "details": "Fix bench/control_vector/make_cmds.py:123-153 to scrub erasure.* on --hold-words; support per-pair scene_prompts in control_vector_nodes.py:3868; fix j_lens.check_b_side_alignment top-8 false fail; load categories_json in j_lens.py:201.",
+      "status": "done",
+      "commit": "48031b0e",
+      "outcome": "Closed make_cmds cmd_make_media erasure holds, control_vector_nodes.py scene_prompts, j_lens categories_json + alias handling, and tightened check_b_side_alignment."
     },
     {
       "id": "STAB-ROOT-04",
       "owner": "90e9d2bd",
       "repo": "main",
       "title": "Lexicon cleanup, decone_pcs A/B & serialized GPU rebuild",
-      "details": "Expand CURATED_LEXICON in bench/control_vector/build_model2vec_lexicon.py to cover all kept active bank stems (fixing 21/50 missing token matches) and compound aliases without hype, test decone_pcs 2 vs 0 empirically, and rebuild $H3_MODEL_STORE/j_lens/model2vec_h3_lexicon.safetensors under the sole GPU lock (bootstrap(cpu=False))."
+      "details": "Expand CURATED_LEXICON in bench/control_vector/build_model2vec_lexicon.py to cover all kept active bank stems (fixing 21/50 missing token matches) and compound aliases without hype, test decone_pcs 2 vs 0 empirically, and rebuild $H3_MODEL_STORE/j_lens/model2vec_h3_lexicon.safetensors under the sole GPU lock (bootstrap(cpu=False)).",
+      "status": "done",
+      "commit": "6f7131dd",
+      "outcome": "Added raw (-1) / mean-centered (0) / top-2 PC (2) sweep with mean_target_cos in build_model2vec_lexicon.py and rebuilt 204-term lexicon (decone_pcs=0, 47/48, Top-1=0.8298, Top-3=0.9574, MRR=0.9007, mean_target_cos=0.3698)."
     },
     {
       "id": "STAB-ROOT-05",
       "owner": "90e9d2bd",
       "repo": "main",
       "title": "Unified LLM wiki de-dup & anti-hype scrub (post-3d4d81d4)",
-      "details": "Confirm 085d496e's 3d4d81d4 merge is clean and close out session; scrub docs/wiki/steering/*.md, h3_steering_and_architecture.md, handover.md, next_steps.md, and AGENTS.md:93 for retired paper_origami/wes_anderson_symmetry, t2va_sitcom_kitchen, 38-vector/28-of-38, 5-Bus/anti_slop/de_llm_slop drift, overstated ref2va end_percent=0.33 claims, and stale token ceilings; regenerate indexes and run all check scripts."
+      "details": "Confirm 085d496e's 3d4d81d4 merge is clean and close out session; scrub docs/wiki/steering/*.md, h3_steering_and_architecture.md, handover.md, next_steps.md, and AGENTS.md:93 for retired paper_origami/wes_anderson_symmetry, t2va_sitcom_kitchen, 38-vector/28-of-38, 5-Bus/anti_slop/de_llm_slop drift, overstated ref2va end_percent=0.33 claims, and stale token ceilings; regenerate indexes and run all check scripts.",
+      "status": "done",
+      "commit": "b657c6a8; 6a45cff7; 7ae4cfa1",
+      "outcome": "Scrubbed operational wiki + AGENTS.md + Paper v5 strictly to MiniMax H3 scope, fixed check_h3_image.py and check_control_vector_studio.py, verified all 12 root checks green."
     }
   ],
   "tomorrow_phase2_queue": [
     {
-      "id": "P2-SHOW-01",
-      "category": "showcase",
-      "owner": "90e9d2bd + 1fffc6ed",
-      "title": "youtube_overhype_influencer 192f/243f HUD & 4D mix-and-match on t2va_stairwell_dialogue.txt",
-      "details": "Build youtube_overhype_influencer.toml with identical <d>...</d> dialogue on both poles. Render 2x HUD targeting portal + 1x auto_1x_kv streams='video_only' (manic YouTuber visuals + deadpan stairwell audio) + 1x streams='audio_only' + block_band='late_30_49' (first live GPU proof of late_30_49 audio steering)."
-    },
-    {
-      "id": "P2-SHOW-02",
-      "category": "showcase",
-      "owner": "90e9d2bd + 1fffc6ed",
-      "title": "sudden_takeoff_flight 192f/243f rising HUD portal on new adult t2va_motorcycle_highway.txt",
-      "details": "Author adult-only prompt_bank/t2va_motorcycle_highway.txt + sudden_takeoff_flight.toml. Render rising/expanding HUD portal (rx: 0.35 -> 0.58 sweeping into sky f48->f168) + 3f-snapped MiniMaxH3SoundCues lift transient (+ 1x temporal flip if Slot 1C passes)."
+      "id": "P2-ENG-01",
+      "phase2_order": "B.1.1",
+      "category": "gated_engine",
+      "owner": "90e9d2bd / faa62ef5",
+      "title": "Promote Bus-Scoped V_r (drop_look_pc16) + cross-bus ROS first (CPU upgrade)",
+      "details": "Promote stage3_cpu_prototypes.json Part A (7.94x less look<->audio overlap, 6.66x less look<->motion overlap, 0.0000 look->audio erosion at 100% Look Regime A) before queuing multi-bus 192f renders."
     },
     {
       "id": "P2-SHOW-03",
+      "phase2_order": "B.1.2",
       "category": "showcase",
       "owner": "90e9d2bd",
-      "title": "192f multi-shot winners across contrasting adult scenes (restaurant_kitchen + stairwell_dialogue)",
-      "details": "Render top t=1-verified look/lighting winners + orthogonal cross-bus stacks (e.g. power_outage_flashlight + reverb_cathedral on bright dry t2va_restaurant_kitchen.txt) + 1 paired both vs 1x auto_1x_kv YIN F0 verification."
-    },
-    {
-      "id": "P2-ENG-01",
-      "category": "gated_engine",
-      "owner": "90e9d2bd / faa62ef5",
-      "title": "Promote Bus-Scoped V_r (drop_look_pc16) + cross-bus ROS",
-      "details": "Promote stage3_cpu_prototypes.json Part A (7.94x less look<->audio overlap, 6.66x less look<->motion overlap, 0.0000 look->audio erosion at 100% Look Regime A) into vector build/runtime."
+      "title": "Verified 4-winner 192f showcases across contrasting adult scenes + paired YIN F0 check",
+      "details": "Render the 4 proven t=1 winners (charcoal_sketch_animated, x_ray_fluoroscope, mercury_liquid_chrome noting partial kitchen vs full stairwell, blacklight_uv_rave) across bright prompt_bank/t2va_restaurant_kitchen.txt + dim prompt_bank/t2va_stairwell_dialogue.txt, stack blacklight_uv_rave + reverb_cathedral on dry kitchen + mercury_liquid_chrome + zero_gravity, and run 1 paired both vs 1x auto_1x_kv YIN F0 check."
     },
     {
       "id": "P2-ENG-02",
+      "phase2_order": "B.1.3",
       "category": "gated_engine",
       "owner": "90e9d2bd / faa62ef5",
-      "title": "Track 2 Path 1C ColQwen tags == 0 Dual-Lock Breaker + unified make-media builder",
-      "details": "Use N >= 6 pixel-aligned pairs with face_retain ROS, per-pair scene_prompts + erasure hold scrubbing in make_control_vector_from_media_pairs, plus early/noisy ref release (0.17, lowered clean_level) to solve Showcase 3 Dual-Lock veto on <Picture 1> / fl2va."
+      "title": "Track 2 Path 1C ColQwen tags == 0 Dual-Lock Breaker + CLI/helper wiring",
+      "details": "Land remaining make_cmds.py:115 (--scene-prompts CLI forwarding) and helpers.py:459-468 (erasure.mu_a / soft hold_alpha) into control_vector_nodes.py:3827-4027 (building on 48031b0e), then train on N >= 6 pixel-aligned pairs + face_retain ROS + early/noisy ref release (0.17, lowered clean_level)."
     },
     {
       "id": "P2-ENG-03",
+      "phase2_order": "B.1.4",
       "category": "gated_engine",
       "owner": "90e9d2bd / faa62ef5",
       "title": "Timeboxed ~90s 90f 1x Q_vid[mask] bleed & wall-clock probe gating Split-Text Online-Softmax Merge",
-      "details": "Test t >= 45 temporal flip + 20% moving portal (alpha=1.0 and 1.5) strictly against 2x Sol EditGuider on both inside/outside contrast (>= 2.0x) and wall-clock/VRAM. Only promote Split-Text Exact Online-Softmax Merge (sol_attn_h3.py exact sinks, ~400x fewer FLOPs) if bleed/quality clears gate; otherwise keep 1x query slicing to ~130-300 Q_aud rows + temporal flips."
+      "details": "Test t >= 45 temporal flip + 20% moving portal (alpha = 1.0, 1.3, 1.5 watching recursive block-ringing across blocks.20..49) strictly against 2x Sol EditGuider on inside/outside contrast (>= 2.0x) and actual wall-clock/VRAM. Only promote Split-Text Exact Online-Softmax Merge if bleed clears gate."
     },
     {
-      "id": "P2-UX-01",
-      "category": "optional_ux",
-      "owner": "61cf9813",
-      "title": "Optional ~5.6s 4-up t=1 Live Slider/Seed Scout in Studio /",
-      "details": "Use MiniMaxH3Conditioning(single_frame=True) on already-loaded video DiT (~1.4s/still x 4 = ~5.6s, zero swap) to preview 4 seeds or slider strengths before launching 80s 192f clips."
+      "id": "P2-SHOW-01",
+      "phase2_order": "B.2.1",
+      "category": "showcase",
+      "owner": "90e9d2bd + 1fffc6ed",
+      "title": "youtube_overhype_influencer 192f HUD & 4D suite on t2va_stairwell_dialogue.txt",
+      "details": "Build youtube_overhype_influencer.toml with identical <d>...</d> dialogue on both poles. Render 2x HUD targeting portal + 1x auto_1x_kv streams='video_only' + 1x streams='audio_only' with block_band='late_30_49' (first live GPU proof of late_30_49 audio steering)."
+    },
+    {
+      "id": "P2-SHOW-02",
+      "phase2_order": "B.2.2",
+      "category": "showcase",
+      "owner": "90e9d2bd + 1fffc6ed",
+      "title": "sudden_takeoff_flight 192f rising HUD portal on new adult t2va_motorcycle_highway.txt",
+      "details": "Author adult-only prompt_bank/t2va_motorcycle_highway.txt + sudden_takeoff_flight.toml. Render rising/expanding HUD portal (rx: 0.35 -> 0.58 sweeping into sky f48->f168) + 3f-snapped MiniMaxH3SoundCues lift transient (+ 1x temporal flip if B.1.4 clears)."
+    },
+    {
+      "id": "P2-POL-01",
+      "phase2_order": "B.2.3",
+      "category": "polish",
+      "owner": "90e9d2bd + 61cf9813",
+      "title": "Bank header b_side_alignment refresh, optional decone_pcs=1/synonym eval & app/ polish",
+      "details": "Refresh cached .safetensors b_side_alignment headers on disk; evaluate optional decone_pcs=1 + natural-synonym retrieval in build_model2vec_lexicon.py; fix app/tests/test_pocket_console.py:198 noir threshold (0.3345 < 0.34), P-H3-Image block_band mismatch (recipes.py:986-990 vs graph_builder.py:1259-1266), dead main.js:244-246 branch, stale app/ README/DESIGN docs, cv_lab.py:72 cache invalidation, and scope Voice Lock (1x) strictly to visual strips."
     }
   ],
   "deferred_items": [
     {
       "id": "DEF-01",
       "title": "Spec E: Qwen-Image-2.1 cross-architecture proof",
-      "why_deferred": "Uses Qwen3-VL-8B and non-H3 DiT (no TokenRefiner); requires ~30-60 min custom hooks & throwaway vectors with zero H3 creator/product value and risks Paper v4 cross-model overreach."
+      "why_deferred": "Uses Qwen3-VL-8B and non-H3 DiT (no TokenRefiner); requires ~30-60 min custom hooks & throwaway 8B vectors with zero H3 creator value, and Paper v5 (b42d443c, 7ae4cfa1; docs/wiki/steering/paper/manuscript.md) now scopes strictly to MiniMax H3 checkpoints."
     },
     {
       "id": "DEF-02",
@@ -366,34 +468,44 @@
       "id": "DEF-04",
       "title": "345f Sol blocks.20..48 depth-aware sparsity, comfy-kitchen wheel rebuild, M3 <94px sweep, loose-mask audio_freeze",
       "why_deferred": "sol_attn_h3.py:170 already defaults SOL_DENSE_TAIL='49' (sparse 0..48); infra/long-horizon items remain parked behind Phase 1 stabilization and Phase 2 Dual-Lock."
+    },
+    {
+      "id": "P2-UX-01",
+      "status": "dropped_to_avoid_ui_bloat",
+      "title": "4-up t=1 Live Slider/Seed Scout modal in Studio /",
+      "why_deferred": "Dropped during Round-3/Phase-1 review to keep Studio / lean; t=1 misses audio, motion, and ref2va Dual-Lock, and single-frame MiniMax-H3-Image (~3s) is already one tap away on /."
     }
   ],
   "data_and_lexicon_inventory": {
     "bank_safetensors": {
       "location": "../../models/control_vectors/bank/",
-      "total_files": 136,
-      "fl2va_stems": 50,
-      "ref2va_stems": 43,
-      "h3_image_stems": 43,
-      "note": "Six new visual stems (charcoal_sketch_animated, stained_glass_cathedral, x_ray_fluoroscope, mercury_liquid_chrome, blacklight_uv_rave, power_outage_flashlight) + earthquake_tremor are built across all 3 families (21 safetensors + 21 .md sidecars)."
+      "total_files": 137,
+      "fl2va_stems": 48,
+      "ref2va_stems": 48,
+      "h3_image_stems": 41,
+      "note": "48 active stems (7 missing ref2va builds completed in Phase 1; 7 audio/camera-motion stems intentionally omit h3_image). t=1 2-scene screening established 4 clear visual winners (charcoal_sketch_animated, x_ray_fluoroscope, mercury_liquid_chrome, blacklight_uv_rave), retired stained_glass_cathedral (0/2) + earthquake_tremor into _retired/, and noted power_outage_flashlight darkened overhead lights/walls without drawing a narrow flashlight beam."
     },
     "prompt_bank_control_vectors": {
       "location": "prompt_bank/control_vectors/",
-      "tracked_tomls_before_promo": 43,
-      "missing_from_tracked_but_active_in_bank": [
-        "env_torrential_rain_drench",
-        "golden_hour_glow",
-        "heavy_blizzard",
-        "knitted_wool_world",
-        "look_amber_candlelight",
-        "toy_brick_world",
-        "watercolor_wash"
+      "tracked_active_tomls": 48,
+      "retired_location": "prompt_bank/control_vectors/_retired/",
+      "retired_tomls": 5,
+      "retired_stems": [
+        "earthquake_tremor",
+        "lettering",
+        "paper_origami",
+        "stained_glass_cathedral",
+        "wes_anderson_symmetry"
       ],
-      "target_tracked_tomls_after_promo": 50
+      "stale_or_missing_in_status": 0
     },
     "data_control_vectors": {
       "location": "data/control_vectors/",
-      "promote_to_prompt_bank": [
+      "disposition": "CONSOLIDATED_IN_6f7131dd",
+      "remaining_entries": [
+        "_retired"
+      ],
+      "promoted_to_prompt_bank": [
         "env_torrential_rain_drench.toml",
         "golden_hour_glow.toml",
         "heavy_blizzard.toml",
@@ -402,7 +514,8 @@
         "toy_brick_world.toml",
         "watercolor_wash.toml"
       ],
-      "archive_dead_nov11_12_tomls": [
+      "archive_destination": "data/archive/control_vectors_2026-11-12_legacy/",
+      "archived_dead_nov11_12_tomls": [
         "ankle_deep_flood.toml",
         "arctic_expedition.toml",
         "astronaut_crew.toml",
@@ -414,15 +527,14 @@
         "summer_beachwear.toml",
         "wild_west_saloon.toml"
       ],
-      "archive_stale_nov12_subdirs": [
+      "archived_stale_nov12_subdirs": [
         "new_vectors_2026-11-12",
         "readout_score_2026-11-12",
         "readout_score_2026-11-12_groups",
         "readout_score_2026-11-12_nearest",
         "readout_score_2026-11-12_rebuilt_bundle",
         "word_share_2026-11-12"
-      ],
-      "preserve_subdir": "_retired"
+      ]
     },
     "data_edit_concepts": {
       "location": "data/edit_concepts",
@@ -430,61 +542,33 @@
       "target": "../internal/internal_prompt_bank/edit_concepts_v2",
       "inner_symlinks": 0,
       "active_concept_tomls": 89,
-      "total_entries": 91,
       "disposition": "PRESERVE_UNTOUCHED"
     },
     "model2vec_lexicon": {
       "location": "$H3_MODEL_STORE/j_lens/model2vec_h3_lexicon.safetensors",
-      "size_bytes": 19174736,
-      "n_terms": 180,
-      "decone_pcs_on_disk": 2,
-      "created_utc": "2026-11-21T17:46:58Z",
-      "metadata_keys": ["categories_json", "created_utc", "decone_pcs", "format", "n_terms", "terms_json"],
-      "loader_bug": "j_lens.py:201 load_model2vec_lexicon() drops categories_json",
-      "missing_active_stems_zero_token_match_in_curated_lexicon": {
-        "count": 21,
-        "total_active_fl2va": 50,
-        "pct": 42.0,
-        "stems": [
-          "blacklight_uv_rave",
-          "crystallize_ice",
-          "de_llm_slop",
-          "earthquake_tremor",
-          "elastic_neck_stretch",
-          "fever_melt",
-          "golden_hour_glow",
-          "handheld_documentary_zoom",
-          "head_swell",
-          "infomercial_fail",
-          "knitted_wool_world",
-          "magnetic_attraction",
-          "molten_lava_golem",
-          "power_outage_flashlight",
-          "rubber_hose_1930s",
-          "smoke_dissolve",
-          "sunken_coral_reef",
-          "toy_brick_world",
-          "vocal_strain",
-          "x_ray_fluoroscope",
-          "zero_gravity"
-        ],
-        "completely_absent_even_by_component_tokens": [
-          "blacklight_uv_rave",
-          "crystallize_ice",
-          "de_llm_slop",
-          "earthquake_tremor",
-          "elastic_neck_stretch",
-          "fever_melt",
-          "handheld_documentary_zoom",
-          "head_swell",
-          "infomercial_fail",
-          "magnetic_attraction",
-          "power_outage_flashlight",
-          "rubber_hose_1930s",
-          "smoke_dissolve",
-          "sunken_coral_reef",
-          "vocal_strain",
-          "x_ray_fluoroscope"
+      "size_bytes": 21731456,
+      "n_terms": 204,
+      "decone_pcs_on_disk": 0,
+      "created_utc": "2026-11-22T23:20:36Z",
+      "metadata_keys": [
+        "bank_recall_json",
+        "categories_json",
+        "created_utc",
+        "decone_pcs",
+        "format",
+        "n_terms",
+        "terms_json"
+      ],
+      "loader_bug": "FIXED in 48031b0e (j_lens.py loads categories_json and normalizes hyphen/space aliases)",
+      "bank_recall": {
+        "n_bank": 48,
+        "n_matched": 47,
+        "top1": 0.8298,
+        "top3": 0.9574,
+        "mrr": 0.9007,
+        "mean_target_cos": 0.3698,
+        "unmatched_stems": [
+          "de_llm_slop"
         ]
       }
     }
@@ -506,7 +590,7 @@
         "core_positions": [
           "Gate 6 unverified concepts in ~30-45s via 2-scene fl2va t=1 contact sheet before spending ~8-10m on 192f winners across 2-3 diverse adult scenes.",
           "Caught prompt_bank/t2va_stairwell_dialogue.txt:1-3 confounds (dark caged bulb + charcoal/navy coats + long reflective reverb tail) vs bright t2va_cooking_show_meltdown.txt or t2va_covered_market.txt.",
-          "Honest UX caveat: mid_late_20_49 preserved faces on ref2va via mostly photorealistic background/grade tints — label honestly as 'Blocks 20-49 · Subtle / Face-Safe Grade'.",
+          "Honest UX caveat: mid_late_20_49 preserved faces on ref2va via mostly photorealistic background/grade tints \u2014 label honestly as 'Blocks 20-49 \u00b7 Subtle / Face-Safe Grade'.",
           "Keep 9aed68ab wiki cleanup strictly on operational docs so it avoids colliding with 085d496e."
         ]
       },
@@ -648,7 +732,7 @@
         "session_id": "faa62ef5",
         "transcript_step": 1132,
         "catches": [
-          "HARD STOP: data/edit_concepts is 1 dir symlink holding 89+ active [concept] TOMLs used by auto_edit_prompt.py:94,268,357, app/cv_lab.py, and app/tests/test_pocket_console.py — do NOT delete.",
+          "HARD STOP: data/edit_concepts is 1 dir symlink holding 89+ active [concept] TOMLs used by auto_edit_prompt.py:94,268,357, app/cv_lab.py, and app/tests/test_pocket_console.py \u2014 do NOT delete.",
           "CODE CATCH: control_vector_nodes.py:3486-3493 raises ValueError if FrozenVideoCache combines with block_band / 1x split (uncached 1x AV vs Mode 0 Cached Re-Dub).",
           "CODE CATCH: pure -P_{V_r} boost=0 is NOT an existing parameter (control_vectors.py:3687,3691-3692,3808); make-media scene_text bleed has lower SNR than paired prose TOMLs.",
           "NUANCE: min(in, out) auto-flip cannot toggle per-frame dynamically, though Wave 2 SPOTLIGHT_LONG_SPECS average ~25-35% spatiotemporal area.",
@@ -673,7 +757,7 @@
           "LATENCY/FLOP MATH PUSHBACK: Dense bf16 SDPA on >=30% portals or 50% time splits on top of Sol _pass_through does MORE attention work than 2x Sol EditGuider; keep 1x query-slicing on Q_aud (~130-300 rows) + tiny <=5-10% cutouts, and benchmark 1x Q_vid[mask] wall-clock strictly vs 2x Sol.",
           "CODE CATCH: L_A != L_B prompt-length mismatches break equal-shape [tx_a:tx_b] shadow copies without padding.",
           "FALSE ALARM CATCH: 6/7 single tokens already live in j_lens_h3.safetensors and _embed_query_for_vibe_search returns has_vec=True for all 7; true gap is hyphenated/net-new terms like 'x-ray' and 'liquid chrome'/'fluoroscope'.",
-          "FALSE PREMISE CATCH: sol_attn_h3.py:170 SOL_DENSE_TAIL='49' ALREADY runs sparse on blocks.0..48 — nothing in 0..19 is dense to sparsify.",
+          "FALSE PREMISE CATCH: sol_attn_h3.py:170 SOL_DENSE_TAIL='49' ALREADY runs sparse on blocks.0..48 \u2014 nothing in 0..19 is dense to sparsify.",
           "CODE CATCHES: data/edit_concepts 0 inner symlinks; make-media pooling='vision_tokens' emits erasure.mu_a for tags==0 (absent at 0-ref t2va); frozen_video_cache.py refuses foreign dit patches; boost=0 with mu_d=0 rescales -E(H) to 67.5 RMS.",
           "PRIORITY: Ship Bus-Scoped drop_look_pc16 + Path 1C ColQwen ahead of dense 1x Q_vid[mask]."
         ]
@@ -683,7 +767,7 @@
         "transcript_step": 1144,
         "catches": [
           "HARD STOP: data/edit_concepts is 1 dir symlink holding live edit_concepts_v2 briefs.",
-          "VRAM OOM TRAP: bench/control_vector/build_model2vec_lexicon.py:40 runs bootstrap(cpu=False) loading Qwen3-VL-32B on CUDA — must run in its own serialized GPU slot, NEVER in parallel with :8188.",
+          "VRAM OOM TRAP: bench/control_vector/build_model2vec_lexicon.py:40 runs bootstrap(cpu=False) loading Qwen3-VL-32B on CUDA \u2014 must run in its own serialized GPU slot, NEVER in parallel with :8188.",
           "FLOP/ARCH PUSHBACK: Dense SDPA on 50% Q_vid wastes 99.76% of FLOPs recomputing unchanged video/audio keys (~1.4-1.8x). Keep 90f bleed falsification probe first; if bleed passes, upgrade to Split-Text Exact Online-Softmax Merge using sol_attn_h3.py:582 conditioning sinks (~400x fewer FLOPs).",
           "CAUSAL/EFFORT CATCH: Sparsifying blocks.0..19 attacks the exact identity/layout band (1.75x DINOv3 protection) while Sol already runs sparse on 0..48; Spec E uses Qwen3-VL-8B and takes 30-60m, not ~2m."
         ]
@@ -705,7 +789,7 @@
           "HARD CATCHES: control_vector_nodes.py:3485-3493 FrozenVideoCache mutex (and streams='audio_only' unbenchmarked in Stage 2); control_vector_nodes.py:3868 single custom_prompt Proposition 4 leak on make-media; control_vectors.py:3527,3540,3562,3808 no boost=0 or signed Regime-B + gamma>1 RMS sign-inversion; data/edit_concepts live symlink.",
           "MOONSHOT PUSHBACK: blocks.20..49 Showcase B stayed photorealistic on ref2va vs Wave 2 0..49 2x geometry spawns; sol_attn_h3.py:670-677 always needs full tokens pass before chunked dense SDPA; _WorkspaceBuffers (steer_attention_hooks.py:186-242) preallocates only static (l_txt,) and (total_aud,).",
           "FRONTEND & ANTI-BLOAT CATCHES: app/static/js/core.js has no timeout (the hazard is blocking _post_thread sync POST in app/cv_lab.py); / only fetches /api/options at boot (app/static/js/main.js); keep SAM 3.1 and audio_freeze OUT of Studio /; test_app.py only mocked Edit/r2v via _StandInComfy; Spec E needs throwaway qwen3vl_8b vectors.",
-          "PRE-SCREEN PUSHBACK: t=1 tests zero audio/kinematics/Dual-Lock and misses failures like paper_origami — use ~45s t=1 strictly as a 6-concept look/lighting check and skip CPU-failed earthquake_tremor (cos=+0.7490 vs chaos_panic)."
+          "PRE-SCREEN PUSHBACK: t=1 tests zero audio/kinematics/Dual-Lock and misses failures like paper_origami \u2014 use ~45s t=1 strictly as a 6-concept look/lighting check and skip CPU-failed earthquake_tremor (cos=+0.7490 vs chaos_panic)."
         ]
       }
     ]
@@ -742,77 +826,121 @@
       "id": "REJ-01",
       "claim": "Clean up '89 legacy data/edit_concepts/*.toml symlinks'",
       "source": "Round 2 e5d15905 -> Coordinator Round 3 synthesis",
-      "caught_by": ["faa62ef5", "9aed68ab", "085d496e", "1fffc6ed", "61cf9813", "e5d15905"],
+      "caught_by": [
+        "faa62ef5",
+        "9aed68ab",
+        "085d496e",
+        "1fffc6ed",
+        "61cf9813",
+        "e5d15905"
+      ],
       "disk_evidence": "data/edit_concepts is 1 dir symlink to ../internal/internal_prompt_bank/edit_concepts_v2 containing 89 active [concept] .toml files (0 inner symlinks) consumed by auto_edit_prompt.py:94,268,357, app/cv_lab.py, and bench/check_auto_edit_prompt.py."
     },
     {
       "id": "REJ-02",
       "claim": "Run Model2Vec lexicon rebuild as a parallel CPU task while :8188 renders",
       "source": "Round 3 synthesis",
-      "caught_by": ["1fffc6ed", "61cf9813", "e5d15905"],
+      "caught_by": [
+        "1fffc6ed",
+        "61cf9813",
+        "e5d15905"
+      ],
       "disk_evidence": "bench/control_vector/build_model2vec_lexicon.py:40 calls bootstrap(cpu=False), loads Qwen3-VL-32B, and runs 4 TokenRefiner recipes on CUDA (lines 331-394) -> immediate 24 GB OOM if run concurrently with :8188."
     },
     {
       "id": "REJ-03",
       "claim": "Vibe Search is completely broken/OOV on 'stained', 'mercury', 'blacklight', 'clay', 'film', 'tape', 'puppet'",
       "source": "Round 2 e5d15905",
-      "caught_by": ["9aed68ab", "085d496e"],
+      "caught_by": [
+        "9aed68ab",
+        "085d496e"
+      ],
       "disk_evidence": "j_lens.synthesize_from_words matched 9/9 of those words and app/cv_lab.py (_embed_query_for_vibe_search) fell back to j_lens_words/model2vec phrases ('stained glass', 'claymation', 'felt puppet', 'film noir', 'tape hiss'). Real gaps: 21/50 stems missing direct tokens in CURATED_LEXICON, compound misses like 'x-ray'/'liquid chrome', and j_lens.py:201 dropping categories_json."
     },
     {
       "id": "REJ-04",
       "claim": "Pair Stage 2 streams='audio_only' + block_band='late_30_49' directly with FrozenVideoCache / AudioRefineMask",
       "source": "Round 2/3 synthesis",
-      "caught_by": ["faa62ef5", "085d496e", "e5d15905"],
+      "caught_by": [
+        "faa62ef5",
+        "085d496e",
+        "e5d15905"
+      ],
       "disk_evidence": "control_vector_nodes.py:3485-3493 explicitly raises ValueError when block_band / 1x stream split is combined with MiniMaxH3FrozenVideoCache (cached steps skip double_block hooks)."
     },
     {
       "id": "REJ-05",
       "claim": "Pure -P_{V_r} (boost=0) is an available slider parameter/zero-code test",
       "source": "Round 2 1fffc6ed -> synthesis",
-      "caught_by": ["faa62ef5", "085d496e", "e5d15905"],
+      "caught_by": [
+        "faa62ef5",
+        "085d496e",
+        "e5d15905"
+      ],
       "disk_evidence": "control_vectors.py:3808 skips strength == 0.0, lines 3527/3540 disable signed s <= 0, and lines 3562/3691-3692 rescale to 67.5 or bypass normalization."
     },
     {
       "id": "REJ-06",
       "claim": "Sparsify MiniMaxH3Sol blocks.0..19 to cut 40% of dense DiT attention",
       "source": "Round 2 9aed68ab",
-      "caught_by": ["085d496e", "1fffc6ed"],
+      "caught_by": [
+        "085d496e",
+        "1fffc6ed"
+      ],
       "disk_evidence": "sol_attn_h3.py:170 sets SOL_DENSE_TAIL = '49' (blocks.0..48 already run sparse), and blocks.0..19 is the layout/identity lock band."
     },
     {
       "id": "REJ-07",
       "claim": "Expose split_backend dropdown in app/ to enable 1x video_only",
       "source": "Coordinator Round 1 initial proposal (step 1033)",
-      "caught_by": ["61cf9813", "faa62ef5"],
+      "caught_by": [
+        "61cf9813",
+        "faa62ef5"
+      ],
       "disk_evidence": "control_vector_nodes.py:1182,5367 already defaults split_backend='auto_1x_kv', so streams='video_only' already executes in 1x."
     },
     {
       "id": "REJ-08",
       "claim": "app/static/js/steering_deck.js still uses origami_window -> paper_origami",
       "source": "Round 3 e5d15905",
-      "caught_by": ["90e9d2bd"],
+      "caught_by": [
+        "90e9d2bd"
+      ],
       "disk_evidence": "app/.git commit 3145c32 already replaced origami_window with claymation_window in app/static/js/steering_deck.js."
     },
     {
       "id": "REJ-09",
       "claim": "1x Q_vid[mask] dense SDPA on 30-50% portals is automatically ~1.1-1.3x and fixed at scale=1.0",
       "source": "Round 2 faa62ef5/9aed68ab/1fffc6ed -> synthesis",
-      "caught_by": ["085d496e", "61cf9813", "1fffc6ed", "9aed68ab", "e5d15905"],
+      "caught_by": [
+        "085d496e",
+        "61cf9813",
+        "1fffc6ed",
+        "9aed68ab",
+        "e5d15905"
+      ],
       "disk_evidence": "steer_attention_hooks.py:556 runs unquantized dense SDPA after sol_attn_h3.py:670-677 full-token pass (already +2.00s on tiny Q_aud Mode 3); conversely o_base + alpha*(o_steered - o_base) permits alpha > 1.0, and L_A != L_B breaks equal-shape shadow buffers."
     },
     {
       "id": "REJ-10",
       "claim": "make-media N=8 works out of the box with 0 ref images at inference and beats prose TOMLs cleanly",
       "source": "Round 2 1fffc6ed",
-      "caught_by": ["e5d15905", "085d496e", "faa62ef5"],
+      "caught_by": [
+        "e5d15905",
+        "085d496e",
+        "faa62ef5"
+      ],
       "disk_evidence": "control_vector_nodes.py:3868 repeats one custom_prompt across all pairs (Proposition 4 leak on scene_text) while vision_tokens requires <Picture 1> tags == 0 at inference; also bench/control_vector/make_cmds.py:123-153 skips erasure holds."
     },
     {
       "id": "REJ-11",
       "claim": "Spec E (Qwen-Image-2.1) is a ~2 minute drop-in test",
       "source": "Round 1/2 faa62ef5 & 085d496e",
-      "caught_by": ["1fffc6ed", "9aed68ab", "e5d15905"],
+      "caught_by": [
+        "1fffc6ed",
+        "9aed68ab",
+        "e5d15905"
+      ],
       "disk_evidence": "qwen_image_2.1_bf16.safetensors pairs with Qwen3-VL-8B and has no H3 TokenRefiner; requires custom DiT wrappers and throwaway 8B vectors (~30-60 min)."
     }
   ]
