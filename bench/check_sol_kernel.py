@@ -574,17 +574,24 @@ def _discover_nullable_c_params(ck_mod, c_sigs):
                           and sub.value is not None
                           and _expr_can_be_none(sub.value, nullable, nullable_funcs)):
                         nullable.add(sub.target.id)
+            def _definitely_assigned_non_none(stmts, name):
+                for stmt in stmts:
+                    if isinstance(stmt, ast.Assign):
+                        if any(isinstance(t, ast.Name) and t.id == name for t in stmt.targets):
+                            if not _expr_can_be_none(stmt.value, nullable, nullable_funcs):
+                                return True
+                    elif isinstance(stmt, ast.If) and stmt.orelse:
+                        if (_definitely_assigned_non_none(stmt.body, name)
+                                and _definitely_assigned_non_none(stmt.orelse, name)):
+                            return True
+                return False
+
             for sub in ast.walk(fn):
                 if isinstance(sub, ast.If):
                     guarded = _is_none_test_names(sub.test)
-                    if guarded:
-                        for stmt in sub.body:
-                            if isinstance(stmt, ast.Assign):
-                                for t in stmt.targets:
-                                    if (isinstance(t, ast.Name)
-                                            and t.id in guarded
-                                            and not _expr_can_be_none(stmt.value, nullable, nullable_funcs)):
-                                        nullable.discard(t.id)
+                    for name in guarded:
+                        if _definitely_assigned_non_none(sub.body, name):
+                            nullable.discard(name)
             for node in ast.walk(fn):
                 if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
                     is_c = ((isinstance(node.func.value, ast.Name)
