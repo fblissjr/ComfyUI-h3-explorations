@@ -1479,6 +1479,59 @@ b = "a busy city street"
         )
         if aln_clean["warning"]:
             errs.append(f"check_b_side_alignment emitted false warning on surviving target words: {aln_clean!r}")
+        if "effective_coverage" not in aln_clean or aln_clean["effective_coverage"] < 0.25:
+            errs.append(f"check_b_side_alignment missing calibrated effective_coverage: {aln_clean!r}")
+        aln_no_false_inv = _jl_chk.check_b_side_alignment(
+            {
+                "positive_words": [{"word": "glowing", "gain": 1.45}, {"word": "glass", "gain": 1.32}, {"word": "cathedral", "gain": 1.28}],
+                "negative_words": [{"word": "camera", "gain": 1.25}, {"word": "medium", "gain": 1.12}],
+            },
+            "stained glass cathedral with glowing lead came lines and skeletal cobalt medical plates",
+            a_side="natural scene",
+        )
+        if aln_no_false_inv["inverted_neg"]:
+            errs.append(f"check_b_side_alignment false-matched short stem came/camera or medi/medium: {aln_no_false_inv!r}")
+        aln_er_rescued = _jl_chk.check_b_side_alignment(
+            {
+                "positive_words": [{"word": "vintage", "gain": 1.40}] + [{"word": f"extra{i}", "gain": 1.0} for i in range(11)],
+                "negative_words": [{"word": "daylight", "gain": 1.1}],
+            },
+            "stark black monochrome archival film footage with grain and deep shadows",
+            a_side="bright daylight color video",
+            erasure_readout={
+                "mu_d_positive_words": [
+                    {"word": "black", "gain": 1.5},
+                    {"word": "monochrome", "gain": 1.4},
+                    {"word": "grain", "gain": 1.3},
+                ]
+            },
+        )
+        if len(aln_er_rescued["matched_pos"]) < 3 or aln_er_rescued["effective_coverage"] < 0.25:
+            errs.append(f"check_b_side_alignment did not merge erasure_readout.mu_d_positive_words: {aln_er_rescued!r}")
+        with tempfile.TemporaryDirectory() as lex_tmp:
+            import json as _json_lex
+            from safetensors.torch import save_file as _save_st_lex
+            lex_path = Path(lex_tmp) / "test_model2vec_lexicon.safetensors"
+            _save_st_lex(
+                {
+                    "encoder": torch.ones((2, 4), dtype=torch.float32),
+                    "post_refiner.fl2va": torch.ones((2, 4), dtype=torch.float32),
+                },
+                str(lex_path),
+                metadata={
+                    "format": "h3_model2vec_lexicon_v1",
+                    "terms_json": _json_lex.dumps(["zero-gravity", "x-ray"]),
+                    "categories_json": _json_lex.dumps(["visual", "lighting"]),
+                },
+            )
+            lex_loaded = _jl_chk.load_model2vec_lexicon(lex_path)
+            if (
+                not isinstance(lex_loaded, dict)
+                or lex_loaded.get("categories") != ["visual", "lighting"]
+                or lex_loaded["term_to_idx"].get("zero gravity") != 0
+                or lex_loaded["term_to_idx"].get("x ray") != 1
+            ):
+                errs.append(f"load_model2vec_lexicon categories or hyphen/space normalization failed: {lex_loaded!r}")
         errs += _expect_refusal(
             lambda: pair_comp.compile_words_to_pairset("   ", target_prompt=inplace_tp),
             "non-empty string",
@@ -5288,9 +5341,41 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
                 overwrite=True,
                 min_erasure_pairs=2,
             )
-            mt_vis, _ = cv.load_vector(media_vis_p)
+            mt_vis, mm_vis = cv.load_vector(media_vis_p)
             if "erasure.vr" not in mt_vis or "erasure.mu_a" not in mt_vis:
                 errs.append(f"make_control_vector_from_media_pairs(min_erasure_pairs=2) missing erasure.vr/mu_a: {sorted(mt_vis.keys())}")
+            media_per_pair_p, media_per_pair_rep = cv_nodes.make_control_vector_from_media_pairs(
+                image_a=img_a_raw,
+                image_b=img_b_raw,
+                model=patcher_for_make,
+                clip=mock_clip,
+                output_name="unit_media_per_pair_prompts",
+                pooling="scene_text",
+                short_edge=224,
+                scene_prompts=[
+                    "A rainy stone alley glowing under warm streetlamps.",
+                    "A sunlit wooden pier overlooking calm blue harbor water at noon.",
+                ],
+                overwrite=True,
+                min_erasure_pairs=99,
+            )
+            pp_spans = media_per_pair_rep["pair_spans"]
+            if len(pp_spans) != 2 or pp_spans[0]["len_a"] == pp_spans[1]["len_a"]:
+                errs.append(f"make_control_vector_from_media_pairs(scene_prompts) did not encode distinct per-pair prompts: {pp_spans!r}")
+            errs += _expect_refusal(
+                lambda: cv_nodes.make_control_vector_from_media_pairs(
+                    image_a=img_a_raw,
+                    image_b=img_b_raw,
+                    model=patcher_for_make,
+                    clip=mock_clip,
+                    output_name="bad_media_prompts_len",
+                    pooling="scene_text",
+                    scene_prompts=["only one prompt"],
+                    output_dir=tmp,
+                ),
+                "must match media pair count",
+                "make_control_vector_from_media_pairs refusal on mismatched scene_prompts length",
+            )
             errs += _expect_refusal(
                 lambda: cv_nodes.make_control_vector_from_media_pairs(
                     image_a=img_a_raw,
@@ -5319,6 +5404,75 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
                 "pooling must be one of",
                 "make_control_vector_from_media_pairs refusal on invalid pooling",
             )
+            # CLI cmd_make_media --hold scrubs both vector.post_refiner and erasure.{mu_d,vr,diag}:
+            import argparse as _argparse_mm
+            import copy as _copy_mm
+            from unittest import mock as _mock_mm
+            from bench.control_vector import helpers as _cv_helpers, make_cmds as _cv_make_cmds
+            hold_vec = torch.zeros(cv.POST_REFINER_DIM, dtype=torch.float32)
+            hold_vec[0] = 1.0
+            hold_sf = tmp / "unit_media_hold__ref2va.safetensors"
+            hold_meta = _copy_mm.deepcopy(mm_vis)
+            hold_meta["name"] = "unit_media_hold"
+            cv.save_vector(
+                hold_sf,
+                {"vector.post_refiner": hold_vec},
+                hold_meta,
+                overwrite=True,
+            )
+            seed_tensors = {
+                "vector.post_refiner": torch.cat([torch.tensor([3.0, 4.0]), torch.zeros(cv.POST_REFINER_DIM - 2)]),
+                "erasure.mu_d": torch.cat([torch.tensor([3.0, 4.0]), torch.zeros(cv.POST_REFINER_DIM - 2)]),
+                "erasure.vr": hold_vec.unsqueeze(0).clone(),
+                "erasure.diag": torch.tensor([0.9], dtype=torch.float32),
+            }
+            seed_meta = _copy_mm.deepcopy(mm_vis)
+            seed_meta["name"] = "unit_cli_media_erasure_hold"
+            cli_out_sf = tmp / "unit_cli_media_erasure_hold__ref2va.safetensors"
+            cv.save_vector(cli_out_sf, seed_tensors, seed_meta, overwrite=True)
+            mm_args = _argparse_mm.Namespace(
+                pooling="vision_tokens",
+                image_a=["a0.png", "a1.png"],
+                image_b=["b0.png", "b1.png"],
+                short_edge=224,
+                dit="dummy_dit.safetensors",
+                unet=None,
+                families=None,
+                encoder="dummy_enc.safetensors",
+                lora=None,
+                device="cpu",
+                refiner_device="cpu",
+                out_dir=str(tmp),
+                output_name="unit_cli_media_erasure_hold",
+                scene_prompt=media_scene_txt,
+                overwrite=True,
+                hold=[str(hold_sf)],
+                hold_words="",
+                hold_alpha=1.0,
+                no_lora=True,
+                _clip_override=mock_clip,
+                _model_override=patcher_for_make,
+            )
+            fake_rep = {
+                "qwen_view_size": [224, 224],
+                "metadata": seed_meta,
+            }
+            with (
+                _mock_mm.patch.object(_cv_make_cmds, "_load_image_tensor_list", return_value=[img_a_raw[:1], img_a_raw[1:2]]),
+                _mock_mm.patch.object(_cv_helpers.folder_paths, "get_full_path_or_raise", return_value=str(cli_out_sf)),
+                _mock_mm.patch.object(cv, "detect_family", return_value="ref2va"),
+                _mock_mm.patch.object(cv_nodes, "make_control_vector_from_media_pairs", return_value=(cli_out_sf, fake_rep)),
+            ):
+                _cv_make_cmds.cmd_make_media(mm_args)
+            held_t, held_m = cv.load_vector(cli_out_sf)
+            if abs(float(held_t["vector.post_refiner"][0].item())) > 1e-5:
+                errs.append(f"cmd_make_media --hold did not scrub vector.post_refiner[0]: {held_t['vector.post_refiner'][0].item()}")
+            if "erasure.mu_d" in held_t and abs(float(held_t["erasure.mu_d"][0].item())) > 1e-5:
+                errs.append(f"cmd_make_media --hold did not scrub erasure.mu_d[0]: {held_t['erasure.mu_d'][0].item()}")
+            if "erasure.vr" in held_t:
+                errs.append(f"cmd_make_media --hold did not drop/orthogonalize parallel erasure.vr: {held_t['erasure.vr'].shape}")
+            if not held_m.get("provenance", {}).get("applied_holds", {}).get("holds"):
+                errs.append(f"cmd_make_media --hold missing provenance.applied_holds: {held_m.get('provenance')}")
         finally:
             if orig_cv_paths_m is not None:
                 cv_nodes.folder_paths.folder_names_and_paths[

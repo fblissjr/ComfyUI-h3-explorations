@@ -210,10 +210,27 @@ def load_model2vec_lexicon(lexicon_path: str | os.PathLike | None = None) -> dic
         if meta.get("format") != "h3_model2vec_lexicon_v1":
             return None
         terms: list[str] = json.loads(meta["terms_json"])
-        term_to_idx = {str(t).strip().lower(): idx for idx, t in enumerate(terms)}
+        raw_cats = meta.get("categories_json")
+        categories: list[str] = json.loads(raw_cats) if raw_cats else []
+        term_to_idx: dict[str, int] = {}
+        for idx, t in enumerate(terms):
+            exact = str(t).strip().lower()
+            if exact and exact not in term_to_idx:
+                term_to_idx[exact] = idx
+        for idx, t in enumerate(terms):
+            exact = str(t).strip().lower()
+            if not exact:
+                continue
+            for alias in (
+                re.sub(r"[-_]+", " ", exact).strip(),
+                re.sub(r"[^a-z0-9]+", " ", exact).strip(),
+            ):
+                if alias and alias not in term_to_idx:
+                    term_to_idx[alias] = idx
         payload: dict[str, Any] = {
             "path": str(path),
             "terms": terms,
+            "categories": categories,
             "term_to_idx": term_to_idx,
         }
         for key in f.keys():
@@ -729,15 +746,25 @@ _B_SIDE_STOPLIST: frozenset[str] = frozenset({
 })
 
 
-def _stem_matches_any(word: str, candidates: Sequence[str]) -> bool:
+def _stem_matches_any(
+    word: str,
+    candidates: Sequence[str],
+    *,
+    allow_short_root_prefix: bool = True,
+) -> bool:
     w = word.lower()
     for c in candidates:
         cl = c.lower()
-        if w == cl:
+        if w == cl or (len(w) >= 4 and len(cl) >= 4 and w.rstrip("s") == cl.rstrip("s")):
             return True
-        if len(w) >= 4 and len(cl) >= 4 and (w.startswith(cl[:4]) or cl.startswith(w[:4])):
+        if len(w) >= 5 and len(cl) >= 5 and (w.startswith(cl[:5]) or cl.startswith(w[:5])):
             return True
-        if len(cl) >= 4 and cl in w:
+        if allow_short_root_prefix and ((len(cl) >= 4 and cl in w) or (len(w) >= 4 and w in cl)):
+            if len(w) >= 4 and len(cl) >= 4 and (w.startswith(cl) or cl.startswith(w)):
+                return True
+        if len(cl) >= 5 and cl in w:
+            return True
+        if len(w) >= 5 and w in cl:
             return True
     return False
 
@@ -748,6 +775,7 @@ def check_b_side_alignment(
     *,
     a_side: str = "",
     bundle: Mapping[str, Any] | None = None,
+    erasure_readout: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Check whether `b_side`'s target content concepts survived into J-Lens `(+)`
     after `B - A` pair pooling (`< 0.2 ms` on CPU).
@@ -755,7 +783,7 @@ def check_b_side_alignment(
     Flags general contrastive-pair failure modes across any domain before GPU render time:
     1. Total concept washout (`0` of `b_side`'s target words or close `M_centered` neighbors
        appear in `positive_words`).
-    2. Severe Pole-A cancellation (`< 20%` of multi-word `b_side` concepts survive while
+    2. Severe Pole-A cancellation (`< 25%` effective coverage over readout capacity while
        `a_side` shares stems with `b_side` or Pole-A content words appear in `negative_words`).
     3. Target inversion (`b_side` target words appear in `negative_words`)."""
     raw_a_tokens = re.findall(r"[a-z]{3,}", str(a_side or "").lower())
@@ -778,17 +806,29 @@ def check_b_side_alignment(
     target_words = [bw for bw in b_words if bw not in a_set] or list(b_words)
 
     pos_words = [str(x["word"]).lower() for x in (readout.get("positive_words") or ())]
+    pos_pool = list(pos_words)
+    er_src = erasure_readout if erasure_readout is not None else readout.get("erasure_readout")
+    if isinstance(er_src, Mapping):
+        for x in (er_src.get("mu_d_positive_words") or ()):
+            pw_er = str(x["word"]).lower()
+            if pw_er not in pos_pool:
+                pos_pool.append(pw_er)
     neg_words = [str(x["word"]).lower() for x in (readout.get("negative_words") or ())]
 
-    matched_target = [tw for tw in target_words if _stem_matches_any(tw, pos_words)]
+    matched_target = [tw for tw in target_words if _stem_matches_any(tw, pos_pool)]
     unmatched_target = [tw for tw in target_words if tw not in matched_target]
-    inverted_target = [tw for tw in target_words if _stem_matches_any(tw, neg_words) and tw not in matched_target]
-    subtracted_a = [aw for aw in a_words if _stem_matches_any(aw, neg_words) and not _stem_matches_any(aw, pos_words)]
+    inverted_target = [
+        tw for tw in target_words
+        if _stem_matches_any(tw, neg_words, allow_short_root_prefix=False) and tw not in matched_target
+    ]
+    subtracted_a = [aw for aw in a_words if _stem_matches_any(aw, neg_words) and not _stem_matches_any(aw, pos_pool)]
 
     coverage = round(len(matched_target) / len(target_words), 3) if target_words else 1.0
+    effective_denom = min(len(target_words), max(8, len(pos_words))) if target_words else 1
+    effective_coverage = round(len(matched_target) / effective_denom, 3) if target_words else 1.0
 
     max_sem_cos: float | None = None
-    if unmatched_target and pos_words and coverage < 0.25:
+    if unmatched_target and pos_pool and effective_coverage < 0.25:
         try:
             b = dict(bundle) if bundle is not None else (load_j_lens_bundle() if bundle_available() else {})
             w2i = b.get("word_to_idxs")
@@ -802,7 +842,7 @@ def check_b_side_alignment(
                             t_vecs.append(F.normalize(m_c[ids].mean(dim=0), dim=0))
                             break
                 p_vecs: list[torch.Tensor] = []
-                for pw in pos_words[:8]:
+                for pw in pos_pool[:16]:
                     ids, _, _ = _resolve_word_indices([pw], w2i)
                     if ids:
                         p_vecs.append(F.normalize(m_c[ids].mean(dim=0), dim=0))
@@ -823,7 +863,7 @@ def check_b_side_alignment(
         )
     elif (
         len(target_words) >= 4
-        and coverage < 0.20
+        and effective_coverage < 0.25
         and (shared_ab or subtracted_a)
         and (max_sem_cos is None or max_sem_cos < 0.35)
     ):
@@ -846,6 +886,7 @@ def check_b_side_alignment(
         "shared_pole_words": shared_ab,
         "subtracted_a_words": subtracted_a,
         "coverage": coverage,
+        "effective_coverage": effective_coverage,
         "max_semantic_cosine": max_sem_cos,
         "warnings": warnings,
         "warning": " ".join(warnings),

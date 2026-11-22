@@ -26,6 +26,7 @@ import gc
 import json
 import os
 from pathlib import Path
+import re
 import sys
 import time
 from typing import Any
@@ -54,7 +55,6 @@ CURATED_LEXICON: tuple[tuple[str, str], ...] = (
     # (term, category: "visual" | "lighting" | "material" | "audio" | "baseline")
     # Optical & Film Stocks
     ("noir", "lighting"),
-    ("film noir", "lighting"),
     ("monochrome", "lighting"),
     ("black-and-white", "lighting"),
     ("silver gelatin", "visual"),
@@ -79,12 +79,18 @@ CURATED_LEXICON: tuple[tuple[str, str], ...] = (
     ("camcorder", "visual"),
     ("infrared", "lighting"),
     ("thermal", "lighting"),
+    ("x-ray", "lighting"),
+    ("fluoroscope", "lighting"),
     ("risograph", "visual"),
     ("xerox", "visual"),
     ("grain", "visual"),
-    ("film grain", "visual"),
     ("archival", "visual"),
     ("vintage", "visual"),
+    ("handheld", "visual"),
+    ("crash zoom", "visual"),
+    ("documentary", "visual"),
+    ("candid", "visual"),
+    ("unscripted", "visual"),
     # Lighting & Color Grades
     ("direct flash", "lighting"),
     ("xenon flash", "lighting"),
@@ -94,8 +100,10 @@ CURATED_LEXICON: tuple[tuple[str, str], ...] = (
     ("neon", "lighting"),
     ("cyberpunk", "lighting"),
     ("bioluminescent", "lighting"),
+    ("blacklight", "lighting"),
+    ("ultraviolet", "lighting"),
+    ("rave", "lighting"),
     ("golden hour", "lighting"),
-    ("sunlit", "lighting"),
     ("sunlight", "lighting"),
     ("daylight", "lighting"),
     ("overcast", "lighting"),
@@ -104,6 +112,8 @@ CURATED_LEXICON: tuple[tuple[str, str], ...] = (
     ("amber", "lighting"),
     ("warm", "lighting"),
     ("cold", "lighting"),
+    ("flashlight", "lighting"),
+    ("power outage", "lighting"),
     ("silhouette", "lighting"),
     ("backlit", "lighting"),
     ("venetian blinds", "lighting"),
@@ -111,23 +121,21 @@ CURATED_LEXICON: tuple[tuple[str, str], ...] = (
     ("volumetric fog", "lighting"),
     # Mediums & Materials
     ("origami", "material"),
-    ("paper origami", "material"),
-    ("folded paper", "material"),
-    ("papercraft", "material"),
     ("muppet", "material"),
-    ("felt", "material"),
     ("felt puppet", "material"),
     ("plush", "material"),
     ("claymation", "material"),
     ("plasticine", "material"),
     ("stop-motion", "material"),
+    ("rubber hose", "visual"),
+    ("vintage cartoon", "visual"),
     ("watercolor", "visual"),
-    ("watercolor wash", "visual"),
     ("gouache", "visual"),
     ("impasto", "visual"),
     ("oil painting", "visual"),
     ("ink wash", "visual"),
     ("charcoal", "visual"),
+    ("charcoal sketch", "visual"),
     ("pastel", "visual"),
     ("woodcut", "visual"),
     ("linocut", "visual"),
@@ -146,20 +154,27 @@ CURATED_LEXICON: tuple[tuple[str, str], ...] = (
     ("clockwork", "material"),
     ("automaton", "material"),
     ("molten lava", "material"),
+    ("lava", "material"),
     ("basalt", "material"),
     ("obsidian", "material"),
+    ("crystallize", "material"),
+    ("ice crystal", "material"),
     ("crystalline", "material"),
     ("knitted wool", "material"),
+    ("wool", "material"),
     ("crochet", "material"),
     ("toy brick", "material"),
+    ("toy bricks", "material"),
     ("stained glass", "material"),
     ("chrome", "material"),
+    ("liquid chrome", "material"),
+    ("mercury", "material"),
     ("latex", "material"),
     ("inflatable", "material"),
     ("balloon", "material"),
-    ("skeleton", "material"),
     ("skeletal", "material"),
     ("translucent", "material"),
+    ("coral reef", "material"),
     # Weather, Physics & Action States
     ("pyrotechnics", "visual"),
     ("explosions", "visual"),
@@ -170,6 +185,8 @@ CURATED_LEXICON: tuple[tuple[str, str], ...] = (
     ("frost", "visual"),
     ("downpour", "visual"),
     ("drenched", "visual"),
+    ("smoke dissolve", "visual"),
+    ("smoke", "visual"),
     ("heatwave", "visual"),
     ("shimmer", "visual"),
     ("gale", "visual"),
@@ -178,17 +195,24 @@ CURATED_LEXICON: tuple[tuple[str, str], ...] = (
     ("submerged", "visual"),
     ("zero-gravity", "visual"),
     ("weightless", "visual"),
+    ("levitation", "visual"),
+    ("magnetic", "visual"),
+    ("magnet", "visual"),
+    ("earthquake", "visual"),
+    ("tremor", "visual"),
     ("chaos", "visual"),
     ("panic", "visual"),
     ("calm", "visual"),
     ("serene", "visual"),
     ("symmetry", "visual"),
-    ("symmetrical", "visual"),
     ("miniature", "visual"),
+    ("infomercial", "visual"),
+    ("fever dream", "visual"),
+    ("hallucination", "visual"),
+    ("elastic stretch", "visual"),
+    ("head swell", "visual"),
     # Audio, Acoustics & Vocal Delivery
     ("reverb", "audio"),
-    ("reverberation", "audio"),
-    ("cathedral", "audio"),
     ("cathedral reverb", "audio"),
     ("echo", "audio"),
     ("cavernous", "audio"),
@@ -196,9 +220,10 @@ CURATED_LEXICON: tuple[tuple[str, str], ...] = (
     ("muffled", "audio"),
     ("hydrophone", "audio"),
     ("whisper", "audio"),
-    ("whispered", "audio"),
     ("asmr", "audio"),
     ("breathless", "audio"),
+    ("vocal strain", "audio"),
+    ("screaming", "audio"),
     ("operatic", "audio"),
     ("bellow", "audio"),
     ("auctioneer", "audio"),
@@ -246,11 +271,19 @@ TEMPLATES_BY_CAT: dict[str, tuple[tuple[str, str], ...]] = {
             "integrated_multimodal_description:\n[Shot 1] Cinematic medium shot rendered in {term} aesthetic inside a quiet brick studio with wooden benches.\n\noverall_soundscape:\nSteady studio room tone.\n\nnon_diegetic_music:\nN/A",
             "integrated_multimodal_description:\n[Shot 1] Cinematic medium shot rendered in unmodified default baseline aesthetic inside a quiet brick studio with wooden benches.\n\noverall_soundscape:\nSteady studio room tone.\n\nnon_diegetic_music:\nN/A",
         ),
+        (
+            "integrated_multimodal_description:\n[Shot 1] Wide handheld street framing captured with {term} visual character along a damp cobblestone square at dusk.\n\noverall_soundscape:\nDistant urban street ambiance.\n\nnon_diegetic_music:\nN/A",
+            "integrated_multimodal_description:\n[Shot 1] Wide handheld street framing captured with unmodified default baseline visual character along a damp cobblestone square at dusk.\n\noverall_soundscape:\nDistant urban street ambiance.\n\nnon_diegetic_music:\nN/A",
+        ),
     ),
     "lighting": (
         (
             "integrated_multimodal_description:\n[Shot 1] Medium portrait illuminated by {term} lighting and palette inside a quiet apartment room.\n\noverall_soundscape:\nSoft room tone.\n\nnon_diegetic_music:\nN/A",
             "integrated_multimodal_description:\n[Shot 1] Medium portrait illuminated by unmodified default baseline lighting and palette inside a quiet apartment room.\n\noverall_soundscape:\nSoft room tone.\n\nnon_diegetic_music:\nN/A",
+        ),
+        (
+            "integrated_multimodal_description:\n[Shot 1] Wide night exterior courtyard bathed in {term} illumination across rain-slick concrete and steel stairs.\n\noverall_soundscape:\nQuiet evening air.\n\nnon_diegetic_music:\nN/A",
+            "integrated_multimodal_description:\n[Shot 1] Wide night exterior courtyard bathed in unmodified default baseline illumination across rain-slick concrete and steel stairs.\n\noverall_soundscape:\nQuiet evening air.\n\nnon_diegetic_music:\nN/A",
         ),
     ),
     "material": (
@@ -258,11 +291,19 @@ TEMPLATES_BY_CAT: dict[str, tuple[tuple[str, str], ...]] = {
             "integrated_multimodal_description:\n[Shot 1] Close medium shot where the figures, clothing, and props are crafted from {term} surfaces and forms.\n\noverall_soundscape:\nSubtle surface rustle.\n\nnon_diegetic_music:\nN/A",
             "integrated_multimodal_description:\n[Shot 1] Close medium shot where the figures, clothing, and props are crafted from unmodified default baseline surfaces and forms.\n\noverall_soundscape:\nSubtle surface rustle.\n\nnon_diegetic_music:\nN/A",
         ),
+        (
+            "integrated_multimodal_description:\n[Shot 1] Medium two-shot inside a sunlit workshop built entirely out of {term} objects and textures.\n\noverall_soundscape:\nSoft workshop handling sounds.\n\nnon_diegetic_music:\nN/A",
+            "integrated_multimodal_description:\n[Shot 1] Medium two-shot inside a sunlit workshop built entirely out of unmodified default baseline objects and textures.\n\noverall_soundscape:\nSoft workshop handling sounds.\n\nnon_diegetic_music:\nN/A",
+        ),
     ),
     "audio": (
         (
             "integrated_multimodal_description:\n[Shot 1] Medium shot of a speaker talking in a hall.\n\noverall_soundscape:\nAcoustic space and voice shaped by {term} resonance and timbre.\n\nnon_diegetic_music:\nN/A",
             "integrated_multimodal_description:\n[Shot 1] Medium shot of a speaker talking in a hall.\n\noverall_soundscape:\nAcoustic space and voice shaped by unmodified default baseline resonance and timbre.\n\nnon_diegetic_music:\nN/A",
+        ),
+        (
+            "integrated_multimodal_description:\n[Shot 1] Close-up of an adult speaker delivering dialogue across an open stairwell.\n\noverall_soundscape:\nDialogue acoustics dominated by {term} vocal delivery and room decay.\n\nnon_diegetic_music:\nN/A",
+            "integrated_multimodal_description:\n[Shot 1] Close-up of an adult speaker delivering dialogue across an open stairwell.\n\noverall_soundscape:\nDialogue acoustics dominated by unmodified default baseline vocal delivery and room decay.\n\nnon_diegetic_music:\nN/A",
         ),
     ),
 }
@@ -305,10 +346,97 @@ def _decone_matrix(mat: torch.Tensor, n_pcs: int = 2) -> torch.Tensor:
     return (xc / nrm).to(dtype=torch.float32).contiguous()
 
 
+def _evaluate_bank_recall(
+    pr_fl2va: torch.Tensor,
+    terms_only: list[str],
+    *,
+    bank_dir: Path | None = None,
+) -> dict[str, Any] | None:
+    """Measure CPU Vibe-Search Top-1 / Top-3 / MRR against active `__fl2va__` bank vectors."""
+    if bank_dir is None:
+        try:
+            root_cv = Path(folder_paths.get_folder_paths(cv_nodes.CONTROL_VECTORS_FOLDER)[0])
+            bank_dir = root_cv / "bank"
+        except Exception:
+            return None
+    if not bank_dir.is_dir():
+        return None
+    stems: list[str] = []
+    vecs: list[torch.Tensor] = []
+    for sf in sorted(bank_dir.glob("*__fl2va__*.safetensors")):
+        stem = sf.name.split("__", 1)[0]
+        with safe_open(str(sf), framework="pt", device="cpu") as f:
+            keys = set(f.keys())
+            t = f.get_tensor("erasure.mu_d") if "erasure.mu_d" in keys else f.get_tensor("vector.post_refiner")
+            v = F.normalize(t.to(dtype=torch.float32).flatten(), dim=0)
+        stems.append(stem)
+        vecs.append(v)
+    if len(stems) < 2:
+        return None
+    bank_mat = torch.stack(vecs, dim=0)
+    term_to_idx: dict[str, int] = {}
+    for idx, t in enumerate(terms_only):
+        t_low = t.lower()
+        term_to_idx.setdefault(t_low, idx)
+        term_to_idx.setdefault(re.sub(r"[-_]+", " ", t_low).strip(), idx)
+
+    top1 = 0
+    top3 = 0
+    mrr_sum = 0.0
+    evaluated = 0
+    for target_idx, stem in enumerate(stems):
+        q_tokens = [tok for tok in stem.split("_") if len(tok) > 1]
+        hits: list[tuple[int, float]] = []
+        q_norm = " ".join(q_tokens)
+        if q_norm in term_to_idx:
+            hits.append((term_to_idx[q_norm], 2.0))
+        for tok in q_tokens:
+            if tok in term_to_idx:
+                hits.append((term_to_idx[tok], 1.25))
+        for i in range(len(q_tokens) - 1):
+            bi = f"{q_tokens[i]} {q_tokens[i + 1]}"
+            if bi in term_to_idx:
+                hits.append((term_to_idx[bi], 1.6))
+        if not hits:
+            for term, tidx in term_to_idx.items():
+                t_words = set(re.split(r"[^a-z0-9]+", term))
+                if any(len(qt) >= 3 and qt in t_words for qt in q_tokens):
+                    hits.append((tidx, 0.75))
+        if not hits:
+            continue
+        q_vec = torch.zeros(pr_fl2va.shape[1], dtype=torch.float32)
+        for tidx, wt in hits:
+            q_vec.add_(pr_fl2va[tidx], alpha=wt)
+        q_vec = F.normalize(q_vec, dim=0)
+        scores = (bank_mat @ q_vec).tolist()
+        ranked = sorted(range(len(stems)), key=lambda j: scores[j], reverse=True)
+        rank = ranked.index(target_idx) + 1
+        evaluated += 1
+        if rank == 1:
+            top1 += 1
+        if rank <= 3:
+            top3 += 1
+        mrr_sum += 1.0 / rank
+    if evaluated == 0:
+        return None
+    return {
+        "n_bank": len(stems),
+        "n_matched": evaluated,
+        "top1": round(top1 / evaluated, 4),
+        "top3": round(top3 / evaluated, 4),
+        "mrr": round(mrr_sum / evaluated, 4),
+    }
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--out", default="", help="Optional output path (defaults to $H3_MODEL_STORE/j_lens/model2vec_h3_lexicon.safetensors)")
     ap.add_argument("--device", default="default")
+    ap.add_argument(
+        "--decone-pcs",
+        default="auto",
+        help="Common-mode PCs to subtract ('0', '2', or 'auto' to pick best between 0 and 2 on active bank recall; default 'auto')",
+    )
     args = ap.parse_args()
 
     t0 = time.perf_counter()
@@ -359,15 +487,14 @@ def main() -> int:
         torch.cuda.empty_cache()
 
     K = len(dedup_terms)
-    enc_mat = torch.zeros((K, 5120), dtype=torch.float32)
+    enc_raw = torch.zeros((K, 5120), dtype=torch.float32)
     for idx, pair_items in enumerate(term_encoded):
         diffs = []
         for enc_n, enc_p, sl_n, sl_p in pair_items:
             dn = enc_n[sl_n].to(dtype=torch.float64).mean(dim=0)
             dp = enc_p[sl_p].to(dtype=torch.float64).mean(dim=0)
             diffs.append(F.normalize((dp - dn).to(dtype=torch.float32), dim=0))
-        enc_mat[idx] = F.normalize(torch.stack(diffs, dim=0).mean(dim=0), dim=0)
-    enc_mat = _decone_matrix(enc_mat, n_pcs=2)
+        enc_raw[idx] = F.normalize(torch.stack(diffs, dim=0).mean(dim=0), dim=0)
 
     refiner_specs: list[tuple[str, str, list[dict[str, Any]]]] = [
         ("fl2va", h3_config.MODELS["unet_fl2va"], _h._parse_lora_specs([f"{h3_config.PIKA_FL2VA_SVD995_LORA}:1.0"])),
@@ -376,7 +503,7 @@ def main() -> int:
         ("h3_image", h3_config.H3_IMAGE_UNET, []),
     ]
 
-    tensors_out: dict[str, torch.Tensor] = {"encoder": enc_mat}
+    pr_raw_by_fam: dict[str, torch.Tensor] = {}
     ref_dev = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"[2/3] Projecting through 4 TokenRefiner recipes on {ref_dev}...")
     for fam_key, dit_file, loras in refiner_specs:
@@ -391,7 +518,7 @@ def main() -> int:
                     rp = runner(enc_p.to(device=ref_dev)).detach().to(device="cpu", dtype=torch.float64)[sl_p].mean(dim=0)
                     diffs_pr.append(F.normalize((rp - rn).to(dtype=torch.float32), dim=0))
                 pr_mat[idx] = F.normalize(torch.stack(diffs_pr, dim=0).mean(dim=0), dim=0)
-        tensors_out[f"post_refiner.{fam_key}"] = _decone_matrix(pr_mat, n_pcs=2)
+        pr_raw_by_fam[fam_key] = pr_mat
         del runner
         gc.collect()
         if torch.cuda.is_available():
@@ -400,15 +527,44 @@ def main() -> int:
 
     terms_only = [t for t, _ in dedup_terms]
     cats_only = [c for _, c in dedup_terms]
+
+    decone_arg = str(args.decone_pcs).strip().lower()
+    if decone_arg == "auto":
+        cands = (0, 2)
+        scored: list[tuple[tuple[float, float, float, int], int, dict[str, Any]]] = []
+        for n_pcs in cands:
+            cand_fl2va = _decone_matrix(pr_raw_by_fam["fl2va"], n_pcs=n_pcs)
+            metrics = _evaluate_bank_recall(cand_fl2va, terms_only)
+            if metrics is None:
+                scored.append(((0.0, 0.0, 0.0, -n_pcs), n_pcs, {}))
+            else:
+                print(
+                    f"  decone sweep n_pcs={n_pcs}: matched={metrics['n_matched']}/{metrics['n_bank']} "
+                    f"top1={metrics['top1']:.4f} top3={metrics['top3']:.4f} mrr={metrics['mrr']:.4f}"
+                )
+                scored.append(((metrics["top1"], metrics["top3"], metrics["mrr"], -n_pcs), n_pcs, metrics))
+        scored.sort(reverse=True)
+        chosen_pcs = scored[0][1]
+        chosen_metrics = scored[0][2]
+    else:
+        chosen_pcs = max(0, int(decone_arg))
+        chosen_metrics = _evaluate_bank_recall(_decone_matrix(pr_raw_by_fam["fl2va"], n_pcs=chosen_pcs), terms_only) or {}
+
+    tensors_out: dict[str, torch.Tensor] = {"encoder": _decone_matrix(enc_raw, n_pcs=chosen_pcs)}
+    for fam_key, pr_mat in pr_raw_by_fam.items():
+        tensors_out[f"post_refiner.{fam_key}"] = _decone_matrix(pr_mat, n_pcs=chosen_pcs)
+
     meta = {
         "format": "h3_model2vec_lexicon_v1",
         "created_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "n_terms": str(K),
-        "decone_pcs": "2",
+        "decone_pcs": str(chosen_pcs),
         "terms_json": json.dumps(terms_only),
         "categories_json": json.dumps(cats_only),
     }
-    print(f"[3/3] Saving {out_path.name} ({K} terms)...")
+    if chosen_metrics:
+        meta["bank_recall_json"] = json.dumps(chosen_metrics)
+    print(f"[3/3] Saving {out_path.name} ({K} terms, decone_pcs={chosen_pcs})...")
     save_file(tensors_out, str(out_path), metadata=meta)
     j_lens._chmod_group_readable(out_path)
     j_lens._LEXICON_CACHE.clear()

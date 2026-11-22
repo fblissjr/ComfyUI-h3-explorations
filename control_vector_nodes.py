@@ -3834,6 +3834,7 @@ def make_control_vector_from_media_pairs(
     pooling: str = "scene_text",
     short_edge: int = 512,
     scene_prompt: str = "",
+    scene_prompts: Sequence[str] | None = None,
     include_encoder: bool = True,
     output_dir: str | Path | None = None,
     overwrite: bool = False,
@@ -3846,7 +3847,10 @@ def make_control_vector_from_media_pairs(
     """Build and save a `.safetensors` control vector from contrasting `<Picture 1>`
     reference images (`image_a` baseline vs. `image_b` positive/steered, computing
     `B - A`) with matched `(target_w, target_h)` 32-px grid geometry so Qwen3-VL
-    3D M-RoPE `position_ids` stay identical between `A` and `B`."""
+    3D M-RoPE `position_ids` stay identical between `A` and `B`.
+
+    Pass optional `scene_prompts` (`len == n_frames`) to encode each pair against
+    a distinct neutral scene prompt instead of repeating one `scene_prompt`."""
     if pooling not in _cv.VALID_MEDIA_POOLING:
         raise ValueError(
             f"pooling must be one of {_cv.VALID_MEDIA_POOLING}, got {pooling!r}"
@@ -3859,13 +3863,26 @@ def make_control_vector_from_media_pairs(
         image_a, image_b, short_edge=short_edge
     )
     n_frames = int(matched_a.shape[0])
-    custom_prompt = str(scene_prompt or "").strip()
-    if not custom_prompt:
-        raise ValueError(
-            "scene_prompt is required when building a media-contrast control vector; "
-            "provide a scene prompt matching your target setup"
-        )
-    prompts = [custom_prompt for _ in range(n_frames)]
+    if scene_prompts is not None:
+        if isinstance(scene_prompts, (str, bytes)):
+            raise ValueError(
+                "scene_prompts must be a sequence of per-pair prompt strings, not a bare string"
+            )
+        prompts = [str(p or "").strip() for p in scene_prompts]
+        if len(prompts) != n_frames:
+            raise ValueError(
+                f"scene_prompts length ({len(prompts)}) must match media pair count ({n_frames})"
+            )
+        if any(not p for p in prompts):
+            raise ValueError("scene_prompts entries must all be non-empty strings")
+    else:
+        custom_prompt = str(scene_prompt or "").strip()
+        if not custom_prompt:
+            raise ValueError(
+                "scene_prompt is required when building a media-contrast control vector; "
+                "provide a scene prompt matching your target setup"
+            )
+        prompts = [custom_prompt for _ in range(n_frames)]
     frame_indices = list(range(n_frames))
 
     family = _cv.detect_family(model)

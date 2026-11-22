@@ -123,16 +123,27 @@ def cmd_make_media(args: argparse.Namespace) -> int:
         if hold_specs or hold_words:
             m_tensors, m_meta = cv.load_vector(out_path)
             m_fam = str(m_meta.get("family", "ref2va"))
+            m_prompt = str(args.scene_prompt or "") or None
             scrubbed_vec, hold_labels, n_bef, n_aft = _apply_post_refiner_holds(
                 m_tensors["vector.post_refiner"],
                 family=m_fam,
                 hold_specs=hold_specs,
                 hold_words=hold_words,
                 hold_alpha=hold_alpha,
-                prompt=str(args.scene_prompt or "") or None,
+                prompt=m_prompt,
+                extra_dir=out_dir,
             )
             if hold_labels:
                 m_tensors["vector.post_refiner"] = scrubbed_vec
+                _apply_erasure_holds(
+                    m_tensors,
+                    family=m_fam,
+                    hold_specs=hold_specs,
+                    hold_words=hold_words,
+                    hold_alpha=hold_alpha,
+                    prompt=m_prompt,
+                    extra_dir=out_dir,
+                )
                 m_meta.setdefault("provenance", {})["applied_holds"] = {
                     "holds": hold_labels,
                     "alpha": hold_alpha,
@@ -141,12 +152,27 @@ def cmd_make_media(args: argparse.Namespace) -> int:
                 }
                 if j_lens.bundle_available():
                     try:
-                        m_meta.setdefault("quality_report", {})["j_lens_readout"] = j_lens.decode_vector(
+                        jl_ro = j_lens.decode_vector(
                             scrubbed_vec,
                             v_enc=m_tensors.get("vector.encoder"),
                             space="post_refiner",
                             family=m_fam,
+                            top_k=12,
                         )
+                        if (
+                            "erasure.vr" in m_tensors
+                            and "erasure.diag" in m_tensors
+                            and hasattr(j_lens, "decode_erasure_payload")
+                        ):
+                            jl_ro["erasure_readout"] = j_lens.decode_erasure_payload(
+                                scrubbed_vec,
+                                m_tensors["erasure.vr"],
+                                m_tensors["erasure.diag"],
+                                erasure_mu_d=m_tensors.get("erasure.mu_d"),
+                                v1d_readout=jl_ro,
+                                family=m_fam,
+                            )
+                        m_meta.setdefault("quality_report", {})["j_lens_readout"] = jl_ro
                     except Exception:
                         pass
                 cv.save_vector(out_path, m_tensors, m_meta, overwrite=True)
