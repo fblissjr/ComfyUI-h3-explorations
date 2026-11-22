@@ -443,11 +443,11 @@ Because Algorithms 1–2 depend **only** on the existence of a Prelude condition
 
 | Symbol | Shipped Constant (`control_vectors.py`) | Value | Selection Basis |
 | :--- | :--- | :---: | :--- |
-| $\tau_{\text{attn}}$ | `ERASURE_SOFTMAX_TEMP` | `0.15` | Center of `[0.07, 0.50]` `3/3` B&W Goldilocks plateau (§6.2). |
-| $r$ | `ERASURE_DEFAULT_RANK` | `8` | Captures multi-entity material axes `5..8` on `paper_origami` (§6.4). |
+| $\tau_{\text{attn}}$ | `ERASURE_MATCH_TAU` | `0.15` | Center of `[0.07, 0.50]` `3/3` B&W Goldilocks plateau (§6.2). |
+| $r$ | `ERASURE_MAX_RANK` | `8` | Captures multi-entity material axes `5..8` on `paper_origami` (§6.4). |
 | $r_{\text{union}}$ | `COMPOSED_ERASURE_MAX_RANK` | `16` | Exact direct-sum preservation of two rank-8 sliders (`Theorem 2.5`). |
 | $\lambda_{\text{rel}}$ | `ERASURE_RIDGE_REL` | `0.15` | Stable across `[0.01, 0.50]`; avoids over-damping leak at `1.50` (§6.4). |
-| $\tau_{\text{rms}}$ | `POST_REFINER_TARGET_NORM` | `67.5` | `~0.25x` median post-refiner token norm; `s = 1.0` gentle default, `s = 1.35..1.55` (`91–105` RMS) conflict override (§6.7). |
+| $\tau_{\text{rms}}$ | `NORM_MATCHED_TARGET` | `67.5` | `~0.25x` median post-refiner token norm; `s = 1.0` gentle default, `s = 1.35..1.55` (`91–105` RMS) conflict override (§6.7). |
 | Payload bytes | `erasure.{mu_d,vr,diag}` (`float32`) | `193,568 B` | `(5376 + 8*5376 + 8) * 4` bytes (`189.0 KiB` / `193.5 KB`). |
 
 ---
