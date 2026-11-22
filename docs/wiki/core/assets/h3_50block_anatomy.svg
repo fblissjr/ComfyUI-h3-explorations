@@ -1,0 +1,130 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 510" width="100%" height="100%" role="img" aria-label="Inside MiniMax H3's 50 Single-Stream Audio-Video DiT Blocks and Early-Step Dual-Lock Window">
+  <defs>
+    <filter id="cardShadowH3" x="-3%" y="-3%" width="106%" height="110%">
+      <feDropShadow dx="0" dy="3" stdDeviation="5" flood-color="#0f172a" flood-opacity="0.06"/>
+    </filter>
+    <marker id="arrSlate" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 1 1.5 L 8.5 5 L 1 8.5 z" fill="#64748b"/>
+    </marker>
+    <marker id="arrIndigo" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 1 1.5 L 8.5 5 L 1 8.5 z" fill="#4f46e5"/>
+    </marker>
+    <marker id="arrTeal" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 1 1.5 L 8.5 5 L 1 8.5 z" fill="#0d9488"/>
+    </marker>
+    <marker id="arrAmber" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 1 1.5 L 8.5 5 L 1 8.5 z" fill="#d97706"/>
+    </marker>
+  </defs>
+
+  <style>
+    .canvas { fill: #faf9f5; stroke: #e5e3dc; stroke-width: 1.5; }
+    .card { fill: #ffffff; stroke: #e5e7eb; stroke-width: 1.2; filter: url(#cardShadowH3); }
+    .heading { font-family: Georgia, "Newsreader", "Charter", serif; font-size: 20px; font-weight: 700; fill: #18181b; }
+    .subhead { font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 12.5px; fill: #52525b; }
+    .band-title { font-family: Georgia, "Newsreader", "Charter", serif; font-size: 14.5px; font-weight: 700; fill: #1e293b; }
+    .zone-title { font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 12.5px; font-weight: 700; }
+    .body { font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 11px; fill: #334155; }
+    .muted { font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 10.5px; fill: #64748b; }
+    .mono { font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; font-size: 10.5px; font-weight: 600; }
+    .badge { font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 10px; font-weight: 700; }
+  </style>
+
+  <!-- Outer Canvas -->
+  <rect x="4" y="4" width="972" height="502" rx="16" class="canvas"/>
+
+  <!-- Header -->
+  <text x="30" y="36" class="heading">How MiniMax H3 Actually Builds Video &amp; Sound Inside One Render</text>
+  <text x="30" y="56" class="subhead">Measured across all 50 packed single-stream DiT blocks (blocks.0..49) and denoising steps (0% → 100%) — plain-English map</text>
+
+  <!-- ========================================================= -->
+  <!-- BAND 1: THE 50-BLOCK DEPTH MAP (INSIDE ONE DENOISING STEP) -->
+  <!-- ========================================================= -->
+  <rect x="24" y="72" width="932" height="252" rx="12" class="card"/>
+  <text x="42" y="96" class="band-title">1. Depth Map Inside Each Denoising Step: Four Distinct Zones Across blocks.0..49</text>
+  <text x="42" y="113" class="muted">Every block sees one shared sequence: [ Text | &lt;Picture/Video&gt; Refs | 40 Hz Audio | 24 fps Video ] — but each modality wakes up at a different depth.</text>
+
+  <!-- Zone 1: blocks.0..19 -->
+  <rect x="42" y="128" width="246" height="122" rx="10" fill="#f0fdfa" stroke="#5eead4" stroke-width="1.4"/>
+  <rect x="52" y="138" width="94" height="20" rx="10" fill="#0d9488"/>
+  <text x="99" y="152" text-anchor="middle" fill="#ffffff" class="badge">blocks.0..19</text>
+  <text x="52" y="176" class="zone-title" fill="#115e59">Scaffolding &amp; Face Lock</text>
+  <text x="52" y="194" class="body">• Text &amp; &lt;Picture 1&gt; lay out pose,</text>
+  <text x="60" y="209" class="body">composition, and likeness.</text>
+  <text x="52" y="226" class="body">• Style edits here alone do almost</text>
+  <text x="60" y="241" class="body"><tspan font-weight="700" fill="#0f766e">nothing</tspan> (origami lap 69.3 vs 69.4).</text>
+
+  <!-- Arrow 1 -> 2 -->
+  <line x1="291" y1="189" x2="306" y2="189" stroke="#64748b" stroke-width="1.8" marker-end="url(#arrSlate)"/>
+
+  <!-- Zone 2: blocks.20..29 -->
+  <rect x="310" y="128" width="222" height="122" rx="10" fill="#fffbeb" stroke="#fcd34d" stroke-width="1.6"/>
+  <rect x="320" y="138" width="102" height="20" rx="10" fill="#d97706"/>
+  <text x="371" y="152" text-anchor="middle" fill="#ffffff" class="badge">blocks.20..29</text>
+  <text x="320" y="176" class="zone-title" fill="#92400e">Visual &amp; Material Commit</text>
+  <text x="320" y="194" class="body">• <tspan font-weight="700">Video breaks out at block 20.</tspan></text>
+  <text x="320" y="209" class="body">• Geometry, lighting, &amp; texture lock.</text>
+  <text x="320" y="226" class="body">• Steering only <tspan font-weight="700" fill="#b45309">20..49</tspan> keeps</text>
+  <text x="328" y="241" class="body">faces &amp; lip-sync intact (1.75× ID).</text>
+
+  <!-- Arrow 2 -> 3 -->
+  <line x1="535" y1="189" x2="550" y2="189" stroke="#64748b" stroke-width="1.8" marker-end="url(#arrSlate)"/>
+
+  <!-- Zone 3: blocks.31..47 -->
+  <rect x="554" y="128" width="234" height="122" rx="10" fill="#eef2ff" stroke="#a5b4fc" stroke-width="1.5"/>
+  <rect x="564" y="138" width="102" height="20" rx="10" fill="#4f46e5"/>
+  <text x="615" y="152" text-anchor="middle" fill="#ffffff" class="badge">blocks.31..47</text>
+  <text x="564" y="176" class="zone-title" fill="#3730a3">40 Hz Audio Couples (~10-Blk Lag)</text>
+  <text x="564" y="194" class="body">• Audio stays quiet through blk 25,</text>
+  <text x="572" y="209" class="body">then surges across <tspan font-weight="700">blocks.31..47</tspan>.</text>
+  <text x="564" y="226" class="body">• Room acoustics &amp; foley react to</text>
+  <text x="572" y="241" class="body">the 3D visuals formed in 20..29.</text>
+
+  <!-- Arrow 3 -> 4 -->
+  <line x1="791" y1="189" x2="806" y2="189" stroke="#64748b" stroke-width="1.8" marker-end="url(#arrSlate)"/>
+
+  <!-- Zone 4: block 49 -->
+  <rect x="810" y="128" width="128" height="122" rx="10" fill="#fff1f2" stroke="#fda4af" stroke-width="1.5"/>
+  <rect x="820" y="138" width="76" height="20" rx="10" fill="#e11d48"/>
+  <text x="858" y="152" text-anchor="middle" fill="#ffffff" class="badge">block 49</text>
+  <text x="820" y="176" class="zone-title" fill="#9f1239">Terminal Sink</text>
+  <text x="820" y="194" class="body">• Text update</text>
+  <text x="828" y="209" class="body">drops to <tspan font-weight="700">0.000</tspan>.</text>
+  <text x="820" y="226" class="body">• Pure K/V lens;</text>
+  <text x="828" y="241" class="body">keep <tspan font-weight="700" fill="#be123c">dense</tspan>!</text>
+
+  <!-- 1x Q_aud Single-Pass Bypass Rail -->
+  <rect x="42" y="264" width="896" height="46" rx="9" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.2" stroke-dasharray="5 3"/>
+  <rect x="54" y="274" width="142" height="26" rx="6" fill="#4f46e5"/>
+  <text x="125" y="291" text-anchor="middle" fill="#ffffff" class="badge">1× AUDIO BYPASS LANE</text>
+  <text x="208" y="284" class="body"><tspan font-weight="700" fill="#1e293b">Single-Pass Stream Split (Q_aud → K_txt_base):</tspan> Video reads the edited text; audio peeks at the original text in the <tspan font-weight="700">same pass</tspan>.</text>
+  <text x="208" y="301" class="muted">Proven (Phase 4): recovers 92.7% loudness (-24.56 → -22.29 vs -22.11 dBFS) in 28.8s vs 49.9s 2× (1.73× faster, 0 extra VRAM).</text>
+
+  <!-- ========================================================= -->
+  <!-- BAND 2: DENOISING TIME CLOCK (0% -> 100%) + DUAL LOCK     -->
+  <!-- ========================================================= -->
+  <rect x="24" y="338" width="932" height="150" rx="12" class="card"/>
+  <text x="42" y="362" class="band-title">2. Time Map Across Denoising Steps (shift = 12): Early Lock-In &amp; The Dual-Lock Keyframe Law</text>
+  <text x="42" y="379" class="muted">Under H3's high video shift, global color, layout, and keyframe locks commit in the first third of sampling — long before fine detail finishes.</text>
+
+  <!-- Timeline bar: 0% to 34% -->
+  <rect x="42" y="394" width="352" height="78" rx="10" fill="#fef3c7" stroke="#f59e0b" stroke-width="1.5"/>
+  <text x="54" y="413" class="zone-title" fill="#92400e">Steps 0% → 34%: Palette &amp; Dual-Lock Window</text>
+  <text x="54" y="430" class="body">• Steps 0–1 (6-step Pika) lock global color &amp; composition.</text>
+  <text x="54" y="446" class="body">• <tspan font-weight="700">Dual-Lock (fl2va):</tspan> Qwen vision + 24-ch VAE pixels stay</text>
+  <text x="62" y="461" class="body">active through 33% → pre-grade stills or release refs early.</text>
+
+  <!-- Timeline bar: 34% to 50% -->
+  <rect x="406" y="394" width="186" height="78" rx="10" fill="#f0fdf4" stroke="#4ade80" stroke-width="1.4"/>
+  <text x="418" y="413" class="zone-title" fill="#166534">Steps 34% → 50%: Handoff</text>
+  <text x="418" y="430" class="body">• Safe to turn off clearing</text>
+  <text x="426" y="445" class="body">at 50% (<tspan font-weight="700">ew50 == full</tspan>).</text>
+  <text x="418" y="461" class="body">• Starting at 34% fails.</text>
+
+  <!-- Timeline bar: 50% to 100% -->
+  <rect x="604" y="394" width="334" height="78" rx="10" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.3"/>
+  <text x="616" y="413" class="zone-title" fill="#334155">Steps 50% → 100%: Detail &amp; Audio Polish</text>
+  <text x="616" y="430" class="body">• Global palette &amp; anatomy are set; late steps refine</text>
+  <text x="624" y="445" class="body">edges, film grain, lip motion, and room reverb tails.</text>
+  <text x="616" y="461" class="body">• Releasing guides at 33% lets physics finish naturally.</text>
+</svg>
