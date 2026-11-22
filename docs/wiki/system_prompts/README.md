@@ -30,4 +30,4 @@ MiniMax's untouched vendor middleware prompts and worked examples remain hash-pi
 - **MiniMax-H3-Image (the official image model)**: [`docs/wiki/image/h3_image.md`](../image/h3_image.md)
 - **PrunaAI P-H3-Image Wiki & Architecture Guide**: [`docs/wiki/image/p_h3_image.md`](../image/p_h3_image.md) and [`docs/wiki/image/h3_image_editing.md`](../image/h3_image_editing.md)
 - **Control Vectors Wiki & End-to-End Guide**: [`docs/wiki/steering.md`](../steering.md)
-- **Historical `2026-11-05` Control-Vector System Prompt Research Record**: [`docs/wiki/research/control_vectors/2026-11-05_control_vector_system_prompt.md`](../research/control_vectors/2026-11-05_control_vector_system_prompt.md)
+- **Historical `2026-11-05` Control-Vector System Prompt Research Record**: [`docs/wiki/steering/research/2026-11-05_control_vector_system_prompt.md`](../steering/research/2026-11-05_control_vector_system_prompt.md)

@@ -2,7 +2,7 @@
 
 **Date**: 2026-11-06  
 **Reference credit**: [`DeTangle`](https://github.com/matlowai/DeTangle) by Dylan Matlow (MatlowAI), inspected in `coderef/DeTangle` at commit `9945346` (`2026-10-21`).  
-**Related docs**: [`docs/wiki/steering.md`](../../steering.md), [`docs/wiki/research/control_vectors/2026-11-04_h3_control_vectors.md`](2026-11-04_h3_control_vectors.md), [`docs/wiki/research/control_vectors/2026-11-05_control_vector_system_prompt.md`](2026-11-05_control_vector_system_prompt.md), [`docs/wiki/research/control_vectors/2026-11-06_mainodes_comparison_and_pika_roadmap.md`](2026-11-06_mainodes_comparison_and_pika_roadmap.md), [`docs/wiki/references.md`](../../references.md).
+**Related docs**: [`docs/wiki/steering.md`](../../steering.md), [`docs/wiki/steering/research/2026-11-04_h3_control_vectors.md`](2026-11-04_h3_control_vectors.md), [`docs/wiki/steering/research/2026-11-05_control_vector_system_prompt.md`](2026-11-05_control_vector_system_prompt.md), [`docs/wiki/steering/research/2026-11-06_mainodes_comparison_and_pika_roadmap.md`](2026-11-06_mainodes_comparison_and_pika_roadmap.md), [`docs/wiki/references.md`](../../references.md).
 
 ---
 
@@ -68,7 +68,7 @@ If `alpha < 1.0` is applied at build time, six code sites read or validate the r
 ### 2.2 Paired Two-Number Render Scoring (`Target Effect` + `Collateral Drift` vs. Seed-Matched `strength = 0.0` Base)
 
 - **Source in `DeTangle`**: `coderef/DeTangle/docs/case-study.md:9-36` and `coderef/DeTangle/lab/README.md:28-51`.
-- **Current H3 data & tools**: 66 rendered Pika control-vector clips with seed-matched `strength = 0.0` baselines (`bench/results/2026-11-05_control_vectors_pika_and_ref2va.md`), `bench/measure_dialogue_transcription.py`, `bench/voice_spans.py`, `bench/measure_pair_alignment.py`, `subject_track.py`, and `docs/wiki/research/control_vectors/exl3_qwen3vl/runbook.md`.
+- **Current H3 data & tools**: 66 rendered Pika control-vector clips with seed-matched `strength = 0.0` baselines (`bench/results/2026-11-05_control_vectors_pika_and_ref2va.md`), `bench/measure_dialogue_transcription.py`, `bench/voice_spans.py`, `bench/measure_pair_alignment.py`, `subject_track.py`, and `docs/wiki/steering/research/exl3_qwen3vl/runbook.md`.
 
 #### The "Space Station Trap" (`coderef/DeTangle/docs/case-study.md:13-24, 48`)
 In `DeTangle`'s case study, a repaired LoRA achieved near-zero generic bleed (`generic_excess = -0.019`) on a space-station portrait—which looks like a complete win if you only measure collateral suppression—but simultaneously collapsed on the target effect (`triggered_likeness = 0.134` vs. `0.667` naive) (`coderef/DeTangle/docs/case-study.md:15`). Because of this, `DeTangle` reports every arm as a **paired two-number cell**:
@@ -79,7 +79,7 @@ $$\text{Score}(s, \text{seed}) = \bigl(\text{Target Effect}(s, \text{seed}), \te
 Unlike `DeTangle`, which uses external ONNX InsightFace (`buffalo_l` / ArcFace) for face scoring (`coderef/DeTangle/docs/case-study.md:28-35`, `coderef/DeTangle/lab/README.md:56-68`—neither `insightface` nor `onnxruntime` is installed in our `.venv`, by the rule in `docs/wiki/masked_v2v/who_is_who_evidence.md:245-249`), this repo already has the tools needed for paired scoring on seed-matched `strength = 0.0` vs. `strength = s` clips:
 
 1. **Target Effect Score**:
-   - Scored on the rendered video frames and audio via `label_h3_control_vectors.py` (`docs/wiki/research/control_vectors/exl3_qwen3vl/runbook.md:35`).
+   - Scored on the rendered video frames and audio via `label_h3_control_vectors.py` (`docs/wiki/steering/research/exl3_qwen3vl/runbook.md:35`).
 2. **Voice Collateral Drift Score (on `<d>[Language] ...</d>` spans)**:
    - **Word intelligibility**: `bench/measure_dialogue_transcription.py` (`bench/measure_dialogue_transcription.py:1-120`) runs local `openai/whisper-medium` against the `<d>` lines embedded in the clip's workflow metadata (`script_lines`, `bench/measure_dialogue_transcription.py:81-89`), catching word drops or unscripted hallucinations (such as `chaos_panic` arm `38`).
    - **Pitch & timbre stability**: Whisper WER alone stays `0.0` even when voice pitch shifts dramatically (such as `head_swell` arm `30`, where `<d>Hi, how are you?</d>` remained intelligible while median F0 jumped `+67%` from `131.2 Hz -> 219.2 Hz`, `bench/results/2026-11-05_control_vectors_pika_and_ref2va.md:80, 108`). On disk, `bench/voice_spans.py` (`bench/voice_spans.py:81-105`) only separates the vocals stem via cached Hybrid Demucs and emits per-frame RMS dBFS (`frame_levels`) + voiced frame runs (`voiced_spans`, frozen output contract); it computes neither F0 nor log-mel cosine, so voiced F0 pitch drift against the `strength = 0.0` baseline requires a standalone clean-room `YIN` `bench/` helper ([`next_steps.md`](../../next_steps.md) `M2`; no Whisper/WER or WavLM).

@@ -17,10 +17,10 @@ This document answers six questions from code, commit diffs, and benchmark recor
 
 **Yes—in three specific places, while simultaneously landing several genuine fixes and a promising but unoptimized new direction (`edit_guidance.py`).**
 
-### Why the `2026-11-09` Pivot Happened (`docs/wiki/research/control_vectors/2026-11-09_control_vector_simplification_plan.md`)
+### Why the `2026-11-09` Pivot Happened (`docs/wiki/steering/research/2026-11-09_control_vector_simplification_plan.md`)
 Yesterday's session started from a real observation: the control-vector subsystem had grown to ~12,900 lines across 20 files, 13 CLI subcommands, and 4 creation methods, and some convenience wrappers (`canonical_frames.json` Mad-Libs slot splicing, silent `Pair 0` target-prompt splicing on `.toml` files, and hardcoded speaking-person prompts in `make-media`) were hiding what the math was actually doing.
 
-When the session ran paired head-to-head visual/audio gates (`§23` and `§25` of `docs/wiki/research/control_vectors/2026-11-09_control_vector_simplification_plan.md`), it discovered a fundamental mechanism gap:
+When the session ran paired head-to-head visual/audio gates (`§23` and `§25` of `docs/wiki/steering/research/2026-11-09_control_vector_simplification_plan.md`), it discovered a fundamental mechanism gap:
 - Adding a pooled constant 1D vector $\mathbf{v}_{\text{PR}} \in \mathbb{R}^{5376}$ across refined text tokens (`MiniMaxH3ApplyControlVectors`) works well for **continuous global mood, camera energy, and colour/lighting grades** (`film_16mm_1974`, `noir_monochrome`, `handheld_urgency`).
 - However, a pooled 1D offset added to existing tokens **cannot reliably replace a discrete noun/material or stop a scripted action** when the baseline words (`"A dark matte-black ceramic mug"`, `"checks her watch"`) remain intact in the prompt token stream (`§23.2` `mug1`..`mug5`: even at $3\times$ strength `s = 8.43`, the mug stayed matte-black ceramic; `§25.1` `diner1`: `slow_deliberate` could not stop the scripted watch-check).
 - By contrast, **changing the words in the prompt** and steering the DiT velocity field with **2-pass Prompt-Edit Guidance** (`MiniMaxH3PromptEdit` + `MiniMaxH3EditGuider` in `edit_guidance.py`, landed in `eea0b84b`) cleanly produced the bright yellow glazed ceramic mug (`mug_edit_w2` / `mug_edit_w3`) and stopped the watch-check (`diner_edit_w2p5`).

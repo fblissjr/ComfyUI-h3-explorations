@@ -146,7 +146,7 @@ Paper v4 Proposition 4 established the **single-image `(1 - w*lambda)` scalar ce
 ### 6.2 Paper v5 & `$H3_OUTPUT_DIR` Bundle Absorption Checklist
 
 Once **Window 1** (`faa62ef5` Phase 4 Showcases A–D), **Window 2** (`90e9d2bd` Wave 2 `spotlights` + Exp 4/6/7), and **Window 3** (`Qwen-Image-2.1` + Phase 5 Track 2 experiments) complete cleanly:
-1. **Paper v5 Monograph (`docs/wiki/research/control_vectors/` + refreshed typeset PDF + `$H3_OUTPUT_DIR` bundle):**
+1. **Paper v5 Monograph (`docs/wiki/steering/research/` + refreshed typeset PDF + `$H3_OUTPUT_DIR` bundle):**
    - Fold Phase 4 Showcases A–D + Wave 2 metrics into §5/§6 (clamped union `lambda_max <= 1.0` proof, Showcase B `blocks.20..49` inverted shadow proof, Showcase C `1x Q_aud` + `YIN` $F_0$ proof, Showcase D native `4.0 MP` `MiniMax-H3-Image` rank-8 proof + `P-H3-Image`, Dual-Lock `fl2va` unlock).
    - Fold Track 1 `52`-vector cross-interference census + per-slider RASteer `ROS` table (`§2`) and Track 2 LOPO CV audit (`§3`, [`stage3_cpu_prototypes.json`](../../../../data/exp_unpooled_sliders/phase5_cpu_audits/stage3_cpu_prototypes.json), `ColQwen` `vision_tokens` `§4`) cleanly as **Subspace Equilibrium v2**.
    - Fold Window 3 `Qwen-Image-2.1` (`Base` vs. `Multi-Vector EQ`, zero `1D`) into §7.3 cross-architecture validation.

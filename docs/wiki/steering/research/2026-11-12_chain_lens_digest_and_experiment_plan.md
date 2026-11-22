@@ -21,7 +21,7 @@ says who read what and what was not read. Figures are not copied here; "Figure N
 post named, counted from the top.
 
 For the repo's own J-Lens, start at
-[`../../wiki/control_vectors/j_lens_diagnostics_and_word_lab.md`](../../steering/j_lens_diagnostics_and_word_lab.md)
+[`../../wiki/control_vectors/j_lens_diagnostics_and_word_lab.md`](../j_lens_diagnostics_and_word_lab.md)
 and [`2026-11-06_j_lens_and_refiner_jacobian.md`](2026-11-06_j_lens_and_refiner_jacobian.md).
 
 **The current plan is section 15.** Sections 11 and 13 are how it was reached, and are kept as they were
@@ -44,7 +44,7 @@ as one current list.
 - **For H3.** The H3 text encoder has no MTP head, so the method does not run on it as published. The
   encoder's own upper layers can do the same job. The repo already has the two ends of the trade-off the post
   describes: single words from `j_lens.py`, and long steered rollouts from
-  `docs/wiki/research/control_vectors/exl3_qwen3vl/label_h3_control_vectors.py`.
+  `docs/wiki/steering/research/exl3_qwen3vl/label_h3_control_vectors.py`.
 - **The most useful borrowings are the tests.** Blind scoring with nulls, the round-trip check, and the J-lens
   paper's split of a steering vector into a word-readable part and a remainder all apply directly, and most
   need no render.
@@ -375,9 +375,9 @@ What was checked on disk and in the repo's records on 2026-11-12:
 |---|---|---|
 | A model with an MTP head | The H3 encoder has none. Both shipped `qwen3vl_32b_minimax_h3_*` checkpoints stop at `layers.49` with no MTP, output head or final norm | The header check below; [`../../sol_upstream.md`](../../attention/sol_upstream.md) |
 | The same, elsewhere on the machine | `qwen3.5_9b_int8_convrot.safetensors` and `p-h3-image_prompt_upsampler_int8_convrot.safetensors` both carry `mtp.*` tensors, and core has the head's code. Neither is the H3 conditioning encoder | The header check below; `comfy/text_encoders/qwen35.py::MTPHead` in ComfyUI core |
-| J-lens | `j_lens.py`: averaged Jacobian from the tap to the last layer, a linearized refiner, a Wiener inverse, cloze baselines. Reads a vector as words, writes a vector from words, scrubs words out | [`../../wiki/control_vectors/j_lens_diagnostics_and_word_lab.md`](../../steering/j_lens_diagnostics_and_word_lab.md) |
+| J-lens | `j_lens.py`: averaged Jacobian from the tap to the last layer, a linearized refiner, a Wiener inverse, cloze baselines. Reads a vector as words, writes a vector from words, scrubs words out | [`../../wiki/control_vectors/j_lens_diagnostics_and_word_lab.md`](../j_lens_diagnostics_and_word_lab.md) |
 | Single-token limit | The wiki names it: the word list holds only whole single-token words, and multi-token terms are dropped | Same page, section 3 |
-| Contrastive decoding against a prior | Already present in one-step form: the readout scores a word by its gain over the unsteered cloze baseline and over the opposite pole | `docs/wiki/research/control_vectors/exl3_qwen3vl/label_h3_control_vectors.py::compute_top_logit_shifts` |
+| Contrastive decoding against a prior | Already present in one-step form: the readout scores a word by its gain over the unsteered cloze baseline and over the opposite pole | `docs/wiki/steering/research/exl3_qwen3vl/label_h3_control_vectors.py::compute_top_logit_shifts` |
 | Trained verbalizer (fluent, confabulates) | The nearest thing is the steered rollout with a blind self-report label. Its labels drift where the words stay on target | [`exl3_qwen3vl/h3_control_vector_report.md`](exl3_qwen3vl/h3_control_vector_report.md), summary table |
 | Reading a direction on a mean state, both poles | How every vector is read today: added to a base state on cloze prefixes, plus and minus | `compute_top_logit_shifts` |
 | A second word table from what the model sees | The rows table: mean post-refiner row per token across real prompts, less the mean of all rows. Kept as a second readout | `bench/control_vector_lexicon.py`; [`2026-11-09_control_vector_simplification_plan.md`](2026-11-09_control_vector_simplification_plan.md), section 20.1 |

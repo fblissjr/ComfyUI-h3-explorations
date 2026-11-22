@@ -81,7 +81,7 @@ Whenever you use an animated multi-frame mask (`[frames, height, width]`) or aud
 Two separate tests proved two different parts of this story. Keeping them apart makes it clear what each tool is actually doing.
 
 ### Proof A (`2026-11-12`): Sound Cues alone lock timing without synthetic audio bleed
-In the `124`-frame tortoise crosswalk runs ([`2026-11-12_sound_cues_dpad_and_033_release_law.md`](../research/control_vectors/2026-11-12_sound_cues_dpad_and_033_release_law.md)):
+In the `124`-frame tortoise crosswalk runs ([`2026-11-12_sound_cues_dpad_and_033_release_law.md`](research/2026-11-12_sound_cues_dpad_and_033_release_law.md)):
 
 - **Without Sound Cues:** Prompt text asking for three unevenly spaced hops missed the requested beat timestamps and fell back to an even forward pace.
 - **With `MiniMaxH3SoundCues` (`24: hop`, `54: snap`, `57: slam`, `96: hop`) + `0.33` release:** The render hit `3/3` requested hops and the mid-clip red-leash snap on cue at normal `1x` speed (`6` steps), while the finished soundtrack stayed natural street ambience (near-zero correlation with the synthetic helper waveforms).

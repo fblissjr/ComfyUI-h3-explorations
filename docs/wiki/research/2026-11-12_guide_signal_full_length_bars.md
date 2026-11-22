@@ -81,7 +81,7 @@ or watched in motion.
   a landing; it made the beep. A guide sound meant to time a landing should sound like one.
 - **`plain` cannot be read as "the prompt alone will not hop".** The changed prompt kept "plods beside his
   feet" next to the new hop clause, so it asks for two gaits at once. That is the fault
-  [`control_vectors/2026-11-12_new_vectors_three_ways.md`](control_vectors/2026-11-12_new_vectors_three_ways.md)
+  [`../steering/research/2026-11-12_new_vectors_three_ways.md`](../steering/research/2026-11-12_new_vectors_three_ways.md)
   section 10 names for the morning's batch, made again here. A control for a hop needs the plodding replaced.
 
 ## 5. What this cannot see

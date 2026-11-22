@@ -261,7 +261,7 @@ def normalize_prompt(prompt: str) -> str:
 
 
 #: `MiniMaxH3ApplyControlVectors` schema defaults (`control_vector_nodes.py`,
-#: `docs/wiki/research/control_vectors/2026-11-04_h3_control_vectors.md`).
+#: `docs/wiki/steering/research/2026-11-04_h3_control_vectors.md`).
 #: Owned here so `control_vector_nodes.py` and `workflows/h3_config.py` read
 #: one copy (`workflows/AGENTS.md`).
 CONTROL_VECTOR_DEFAULTS = dict(

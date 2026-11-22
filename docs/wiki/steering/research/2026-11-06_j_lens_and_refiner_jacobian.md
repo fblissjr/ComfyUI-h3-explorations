@@ -13,7 +13,7 @@ MiniMax H3 extracts text conditioning from `Qwen3-VL-32B-Instruct` truncated aft
 Previously, verbalizing a control vector in natural language via [`exl3_qwen3vl/label_h3_control_vectors.py`](exl3_qwen3vl/label_h3_control_vectors.py) had two blind spots:
 
 1. **Saved `.safetensors` vectors could not be read back from `vector.post_refiner`**:
-   - [`docs/wiki/research/control_vectors/exl3_qwen3vl/label_h3_control_vectors.py::load_encoder_vector_from_safetensors`](exl3_qwen3vl/label_h3_control_vectors.py#L613-L636) checks `if "vector.encoder" in f.keys():` and returns `None` whenever `vector.encoder` (`5120`-d) was not saved alongside `vector.post_refiner` (`5376`-d).
+   - [`docs/wiki/steering/research/exl3_qwen3vl/label_h3_control_vectors.py::load_encoder_vector_from_safetensors`](exl3_qwen3vl/label_h3_control_vectors.py#L613-L636) checks `if "vector.encoder" in f.keys():` and returns `None` whenever `vector.encoder` (`5120`-d) was not saved alongside `vector.post_refiner` (`5376`-d).
    - Even when `vector.encoder` is saved ([`bench/control_vector/build_cmd.py:160-185`](../../../../bench/control_vector/build_cmd.py#L160-L185)), running [`compute_top_logit_shifts`](exl3_qwen3vl/label_h3_control_vectors.py#L640-L754) requires loading the 64-layer `Qwen3-VL-32B-Instruct` EXL3 checkpoint on GPU (`~17 GB` VRAM, `~12s` per vector).
 2. **`holds.post_refiner` and inference-time `mode = "hold"` operate in `5376`-d post-refiner space, which `layers.49` cannot see**:
    - Build-time hold orthogonalization ([`control_vector_nodes.py:914-923`](../../../../control_vector_nodes.py#L914-L923), [`bench/control_vector/build_cmd.py:160-185`](../../../../bench/control_vector/build_cmd.py#L160-L185)) and inference-time cross-vector hold projection (`mode = "hold"` / `project_out` with soft or over-projected $\alpha \in [0, 2]$, [`2026-11-06_detangle_comparison_and_borrowable_concepts.md`](2026-11-06_detangle_comparison_and_borrowable_concepts.md) §3) modify `vector.post_refiner` (`5376`-d):
@@ -45,7 +45,7 @@ Excluding token 0 during the forward pass breaks attention softmax normalization
 
 ### 2.2 Rule 2: Broadcast Sequence Perturbations and the Attention Value Path ($\beta$)
 
-Both [`docs/wiki/research/control_vectors/exl3_qwen3vl/label_h3_control_vectors.py:702-705`](exl3_qwen3vl/label_h3_control_vectors.py#L702-L705) (`h_pos[:, 1:, :] = h_pos[:, 1:, :] + d`) and [`control_vector_nodes.py`](../../../../control_vector_nodes.py) broadcast the steering vector $\mathbf{\delta}$ across a span of token positions $j \in \mathcal{S} \subseteq \lbrace 1, \dots, S-1 \rbrace$ rather than perturbing a single token in isolation.
+Both [`docs/wiki/steering/research/exl3_qwen3vl/label_h3_control_vectors.py:702-705`](exl3_qwen3vl/label_h3_control_vectors.py#L702-L705) (`h_pos[:, 1:, :] = h_pos[:, 1:, :] + d`) and [`control_vector_nodes.py`](../../../../control_vector_nodes.py) broadcast the steering vector $\mathbf{\delta}$ across a span of token positions $j \in \mathcal{S} \subseteq \lbrace 1, \dots, S-1 \rbrace$ rather than perturbing a single token in isolation.
 
 Under a broadcast perturbation $\mathbf{h}_j \mapsto \mathbf{h}_j + \mathbf{\delta}$ for $j \in \mathcal{S}$, the output of an attention block at token $i \in \mathcal{S}$ with frozen routing weights $A_{i,j}$ differentiates with respect to $\mathbf{\delta}$ as:
 
@@ -131,12 +131,12 @@ After transport through $\bar{J}_{49 \to 63}$, the Wiener-recovered post-refiner
 ### 4.1 Why Uncentered Linear Projection $W_{\text{head}} \bar{J}_{49 \to 63} \mathbf{v}$ Is Not Enough
 
 Directly sorting raw dot products $\Delta \mathbf{z} = W_{\text{head}} \bar{J}_{49 \to 63} J_{\text{Wiener}} \mathbf{v}_{\text{PR}}$ (where $W_{\text{head}}$ is `lm_head.weight`) over a regex vocabulary filter has two failure modes:
-1. **BPE prefix stem leakage**: In Qwen's `151,936`-piece BPE vocabulary, multi-token words split into leading space pieces (`" explos"`, `" pne"`, `" fauc"`, `" Buccane"`, `" commande"`). Without [`docs/wiki/research/control_vectors/exl3_qwen3vl/label_h3_control_vectors.py::_get_bpe_vocab_map`](exl3_qwen3vl/label_h3_control_vectors.py#L233-L324) (which maps `24,912` complete words and unambiguous domain/dictionary stems to their full English words while excluding stopwords and ambiguous short prefixes), raw BPE subwords pollute the top ranks.
+1. **BPE prefix stem leakage**: In Qwen's `151,936`-piece BPE vocabulary, multi-token words split into leading space pieces (`" explos"`, `" pne"`, `" fauc"`, `" Buccane"`, `" commande"`). Without [`docs/wiki/steering/research/exl3_qwen3vl/label_h3_control_vectors.py::_get_bpe_vocab_map`](exl3_qwen3vl/label_h3_control_vectors.py#L233-L324) (which maps `24,912` complete words and unambiguous domain/dictionary stems to their full English words while excluding stopwords and ambiguous short prefixes), raw BPE subwords pollute the top ranks.
 2. **Off-context high-norm unembedding rows**: Without a syntactic cloze baseline, high-norm proper nouns and technical tokens (`"USSR"`, `"Yugoslavia"`, `"openid"`, `"concatenate"`) that are grammatically impossible after *"The visual medium, camera look, lighting, and image fidelity look ___"* can score high raw dot products.
 
 ### 4.2 1 Shared Jacobian + 7 Cloze Baseline Logit Vectors + Exact Partition-Function Union
 
-In [`docs/wiki/research/control_vectors/exl3_qwen3vl/label_h3_control_vectors.py:665-721`](exl3_qwen3vl/label_h3_control_vectors.py#L665-L721), `compute_top_logit_shifts` evaluates 7 syntactic cloze prefixes (`141` tokens total across visual medium, lighting/film stock, head/body proportions, room motion, signage, surface texture, and `overall_soundscape`) and applies three nonlinear filters:
+In [`docs/wiki/steering/research/exl3_qwen3vl/label_h3_control_vectors.py:665-721`](exl3_qwen3vl/label_h3_control_vectors.py#L665-L721), `compute_top_logit_shifts` evaluates 7 syntactic cloze prefixes (`141` tokens total across visual medium, lighting/film stock, head/body proportions, room motion, signage, surface texture, and `overall_soundscape`) and applies three nonlinear filters:
 1. **Grammatical admissibility gate (`lp_pos > -11.5`)**: Only tokens whose steered log-probability $\log P(w \mid \text{prefix}, +\mathbf{d}) > -11.5$ on at least one of the 7 cloze prefixes can appear.
 2. **One-sided peak-flattening cancellation**:
    $$\text{shift}_{+}(w) = \min\Big(\log P(w \mid +\mathbf{d}) - \log P(w \mid \text{base}), \quad \log P(w \mid +\mathbf{d}) - \log P(w \mid -\mathbf{d})\Big)$$
@@ -149,7 +149,7 @@ Critically, we do **not** need 7 separate $5120 \times 5120$ Jacobians (`~367 MB
   $$\mathbf{z}_{\pm}^{(p)} = \mathbf{z}_{\text{base}}^{(p)} \pm \left(W_{\text{head}} \bar{J}_{49 \to 63}\right) \mathbf{d}$$
 
 #### The Full-Vocabulary `logsumexp` Partition-Function Invariant
-In [`docs/wiki/research/control_vectors/exl3_qwen3vl/label_h3_control_vectors.py:707-709`](exl3_qwen3vl/label_h3_control_vectors.py#L707-L709), `F.log_softmax(tail_logits(...), dim=-1)[valid_idx]` normalizes over all `151,936` vocabulary tokens **before** indexing `valid_idx` (`24,912` content words). Because function words, articles, and punctuation (`" the"`, `" a"`, `","`, `"."`) dominate the next-token probability mass on cloze prefixes, taking `log_softmax` over `valid_idx` alone omits the dominant terms in the partition function $\log \sum_{v=1}^{151936} \exp(z_v)$.
+In [`docs/wiki/steering/research/exl3_qwen3vl/label_h3_control_vectors.py:707-709`](exl3_qwen3vl/label_h3_control_vectors.py#L707-L709), `F.log_softmax(tail_logits(...), dim=-1)[valid_idx]` normalizes over all `151,936` vocabulary tokens **before** indexing `valid_idx` (`24,912` content words). Because function words, articles, and punctuation (`" the"`, `" a"`, `","`, `"."`) dominate the next-token probability mass on cloze prefixes, taking `log_softmax` over `valid_idx` alone omits the dominant terms in the partition function $\log \sum_{v=1}^{151936} \exp(z_v)$.
 
 Taking `union_idx` ($27,407$ tokens) as the union of `valid_idx` ($24,912$ words) with the top-$2,048$ highest-logit background tokens across the 7 cloze prefixes reproduces the exact `151,936`-token `logsumexp` denominator to **`0.0098` nats max error** across all 7 prefixes while requiring only a single $[27407, 5120] \times [5120]$ matrix-vector product (`14.5 ms` on CPU).
 

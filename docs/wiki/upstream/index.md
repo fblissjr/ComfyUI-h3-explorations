@@ -41,7 +41,7 @@ changes.
 | `lightx2v` | inference engine | offload, quantization and causal or streaming variants of H3 | [`periphery.md`](periphery.md) |
 | `minimax-h3` | the release repository | README changes, and PRs proposed by others against the release | [`periphery.md`](periphery.md) |
 | `pika-h3-flex` | Pika's six-step distill | the sampling contract for the distill the owner runs by default (a distill is run the way its trainer says: [`../references.md`](../references.md), "A distill's reference is its trainer's contract") | [`periphery.md`](periphery.md); [`../research/2026-11-04_pika_h3_flex_plan.md`](../research/2026-11-04_pika_h3_flex_plan.md) |
-| `comfyui-mainodes` | a second H3 node pack | ideas, read but not installed | [`periphery.md`](periphery.md); [`../research/control_vectors/2026-11-06_mainodes_comparison_and_pika_roadmap.md`](../research/control_vectors/2026-11-06_mainodes_comparison_and_pika_roadmap.md) |
+| `comfyui-mainodes` | a second H3 node pack | ideas, read but not installed | [`periphery.md`](periphery.md); [`../steering/research/2026-11-06_mainodes_comparison_and_pika_roadmap.md`](../steering/research/2026-11-06_mainodes_comparison_and_pika_roadmap.md) |
 | `workflow-templates` | Comfy-Org's shipped templates | how core intends its H3 nodes to be wired, and the bugs users report against them | [`periphery.md`](periphery.md) |
 
 Not in `watchlist.json`, but read on each sweep by hand: new H3 repos and node packs on GitHub, new H3 weights

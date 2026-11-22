@@ -91,7 +91,7 @@ Run in parallel on `minimax_h3_ref2va_pruned_int8_convrot.safetensors` + `h3/pik
 
 ## 4. Division of labor & shipped workflows
 
-For the follow-up `0.33` flow-midpoint gates (`Gate 1`, `Gate 2`, `Gate 2b`), zero-file nodes ([`MiniMaxH3SoundCues`](../../../sound_cues.py) and [`MiniMaxH3AppendSpriteTrajectory`](../../../sprite_trajectory.py)), and failure-mode guide, see **[`docs/wiki/research/control_vectors/2026-11-12_sound_cues_dpad_and_033_release_law.md`](control_vectors/2026-11-12_sound_cues_dpad_and_033_release_law.md)**.
+For the follow-up `0.33` flow-midpoint gates (`Gate 1`, `Gate 2`, `Gate 2b`), zero-file nodes ([`MiniMaxH3SoundCues`](../../../sound_cues.py) and [`MiniMaxH3AppendSpriteTrajectory`](../../../sprite_trajectory.py)), and failure-mode guide, see **[`docs/wiki/steering/research/2026-11-12_sound_cues_dpad_and_033_release_law.md`](../steering/research/2026-11-12_sound_cues_dpad_and_033_release_law.md)**.
 
 | Control task | Best mechanism | Shipped workflow | Why |
 |---|---|---|---|

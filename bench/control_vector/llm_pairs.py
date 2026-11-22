@@ -219,7 +219,7 @@ def _repair_multichange_markdown_pairs(md_text: str) -> str:
 def _extract_system_prompt_text() -> str:
     candidates = [
         REPO_ROOT / "docs" / "wiki" / "system_prompts" / "h3_control_vector_system_prompt.md",
-        REPO_ROOT / "docs" / "wiki" / "research" / "control_vectors" / "2026-11-05_control_vector_system_prompt.md",
+        REPO_ROOT / "docs" / "wiki" / "steering" / "research" / "2026-11-05_control_vector_system_prompt.md",
     ]
     open_fence = "````markdown\n"
     for sp_path in candidates:

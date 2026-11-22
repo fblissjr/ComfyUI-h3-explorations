@@ -493,7 +493,7 @@ DECLARED: dict[tuple[str, str], tuple] = {
                 "0.33 on 1x BasicGuider h3_text_to_video_pika_sound_cues_1x, "
                 "against the node default 1.0: releases the timeline cond_audio islands "
                 "mid-denoise so foley timing locks without muting inter-event ambience (2026-11-12, "
-                "docs/wiki/research/control_vectors/2026-11-12_sound_cues_dpad_and_033_release_law.md)."),
+                "docs/wiki/steering/research/2026-11-12_sound_cues_dpad_and_033_release_law.md)."),
     ("MiniMaxH3ReleaseReferences", "video_end_percent"):
         ("ARM", "0.33 (h3_config.DPAD_VIDEO_RELEASE_END) on h3_image_ref_dpad_sound_pika, "
                 "against the node default 1.0: releases the synthetic 2D cutout <Video 1> "

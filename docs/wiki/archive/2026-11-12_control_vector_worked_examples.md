@@ -81,12 +81,12 @@ judges named it; `cursed_cctv` was still taken for VHS.
 sections 6.4, 7.3 and 9.2.
 
 A hold can pull two such vectors apart. Section 5.3 of
-[`../research/control_vectors/2026-11-06_j_lens_and_refiner_jacobian.md`](../research/control_vectors/2026-11-06_j_lens_and_refiner_jacobian.md)
+[`../steering/research/2026-11-06_j_lens_and_refiner_jacobian.md`](../steering/research/2026-11-06_j_lens_and_refiner_jacobian.md)
 shows `cursed_cctv`'s words changing once two neighbors were held out of it.
 
 **What it does not show.** Whether a hold makes a vector score better against its neighbors. That use of the
 scoring tool is planned and not yet run:
-[`../research/control_vectors/2026-11-12_chain_lens_digest_and_experiment_plan.md`](../research/control_vectors/2026-11-12_chain_lens_digest_and_experiment_plan.md),
+[`../steering/research/2026-11-12_chain_lens_digest_and_experiment_plan.md`](../steering/research/2026-11-12_chain_lens_digest_and_experiment_plan.md),
 section 13.
 
 ---
@@ -133,7 +133,7 @@ judged. Section 6 of the same record says how they were made and what to look at
 
 **What the record shows.** On 2026-11-09 a vector could not turn a black mug yellow, at any strength tried,
 and could not stop a scripted action. Edit guidance did both.
-[`../research/control_vectors/2026-11-10_control_vector_state_history_and_tradeoffs.md`](../research/control_vectors/2026-11-10_control_vector_state_history_and_tradeoffs.md),
+[`../steering/research/2026-11-10_control_vector_state_history_and_tradeoffs.md`](../steering/research/2026-11-10_control_vector_state_history_and_tradeoffs.md),
 section 1. The owner's reading of the 2026-11-11 clothing clips says the same for an exact outfit, and also
 says a whole-scene vector can still carry clothing along with a change of world:
 [`../decisions.md`](../decisions.md), 2026-11-11.
@@ -144,7 +144,7 @@ another prompt. When the question is instead **exact frame timing** (landing hop
 or **off-prior 2D trajectories** (a `<Picture 1>` subject stopping mid-shot and walking backward while keeping its
 original facing), neither text tool owns frame coordinates—reach for [`MiniMaxH3SoundCues`](../../../sound_cues.py),
 [`MiniMaxH3AppendSpriteTrajectory`](../../../sprite_trajectory.py), and `0.33` selective release in
-[`../research/control_vectors/2026-11-12_sound_cues_dpad_and_033_release_law.md`](../research/control_vectors/2026-11-12_sound_cues_dpad_and_033_release_law.md).
+[`../steering/research/2026-11-12_sound_cues_dpad_and_033_release_law.md`](../steering/research/2026-11-12_sound_cues_dpad_and_033_release_law.md).
 
 ---
 
@@ -161,7 +161,7 @@ unioned erasure directions are clipped (`bench/verify_pole_a_erasure.py`), a sin
 (`noir_chaos_composed`, rank-8 then rank-16 math check), fractional allocation stayed warm (`sat_mean = 0.422`),
 whereas chaining separate `MiniMaxH3Steer` nodes sharing the same `target` evaluates each vector's full `|s_i| * 67.5`
 RMS-normalized `[M, D]` shift independently against unsteered `base_rows64` (`control_vectors.py:3454-3492`) and
-sums them in `float64` (`how_pole_a_erasure_works.md`; [`../research/control_vectors/2026-11-20_unpooled_multivector_sliders.md`](../research/control_vectors/2026-11-20_unpooled_multivector_sliders.md), §9).
+sums them in `float64` (`how_pole_a_erasure_works.md`; [`../steering/research/2026-11-20_unpooled_multivector_sliders.md`](../steering/research/2026-11-20_unpooled_multivector_sliders.md), §9).
 
 **What it does not show.** Stacking multiple `scene_only` nodes without disjoint `target` masks can still trip
 `STACK_SHIFT_WARN_NORM` (and cross-contaminate prose if `noise`/`chaos` overpower color suppression), so tune each

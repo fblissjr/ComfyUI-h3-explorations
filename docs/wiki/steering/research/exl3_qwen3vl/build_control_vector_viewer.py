@@ -2557,7 +2557,7 @@ def main() -> None:
 
     here = Path(__file__).resolve()
     h3_root = _resolve_h3_root()
-    exl3_dir = h3_root / "docs" / "research" / "control_vectors" / "exl3_qwen3vl"
+    exl3_dir = h3_root / "docs" / "wiki" / "steering" / "research" / "exl3_qwen3vl"
     if not exl3_dir.is_dir():
         exl3_dir = here.parent
 

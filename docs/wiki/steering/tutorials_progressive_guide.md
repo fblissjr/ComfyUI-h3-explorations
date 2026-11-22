@@ -2,7 +2,7 @@
 
 Last updated: 2026-11-21  
 Companion plain-English overview: [`how_pole_a_erasure_works.md`](how_pole_a_erasure_works.md)  
-Full paper & benchmark: [`2026-11-21_from_late_interaction_retrieval_to_av_dit_steering.md`](../research/control_vectors/2026-11-21_from_late_interaction_retrieval_to_av_dit_steering.md) · [`2026-11-21_multivector_erasure_benchmark.md`](../../../bench/results/2026-11-21_multivector_erasure_benchmark.md) · [`2026-11-21_phase3_de_slop_and_vision_block_steering.md`](../../../bench/results/2026-11-21_phase3_de_slop_and_vision_block_steering.md)
+Full paper & benchmark: [`2026-11-21_from_late_interaction_retrieval_to_av_dit_steering.md`](research/2026-11-21_from_late_interaction_retrieval_to_av_dit_steering.md) · [`2026-11-21_multivector_erasure_benchmark.md`](../../../bench/results/2026-11-21_multivector_erasure_benchmark.md) · [`2026-11-21_phase3_de_slop_and_vision_block_steering.md`](../../../bench/results/2026-11-21_phase3_de_slop_and_vision_block_steering.md)
 
 This guide is written for engineers and creators who have worked with LLMs, DiT video/image models, and embedding or multi-vector retrieval (`ColBERT`, `PLAID`/`WARP`, `PyLate`, `Model2Vec`, `ColQwen`) and want to **see, hear, and build** with single-pass (`1x`) multi-vector subspace steering in MiniMax H3.
 

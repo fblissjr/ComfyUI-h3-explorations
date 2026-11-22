@@ -2,7 +2,7 @@
 
 Date: `2026-11-21`  
 Runner: [`bench/control_vector/eval_multivector_erasure.py`](../control_vector/eval_multivector_erasure.py) + [`bench/verify_pole_a_erasure.py`](../verify_pole_a_erasure.py)  
-Owning paper: [`docs/wiki/research/control_vectors/2026-11-21_from_late_interaction_retrieval_to_av_dit_steering.md`](../../docs/wiki/research/control_vectors/2026-11-21_from_late_interaction_retrieval_to_av_dit_steering.md)  
+Owning paper: [`docs/wiki/steering/research/2026-11-21_from_late_interaction_retrieval_to_av_dit_steering.md`](../../docs/wiki/steering/research/2026-11-21_from_late_interaction_retrieval_to_av_dit_steering.md)  
 Practitioner guide: [`docs/wiki/steering/tutorials_progressive_guide.md`](../../docs/wiki/steering/tutorials_progressive_guide.md)
 
 ## 1. Reproducer Commands
@@ -24,7 +24,7 @@ CUDA_VISIBLE_DEVICES="" "$PY" bench/control_vector/eval_multivector_erasure.py -
 "$PY" bench/control_vector/eval_multivector_erasure.py --stage base50
 "$PY" bench/control_vector/eval_multivector_erasure.py --stage dit_blocks
 
-# Deterministic SVG plots -> docs/wiki/research/control_vectors/figures/fig{1..4}_*.svg (< 1 s CPU)
+# Deterministic SVG plots -> docs/wiki/steering/research/figures/fig{1..4}_*.svg (< 1 s CPU)
 CUDA_VISIBLE_DEVICES="" "$PY" bench/control_vector/eval_multivector_erasure.py --stage figures
 ```
 
@@ -185,7 +185,7 @@ Sources: `data/exp_unpooled_sliders/paper_2026_11_21/{gpu_audio_video_ablations,
 
 ## 5. 1-Pass Mechanistic Trace Across H3's 50 Joint AV DiT Blocks (`blocks.0..49`)
 
-Source: `data/exp_unpooled_sliders/paper_2026_11_21/dit_blocks_50_trace.json`, figure [`docs/wiki/research/control_vectors/figures/fig4_dit_50block_modality_trace.svg`](../../docs/wiki/research/control_vectors/figures/fig4_dit_50block_modality_trace.svg).
+Source: `data/exp_unpooled_sliders/paper_2026_11_21/dit_blocks_50_trace.json`, figure [`docs/wiki/steering/research/figures/fig4_dit_50block_modality_trace.svg`](../../docs/wiki/steering/research/figures/fig4_dit_50block_modality_trace.svg).
 - **Setup:** Single step-0 forward pass (`sigma = 1.0`, `seed = 730451892`, `1152x768 @ 39f`, `t2va_sitcom_kitchen.txt`, `s = 1.5` / `RMS = 101.25`) on `minimax_h3_fl2va_pruned_int8_convrot` + `pika_h3_flex_fl2va_svd995_bf16` (`num_layers = 50`, `comfy/ldm/minimax/model.py:508`).
 - **Packed sequence segments (`10,991` tokens):** `text = [0, 493)` (`493`), `audio = [493, 623)` (`130`), `video = [623, 10991)` (`10,368`).
 - **Metrics (Pre-RMSNorm invariant):** Per-segment angular divergence `ang_div = 1 - mean_cos(h_steered, h_base)` and per-block relative residual update norm `rel_inc = ||Δ_steered - Δ_base||_F / ||Δ_base||_F` (cloning block input before in-place `_mod_gate`).

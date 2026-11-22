@@ -2,7 +2,7 @@
 
 **Date**: 2026-11-06  
 **Reference inspected**: `coderef/ComfyUI-MAINodes` at `74cbd0e` (`v1.2.3`, GPL-3.0-or-later; earlier read at `1880dfc`, `v1.2.2`, in [`docs/wiki/references.md`](../../references.md)). Read for mathematical and architectural comparison only; nothing is imported or copied from it.  
-**Related docs**: [`docs/wiki/steering.md`](../../steering.md), [`docs/wiki/research/control_vectors/2026-11-04_h3_control_vectors.md`](2026-11-04_h3_control_vectors.md), [`docs/wiki/research/control_vectors/2026-11-06_detangle_comparison_and_borrowable_concepts.md`](2026-11-06_detangle_comparison_and_borrowable_concepts.md), [`bench/results/2026-11-05_control_vectors_pika_and_ref2va.md`](../../../../bench/results/2026-11-05_control_vectors_pika_and_ref2va.md), [`docs/wiki/references.md`](../../references.md).
+**Related docs**: [`docs/wiki/steering.md`](../../steering.md), [`docs/wiki/steering/research/2026-11-04_h3_control_vectors.md`](2026-11-04_h3_control_vectors.md), [`docs/wiki/steering/research/2026-11-06_detangle_comparison_and_borrowable_concepts.md`](2026-11-06_detangle_comparison_and_borrowable_concepts.md), [`bench/results/2026-11-05_control_vectors_pika_and_ref2va.md`](../../../../bench/results/2026-11-05_control_vectors_pika_and_ref2va.md), [`docs/wiki/references.md`](../../references.md).
 
 ---
 

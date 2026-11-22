@@ -1922,8 +1922,8 @@ def run_dit_blocks() -> dict[str, Any]:
 
 
 def run_figures() -> list[str]:
-    """Generate 4 publication-grade vector SVG plots in `docs/wiki/research/control_vectors/figures/`."""
-    fig_dir = REPO_ROOT / "docs" / "wiki" / "research" / "control_vectors" / "figures"
+    """Generate 4 publication-grade vector SVG plots in `docs/wiki/steering/research/figures/`."""
+    fig_dir = REPO_ROOT / "docs" / "wiki" / "steering" / "research" / "figures"
     fig_dir.mkdir(parents=True, exist_ok=True)
 
     ab15 = json.loads((DATA_OUT / "gpu_ablations_1_to_5.json").read_text(encoding="utf-8"))

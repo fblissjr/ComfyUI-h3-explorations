@@ -1,7 +1,7 @@
 """Compiler-safe attention-hook runtime and reusable GPU workspace for `MiniMaxH3Steer`.
 
 Implements the unified 4-mode routing architecture specified in
-`docs/wiki/research/control_vectors/2026-11-22_unified_steer_attention_hook_spec.md`:
+`docs/wiki/steering/research/2026-11-22_unified_steer_attention_hook_spec.md`:
 
 - Mode 0: pure post-refiner prelude (`band == all`, `streams == both`, zero hooks).
 - Mode 1: inverted block-band shadow K/V routing (e.g. `mid_late_20_49`, `late_30_49`,

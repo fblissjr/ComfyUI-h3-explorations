@@ -1873,7 +1873,7 @@ SOUND_GUIDE_EDIT_GUIDANCE = dict(
 #: Zero-file procedural sound-island node (`sound_cues.py`) and 2D cutout kinematic
 #: D-pad trajectory append node (`sprite_trajectory.py`), plus the hybrid `ref2va`
 #: recipe (`h3_image_ref_dpad_sound_pika_api.json`, Gate 2b 2026-11-12;
-#: `docs/wiki/research/control_vectors/2026-11-12_sound_cues_dpad_and_033_release_law.md`):
+#: `docs/wiki/steering/research/2026-11-12_sound_cues_dpad_and_033_release_law.md`):
 #: `<Picture 1>` stays active across all 6 Pika LCM steps (`end_percent = 1.0`),
 #: `<Video 1>` (`MiniMaxH3AppendSpriteTrajectory` at `384x224`) releases at the
 #: `b = 0.50` flow-time midpoint (`video_end_percent = 0.33`, after step 1) so steps
