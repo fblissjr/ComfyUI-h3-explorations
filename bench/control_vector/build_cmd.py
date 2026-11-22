@@ -734,13 +734,16 @@ def _resolve_existing_toml_from_meta(meta: dict[str, Any], toml_dir: Path) -> Pa
 
 
 def _iter_vector_safetensors(vec_dir: Path) -> list[Path]:
-    """List `.safetensors` files recursively inside `vec_dir`, excluding any nested `j_lens/` subtree."""
+    """List `.safetensors` files recursively inside `vec_dir`, excluding `j_lens/` and hidden/retired (`_*`, `.*`) subtrees."""
     if not vec_dir.is_dir():
         return []
     return sorted(
         p
         for p in vec_dir.rglob("*.safetensors")
-        if "j_lens" not in p.relative_to(vec_dir).parts
+        if not any(
+            part == "j_lens" or part.startswith(("_", "."))
+            for part in p.relative_to(vec_dir).parts[:-1]
+        )
     )
 
 
