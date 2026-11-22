@@ -86,6 +86,7 @@ try:
         discover_heylook_model,
         expand_heylook_preset,
         format_heylook_report,
+        make_heylook_client,
         normalize_heylook_base_url,
         parse_extend_directive,
         prepare_heylook_image,
@@ -119,6 +120,7 @@ except ImportError:  # run from the repo root by a check
         discover_heylook_model,
         expand_heylook_preset,
         format_heylook_report,
+        make_heylook_client,
         normalize_heylook_base_url,
         parse_extend_directive,
         prepare_heylook_image,
@@ -686,7 +688,7 @@ def expand_image_prompt(
     if client is not None:
         res, model_row, eff_resolved_mode, sys_source, preset_won = _run_with_client(client)
     else:
-        with httpx.Client(trust_env=False, timeout=httpx.Timeout(None, connect=10.0)) as own_client:
+        with make_heylook_client(base, timeout=httpx.Timeout(None, connect=10.0)) as own_client:
             res, model_row, eff_resolved_mode, sys_source, preset_won = _run_with_client(own_client)
 
     think_trace = res.thinking or _extract_inline_thinking(res.text)

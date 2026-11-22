@@ -332,8 +332,8 @@ def _generate_pairs_with_llm(
         if mspec and (mspec.startswith(("/", "~", ".")) or Path(mspec).expanduser().exists()):
             mspec = ""
         base = hlc.resolve_heylook_base_url(heylook_url)
-        with httpx.Client(
-            trust_env=False,
+        with hlc.make_heylook_client(
+            base,
             timeout=httpx.Timeout(connect=10.0, read=600.0, write=30.0, pool=10.0),
         ) as client:
             model_row = hlc.discover_heylook_model(client, base, mspec, need=frozenset({"chat"}))

@@ -50,6 +50,7 @@ try:
         discover_heylook_model,
         expand_heylook_preset,
         format_heylook_report,
+        make_heylook_client,
         parse_extend_directive,
         prepare_heylook_tensor,
         probe_heylook_server_info,
@@ -74,6 +75,7 @@ except ImportError:  # run from the repo root by a check or script
         discover_heylook_model,
         expand_heylook_preset,
         format_heylook_report,
+        make_heylook_client,
         parse_extend_directive,
         prepare_heylook_tensor,
         probe_heylook_server_info,
@@ -2109,7 +2111,7 @@ def run_auto_edit_rewrite(
     client_cm = (
         contextlib.nullcontext(client)
         if client is not None
-        else httpx.Client(trust_env=False, timeout=httpx.Timeout(None, connect=10.0))
+        else make_heylook_client(base, timeout=httpx.Timeout(None, connect=10.0))
     )
     with client_cm as req_client:
         model_row = discover_heylook_model(req_client, base, model, need=need_caps)

@@ -467,10 +467,16 @@ def plan_sync(
     return actions
 
 
-def fetch_remote_presets(client: httpx.Client, base_url: str) -> list[dict[str, Any]]:
-    r = client.get(f"{base_url}/v1/presets", headers={"Accept": "application/json"}, timeout=10.0)
+def fetch_remote_presets(
+    client: httpx.Client,
+    base_url: str,
+    *,
+    api_key: str | None = None,
+) -> list[dict[str, Any]]:
+    hdrs = _hc._req_headers({"Accept": "application/json"}, client=client, api_key=api_key)
+    r = client.get(f"{base_url}/v1/presets", headers=hdrs, timeout=10.0)
     if r.status_code >= 400:
-        raise _hc._http_error(r, base_url, "/v1/presets")
+        raise _hc._http_error(r, base_url, "/v1/presets", sent_auth=bool(hdrs.get("x-api-key")))
     payload = r.json()
     return [p for p in (payload.get("presets") or []) if isinstance(p, dict)]
 
@@ -485,13 +491,14 @@ def execute_sync(
     prefix: str | None = None,
     include_overlay: bool = False,
     client: httpx.Client | None = None,
+    api_key: str | None = None,
     repo: Path = REPO,
 ) -> list[SyncAction]:
     """Fetch `/v1/presets`, plan changes, and optionally apply `POST` / `PUT` updates."""
     base = _hc.normalize_heylook_base_url(base_url)
 
     def _run(c: httpx.Client) -> list[SyncAction]:
-        remote_presets = fetch_remote_presets(c, base)
+        remote_presets = fetch_remote_presets(c, base, api_key=api_key)
         actions = plan_sync(
             specs,
             remote_presets,
@@ -503,6 +510,7 @@ def execute_sync(
         )
         if not apply:
             return actions
+        write_hdrs = _hc._req_headers({"Content-Type": "application/json"}, client=c, api_key=api_key)
         for applied_idx, act in enumerate(actions):
             body: dict[str, Any] = {
                 "name": act.target_name,
@@ -510,9 +518,9 @@ def execute_sync(
                 "params": act.new_params,
             }
             if act.action == "create":
-                r = c.post(f"{base}/v1/presets", json=body, timeout=10.0)
+                r = c.post(f"{base}/v1/presets", json=body, headers=write_hdrs, timeout=10.0)
                 if r.status_code >= 400:
-                    err = _hc._http_error(r, base, "/v1/presets")
+                    err = _hc._http_error(r, base, "/v1/presets", sent_auth=bool(write_hdrs.get("x-api-key")))
                     raise RuntimeError(
                         f"failed creating preset {act.target_name!r} (after {applied_idx} prior action(s)): {err}"
                     ) from err
@@ -523,9 +531,11 @@ def execute_sync(
                 if not act.remote_id:
                     raise RuntimeError(f"cannot PUT preset {act.target_name!r}: missing remote id")
                 quoted_id = quote(act.remote_id, safe="")
-                r = c.put(f"{base}/v1/presets/{quoted_id}", json=body, timeout=10.0)
+                r = c.put(f"{base}/v1/presets/{quoted_id}", json=body, headers=write_hdrs, timeout=10.0)
                 if r.status_code >= 400:
-                    err = _hc._http_error(r, base, f"/v1/presets/{quoted_id}")
+                    err = _hc._http_error(
+                        r, base, f"/v1/presets/{quoted_id}", sent_auth=bool(write_hdrs.get("x-api-key"))
+                    )
                     raise RuntimeError(
                         f"failed updating preset {act.target_name!r} (id={act.remote_id!r}, after {applied_idx} prior action(s)): {err}"
                     ) from err
@@ -533,13 +543,18 @@ def execute_sync(
 
     if client is not None:
         return _run(client)
-    with httpx.Client(trust_env=False, timeout=10.0) as own:
+    with _hc.make_heylook_client(base, timeout=10.0, api_key=api_key) as own:
         return _run(own)
 
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--base-url", default="", help="heylook server URL (defaults to H3_HEYLOOK_URL / h3.env)")
+    ap.add_argument(
+        "--api-key",
+        default=None,
+        help="Optional heylook API key (defaults to HEYLOOK_API_KEY, HEYLOOK_API_KEY_FILE, H3_HEYLOOK_API_KEY_FILE, or mode-0600 ~/.heylook/api_key)",
+    )
     mode_grp = ap.add_mutually_exclusive_group()
     mode_grp.add_argument("--dry-run", action="store_true", help="plan only without writing (default)")
     mode_grp.add_argument("--apply", action="store_true", help="POST/PUT changed presets to heylook")
@@ -575,6 +590,7 @@ def main(argv: list[str] | None = None) -> int:
         reset_params=bool(args.reset_params),
         prefix=args.prefix,
         include_overlay=include_overlay,
+        api_key=args.api_key,
     )
 
     counts = {"create": 0, "update": 0, "unchanged": 0}

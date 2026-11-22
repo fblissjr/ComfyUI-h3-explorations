@@ -107,6 +107,125 @@ def resolve_heylook_base_url(base_url: str = "") -> str:
     return HEYLOOK_DEFAULT_BASE_URL
 
 
+def _origin_tuple(url: str) -> tuple[str, str | None, int]:
+    p = urllib.parse.urlsplit(url)
+    scheme = p.scheme.lower()
+    host = (p.hostname or "").lower() or None
+    port = p.port or (443 if scheme == "https" else 80)
+    return (scheme, host, port)
+
+
+def _read_h3_env_key_file() -> str:
+    env_file = Path(os.environ.get("H3_ENV_FILE") or h3_env.ENV_FILE)
+    try:
+        parsed = h3_env.parse(env_file.read_text(encoding="utf-8"))
+    except OSError:
+        return ""
+    return (parsed.get("H3_HEYLOOK_API_KEY_FILE") or "").strip()
+
+
+def _resolve_heylook_api_key_details(explicit: str | None = None) -> tuple[str | None, str, str | None]:
+    """Resolve access-gate key and non-secret source metadata without leaking secrets or mutating `H3_HEYLOOK_URL`."""
+    if explicit and explicit.strip():
+        return explicit.strip(), "explicit", None
+    env_key = os.environ.get("HEYLOOK_API_KEY", "").strip()
+    if env_key:
+        return env_key, "HEYLOOK_API_KEY", None
+
+    candidate: tuple[Path, str] | None = None
+    if "HEYLOOK_API_KEY_FILE" in os.environ:
+        raw_path = os.environ["HEYLOOK_API_KEY_FILE"].strip()
+        if raw_path:
+            candidate = (Path(raw_path).expanduser(), "HEYLOOK_API_KEY_FILE")
+    else:
+        h3_file = os.environ.get("H3_HEYLOOK_API_KEY_FILE", "").strip() or _read_h3_env_key_file()
+        if h3_file:
+            candidate = (Path(h3_file).expanduser(), "H3_HEYLOOK_API_KEY_FILE")
+        else:
+            candidate = (Path.home() / ".heylook" / "api_key", "~/.heylook/api_key")
+
+    if candidate is None:
+        return None, "none", None
+
+    p, src = candidate
+    try:
+        if not p.is_file():
+            return None, "none", None
+        st = p.stat()
+    except OSError:
+        return None, "none", None
+
+    if (st.st_mode & 0o077) != 0:
+        return None, "none", f"ignored {src}: permissions must be mode 0600 (run chmod 600)"
+
+    try:
+        val = p.read_text(encoding="utf-8").strip()
+    except OSError:
+        return None, "none", None
+    if not val:
+        return None, "none", f"ignored {src}: file is empty"
+    return val, src, None
+
+
+def resolve_heylook_api_key(explicit: str | None = None) -> tuple[str | None, str]:
+    """Resolve `heylook` access-gate key (`(key, source)`), enforcing mode `0600` on key files."""
+    key, src, _warn = _resolve_heylook_api_key_details(explicit)
+    return key, src
+
+
+def heylook_auth_headers(api_key: str | None = None) -> dict[str, str]:
+    """Return `{\"x-api-key\": key}` when a `heylook` credential is configured, else `{}`."""
+    key, _src = resolve_heylook_api_key(api_key)
+    return {"x-api-key": key} if key else {}
+
+
+def _req_headers(
+    extra: dict[str, str] | None = None,
+    *,
+    client: httpx.Client | None = None,
+    api_key: str | None = None,
+) -> dict[str, str]:
+    hdrs = dict(extra or {})
+    low_keys = {k.lower() for k in hdrs}
+    if client is not None:
+        low_keys |= {k.lower() for k in client.headers.keys()}
+    if "x-api-key" not in low_keys and "authorization" not in low_keys:
+        hdrs.update(heylook_auth_headers(api_key))
+    return hdrs
+
+
+def make_heylook_client(
+    base: str,
+    *,
+    timeout: Any = None,
+    api_key: str | None = None,
+    event_hooks: dict[str, list[Any]] | None = None,
+) -> httpx.Client:
+    """Create a redirect-disabled, origin-scoped `httpx.Client` injecting `x-api-key` only for `base`'s origin."""
+    expected_origin = _origin_tuple(normalize_heylook_base_url(base))
+    key, _src = resolve_heylook_api_key(api_key)
+
+    def _auth_origin_hook(request: httpx.Request) -> None:
+        if _origin_tuple(str(request.url)) == expected_origin:
+            if key and not ("x-api-key" in request.headers or "authorization" in request.headers):
+                request.headers["x-api-key"] = key
+        else:
+            request.headers.pop("x-api-key", None)
+            request.headers.pop("authorization", None)
+
+    merged_hooks: dict[str, list[Any]] = {}
+    for hook_name, fn_list in (event_hooks or {}).items():
+        merged_hooks[hook_name] = list(fn_list)
+    merged_hooks["request"] = [_auth_origin_hook, *merged_hooks.get("request", [])]
+
+    return httpx.Client(
+        trust_env=False,
+        follow_redirects=False,
+        timeout=timeout if timeout is not None else httpx.Timeout(None, connect=10.0),
+        event_hooks=merged_hooks,
+    )
+
+
 def prepare_heylook_image(path_or_bytes: bytes | str | Path) -> tuple[str, str]:
     """Downscale a file/bytes image for `heylook` `/v1/messages` (`(raw_base64, media_type)`).
 
@@ -162,39 +281,70 @@ def _fact_value(node: Any, *keys: str) -> Any:
     return cur.get("value") if isinstance(cur, dict) else None
 
 
-def _http_error(r: httpx.Response, base: str, path: str) -> Exception:
+def _http_error(
+    r: httpx.Response,
+    base: str,
+    path: str,
+    *,
+    sent_auth: bool | None = None,
+) -> Exception:
+    try:
+        payload = r.json()
+    except Exception:
+        payload = None
+    err_obj = payload.get("error") if isinstance(payload, dict) and isinstance(payload.get("error"), dict) else {}
+    err_code = err_obj.get("code")
+    detail = payload.get("detail") if isinstance(payload, dict) else None
+    if detail is None:
+        detail = err_obj.get("message")
+    if detail is None and payload is not None:
+        detail = str(payload)[:240]
+    elif detail is None:
+        detail = r.text[:240]
+
     if r.status_code == 503:
+        if err_code == "auth_misconfigured":
+            return PermissionError(
+                f"{base}{path} answered HTTP 503 (auth_misconfigured): "
+                f"{detail or 'access key file is misconfigured'}. "
+                "Fix server key-file permissions (chmod 600) or ensure the key file is non-empty."
+            )
         try:
             retry = float(r.headers.get("Retry-After", ""))
         except ValueError:
             retry = None
         msg = "model_overloaded"
-        try:
-            err_msg = (r.json().get("error") or {}).get("message")
-            if err_msg:
-                msg = f"model_overloaded: {err_msg}"
-        except Exception:
-            pass
+        if err_obj.get("message"):
+            msg = f"model_overloaded: {err_obj['message']}"
         return HeylookOverloadedError(msg, retry_after=retry)
     if r.status_code == 403:
+        if err_code == "csrf_rejected":
+            return PermissionError(
+                f"{base}{path} answered HTTP 403 (csrf_rejected): "
+                f"state-changing request failed heylook's Origin/Sec-Fetch-Site check ({detail or 'csrf_rejected'})."
+            )
         return PermissionError(
-            f"{base}{path} answered HTTP 403 (heylook Host check / DNS-rebinding guard). "
-            "Address the server by IP or 127.0.0.1, or add the hostname to `allowed_hosts` in heylook.toml."
+            f"{base}{path} answered HTTP 403 (heylook Host check / DNS-rebinding guard): "
+            f"{detail or 'Host not allowed'}. "
+            "Address the server by IP or 127.0.0.1, or add the hostname to allowed_hosts in heylook.toml."
         )
     if r.status_code == 401:
+        if sent_auth is not None:
+            had_key = sent_auth
+        else:
+            req = getattr(r, "request", None)
+            had_key = bool(req and (req.headers.get("x-api-key") or req.headers.get("authorization")))
+        if had_key:
+            return PermissionError(
+                f"{base}{path} answered HTTP 401 (auth_required): the configured heylook API key was rejected. "
+                "Check HEYLOOK_API_KEY / key file and target URL."
+            )
+        _k, _src, key_warn = _resolve_heylook_api_key_details()
+        warn_suffix = f" ({key_warn}.)" if key_warn else ""
         return PermissionError(
-            f"{base}{path} answered HTTP 401: heylook has no inference key, so a proxy in front of it rejected the request."
+            f"{base}{path} answered HTTP 401 (auth_required): heylook's access gate requires authentication. "
+            f"Set HEYLOOK_API_KEY, create a mode-0600 ~/.heylook/api_key, or set H3_HEYLOOK_API_KEY_FILE in h3.env.{warn_suffix}"
         )
-    try:
-        payload = r.json()
-    except Exception:
-        detail = r.text[:240]
-    else:
-        detail = payload.get("detail") if isinstance(payload, dict) else None
-        if detail is None and isinstance(payload, dict):
-            detail = (payload.get("error") or {}).get("message")
-        if detail is None:
-            detail = str(payload)[:240]
     if r.status_code in (400, 422):
         return ValueError(f"heylook HTTP {r.status_code} on {path}: {detail}")
     return RuntimeError(f"heylook HTTP {r.status_code} on {path}: {detail}")
@@ -206,10 +356,12 @@ def discover_heylook_model(
     requested_model: str = "",
     *,
     need: set[str] | frozenset[str] = frozenset({"chat"}),
+    api_key: str | None = None,
 ) -> dict:
     """Resolve and capability-gate a `/v1/models` row at runtime (`capabilities`, never `modalities`)."""
+    req_hdrs = _req_headers({"Accept": "application/json"}, client=client, api_key=api_key)
     try:
-        r = client.get(f"{base}/v1/models", headers={"Accept": "application/json"}, timeout=10.0)
+        r = client.get(f"{base}/v1/models", headers=req_hdrs, timeout=10.0)
     except httpx.HTTPError as exc:
         raise RuntimeError(
             f"cannot reach heylook at {base}/v1/models ({type(exc).__name__}: {exc}). "
@@ -253,7 +405,7 @@ def discover_heylook_model(
 
     resident: set[str] = set()
     try:
-        mr = client.get(f"{base}/v1/system/metrics", headers={"Accept": "application/json"}, timeout=5.0)
+        mr = client.get(f"{base}/v1/system/metrics", headers=req_hdrs, timeout=5.0)
         if mr.status_code == 200:
             models_map = mr.json().get("models")
             if isinstance(models_map, dict):
@@ -268,9 +420,12 @@ def expand_heylook_preset(
     base: str,
     preset_id: str,
     model_row: dict,
+    *,
+    api_key: str | None = None,
 ) -> dict:
     """Expand a `/v1/presets` entry client-side with capability & depth filtering."""
-    r = client.get(f"{base}/v1/presets", headers={"Accept": "application/json"}, timeout=10.0)
+    req_hdrs = _req_headers({"Accept": "application/json"}, client=client, api_key=api_key)
+    r = client.get(f"{base}/v1/presets", headers=req_hdrs, timeout=10.0)
     if r.status_code >= 400:
         raise _http_error(r, base, "/v1/presets")
     presets = [p for p in (r.json().get("presets") or []) if isinstance(p, dict)]
@@ -508,15 +663,22 @@ def _iter_sse(lines: Any, interrupt_check: Callable[[], None] | None = None):
             yield event, json.loads(line[6:])
 
 
-def cancel_heylook_request(base: str, request_id: str, *, client: httpx.Client | None = None) -> bool:
+def cancel_heylook_request(
+    base: str,
+    request_id: str,
+    *,
+    client: httpx.Client | None = None,
+    api_key: str | None = None,
+) -> bool:
     """`DELETE /v1/requests/{request_id}`. 404 means already finished (`False`)."""
     encoded = urllib.parse.quote(request_id, safe="")
     url = f"{base}/v1/requests/{encoded}"
+    req_hdrs = _req_headers({}, client=client, api_key=api_key)
     if client is not None:
-        r = client.delete(url, timeout=5.0)
+        r = client.delete(url, headers=req_hdrs, timeout=5.0)
     else:
-        with httpx.Client(trust_env=False, timeout=5.0) as c:
-            r = c.delete(url)
+        with make_heylook_client(base, timeout=5.0, api_key=api_key) as c:
+            r = c.delete(url, headers=req_hdrs)
     if r.status_code == 404:
         return False
     r.raise_for_status()
@@ -554,14 +716,19 @@ def stream_heylook_message(
     *,
     client: httpx.Client | None = None,
     interrupt_check: Callable[[], None] | None = None,
+    api_key: str | None = None,
 ) -> HeylookStreamResult:
     """Stream one `POST /v1/messages` request with a fresh `X-Request-ID` and cancel-on-abort."""
     req_id = str(uuid.uuid4())
-    headers = {
-        "Content-Type": "application/json",
-        "Accept": "text/event-stream",
-        "X-Request-ID": req_id,
-    }
+    headers = _req_headers(
+        {
+            "Content-Type": "application/json",
+            "Accept": "text/event-stream",
+            "X-Request-ID": req_id,
+        },
+        client=client,
+        api_key=api_key,
+    )
     payload = {**body, "stream": True}
     out = HeylookStreamResult(model=str(body.get("model") or ""), request_id=req_id)
     finished = False
@@ -604,7 +771,7 @@ def stream_heylook_message(
         except BaseException:
             if not finished:
                 try:
-                    cancel_heylook_request(base, tracked_id, client=c)
+                    cancel_heylook_request(base, tracked_id, client=c, api_key=api_key)
                 except Exception:
                     pass
             raise
@@ -612,7 +779,7 @@ def stream_heylook_message(
     if client is not None:
         _run_with(client)
     else:
-        with httpx.Client(trust_env=False, timeout=httpx.Timeout(None, connect=10.0)) as owned:
+        with make_heylook_client(base, timeout=httpx.Timeout(None, connect=10.0), api_key=api_key) as owned:
             _run_with(owned)
 
     if not finished:
@@ -659,16 +826,24 @@ def format_heylook_report(
     return " ".join(parts)
 
 
-def probe_heylook_server_info(base_url: str = "", *, fallback_env: bool = False) -> dict:
+def probe_heylook_server_info(
+    base_url: str = "",
+    *,
+    fallback_env: bool = False,
+    api_key: str | None = None,
+) -> dict:
     """Probe live `heylook` `/v1/models`, `/v1/system/metrics`, and `/v1/presets` for UI autofill.
 
     When `fallback_env=True` and `base_url` is blank, resolves via `resolve_heylook_base_url("")`
     server-side while returning `"base_url": ""` so host-specific LAN IPs stay out of client state.
     """
+    key, key_source = resolve_heylook_api_key(api_key)
     heylook_info: dict = {
         "base_url": "",
         "reachable": False,
         "error": None,
+        "auth_configured": bool(key),
+        "auth_source": key_source,
         "resident_models": [],
         "models": [],
         "presets": [],
@@ -680,10 +855,11 @@ def probe_heylook_server_info(base_url: str = "", *, fallback_env: bool = False)
     try:
         base = normalize_heylook_base_url(raw_url) if raw_url else resolve_heylook_base_url("")
         heylook_info["base_url"] = base if raw_url else ""
-        with httpx.Client(trust_env=False, timeout=httpx.Timeout(3.0, connect=2.0)) as client:
-            mr = client.get(f"{base}/v1/models", headers={"Accept": "application/json"})
+        hdrs = _req_headers({"Accept": "application/json"}, api_key=api_key)
+        with make_heylook_client(base, timeout=httpx.Timeout(3.0, connect=2.0), api_key=api_key) as client:
+            mr = client.get(f"{base}/v1/models", headers=hdrs)
             if mr.status_code >= 400:
-                raise _http_error(mr, base, "/v1/models")
+                raise _http_error(mr, base, "/v1/models", sent_auth=bool(key))
             rows = [
                 r for r in (mr.json().get("data") or [])
                 if isinstance(r, dict) and r.get("id") and "chat" in (r.get("capabilities") or [])
@@ -703,7 +879,7 @@ def probe_heylook_server_info(base_url: str = "", *, fallback_env: bool = False)
                 for r in rows
             ]
             try:
-                sr = client.get(f"{base}/v1/system/metrics", headers={"Accept": "application/json"})
+                sr = client.get(f"{base}/v1/system/metrics", headers=hdrs)
                 if sr.status_code == 200:
                     mmap = sr.json().get("models")
                     if isinstance(mmap, dict):
@@ -711,7 +887,7 @@ def probe_heylook_server_info(base_url: str = "", *, fallback_env: bool = False)
             except Exception:
                 pass
             try:
-                pr = client.get(f"{base}/v1/presets", headers={"Accept": "application/json"})
+                pr = client.get(f"{base}/v1/presets", headers=hdrs)
                 if pr.status_code == 200:
                     heylook_info["presets"] = [
                         {

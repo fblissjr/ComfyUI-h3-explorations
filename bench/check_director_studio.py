@@ -1486,11 +1486,24 @@ def check_server_routes_and_escalate() -> str:
 
                     # 11. POST /api/context_suggest uses heylook POST /v1/messages (never /v1/chat/completions)
                     seen_heylook: dict[str, Any] = {}
+                    dir_secret = "hlk_director_secret_321"
 
-                    async def _hl_models(_r: web.Request) -> web.Response:
+                    async def _hl_models(req: web.Request) -> web.Response:
+                        if req.headers.get("x-api-key") != dir_secret:
+                            return web.json_response(
+                                {"error": {"code": "auth_required", "message": "auth required"}},
+                                status=401,
+                            )
+                        seen_heylook["models_key"] = req.headers.get("x-api-key")
                         return web.json_response({"data": [{"id": "qwen-vision", "capabilities": ["chat", "vision"]}]})
 
                     async def _hl_messages(req: web.Request) -> web.Response:
+                        if req.headers.get("x-api-key") != dir_secret:
+                            return web.json_response(
+                                {"error": {"code": "auth_required", "message": "auth required"}},
+                                status=401,
+                            )
+                        seen_heylook["messages_key"] = req.headers.get("x-api-key")
                         seen_heylook["req_id"] = req.headers.get("X-Request-ID")
                         seen_heylook["body"] = await req.json()
                         return web.json_response(
@@ -1511,8 +1524,20 @@ def check_server_routes_and_escalate() -> str:
                     hl_stub.router.add_post("/v1/chat/completions", lambda _r: web.Response(status=404, text="removed"))
                     async with TestServer(hl_stub) as hl_srv:
                         prev_hl = os.environ.get("H3_HEYLOOK_URL")
+                        prev_hl_key = os.environ.get("HEYLOOK_API_KEY")
+                        prev_hl_kfile = os.environ.get("HEYLOOK_API_KEY_FILE")
                         os.environ["H3_HEYLOOK_URL"] = f"http://127.0.0.1:{hl_srv.port}"
                         try:
+                            os.environ.pop("HEYLOOK_API_KEY", None)
+                            os.environ["HEYLOOK_API_KEY_FILE"] = ""
+                            r_hl_unauth = await client.post(
+                                "/api/context_suggest",
+                                json={"source_ref": "test_anchor.png", "original_prompt": "misty lake", "prompt": ""},
+                            )
+                            assert r_hl_unauth.status == 200
+                            assert (await r_hl_unauth.json()) == {"ok": True, "enabled": False, "suggestions": []}
+
+                            os.environ["HEYLOOK_API_KEY"] = dir_secret
                             r_hl = await client.post(
                                 "/api/context_suggest",
                                 json={"source_ref": "test_anchor.png", "original_prompt": "misty lake", "prompt": ""},
@@ -1520,6 +1545,8 @@ def check_server_routes_and_escalate() -> str:
                             assert r_hl.status == 200, await r_hl.text()
                             hl_doc = await r_hl.json()
                             assert hl_doc["ok"] is True and hl_doc["enabled"] is True, hl_doc
+                            assert seen_heylook.get("models_key") == dir_secret
+                            assert seen_heylook.get("messages_key") == dir_secret
                             assert hl_doc["suggestions"] and hl_doc["suggestions"][0]["title"] == "Frost Bloom", hl_doc
                             assert seen_heylook.get("req_id"), "Expected X-Request-ID on /v1/messages"
                             blocks = seen_heylook["body"]["messages"][0]["content"]
@@ -1530,6 +1557,14 @@ def check_server_routes_and_escalate() -> str:
                                 os.environ.pop("H3_HEYLOOK_URL", None)
                             else:
                                 os.environ["H3_HEYLOOK_URL"] = prev_hl
+                            if prev_hl_key is None:
+                                os.environ.pop("HEYLOOK_API_KEY", None)
+                            else:
+                                os.environ["HEYLOOK_API_KEY"] = prev_hl_key
+                            if prev_hl_kfile is None:
+                                os.environ.pop("HEYLOOK_API_KEY_FILE", None)
+                            else:
+                                os.environ["HEYLOOK_API_KEY_FILE"] = prev_hl_kfile
 
                     # 12. GET /docs, /api/docs, /api/docs/file, and security confinement
                     r_docs_html = await client.get("/docs")

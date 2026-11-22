@@ -86,12 +86,13 @@ A proposed `MiniMaxH3AutoEditPrompt` node accepts either:
 
 | Shared Helper in `heylook_client.py` | Role in Auto-Edit Prompt Rewriting & Expansion |
 |---|---|
-| `normalize_heylook_base_url` | Validates `http(s)://<host>:<port>` without trailing slash (`127.0.0.1` / LAN IP so `heylook`'s `Host` check passes). |
+| `normalize_heylook_base_url` | Validates `http(s)://<host>:<port>` without trailing slash (`127.0.0.1` / LAN IP / listed HTTPS origin so `heylook`'s `Host` check passes). |
+| `resolve_heylook_api_key`, `heylook_auth_headers`, `make_heylook_client` | Resolves `HEYLOOK_API_KEY`, mode-`0600` `~/.heylook/api_key` (`HEYLOOK_API_KEY_FILE`, or `H3_HEYLOOK_API_KEY_FILE` in `h3.env` for `comfyui.service` `ProtectHome=tmpfs`), disables redirects (`follow_redirects=False`), and scopes `x-api-key` strictly to `base_url`'s origin (`v2.0.263–2.0.264`). |
 | `discover_heylook_model` | Queries `GET /v1/models` at runtime (`capabilities` gated on `"chat"`—no hardcoded model IDs). |
 | `expand_heylook_preset` | Optional preset support from `GET /v1/presets`. |
 | `parse_extend_directive`, `compose_preset_system_prompt` | Parses `@extend:prepend|append` / `<!-- H3_EXTEND:prepend|append -->` directives and composes additive preset overlays around local H3 contracts (`sys=local+extend:<preset>`). |
 | `build_heylook_request_body` | Capability-gates `thinking` / `reasoning_effort`, omits `max_tokens` when using model/preset defaults, applies `seed`, strips unsupported `request_fields`. |
-| `with_heylook_backoff` | Retries `503` (`model_overloaded`) with `Retry-After` backoff on single-user local servers. |
+| `with_heylook_backoff` | Retries `503` (`model_overloaded`) with `Retry-After` backoff on single-user local servers, while failing fast (`PermissionError`) on `401 auth_required`, `403 csrf_rejected` / `Host` refusal, and `503 auth_misconfigured`. |
 | `stream_heylook_message` | Sends a fresh `X-Request-ID`, streams `/v1/messages` SSE, cancels via `DELETE /v1/requests/{id}` on interrupt, maps `event: error` cleanly, and joins only `text` blocks (dropping `thinking` blocks). |
 
 *(Note: When `heylook` runs on a separate Apple Silicon host on the LAN, the rewrite step adds ~0.3–1.5s of off-GPU latency while keeping 100% of local NVIDIA VRAM dedicated to ComfyUI's H3 models.)*

@@ -220,11 +220,116 @@ def check_legacy_scope_and_overlay_directive_validation() -> str:
     return "legacy POLICY SCOPE keeps rules/Allowed before Output contract, and overlay directive validation rejects bare 'prepend'"
 
 
+def check_access_gate_auth_forwarding() -> str:
+    import json
+    import os
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+    import threading
+    from bench import sync_heylook_presets as ps
+
+    secret = "hlk_sync_secret_987"
+    seen: list[tuple[str, str, str | None]] = []
+
+    class _AuthHandler(BaseHTTPRequestHandler):
+        def log_message(self, _fmt, *_args):
+            return
+
+        def _json(self, code: int, obj: dict) -> None:
+            raw = json.dumps(obj).encode("utf-8")
+            self.send_response(code)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(raw)))
+            self.end_headers()
+            self.wfile.write(raw)
+
+        def _check_auth(self, method: str) -> bool:
+            got = self.headers.get("x-api-key")
+            seen.append((method, self.path, got))
+            if got != secret:
+                self._json(
+                    401,
+                    {"error": {"type": "authentication_error", "code": "auth_required", "message": "auth required"}},
+                )
+                return False
+            return True
+
+        def do_GET(self):
+            if not self._check_auth("GET"):
+                return
+            self._json(
+                200,
+                {
+                    "presets": [
+                        {
+                            "id": "p-upd",
+                            "name": ps.format_target_name("h3-image-t2i", ""),
+                            "system_prompt": "OUTDATED",
+                            "params": {},
+                        }
+                    ]
+                },
+            )
+
+        def do_POST(self):
+            if not self._check_auth("POST"):
+                return
+            length = int(self.headers.get("Content-Length") or 0)
+            _ = self.rfile.read(length)
+            self._json(201, {"id": "p-new"})
+
+        def do_PUT(self):
+            if not self._check_auth("PUT"):
+                return
+            length = int(self.headers.get("Content-Length") or 0)
+            _ = self.rfile.read(length)
+            self._json(200, {"id": "p-upd"})
+
+    srv = ThreadingHTTPServer(("127.0.0.1", 0), _AuthHandler)
+    t = threading.Thread(target=srv.serve_forever, daemon=True)
+    t.start()
+    prev_key = os.environ.get("HEYLOOK_API_KEY")
+    prev_kfile = os.environ.get("HEYLOOK_API_KEY_FILE")
+    try:
+        base = f"http://127.0.0.1:{srv.server_address[1]}"
+        specs = ps.filter_catalog(["h3-image-t2i", "h3-image-t2i-design"])[0]
+        assert len(specs) == 2
+
+        # 1. Missing key -> 401 PermissionError without issuing any writes
+        os.environ.pop("HEYLOOK_API_KEY", None)
+        os.environ["HEYLOOK_API_KEY_FILE"] = ""
+        try:
+            ps.execute_sync(base, specs, apply=True)
+            raise AssertionError("expected PermissionError on 401")
+        except PermissionError as exc:
+            assert "401" in str(exc) and secret not in str(exc), exc
+        assert not any(m in ("POST", "PUT") for m, _p, _k in seen), seen
+
+        # 2. HEYLOOK_API_KEY forwards x-api-key on GET, PUT, and POST
+        seen.clear()
+        os.environ["HEYLOOK_API_KEY"] = secret
+        actions = ps.execute_sync(base, specs, apply=True)
+        assert len(actions) == 2 and all(k == secret for _m, _p, k in seen), (actions, seen)
+        assert any(m == "PUT" for m, _p, _k in seen) and any(m == "POST" for m, _p, _k in seen), seen
+    finally:
+        srv.shutdown()
+        srv.server_close()
+        if prev_key is None:
+            os.environ.pop("HEYLOOK_API_KEY", None)
+        else:
+            os.environ["HEYLOOK_API_KEY"] = prev_key
+        if prev_kfile is None:
+            os.environ.pop("HEYLOOK_API_KEY_FILE", None)
+        else:
+            os.environ["HEYLOOK_API_KEY_FILE"] = prev_kfile
+    return "sync_heylook_presets forwards x-api-key across GET/POST/PUT and fails fast on 401"
+
+
 def main() -> int:
     case("catalog_and_fenced_blocks", check_catalog_and_fenced_blocks)
     case("exact_matching_and_legacy_boundaries", check_exact_matching_and_legacy_boundaries)
     case("prefix_overlay_preset_and_idempotency", check_prefix_overlay_preset_and_idempotency)
     case("legacy_scope_and_overlay_directive_validation", check_legacy_scope_and_overlay_directive_validation)
+    case("access_gate_auth_forwarding", check_access_gate_auth_forwarding)
     return finish()
 
 

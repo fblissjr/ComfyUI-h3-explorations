@@ -1097,6 +1097,159 @@ def release_grid(folder: Path | None) -> None:
     report(ours == meta["transformer"]["pdd_sigmas"], "the grid constant is the release's pdd_config.json")
 
 
+def heylook_access_gate() -> None:
+    """Verify v2.0.263-2.0.264 access gate auth headers, mode-0600 key files, 401/403/503 fast-fail."""
+    import os
+    import tempfile
+    import threading
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+    import h3_image_nodes as hin
+    import heylook_client as hc
+
+    secret = "hlk_gate_secret_xyz99"
+    state = {"mode": "ok", "post_calls": 0, "seen_keys": [], "require_auth": True}
+
+    class _GateHandler(BaseHTTPRequestHandler):
+        def log_message(self, _fmt, *_args):
+            return
+
+        def _json(self, code: int, obj: dict, headers: dict | None = None) -> None:
+            raw = json.dumps(obj).encode("utf-8")
+            self.send_response(code)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(raw)))
+            for k, v in (headers or {}).items():
+                self.send_header(k, v)
+            self.end_headers()
+            self.wfile.write(raw)
+
+        def _check_auth(self) -> bool:
+            got = self.headers.get("x-api-key")
+            state["seen_keys"].append((self.command, self.path, got))
+            if state["require_auth"] and got != secret:
+                self._json(401, {"error": {"type": "authentication_error", "code": "auth_required", "message": "auth required"}})
+                return False
+            return True
+
+        def do_GET(self):
+            if not self._check_auth():
+                return
+            if self.path == "/v1/models":
+                self._json(200, {"data": [{"id": "vlm-gated", "capabilities": ["chat", "vision"]}]})
+                return
+            if self.path == "/v1/system/metrics":
+                self._json(200, {"models": {"vlm-gated": {"active": 0}}})
+                return
+            if self.path == "/v1/presets":
+                self._json(200, {"presets": []})
+                return
+            self._json(404, {"detail": "not found"})
+
+        def do_POST(self):
+            if not self._check_auth():
+                return
+            state["post_calls"] += 1
+            length = int(self.headers.get("Content-Length") or 0)
+            _ = self.rfile.read(length)
+            if state["mode"] == "auth_misconfigured":
+                self._json(503, {"error": {"code": "auth_misconfigured", "message": "key file group/world readable"}})
+                return
+            if state["mode"] == "csrf403":
+                self._json(403, {"error": {"code": "csrf_rejected", "message": "origin mismatch"}})
+                return
+            rid = self.headers.get("X-Request-ID") or "req-ok"
+            sse = (
+                b'event: content_block_delta\ndata: {"delta":{"type":"text_delta","text":"A brass compass on oak."}}\n\n'
+                b'event: message_delta\ndata: {"delta":{"stop_reason":"end_turn"},"usage":{"input_tokens":5,"output_tokens":6}}\n\n'
+                b'event: message_stop\ndata: {"performance":{"generation_duration_ms":20}}\n\n'
+            )
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream")
+            self.send_header("X-Request-ID", rid)
+            self.end_headers()
+            self.wfile.write(sse)
+
+    srv = ThreadingHTTPServer(("127.0.0.1", 0), _GateHandler)
+    t = threading.Thread(target=srv.serve_forever, daemon=True)
+    t.start()
+    prev_env = {k: os.environ.get(k) for k in ("HEYLOOK_API_KEY", "HEYLOOK_API_KEY_FILE", "H3_HEYLOOK_API_KEY_FILE")}
+    try:
+        base = f"http://127.0.0.1:{srv.server_port}"
+        with tempfile.TemporaryDirectory(prefix="h3_key_gate_") as td:
+            kpath = Path(td) / "api_key"
+            kpath.write_text(secret + "\n", encoding="utf-8")
+
+            # 1. Missing credentials -> 401 PermissionError (never echoes secret)
+            os.environ.pop("HEYLOOK_API_KEY", None)
+            os.environ.pop("H3_HEYLOOK_API_KEY_FILE", None)
+            os.environ["HEYLOOK_API_KEY_FILE"] = ""
+            cat_unauth = hc.probe_heylook_server_info(base)
+            unauth_ok = cat_unauth["reachable"] is False and "401" in str(cat_unauth.get("error") or "")
+
+            # 2. Mode 0644 key file is refused on client side before sending
+            os.chmod(kpath, 0o644)
+            os.environ["HEYLOOK_API_KEY_FILE"] = str(kpath)
+            cat_badperm = hc.probe_heylook_server_info(base)
+            badperm_ok = (
+                cat_badperm["reachable"] is False
+                and "chmod 600" in str(cat_badperm.get("error") or "")
+                and secret not in str(cat_badperm)
+            )
+
+            # 3. Mode 0600 key file works across probe + expand_image_prompt + H3_HEYLOOK_API_KEY_FILE
+            os.chmod(kpath, 0o600)
+            cat_0600 = hc.probe_heylook_server_info(base)
+            os.environ.pop("HEYLOOK_API_KEY_FILE", None)
+            os.environ["H3_HEYLOOK_API_KEY_FILE"] = str(kpath)
+            out = hin.expand_image_prompt(prompt="compass", base_url=base, thinking="off")
+            h3_file_ok = (
+                cat_0600["reachable"] is True
+                and cat_0600["auth_configured"] is True
+                and cat_0600["auth_source"] == "HEYLOOK_API_KEY_FILE"
+                and "brass compass" in out["prompt"]
+                and secret not in json.dumps(out)
+            )
+
+            # 4. Wrong HEYLOOK_API_KEY -> distinct rejected hint
+            os.environ["HEYLOOK_API_KEY"] = "wrong_secret_000"
+            cat_wrong = hc.probe_heylook_server_info(base)
+            wrong_ok = (
+                cat_wrong["reachable"] is False
+                and "rejected" in str(cat_wrong.get("error") or "")
+                and "wrong_secret_000" not in str(cat_wrong)
+            )
+
+            # 5. 503 auth_misconfigured fails fast on attempt 1; 403 csrf_rejected diagnoses CSRF
+            os.environ["HEYLOOK_API_KEY"] = secret
+            state["post_calls"] = 0
+            state["mode"] = "auth_misconfigured"
+            misc_ok = False
+            try:
+                hin.expand_image_prompt(prompt="compass", base_url=base, thinking="off")
+            except PermissionError as exc:
+                misc_ok = "auth_misconfigured" in str(exc) and state["post_calls"] == 1
+
+            state["mode"] = "csrf403"
+            csrf_ok = False
+            try:
+                hin.expand_image_prompt(prompt="compass", base_url=base, thinking="off")
+            except PermissionError as exc:
+                csrf_ok = "csrf_rejected" in str(exc)
+
+            report(
+                unauth_ok and badperm_ok and h3_file_ok and wrong_ok and misc_ok and csrf_ok,
+                "heylook v2.0.263-2.0.264 access gate auth, mode-0600 enforcement, 401/403, and 503 auth_misconfigured fast-fail hold",
+            )
+    finally:
+        srv.shutdown()
+        srv.server_close()
+        for k, v in prev_env.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--release", type=Path)
@@ -1108,6 +1261,7 @@ def main() -> int:
     expander_replies()
     heylook_expander()
     heylook_custom_extend()
+    heylook_access_gate()
     graphs()
     release_grid(args.release)
     print("")

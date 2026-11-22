@@ -391,13 +391,24 @@ async def _materialize_input_image_ref(
     return in_ref, raw_bytes, {"filename": up_name, "subfolder": up_sub, "type": "input"}
 
 
+def _heylook_auth_headers() -> dict[str, str]:
+    import heylook_client
+
+    return heylook_client.heylook_auth_headers()
+
+
 async def _probe_heylook_url(app: web.Application) -> str | None:
     raw_url = (os.environ.get("H3_HEYLOOK_URL") or "").strip().rstrip("/")
     if not raw_url:
         return None
     session: ClientSession = app["http_client"]
     try:
-        async with session.get(f"{raw_url}/v1/models", timeout=ClientTimeout(total=0.8)) as resp:
+        async with session.get(
+            f"{raw_url}/v1/models",
+            headers=_heylook_auth_headers(),
+            allow_redirects=False,
+            timeout=ClientTimeout(total=0.8),
+        ) as resp:
             return raw_url if resp.status == 200 else None
     except Exception:
         return None
@@ -2086,8 +2097,14 @@ async def handle_context_suggest(request: web.Request) -> web.Response:
         return web.json_response({"ok": True, "enabled": False, "suggestions": []})
 
     session: ClientSession = request.app["http_client"]
+    hl_headers = _heylook_auth_headers()
     try:
-        async with session.get(f"{heylook_url}/v1/models", timeout=ClientTimeout(total=1.5)) as resp:
+        async with session.get(
+            f"{heylook_url}/v1/models",
+            headers=hl_headers,
+            allow_redirects=False,
+            timeout=ClientTimeout(total=1.5),
+        ) as resp:
             if resp.status != 200:
                 return web.json_response({"ok": True, "enabled": False, "suggestions": []})
             models_doc = await resp.json()
@@ -2183,8 +2200,9 @@ async def handle_context_suggest(request: web.Request) -> web.Response:
         }
         async with session.post(
             f"{heylook_url}/v1/messages",
-            headers={"X-Request-ID": str(uuid.uuid4())},
+            headers={**hl_headers, "X-Request-ID": str(uuid.uuid4())},
             json=req_payload,
+            allow_redirects=False,
             timeout=ClientTimeout(total=12.0),
         ) as resp:
             if resp.status != 200:

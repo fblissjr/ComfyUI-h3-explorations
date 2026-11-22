@@ -410,9 +410,13 @@ a finished description directly. `h3_image_t2i_heylook_api.json` and
 optional `concept` preset (`data/edit_concepts/*.toml`, usable alone or with
 `prompt`), or `1..16`-picture edit instruction over `POST /v1/messages` on a
 local or LAN `heylookitsanllm` server (supporting `@extend:prepend|append`
-additive preset/custom overlays via `heylook_client.py`, `base_url` resolving
-`H3_HEYLOOK_URL` or defaulting to `http://127.0.0.1:8080`; model ids are
-resolved at runtime from `GET /v1/models`, gating on `vision` when pictures
+additive preset/custom overlays and `v2.0.263–2.0.264` `x-api-key` auth via
+`heylook_client.py` — `HEYLOOK_API_KEY`, mode-`0600` `~/.heylook/api_key` /
+`HEYLOOK_API_KEY_FILE`, or `H3_HEYLOOK_API_KEY_FILE` in `h3.env` when
+`comfyui.service` runs under `ProtectHome=tmpfs`; `base_url` resolving
+`H3_HEYLOOK_URL` or defaulting to `http://127.0.0.1:8080`, failing fast on
+`401 auth_required`, `403 csrf_rejected`/Host check, and `503 auth_misconfigured`;
+model ids are resolved at runtime from `GET /v1/models`, gating on `vision` when pictures
 are wired). Do not feed `general_image_edit_system_prompt.md` (`[Shot 1]`
 4-section schema) to `MiniMax-H3-Image`: `[Shot N]` splits the canvas into panels
 and unanchored attributes override `<Picture 1>`.
