@@ -634,12 +634,152 @@ SPOTLIGHT_SPECS: list[dict[str, Any]] = [
     },
 ]
 
+SPOTLIGHT_LONG_SPECS: list[dict[str, Any]] = [
+    {
+        "arm_slug": "stairwell_noir_chaos",
+        "prompt_path": "prompt_bank/t2va_stairwell_dialogue.txt",
+        "seed": 6201,
+        "feather": 0.07,
+        "scale": 1.8,
+        "streams": "both",
+        "title": "STAIRWELL NOIR + CHAOS PORTAL · STACK2 ROS",
+        "subtitle": "Inside ring: noir (+1.25) + chaos_panic (+1.15) | Outside: concrete stairwell",
+        "steers": [
+            {"vector": "noir", "strength": 1.25, "edit_pass": "edited_only"},
+            {"vector": "chaos_panic", "strength": 1.15, "edit_pass": "edited_only"},
+        ],
+        "portal": [
+            {"t_frac": 0.00, "x": 0.22, "y": 0.48, "rx": 0.14, "ry": 0.16, "shape": "circle", "label": "NOIR SEED"},
+            {"t_frac": 0.25, "x": 0.46, "y": 0.48, "rx": 0.34, "ry": 0.38, "shape": "circle", "label": "PANIC BLOOM"},
+            {"t_frac": 0.55, "x": 0.58, "y": 0.50, "rx": 0.58, "ry": 0.62, "shape": "circle", "label": "PEAK FRENZY"},
+            {"t_frac": 0.80, "x": 0.42, "y": 0.48, "rx": 0.30, "ry": 0.34, "shape": "circle", "label": "TIGHTEN"},
+            {"t_frac": 1.00, "x": 0.72, "y": 0.50, "rx": 0.16, "ry": 0.18, "shape": "circle", "label": "NOIR EXIT"},
+        ],
+    },
+    {
+        "arm_slug": "kitchen_chaos",
+        "prompt_path": "prompt_bank/t2va_restaurant_kitchen.txt",
+        "seed": 6202,
+        "feather": 0.07,
+        "scale": 1.8,
+        "streams": "both",
+        "title": "KITCHEN LINE CHAOS · EXPANDING & MOVING PORTAL",
+        "subtitle": "Inside ring: chaos_panic (+1.35, erasure, scale=1.8) | Outside: restaurant line",
+        "steers": [
+            {"vector": "chaos_panic", "strength": 1.35, "edit_pass": "edited_only"},
+        ],
+        "portal": [
+            {"t_frac": 0.00, "x": 0.20, "y": 0.52, "rx": 0.14, "ry": 0.14, "shape": "circle", "label": "CHAOS CORE"},
+            {"t_frac": 0.25, "x": 0.44, "y": 0.48, "rx": 0.36, "ry": 0.36, "shape": "circle", "label": "LINE SURGE"},
+            {"t_frac": 0.55, "x": 0.60, "y": 0.50, "rx": 0.58, "ry": 0.58, "shape": "circle", "label": "PEAK PANIC"},
+            {"t_frac": 0.80, "x": 0.70, "y": 0.50, "rx": 0.32, "ry": 0.32, "shape": "circle", "label": "PASS SWEEP"},
+            {"t_frac": 1.00, "x": 0.78, "y": 0.52, "rx": 0.17, "ry": 0.17, "shape": "circle", "label": "CHAOS EXIT"},
+        ],
+    },
+    {
+        "arm_slug": "arena_claymation",
+        "prompt_path": "prompt_bank/t2va_arena_rock_video.txt",
+        "seed": 6203,
+        "feather": 0.07,
+        "scale": 1.9,
+        "streams": "video_only",
+        "title": "ARENA CLAYMATION · BREATHING ELLIPSE PORTAL",
+        "subtitle": "Inside ellipse: claymation_stopmotion (+1.45, video_only) | Outside: live rock arena",
+        "steers": [
+            {"vector": "claymation_stopmotion", "strength": 1.45, "edit_pass": "edited_only"},
+        ],
+        "portal": [
+            {"t_frac": 0.00, "x": 0.32, "y": 0.46, "rx": 0.14, "ry": 0.20, "shape": "ellipse", "label": "CLAY SEED"},
+            {"t_frac": 0.25, "x": 0.50, "y": 0.48, "rx": 0.46, "ry": 0.56, "shape": "ellipse", "label": "CLAY EXPAND"},
+            {"t_frac": 0.55, "x": 0.54, "y": 0.44, "rx": 0.20, "ry": 0.28, "shape": "ellipse", "label": "STAGE PIN"},
+            {"t_frac": 0.80, "x": 0.50, "y": 0.50, "rx": 0.56, "ry": 0.64, "shape": "ellipse", "label": "CLAY WORLD"},
+            {"t_frac": 1.00, "x": 0.66, "y": 0.48, "rx": 0.22, "ry": 0.30, "shape": "ellipse", "label": "CLAY LOCK"},
+        ],
+    },
+    {
+        "arm_slug": "samurai_blizzard",
+        "prompt_path": "prompt_bank/t2va_samurai_bamboo_duel.txt",
+        "seed": 6204,
+        "feather": 0.08,
+        "scale": 1.9,
+        "streams": "both",
+        "title": "BAMBOO DUEL BLIZZARD · EXPANDING FROST PORTAL",
+        "subtitle": "Inside ring: heavy_blizzard (+1.45, erasure, scale=1.9) | Outside: misty bamboo grove",
+        "steers": [
+            {"vector": "heavy_blizzard", "strength": 1.45, "edit_pass": "edited_only"},
+        ],
+        "portal": [
+            {"t_frac": 0.00, "x": 0.78, "y": 0.44, "rx": 0.13, "ry": 0.13, "shape": "circle", "label": "FROST SEED"},
+            {"t_frac": 0.25, "x": 0.56, "y": 0.48, "rx": 0.38, "ry": 0.38, "shape": "circle", "label": "GALE DRIFT"},
+            {"t_frac": 0.55, "x": 0.48, "y": 0.50, "rx": 0.60, "ry": 0.60, "shape": "circle", "label": "BLIZZARD PEAK"},
+            {"t_frac": 0.80, "x": 0.30, "y": 0.54, "rx": 0.34, "ry": 0.34, "shape": "circle", "label": "WEST SQUALL"},
+            {"t_frac": 1.00, "x": 0.20, "y": 0.56, "rx": 0.15, "ry": 0.15, "shape": "circle", "label": "FROST FOCUS"},
+        ],
+    },
+    {
+        "arm_slug": "courtroom_rubberhose",
+        "prompt_path": "prompt_bank/t2va_courtroom_verdict.txt",
+        "seed": 6205,
+        "feather": 0.07,
+        "scale": 1.9,
+        "streams": "video_only",
+        "title": "1930S RUBBER-HOSE VERDICT · MOVING CARTOON PORTAL",
+        "subtitle": "Inside ring: rubber_hose_1930s (+1.45, video_only) | Outside: live courtroom",
+        "steers": [
+            {"vector": "rubber_hose_1930s", "strength": 1.45, "edit_pass": "edited_only"},
+        ],
+        "portal": [
+            {"t_frac": 0.00, "x": 0.24, "y": 0.46, "rx": 0.15, "ry": 0.15, "shape": "circle", "label": "INK SPARK"},
+            {"t_frac": 0.25, "x": 0.48, "y": 0.48, "rx": 0.40, "ry": 0.40, "shape": "circle", "label": "CEL SWEEP"},
+            {"t_frac": 0.55, "x": 0.58, "y": 0.50, "rx": 0.60, "ry": 0.60, "shape": "circle", "label": "TOON FLOOD"},
+            {"t_frac": 0.80, "x": 0.42, "y": 0.48, "rx": 0.34, "ry": 0.34, "shape": "circle", "label": "GAVEL IRIS"},
+            {"t_frac": 1.00, "x": 0.74, "y": 0.46, "rx": 0.16, "ry": 0.16, "shape": "circle", "label": "INK PIN"},
+        ],
+    },
+]
 
-def build_spotlight_arm(spec: dict[str, Any]) -> dict[str, Any]:
-    """Build a diverse moving/expanding/shrinking HUD Spotlight graph (`1152x768 @ 141f`)."""
-    arm_name = str(spec["arm_name"])
+
+def _materialize_portal(portal_kfs: list[dict[str, Any]], length: int) -> list[dict[str, Any]]:
+    """Resolve normalized `t_frac` portal keyframes into integer `[0, length - 1]` frames."""
+    max_f = max(0, int(length) - 1)
+    out: list[dict[str, Any]] = []
+    for kf in portal_kfs:
+        item = {k: v for k, v in kf.items() if k != "t_frac"}
+        if "frame" in item:
+            item["frame"] = max(0, min(max_f, int(item["frame"])))
+        elif "t_frac" in kf:
+            item["frame"] = max(0, min(max_f, int(round(float(kf["t_frac"]) * max_f))))
+        else:
+            raise ValueError(f"Portal keyframe missing both 'frame' and 't_frac': {kf!r}")
+        out.append(item)
+    return sorted(out, key=lambda item: int(item["frame"]))
+
+
+def _expand_long_spotlight_specs(length: int) -> list[dict[str, Any]]:
+    """Materialize adult-only long spotlight specs at an `on_both_clocks` video length."""
+    len_i = int(length)
+    if not h3_rules.on_both_clocks(len_i):
+        raise ValueError(f"Spotlight length must sit on on_both_clocks, got {len_i}")
+    return [
+        {
+            **spec,
+            "arm_name": f"spot{len_i}_{spec['arm_slug']}",
+            "length": len_i,
+            "portal": _materialize_portal(spec["portal"], len_i),
+        }
+        for spec in SPOTLIGHT_LONG_SPECS
+    ]
+
+
+def build_spotlight_arm(spec: dict[str, Any], *, length: int | None = None) -> dict[str, Any]:
+    """Build a diverse moving/expanding/shrinking HUD Spotlight graph (`1152x768`, `on_both_clocks`)."""
+    target_len = int(length if length is not None else spec.get("length", 141))
+    if not h3_rules.on_both_clocks(target_len):
+        raise ValueError(f"Spotlight length must sit on on_both_clocks, got {target_len}")
+    arm_name = str(spec.get("arm_name") or f"spot{target_len}_{spec['arm_slug']}")
+    portal = _materialize_portal(spec["portal"], target_len)
     prompt_text = (REPO / str(spec["prompt_path"])).read_text(encoding="utf-8").strip()
-    events_json = json.dumps({"portal": spec["portal"], "targets": []}, indent=2)
+    events_json = json.dumps({"portal": portal, "targets": []}, indent=2)
 
     g = _fl2va_loaders()
     g["27"] = {
@@ -647,7 +787,7 @@ def build_spotlight_arm(spec: dict[str, Any]) -> dict[str, Any]:
         "inputs": {
             "shape": "wide",
             "shape.wide_resolution": "1152x768  3/2  864 tok/frame  0.73x",
-            "length": 141,
+            "length": target_len,
         },
     }
     g["133"] = {"class_type": "PrimitiveStringMultiline", "inputs": {"value": prompt_text}}
@@ -1691,8 +1831,13 @@ def _eval_portal_spec(portal_kfs: list[dict[str, Any]], frame: int) -> tuple[flo
 def _analyze_spotlights() -> dict[str, Any]:
     import numpy as np
 
+    all_specs = [
+        *SPOTLIGHT_SPECS,
+        *_expand_long_spotlight_specs(192),
+        *_expand_long_spotlight_specs(243),
+    ]
     out: dict[str, Any] = {"arms": {}}
-    for spec in SPOTLIGHT_SPECS:
+    for spec in all_specs:
         arm = str(spec["arm_name"])
         clean_cands = sorted(OUT_VIDEO_DIR.glob(f"{arm}_clean*-audio.mp4")) or sorted(OUT_VIDEO_DIR.glob(f"{arm}_clean*.mp4"))
         clean_cands = [p for p in clean_cands if ".1fps." not in p.name]
@@ -1703,6 +1848,7 @@ def _analyze_spotlights() -> dict[str, Any]:
         clean_mp4 = clean_cands[0]
         vid = _read_video_rgb(clean_mp4)
         n_f, h_v, w_v, _ = vid.shape
+        portal_kfs = _materialize_portal(spec["portal"], n_f)
         yy, xx = np.mgrid[0:h_v, 0:w_v]
         xx_n = (xx + 0.5) / float(w_v)
         yy_n = (yy + 0.5) / float(h_v)
@@ -1716,15 +1862,19 @@ def _analyze_spotlights() -> dict[str, Any]:
             sat = np.where(mx > 1e-6, (mx - mn) / np.maximum(mx, 1e-6), 0.0)
             return round(float(np.mean(sat[mask])), 4)
 
-        sample_frames = {
-            "early": min(8, n_f - 1),
-            "expand": min(54, n_f - 1),
-            "peak": min(96, n_f - 1),
-            "tail": n_f - 1,
-        }
+        if n_f == 141:
+            sample_frames = {"early": 8, "expand": 54, "peak": 96, "tail": 140}
+        else:
+            max_f = max(0, n_f - 1)
+            sample_frames = {
+                "early": min(8, max_f),
+                "expand": int(round(0.35 * max_f)),
+                "peak": int(round(0.65 * max_f)),
+                "tail": max_f,
+            }
         windows: dict[str, Any] = {}
         for wname, fidx in sample_frames.items():
-            px, py, rx, ry = _eval_portal_spec(spec["portal"], fidx)
+            px, py, rx, ry = _eval_portal_spec(portal_kfs, fidx)
             norm_d2 = ((xx_n - px) / max(rx, 1e-4)) ** 2 + ((yy_n - py) / max(ry, 1e-4)) ** 2
             inside = norm_d2 <= 1.0
             outside = ~inside
@@ -1755,7 +1905,8 @@ def _analyze_spotlights() -> dict[str, Any]:
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="Wave 2 GPU Bench Runner & Analyzer (Spotlights, Exp 4, Exp 6, Exp 7)")
-    ap.add_argument("--stage", choices=("spotlights", "exp4", "exp6a", "exp6b", "exp7", "analyze", "all"), default="all")
+    ap.add_argument("--stage", choices=("spotlights", "spotlights_long", "exp4", "exp6a", "exp6b", "exp7", "analyze", "all"), default="all")
+    ap.add_argument("--spotlight-length", type=int, choices=(192, 243), default=243, help="Video frame count for --stage spotlights_long (default: 243)")
     ap.add_argument("--dry-run", action="store_true", help="Compile, preflight-validate, and exit with 0 HTTP mutations")
     ap.add_argument("--resume", action="store_true", help="Skip arms already recorded under data/wave2_2026-11-21/")
     args = ap.parse_args(argv)
@@ -1779,6 +1930,15 @@ def main(argv: list[str] | None = None) -> int:
         summary["stages"]["spotlights"] = {
             arm: _run_and_record(arm, g, client_id=client_id, dry_run=args.dry_run, resume=args.resume)
             for arm, g in spot_arms.items()
+        }
+
+    # Stage: Adult-Only Long HUD Spotlights (192f / 243f)
+    if args.stage == "spotlights_long":
+        long_specs = _expand_long_spotlight_specs(args.spotlight_length)
+        spot_long_arms = {spec["arm_name"]: build_spotlight_arm(spec, length=args.spotlight_length) for spec in long_specs}
+        summary["stages"]["spotlights_long"] = {
+            arm: _run_and_record(arm, g, client_id=client_id, dry_run=args.dry_run, resume=args.resume)
+            for arm, g in spot_long_arms.items()
         }
 
     # Stage: Exp 4
