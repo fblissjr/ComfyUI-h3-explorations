@@ -7761,12 +7761,18 @@ def _check_nov15_steer_prose_and_ph3_family() -> list[str]:
             "apply_post_refiner refusal on token_focus=1.5",
         )
         steer_schema = cv_nodes.MiniMaxH3Steer.define_schema()
-        if steer_schema.inputs[-1].id != "token_focus":
-            errs.append(f"MiniMaxH3Steer last input must be 'token_focus', got {steer_schema.inputs[-1].id!r}")
-        if cv_nodes.MiniMaxH3Steer.validate_inputs(token_focus=0.25) is not True:
-            errs.append("MiniMaxH3Steer.validate_inputs rejected valid token_focus=0.25")
+        if len(steer_schema.inputs) < 2 or steer_schema.inputs[-2].id != "block_band" or steer_schema.inputs[-1].id != "split_backend":
+            errs.append(
+                f"MiniMaxH3Steer trailing inputs must be ('block_band', 'split_backend'), got {[i.id for i in steer_schema.inputs[-3:]]!r}"
+            )
+        if cv_nodes.MiniMaxH3Steer.validate_inputs(token_focus=0.25, block_band="mid_late_20_49", split_backend="auto_1x_kv") is not True:
+            errs.append("MiniMaxH3Steer.validate_inputs rejected valid token_focus/block_band/split_backend")
         if cv_nodes.MiniMaxH3Steer.validate_inputs(token_focus=0.0) is True:
             errs.append("MiniMaxH3Steer.validate_inputs accepted invalid token_focus=0.0")
+        if cv_nodes.MiniMaxH3Steer.validate_inputs(block_band="9-2") is True:
+            errs.append("MiniMaxH3Steer.validate_inputs accepted invalid block_band='9-2'")
+        if cv_nodes.MiniMaxH3Steer.validate_inputs(split_backend="invalid_backend") is True:
+            errs.append("MiniMaxH3Steer.validate_inputs accepted invalid split_backend='invalid_backend'")
 
         # Subspace X-Ray, per_token_erasure_profile, erasure_spectral_summary, and WordVector against-SVD erasure
         vr_prof = torch.zeros((2, cv.POST_REFINER_DIM), dtype=torch.float32)
@@ -7815,6 +7821,279 @@ def _check_nov15_steer_prose_and_ph3_family() -> list[str]:
                 we_t, _we_m = cv.load_vector(we_p)
                 if "erasure.vr" not in we_t:
                     errs.append("save_synthesized_vector dropped erasure.vr on round-trip")
+
+        # Stage 2: Unified Compiler-Safe Attention Hook CPU Verification (Modes 0–3, clone isolation, 4 seams)
+        with tempfile.TemporaryDirectory() as s2_tmp:
+            from comfy.ldm.minimax.model import MiniMaxH3Model, PackedLayout
+            import comfy.model_patcher
+            import comfy.ops
+            import types
+
+            steer_hooks = cv_nodes._repo("steer_attention_hooks")
+            exact_mod = cv_nodes._repo("exact_blocks")
+            attn_mod = cv_nodes._repo("attention")
+
+            gen_s2 = torch.Generator(device="cpu").manual_seed(4242)
+            s2_dit = MiniMaxH3Model(
+                hidden_size=cv.POST_REFINER_DIM,
+                num_layers=2,
+                token_refiner_num_layers=1,
+                num_attention_heads=2,
+                attention_head_dim=128,
+                ffn_hidden_size=128,
+                latents_dim=8,
+                audio_latents_dim=8,
+                text_dim=64,
+                timestep_input_dim=64,
+                time_embed_hidden_size=128,
+                time_embed_dim=128,
+                dtype=torch.float32,
+                device="cpu",
+                operations=comfy.ops.manual_cast,
+            ).requires_grad_(False)
+            with torch.no_grad():
+                s2_dit.rope.inv_freq.copy_(torch.exp(-torch.arange(16, dtype=torch.float32) * 0.2))
+                for p_s2 in s2_dit.parameters():
+                    p_s2.copy_(torch.randn(p_s2.shape, generator=gen_s2, dtype=p_s2.dtype) * 0.04)
+
+            class _S2Holder(torch.nn.Module):
+                def __init__(self, dm_inner):
+                    super().__init__()
+                    self.diffusion_model = dm_inner
+                    self.model_config = SimpleNamespace(unet_config={})
+
+            s2_holder = _S2Holder(s2_dit)
+            s2_base_patcher = comfy.model_patcher.ModelPatcher(
+                s2_holder, load_device=torch.device("cpu"), offload_device=torch.device("cpu")
+            )
+            s2_vec_dir = Path(s2_tmp) / "vec_s2"
+            s2_vec_dir.mkdir(parents=True, exist_ok=True)
+            s2_vec_p = s2_vec_dir / "s2_er__fl2va__diff_span.safetensors"
+            s2_q, _ = torch.linalg.qr(torch.randn((cv.POST_REFINER_DIM, 4), generator=gen_s2, dtype=torch.float64), mode="reduced")
+            s2_mu = s2_q[:, 0].float()
+            s2_vr = s2_q[:, :3].T.float().contiguous()
+            s2_diag = torch.tensor([0.9, 0.85, 0.8], dtype=torch.float32)
+            s2_meta = {
+                "format": cv.FORMAT_VERSION,
+                "name": "s2_er",
+                "quality": "demo",
+                "family": "fl2va",
+                "recipe": {
+                    "checkpoint": {"file": "in_memory:fl2va", "sha256": "0" * 64},
+                    "encoder": {"file": "enc.safetensors", "sha256": "0" * 64},
+                    "loras": [],
+                },
+                "measured_under": {"mode": "t2va", "frame": "scene", "prefix": "none", "pooling": "diff_span"},
+                "points": {"post_refiner": {"unit": "mean_pair_difference", "raw_norm": 1.0, "median_row_norm": 164.0}},
+                "pairs": {"path": "s2.toml", "sha256": "a" * 64, "n_pairs": 1, "n_holds": 0, "a_side": "a", "b_side": "b", "differing_sections": ["integrated_multimodal_description"], "pair_spans": []},
+                "quality_report": {"mean_pairwise_cosine": None, "split_half_cosine": None, "per_pair_cosine": [], "j_lens_readout": {"readiness": {"refiner_transmission": 0.9}}},
+                "provenance": {"core_revision": "test", "pack_commit": "test", "created_utc": "2026-11-22T00:00:00Z", "made_by": "test"},
+            }
+            cv.save_vector(
+                s2_vec_p,
+                {"vector.post_refiner": s2_mu, "erasure.mu_d": s2_mu.clone(), "erasure.vr": s2_vr, "erasure.diag": s2_diag},
+                s2_meta,
+            )
+            orig_det_s2 = cv.detect_family
+            cv.detect_family = lambda _m: "fl2va"  # type: ignore[assignment]
+            try:
+                s2_x = [
+                    torch.randn((1, 8, 2, 4, 4), generator=gen_s2, dtype=torch.float32),
+                    torch.randn((1, 8, 2, 3), generator=gen_s2, dtype=torch.float32),
+                ]
+                s2_ctx = torch.randn((1, 8, cv.POST_REFINER_DIM), generator=gen_s2, dtype=torch.float32) * 10.0
+                s2_tags = torch.tensor([[0, 0, 1, 1, 1, 1, 1, 1]], dtype=torch.long)
+                s2_layout = PackedLayout(8, 2, 4, 4, 3)
+                s2_payload = {"layout": s2_layout, "text_token_tags": s2_tags}
+                s2_ts = torch.tensor([500.0])
+
+                def _run_patcher(p_obj, *, extra_topts=None):
+                    call_cnt = [0]
+                    sink: list[dict[str, Any]] = []
+                    to_call = dict(p_obj.model_options.get("transformer_options", {}))
+                    to_call["_h3_steer_stats_sink"] = sink
+                    if extra_topts:
+                        to_call.update(extra_topts)
+                    wraps = p_obj.wrappers.get(cv_nodes.WrappersMP.DIFFUSION_MODEL, {}).get(cv_nodes.WRAPPER_KEY, [])
+                    def _base_exec(cx, ct, cctx, ctopts, **ckw):
+                        call_cnt[0] += 1
+                        return s2_dit.forward(cx, ct, cctx, transformer_options=ctopts, **ckw)
+                    with torch.no_grad():
+                        if wraps:
+                            out_r = wraps[0](_base_exec, s2_x, s2_ts, s2_ctx, to_call, minimax_payload=dict(s2_payload))
+                        else:
+                            out_r = _base_exec(s2_x, s2_ts, s2_ctx, to_call, minimax_payload=dict(s2_payload))
+                    return out_r, call_cnt[0], sink
+
+                out_unsteered, c_u, _ = _run_patcher(s2_base_patcher)
+                if c_u != 1:
+                    errs.append(f"unsteered baseline calls={c_u}")
+
+                # 1. Empty band ('none') matches unsteered baseline bit-exact (0.0 diff)
+                m_empty = cv_nodes.attach_control_vector(
+                    s2_base_patcher, s2_vec_p, strength=1.5, mode="add_norm_matched_erasure",
+                    mask="non_vision", block_band="none", allow_recipe_mismatch=True,
+                )
+                out_empty, c_em, sink_em = _run_patcher(m_empty)
+                empty_diff = max(
+                    float((out_empty[0] - out_unsteered[0]).abs().max().item()),
+                    float((out_empty[1] - out_unsteered[1]).abs().max().item()),
+                )
+                if c_em != 1 or empty_diff > 0.0 or not sink_em or sink_em[0]["kv_swaps"] != 0:
+                    errs.append(f"Stage 2 empty-band bit-exact check failed: diff={empty_diff}, sink={sink_em}")
+
+                # 2. Multi-clone isolation: base patcher still has 0 dit patches & unchanged output
+                if s2_base_patcher.model_options.get("transformer_options", {}).get("patches_replace", {}).get("dit"):
+                    errs.append("attach_control_vector mutated base patcher patches_replace['dit']")
+                out_unsteered_2, _, _ = _run_patcher(s2_base_patcher)
+                if not torch.equal(out_unsteered[0], out_unsteered_2[0]) or not torch.equal(out_unsteered[1], out_unsteered_2[1]):
+                    errs.append("base patcher output drifted after cloning block_band branch")
+
+                # 3. Mode 0 (all) vs Mode 1 suffix ('1-1') vs Mode 1 prefix ('0-0')
+                m_all = cv_nodes.attach_control_vector(
+                    s2_base_patcher, s2_vec_p, strength=1.5, mode="add_norm_matched_erasure",
+                    mask="non_vision", block_band="all", allow_recipe_mismatch=True,
+                )
+                out_all, _, _ = _run_patcher(m_all)
+                m_suf = cv_nodes.attach_control_vector(
+                    s2_base_patcher, s2_vec_p, strength=1.5, mode="add_norm_matched_erasure",
+                    mask="non_vision", block_band="1-1", allow_recipe_mismatch=True,
+                )
+                out_suf, _, sink_suf = _run_patcher(m_suf)
+                m_pref = cv_nodes.attach_control_vector(
+                    s2_base_patcher, s2_vec_p, strength=1.5, mode="add_norm_matched_erasure",
+                    mask="non_vision", block_band="0-0", allow_recipe_mismatch=True,
+                )
+                out_pref, _, sink_pref = _run_patcher(m_pref)
+                if (
+                    not sink_suf or sink_suf[0]["mode"] != 1 or sink_suf[0]["kv_swaps"] != 1
+                    or float((out_suf[0] - out_unsteered[0]).abs().max().item()) <= 1e-6
+                    or float((out_suf[0] - out_all[0]).abs().max().item()) <= 1e-6
+                ):
+                    errs.append(f"Stage 2 Mode 1 suffix failed: sink={sink_suf}")
+                if (
+                    not sink_pref or sink_pref[0]["mode"] != 1 or sink_pref[0]["kv_swaps"] != 1
+                    or float((out_pref[0] - out_unsteered[0]).abs().max().item()) <= 1e-6
+                ):
+                    errs.append(f"Stage 2 Mode 1 prefix failed: sink={sink_pref}")
+
+                # 4. Mode 2 (video_only 1x & audio_only 1x vs legacy_2x_pass)
+                m_vo_1x = cv_nodes.attach_control_vector(
+                    s2_base_patcher, s2_vec_p, strength=1.5, mode="add_norm_matched_erasure",
+                    mask="non_vision", video_scale=1.0, audio_scale=0.0, split_backend="auto_1x_kv", allow_recipe_mismatch=True,
+                )
+                out_vo_1x, c_vo1x, sink_vo1x = _run_patcher(m_vo_1x)
+                m_vo_2x = cv_nodes.attach_control_vector(
+                    s2_base_patcher, s2_vec_p, strength=1.5, mode="add_norm_matched_erasure",
+                    mask="non_vision", video_scale=1.0, audio_scale=0.0, split_backend="legacy_2x_pass", allow_recipe_mismatch=True,
+                )
+                out_vo_2x, c_vo2x, _ = _run_patcher(m_vo_2x)
+                m_ao_1x = cv_nodes.attach_control_vector(
+                    s2_base_patcher, s2_vec_p, strength=1.5, mode="add_norm_matched_erasure",
+                    mask="non_vision", video_scale=0.0, audio_scale=1.0, split_backend="auto_1x_kv", allow_recipe_mismatch=True,
+                )
+                out_ao_1x, c_ao1x, sink_ao1x = _run_patcher(m_ao_1x)
+                if c_vo1x != 1 or c_vo2x != 2 or not sink_vo1x or sink_vo1x[0]["mode"] != 2 or sink_vo1x[0]["aud_splices"] != 2:
+                    errs.append(f"Stage 2 Mode 2 video_only 1x check failed: c1={c_vo1x}, c2={c_vo2x}, sink={sink_vo1x}")
+                if float((out_vo_1x[1] - out_unsteered[1]).abs().max().item()) >= float((out_all[1] - out_unsteered[1]).abs().max().item()):
+                    errs.append("Stage 2 Mode 2 video_only 1x audio stayed closer to all-steered than unsteered")
+                if not torch.allclose(out_vo_1x[0], out_vo_2x[0], atol=1e-4):
+                    errs.append(f"Stage 2 Mode 2 video_only video stream deviated from pass-1: max_diff={float((out_vo_1x[0] - out_vo_2x[0]).abs().max().item())}")
+                if c_ao1x != 1 or not sink_ao1x or sink_ao1x[0]["mode"] != 2 or sink_ao1x[0]["aud_splices"] != 2:
+                    errs.append(f"Stage 2 Mode 2 audio_only 1x check failed: c={c_ao1x}, sink={sink_ao1x}")
+
+                # 5. Mode 3 (combined block_band='1-1' + video_only 1x)
+                m_m3 = cv_nodes.attach_control_vector(
+                    s2_base_patcher, s2_vec_p, strength=1.5, mode="add_norm_matched_erasure",
+                    mask="non_vision", video_scale=1.0, audio_scale=0.0, block_band="1-1", split_backend="auto_1x_kv", allow_recipe_mismatch=True,
+                )
+                out_m3, c_m3, sink_m3 = _run_patcher(m_m3)
+                if c_m3 != 1 or not sink_m3 or sink_m3[0]["mode"] != 3 or sink_m3[0]["kv_swaps"] != 1 or sink_m3[0]["aud_splices"] != 1:
+                    errs.append(f"Stage 2 Mode 3 check failed: calls={c_m3}, sink={sink_m3}")
+                if not (torch.isfinite(out_m3[0]).all() and torch.isfinite(out_m3[1]).all()):
+                    errs.append("Stage 2 Mode 3 returned non-finite tensors")
+
+                # 6. ExactBlocks seam preserves H3Steer runtime when active and strips when absent
+                exact_stripped_sentinel = [False]
+                orig_blk1_fwd = s2_dit.blocks[1].attn.forward
+                try:
+                    s2_dit.blocks[1].attn.forward = types.MethodType(exact_mod._exact_forward, s2_dit.blocks[1].attn)
+                    _, _, sink_ex = _run_patcher(m_m3)
+                    if not sink_ex or sink_ex[0]["kv_swaps"] != 1 or sink_ex[0]["aud_splices"] != 1 or 1 not in sink_ex[0]["blocks_touched"]:
+                        errs.append(f"Stage 2 ExactBlocks seam bypassed H3Steer: sink={sink_ex}")
+                    # Verify non-steered still strips foreign override
+                    called_foreign = [0]
+                    def _foreign_ov(fn, q, k, v, heads, **kw):
+                        called_foreign[0] += 1
+                        return fn(q, k, v, heads, **kw)
+                    _run_patcher(s2_base_patcher, extra_topts={"optimized_attention_override": _foreign_ov})
+                    if called_foreign[0] != 1:  # block 0 only, stripped on block 1
+                        errs.append(f"Stage 2 ExactBlocks non-steered override strip expected 1 foreign call, got {called_foreign[0]}")
+
+                    # 7. Standalone Sage forward seam (`via_optimized_attention=False`)
+                    def _mock_sage_nhd(qkv_list, **kw):
+                        q_nh, k_nh, v_nh = qkv_list
+                        return torch.nn.functional.scaled_dot_product_attention(
+                            q_nh.transpose(1, 2), k_nh.transpose(1, 2), v_nh.transpose(1, 2)
+                        ).transpose(1, 2)
+                    sage_fwd_1 = attn_mod.make_minimax_attn_forward(_mock_sage_nhd, {}, head_chunks=1, clone_v=False, via_optimized_attention=False)
+                    s2_dit.blocks[1].attn.forward = types.MethodType(sage_fwd_1, s2_dit.blocks[1].attn)
+                    _, _, sink_sg = _run_patcher(m_vo_1x)
+                    if not sink_sg or sink_sg[0]["aud_splices"] != 2 or 1 not in sink_sg[0]["blocks_touched"]:
+                        errs.append(f"Stage 2 standalone Sage seam bypassed H3Steer: sink={sink_sg}")
+                finally:
+                    s2_dit.blocks[1].attn.forward = orig_blk1_fwd
+                    _ = exact_stripped_sentinel
+
+                # 8. H3SteerBlockPatch chains over FunControl proxy & does not double-wrap chained Steer nodes
+                prev_calls = [0]
+                m_fc_proxy = s2_base_patcher.clone()
+                def _fc_blk(args, extra_args):
+                    prev_calls[0] += 1
+                    return extra_args["original_block"](args)
+                for bi in range(2):
+                    m_fc_proxy.set_model_patch_replace(_fc_blk, "dit", "double_block", bi)
+                m_fc_1 = cv_nodes.attach_control_vector(
+                    m_fc_proxy, s2_vec_p, strength=1.0, mode="add_norm_matched_erasure",
+                    mask="non_vision", block_band="1-1", allow_recipe_mismatch=True,
+                )
+                m_fc_2 = cv_nodes.attach_control_vector(
+                    m_fc_1, s2_vec_p, strength=0.5, mode="add_norm_matched_erasure",
+                    mask="non_vision", block_band="1-1", allow_recipe_mismatch=True,
+                )
+                _, _, sink_fc = _run_patcher(m_fc_2)
+                p_b0 = m_fc_2.model_options["transformer_options"]["patches_replace"]["dit"][("double_block", 0)]
+                if prev_calls[0] != 2 or not sink_fc or sink_fc[0]["kv_swaps"] != 1 or isinstance(p_b0.previous, steer_hooks.H3SteerBlockPatch):
+                    errs.append(f"Stage 2 H3SteerBlockPatch chaining/no-double-wrap failed: prev_calls={prev_calls[0]}, prev={p_b0.previous}, sink={sink_fc}")
+
+                # 9. Mutual-exclusion & conflicting band refusals
+                m_fvc = s2_base_patcher.clone()
+                m_fvc._h3_frozen_video_cache = object()
+                errs += _expect_refusal(
+                    lambda: cv_nodes.attach_control_vector(m_fvc, s2_vec_p, strength=1.0, block_band="1-1", allow_recipe_mismatch=True),
+                    "MiniMaxH3FrozenVideoCache",
+                    "Stage 2 refusal with MiniMaxH3FrozenVideoCache",
+                )
+                m_nsa = s2_base_patcher.clone()
+                def make_h3_block_patch(a, e):
+                    return e["original_block"](a)
+                m_nsa.set_model_patch_replace(make_h3_block_patch, "dit", "double_block", 0)
+                errs += _expect_refusal(
+                    lambda: cv_nodes.attach_control_vector(m_nsa, s2_vec_p, strength=1.0, block_band="1-1", allow_recipe_mismatch=True),
+                    "BlockSparseAttention",
+                    "Stage 2 refusal with core BlockSparseAttention",
+                )
+                m_conf = cv_nodes.attach_control_vector(
+                    m_pref, s2_vec_p, strength=1.0, mode="add_norm_matched_erasure",
+                    mask="non_vision", block_band="1-1", allow_recipe_mismatch=True,
+                )
+                errs += _expect_refusal(
+                    lambda: _run_patcher(m_conf),
+                    "distinct non-'all' block_band",
+                    "Stage 2 conflicting distinct block_band refusal",
+                )
+            finally:
+                cv.detect_family = orig_det_s2  # type: ignore[assignment]
 
     return errs
 

@@ -698,6 +698,7 @@ Arm manifests and the like; a manifest's line is its own `what`.
 | [`ui_schema.py`](control_vector/ui_schema.py) | The studio's description of the CLI: every method and argument, read off the parser. |
 | [`ui_server.py`](control_vector/ui_server.py) | HTTP server and `/api/*` routes for the H3 Control Vector Studio. |
 | [`ui_state.py`](control_vector/ui_state.py) | UI state management, TOML/Markdown preview, and `< 1 ms` CPU cached-build repooling. |
+| [`verify_stage2_unified_steer_hooks.py`](control_vector/verify_stage2_unified_steer_hooks.py) | Stage 2 GPU Verification Suite: Compiler-Safe Unified Attention Hooks & Stage 1 Production Check. |
 | [`web/api.js`](control_vector/web/api.js) | The studio's calls to its server, and the little shared state the screens read. |
 | [`web/app.js`](control_vector/web/app.js) | Entry: load the schema and the listing, draw the navigation, mount the screens. |
 | [`web/form.js`](control_vector/web/form.js) | Draws a CLI method's controls from the server's description of it (GET /api/schema). |
@@ -764,7 +765,7 @@ Arm manifests and the like; a manifest's line is its own `what`.
 
 ### results
 
-252 tracked files: [`results/INDEX.md`](results/INDEX.md).
+253 tracked files: [`results/INDEX.md`](results/INDEX.md).
 
 ### rubrics
 

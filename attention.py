@@ -43,11 +43,13 @@ try:
     from . import h3_trace as _trace
     from . import h3_capture as _capture
     from . import h3_layout as _h3layout
+    from . import steer_attention_hooks as _steer_hooks
     from .block_spec import parse_blocks as _parse_blocks
 except ImportError:                              # loaded as a top-level module
     import h3_trace as _trace
     import h3_capture as _capture
     import h3_layout as _h3layout
+    import steer_attention_hooks as _steer_hooks
     from block_spec import parse_blocks as _parse_blocks
 
 logger = logging.getLogger(__name__)
@@ -1201,6 +1203,10 @@ def make_minimax_attn_forward(kernel_fn, kernel_kwargs, head_chunks=1,
             _trace.route(s, "sol_delegate")
             return self.out_proj(out.squeeze(0))
 
+        steer_ran = _steer_hooks.h3_steer_attn_seam_pre(
+            q, k, v, transformer_options, seq_axis=1
+        )
+
         n = head_chunks
         if n <= 1 and isinstance(transformer_options, dict):
             n = transformer_options.get("minimax_head_chunks", 1)
@@ -1223,7 +1229,11 @@ def make_minimax_attn_forward(kernel_fn, kernel_kwargs, head_chunks=1,
                 _log_fallback_once(exc)
                 _trace.route(s, "fallback_kernel")
                 del qkv_box
+                if steer_ran:
+                    _steer_hooks.h3_steer_attn_seam_reset_block(transformer_options)
                 return _stock_forward(self, x, rope_freqs, transformer_options)
+            if steer_ran:
+                _steer_hooks.h3_steer_attn_seam_post(out, transformer_options, nhd=True)
             _trace.route(s, "lse_balance")
             return self.out_proj(out.view(s, self.heads * self.head_dim))
 
@@ -1253,8 +1263,12 @@ def make_minimax_attn_forward(kernel_fn, kernel_kwargs, head_chunks=1,
                 _log_fallback_once(exc)
                 _trace.route(s, "fallback_chunked")
                 del q, k, v
+                if steer_ran:
+                    _steer_hooks.h3_steer_attn_seam_reset_block(transformer_options)
                 return _stock_forward(self, x, rope_freqs, transformer_options)
             del q, k, v  # last refs to the fused qkv buffer, before out_proj
+            if steer_ran:
+                _steer_hooks.h3_steer_attn_seam_post(out, transformer_options, nhd=True)
             _trace.route(s, "sage_chunked")
             return self.out_proj(out.view(s, self.heads * self.head_dim))
 
@@ -1277,8 +1291,12 @@ def make_minimax_attn_forward(kernel_fn, kernel_kwargs, head_chunks=1,
             _log_fallback_once(exc)
             _trace.route(s, "fallback_kernel")
             del qkv
+            if steer_ran:
+                _steer_hooks.h3_steer_attn_seam_reset_block(transformer_options)
             return _stock_forward(self, x, rope_freqs, transformer_options)
 
+        if steer_ran:
+            _steer_hooks.h3_steer_attn_seam_post(out, transformer_options, nhd=True)
         _trace.route(s, "sage")
         return self.out_proj(out.view(s, self.heads * self.head_dim))
 

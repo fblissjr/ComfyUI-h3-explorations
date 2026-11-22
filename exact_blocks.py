@@ -56,8 +56,10 @@ from comfy_api.latest import io
 
 try:
     from . import h3_capture as _capture
+    from . import steer_attention_hooks as _steer_hooks
 except ImportError:   # run as a script or from a bench harness
     import h3_capture as _capture
+    import steer_attention_hooks as _steer_hooks
 
 
 def _exact_forward(self, x, rope_freqs=None, transformer_options={}):
@@ -92,24 +94,38 @@ def _exact_forward(self, x, rope_freqs=None, transformer_options={}):
     # every block on this node yields a capture with no INT8 anywhere in
     # the trajectory. Inert otherwise: the override is not installed and
     # the stock forward runs exactly as before.
-    if _capture.enabled:
-        module = self
+    rt = (
+        transformer_options.get("_h3_steer_runtime")
+        if isinstance(transformer_options, dict)
+        else None
+    )
+    steer_active = bool(rt is not None and getattr(rt, "active", False))
 
-        def _capturing(func, q, k, v, heads, mask=None, attn_precision=None,
-                       skip_reshape=False, skip_output_reshape=False, **kw):
-            # core hands BHND with skip_reshape=True; `maybe_capture` wants the
-            # [1, S, H, D] views the sage forward holds, and transposes back.
-            if skip_reshape:
-                _capture.maybe_capture(
-                    module, q.transpose(1, 2), k.transpose(1, 2), v.transpose(1, 2),
-                    length_hint=q.shape[2], kernel="exact",
-                    transformer_options=transformer_options)
-            return func(q, k, v, heads, mask=mask, attn_precision=attn_precision,
-                        skip_reshape=skip_reshape,
-                        skip_output_reshape=skip_output_reshape, **kw)
+    if _capture.enabled or steer_active:
+        prev_ov = None
+        if _capture.enabled:
+            module = self
+
+            def _capturing(func, q, k, v, heads, mask=None, attn_precision=None,
+                           skip_reshape=False, skip_output_reshape=False, **kw):
+                # core hands BHND with skip_reshape=True; `maybe_capture` wants the
+                # [1, S, H, D] views the sage forward holds, and transposes back.
+                if skip_reshape:
+                    _capture.maybe_capture(
+                        module, q.transpose(1, 2), k.transpose(1, 2), v.transpose(1, 2),
+                        length_hint=q.shape[2], kernel="exact",
+                        transformer_options=transformer_options)
+                return func(q, k, v, heads, mask=mask, attn_precision=attn_precision,
+                            skip_reshape=skip_reshape,
+                            skip_output_reshape=skip_output_reshape, **kw)
+
+            prev_ov = _capturing
+
+        if steer_active:
+            prev_ov = _steer_hooks.make_steer_attention_override(prev_ov)
 
         transformer_options = {**(transformer_options or {}),
-                               "optimized_attention_override": _capturing}
+                               "optimized_attention_override": prev_ov}
 
     # A checkpoint can name a block's kernel since Comfy-Org/ComfyUI#16419: a
     # `comfy_attention.config` tensor loads into `self.comfy_attention` and

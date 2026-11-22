@@ -1025,7 +1025,9 @@
       "custom_vector",
       "hold_vector",
       "edit_pass",
-      "token_focus"
+      "token_focus",
+      "block_band",
+      "split_backend"
     ],
     "node_id": "MiniMaxH3Steer",
     "outputs": [

@@ -131,6 +131,7 @@ with none is a helper the others import.
 | [`sparse_table.py`](sparse_table.py) |  | Per-head tau tables for the sparse attention node: the format, the loader, the refusals. |
 | [`spatial_director.py`](spatial_director.py) | `MiniMaxH3SpatialDirector`, `MiniMaxH3DirectorHUD` | Spatial World Director (`MiniMaxH3SpatialDirector`) & Director HUD Export (`MiniMaxH3DirectorHUD`). |
 | [`sprite_trajectory.py`](sprite_trajectory.py) | `MiniMaxH3AppendSpriteTrajectory` | Zero-file 2D kinematic cutout trajectory reference (`MiniMaxH3AppendSpriteTrajectory`). |
+| [`steer_attention_hooks.py`](steer_attention_hooks.py) |  | Compiler-safe attention-hook runtime and reusable GPU workspace for `MiniMaxH3Steer`. |
 | [`step_x0_observer.py`](step_x0_observer.py) | `MiniMaxH3StepX0Observer` | Save each sampling step's x0 prediction to disk, and change nothing. |
 | [`substrate.py`](substrate.py) |  | What produced a number: the substrate block, and nothing else. |
 | [`vae_precision.py`](vae_precision.py) | `MiniMaxH3VAEPrecision` | Split the H3 video VAE's encode precision from its decode precision. |
@@ -161,7 +162,7 @@ with none is a helper the others import.
 | `.gemini/` | 8 | [below](#gemini) |
 | `archive/` | 31 | (none) |
 | `assets/` | 1 | [below](#assets) |
-| `bench/` | 909 | [`bench/INDEX.md`](bench/INDEX.md) and [`bench/results/INDEX.md`](bench/results/INDEX.md) for the records |
+| `bench/` | 911 | [`bench/INDEX.md`](bench/INDEX.md) and [`bench/results/INDEX.md`](bench/results/INDEX.md) for the records |
 | `changelog.d/` | | [`changelog.d/README.md`](changelog.d/README.md), one file per changelog entry; not listed and not counted |
 | `contact_sheets/` | 2 | [below](#contact_sheets) |
 | `data/` | 2 | [below](#data) |
