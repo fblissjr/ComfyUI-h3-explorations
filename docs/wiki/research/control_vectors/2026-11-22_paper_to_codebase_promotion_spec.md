@@ -4,7 +4,8 @@
 **Companion Monograph (Paper v4):** [`2026-11-21_from_late_interaction_retrieval_to_av_dit_steering.md`](2026-11-21_from_late_interaction_retrieval_to_av_dit_steering.md) · [`2026-11-21_reproducing_late_interaction_to_dit_steering.md`](2026-11-21_reproducing_late_interaction_to_dit_steering.md)  
 **Benchmark Ledgers:** [`bench/results/2026-11-21_multivector_erasure_benchmark.md`](../../../../bench/results/2026-11-21_multivector_erasure_benchmark.md) · [`bench/results/2026-11-21_phase3_de_slop_and_vision_block_steering.md`](../../../../bench/results/2026-11-21_phase3_de_slop_and_vision_block_steering.md)  
 **Scope:** Tracks every paper mechanism, experimental boundary, and bank/tooling gap identified after Paper v4 (`52a62318`) with exact disk-verified code symbols, owners across Lanes A–D, empirical CPU triage measurements, and acceptance criteria for GPU Window 1 (`faa62ef5`), GPU Window 2 (`90e9d2bd` Wave 2), and Window 3.  
-**Policy (`2026-11-22`):** Focus exclusively on multi-vector Pole-A subspace erasure (`add_norm_matched_erasure`) — zero new 1D work or 1D comparison renders (historical Paper v4 1D failure baselines remain as archived provenance only).
+**Policy (`2026-11-22`):** Focus exclusively on multi-vector Pole-A subspace erasure (`add_norm_matched_erasure`) — zero new 1D work or 1D comparison renders (historical Paper v4 1D failure baselines remain as archived provenance only).  
+**Companion Architecture & Phase 5 Blueprints:** [`2026-11-22_unified_steer_attention_hook_spec.md`](2026-11-22_unified_steer_attention_hook_spec.md) (compiler-safe attention hook covering Specs A & B) · [`2026-11-22_track1_track2_multivector_erasure_blueprint.md`](2026-11-22_track1_track2_multivector_erasure_blueprint.md) (Track 1 RASteer `ROS` + Track 2 per-token Pole-B & `ColQwen` spatial `vision_tokens` roadmap).
 
 ---
 
@@ -34,12 +35,13 @@
   2. Pre-allocate a single reusable `[1, L_txt, 5376]` steered text buffer **outside** `_run_blocks` (or run the `[L_txt, 5376]` `2`-block `TokenRefiner` / block-wise text shadow inside `optimized_attention_override` under `pause_malloc_graph()`) and only patch text K/V slices `[tx_a:tx_b]` on `block_index >= 20`.
   3. Because `block 49` has `text_rel_inc == 0.000` (terminal sink, Paper §6.6), verify whether `blocks.20..48` gives identical output to `blocks.20..49` without interfering with dense tail block `49` (`SOL_DENSE_TAIL = "49"`).
   4. **Rule 5 UI constraint (`AGENTS.md` §1.5):** Never reorder `MiniMaxH3Steer.define_schema` (`control_vector_nodes.py:4561`) inputs; **append** optional `block_band` (`["all", "mid_late_20_49", "late_30_49"]`, default `"all"`) strictly at the **end** of `inputs`, and run `bench/check_node_ids.py` + `bench/check_widget_deviations.py`.
+  - **Full compiler-safe unified blueprint:** [`2026-11-22_unified_steer_attention_hook_spec.md`](2026-11-22_unified_steer_attention_hook_spec.md) (eliminates `disable_comfy_compiler = True`, shared `register_forward_pre_hook`, and full `K/V` clones, and adds Sage-only `via_optimized_attention=False` + `MiniMaxH3ExactBlocks` coverage).
 
 ### Spec B — `1x` Single-Pass `Q_aud -> K_txt_base` Stream-Split Decision Gate
 - Currently `MiniMaxH3Steer(streams="video_only" | "audio_only")` (`control_vector_nodes.py:4662`) runs `2` DiT forwards per step (`2.00x`).
 - In Phase 4 `qaud`, `faa62ef5` compares `Steered Both`, `1x Q_aud -> K_txt_base` (passing steered `K_txt, V_txt` to text+video queries and unsteered `K_txt_base, V_txt_base` strictly to `[aud_a:aud_b]` queries inside `optimized_attention_override`), and `2x streams="video_only"` on `90f` `t2va_box_office` (`de_llm_slop +1.15`).
 - **Decision rule:**
-  - If `1x Q_aud -> K_txt_base` recovers `>= 70%` of the `-13.4 dB` ambience/RMS drop without altering `hsv_sat`, wire query-sliced `optimized_attention_override` as a `1.00x` implementation path for `streams` inside `MiniMaxH3Steer` (plus compiler compatibility test under `MiniMaxH3Sol`).
+  - If `1x Q_aud -> K_txt_base` recovers `>= 70%` of the `-13.4 dB` ambience/RMS drop without altering `hsv_sat`, promote the unified zero-clone Mode 2/3 path in [`2026-11-22_unified_steer_attention_hook_spec.md`](2026-11-22_unified_steer_attention_hook_spec.md) inside `MiniMaxH3Steer` (with `--assert-graph-breaks` verification under `MiniMaxH3Sol`, standalone `MiniMaxH3SageAttention`, `MiniMaxH3ExactBlocks`, and `MiniMaxH3AudioAttentionGain`).
   - If `Q_aud -> K_vid` cross-attention through single-stream blocks (`blocks.31..48`) accounts for most of the attenuation, keep `2.00x` splitting for strict stream invariance and document the `1x` `soundscape_only` counter-anchor recipe instead.
 
 ### Spec C — Clamped Union Stacking Theorem 2.6 + `erasure.mu_a` & `MIN_ERASURE_PAIRS` Parity
