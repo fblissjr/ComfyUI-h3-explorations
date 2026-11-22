@@ -15,6 +15,23 @@ Older history lives elsewhere and is not copied here:
   decisions" and forward-plan sections.
 - `bench/results/`: the verdict records, each with its conditions.
 
+## 2026-11-22
+
+- **Pika ref2va reference stills sized by Pika's tier rule (`99034acc`).** The owner relayed the Gemini lead's
+  review with its go. The shipped Pika H3 Flex ref2va video graphs moved from `size_policy=max` with
+  `allow_upscale=False` to `tiered` (`workflows/h3_config.py::PIKA_REF_SIZE_POLICY`), Pika's release rule, which
+  enlarges a small still. sglang's Pika does the same since #51935, found by the 2026-11-22 sweep. The 2026-11-15
+  shrink-only decision stands for native H3 and for the node default. Eleven graphs moved, one of them
+  `h3_guide_video_edit`, found by the Gemini lead. `bench/check_distill_settings.py` holds it.
+  The record is in [`upstream/topics/reference_sizing.md`](upstream/topics/reference_sizing.md), "2026-11-22: Pika".
+- **Corrected: the root `AGENTS.md` contract table's audio latents (`99034acc`).** It gave P-H3-Image `audio=[]`
+  and video `audio [B,32,T_a]`. Core's `_av_latent` (`comfy_extras/nodes_minimax_h3.py`) builds `[B,32,2,T_a]`, and
+  both core's `PH3ImageConditioning` and the pack's `ph3_image_nodes.py::_av_latent` pass `[B,32,2,2]` for
+  P-H3-Image.
+- **`bench/check_frozen_video_cache.py` pins core's block source (`99034acc`).** `frozen_video_cache.py` copies
+  core's `DiTBlock.forward` and part of `Attention.forward`. A numeric check misses a core change that keeps the
+  math, such as core #17775's MLP chunking, so the source is now pinned by hash.
+
 ## 2026-11-21
 
 - **Wave 1 `heylook` automation, split-cached desktop `r2v`, & `M1`/`M2` probes (`06c64f9f`, `d5173f0f`):** Shipped [`bench/sync_heylook_presets.py`](../../bench/sync_heylook_presets.py) (idempotent sync of all `18` catalog prompts from `docs/wiki/system_prompts/` + optional `internal/heylook_local_overlays.toml` / `[overlay_preset]`, preserving remote sampler params & `H3_LOCAL_PREAMBLE`/`ADDENDUM` sentinels), `@extend:prepend|append` & `<!-- H3_EXTEND:prepend|append -->` runtime overlays (`heylook_client.py::{parse_extend_directive, compose_preset_system_prompt}`, `auto_edit_prompt.py`, `h3_image_nodes.py`, `app/heylook_bridge.py`), trailing `ref_end_percent` output (slot 4) on [`MiniMaxH3PromptExpander`](../../h3_prompt_expander.py) wired to `MiniMaxH3ReleaseReferences.end_percent`, split-cached desktop Pika `r2v` workflows (`workflows/build_workflows.py::_split_h3_video_references`), and offline CPU triage helpers `M1` ([`bench/probe_dinov3_copy_freeze.py`](../../bench/probe_dinov3_copy_freeze.py)) & `M2` ([`bench/probe_yin_f0_drift.py`](../../bench/probe_yin_f0_drift.py), verified by [`bench/check_m1_m2_probes.py`](../../bench/check_m1_m2_probes.py)).
