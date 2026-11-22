@@ -640,7 +640,7 @@ def heylook_expander() -> None:
             enabled=True,
             base_url=base,
             mode="auto",
-            concept="ankle_deep_flood",
+            concept="env_torrential_rain_drench",
         ))
         concept_only_txt = state["bodies"][-1]["messages"][0]["content"]
         report(
@@ -648,8 +648,8 @@ def heylook_expander() -> None:
             and "Quiet library table." in concept_user_txt
             and "concept=look_crimson_darkroom" in img_concept_out[3]
             and "MANDATORY CREATIVE CONCEPT" in concept_only_txt
-            and "ankle-deep floodwater" in concept_only_txt.lower()
-            and "concept=ankle_deep_flood" in img_concept_only[3],
+            and "torrential" in concept_only_txt.lower()
+            and "concept=env_torrential_rain_drench" in img_concept_only[3],
             "MiniMaxH3ImagePromptExpander wires concept preset (with prompt and concept-only) and logs concept= telemetry",
         )
 

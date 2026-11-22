@@ -187,7 +187,7 @@ def check_schema_is_the_parser() -> None:
     # Where the CLI stands in for the node, it takes the node's default and the node's kind of control:
     # grade applies in the node's mode, and a mask is a named mask or ticked fields on both methods.
     by_dest = {m: {a["dest"]: a for a in schema["methods"][m]["args"]} for m in ("grade", "inspect")}
-    assert by_dest["grade"]["mode"]["default"] == schema["node"]["defaults"]["mode"], by_dest["grade"]["mode"]["default"]
+    assert by_dest["grade"]["mode"]["default"] == schema["node"]["steer_defaults"]["mode"], by_dest["grade"]["mode"]["default"]
     assert by_dest["grade"]["mode"]["choices"] == list(cv.APPLY_MODES)
     assert by_dest["grade"]["mask"]["default"] == schema["node"]["defaults"]["mask"]
     assert by_dest["grade"]["mask"]["widget"] == by_dest["inspect"]["mask"]["widget"] == "mask"
