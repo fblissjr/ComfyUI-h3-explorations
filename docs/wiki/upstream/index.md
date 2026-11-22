@@ -1,6 +1,6 @@
 # Upstream wiki: what we follow, how far we trust it, and how to sweep it
 
-last updated: 2026-11-17 (topic [`topics/h3_image_pipeline.md`](topics/h3_image_pipeline.md) and the scoped read [`sweeps/2026-11-17_h3_image.md`](sweeps/2026-11-17_h3_image.md) added); 2026-11-15 (page created; engine, periphery and topic pages added the same day; first sweep under it is [`sweeps/2026-11-15.md`](sweeps/2026-11-15.md))
+last updated: 2026-11-22 (second full sweep, [`sweeps/2026-11-22.md`](sweeps/2026-11-22.md)); 2026-11-17 (topic [`topics/h3_image_pipeline.md`](topics/h3_image_pipeline.md) and the scoped read [`sweeps/2026-11-17_h3_image.md`](sweeps/2026-11-17_h3_image.md) added); 2026-11-15 (page created; engine, periphery and topic pages added the same day; first sweep under it is [`sweeps/2026-11-15.md`](sweeps/2026-11-15.md))
 
 This folder is the wiki for everything upstream of the pack: where upstream checks start, what each source is
 and how far it is trusted, how the sources compare on the questions that matter to us, and what they are working
@@ -16,7 +16,7 @@ on.
 | | [`topics/h3_image_pipeline.md`](topics/h3_image_pipeline.md) (MiniMax-H3-Image, text to image and edit, every stage across every implementation: where they align and where the outliers are; **read 2026-11-17**), [`topics/reference_sizing.md`](topics/reference_sizing.md) (ref2va stills: enlarge or not; **decided 2026-11-15, `allow_upscale=False` default**), [`topics/h3_image_sampling_step.md`](topics/h3_image_sampling_step.md) (H3-Image Euler form, sigmas, noise draws; **tested 2026-11-15, stock `euler` kept**), [`topics/qwen3vl_encoder.md`](topics/qwen3vl_encoder.md) (the shared encoder), [`topics/pika_parity.md`](topics/pika_parity.md) (Pika numerics across engines) |
 | [`horizon.md`](horizon.md) | the open PRs, issues and announced work we are waiting on, each with what it would change for this pack. Rows carry over from sweep to sweep until they land or close |
 | [`../research/2026-11-15_upstream_synthesis.md`](../research/2026-11-15_upstream_synthesis.md) | the 2026-11-15 findings grouped by area of focus, with what each could do for the pack and how deep each was read; a dated snapshot |
-| `sweeps/<date>.md` | one dated record per sweep: the ranges read, what was found, what was checked by hand and what was not. First: [`sweeps/2026-11-15.md`](sweeps/2026-11-15.md). A scoped read of one subject gets `sweeps/<date>_<subject>.md` and leaves `watchlist.json` where it was: [`sweeps/2026-11-17_h3_image.md`](sweeps/2026-11-17_h3_image.md) |
+| `sweeps/<date>.md` | one dated record per sweep: the ranges read, what was found, what was checked by hand and what was not. First: [`sweeps/2026-11-15.md`](sweeps/2026-11-15.md); latest: [`sweeps/2026-11-22.md`](sweeps/2026-11-22.md). A scoped read of one subject gets `sweeps/<date>_<subject>.md` and leaves `watchlist.json` where it was: [`sweeps/2026-11-17_h3_image.md`](sweeps/2026-11-17_h3_image.md) |
 | [`watchlist.json`](watchlist.json) | every watched upstream: its GitHub repo, local clone, the paths and keywords that matter for H3, and the revision and date it was last read. **The revisions live only there**; no page repeats them |
 
 Engine, periphery and topic pages hold the standing picture, which each sweep updates. Sweep records hold the dated

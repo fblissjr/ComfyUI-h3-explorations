@@ -1,6 +1,6 @@
 # sglang: the vendor's serving path (rank 1)
 
-last updated: 2026-11-17 (MiniMax-H3-Image path read stage by stage, [`../sweeps/2026-11-17_h3_image.md`](../sweeps/2026-11-17_h3_image.md)); 2026-11-15 (page created; state as of [`../sweeps/2026-11-15.md`](../sweeps/2026-11-15.md))
+last updated: 2026-11-22 (state moved to [`../sweeps/2026-11-22.md`](../sweeps/2026-11-22.md): Pika follows its release on references, keyframes and audio length); 2026-11-17 (MiniMax-H3-Image path read stage by stage, [`../sweeps/2026-11-17_h3_image.md`](../sweeps/2026-11-17_h3_image.md)); 2026-11-15 (page created; state as of [`../sweeps/2026-11-15.md`](../sweeps/2026-11-15.md))
 
 **Rank 1** ([`../index.md`](../index.md), "When upstreams disagree"). sglang is the closest thing to ground truth for
 what MiniMax intends at each stage. A sglang default can still move for reasons other than fidelity: the
@@ -27,20 +27,26 @@ Read the PR's motive before treating a moved default as the vendor's word.
 - [`../../attention/sol_upstream.md`](../../attention/sol_upstream.md): Sol.
 - [`../../image/h3_image.md`](../../image/h3_image.md): MiniMax-H3-Image, "What the vendor's servers do".
 
-## State as of 2026-11-15
+## State as of 2026-11-22
 
 - **Base H3 sampling.** Shifts 12/3 and the visual condition level `MINIMAX_H3_IMGVID_COND_TIMESTEP` are unchanged
   since the 2026-11-04 reads, as are Euler with one positive forward and the video VAE's fp32 encode and fp16 decode.
-- **References.** Small stills are no longer enlarged by default (`max`, since `92a6910ef2`); see
-  [`../topics/reference_sizing.md`](../topics/reference_sizing.md). There is a per-image cache of reference and
-  keyframe rows (`b7ccc7e2f9`).
+- **References.** Native H3 does not enlarge small stills (`max`, since `92a6910ef2`). **Pika enlarges them again**
+  (`PikaH3FlexSamplingParams.reference_resize_mode = "diffusers"`, `44a391941a`, #51935, a fix to follow Pika's
+  release, 2026-11-20); see [`../topics/reference_sizing.md`](../topics/reference_sizing.md). There is a per-image
+  cache of reference and keyframe rows (`b7ccc7e2f9`).
 - **Encoder.** Layer-50 pre-norm, bf16. The vision RoPE is rebuilt on the GPU for image releases only
   ([`../topics/qwen3vl_encoder.md`](../topics/qwen3vl_encoder.md)).
-- **Pika.** TF32 matmul off, LoRA factors at bf16 unmerged, and separate seeded RNG streams
-  ([`../topics/pika_parity.md`](../topics/pika_parity.md)).
+- **Pika.** TF32 matmul off, LoRA factors at bf16 unmerged, and separate seeded RNG streams. Since `44a391941a`
+  it also center-crops keyframes at source resolution (`keyframe_fit="source_crop"`) and trims decoded audio to
+  the video's duration (`trim_audio_to_video=True`), as Pika's release does
+  ([`../topics/pika_parity.md`](../topics/pika_parity.md)). Base H3 keeps `keyframe_fit="stretch"`.
 - **MiniMax-H3-Image.** One positive branch, with a float32 velocity Euler step
   ([`../topics/h3_image_sampling_step.md`](../topics/h3_image_sampling_step.md)).
-- **LoRA.** Stacked dynamic adapters, each with its own rank, alpha and strength (`b966c2798e`).
+- **LoRA.** Stacked dynamic adapters, each with its own rank, alpha and strength (`b966c2798e`). A full-width AdaLN
+  LoRA folded into the pruned basis keeps the adapter's dtype (`8be74d4137`, #50611).
+- **ComfyUI files.** Open #50885 and draft #51500 handle the contiguous `[q|k|v]` layout of unquantized ComfyUI
+  exports, which sglang otherwise reads as head-interleaved.
 - **Comparisons.** The cookbook says `exact` and `lossless`, which differ only in in-op rounding, grow into different
   samples over a long schedule. Same-seed cross-engine A/Bs are read with that in mind.
 - **Not in sglang.** No edit, continuation or window path for video (the ninth to eleventh reads), and no H3 prompt
@@ -84,5 +90,6 @@ given in full.
 
 ## Open upstream work
 
-On [`../horizon.md`](../horizon.md): Open-H3-Regenerate-2K (#47668), the AdaLN LoRA dtype on pruned files (#50611),
-and the Q4 roadmap with RTX 4090 defaults (#43313).
+On [`../horizon.md`](../horizon.md): the Q4 roadmap with RTX 4090 defaults (#43313) and a measured RTX 4090 run
+against ComfyUI (#51192); the host pin-budget OOM on a 24 GB card (#51188 / #52058); ComfyUI export layouts
+(#50885, #51500); validation fixes (#44808, #44807, #44806); Open-H3-Regenerate-2K (#47668, tracked only).

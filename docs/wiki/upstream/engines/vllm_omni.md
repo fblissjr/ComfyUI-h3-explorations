@@ -1,6 +1,6 @@
 # vllm-omni: the second H3 serving engine (rank 2)
 
-last updated: 2026-11-17 (MiniMax-H3-Image path read stage by stage, [`../sweeps/2026-11-17_h3_image.md`](../sweeps/2026-11-17_h3_image.md)); 2026-11-15 (page created; state as of [`../sweeps/2026-11-15.md`](../sweeps/2026-11-15.md))
+last updated: 2026-11-22 (state moved to [`../sweeps/2026-11-22.md`](../sweeps/2026-11-22.md): `keep_steps` and Heun merged, SM89 VAE fused ops, a ComfyUI control node); 2026-11-17 (MiniMax-H3-Image path read stage by stage, [`../sweeps/2026-11-17_h3_image.md`](../sweeps/2026-11-17_h3_image.md)); 2026-11-15 (page created; state as of [`../sweeps/2026-11-15.md`](../sweeps/2026-11-15.md))
 
 **Rank 2.** It is the most active H3 engine and covers the most ground that sglang does not: distill contracts
 (FastH3, Regenerate), long-clip machinery (timeline guides, continuation, windows), masks and edits, a ComfyUI app,
@@ -25,9 +25,14 @@ and agent skills for H3 prompting and character replacement.
   [`../../research/image/2026-11-14_h3_image_vae_inspection.md`](../../research/image/2026-11-14_h3_image_vae_inspection.md):
   its H3-Image path.
 
-## State as of 2026-11-15
+## State as of 2026-11-22
 
-- **Base H3 defaults** are unchanged since 2026-11-04 (shifts, condition level, Qwen tap).
+- **Base H3 defaults** are unchanged since 2026-11-04 (shifts, condition level, Qwen tap). The 50-step fallback is
+  the named constant `coderef/vllm-omni/vllm_omni/diffusion/models/minimax_h3/time_request.py::MINIMAX_H3_DEFAULT_NUM_INFERENCE_STEPS`.
+- **Reference release** (`bbe6e7c85`, #9762). `keep_steps` conditions on a ref2va video reference for the first
+  k steps, then moves to an image-only layout with the prompt re-encoded without the video and positions rebuilt.
+  `MiniMaxH3ReleaseReferences` keeps positions and the text context instead. Off by default; refuses audio
+  references and Pika ([`../sweeps/2026-11-22.md`](../sweeps/2026-11-22.md), item 6).
 - **References.** A still keeps its own size rounded to 32 and is never enlarged
   (`coderef/vllm-omni/vllm_omni/model_executor/models/minimax_h3/preprocessing.py::resolve_minimax_h3_reference_image_shape`). See
   [`../topics/reference_sizing.md`](../topics/reference_sizing.md).
@@ -42,8 +47,13 @@ and agent skills for H3 prompting and character replacement.
   - Read it against [`../../masked_v2v.md`](../../masked_v2v.md).
 - **Attention schedules by step or by sigma window** (`62876f40a`, `e25c9682a`): Sol's dense-or-sparse choice,
   keyed on noise level.
-- **Samplers.** The sampler owns the loop, and `euler` or `res_multistep` can be chosen per request (`7465c0f52`).
-  Heun and DPM++ 2M are open PRs.
+- **Samplers.** The sampler owns the loop, and `euler`, `res_multistep` or `heun` can be chosen per request
+  (`7465c0f52`; Heun `6492091b4`, #10400). Heun runs on each stream's own grid, which core's `heun` does not
+  (item 7 of the 2026-11-22 sweep). DPM++ 2M is an open PR.
+- **Video VAE on SM89.** The decoder runs fused ops by default on SM89, held to bitwise equality with their eager
+  path (`f8e650153`, #10516).
+- **ComfyUI app.** A control node, `VLLMOmniMiniMaxH3Control`, for canny, depth, HED, MLSD, pose and inpaint
+  control, prepared on the client (`0a883471e`, #7492).
 - **Encoder.** `text_encoder_cudnn_sdp` ([`../topics/qwen3vl_encoder.md`](../topics/qwen3vl_encoder.md)).
 - **Fixes:** the shifted first sigma is clamped to 1.0 (`d3414a3b0`; does not arise at shifts 12/3); Regenerate's
   missing control fields (`61aef20b7`).
@@ -93,6 +103,7 @@ this session. Paths are under `vllm_omni/diffusion/models/minimax_h3/`; the pipe
 
 ## Open upstream work
 
-On [`../horizon.md`](../horizon.md): Pika parity (#9777), `keep_steps` reference release (#9762), reference isolation
-(#9689), samplers (#10400, #10405), VAE tile batching bits (#10256), non-24 fps (#9398), the P-H3-Image request
-(#9863), and the parity RFC (#7380).
+On [`../horizon.md`](../horizon.md): Pika parity (#9777), reference isolation (#9689), DPM++ 2M (#10405), the Sol
+backend (#10513, approved), ComfyUI single-file and int8 ConvRot checkpoints (#9721, #6894), startup LoRA fusion
+(#10742), an H3-Image prompt-embedding cache (#10369), kernel-choice bimodality (#6673), VAE tile batching bits
+(#10256), non-24 fps (#9398), the P-H3-Image request (#9863), and the parity RFC (#7380).

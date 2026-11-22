@@ -1,6 +1,6 @@
 # diffusers: the library port (rank 3)
 
-last updated: 2026-11-17 (MiniMax-H3-Image path read stage by stage, [`../sweeps/2026-11-17_h3_image.md`](../sweeps/2026-11-17_h3_image.md)); 2026-11-15 (page created; state as of [`../sweeps/2026-11-15.md`](../sweeps/2026-11-15.md))
+last updated: 2026-11-22 (no H3 numerics moved; P-Image-OSS rename and the pruned-checkpoint PRs re-read, [`../sweeps/2026-11-22.md`](../sweeps/2026-11-22.md)); 2026-11-17 (MiniMax-H3-Image path read stage by stage, [`../sweeps/2026-11-17_h3_image.md`](../sweeps/2026-11-17_h3_image.md)); 2026-11-15 (page created; state as of [`../sweeps/2026-11-15.md`](../sweeps/2026-11-15.md))
 
 **Rank 3.** Its modular pipelines are the clearest statement of each model's tensor namespace and sampler, and the
 release's Hugging Face layout follows it. Where it disagrees with sglang or vllm-omni, they win.
@@ -22,7 +22,7 @@ release's Hugging Face layout follows it. Where it disagrees with sglang or vllm
 - [`../../image/h3_image.md`](../../image/h3_image.md): MiniMax-H3-Image.
 - `../../references.md`, "Pika H3 Flex".
 
-## State as of 2026-11-15
+## State as of 2026-11-22
 
 - **References.** Stills are scaled to a 2048 short edge, "2048 for the released checkpoint"
   (`modular_pipelines/minimax_h3/before_encoder.py`); see [`../topics/reference_sizing.md`](../topics/reference_sizing.md).
@@ -34,6 +34,10 @@ release's Hugging Face layout follows it. Where it disagrees with sglang or vllm
   `aspect_ratio`. Their code is on the Hub and was not read.
 - **Encoder.** `hidden_states[50]` of a full stack ([`../topics/qwen3vl_encoder.md`](../topics/qwen3vl_encoder.md)).
 - **Tensor parallelism** for the H3 transformer (`7e46c94ca`): multi-GPU only.
+- **Unchanged through 2026-11-22.** The only H3-path commit since is `d9586a3dc` (#14900), which lets cache hooks
+  see the timestep and changes nothing with no hook on.
+- **Renaming.** P-H3-Image is becoming P-Image-OSS (#15362, open), with the old names kept as deprecated aliases.
+  The Hub already redirects `PrunaAI/P-H3-Image`.
 
 ## MiniMax-H3-Image as of 2026-11-17
 
@@ -67,5 +71,6 @@ this session. Paths are under `modular_pipelines/minimax_h3_image/` unless given
 
 ## Open upstream work
 
-On [`../horizon.md`](../horizon.md): loading the pruned ComfyUI checkpoints (#15299), Comfy int8 ConvRot through
-comfy-kitchen (#15209), and ref2va soundtrack resampling (#15199 / #15245).
+On [`../horizon.md`](../horizon.md): loading the pruned ComfyUI checkpoints (#15299; bf16 only, and a maintainer
+asked for the pruned support to be split out), Comfy quantized checkpoints through comfy-kitchen (#15209), and the
+P-Image-OSS rename (#15362). The ref2va soundtrack resampling PR (#15199 / #15245) closed unmerged.

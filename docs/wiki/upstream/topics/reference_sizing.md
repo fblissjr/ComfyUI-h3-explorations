@@ -1,6 +1,6 @@
 # Reference stills: how each implementation sizes them (H3 video ref2va)
 
-last updated: 2026-11-15 (owner decided to flip `MiniMaxH3AppendRefImage.allow_upscale` default to `False` following sglang #47907)
+last updated: 2026-11-22 (sglang's Pika enlarges small stills again, citing Pika's release; the decision below is unchanged and the new fact is in "2026-11-22: Pika" below); 2026-11-15 (owner decided to flip `MiniMaxH3AppendRefImage.allow_upscale` default to `False` following sglang #47907)
 
 **Scope: H3 video ref2va reference stills**, the `<Picture N>` images that ride beside the target rows on every
 step. It does not cover MiniMax-H3-Image edit references (their own bounds:
@@ -25,7 +25,7 @@ Every mode keeps the aspect ratio and rounds each axis to 32.
 
 | implementation | rank | default for a small still | where |
 |---|---|---|---|
-| sglang | 1 | **not enlarged** (`max`) since `92a6910ef2` (#47907, 2026-11-05); `diffusers` before that. FastH3 Omni keeps `diffusers` | `coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/constants.py::MINIMAX_H3_DEFAULT_REFERENCE_RESIZE_MODE`, `coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/reference_encoding.py::minimax_h3_resolve_reference_image_shape` |
+| sglang | 1 | **not enlarged** (`max`) since `92a6910ef2` (#47907, 2026-11-05); `diffusers` before that. FastH3 Omni keeps `diffusers`. **Pika enlarges** (`diffusers`) since `44a391941a` (#51935, 2026-11-20) | `coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/constants.py::MINIMAX_H3_DEFAULT_REFERENCE_RESIZE_MODE`, `coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/reference_encoding.py::minimax_h3_resolve_reference_image_shape` |
 | vllm-omni | 2 | **not enlarged**: keeps the still's own size rounded to 32, shrinking only to a canvas-area cap on timeline-guided requests | `coderef/vllm-omni/vllm_omni/model_executor/models/minimax_h3/preprocessing.py::resolve_minimax_h3_reference_image_shape` |
 | diffusers | 3 | **enlarged** to a 2048 short edge ("2048 for the released checkpoint") | `coderef/diffusers/src/diffusers/modular_pipelines/minimax_h3/before_encoder.py` (`reference_image_short_edge`), `.../minimax_h3/references.py` |
 | ComfyUI core | trusted least | **not enlarged** in either `ref_image_size` mode (`match` default, `max`) | `comfy_extras/nodes_minimax_h3.py`, the reference-to-video node's `ref_image_size` and `ref_image` tooltips |
@@ -34,7 +34,8 @@ Every mode keeps the aspect ratio and rounds each axis to 32.
 | **this pack** | | **not enlarged** (`size_policy=max`, `dit_short_edge=2048`, `allow_upscale=False` default since 2026-11-15; `True` kept opt-in and pinned on historical instruments & masked head crops) | `reference_conditioning.py` (`allow_upscale` input); `reference_geometry.py` |
 
 By the owner's ranking ([`../index.md`](../index.md), "When upstreams disagree"), the top two engines and core now
-agree on not enlarging, and only the third engine and the periphery still enlarge.
+agree on not enlarging for native H3, and only the third engine and the periphery still enlarge. *2026-11-22: for
+Pika this no longer holds; see "2026-11-22: Pika" below.*
 
 ## How we got here
 
@@ -89,4 +90,27 @@ A stacked pair at one seed on a masked-lane head-crop load would decide it, judg
 - [`bench/preflight_graph.py`](../../../../bench/preflight_graph.py), [`bench/generate_capture_manifest.py`](../../../../bench/generate_capture_manifest.py), [`bench/check_reference_runtime.py`](../../../../bench/check_reference_runtime.py), [`bench/check_typed_reference_consumers.py`](../../../../bench/check_typed_reference_consumers.py), [`bench/check_widget_deviations.py`](../../../../bench/check_widget_deviations.py): updated omitted/default `allow_upscale` expectations to `False`.
 - [`../../core/h3_references.md`](../../core/h3_references.md) & [`../../research/sglang_comparison.md`](../../research/sglang_comparison.md): updated node defaults & Gap 6.
 - ComfyUI `:8188` requires a service reload when convenient to pick up the `MiniMaxH3AppendRefImage` default change for UI drags; regenerated `*_api.json` graphs send `"size_policy.allow_upscale"` explicitly on every step.
-- The FastH3 Omni and Pika notes: sglang's Pika inherits `max`, while Pika's own `buckets.yaml` enlarges (`../../references.md`, "Pika H3 Flex"). Pika showcase parity graphs here keep `ref_upscale=True`.
+- The FastH3 Omni and Pika notes: sglang's Pika inherits `max`, while Pika's own `buckets.yaml` enlarges (`../../references.md`, "Pika H3 Flex"). Pika showcase parity graphs here keep `ref_upscale=True`. *Corrected 2026-11-22: sglang's Pika no longer inherits `max` (below).*
+
+## 2026-11-22: Pika
+
+A new fact, recorded here for the owner; the 2026-11-15 decision above is unchanged until the owner says otherwise.
+
+- **What moved.** sglang `44a391941a` (#51935, a `[Fix]` PR, 2026-11-20) sets
+  `PikaH3FlexSamplingParams.reference_resize_mode = "diffusers"`, so sglang's Pika enlarges small stills to a 2048
+  short edge again. Its comment says the released pipeline "encodes image references at a 2048 px short edge from
+  the 768 tier upwards, upscaling smaller ones". The PR says #47907 had carried Pika along without anyone choosing
+  it. Native H3 stays `max`.
+- **Its motive is fidelity to the distill's trainer,** not speed: the opposite kind of evidence from #47907
+  (`../index.md`, "Running a sweep", on reading a moved default with its PR's motive).
+- **The rules that bear on it.**
+  - A distill is run the way its trainer says (`../../references.md`, "A distill's reference is its trainer's
+    contract", 2026-09-26). That page's "Pika H3 Flex" entry lists the tiered sizing as part of Pika's contract.
+  - The "case for turning `allow_upscale` off" above rests on the top two engines and core leaving small stills
+    alone, which for Pika is now false at rank 1. vllm-omni has no merged Pika path, and core has no Pika-specific
+    path.
+- **What exists here.** The shipped Pika ref2va graphs send `size_policy=max`, `dit_short_edge=2048`,
+  `allow_upscale=False` (node 50 of each `*pika*` ref2va graph). `size_policy="tiered"`
+  (`reference_geometry.py::tier_short_edge`) is a port of Pika's `reference_short_edge_for_canvas`, and
+  `workflows/build_workflows.py` takes `ref_size_policy`.
+- **What it would settle.** Whether Pika ref2va graphs move to `tiered` is the owner's call, through the Open List.

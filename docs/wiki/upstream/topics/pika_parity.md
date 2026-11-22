@@ -1,12 +1,12 @@
 # Pika H3 Flex: how close each implementation runs to Pika's release
 
-last updated: 2026-11-15 (page created from the 2026-11-15 sweep)
+last updated: 2026-11-22 (sglang's Pika follows the release on references, keyframes and audio length; Pika answered how the distill was trained; [`../sweeps/2026-11-22.md`](../sweeps/2026-11-22.md)); 2026-11-15 (page created from the 2026-11-15 sweep)
 
 Pika H3 Flex is the owner's default distill. Its contract (knots, re-noise sampler, shifts) is in
 `../../references.md`, "Pika H3 Flex", and `workflows/h3_config.py` (`PIKA_*`). This page tracks how each engine
 matches Pika's own numerics beyond the contract. That matters for seed-exact parity, and possibly for quality.
 
-## Agreements across engines (2026-11-15)
+## Agreements across engines (2026-11-15; last two items 2026-11-22)
 
 - **The contract.** LightX2V's new six-step configs (`1053bb0a`;
   `coderef/LightX2V/configs/minimax_h3/distill/6steps/minimax_h3_pika_*_6step.json`) have the same knots, shifts and
@@ -21,18 +21,40 @@ matches Pika's own numerics beyond the contract. That matters for seed-exact par
   model dtype. `MiniMaxH3LoRABranch` casts its factors to the compute dtype (`lora_branch.py`), so it aligns.
 - **TF32 matmul off.** sglang sets `torch.set_float32_matmul_precision("highest")`. Core sets no global TF32 flag, so
   torch's default (off) applies. That is the agent's reasoning, not run.
+- **The training schedule is the inference schedule** (Pika issue #9, answered 2026-11-20 by a Pika contributor):
+  distillation ran at shifts 12/3 on knots `[1000, 750, 500, 250, 100, 40, 0]`, which are
+  `h3_config.PIKA_CONTRACT_KNOTS`. SFT and PDMD were both LoRAs, and the released adapter holds ReFL+DPO merged
+  weights.
+- **Decoded audio ends with the video.** sglang's Pika trims the decoded audio to the video's duration
+  (`trim_audio_to_video=True`, `44a391941a`), as the release does. The audio latent count is the same rounding of
+  `frames / 24 * 40` in sglang, Pika and core, so the two lengths already agree on every `h3_rules.on_both_clocks`
+  length; the pack's `VHS_VideoCombine` mux uses `-shortest` (agent's reading).
 
 ## Differences
 
 - fl2va rounds the clean condition rows to bf16 before the noise is added, ref2va does not (sglang, `coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/stages/denoising.py::_apply_condition_noise_aug`).
   Not compared with our path.
-- sglang's Pika inherits sglang's new reference default and does not enlarge small stills. Pika's own `buckets.yaml`
-  does ([`reference_sizing.md`](reference_sizing.md)).
+- **Reference stills.** Pika's release enlarges them: a 2048 short edge from the 768 tier up, 1024 below it
+  (`coderef/Pika-H3-Flex/src/pika_h3/core/buckets.py::reference_short_edge_for_canvas`).
+  - sglang's Pika has done so again since `44a391941a` (#51935, 2026-11-20), with
+    `PikaH3FlexSamplingParams.reference_resize_mode = "diffusers"`. That matches the release from the 768 tier
+    up; no sglang mode has the 1024 tier.
+  - Before that commit it inherited native H3's `max` (#47907).
+  - **This pack's shipped Pika ref2va graphs do not enlarge** (`size_policy=max`, `allow_upscale=False`).
+    `size_policy="tiered"` (`reference_geometry.py::tier_short_edge`) is a port of the release's rule
+    ([`reference_sizing.md`](reference_sizing.md)).
+- **Keyframes.** Pika's release center-crops each keyframe at source resolution, then resizes
+  (`coderef/Pika-H3-Flex/src/pika_h3/core/conditioning.py::fit_keyframe`).
+  - sglang's Pika has done the same since `44a391941a` (`keyframe_fit="source_crop"`).
+  - The pack's follower keyframe is cropped the same way.
+  - Under `canvas="from_keyframe"` the pack's anchor is scaled without a crop
+    (`keyframe_canvas.py::resolve_keyframe_geometry`, `match_keyframe`). The canvas follows the anchor's aspect,
+    so the difference is only the canvas's rounding to 32 px.
 - vllm-omni #9777 adds `minimax_h3_reference_numerics=true` to keep the official bf16 rounding points. It claims
   near-identity with Pika's outputs on t2va/fl2va; ref2va is not covered by the claim.
 
 ## Open
 
-- Pika issue #9 (unanswered): whether training was LoRA or full, what the training shift was, and what the adapter
-  holds ([`../horizon.md`](../horizon.md)).
+- Pika issue #10: garbled speech mid-clip on R2V with the Flex LoRA, clean on the base model; Pika asked for the
+  assets ([`../horizon.md`](../horizon.md)). Issue #9 was answered 2026-11-20 (Agreements, above).
 - Whether our condition-noise draw order and seed offsets match these. Not compared.

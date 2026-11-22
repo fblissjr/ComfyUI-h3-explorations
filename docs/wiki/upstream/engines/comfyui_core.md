@@ -1,6 +1,6 @@
 # ComfyUI core: what the pack runs on (trusted least as evidence)
 
-last updated: 2026-11-17 (MiniMax-H3-Image path read against the engines, [`../sweeps/2026-11-17_h3_image.md`](../sweeps/2026-11-17_h3_image.md); `bench/check_reference_encode.py` passed at HEAD); 2026-11-15 (page created; state as of [`../sweeps/2026-11-15.md`](../sweeps/2026-11-15.md))
+last updated: 2026-11-22 (no change in the H3 model, nodes or encoder; `ModelMergeMiniMaxH3`, a dynamic-VRAM schedule fix and the comfy-kitchen `0.2.42` pin, [`../sweeps/2026-11-22.md`](../sweeps/2026-11-22.md); `bench/check_reference_encode.py` passed at HEAD); 2026-11-17 (MiniMax-H3-Image path read against the engines, [`../sweeps/2026-11-17_h3_image.md`](../sweeps/2026-11-17_h3_image.md); `bench/check_reference_encode.py` passed at HEAD); 2026-11-15 (page created; state as of [`../sweeps/2026-11-15.md`](../sweeps/2026-11-15.md))
 
 **The owner trusts core least as evidence of how H3 should work (2026-11-15).** It is watched more closely than
 anything else, though, because the pack runs on it, copies parts of it and patches it at runtime. A change in a
@@ -32,7 +32,7 @@ reference. The GitHub repo is `Comfy-Org/ComfyUI`, and the checkout is `../..`.
   `comfy/text_encoders/qwen35.py`, and `comfy/ldm/minimax/vae.py::H3ImageVAE.encode`) were checked at HEAD on 2026-11-17
   and are already current.
 
-## State as of 2026-11-15
+## State as of 2026-11-22
 
 - **Its own MiniMax-H3-Image path** (`ede4e5fe8`, #17655): `MiniMaxH3ImageModel`, `MiniMaxH3ImageModelSampling` on
   the PDD grid, `H3ImageVAE`, and the node `MiniMaxH3ImageConditioning`.
@@ -42,6 +42,15 @@ reference. The GitHub repo is `Comfy-Org/ComfyUI`, and the checkout is `../..`.
   ([`../topics/h3_image_sampling_step.md`](../topics/h3_image_sampling_step.md)).
 - **Encoder.** `CombinedLinear` fusion and video input for Qwen 3.x
   ([`../topics/qwen3vl_encoder.md`](../topics/qwen3vl_encoder.md)).
+- **Through 2026-11-22** nothing changed in `comfy/ldm/minimax/`, `comfy/text_encoders/minimax.py`, `qwen*`,
+  `comfy/ldm/modules/attention.py`, `comfy/lora.py` or `comfy/samplers.py`.
+  - `ModelMergeMiniMaxH3` (`a286ac2fb`, #17843) mixes two models by prefix ratio. On pruned files it keeps the
+    first model's `adaln_t_table` while mixing `blocks.N.adaln_proj`.
+  - A dynamic-VRAM fix stops a backed-up buffer, such as a `model_sampling` object patch from
+    `MiniMaxH3SigmaShift`, being restored onto the wrong clone (`a308f3f1d`, #16491).
+  - comfy-kitchen is pinned at `0.2.42` (`cdbb7ff51`).
+- **Sampling carry.** Core carries audio through the samplers as `(sigma_v / sigma_a) * x_audio` on the video
+  schedule (`comfy/model_base.py`). Euler matches a per-stream update; Heun does not (2026-11-22 sweep, item 7).
 
 ## MiniMax-H3-Image against the engines, 2026-11-17
 
@@ -88,6 +97,7 @@ HEAD.
 ## Open upstream work
 
 On [`../horizon.md`](../horizon.md):
+- #17775 / #17703, the token-chunked MLP. `frozen_video_cache.py::_cached_block` would not follow it.
 - #17715, the token refiner run on every step. If it merges, `lora_branch.py`, `nodes.py` and the control-vector seam
   need a re-read.
 - #17705 / #17692, the full time-embedder layout warning.
