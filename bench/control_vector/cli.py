@@ -612,8 +612,8 @@ def build_parser() -> argparse.ArgumentParser:
     pg.add_argument(
         "--mode",
         choices=cv.APPLY_MODES,
-        default=h3_rules.CONTROL_VECTOR_DEFAULTS["mode"],
-        help="How the vector is applied while grading, as MiniMaxH3ApplyControlVectors.mode (default: the node's own, so "
+        default=h3_rules.STEER_DEFAULTS["mode"],
+        help="How the vector is applied while grading, as MiniMaxH3Steer.mode (default: 'add_norm_matched_erasure', so "
         "--strengths are in the unit a graph's strength is in). Until 2026-11-11 grade always applied in 'add'; pass "
         "--mode add to reproduce an earlier report",
     )

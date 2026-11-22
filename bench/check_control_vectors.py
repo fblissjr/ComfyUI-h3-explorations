@@ -4357,7 +4357,7 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
                             )
                         if g_data.get("provenance", {}).get("mask") != "scene_only":
                             errs.append(f"cmd_grade default provenance.mask expected 'scene_only', got {g_data.get('provenance')}")
-                        # grade's default mode is the node's (add_norm_matched). In it the nulls keep their own
+                        # grade's default mode is MiniMaxH3Steer's (`add_norm_matched_erasure`). In it the nulls keep their own
                         # length against the vector's (flip_null is the sign-flipped mean: its length IS the
                         # test), and the matched strength is in the mode's unit. Held against the same grade in
                         # `add`: the flip arm moves the context by the same share of the vector's move in both.
@@ -4373,7 +4373,7 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
                         with contextlib.redirect_stdout(io.StringIO()):
                             rc_add = bench_cv.cmd_grade(add_args)
                         cm_add = json.loads(add_json.read_text(encoding="utf-8"))["context_movement"] if rc_add == 0 else None
-                        if cm.get("mode") != "add_norm_matched" or cm_add is None or cm_add.get("mode") != "add":
+                        if cm.get("mode") != "add_norm_matched_erasure" or cm_add is None or cm_add.get("mode") != "add":
                             errs.append(f"cmd_grade modes: default {cm.get('mode')!r}, --mode add rc={rc_add}")
                         else:
                             share = cm["arms"]["flip_null"]["seq_rel_l2"] / cm["arms"]["vector_s1"]["seq_rel_l2"]
@@ -5271,6 +5271,26 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
                         or mm["pairs"]["pair_spans"][0].get("qwen_view_size") != [tw, th]
                     ):
                         errs.append(f"MiniMaxH3MakeMediaControlVector({m_pool}) missing media_contrast_grid provenance: {mm}")
+                    if "erasure.vr" in mt or "erasure.mu_a" in mt:
+                        errs.append(
+                            f"MiniMaxH3MakeMediaControlVector({m_pool}) with {img_a_raw.shape[0]} pairs (< MIN_ERASURE_PAIRS={cv.MIN_ERASURE_PAIRS}) "
+                            f"unexpectedly attached erasure tensors: {sorted(mt.keys())}"
+                        )
+            media_vis_p, _ = cv_nodes.make_control_vector_from_media_pairs(
+                image_a=img_a_raw,
+                image_b=img_b_raw,
+                model=patcher_for_make,
+                clip=mock_clip,
+                output_name="unit_media_vis_explicit",
+                pooling="vision_tokens",
+                short_edge=224,
+                scene_prompt=media_scene_txt,
+                overwrite=True,
+                min_erasure_pairs=2,
+            )
+            mt_vis, _ = cv.load_vector(media_vis_p)
+            if "erasure.vr" not in mt_vis or "erasure.mu_a" not in mt_vis:
+                errs.append(f"make_control_vector_from_media_pairs(min_erasure_pairs=2) missing erasure.vr/mu_a: {sorted(mt_vis.keys())}")
             errs += _expect_refusal(
                 lambda: cv_nodes.make_control_vector_from_media_pairs(
                     image_a=img_a_raw,
@@ -7369,6 +7389,38 @@ def _check_nov15_steer_prose_and_ph3_family() -> list[str]:
                 if union_err > 1e-4:
                     errs.append(f"compose_erasure_payload rank-16 union operator mismatch: {union_err:.6g}")
 
+            # 7-tuple mu_a preservation when return_mu_a=True (default stays 3-tuple)
+            mu_a1 = torch.ones((cv.POST_REFINER_DIM,), dtype=torch.float32) * 2.0
+            mu_a2 = torch.ones((cv.POST_REFINER_DIM,), dtype=torch.float32) * 5.0
+            c_ma = cv.compose_erasure_payload(
+                [
+                    (er_v1d, 1.0, "add_norm_matched_erasure", er_mu, er_a_vr, er_a_d, mu_a1),
+                    (er2_mu, 2.0, "add_norm_matched_erasure", er2_mu, er_b_vr, er_b_d, mu_a2),
+                ],
+                return_mu_a=True,
+            )
+            if c_ma is None or len(c_ma) != 4 or c_ma[3] is None or float((c_ma[3] - 4.0).abs().max().item()) > 1e-5:
+                errs.append(f"compose_erasure_payload(return_mu_a=True) weighted mu_a mismatch: {None if c_ma is None else (len(c_ma), c_ma[3])}")
+
+            # Stacked runtime clamped-union invariants: 0.5+0.5 split continuity & opposing boost -e
+            out_sp1 = cv.apply_post_refiner(ctx_er, tags_er, [(er_v1d, 1.0, "add_norm_matched_erasure")], erasure_specs=[(er_vr, er_diag, er_mu)])
+            out_sp2 = cv.apply_post_refiner(
+                ctx_er,
+                tags_er,
+                [(er_v1d, 0.5, "add_norm_matched_erasure"), (er_v1d, 0.5, "add_norm_matched_erasure")],
+                erasure_specs=[(er_vr, er_diag, er_mu), (er_vr, er_diag, er_mu)],
+                warn_if_stacked_norm=False,
+            )
+            if float((out_sp1 - out_sp2).abs().max().item()) > 1e-4:
+                errs.append("apply_post_refiner 0.5+0.5 split continuity failed")
+            sh_opp = cv._stacked_erasure_block_shift64(
+                ctx_er[0, 2:].double(),
+                [(er_v1d, 1.0, (er_vr, er_diag, er_mu)), (-er_v1d, 1.0, (er_vr, er_diag, -er_mu))],
+            )
+            opp_rms_v = cv._rms_row_norm64(sh_opp)
+            if opp_rms_v <= 1e-4 or opp_rms_v > cv.NORM_MATCHED_TARGET + 1e-4:
+                errs.append(f"opposing-boost runtime clamped union unexpected RMS={opp_rms_v}")
+
             # sculpt preserves erasure.{mu_d,vr,diag} on disk (both j_lens & fallback paths)
             from bench.control_vector import sculpt as _sculpt_mod
             er2_path = Path(ep_tmp) / "er2_src__fl2va__diff_span.safetensors"
@@ -7613,6 +7665,11 @@ def _check_nov15_steer_prose_and_ph3_family() -> list[str]:
         prof_res = cv.per_token_erasure_profile(rows_prof, mask_prof, vr_prof, diag_prof)
         if len(prof_res["erasure_norms"]) != 4 or prof_res["erasure_norms"][0] <= prof_res["erasure_norms"][2]:
             errs.append(f"per_token_erasure_profile did not rank Pole-A row 0 above neutral row 2: {prof_res}")
+        prof_1row = cv.per_token_erasure_profile(
+            rows_prof[:1], mask_prof[:1], vr_prof, diag_prof, mu_a=torch.zeros_like(rows_prof[0])
+        )
+        if len(prof_1row["erasure_norms"]) != 1 or abs(prof_1row["erasure_norms"][0] - 4.0) > 1e-4:
+            errs.append(f"per_token_erasure_profile(mu_a=...) failed 1-row centering: {prof_1row}")
         spec_sum = cv.erasure_spectral_summary(
             [rows_prof[:2], rows_prof[2:]],
             [rows_prof[:2] + 2.0, rows_prof[2:] + 2.0],

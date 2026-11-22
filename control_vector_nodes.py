@@ -3370,6 +3370,7 @@ def make_control_vector_from_media_pairs(
     loras: Sequence[dict[str, Any]] | None = None,
     encoder_path_override: str | Path | None = None,
     refiner_device: str | torch.device | None = None,
+    min_erasure_pairs: int = _cv.MIN_ERASURE_PAIRS,
 ) -> tuple[Path, dict[str, Any]]:
     """Build and save a `.safetensors` control vector from contrasting `<Picture 1>`
     reference images (`image_a` baseline vs. `image_b` positive/steered, computing
@@ -3521,7 +3522,18 @@ def make_control_vector_from_media_pairs(
     w_vec = torch.tensor(weights_list, dtype=torch.float32)
     final_vec = _cv.mean_difference(a_mat, b_mat, w_vec)
     tensors_to_save: dict[str, torch.Tensor] = {"vector.post_refiner": final_vec}
-    if pooling == "vision_tokens":
+    min_er_media = max(1, int(min_erasure_pairs))
+    if len(media_a_spans) < min_er_media:
+        media_erasure = None
+        logger.warning(
+            "[h3] skipping Pole-A erasure on %r media build (n_pairs=%d < MIN_ERASURE_PAIRS=%d; "
+            "provide >=%d contrasting frame pairs to build well-conditioned erasure.vr; saving 1D vector)",
+            stem,
+            len(media_a_spans),
+            min_er_media,
+            min_er_media,
+        )
+    elif pooling == "vision_tokens":
         media_erasure = _cv.build_spatial_vision_erasure(
             media_a_spans, media_b_spans, weights=weights_list
         )
@@ -4739,9 +4751,8 @@ class MiniMaxH3Steer(io.ComfyNode):
                     optional=True,
                     tooltip=(
                         "Fraction of target prompt rows to steer, ranked by |cos(row, vector)| "
-                        "(1.00 = all target rows, exact default behavior; e.g. 0.25 steers only the "
-                        "top 25% of rows most aligned with this vector's A<->B semantic axis, leaving "
-                        "unrelated tokens bitwise unchanged)."
+                        "(1.00 = all target rows, the validated default for add_norm_matched_erasure; "
+                        "values < 1.0 are experimental and starve multi-row Pole-A subspace coverage)."
                     ),
                 ),
             ],

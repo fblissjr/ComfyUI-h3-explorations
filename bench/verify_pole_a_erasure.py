@@ -285,7 +285,73 @@ def check_runtime_invariants_and_union() -> list[str]:
     if max_hold_proj > 0.5:  # bf16 rounding on row ~268 norm
         errs.append(f"per-row hold projection residual too large: {max_hold_proj:.4f}")
 
-    # 5. Union composition at COMPOSED_ERASURE_MAX_RANK == 16 preserves both rank-8 operators cleanly
+    # 5. Clamped union multi-slider stacking invariants (K=1 exact, 0.5+0.5 split continuity,
+    #    overlapping zero sign-inversion, orthogonal un-squashed norm, opposing-boost -e preservation)
+    mu1_unit = mu1 / torch.linalg.vector_norm(mu1.double())
+    ctx_f32 = torch.randn((1, 14, d), generator=gen, dtype=torch.float32)
+    out_single_f32 = cv.apply_post_refiner(
+        ctx_f32, tags, [(mu1, 1.0, "add_norm_matched_erasure")], erasure_specs=[(vr1, diag1, mu1)]
+    )
+    direct_row_sh = cv._erasure_row_shift64(
+        ctx_f32[0, 2:].double(), mu1, 1.0, (vr1, diag1, mu1)
+    ).float()
+    if float((out_single_f32[0, 2:] - (ctx_f32[0, 2:] + direct_row_sh)).abs().max().item()) > 1e-6:
+        errs.append("K=1 apply_post_refiner diverged from _erasure_row_shift64")
+
+    # 0.5 + 0.5 split of same vector preserves e_budget = 67.5 and matches s=1.0
+    out_split = cv.apply_post_refiner(
+        ctx_f32,
+        tags,
+        [(mu1, 0.5, "add_norm_matched_erasure"), (mu1, 0.5, "add_norm_matched_erasure")],
+        erasure_specs=[(vr1, diag1, mu1), (vr1, diag1, mu1)],
+        warn_if_stacked_norm=False,
+    )
+    split_err = float((out_split - out_single_f32).abs().max().item())
+    if split_err > 1e-4:
+        errs.append(f"0.5 + 0.5 split continuity failed: max_diff={split_err:.6g}")
+
+    # Identical rank-8 basis stacked twice at s=1.0 must clamp d_union <= 1.0 (zero -1 sign-inversion!)
+    diag_ones = torch.ones_like(diag1)
+    ctx_in_sub = torch.zeros((1, 14, d), dtype=torch.float64)
+    # Row variance strictly inside vr1[0]
+    ctx_in_sub[0, 2:8] = vr1[0].double().unsqueeze(0) * 10.0
+    ctx_in_sub[0, 8:14] = -vr1[0].double().unsqueeze(0) * 10.0
+    sh_dup = cv._stacked_erasure_block_shift64(
+        ctx_in_sub[0, 2:],
+        [(mu1, 1.0, (vr1, diag_ones, mu1)), (mu1, 1.0, (vr1, diag_ones, mu1))],
+    )
+    # Remove add_total mean along rows, inspect residual centered component along vr1[0]
+    res_dup_c = (ctx_in_sub[0, 2:] + sh_dup)
+    res_dup_c = res_dup_c - res_dup_c.mean(dim=0, keepdim=True)
+    base_c = ctx_in_sub[0, 2:] - ctx_in_sub[0, 2:].mean(dim=0, keepdim=True)
+    # Project onto vr1[0]: old parallel P_sum = 2.0 gave sign-flipped -10.0; clamped must stay >= 0 along base_c!
+    dot_sign = float(torch.sum((res_dup_c @ vr1[0].double()) * (base_c @ vr1[0].double())).item())
+    if dot_sign < -1e-6:
+        errs.append(f"duplicate erasure stacking sign-inverted (I - P): dot={dot_sign:.6g}")
+
+    # Orthogonal K=2 keeps ||add_total||_2 = sqrt(2)*67.5 un-squashed
+    sh_ortho = cv._stacked_erasure_block_shift64(
+        ctx_f32[0, 2:].double(),
+        [(mu1, 1.0, (vr1, diag1, mu1)), (mu2, 1.0, (vr2, diag2, mu2))],
+    )
+    ortho_rms = cv._rms_row_norm64(sh_ortho)
+    add_only_rms = float(torch.linalg.vector_norm(
+        (cv.NORM_MATCHED_TARGET / torch.linalg.vector_norm(mu1.double())) * mu1.double()
+        + (cv.NORM_MATCHED_TARGET / torch.linalg.vector_norm(mu2.double())) * mu2.double()
+    ).item())
+    if abs(ortho_rms - add_only_rms) > 1e-4 or ortho_rms <= cv.NORM_MATCHED_TARGET + 10.0:
+        errs.append(f"orthogonal K=2 stacked RMS={ortho_rms:.2f} != ||add_total||={add_only_rms:.2f}")
+
+    # Opposing boosts (+mu1 and -mu1 at s=1.0) keep bounded -e erasure instead of zeroing out
+    sh_opp = cv._stacked_erasure_block_shift64(
+        ctx_in_sub[0, 2:],
+        [(mu1, 1.0, (vr1, diag_ones, mu1)), (-mu1, 1.0, (vr1, diag_ones, -mu1))],
+    )
+    opp_rms = cv._rms_row_norm64(sh_opp)
+    if opp_rms <= 1e-3 or opp_rms > cv.NORM_MATCHED_TARGET + 1e-4:
+        errs.append(f"opposing boosts expected 0 < rms <= 67.5, got {opp_rms:.4f}")
+
+    # 6. Union composition at COMPOSED_ERASURE_MAX_RANK == 16 preserves both rank-8 operators cleanly
     comp = cv.compose_erasure_payload(
         [
             (mu1, 1.0, "add_norm_matched_erasure", mu1, vr1, diag1),
@@ -296,16 +362,20 @@ def check_runtime_invariants_and_union() -> list[str]:
         errs.append(f"expected rank-16 union composition, got {None if comp is None else comp[1].shape}")
 
     print(
-        f"  [3/3] Runtime invariants: s=0 exact, s<0 matches 1D, RMS(s=1.5)={got_rms:.2f} (target {exp_rms:.2f}), "
-        f"union_rank={int(comp[1].shape[0]) if comp else 0}"
+        f"  [3/3] Runtime invariants: s=0 exact, s<0 matches 1D, 0.5+0.5 split err={split_err:.2e}, "
+        f"RMS(s=1.5)={got_rms:.2f} (target {exp_rms:.2f}), stack_ortho_rms={ortho_rms:.2f}, union_rank={int(comp[1].shape[0]) if comp else 0}"
     )
 
-    # Optional real bank union check under $H3_MODEL_STORE/control_vectors/bank
+    # Optional real bank union check under $H3_MODEL_STORE/control_vectors/bank or ComfyUI/models
+    bank_candidates = [Path(__file__).resolve().parent.parent.parent / "models" / "control_vectors" / "bank"]
     mstore = os.environ.get("H3_MODEL_STORE", "").strip()
     if mstore:
-        bank_dir = Path(mstore) / "control_vectors" / "bank"
-        p_noir = next(bank_dir.glob("noir__fl2va*.safetensors"), None) if bank_dir.is_dir() else None
-        p_chaos = next(bank_dir.glob("chaos_panic__fl2va*.safetensors"), None) if bank_dir.is_dir() else None
+        bank_candidates.insert(0, Path(mstore) / "control_vectors" / "bank")
+    bank_dir = next((c for c in bank_candidates if c.is_dir()), None)
+    if bank_dir is not None:
+        p_noir = next(bank_dir.glob("noir__fl2va*.safetensors"), None)
+        p_chaos = next(bank_dir.glob("chaos_panic__fl2va*.safetensors"), None)
+        p_deslop = next(bank_dir.glob("de_llm_slop__fl2va*.safetensors"), None)
         if p_noir is not None and p_chaos is not None:
             tn, _ = cv.load_vector(p_noir)
             tc, _ = cv.load_vector(p_chaos)
@@ -334,6 +404,19 @@ def check_runtime_invariants_and_union() -> list[str]:
                 )
                 if ret16 + 1e-4 < ret8:
                     errs.append(f"rank-16 union retention {ret16:.4f} regressed below rank-8 {ret8:.4f}")
+                if p_deslop is not None:
+                    td, _ = cv.load_vector(p_deslop)
+                    if "erasure.vr" in td:
+                        comp3 = cv.compose_erasure_payload(
+                            [
+                                (tn["vector.post_refiner"], 1.25, "add_norm_matched_erasure", tn["erasure.mu_d"], tn["erasure.vr"], tn["erasure.diag"]),
+                                (tc["vector.post_refiner"], 1.0, "add_norm_matched_erasure", tc["erasure.mu_d"], tc["erasure.vr"], tc["erasure.diag"]),
+                                (td["vector.post_refiner"], 0.9, "add_norm_matched_erasure", td["erasure.mu_d"], td["erasure.vr"], td["erasure.diag"]),
+                            ],
+                            max_rank=24,
+                        )
+                        if comp3 is None or float(comp3[2].max().item()) > 1.0 + 1e-6 or float(comp3[2].min().item()) < 0.0:
+                            errs.append(f"3-slider clamped union eigenvalues out of [0, 1]: {None if comp3 is None else comp3[2].tolist()}")
     return errs
 
 

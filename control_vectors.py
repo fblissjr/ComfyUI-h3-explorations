@@ -1508,32 +1508,31 @@ def orthogonalize_erasure_against_holds(
 
 
 def compose_erasure_payload(
-    entries: Sequence[
-        tuple[
-            torch.Tensor,
-            float,
-            str,
-            torch.Tensor | None,
-            torch.Tensor | None,
-            torch.Tensor | None,
-        ]
-    ],
+    entries: Sequence[tuple[Any, ...]],
     *,
     holds: Sequence[tuple[torch.Tensor, float]] = (),
     max_rank: int = COMPOSED_ERASURE_MAX_RANK,
-) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor] | None:
+    return_mu_a: bool = False,
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor] | tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor | None] | None:
     """Compose paired float32 `(erasure.mu_d, erasure.vr, erasure.diag)` across multi-vector recipes.
 
-    Each entry in `entries` is `(vector_post_refiner, strength, mode, erasure_mu_d, erasure_vr, erasure_diag)`.
+    Each entry in `entries` is `(vector_post_refiner, strength, mode, erasure_mu_d, erasure_vr, erasure_diag)`
+    (optionally followed by a 7th element `erasure_mu_a`).
     Positive additive entries with valid `erasure.{vr,diag}` contribute weighted subspace factors
     `W_k = sqrt(min(weight, 1.0) * diag_k) * vr_k`; thin SVD yields an orthonormal `vr` (`<= max_rank`)
     and clamped `diag in [0, 1]`. Both composite `mu_d` and `W` are orthogonalized against `holds`.
+    When `return_mu_a=True`, returns a 4-tuple ending with the strength-weighted `erasure.mu_a` average
+    (or `None` if no entry supplied `erasure.mu_a`).
     Returns `None` if no positive additive entry carries erasure tensors or the residual subspace collapses.
     """
     mu_total64: torch.Tensor | None = None
+    mu_a_sum64: torch.Tensor | None = None
+    mu_a_weight = 0.0
     w_blocks: list[torch.Tensor] = []
 
-    for v_pr, strength, mode, mu_d_t, vr_t, diag_t in entries:
+    for entry in entries:
+        v_pr, strength, mode, mu_d_t, vr_t, diag_t = entry[:6]
+        mu_a_t = entry[6] if len(entry) >= 7 else None
         s_f = float(strength)
         if not is_additive_mode(mode) or s_f == 0.0:
             continue
@@ -1556,6 +1555,10 @@ def compose_erasure_payload(
             w_eff = min(s_f, 1.0)
             w_k = torch.sqrt((w_eff * diag64).clamp(0.0, 1.0)).unsqueeze(-1) * vr64
             w_blocks.append(w_k)
+            if mu_a_t is not None:
+                ma64 = mu_a_t.detach().to(device="cpu", dtype=torch.float64).flatten()
+                mu_a_sum64 = (s_f * ma64) if mu_a_sum64 is None else (mu_a_sum64 + s_f * ma64)
+                mu_a_weight += s_f
 
     if mu_total64 is None or not w_blocks:
         return None
@@ -1586,11 +1589,17 @@ def compose_erasure_payload(
     r = min(int(max_rank), n_pos)
     if r < 1:
         return None
-    return (
-        mu_total64.to(dtype=torch.float32).contiguous(),
-        vh[:r].to(dtype=torch.float32).contiguous(),
-        d_vals[:r].to(dtype=torch.float32).contiguous(),
-    )
+    mu_d_out = mu_total64.to(dtype=torch.float32).contiguous()
+    vr_out = vh[:r].to(dtype=torch.float32).contiguous()
+    diag_out = d_vals[:r].to(dtype=torch.float32).contiguous()
+    if return_mu_a:
+        mu_a_out = (
+            (mu_a_sum64 / mu_a_weight).to(dtype=torch.float32).contiguous()
+            if (mu_a_sum64 is not None and mu_a_weight > 0.0)
+            else None
+        )
+        return (mu_d_out, vr_out, diag_out, mu_a_out)
+    return (mu_d_out, vr_out, diag_out)
 
 
 def per_token_erasure_profile(
@@ -1598,14 +1607,20 @@ def per_token_erasure_profile(
     mask: torch.Tensor,
     vr: torch.Tensor,
     diag: torch.Tensor,
+    *,
+    mu_a: torch.Tensor | None = None,
 ) -> dict[str, list[float] | float]:
     """Return per-active-token Pole-A erasure norm `||E(h_i)||_2`, fractional ratio, and RMS summary."""
     m_bool = mask.flatten().to(device="cpu", dtype=torch.bool)
     h = rows.detach().to(device="cpu", dtype=torch.float64)[m_bool]
-    if h.shape[0] <= 1 or vr.ndim != 2 or vr.shape[0] < 1 or diag.numel() < 1:
+    min_rows = 1 if mu_a is not None else 2
+    if h.shape[0] < min_rows or vr.ndim != 2 or vr.shape[0] < 1 or diag.numel() < 1:
         n_h = int(h.shape[0])
         return {"erasure_norms": [0.0] * n_h, "erasure_ratios": [0.0] * n_h, "erasure_rms": 0.0}
-    hc = h - h.mean(dim=0, keepdim=True)
+    if mu_a is not None:
+        hc = h - mu_a.detach().to(device="cpu", dtype=torch.float64).flatten().unsqueeze(0)
+    else:
+        hc = h - h.mean(dim=0, keepdim=True)
     vr64 = vr.detach().to(device="cpu", dtype=torch.float64)
     d64 = diag.detach().to(device="cpu", dtype=torch.float64).flatten().clamp(0.0, 1.0)
     r_use = min(int(vr64.shape[0]), int(d64.numel()))
@@ -3470,6 +3485,84 @@ def _erasure_row_shift64(
     return _finish(raw * (target_rms / raw_rms))
 
 
+def _stacked_erasure_block_shift64(
+    base_rows64: torch.Tensor,
+    erasure_entries: Sequence[tuple[torch.Tensor, float, tuple[Any, ...]]],
+) -> torch.Tensor:
+    """Compute joint clamped-union `[M, D]` Pole-A erasure shift across K >= 2 stacked sliders in float64.
+
+    Composes weighted subspace factors `W_k = sqrt(min(s_k, 1.0) * diag_k) * vr_k` via CPU float64
+    thin SVD and clamps union eigenvalues `d_union = (s_vals^2).clamp(0, 1)` across all non-zero union
+    directions so overlapping subspaces never exceed `1.0` and sign-invert `(I - P)`, while keeping
+    stacked additive `mu_d` target shifts un-squashed and RMS-matched to `||sum_k a_k||_2`."""
+    device = base_rows64.device
+    add_total: torch.Tensor | None = None
+    w_blocks: list[torch.Tensor] = []
+    e_budget_sum = 0.0
+
+    for v_i, s_i, e_i in erasure_entries:
+        s_f = float(s_i)
+        vr_t = e_i[0]
+        diag_t = e_i[1]
+        mu_d_t = e_i[2] if len(e_i) >= 3 else None
+        per_spec_holds = e_i[3] if len(e_i) >= 4 else None
+        base_vec = mu_d_t if (mu_d_t is not None and vr_t is not None) else v_i
+        v64 = base_vec.detach().to(device=device, dtype=torch.float64).flatten()
+        v_nrm = float(torch.linalg.vector_norm(v64).item())
+        if v_nrm <= 1e-12:
+            raise ValueError("control vector has zero norm; cannot apply mode='add_norm_matched_erasure'")
+        a_i = (s_f * NORM_MATCHED_TARGET / v_nrm) * v64
+        vr64 = vr_t.detach().to(device=device, dtype=torch.float64)
+        diag64 = diag_t.detach().to(device=device, dtype=torch.float64).flatten().clamp(0.0, 1.0)
+        r_use = min(int(vr64.shape[0]), int(diag64.numel()))
+        vr64 = vr64[:r_use]
+        diag64 = diag64[:r_use]
+        if per_spec_holds:
+            a_i = _apply_holds_to_shift64(a_i, per_spec_holds, device)
+            vr_holds = [(hv, min(1.0, float(ha))) for hv, ha in per_spec_holds if float(ha) > 0.0]
+            if vr_holds and vr64.numel() > 0:
+                vr64 = _apply_holds_to_rows64(vr64, vr_holds, device)
+        add_total = a_i if add_total is None else (add_total + a_i)
+        w_eff = max(0.0, min(s_f, 1.0))
+        e_budget_sum += w_eff * NORM_MATCHED_TARGET
+        if r_use >= 1 and w_eff > 0.0:
+            w_blocks.append((torch.sqrt((w_eff * diag64).clamp(0.0, 1.0)).unsqueeze(-1) * vr64).cpu())
+
+    if add_total is None:
+        return torch.zeros_like(base_rows64)
+    add_rows = add_total.unsqueeze(0).expand_as(base_rows64)
+    target_rms = float(torch.linalg.vector_norm(add_total).item())
+    if not w_blocks or base_rows64.shape[0] < 2:
+        return add_rows
+
+    w_mat_cpu = torch.cat(w_blocks, dim=0)
+    if float(torch.linalg.matrix_norm(w_mat_cpu).item()) <= 1e-12:
+        return add_rows
+    _u, s_vals_cpu, vh_cpu = torch.linalg.svd(w_mat_cpu, full_matrices=False)
+    d_union_cpu = (s_vals_cpu ** 2).clamp(0.0, 1.0)
+    keep = d_union_cpu > 1e-9
+    if not bool(keep.any()):
+        return add_rows
+
+    vr_union = vh_cpu[keep].to(device=device, dtype=torch.float64)
+    d_union = d_union_cpu[keep].to(device=device, dtype=torch.float64)
+    centered = base_rows64 - base_rows64.mean(dim=0, keepdim=True)
+    e_own = ((centered @ vr_union.T) * d_union.unsqueeze(0)) @ vr_union
+    e_own_rms = _rms_row_norm64(e_own)
+    if not math.isfinite(e_own_rms) or e_own_rms <= 1e-9:
+        return add_rows
+    e_budget = min(e_budget_sum, max(NORM_MATCHED_TARGET, target_rms))
+    e_cap = min(1.0, e_budget / e_own_rms) if e_budget > 0.0 else 0.0
+    e = e_own * e_cap
+    raw = add_rows - e
+    if target_rms <= 1e-6:
+        return raw
+    raw_rms = _rms_row_norm64(raw)
+    if not math.isfinite(raw_rms) or raw_rms <= 1e-12:
+        return add_rows
+    return raw * (target_rms / raw_rms)
+
+
 def apply_post_refiner(
     context: torch.Tensor,
     tags: torch.Tensor,
@@ -3671,22 +3764,51 @@ def apply_post_refiner(
                 if em in ("add", "add_norm_matched_erasure", "hold"):
                     block_shift64 = torch.zeros_like(rows64)
                     hold_entries_blk: list[tuple[torch.Tensor, float]] = []
+                    raw_add_items: list[tuple[torch.Tensor, float, str, tuple[Any, ...] | None]] = []
+                    prompt_er_entries: list[tuple[torch.Tensor, float, tuple[Any, ...]]] = []
+                    other_add_items: list[tuple[torch.Tensor, float, str, tuple[Any, ...] | None]] = []
                     n_add_blk = 0
                     while idx < len(active) and active[idx][2] in ("add", "add_norm_matched_erasure", "hold"):
                         v_i, s_i, em_i, e_i = active[idx]
                         if em_i == "add":
                             n_add_blk += 1
-                            block_shift64 = block_shift64 + (
-                                s_i * v_i.detach().to(device=context.device, dtype=torch.float64)
-                            ).unsqueeze(0)
+                            raw_add_items.append((v_i, s_i, em_i, e_i))
+                            other_add_items.append((v_i, s_i, em_i, e_i))
                         elif em_i == "add_norm_matched_erasure":
                             n_add_blk += 1
-                            block_shift64 = block_shift64 + _erasure_row_shift64(
-                                base_rows64, v_i, s_i, e_i
-                            )
+                            raw_add_items.append((v_i, s_i, em_i, e_i))
+                            vr_chk = e_i[0] if (e_i is not None and len(e_i) >= 1) else None
+                            diag_chk = e_i[1] if (e_i is not None and len(e_i) >= 2) else None
+                            mu_a_chk = e_i[4] if (e_i is not None and len(e_i) >= 5) else None
+                            if (
+                                s_i > 0.0
+                                and vr_chk is not None
+                                and diag_chk is not None
+                                and mu_a_chk is None
+                                and base_rows64.shape[0] >= 2
+                            ):
+                                prompt_er_entries.append((v_i, s_i, e_i))
+                            else:
+                                other_add_items.append((v_i, s_i, em_i, e_i))
                         else:
                             hold_entries_blk.append((v_i, s_i))
                         idx += 1
+                    if len(prompt_er_entries) >= 2:
+                        block_shift64 = block_shift64 + _stacked_erasure_block_shift64(
+                            base_rows64, prompt_er_entries
+                        )
+                        iter_add_items = other_add_items
+                    else:
+                        iter_add_items = raw_add_items
+                    for v_i, s_i, em_i, e_i in iter_add_items:
+                        if em_i == "add":
+                            block_shift64 = block_shift64 + (
+                                s_i * v_i.detach().to(device=context.device, dtype=torch.float64)
+                            ).unsqueeze(0)
+                        else:
+                            block_shift64 = block_shift64 + _erasure_row_shift64(
+                                base_rows64, v_i, s_i, e_i
+                            )
                     if hold_entries_blk:
                         block_shift64 = _apply_holds_to_rows64(
                             block_shift64, hold_entries_blk, context.device
