@@ -29,6 +29,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import math
 import os
 import sys
 from pathlib import Path
@@ -417,6 +418,79 @@ def check_runtime_invariants_and_union() -> list[str]:
                         )
                         if comp3 is None or float(comp3[2].max().item()) > 1.0 + 1e-6 or float(comp3[2].min().item()) < 0.0:
                             errs.append(f"3-slider clamped union eigenvalues out of [0, 1]: {None if comp3 is None else comp3[2].tolist()}")
+
+    # Per-slider ROS & vision mu_a clamped-union proofs
+    d_dim = cv.POST_REFINER_DIM
+    g_ros = torch.Generator(device="cpu").manual_seed(909)
+    q_orth, _ = torch.linalg.qr(torch.randn((d_dim, 6), generator=g_ros, dtype=torch.float64), mode="reduced")
+    u1, u2, u3, u4, u5, u6 = [q_orth[:, c].float() for c in range(6)]
+    vr_self_peer = torch.stack([u1, u2, u3], dim=0)  # overlaps u1 (self) & u2 (peer)
+    vr_peer2 = torch.stack([u1, u4, u5], dim=0)      # overlaps u1 (peer)
+    d3 = torch.tensor([0.9, 0.85, 0.8], dtype=torch.float32)
+    comp_ros = cv.compose_erasure_payload(
+        [
+            (u1, 1.0, "add_norm_matched_erasure", u1, vr_self_peer, d3),
+            (u2, 1.0, "add_norm_matched_erasure", u2, vr_peer2, d3),
+        ],
+        peer_ros=True,
+    )
+    if comp_ros is None:
+        errs.append("compose_erasure_payload(peer_ros=True) returned None")
+    else:
+        _, vr_r, d_r = comp_ros
+        p_ros = (vr_r.double().T * d_r.double().unsqueeze(0)) @ vr_r.double()
+        retain_u3 = float((u3.double() @ p_ros @ u3.double()).item())
+        retain_u1 = float((u1.double() @ p_ros @ u1.double()).item())
+        if retain_u3 < 0.75 or retain_u1 < 0.80:
+            errs.append(f"per-slider ROS unexpected subspace drop: u3={retain_u3:.3f}, u1={retain_u1:.3f}")
+
+    # Default smooth conditioning-norm knee (95.5 -> 98.5) on distinct K>=2 stacks
+    if cv.soft_cap_stacked_rms(95.46) != 95.46:
+        errs.append(f"soft_cap_stacked_rms modified below knee: {cv.soft_cap_stacked_rms(95.46)}")
+    sc_113 = cv.soft_cap_stacked_rms(113.07)
+    sc_134 = cv.soft_cap_stacked_rms(134.64)
+    if not (cv.STACK_SMOOTH_KNEE_NORM < sc_113 < sc_134 <= cv.STACK_SMOOTH_CEIL_NORM + 1e-9):
+        errs.append(f"soft_cap_stacked_rms ordering/bounds invalid: {sc_113:.4f}, {sc_134:.4f}")
+    rows_3stack = torch.randn((4, d_dim), generator=g_ros, dtype=torch.float64) * 3.0
+    specs_3orth = [
+        (u1, 1.0, (vr_self_peer[:1], d3[:1], u1)),
+        (u4, 1.0, (vr_peer2[1:2], d3[:1], u4)),
+        (u6, 1.0, (u5.unsqueeze(0), d3[:1], u6)),
+    ]
+    rms_3_smooth = cv._rms_row_norm64(cv._stacked_erasure_block_shift64(rows_3stack, specs_3orth))
+    rms_3_uncapped = cv._rms_row_norm64(
+        cv._stacked_erasure_block_shift64(rows_3stack, specs_3orth, max_stacked_rms=None)
+    )
+    rms_3_cap98 = cv._rms_row_norm64(
+        cv._stacked_erasure_block_shift64(rows_3stack, specs_3orth, max_stacked_rms=98.0)
+    )
+    raw_3orth = math.sqrt(3.0) * cv.NORM_MATCHED_TARGET
+    if not (cv.STACK_SMOOTH_KNEE_NORM < rms_3_smooth <= cv.STACK_SMOOTH_CEIL_NORM + 1e-4):
+        errs.append(f"default smooth 3-slider RMS={rms_3_smooth:.4f} outside (95.5, 98.5]")
+    if abs(rms_3_uncapped - raw_3orth) > 1e-3:
+        errs.append(f"uncapped 3-slider RMS={rms_3_uncapped:.4f} != sqrt(3)*67.5={raw_3orth:.4f}")
+    if abs(rms_3_cap98 - 98.0) > 1e-4:
+        errs.append(f"explicit max_stacked_rms=98.0 got RMS={rms_3_cap98:.4f}")
+
+    # Vision mu_a K=2 clamped union works cleanly for M=1 and M=4 rows and satisfies 0.5+0.5 == 1.0
+    mu_a_vis = torch.randn((d_dim,), generator=g_ros, dtype=torch.float32) * 0.4
+    vis_tags_1 = torch.zeros((1, 1), dtype=torch.long)
+    vis_tags_4 = torch.zeros((1, 4), dtype=torch.long)
+    ctx_vis1 = (mu_a_vis + 2.0 * u6).view(1, 1, d_dim)
+    ctx_vis4 = (mu_a_vis.unsqueeze(0) + torch.randn((4, d_dim), generator=g_ros) * 0.5).view(1, 4, d_dim)
+    for tag_t, ctx_vt, lbl in ((vis_tags_1, ctx_vis1, "M=1"), (vis_tags_4, ctx_vis4, "M=4")):
+        out_v1 = cv.apply_post_refiner(
+            ctx_vt, tag_t, [(u1, 1.0, "add_norm_matched_erasure")], mask_vision=False,
+            erasure_specs=[(vr_self_peer, d3, u1, (), mu_a_vis)],
+        )
+        out_v2 = cv.apply_post_refiner(
+            ctx_vt, tag_t, [(u1, 0.5, "add_norm_matched_erasure"), (u1, 0.5, "add_norm_matched_erasure")], mask_vision=False,
+            erasure_specs=[(vr_self_peer, d3, u1, (), mu_a_vis), (vr_self_peer, d3, u1, (), mu_a_vis)],
+            warn_if_stacked_norm=False,
+        )
+        verr = float((out_v1 - out_v2).abs().max().item())
+        if verr > 1e-4:
+            errs.append(f"vision mu_a 0.5+0.5 split mismatch ({lbl}): {verr:.6g}")
     return errs
 
 

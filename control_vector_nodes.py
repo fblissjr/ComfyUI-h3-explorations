@@ -2178,73 +2178,166 @@ def _make_control_vector_wrapper(
             return s_val
 
         def _build_steered_context(base_ctx: torch.Tensor, stream_attr: str | None) -> torch.Tensor:
-            # Group consecutive specs with the same (mask, prompt) so stacked additive
-            # vectors and inference-time 'hold' vectors accumulate in float64 before
-            # casting back to context.dtype (`CONTRACT.md` §3 / paper §2.1).
+            # Group commutative additive + hold specs by resolved boolean row mask and
+            # prompt (catching non-consecutive interleaving and 3-field mask aliases such
+            # as look_only -> description_only), while locking across overlapping barriers
+            # (project_out, amplify, or token_focus < 1.0) so float64 stacking & ROS run cleanly.
             cur_ctx = base_ctx
             applied_add_names: list[str] = []
-            i = 0
-            n = len(active_specs)
-            while i < n:
-                sp = active_specs[i]
-                group_key = (sp.mask, sp.prompt)
+            groups: list[dict[str, Any]] = []
+
+            for sp in active_specs:
                 custom_mask = _resolve_custom_inference_mask(
                     sp,
                     tags_raw=tags_raw,
                     tags_2d=tags,
                     payload=payload,
                     L=L,
-                    device=base_ctx.device,
+                    device=cur_ctx.device,
                     kwarg_span_masks=kwarg_span_masks,
                     is_h3_image=is_h3_image,
                 )
                 mask_vision = sp.mask != "all_rows"
-                group_specs: list[_AppliedVectorSpec] = [sp]
-                s0 = _effective_spec_strength(sp, stream_attr)
-                v0, er0 = _spec_effective_vector_and_erasure(sp)
-                batch_entries: list[tuple[torch.Tensor, float, str]] = [
-                    (v0, s0, _effective_entry_mode(sp))
-                ]
-                batch_erasure_specs: list[
-                    tuple[Any, ...] | None
-                ] = [er0]
-                j = i + 1
-                while (
-                    j < n
-                    and (active_specs[j].mask, active_specs[j].prompt)
-                    == group_key
-                    and (
-                        (
-                            sp.token_focus >= 1.0 - 1e-9
-                            and active_specs[j].token_focus >= 1.0 - 1e-9
-                        )
-                        or _effective_entry_mode(active_specs[j]) == "hold"
-                    )
-                ):
-                    gnext = active_specs[j]
-                    group_specs.append(gnext)
-                    sj = _effective_spec_strength(gnext, stream_attr)
-                    vj, erj = _spec_effective_vector_and_erasure(gnext)
-                    batch_entries.append(
-                        (
-                            vj,
-                            sj,
-                            _effective_entry_mode(gnext),
-                        )
-                    )
-                    batch_erasure_specs.append(erj)
-                    j += 1
+                eff_rm = _cv.resolve_post_refiner_row_mask(
+                    tags,
+                    batch_size=cur_ctx.shape[0],
+                    seq_len=L,
+                    device=cur_ctx.device,
+                    mask=custom_mask,
+                    mask_vision=mask_vision,
+                )
+                resolved_key = (eff_rm.detach().cpu().numpy().tobytes(), sp.prompt)
+                s_eff = _effective_spec_strength(sp, stream_attr)
+                vec_out, er_out = _spec_effective_vector_and_erasure(sp)
+                em = _effective_entry_mode(sp)
+                tf_val = float(sp.token_focus)
 
-                if (
-                    j < n
-                    and _effective_entry_mode(active_specs[j]) == "hold"
-                    and any(_cv.is_additive_mode(em) for (_v, _s, em) in batch_entries)
-                ):
-                    raise ValueError(
-                        f"mode='hold' on {active_specs[j].vector_name!r} has mask={active_specs[j].mask!r}, "
-                        f"which differs from preceding additive control vector mask={sp.mask!r}; "
-                        "a 'hold' node must use the same mask as the additive node(s) it projects out of"
+                merged = False
+                if _cv.is_additive_mode(em) and tf_val >= 1.0 - 1e-9:
+                    for gi in range(len(groups) - 1, -1, -1):
+                        cand = groups[gi]
+                        if (
+                            cand["allow_add_merge"]
+                            and not cand["locked"]
+                            and cand["resolved_key"] == resolved_key
+                        ):
+                            has_intervening_overlap = any(
+                                bool((groups[gk]["eff_rm"] & eff_rm).any().item())
+                                for gk in range(gi + 1, len(groups))
+                            )
+                            if not has_intervening_overlap:
+                                cand["specs"].append(sp)
+                                cand["entries"].append((vec_out, s_eff, em))
+                                cand["erasure_specs"].append(er_out)
+                                merged = True
+                            break
+                    if not merged:
+                        for prev in groups:
+                            if bool((prev["eff_rm"] & eff_rm).any().item()):
+                                prev["locked"] = True
+                        groups.append(
+                            {
+                                "resolved_key": resolved_key,
+                                "eff_rm": eff_rm,
+                                "custom_mask": custom_mask,
+                                "mask_vision": mask_vision,
+                                "token_focus": tf_val,
+                                "specs": [sp],
+                                "entries": [(vec_out, s_eff, em)],
+                                "erasure_specs": [er_out],
+                                "is_add": True,
+                                "allow_add_merge": True,
+                                "allow_hold_merge": True,
+                                "locked": False,
+                            }
+                        )
+                elif em == "hold":
+                    for gi in range(len(groups) - 1, -1, -1):
+                        cand = groups[gi]
+                        if (
+                            cand["allow_hold_merge"]
+                            and not cand["locked"]
+                            and cand["resolved_key"] == resolved_key
+                        ):
+                            has_intervening_overlap = any(
+                                bool((groups[gk]["eff_rm"] & eff_rm).any().item())
+                                for gk in range(gi + 1, len(groups))
+                            )
+                            if not has_intervening_overlap:
+                                cand["specs"].append(sp)
+                                cand["entries"].append((vec_out, s_eff, em))
+                                cand["erasure_specs"].append(er_out)
+                                merged = True
+                            break
+                    if not merged:
+                        has_diff_add = any(
+                            g["is_add"] and g["resolved_key"] != resolved_key
+                            for g in groups
+                        )
+                        has_same_add = any(
+                            g["is_add"] and g["resolved_key"] == resolved_key
+                            for g in groups
+                        )
+                        if has_diff_add and not has_same_add:
+                            first_add_mask = next(
+                                g["specs"][0].mask for g in reversed(groups) if g["is_add"]
+                            )
+                            raise ValueError(
+                                f"mode='hold' on {sp.vector_name!r} has mask={sp.mask!r}, "
+                                f"which differs from preceding additive control vector mask={first_add_mask!r}; "
+                                "a 'hold' node must use the same mask as the additive node(s) it projects out of"
+                            )
+                        for prev in groups:
+                            if bool((prev["eff_rm"] & eff_rm).any().item()):
+                                prev["locked"] = True
+                        groups.append(
+                            {
+                                "resolved_key": resolved_key,
+                                "eff_rm": eff_rm,
+                                "custom_mask": custom_mask,
+                                "mask_vision": mask_vision,
+                                "token_focus": tf_val,
+                                "specs": [sp],
+                                "entries": [(vec_out, s_eff, em)],
+                                "erasure_specs": [er_out],
+                                "is_add": False,
+                                "allow_add_merge": False,
+                                "allow_hold_merge": False,
+                                "locked": True,
+                            }
+                        )
+                else:
+                    for prev in groups:
+                        if bool((prev["eff_rm"] & eff_rm).any().item()):
+                            prev["locked"] = True
+                    is_add_focused = _cv.is_additive_mode(em)
+                    groups.append(
+                        {
+                            "resolved_key": resolved_key,
+                            "eff_rm": eff_rm,
+                            "custom_mask": custom_mask,
+                            "mask_vision": mask_vision,
+                            "token_focus": tf_val,
+                            "specs": [sp],
+                            "entries": [(vec_out, s_eff, em)],
+                            "erasure_specs": [er_out],
+                            "is_add": is_add_focused,
+                            "allow_add_merge": False,
+                            "allow_hold_merge": is_add_focused,
+                            "locked": not is_add_focused,
+                        }
                     )
+
+            for gi, grp in enumerate(groups):
+                group_specs = grp["specs"]
+                batch_entries = grp["entries"]
+                batch_erasure_specs = grp["erasure_specs"]
+                custom_mask = grp["custom_mask"]
+                mask_vision = grp["mask_vision"]
+                eff_rm = grp["eff_rm"]
+                sp0 = group_specs[0]
+                v0 = batch_entries[0][0]
+                mask_desc = "+".join(dict.fromkeys(gsp.mask for gsp in group_specs))
 
                 add_inter_entries: list[tuple[str, torch.Tensor, float]] = []
                 for gsp, (gv, gs_eff, em) in zip(group_specs, batch_entries):
@@ -2289,20 +2382,12 @@ def _make_control_vector_wrapper(
                         applied_add_names.append(gsp.vector_name)
                 if any(s_eff != 0.0 for (_v, s_eff, _m) in batch_entries):
                     if not is_pure_uncond:
-                        row_key = (i, sp.mask, L, int(has_vision), str(edit_pass or ""), round(float(sp.token_focus), 4))
+                        row_key = (gi, mask_desc, L, int(has_vision), str(edit_pass or ""), round(float(sp0.token_focus), 4))
                         if row_key not in logged_steered_rows:
                             logged_steered_rows.add(row_key)
-                            eff_rm = _cv.resolve_post_refiner_row_mask(
-                                tags,
-                                batch_size=cur_ctx.shape[0],
-                                seq_len=L,
-                                device=cur_ctx.device,
-                                mask=custom_mask,
-                                mask_vision=mask_vision,
-                            )
                             n_steered = int(eff_rm[0].sum().item())
                             focus_note = ""
-                            if float(sp.token_focus) < 1.0 - 1e-9 and n_steered > 0:
+                            if float(sp0.token_focus) < 1.0 - 1e-9 and n_steered > 0:
                                 aim_shift64 = torch.zeros(cur_ctx.shape[-1], dtype=torch.float64, device=cur_ctx.device)
                                 aim_holds: list[tuple[torch.Tensor, float]] = []
                                 has_aim_add = False
@@ -2335,25 +2420,25 @@ def _make_control_vector_wrapper(
                                     cur_ctx,
                                     eff_rm,
                                     aim_vec_log,
-                                    token_focus=float(sp.token_focus),
+                                    token_focus=float(sp0.token_focus),
                                 )
                                 n_focused = int(foc_rm[0].sum().item())
-                                focus_note = f", token_focus={float(sp.token_focus):.2f} ({n_focused}/{n_steered} rows, |cos|>={min_abs_cos:.3f})"
+                                focus_note = f", token_focus={float(sp0.token_focus):.2f} ({n_focused}/{n_steered} rows, |cos|>={min_abs_cos:.3f})"
                             logger.info(
                                 "[h3] control vector (%s) steered %d/%d context rows (mask=%s%s%s)",
                                 ",".join(gsp.vector_name for gsp in group_specs),
                                 n_steered,
                                 L,
-                                sp.mask,
+                                mask_desc,
                                 focus_note,
                                 f", {edit_pass} pass" if edit_pass in ("original", "edited") else "",
                             )
-                            if n_steered == 0 and _spans.split_fields_mask(sp.mask) is not None:
+                            if n_steered == 0 and _spans.split_fields_mask(sp0.mask) is not None:
                                 logger.warning(
                                     "[h3] control vector (%s) has no effect: mask=%s selects the prose of the "
                                     "named field(s), and this prompt has none of them or they read N/A",
                                     ",".join(gsp.vector_name for gsp in group_specs),
-                                    sp.mask,
+                                    sp0.mask,
                                 )
                     cur_ctx = _cv.apply_post_refiner(
                         cur_ctx,
@@ -2363,10 +2448,9 @@ def _make_control_vector_wrapper(
                         mask=custom_mask,
                         mask_vision=mask_vision,
                         warn_if_stacked_norm=False,
-                        token_focus=float(sp.token_focus),
+                        token_focus=float(sp0.token_focus),
                         erasure_specs=batch_erasure_specs,
                     )
-                i = j
             if not is_pure_uncond and len(applied_add_names) >= 2:
                 diff64 = (cur_ctx - base_ctx).detach().to(dtype=torch.float64)
                 shift_norms = torch.linalg.vector_norm(diff64, dim=-1)

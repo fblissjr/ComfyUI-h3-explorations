@@ -1513,6 +1513,7 @@ def compose_erasure_payload(
     holds: Sequence[tuple[torch.Tensor, float]] = (),
     max_rank: int = COMPOSED_ERASURE_MAX_RANK,
     return_mu_a: bool = False,
+    peer_ros: bool = True,
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor] | tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor | None] | None:
     """Compose paired float32 `(erasure.mu_d, erasure.vr, erasure.diag)` across multi-vector recipes.
 
@@ -1520,7 +1521,10 @@ def compose_erasure_payload(
     (optionally followed by a 7th element `erasure_mu_a`).
     Positive additive entries with valid `erasure.{vr,diag}` contribute weighted subspace factors
     `W_k = sqrt(min(weight, 1.0) * diag_k) * vr_k`; thin SVD yields an orthonormal `vr` (`<= max_rank`)
-    and clamped `diag in [0, 1]`. Both composite `mu_d` and `W` are orthogonalized against `holds`.
+    and clamped `diag in [0, 1]`. When `peer_ros=True` and two or more erasure entries stack, each
+    entry `j`'s subspace is first projected orthogonal to non-collinear peer target shifts (`u_k` with
+    `|cos(u_j, u_k)| < 1 - 1e-4`) via `orthogonalize_erasure_against_holds` (per-slider ROS).
+    Both composite `mu_d` and `W` are orthogonalized against `holds`.
     When `return_mu_a=True`, returns a 4-tuple ending with the strength-weighted `erasure.mu_a` average
     (or `None` if no entry supplied `erasure.mu_a`).
     Returns `None` if no positive additive entry carries erasure tensors or the residual subspace collapses.
@@ -1528,7 +1532,7 @@ def compose_erasure_payload(
     mu_total64: torch.Tensor | None = None
     mu_a_sum64: torch.Tensor | None = None
     mu_a_weight = 0.0
-    w_blocks: list[torch.Tensor] = []
+    parsed_erasure: list[tuple[torch.Tensor, torch.Tensor, torch.Tensor, float]] = []
 
     for entry in entries:
         v_pr, strength, mode, mu_d_t, vr_t, diag_t = entry[:6]
@@ -1543,6 +1547,7 @@ def compose_erasure_payload(
         d_norm = float(torch.linalg.vector_norm(d64).item())
         if d_norm <= 1e-12:
             continue
+        u64 = d64 / d_norm
         if is_norm_matched_mode(mode):
             term64 = (s_f * NORM_MATCHED_TARGET / d_norm) * d64
         else:
@@ -1552,13 +1557,29 @@ def compose_erasure_payload(
         if use_er:
             vr64 = vr_t.detach().to(device="cpu", dtype=torch.float64)
             diag64 = diag_t.detach().to(device="cpu", dtype=torch.float64).flatten().clamp(0.0, 1.0)
-            w_eff = min(s_f, 1.0)
-            w_k = torch.sqrt((w_eff * diag64).clamp(0.0, 1.0)).unsqueeze(-1) * vr64
-            w_blocks.append(w_k)
+            r_use = min(int(vr64.shape[0]), int(diag64.numel()))
+            if r_use >= 1:
+                parsed_erasure.append((u64, vr64[:r_use], diag64[:r_use], min(s_f, 1.0)))
             if mu_a_t is not None:
                 ma64 = mu_a_t.detach().to(device="cpu", dtype=torch.float64).flatten()
                 mu_a_sum64 = (s_f * ma64) if mu_a_sum64 is None else (mu_a_sum64 + s_f * ma64)
                 mu_a_weight += s_f
+
+    w_blocks: list[torch.Tensor] = []
+    for idx_j, (u_j, vr_j, diag_j, w_eff_j) in enumerate(parsed_erasure):
+        if peer_ros and len(parsed_erasure) >= 2:
+            peer_targets = [
+                u_k
+                for idx_k, (u_k, _vr_k, _d_k, _w_k) in enumerate(parsed_erasure)
+                if idx_k != idx_j and abs(float(torch.dot(u_j, u_k).item())) < 1.0 - 1e-4
+            ]
+            if peer_targets:
+                ros_res = orthogonalize_erasure_against_holds(vr_j, diag_j, peer_targets)
+                if ros_res is None:
+                    continue
+                vr_j = ros_res[0].to(dtype=torch.float64)
+                diag_j = ros_res[1].to(dtype=torch.float64)
+        w_blocks.append(torch.sqrt((w_eff_j * diag_j).clamp(0.0, 1.0)).unsqueeze(-1) * vr_j)
 
     if mu_total64 is None or not w_blocks:
         return None
@@ -3185,6 +3206,62 @@ assert NORM_MATCHED_TARGET == sum(NORM_SHIFT_WINDOW) / 2.0
 #: Per-row combined additive shift threshold (~1.45x NORM_MATCHED_TARGET; just above sqrt(2)*67.5)
 #: past which stacking multiple vectors risks saturating conditioning rows.
 STACK_SHIFT_WARN_NORM: float = NORM_MATCHED_TARGET * 1.45
+#: Empirical multi-slider conditioning-norm cliff knee (`> sqrt(2) * 67.5 = 95.46`) and
+#: asymptotic smooth ceiling (`98.5`, pinned to GPU-verified diptych/identity cliffs `98..100`).
+STACK_SMOOTH_KNEE_NORM: float = 95.5
+STACK_SMOOTH_CEIL_NORM: float = 98.5
+
+
+def soft_cap_stacked_rms(
+    rms: float,
+    *,
+    knee: float = STACK_SMOOTH_KNEE_NORM,
+    ceil: float = STACK_SMOOTH_CEIL_NORM,
+) -> float:
+    """Smoothly compress distinct stacked shift RMS past `knee` toward `ceil` via `tanh`."""
+    rms_f = float(rms)
+    if not math.isfinite(rms_f) or rms_f <= knee or ceil <= knee:
+        return rms_f
+    span = float(ceil - knee)
+    return float(knee + span * math.tanh((rms_f - knee) / span))
+
+
+def _has_distinct_unit_peers(unit_vecs: Sequence[torch.Tensor]) -> bool:
+    if len(unit_vecs) < 2:
+        return False
+    for idx_a in range(len(unit_vecs)):
+        ua = unit_vecs[idx_a]
+        for idx_b in range(idx_a + 1, len(unit_vecs)):
+            ub = unit_vecs[idx_b]
+            if abs(float(torch.dot(ua, ub).item())) < 1.0 - 1e-4:
+                return True
+    return False
+
+
+def _resolve_stacked_target_rms(
+    raw_rms: float,
+    *,
+    max_stacked_rms: float | str | None,
+    has_distinct_peers: bool,
+) -> float:
+    if max_stacked_rms is None:
+        return float(raw_rms)
+    if isinstance(max_stacked_rms, str):
+        mode_s = max_stacked_rms.strip().lower()
+        if mode_s in ("", "none", "off", "uncapped"):
+            return float(raw_rms)
+        if mode_s == "smooth":
+            if has_distinct_peers and raw_rms > STACK_SMOOTH_KNEE_NORM:
+                return soft_cap_stacked_rms(raw_rms)
+            return float(raw_rms)
+        cap_f = float(mode_s)
+    else:
+        cap_f = float(max_stacked_rms)
+    if not math.isfinite(cap_f):
+        raise ValueError(f"max_stacked_rms must be finite, 'smooth', or None, got {max_stacked_rms!r}")
+    if cap_f > 0.0 and raw_rms > cap_f:
+        return cap_f
+    return float(raw_rms)
 
 
 def strength_ranges(raw_norm: float) -> tuple[tuple[float, float], tuple[float, float] | None]:
@@ -3488,16 +3565,26 @@ def _erasure_row_shift64(
 def _stacked_erasure_block_shift64(
     base_rows64: torch.Tensor,
     erasure_entries: Sequence[tuple[torch.Tensor, float, tuple[Any, ...]]],
+    *,
+    use_mu_a: bool = False,
+    peer_ros: bool = True,
+    max_stacked_rms: float | str | None = "smooth",
 ) -> torch.Tensor:
     """Compute joint clamped-union `[M, D]` Pole-A erasure shift across K >= 2 stacked sliders in float64.
 
-    Composes weighted subspace factors `W_k = sqrt(min(s_k, 1.0) * diag_k) * vr_k` via CPU float64
-    thin SVD and clamps union eigenvalues `d_union = (s_vals^2).clamp(0, 1)` across all non-zero union
-    directions so overlapping subspaces never exceed `1.0` and sign-invert `(I - P)`, while keeping
-    stacked additive `mu_d` target shifts un-squashed and RMS-matched to `||sum_k a_k||_2`."""
+    Applies per-slider RASteer Retain-Orthogonal Subspace (`peer_ros=True`: projects slider `j`'s `V_r`
+    orthogonal to non-collinear peer target directions `u_k` with `|cos(u_j, u_k)| < 1 - 1e-4`), then
+    composes weighted subspace factors `W_k = sqrt(min(s_k, 1.0) * diag_k) * vr_k` via CPU float64 thin SVD
+    with eigenvalues clamped to `[0, 1]`. Supports both prompt-local mean centering (`use_mu_a=False`,
+    `M >= 2`) and spatial vision centering against strength-weighted `erasure.mu_a` (`use_mu_a=True`,
+    `M >= 1`). Enforces `max_stacked_rms` ('smooth' default knee 95.5 -> ceil 98.5 across distinct
+    non-collinear peers, explicit float cap, or None/'none') while keeping net RMS matched to target."""
     device = base_rows64.device
     add_total: torch.Tensor | None = None
-    w_blocks: list[torch.Tensor] = []
+    parsed: list[tuple[torch.Tensor | None, torch.Tensor, torch.Tensor, float]] = []
+    all_target_units: list[torch.Tensor] = []
+    mu_a_sum64: torch.Tensor | None = None
+    mu_a_weight = 0.0
     e_budget_sum = 0.0
 
     for v_i, s_i, e_i in erasure_entries:
@@ -3506,6 +3593,7 @@ def _stacked_erasure_block_shift64(
         diag_t = e_i[1]
         mu_d_t = e_i[2] if len(e_i) >= 3 else None
         per_spec_holds = e_i[3] if len(e_i) >= 4 else None
+        mu_a_t = e_i[4] if len(e_i) >= 5 else None
         base_vec = mu_d_t if (mu_d_t is not None and vr_t is not None) else v_i
         v64 = base_vec.detach().to(device=device, dtype=torch.float64).flatten()
         v_nrm = float(torch.linalg.vector_norm(v64).item())
@@ -3522,45 +3610,90 @@ def _stacked_erasure_block_shift64(
             vr_holds = [(hv, min(1.0, float(ha))) for hv, ha in per_spec_holds if float(ha) > 0.0]
             if vr_holds and vr64.numel() > 0:
                 vr64 = _apply_holds_to_rows64(vr64, vr_holds, device)
+        a_nrm = float(torch.linalg.vector_norm(a_i).item())
+        u_i = (a_i.detach().cpu() / a_nrm) if a_nrm > 1e-12 else None
+        if u_i is not None:
+            all_target_units.append(u_i)
         add_total = a_i if add_total is None else (add_total + a_i)
         w_eff = max(0.0, min(s_f, 1.0))
-        e_budget_sum += w_eff * NORM_MATCHED_TARGET
-        if r_use >= 1 and w_eff > 0.0:
-            w_blocks.append((torch.sqrt((w_eff * diag64).clamp(0.0, 1.0)).unsqueeze(-1) * vr64).cpu())
+        if w_eff > 0.0:
+            e_budget_sum += w_eff * NORM_MATCHED_TARGET
+            if r_use >= 1:
+                parsed.append((u_i, vr64[:r_use].cpu(), diag64[:r_use].cpu(), w_eff))
+        if use_mu_a and mu_a_t is not None and s_f > 0.0:
+            ma64 = mu_a_t.detach().to(device=device, dtype=torch.float64).flatten()
+            mu_a_sum64 = (s_f * ma64) if mu_a_sum64 is None else (mu_a_sum64 + s_f * ma64)
+            mu_a_weight += s_f
 
     if add_total is None:
         return torch.zeros_like(base_rows64)
     add_rows = add_total.unsqueeze(0).expand_as(base_rows64)
     target_rms = float(torch.linalg.vector_norm(add_total).item())
-    if not w_blocks or base_rows64.shape[0] < 2:
-        return add_rows
+    has_distinct_peers = _has_distinct_unit_peers(all_target_units)
+    eff_target_rms = _resolve_stacked_target_rms(
+        target_rms,
+        max_stacked_rms=max_stacked_rms,
+        has_distinct_peers=has_distinct_peers,
+    )
+    capped_add_rows = (
+        add_rows * (eff_target_rms / target_rms)
+        if (target_rms > 1e-12 and eff_target_rms < target_rms)
+        else add_rows
+    )
+
+    w_blocks: list[torch.Tensor] = []
+    for idx_j, (u_j, vr_j, diag_j, w_eff_j) in enumerate(parsed):
+        if peer_ros and len(parsed) >= 2:
+            peer_targets = [
+                u_k
+                for idx_k, (u_k, _vr_k, _d_k, _w_k) in enumerate(parsed)
+                if idx_k != idx_j
+                and u_k is not None
+                and (u_j is None or abs(float(torch.dot(u_j, u_k).item())) < 1.0 - 1e-4)
+            ]
+            if peer_targets:
+                ros_res = orthogonalize_erasure_against_holds(vr_j, diag_j, peer_targets)
+                if ros_res is None:
+                    continue
+                vr_j = ros_res[0].to(dtype=torch.float64)
+                diag_j = ros_res[1].to(dtype=torch.float64)
+        w_blocks.append(torch.sqrt((w_eff_j * diag_j).clamp(0.0, 1.0)).unsqueeze(-1) * vr_j)
+
+    has_mu_a = bool(use_mu_a and mu_a_sum64 is not None and mu_a_weight > 0.0)
+    min_rows = 1 if has_mu_a else 2
+    if not w_blocks or base_rows64.shape[0] < min_rows:
+        return capped_add_rows
 
     w_mat_cpu = torch.cat(w_blocks, dim=0)
     if float(torch.linalg.matrix_norm(w_mat_cpu).item()) <= 1e-12:
-        return add_rows
+        return capped_add_rows
     _u, s_vals_cpu, vh_cpu = torch.linalg.svd(w_mat_cpu, full_matrices=False)
     d_union_cpu = (s_vals_cpu ** 2).clamp(0.0, 1.0)
     keep = d_union_cpu > 1e-9
     if not bool(keep.any()):
-        return add_rows
+        return capped_add_rows
 
     vr_union = vh_cpu[keep].to(device=device, dtype=torch.float64)
     d_union = d_union_cpu[keep].to(device=device, dtype=torch.float64)
-    centered = base_rows64 - base_rows64.mean(dim=0, keepdim=True)
+    if has_mu_a:
+        mu_a_union = (mu_a_sum64 / mu_a_weight).to(device=device, dtype=torch.float64)
+        centered = base_rows64 - mu_a_union.unsqueeze(0)
+    else:
+        centered = base_rows64 - base_rows64.mean(dim=0, keepdim=True)
     e_own = ((centered @ vr_union.T) * d_union.unsqueeze(0)) @ vr_union
     e_own_rms = _rms_row_norm64(e_own)
     if not math.isfinite(e_own_rms) or e_own_rms <= 1e-9:
-        return add_rows
-    e_budget = min(e_budget_sum, max(NORM_MATCHED_TARGET, target_rms))
+        return capped_add_rows
+    e_budget = min(e_budget_sum, max(NORM_MATCHED_TARGET, eff_target_rms))
     e_cap = min(1.0, e_budget / e_own_rms) if e_budget > 0.0 else 0.0
     e = e_own * e_cap
     raw = add_rows - e
-    if target_rms <= 1e-6:
+    if eff_target_rms <= 1e-6:
         return raw
     raw_rms = _rms_row_norm64(raw)
     if not math.isfinite(raw_rms) or raw_rms <= 1e-12:
-        return add_rows
-    return raw * (target_rms / raw_rms)
+        return capped_add_rows
+    return raw * (eff_target_rms / raw_rms)
 
 
 def apply_post_refiner(
@@ -3575,6 +3708,7 @@ def apply_post_refiner(
     warn_if_stacked_norm: bool = True,
     token_focus: float = 1.0,
     erasure_specs: Sequence[tuple[Any, ...] | None] | None = None,
+    max_stacked_rms: float | str | None = "smooth",
 ) -> torch.Tensor:
     """Apply one or more `(vector_post_refiner, strength[, mode])` specs to refined
     text conditioning `context` (`[B, L, 5376]`).
@@ -3764,19 +3898,17 @@ def apply_post_refiner(
                 if em in ("add", "add_norm_matched_erasure", "hold"):
                     block_shift64 = torch.zeros_like(rows64)
                     hold_entries_blk: list[tuple[torch.Tensor, float]] = []
-                    raw_add_items: list[tuple[torch.Tensor, float, str, tuple[Any, ...] | None]] = []
                     prompt_er_entries: list[tuple[torch.Tensor, float, tuple[Any, ...]]] = []
+                    vision_er_entries: list[tuple[torch.Tensor, float, tuple[Any, ...]]] = []
                     other_add_items: list[tuple[torch.Tensor, float, str, tuple[Any, ...] | None]] = []
                     n_add_blk = 0
                     while idx < len(active) and active[idx][2] in ("add", "add_norm_matched_erasure", "hold"):
                         v_i, s_i, em_i, e_i = active[idx]
                         if em_i == "add":
                             n_add_blk += 1
-                            raw_add_items.append((v_i, s_i, em_i, e_i))
                             other_add_items.append((v_i, s_i, em_i, e_i))
                         elif em_i == "add_norm_matched_erasure":
                             n_add_blk += 1
-                            raw_add_items.append((v_i, s_i, em_i, e_i))
                             vr_chk = e_i[0] if (e_i is not None and len(e_i) >= 1) else None
                             diag_chk = e_i[1] if (e_i is not None and len(e_i) >= 2) else None
                             mu_a_chk = e_i[4] if (e_i is not None and len(e_i) >= 5) else None
@@ -3788,18 +3920,42 @@ def apply_post_refiner(
                                 and base_rows64.shape[0] >= 2
                             ):
                                 prompt_er_entries.append((v_i, s_i, e_i))
+                            elif (
+                                s_i > 0.0
+                                and vr_chk is not None
+                                and diag_chk is not None
+                                and mu_a_chk is not None
+                                and base_rows64.shape[0] >= 1
+                            ):
+                                vision_er_entries.append((v_i, s_i, e_i))
                             else:
                                 other_add_items.append((v_i, s_i, em_i, e_i))
                         else:
                             hold_entries_blk.append((v_i, s_i))
                         idx += 1
+                    iter_add_items = list(other_add_items)
                     if len(prompt_er_entries) >= 2:
                         block_shift64 = block_shift64 + _stacked_erasure_block_shift64(
-                            base_rows64, prompt_er_entries
+                            base_rows64,
+                            prompt_er_entries,
+                            use_mu_a=False,
+                            peer_ros=True,
+                            max_stacked_rms=max_stacked_rms,
                         )
-                        iter_add_items = other_add_items
                     else:
-                        iter_add_items = raw_add_items
+                        for v_p, s_p, e_p in prompt_er_entries:
+                            iter_add_items.append((v_p, s_p, "add_norm_matched_erasure", e_p))
+                    if len(vision_er_entries) >= 2:
+                        block_shift64 = block_shift64 + _stacked_erasure_block_shift64(
+                            base_rows64,
+                            vision_er_entries,
+                            use_mu_a=True,
+                            peer_ros=True,
+                            max_stacked_rms=max_stacked_rms,
+                        )
+                    else:
+                        for v_v, s_v, e_v in vision_er_entries:
+                            iter_add_items.append((v_v, s_v, "add_norm_matched_erasure", e_v))
                     for v_i, s_i, em_i, e_i in iter_add_items:
                         if em_i == "add":
                             block_shift64 = block_shift64 + (
@@ -3814,6 +3970,15 @@ def apply_post_refiner(
                             block_shift64, hold_entries_blk, context.device
                         )
                     block_rms = _rms_row_norm64(block_shift64)
+                    if (
+                        isinstance(max_stacked_rms, (int, float))
+                        and not isinstance(max_stacked_rms, bool)
+                        and float(max_stacked_rms) > 0.0
+                        and n_add_blk >= 2
+                        and block_rms > float(max_stacked_rms)
+                    ):
+                        block_shift64 = block_shift64 * (float(max_stacked_rms) / block_rms)
+                        block_rms = float(max_stacked_rms)
                     if (
                         warn_if_stacked_norm
                         and not warned_stacked

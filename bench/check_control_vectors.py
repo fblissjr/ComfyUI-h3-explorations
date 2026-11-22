@@ -7371,6 +7371,7 @@ def _check_nov15_steer_prose_and_ph3_family() -> list[str]:
                     (er_v1d, 1.0, "add_norm_matched_erasure", er_mu, er_a_vr, er_a_d),
                     (er2_mu, 1.0, "add_norm_matched_erasure", er2_mu, er_b_vr, er_b_d),
                 ],
+                peer_ros=False,
             )
             if c16 is None:
                 errs.append("compose_erasure_payload returned None for K=2 rank-8 union")
@@ -7466,6 +7467,120 @@ def _check_nov15_steer_prose_and_ph3_family() -> list[str]:
                 cv_logger.removeHandler(_cap_h)
             if not any("stacked 2 additive vectors" in m for m in warn_recs):
                 errs.append(f"apply_post_refiner did not emit STACK_SHIFT_WARN_NORM warning for stacked add_norm_matched_erasure: {warn_recs!r}")
+
+            # Stage 1 regressions: per-slider ROS, vision mu_a clamped union, & resolved-mask non-consecutive grouping
+            g_s1 = torch.Generator(device="cpu").manual_seed(717)
+            q_s1, _ = torch.linalg.qr(torch.randn((cv.POST_REFINER_DIM, 5), generator=g_s1, dtype=torch.float64), mode="reduced")
+            u_a, u_b, u_c, u_d, u_e = [q_s1[:, k].float() for k in range(5)]
+            vr_1 = torch.stack([u_a, u_b, u_c], dim=0)
+            vr_2 = torch.stack([u_a, u_d], dim=0)
+            d_1 = torch.tensor([0.92, 0.88, 0.80], dtype=torch.float32)
+            d_2 = torch.tensor([0.90, 0.85], dtype=torch.float32)
+            # Slider 2's V_r contains u_a (peer target), Slider 1's V_r contains u_a (self) + u_b (peer target):
+            # Per-slider ROS projects u_b out of vr_1 and u_a out of vr_2, leaving a clean residual in vr_1 along u_a while clearing u_c + u_d.
+            rows_probe = torch.stack([u_a * 12.0 + u_c * 15.0 + u_d * 10.0, -u_a * 12.0 - u_c * 15.0 - u_d * 10.0], dim=0).double()
+            sh_ros = cv._stacked_erasure_block_shift64(
+                rows_probe,
+                [(u_a, 1.0, (vr_1, d_1, u_a)), (u_b, 1.0, (vr_2, d_2, u_b))],
+                peer_ros=True,
+            )
+            sh_no_ros = cv._stacked_erasure_block_shift64(
+                rows_probe,
+                [(u_a, 1.0, (vr_1, d_1, u_a)), (u_b, 1.0, (vr_2, d_2, u_b))],
+                peer_ros=False,
+            )
+            if float((sh_ros - sh_no_ros).abs().max().item()) <= 1e-4:
+                errs.append("per-slider ROS produced identical shift to peer_ros=False despite overlapping peer targets")
+
+            # Vision mu_a clamped union preserves M=1 & M=4 split identity
+            vis_mu_a = (u_e * 2.5).contiguous()
+            vis_tags = torch.zeros((1, 1), dtype=torch.long)
+            vis_ctx = (vis_mu_a + 4.0 * u_c).view(1, 1, cv.POST_REFINER_DIM)
+            out_vis_1 = cv.apply_post_refiner(
+                vis_ctx, vis_tags, [(u_a, 1.0, "add_norm_matched_erasure")], mask_vision=False,
+                erasure_specs=[(vr_1, d_1, u_a, (), vis_mu_a)],
+            )
+            out_vis_2 = cv.apply_post_refiner(
+                vis_ctx, vis_tags, [(u_a, 0.5, "add_norm_matched_erasure"), (u_a, 0.5, "add_norm_matched_erasure")], mask_vision=False,
+                erasure_specs=[(vr_1, d_1, u_a, (), vis_mu_a), (vr_1, d_1, u_a, (), vis_mu_a)],
+                warn_if_stacked_norm=False,
+            )
+            if float((out_vis_1 - out_vis_2).abs().max().item()) > 1e-4:
+                errs.append("apply_post_refiner vision mu_a 0.5+0.5 split failed")
+
+            # Resolved-mask non-consecutive grouping & 3-field alias merging
+            porter_txt_g = (REPO / "prompt_bank" / "t2va_night_porter.txt").read_text(encoding="utf-8").strip()
+            p_spans_g = h3_spans.span_masks_from_prompt(porter_txt_g, 241)
+            p_tags_g = torch.ones((1, 241), dtype=torch.long)
+            ctx_grp_in = torch.randn((1, 241, cv.POST_REFINER_DIM), generator=g_s1, dtype=torch.float32)
+            sp_sc1 = cv_nodes._AppliedVectorSpec(
+                vector_name="g1", vector=u_a, strength=1.1, mode="add_norm_matched_erasure", mask="scene_only",
+                start_percent=0.0, end_percent=1.0, metadata={"family": "fl2va", "measured_under": {"prefix": "none"}},
+                advisories=(), erasure_vr=vr_1, erasure_diag=d_1, erasure_mu_d=u_a,
+            )
+            sp_sc2 = dataclasses.replace(sp_sc1, vector_name="g2", vector=u_b, erasure_vr=vr_2, erasure_diag=d_2, erasure_mu_d=u_b)
+            sp_snd = dataclasses.replace(sp_sc1, vector_name="gsnd", vector=u_e, mask="soundscape_only", erasure_vr=None, erasure_diag=None, erasure_mu_d=None)
+            w_adj = cv_nodes._make_control_vector_wrapper((sp_sc1, sp_sc2, sp_snd))
+            w_inter = cv_nodes._make_control_vector_wrapper((sp_sc1, sp_snd, sp_sc2))
+            ctx_adj = w_adj(lambda x, ts, ctx, topts, **kw: ctx, None, torch.tensor([0.9]), ctx_grp_in, {}, minimax_payload={"text_token_tags": p_tags_g, "h3_span_masks": p_spans_g})
+            ctx_inter = w_inter(lambda x, ts, ctx, topts, **kw: ctx, None, torch.tensor([0.9]), ctx_grp_in, {}, minimax_payload={"text_token_tags": p_tags_g, "h3_span_masks": p_spans_g})
+            if float((ctx_adj - ctx_inter).abs().max().item()) > 1e-6:
+                errs.append(f"non-consecutive grouping scene->sound->scene != scene->scene->sound: diff={float((ctx_adj - ctx_inter).abs().max().item()):.6g}")
+            sp_look3 = dataclasses.replace(sp_sc1, mask="look_only")
+            sp_desc3 = dataclasses.replace(sp_sc2, mask="description_only")
+            w_alias = cv_nodes._make_control_vector_wrapper((sp_look3, sp_snd, sp_desc3))
+            ctx_alias = w_alias(lambda x, ts, ctx, topts, **kw: ctx, None, torch.tensor([0.9]), ctx_grp_in, {}, minimax_payload={"text_token_tags": p_tags_g, "h3_span_masks": p_spans_g})
+            if float((ctx_adj - ctx_alias).abs().max().item()) > 1e-6:
+                errs.append(f"3-field look_only/description_only alias grouping did not match scene_only+scene_only: diff={float((ctx_adj - ctx_alias).abs().max().item()):.6g}")
+
+            # 6-section ref2va look_only & description_only stay disjoint; project_out barrier prevents invalid reorder
+            woman_txt_g = (REPO / "prompt_bank" / "ref2va_woman_blonde_street.txt").read_text(encoding="utf-8").strip()
+            w_spans_g = h3_spans.span_masks_from_prompt(woman_txt_g, 720)
+            if bool((h3_spans.inference_mask(w_spans_g, "look_only") & h3_spans.inference_mask(w_spans_g, "description_only")).any().item()):
+                errs.append("6-section ref2va look_only and description_only overlapped unexpectedly")
+            sp_proj = dataclasses.replace(sp_sc1, vector_name="gproj", vector=u_c, mode="project_out", strength=0.8, erasure_vr=None, erasure_diag=None, erasure_mu_d=None)
+            w_bar = cv_nodes._make_control_vector_wrapper((sp_sc1, sp_proj, sp_sc2))
+            w_nobar = cv_nodes._make_control_vector_wrapper((sp_sc1, sp_sc2, sp_proj))
+            ctx_bar = w_bar(lambda x, ts, ctx, topts, **kw: ctx, None, torch.tensor([0.9]), ctx_grp_in, {}, minimax_payload={"text_token_tags": p_tags_g, "h3_span_masks": p_spans_g})
+            ctx_nobar = w_nobar(lambda x, ts, ctx, topts, **kw: ctx, None, torch.tensor([0.9]), ctx_grp_in, {}, minimax_payload={"text_token_tags": p_tags_g, "h3_span_masks": p_spans_g})
+            if float((ctx_bar - ctx_nobar).abs().max().item()) <= 1e-4:
+                errs.append("project_out barrier incorrectly merged flanking additive specs")
+
+            # Distinct K=3 erasure stack smoothly caps net shift RMS <= 98.5 by default, while max_stacked_rms=None uncapped
+            sp_sc3 = dataclasses.replace(sp_sc1, vector_name="g3", vector=u_d, erasure_vr=u_e.unsqueeze(0), erasure_diag=d_1[:1], erasure_mu_d=u_d)
+            rows3_mask = h3_spans.inference_mask(p_spans_g, "scene_only").unsqueeze(0)
+            ctx3_smooth = cv.apply_post_refiner(
+                ctx_grp_in,
+                p_tags_g,
+                [
+                    (u_a, 1.0, "add_norm_matched_erasure"),
+                    (u_b, 1.0, "add_norm_matched_erasure"),
+                    (u_d, 1.0, "add_norm_matched_erasure"),
+                ],
+                mask=rows3_mask,
+                erasure_specs=[(vr_1, d_1, u_a), (vr_2, d_2, u_b), (u_e.unsqueeze(0), d_1[:1], u_d)],
+                warn_if_stacked_norm=False,
+            )
+            ctx3_uncap = cv.apply_post_refiner(
+                ctx_grp_in,
+                p_tags_g,
+                [
+                    (u_a, 1.0, "add_norm_matched_erasure"),
+                    (u_b, 1.0, "add_norm_matched_erasure"),
+                    (u_d, 1.0, "add_norm_matched_erasure"),
+                ],
+                mask=rows3_mask,
+                erasure_specs=[(vr_1, d_1, u_a), (vr_2, d_2, u_b), (u_e.unsqueeze(0), d_1[:1], u_d)],
+                warn_if_stacked_norm=False,
+                max_stacked_rms=None,
+            )
+            rms3_smooth = cv._rms_row_norm64((ctx3_smooth - ctx_grp_in)[0, rows3_mask[0]].double())
+            rms3_uncap = cv._rms_row_norm64((ctx3_uncap - ctx_grp_in)[0, rows3_mask[0]].double())
+            if not (cv.STACK_SMOOTH_KNEE_NORM < rms3_smooth <= cv.STACK_SMOOTH_CEIL_NORM + 1e-2):
+                errs.append(f"apply_post_refiner default smooth K=3 RMS={rms3_smooth:.4f} outside (95.5, 98.5]")
+            if rms3_uncap <= cv.NORM_MATCHED_TARGET * 1.65:
+                errs.append(f"apply_post_refiner max_stacked_rms=None expected > 111.4, got {rms3_uncap:.4f}")
+            _ = sp_sc3
 
         # Build a synthetic saved vector with legacy encoder + null refiner_transmission to test advisories
         legacy_vec_path = st_tmp / "vec" / "demo_card__fl2va__diff_span__lora_deadbeef.safetensors"
