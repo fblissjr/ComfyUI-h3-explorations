@@ -1906,7 +1906,7 @@ def _analyze_spotlights() -> dict[str, Any]:
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="Wave 2 GPU Bench Runner & Analyzer (Spotlights, Exp 4, Exp 6, Exp 7)")
     ap.add_argument("--stage", choices=("spotlights", "spotlights_long", "exp4", "exp6a", "exp6b", "exp7", "analyze", "all"), default="all")
-    ap.add_argument("--spotlight-length", type=int, choices=(192, 243), default=243, help="Video frame count for --stage spotlights_long (default: 243)")
+    ap.add_argument("--spotlight-length", type=int, choices=(192, 243), default=192, help="Video frame count for --stage spotlights_long (default: 192)")
     ap.add_argument("--dry-run", action="store_true", help="Compile, preflight-validate, and exit with 0 HTTP mutations")
     ap.add_argument("--resume", action="store_true", help="Skip arms already recorded under data/wave2_2026-11-21/")
     args = ap.parse_args(argv)
