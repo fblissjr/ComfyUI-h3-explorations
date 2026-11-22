@@ -492,8 +492,264 @@ def _wire_video_outputs(
 
 
 # ---------------------------------------------------------------------------
-# Stage builders: Exp 4, Exp 6A, Exp 6B, Exp 7
+# Stage builders: Dynamic HUD Spotlights, Exp 4, Exp 6A, Exp 6B, Exp 7
 # ---------------------------------------------------------------------------
+
+SPOTLIGHT_SPECS: list[dict[str, Any]] = [
+    {
+        "arm_name": "spot_chaos_cafe",
+        "prompt_path": "prompt_bank/t2va_cafe_kids.txt",
+        "seed": 6101,
+        "feather": 0.07,
+        "scale": 1.8,
+        "streams": "both",
+        "title": "CHAOS PANIC SPOTLIGHT · EXPANDING & MOVING PORTAL",
+        "subtitle": "Inside ring: chaos_panic (+1.35, erasure, scale=1.8) | Outside: calm cafe kids",
+        "steers": [
+            {
+                "vector": "bank/chaos_panic__fl2va__diff_span__lora_2a8c2b52.safetensors",
+                "strength": 1.35,
+                "edit_pass": "edited_only",
+            }
+        ],
+        "portal": [
+            {"frame": 0, "x": 0.22, "y": 0.52, "rx": 0.14, "ry": 0.14, "shape": "circle", "label": "CHAOS CORE"},
+            {"frame": 48, "x": 0.48, "y": 0.48, "rx": 0.38, "ry": 0.38, "shape": "circle", "label": "CHAOS SURGE"},
+            {"frame": 96, "x": 0.60, "y": 0.50, "rx": 0.56, "ry": 0.56, "shape": "circle", "label": "PEAK PANIC"},
+            {"frame": 140, "x": 0.76, "y": 0.52, "rx": 0.17, "ry": 0.17, "shape": "circle", "label": "CHAOS EXIT"},
+        ],
+    },
+    {
+        "arm_name": "spot_blizzard_courtyard",
+        "prompt_path": "prompt_bank/t2va_spatial_reality_portal.txt",
+        "seed": 6102,
+        "feather": 0.08,
+        "scale": 1.9,
+        "streams": "both",
+        "title": "HEAVY BLIZZARD PORTAL · GOLDEN COURTYARD BLOOM",
+        "subtitle": "Inside ring: heavy_blizzard (+1.45, erasure, scale=1.9) | Outside: golden courtyard",
+        "steers": [
+            {
+                "vector": "bank/heavy_blizzard__fl2va__diff_span__lora_2a8c2b52.safetensors",
+                "strength": 1.45,
+                "edit_pass": "edited_only",
+            }
+        ],
+        "portal": [
+            {"frame": 0, "x": 0.78, "y": 0.42, "rx": 0.13, "ry": 0.13, "shape": "circle", "label": "FROST SEED"},
+            {"frame": 54, "x": 0.50, "y": 0.50, "rx": 0.58, "ry": 0.58, "shape": "circle", "label": "BLIZZARD BLOOM"},
+            {"frame": 102, "x": 0.30, "y": 0.55, "rx": 0.34, "ry": 0.34, "shape": "circle", "label": "DRIFT WEST"},
+            {"frame": 140, "x": 0.20, "y": 0.58, "rx": 0.15, "ry": 0.15, "shape": "circle", "label": "FROST FOCUS"},
+        ],
+    },
+    {
+        "arm_name": "spot_bricks_dancer",
+        "prompt_path": "prompt_bank/t2va_dancer_stream_243.txt",
+        "seed": 6103,
+        "feather": 0.07,
+        "scale": 1.9,
+        "streams": "video_only",
+        "title": "TOY BRICK WORLD · BREATHING ELLIPSE PORTAL",
+        "subtitle": "Inside ellipse: toy_brick_world (+1.45, video_only) | Outside: live studio dancer",
+        "steers": [
+            {
+                "vector": "bank/toy_brick_world__fl2va__diff_span__lora_2a8c2b52.safetensors",
+                "strength": 1.45,
+                "edit_pass": "edited_only",
+            }
+        ],
+        "portal": [
+            {"frame": 0, "x": 0.30, "y": 0.45, "rx": 0.14, "ry": 0.20, "shape": "ellipse", "label": "BRICK SEED"},
+            {"frame": 45, "x": 0.50, "y": 0.48, "rx": 0.46, "ry": 0.56, "shape": "ellipse", "label": "BRICK EXPAND"},
+            {"frame": 90, "x": 0.54, "y": 0.42, "rx": 0.18, "ry": 0.26, "shape": "ellipse", "label": "BRICK TIGHT"},
+            {"frame": 140, "x": 0.50, "y": 0.52, "rx": 0.56, "ry": 0.64, "shape": "ellipse", "label": "BRICK WORLD"},
+        ],
+    },
+    {
+        "arm_name": "spot_cyberpunk_noodle",
+        "prompt_path": "prompt_bank/t2va_noodle_bar.txt",
+        "seed": 6104,
+        "feather": 0.08,
+        "scale": 1.9,
+        "streams": "video_only",
+        "title": "CYBERPUNK NEON RAIN · EXPANDING STREET PORTAL",
+        "subtitle": "Inside ring: cyberpunk_neon_rain (+1.45, video_only) | Outside: warm noodle counter",
+        "steers": [
+            {
+                "vector": "bank/cyberpunk_neon_rain__fl2va__diff_span__lora_2a8c2b52.safetensors",
+                "strength": 1.45,
+                "edit_pass": "edited_only",
+            }
+        ],
+        "portal": [
+            {"frame": 0, "x": 0.18, "y": 0.36, "rx": 0.14, "ry": 0.14, "shape": "circle", "label": "NEON SPARK"},
+            {"frame": 50, "x": 0.46, "y": 0.50, "rx": 0.40, "ry": 0.40, "shape": "circle", "label": "NEON SWEEP"},
+            {"frame": 100, "x": 0.62, "y": 0.52, "rx": 0.62, "ry": 0.62, "shape": "circle", "label": "NEON FLOOD"},
+            {"frame": 140, "x": 0.80, "y": 0.46, "rx": 0.16, "ry": 0.16, "shape": "circle", "label": "NEON LOCK"},
+        ],
+    },
+    {
+        "arm_name": "spot_dual_watercolor_thermal",
+        "prompt_path": "prompt_bank/t2va_pika_balcony_orbit.txt",
+        "seed": 6105,
+        "feather": 0.07,
+        "scale": 1.8,
+        "streams": "video_only",
+        "title": "DUAL SPLIT-WORLD · WATERCOLOR VS THERMAL PORTAL",
+        "subtitle": "Outside: watercolor_wash (+1.30, original_only) | Inside: thermal_infrared (+1.45, edited_only)",
+        "steers": [
+            {
+                "vector": "bank/watercolor_wash__fl2va__diff_span__lora_2a8c2b52.safetensors",
+                "strength": 1.30,
+                "edit_pass": "original_only",
+            },
+            {
+                "vector": "bank/thermal_infrared__fl2va__diff_span__lora_2a8c2b52.safetensors",
+                "strength": 1.45,
+                "edit_pass": "edited_only",
+            },
+        ],
+        "portal": [
+            {"frame": 0, "x": 0.50, "y": 0.48, "rx": 0.14, "ry": 0.14, "shape": "circle", "label": "THERMAL EYE"},
+            {"frame": 55, "x": 0.38, "y": 0.46, "rx": 0.48, "ry": 0.48, "shape": "circle", "label": "THERMAL WAVE"},
+            {"frame": 100, "x": 0.66, "y": 0.52, "rx": 0.52, "ry": 0.52, "shape": "circle", "label": "DUAL SWEEP"},
+            {"frame": 140, "x": 0.52, "y": 0.50, "rx": 0.16, "ry": 0.16, "shape": "circle", "label": "THERMAL PIN"},
+        ],
+    },
+]
+
+
+def build_spotlight_arm(spec: dict[str, Any]) -> dict[str, Any]:
+    """Build a diverse moving/expanding/shrinking HUD Spotlight graph (`1152x768 @ 141f`)."""
+    arm_name = str(spec["arm_name"])
+    prompt_text = (REPO / str(spec["prompt_path"])).read_text(encoding="utf-8").strip()
+    events_json = json.dumps({"portal": spec["portal"], "targets": []}, indent=2)
+
+    g = _fl2va_loaders()
+    g["27"] = {
+        "class_type": "MiniMaxH3Resolution",
+        "inputs": {
+            "shape": "wide",
+            "shape.wide_resolution": "1152x768  3/2  864 tok/frame  0.73x",
+            "length": 141,
+        },
+    }
+    g["133"] = {"class_type": "PrimitiveStringMultiline", "inputs": {"value": prompt_text}}
+    g["5"] = {
+        "class_type": "MiniMaxH3Conditioning",
+        "inputs": {
+            "clip": ["2", 0],
+            "vae": ["3", 0],
+            "prompt": ["133", 0],
+            "width": ["27", 0],
+            "height": ["27", 1],
+            "length": ["27", 2],
+            "canvas": "explicit",
+        },
+    }
+    g["6"] = {"class_type": "RandomNoise", "inputs": {"noise_seed": int(spec["seed"])}}
+    g["160"] = {
+        "class_type": "MiniMaxH3SpatialDirector",
+        "inputs": {
+            "mode": "portal_path",
+            "width": ["27", 0],
+            "height": ["27", 1],
+            "length": ["27", 2],
+            "feather": float(spec["feather"]),
+            "invert_mask": False,
+            "events_json": events_json,
+        },
+    }
+
+    head_ref: list[Any] = ["21", 0]
+    for idx, st in enumerate(spec["steers"]):
+        nid = str(115 + idx)
+        g[nid] = {
+            "class_type": "MiniMaxH3Steer",
+            "inputs": {
+                "model": head_ref,
+                "vector": str(st["vector"]),
+                "strength": float(st["strength"]),
+                "mode": "add_norm_matched_erasure",
+                "target": "scene_only",
+                "start_percent": 0.0,
+                "end_percent": 1.0,
+                "streams": "both",
+                "hold_words": "",
+                "hold_alpha": 1.0,
+                "allow_recipe_mismatch": True,
+                "edit_pass": str(st["edit_pass"]),
+            },
+        }
+        head_ref = [nid, 0]
+
+    g["26"] = {
+        "class_type": "MiniMaxH3Preflight",
+        "inputs": {"conditioning": ["5", 0], "samples": ["5", 1], "edited_conditioning": ["5", 0]},
+    }
+    g["9"] = {
+        "class_type": "MiniMaxH3EditGuider",
+        "inputs": {
+            "model": head_ref,
+            "original": ["26", 0],
+            "edited": ["5", 0],
+            "scale": float(spec["scale"]),
+            "first_step": 0,
+            "align_positions": False,
+            "last_step": 1000,
+            "streams": str(spec["streams"]),
+            "audio_scale": 1.0,
+            "mask": ["160", 0],
+        },
+    }
+    g["10"] = {
+        "class_type": "SamplerCustomAdvanced",
+        "inputs": {
+            "noise": ["6", 0],
+            "guider": ["9", 0],
+            "sampler": ["7", 0],
+            "sigmas": ["60", 0],
+            "latent_image": ["26", 1],
+        },
+    }
+    _wire_video_outputs(
+        g,
+        arm_name=f"{arm_name}_clean",
+        model_ref=head_ref,
+        samples_ref=["10", 0],
+        sigmas_ref=["60", 0],
+        note=f"spotlights:{arm_name}",
+    )
+    g["161"] = {
+        "class_type": "MiniMaxH3DirectorHUD",
+        "inputs": {
+            "images": ["11", 0],
+            "director_plan": ["160", 3],
+            "hud_layout": "director_card",
+            "title": str(spec["title"]),
+            "subtitle": str(spec["subtitle"]),
+            "ring_opacity": 0.85,
+        },
+    }
+    g["162"] = {
+        "class_type": "VHS_VideoCombine",
+        "inputs": {
+            "images": ["161", 0],
+            "audio": ["12", 0],
+            "frame_rate": 24.0,
+            "loop_count": 0,
+            "filename_prefix": f"Video/{RUN_TAG}/{arm_name}_hud",
+            "format": "video/h264-mp4",
+            "pix_fmt": "yuv420p",
+            "crf": 19,
+            "save_metadata": True,
+            "trim_to_audio": False,
+            "pingpong": False,
+            "save_output": True,
+        },
+    }
+    return g
+
 
 def build_exp4_mask_extractor(clip_path: Path, out_prefix: str) -> dict[str, Any]:
     return {
@@ -1390,13 +1646,100 @@ def _analyze_exp7() -> dict[str, Any]:
     return out
 
 
+def _eval_portal_spec(portal_kfs: list[dict[str, Any]], frame: int) -> tuple[float, float, float, float]:
+    """Pure-CPU cosine-eased portal evaluation matching `spatial_director._eval_portal_frame`."""
+    kfs = sorted(portal_kfs, key=lambda item: int(item["frame"]))
+    if frame <= int(kfs[0]["frame"]):
+        p = kfs[0]
+        return float(p["x"]), float(p["y"]), float(p["rx"]), float(p["ry"])
+    if frame >= int(kfs[-1]["frame"]):
+        p = kfs[-1]
+        return float(p["x"]), float(p["y"]), float(p["rx"]), float(p["ry"])
+    for i in range(len(kfs) - 1):
+        p0, p1 = kfs[i], kfs[i + 1]
+        f0, f1 = int(p0["frame"]), int(p1["frame"])
+        if f0 <= frame <= f1:
+            span = max(1, f1 - f0)
+            c = max(0.0, min(1.0, (frame - f0) / float(span)))
+            u = 0.5 - 0.5 * math.cos(math.pi * c)
+            return (
+                float(p0["x"]) + (float(p1["x"]) - float(p0["x"])) * u,
+                float(p0["y"]) + (float(p1["y"]) - float(p0["y"])) * u,
+                float(p0["rx"]) + (float(p1["rx"]) - float(p0["rx"])) * u,
+                float(p0["ry"]) + (float(p1["ry"]) - float(p0["ry"])) * u,
+            )
+    p = kfs[-1]
+    return float(p["x"]), float(p["y"]), float(p["rx"]), float(p["ry"])
+
+
+def _analyze_spotlights() -> dict[str, Any]:
+    import numpy as np
+
+    out: dict[str, Any] = {"arms": {}}
+    for spec in SPOTLIGHT_SPECS:
+        arm = str(spec["arm_name"])
+        clean_cands = sorted(OUT_VIDEO_DIR.glob(f"{arm}_clean*-audio.mp4")) or sorted(OUT_VIDEO_DIR.glob(f"{arm}_clean*.mp4"))
+        clean_cands = [p for p in clean_cands if ".1fps." not in p.name]
+        hud_cands = sorted(OUT_VIDEO_DIR.glob(f"{arm}_hud*-audio.mp4")) or sorted(OUT_VIDEO_DIR.glob(f"{arm}_hud*.mp4"))
+        hud_cands = [p for p in hud_cands if ".1fps." not in p.name]
+        if not clean_cands:
+            continue
+        clean_mp4 = clean_cands[0]
+        vid = _read_video_rgb(clean_mp4)
+        n_f, h_v, w_v, _ = vid.shape
+        yy, xx = np.mgrid[0:h_v, 0:w_v]
+        xx_n = (xx + 0.5) / float(w_v)
+        yy_n = (yy + 0.5) / float(h_v)
+
+        def _hsv_sat_frame(frame_u8: "Any", mask: "Any") -> float | None:
+            if not np.any(mask):
+                return None
+            f = frame_u8.astype(np.float32) / 255.0
+            mx = np.max(f, axis=-1)
+            mn = np.min(f, axis=-1)
+            sat = np.where(mx > 1e-6, (mx - mn) / np.maximum(mx, 1e-6), 0.0)
+            return round(float(np.mean(sat[mask])), 4)
+
+        sample_frames = {
+            "early": min(8, n_f - 1),
+            "expand": min(54, n_f - 1),
+            "peak": min(96, n_f - 1),
+            "tail": n_f - 1,
+        }
+        windows: dict[str, Any] = {}
+        for wname, fidx in sample_frames.items():
+            px, py, rx, ry = _eval_portal_spec(spec["portal"], fidx)
+            norm_d2 = ((xx_n - px) / max(rx, 1e-4)) ** 2 + ((yy_n - py) / max(ry, 1e-4)) ** 2
+            inside = norm_d2 <= 1.0
+            outside = ~inside
+            fr = vid[fidx]
+            windows[wname] = {
+                "frame": fidx,
+                "rx": round(float(rx), 3),
+                "ry": round(float(ry), 3),
+                "inside_area_frac": round(float(np.mean(inside)), 4),
+                "inside_sat": _hsv_sat_frame(fr, inside),
+                "outside_sat": _hsv_sat_frame(fr, outside),
+                "inside_luma": round(float(np.mean(fr[inside])), 2) if np.any(inside) else None,
+                "outside_luma": round(float(np.mean(fr[outside])), 2) if np.any(outside) else None,
+            }
+        out["arms"][arm] = {
+            "clean_mp4": _scrub_paths(str(clean_mp4)),
+            "hud_mp4": _scrub_paths(str(hud_cands[0])) if hud_cands else None,
+            "frames": int(n_f),
+            "audio": _audio_rms_dbfs(clean_mp4),
+            "windows": windows,
+        }
+    return out
+
+
 # ---------------------------------------------------------------------------
 # CLI Driver
 # ---------------------------------------------------------------------------
 
 def main(argv: list[str] | None = None) -> int:
-    ap = argparse.ArgumentParser(description="Wave 2 GPU Bench Runner & Analyzer (Exp 4, Exp 6, Exp 7)")
-    ap.add_argument("--stage", choices=("exp4", "exp6a", "exp6b", "exp7", "analyze", "all"), default="all")
+    ap = argparse.ArgumentParser(description="Wave 2 GPU Bench Runner & Analyzer (Spotlights, Exp 4, Exp 6, Exp 7)")
+    ap.add_argument("--stage", choices=("spotlights", "exp4", "exp6a", "exp6b", "exp7", "analyze", "all"), default="all")
     ap.add_argument("--dry-run", action="store_true", help="Compile, preflight-validate, and exit with 0 HTTP mutations")
     ap.add_argument("--resume", action="store_true", help="Skip arms already recorded under data/wave2_2026-11-21/")
     args = ap.parse_args(argv)
@@ -1413,6 +1756,14 @@ def main(argv: list[str] | None = None) -> int:
 
     client_id = f"h3_wave2_{uuid.uuid4().hex[:8]}"
     summary: dict[str, Any] = {"run_tag": RUN_TAG, "stages": {}}
+
+    # Stage: Dynamic HUD Spotlights
+    if args.stage in ("spotlights", "all"):
+        spot_arms = {spec["arm_name"]: build_spotlight_arm(spec) for spec in SPOTLIGHT_SPECS}
+        summary["stages"]["spotlights"] = {
+            arm: _run_and_record(arm, g, client_id=client_id, dry_run=args.dry_run, resume=args.resume)
+            for arm, g in spot_arms.items()
+        }
 
     # Stage: Exp 4
     if args.stage in ("exp4", "all"):
@@ -1527,6 +1878,7 @@ def main(argv: list[str] | None = None) -> int:
                 if ".1fps." not in mp4.name and "_with_mask" not in mp4.name:
                     _make_1fps_companion(mp4)
         analysis = {
+            "spotlights": _analyze_spotlights(),
             "exp4": _analyze_exp4(summary),
             "exp6a": _analyze_exp6a(),
             "exp6b": _analyze_exp6b(),
