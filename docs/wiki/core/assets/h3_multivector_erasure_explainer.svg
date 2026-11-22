@@ -1,0 +1,266 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 1060" width="100%" height="100%" role="img" aria-label="MiniMax H3 Subspace Erasure Math and 50-Block Audio-Video Routing">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0b0f17"/>
+      <stop offset="100%" stop-color="#0e1420"/>
+    </linearGradient>
+    <filter id="panelShadow" x="-2%" y="-2%" width="104%" height="108%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000000" flood-opacity="0.35"/>
+    </filter>
+    <marker id="arrCyan" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 1 1.5 L 8.5 5 L 1 8.5 z" fill="#38bdf8"/>
+    </marker>
+    <marker id="arrSlate" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 1 1.5 L 8.5 5 L 1 8.5 z" fill="#64748b"/>
+    </marker>
+    <marker id="arrIndigo" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 1 1.5 L 8.5 5 L 1 8.5 z" fill="#818cf8"/>
+    </marker>
+  </defs>
+
+  <style>
+    .title { font-family: "Noto Sans Display", "Noto Sans", sans-serif; font-size: 25px; font-weight: 700; fill: #f8fafc; letter-spacing: -0.3px; }
+    .subtitle { font-family: "Noto Sans", sans-serif; font-size: 13.5px; fill: #94a3b8; }
+    .card { fill: #111827; stroke: #243044; stroke-width: 1.3; filter: url(#panelShadow); }
+    .well { fill: #080d17; stroke: #1e293b; stroke-width: 1.2; }
+    .card-hdr { font-family: "Noto Sans Display", "Noto Sans", sans-serif; font-size: 13.5px; font-weight: 700; letter-spacing: 0.5px; }
+    .sub-hdr { font-family: "Noto Sans", sans-serif; font-size: 12.5px; font-weight: 700; fill: #f1f5f9; }
+    .body { font-family: "Noto Sans", sans-serif; font-size: 11.8px; fill: #cbd5e1; }
+    .muted { font-family: "Noto Sans", sans-serif; font-size: 11px; fill: #94a3b8; }
+    .small { font-family: "Noto Sans", sans-serif; font-size: 10.5px; fill: #94a3b8; }
+    .math { font-family: "DejaVu Math TeX Gyre", "DejaVu Serif", serif; font-size: 16px; fill: #f8fafc; }
+    .math-sm { font-family: "DejaVu Math TeX Gyre", "DejaVu Serif", serif; font-size: 14px; fill: #e2e8f0; }
+    .mono { font-family: "Liberation Mono", "Noto Mono", monospace; font-size: 11px; fill: #e2e8f0; }
+    .badge { font-family: "Noto Sans", sans-serif; font-size: 10px; font-weight: 700; letter-spacing: 0.4px; }
+    .pill { font-family: "Liberation Mono", "Noto Mono", monospace; font-size: 10.2px; font-weight: 700; }
+  </style>
+
+  <!-- Canvas Background -->
+  <rect x="0" y="0" width="1440" height="1060" fill="url(#bgGrad)"/>
+
+  <!-- Header Band -->
+  <text x="28" y="38" class="title">MiniMax H3: Subspace Erasure Math &amp; 50-Block Audio-Video Routing</text>
+  <text x="28" y="61" class="subtitle">Why 1D steering gets outvoted by frozen prompts, the PCRR decomposition that flips it in 1x, and how it composes across blocks.0..49</text>
+  <rect x="1220" y="20" width="192" height="28" rx="14" fill="#0f2942" stroke="#38bdf8" stroke-width="1.2"/>
+  <text x="1316" y="38" text-anchor="middle" class="pill" fill="#7dd3fc">STAGE 1 + 2 SHIPPED</text>
+  <line x1="28" y1="74" x2="1412" y2="74" stroke="#1e293b" stroke-width="1.2"/>
+
+  <!-- ======================================================================= -->
+  <!-- BAND 1 (y=88..340): LEFT 1D PROMPT VETO  -->  RIGHT PCRR DISCOVERY     -->
+  <!-- ======================================================================= -->
+
+  <!-- Card 1: Frozen-Anchor Prompt Veto -->
+  <rect x="28" y="88" width="528" height="252" rx="12" class="card"/>
+  <rect x="28" y="88" width="528" height="3.5" rx="2" fill="#fb7185"/>
+  <text x="48" y="114" class="card-hdr" fill="#fda4af">1. THE FROZEN-ANCHOR PROMPT VETO (LEGACY 1D)</text>
+  <text x="48" y="133" class="muted">Prompt tokens H are encoded once and re-injected unchanged at all 50 blocks × 6 steps.</text>
+
+  <!-- Token strip schematic -->
+  <rect x="48" y="146" width="84" height="24" rx="5" fill="#3f1d2b" stroke="#fb7185" stroke-width="1"/>
+  <text x="90" y="162" text-anchor="middle" class="mono" fill="#fecdd3">warm</text>
+  <rect x="138" y="146" width="96" height="24" rx="5" fill="#3f1d2b" stroke="#fb7185" stroke-width="1"/>
+  <text x="186" y="162" text-anchor="middle" class="mono" fill="#fecdd3">daylight</text>
+  <rect x="240" y="146" width="88" height="24" rx="5" fill="#3f1d2b" stroke="#fb7185" stroke-width="1"/>
+  <text x="284" y="162" text-anchor="middle" class="mono" fill="#fecdd3">skin</text>
+  <rect x="334" y="146" width="96" height="24" rx="5" fill="#1e293b" stroke="#475569" stroke-width="1"/>
+  <text x="382" y="162" text-anchor="middle" class="mono" fill="#cbd5e1">objects</text>
+  <text x="442" y="162" class="small" fill="#fda4af">← stays in H</text>
+
+  <!-- Formula well -->
+  <rect x="48" y="182" width="488" height="44" rx="8" class="well" stroke="#881337"/>
+  <text x="292" y="209" text-anchor="middle" class="math">
+    H<tspan baseline-shift="sub" font-size="11">1D</tspan>  =  H  +  s · v̂<tspan baseline-shift="sub" font-size="11">1D</tspan>
+    <tspan dx="18" class="small" fill="#fda4af">(same vector added to every row)</tspan>
+  </text>
+
+  <!-- Bullets -->
+  <text x="48" y="250" class="body"><tspan fill="#fb7185" font-weight="700">•</tspan> Adding <tspan class="mono" fill="#e2e8f0">+noir</tspan> or <tspan class="mono" fill="#e2e8f0">+claymation</tspan> never removes opposing baseline cues in H.</text>
+  <text x="48" y="272" class="body"><tspan fill="#fb7185" font-weight="700">•</tspan> Inside 50 self-attention blocks, untouched prompt words outvote the dial</text>
+  <text x="58" y="290" class="body">(<tspan font-weight="700" fill="#fecdd3">0/5 B&amp;W stills</tspan>, <tspan font-weight="700" fill="#fecdd3">0/3 192f B&amp;W AV</tspan>, <tspan font-weight="700" fill="#fecdd3">4MP H3-Image color</tspan>).</text>
+  <text x="48" y="314" class="body"><tspan fill="#fb7185" font-weight="700">•</tspan> Cranking s past H3's safe shift norm (<tspan class="mono" fill="#fda4af">~98–100</tspan>) fractures scenes into diptychs.</text>
+
+  <!-- Transition Arrow Card 1 -> Card 2 -->
+  <line x1="562" y1="214" x2="594" y2="214" stroke="#38bdf8" stroke-width="2.4" marker-end="url(#arrCyan)"/>
+
+  <!-- Card 2: Diagnostic Discovery (PCRR Split) -->
+  <rect x="602" y="88" width="810" height="252" rx="12" class="card"/>
+  <rect x="602" y="88" width="810" height="3.5" rx="2" fill="#38bdf8"/>
+  <text x="622" y="114" class="card-hdr" fill="#7dd3fc">2. THE DIAGNOSTIC DISCOVERY (PCRR DECOMPOSITION OF W_D)</text>
+  <text x="622" y="133" class="muted">Fitting multi-vector W<tspan baseline-shift="sub" font-size="9">D</tspan> from centered Pole-A (A<tspan baseline-shift="sub" font-size="9">c</tspan>) to shifts D<tspan baseline-shift="sub" font-size="9">c</tspan> = B<tspan baseline-shift="sub" font-size="9">c</tspan> − A<tspan baseline-shift="sub" font-size="9">c</tspan> split algebraically into two halves:</text>
+
+  <!-- PCRR Equation Well -->
+  <rect x="622" y="146" width="770" height="72" rx="8" class="well" stroke="#0369a1"/>
+  <text x="1007" y="177" text-anchor="middle" class="math">
+    W<tspan baseline-shift="sub" font-size="11">D</tspan>  =  <tspan fill="#94a3b8">V</tspan><tspan fill="#94a3b8" baseline-shift="sub" font-size="11">r</tspan><tspan fill="#94a3b8" baseline-shift="super" font-size="10.5" dx="1">T</tspan><tspan fill="#94a3b8"> diag(σ</tspan><tspan fill="#94a3b8" baseline-shift="sub" font-size="10">i</tspan><tspan fill="#94a3b8"> / (σ</tspan><tspan fill="#94a3b8" baseline-shift="sub" font-size="10">i</tspan><tspan fill="#94a3b8" baseline-shift="super" font-size="10">2</tspan><tspan fill="#94a3b8">+λ)) U</tspan><tspan fill="#94a3b8" baseline-shift="sub" font-size="11">r</tspan><tspan fill="#94a3b8" baseline-shift="super" font-size="10.5" dx="1">T</tspan><tspan fill="#94a3b8"> B</tspan><tspan fill="#94a3b8" baseline-shift="sub" font-size="11">c</tspan>
+    <tspan dx="10" fill="#f8fafc">−</tspan>
+    <tspan dx="10" fill="#38bdf8" font-weight="700">V</tspan><tspan fill="#38bdf8" font-weight="700" baseline-shift="sub" font-size="11">r</tspan><tspan fill="#38bdf8" font-weight="700" baseline-shift="super" font-size="10.5" dx="1">T</tspan><tspan fill="#38bdf8" font-weight="700"> diag(σ</tspan><tspan fill="#38bdf8" font-weight="700" baseline-shift="sub" font-size="10">i</tspan><tspan fill="#38bdf8" font-weight="700" baseline-shift="super" font-size="10">2</tspan><tspan fill="#38bdf8" font-weight="700"> / (σ</tspan><tspan fill="#38bdf8" font-weight="700" baseline-shift="sub" font-size="10">i</tspan><tspan fill="#38bdf8" font-weight="700" baseline-shift="super" font-size="10">2</tspan><tspan fill="#38bdf8" font-weight="700">+λ)) V</tspan><tspan fill="#38bdf8" font-weight="700" baseline-shift="sub" font-size="11">r</tspan>
+  </text>
+  <text x="822" y="205" text-anchor="middle" class="small" fill="#94a3b8">W<tspan baseline-shift="sub" font-size="9">B</tspan> (Pole-B transport): 0.4%–3.0%</text>
+  <text x="1182" y="205" text-anchor="middle" class="small" fill="#7dd3fc" font-weight="700">−P<tspan baseline-shift="sub" font-size="8.5">V_r,λ</tspan> (Rank-8 Pole-A eraser): 97.0%–99.6%</text>
+
+  <!-- Proportional Split Bar -->
+  <text x="622" y="241" class="small" fill="#cbd5e1" font-weight="700">Measured Runtime Shift Share (7 cached .pt banks):</text>
+  <rect x="622" y="250" width="24" height="22" rx="3" fill="#475569"/>
+  <rect x="648" y="250" width="744" height="22" rx="4" fill="#0284c7" stroke="#38bdf8" stroke-width="1"/>
+  <text x="1020" y="265" text-anchor="middle" class="pill" fill="#f8fafc">97.0%–99.6% SUBTRACTION (−A)   |   ||ctx_−A|| / ||ctx_B|| = 4.2× to 10.3×   |   cos(ctx_D, −A) = 0.9686..0.9960</text>
+
+  <!-- Takeaway -->
+  <text x="622" y="297" class="body"><tspan fill="#38bdf8" font-weight="700">So What:</tspan> Steering wasn't magically translating Pole-A words into Pole-B — it worked because it <tspan font-weight="700" fill="#f8fafc">noise-canceled</tspan></text>
+  <text x="622" y="317" class="body">Pole A first. Keeping −P + adding a crisp mean push (μ̂<tspan baseline-shift="sub" font-size="9">d</tspan><tspan dx="1">) runs in a </tspan><tspan class="mono" fill="#7dd3fc">193 KB</tspan> file (0 external corpus, <tspan class="mono">&lt;15 ms</tspan> CPU X-Ray).</text>
+
+
+  <!-- ======================================================================= -->
+  <!-- BAND 2 (y=356..606): LEFT 1-SLIDER FORMULA  |  RIGHT MULTI-SLIDER EQ    -->
+  <!-- ======================================================================= -->
+
+  <!-- Card 3: Shipped Single-Slider Formula -->
+  <rect x="28" y="356" width="690" height="250" rx="12" class="card"/>
+  <rect x="28" y="356" width="690" height="3.5" rx="2" fill="#38bdf8"/>
+  <text x="48" y="382" class="card-hdr" fill="#7dd3fc">3. SHIPPED 1-SLIDER FORMULA (add_norm_matched_erasure, control_vectors.py)</text>
+
+  <rect x="48" y="394" width="650" height="52" rx="8" class="well" stroke="#0369a1"/>
+  <text x="373" y="425" text-anchor="middle" class="math">
+    ΔH  =  RMSMatch<tspan baseline-shift="sub" font-size="11">|s|·67.5</tspan> ( <tspan fill="#34d399">s · μ̂<tspan baseline-shift="sub" font-size="11">d</tspan></tspan>  −  <tspan fill="#38bdf8">clip(s, 0, 1) · e</tspan><tspan fill="#38bdf8" baseline-shift="sub" font-size="11">cap</tspan><tspan fill="#38bdf8"> · (H − h̄) V</tspan><tspan fill="#38bdf8" baseline-shift="sub" font-size="11">r</tspan><tspan fill="#38bdf8" baseline-shift="super" font-size="10.5" dx="1">T</tspan><tspan fill="#38bdf8"> D V</tspan><tspan fill="#38bdf8" baseline-shift="sub" font-size="11">r</tspan> )
+  </text>
+
+  <!-- 3 Sub-cards inside Card 3 -->
+  <rect x="48" y="458" width="208" height="132" rx="8" fill="#0d1524" stroke="#1e293b"/>
+  <text x="60" y="479" class="sub-hdr" fill="#7dd3fc">(H − h̄) Centering</text>
+  <text x="60" y="499" class="small">Subtracts prompt mean h̄</text>
+  <text x="60" y="515" class="small">(or dataset μ<tspan baseline-shift="sub" font-size="8">a</tspan><tspan dx="1"> for vision)</tspan></text>
+  <text x="60" y="531" class="small">so shared scaffolding &amp;</text>
+  <text x="60" y="547" class="small">nouns survive untouched.</text>
+  <text x="152" y="575" text-anchor="middle" class="pill" font-size="9.5" fill="#34d399">5/5 own vs 0/5 swapped V_r</text>
+
+  <rect x="269" y="458" width="208" height="132" rx="8" fill="#0d1524" stroke="#1e293b"/>
+  <text x="281" y="479" class="sub-hdr" fill="#7dd3fc">Clamped Rank-8 Erase</text>
+  <text x="281" y="499" class="small">Projects out opposing traits</text>
+  <text x="281" y="515" class="small">(e.g. warm, daylight, wall)</text>
+  <text x="281" y="531" class="small">with D = σ<tspan baseline-shift="super" font-size="8">2</tspan>/(σ<tspan baseline-shift="super" font-size="8">2</tspan>+λ). Off for</text>
+  <text x="281" y="547" class="small">s ≤ 0; e<tspan baseline-shift="sub" font-size="8">cap</tspan> bounds energy.</text>
+  <text x="373" y="575" text-anchor="middle" class="pill" font-size="9.5" fill="#7dd3fc">0 leakage · max_err 5.9e-14</text>
+
+  <rect x="490" y="458" width="208" height="132" rx="8" fill="#0d1524" stroke="#1e293b"/>
+  <text x="502" y="479" class="sub-hdr" fill="#34d399">Target Push &amp; RMS Lock</text>
+  <text x="502" y="499" class="small">μ̂<tspan baseline-shift="sub" font-size="8">d</tspan><tspan dx="1"> uses τ=0.15 ColBERT</tspan></text>
+  <text x="502" y="515" class="small">softmax matching; output is</text>
+  <text x="502" y="531" class="small">locked strictly to |s|·67.5</text>
+  <text x="502" y="547" class="small">RMS + per-row hold ortho.</text>
+  <text x="594" y="575" text-anchor="middle" class="pill" font-size="9.5" fill="#34d399">1x: 5/5 fl2va, Base50, 4MP</text>
+
+  <!-- Card 4: Multi-Slider Equilibrium -->
+  <rect x="734" y="356" width="678" height="250" rx="12" class="card"/>
+  <rect x="734" y="356" width="678" height="3.5" rx="2" fill="#a78bfa"/>
+  <text x="754" y="382" class="card-hdr" fill="#c4b5fd">4. MULTI-VECTOR STACKING EQUILIBRIUM (STAGE 1 SHIPPED, dd45600e)</text>
+  <text x="754" y="400" class="muted">Naive summation causes sliders to erase peers (52-vector census) &amp; hit H3's norm cliff. Three guardrails solve it:</text>
+
+  <!-- Strip A -->
+  <rect x="754" y="413" width="638" height="54" rx="8" fill="#17142b" stroke="#6d28d9" stroke-width="1"/>
+  <rect x="766" y="423" width="170" height="20" rx="5" fill="#4c1d95"/>
+  <text x="851" y="437" text-anchor="middle" class="pill" fill="#ddd6fe">1. PER-SLIDER ROS</text>
+  <text x="948" y="434" class="body"><tspan class="mono" fill="#e9d5ff">V_r^(j) ⊥ span{ μ̂_d^(k) : k ≠ j }</tspan> before union (peer_ros=True)</text>
+  <text x="766" y="456" class="small" fill="#cbd5e1">Stops <tspan class="mono">noir</tspan> from erasing <tspan class="mono">cyberpunk</tspan>'s chroma (<tspan font-weight="700" fill="#a78bfa">0.000 peer hit</tspan> vs +70% self-cancel from naive global ortho).</text>
+
+  <!-- Strip B -->
+  <rect x="754" y="476" width="638" height="54" rx="8" fill="#17142b" stroke="#6d28d9" stroke-width="1"/>
+  <rect x="766" y="486" width="170" height="20" rx="5" fill="#4c1d95"/>
+  <text x="851" y="500" text-anchor="middle" class="pill" fill="#ddd6fe">2. CLAMPED UNION SVD</text>
+  <text x="948" y="497" class="body"><tspan class="mono" fill="#e9d5ff">λ_max( Σ_j min(s_j,1) P_j^ROS ) ≤ 1.0</tspan> on non-consecutive groups</text>
+  <text x="766" y="519" class="small" fill="#cbd5e1">Fixes old linear sums that reached <tspan class="mono">6 eigenvalues &gt; 1.0</tspan> (over-erasure / sign flip) &amp; handles interleaved spans.</text>
+
+  <!-- Strip C -->
+  <rect x="754" y="539" width="638" height="54" rx="8" fill="#17142b" stroke="#6d28d9" stroke-width="1"/>
+  <rect x="766" y="549" width="170" height="20" rx="5" fill="#4c1d95"/>
+  <text x="851" y="563" text-anchor="middle" class="pill" fill="#ddd6fe">3. SMOOTH NORM KNEE</text>
+  <text x="948" y="560" class="body"><tspan class="mono" fill="#e9d5ff">soft_cap_stacked_rms</tspan> (<tspan class="mono" fill="#ddd6fe">95.5 → 98.5 tanh</tspan>) for distinct peers</text>
+  <text x="766" y="582" class="small" fill="#cbd5e1">Eliminated 4.0 MP <tspan class="mono">lighthouse</tspan> <tspan class="mono">clay+noir</tspan> diptych collapse (<tspan font-weight="700" fill="#34d399">clip 0.0726 → 0.0079</tspan>, <tspan class="mono">lap=437.15</tspan>, <tspan class="mono">3.07s</tspan>).</text>
+
+
+  <!-- ======================================================================= -->
+  <!-- BAND 3 (y=622..888): 50-BLOCK AV DEPTH MAP + 1x Q_aud ROUTING (Stage 2) -->
+  <!-- ======================================================================= -->
+  <rect x="28" y="622" width="1384" height="266" rx="12" class="card"/>
+  <rect x="28" y="622" width="1384" height="3.5" rx="2" fill="#fbbf24"/>
+  <text x="48" y="648" class="card-hdr" fill="#fcd34d">5. WHY IT COMPOSES CLEANLY: H3's 50-BLOCK AV BRAIN &amp; 1x AUDIO BYPASS (STAGE 2 SHIPPED, 340e8ded)</text>
+  <text x="48" y="667" class="muted">Single packed sequence <tspan class="mono" fill="#e2e8f0">[ Text | &lt;Ref Img/Vid/Aud&gt; | 40 Hz Audio | 24 fps Video ]</tspan> inside active compiler graphs (<tspan font-weight="700" fill="#34d399">+0 added breaks, 0 rogues across all 4 backends</tspan>).</text>
+
+  <!-- Four Proportional Zones -->
+  <!-- Zone 1: blocks.0..19 -->
+  <rect x="48" y="680" width="320" height="122" rx="9" fill="#0c2424" stroke="#2dd4bf" stroke-width="1.3"/>
+  <rect x="60" y="690" width="102" height="20" rx="10" fill="#0d9488"/>
+  <text x="111" y="704" text-anchor="middle" class="badge" fill="#ffffff">blocks.0..19</text>
+  <text x="172" y="704" class="sub-hdr" fill="#5eead4">Scaffolding &amp; Face</text>
+  <text x="60" y="728" class="body">• Lays out pose, composition, &amp; faces.</text>
+  <text x="60" y="747" class="body">• Steering 0..19 alone does ~nothing</text>
+  <text x="68" y="763" class="small">(lap 69.31 vs 69.39 base; audio 0.0005).</text>
+  <text x="60" y="788" class="pill" fill="#5eead4">Keep unsteered to lock &lt;Picture 1&gt; ID</text>
+
+  <line x1="373" y1="741" x2="389" y2="741" stroke="#64748b" stroke-width="1.8" marker-end="url(#arrSlate)"/>
+
+  <!-- Zone 2: blocks.20..29 -->
+  <rect x="394" y="680" width="336" height="122" rx="9" fill="#231b0b" stroke="#fbbf24" stroke-width="1.5"/>
+  <rect x="406" y="690" width="106" height="20" rx="10" fill="#d97706"/>
+  <text x="459" y="704" text-anchor="middle" class="badge" fill="#ffffff">blocks.20..29</text>
+  <text x="522" y="704" class="sub-hdr" fill="#fcd34d">Visual Commit Breakout</text>
+  <text x="406" y="728" class="body">• <tspan font-weight="700" fill="#fde68a">Video diverges at block 20</tspan> (30..49 misses).</text>
+  <text x="406" y="747" class="body">• Mode 1 <tspan class="mono" fill="#fde68a">block_band="mid_late_20_49"</tspan> cools</text>
+  <text x="414" y="763" class="small">awnings/sets while protecting face &amp; lip-sync.</text>
+  <text x="406" y="788" class="pill" fill="#fcd34d">1.52× mean / 1.75× peak DINOv3 ID · 180 swaps</text>
+
+  <line x1="735" y1="741" x2="751" y2="741" stroke="#64748b" stroke-width="1.8" marker-end="url(#arrSlate)"/>
+
+  <!-- Zone 3: blocks.31..47 -->
+  <rect x="756" y="680" width="376" height="122" rx="9" fill="#171b36" stroke="#818cf8" stroke-width="1.3"/>
+  <rect x="768" y="690" width="106" height="20" rx="10" fill="#4f46e5"/>
+  <text x="821" y="704" text-anchor="middle" class="badge" fill="#ffffff">blocks.31..47</text>
+  <text x="884" y="704" class="sub-hdr" fill="#c7d2fe">40 Hz Audio (~10-Blk Lag)</text>
+  <text x="768" y="728" class="body">• Audio awakens behind video to match room</text>
+  <text x="776" y="744" class="body">acoustics, speech cadence, &amp; scene foley.</text>
+  <text x="768" y="763" class="small">• <tspan class="mono" fill="#c7d2fe">soundscape_only</tspan> keeps video 3.2× quieter.</text>
+  <text x="768" y="788" class="pill" fill="#a5b4fc">Explains frozen-video cache &amp; why visuals hit audio</text>
+
+  <line x1="1137" y1="741" x2="1153" y2="741" stroke="#64748b" stroke-width="1.8" marker-end="url(#arrSlate)"/>
+
+  <!-- Zone 4: block 49 -->
+  <rect x="1158" y="680" width="234" height="122" rx="9" fill="#2a121b" stroke="#fb7185" stroke-width="1.3"/>
+  <rect x="1170" y="690" width="76" height="20" rx="10" fill="#e11d48"/>
+  <text x="1208" y="704" text-anchor="middle" class="badge" fill="#ffffff">block 49</text>
+  <text x="1256" y="704" class="sub-hdr" fill="#fecdd3">Readout Sink</text>
+  <text x="1170" y="728" class="body">• <tspan font-weight="700" fill="#fecdd3">0.000</tspan> text delta;</text>
+  <text x="1178" y="744" class="small">FinalLayer drops text rows.</text>
+  <text x="1170" y="763" class="small">• Pure final K/V readout lens.</text>
+  <text x="1170" y="788" class="pill" fill="#fda4af">Keep dense &amp; rotated INT8</text>
+
+  <!-- 1x Audio Bypass Rail -->
+  <rect x="48" y="814" width="1344" height="58" rx="9" fill="#0d1324" stroke="#6366f1" stroke-width="1.3" stroke-dasharray="6 3"/>
+  <rect x="62" y="827" width="196" height="32" rx="7" fill="#4338ca"/>
+  <text x="160" y="847" text-anchor="middle" class="pill" fill="#ffffff">1× Q_aud → K_txt_base (Mode 2/3)</text>
+  <text x="274" y="838" class="body"><tspan font-weight="700" fill="#e0e7ff">Single-Pass Stream Split (<tspan class="mono">split_backend="auto_1x_kv"</tspan>):</tspan> Video queries read cleared+steered text; audio queries peek at original text K/V inside one pass.</text>
+  <text x="274" y="859" class="small" fill="#a5b4fc">Stage 2 Gate 1 (<tspan class="mono">fl2va 90f</tspan> <tspan class="mono">de_llm_slop</tspan>): <tspan font-weight="700" fill="#f8fafc">26.91s vs 26.82s base (1.003×)</tspan> · <tspan font-weight="700" fill="#f8fafc">−23.19 vs −23.11 dBFS</tspan> · YIN <tspan class="mono">F0=−0.014 st</tspan> · <tspan class="mono">+75.8 MiB</tspan> · Mode 3 ref2va <tspan font-weight="700" fill="#f8fafc">+1.06 dB</tspan> audio.</text>
+
+
+  <!-- ======================================================================= -->
+  <!-- BAND 4 (y=902..1036): PORTALS  |  HONEST BOUNDARIES & NEXT              -->
+  <!-- ======================================================================= -->
+
+  <!-- Card 6: Zero-Rewrite Moving Portals -->
+  <rect x="28" y="902" width="690" height="134" rx="12" class="card"/>
+  <rect x="28" y="902" width="690" height="3.5" rx="2" fill="#34d399"/>
+  <text x="48" y="928" class="card-hdr" fill="#6ee7b7">6. ZERO-REWRITE MOVING PORTALS (SpatialDirector + EditGuider)</text>
+  <text x="48" y="947" class="body">Untouched prompt feeds both branches (<tspan class="mono">same_prompt=True</tspan>); Branch B adds <tspan class="mono">edit_pass="edited_only"</tspan> erasure:</text>
+  <rect x="48" y="958" width="650" height="34" rx="7" class="well" stroke="#065f46"/>
+  <text x="373" y="980" text-anchor="middle" class="math-sm" fill="#a7f3d0">
+    v<tspan baseline-shift="sub" font-size="10">out</tspan>  =  v<tspan baseline-shift="sub" font-size="10">orig</tspan>  +  (scale · M[F, H, W]) · (v<tspan baseline-shift="sub" font-size="10">edit</tspan> − v<tspan baseline-shift="sub" font-size="10">orig</tspan>)
+  </text>
+  <text x="48" y="1016" class="small" fill="#cbd5e1"><tspan font-weight="700" fill="#6ee7b7">≥ 30% canvas rule:</tspan> beats 50-block global self-attention pull → <tspan font-weight="700" fill="#f8fafc">5.91× L/R contrast</tspan> (Disco Wipe) + dual Clean / HUD MP4 exports.</text>
+
+  <!-- Card 7: Honest Boundaries & Track 2 -->
+  <rect x="734" y="902" width="678" height="134" rx="12" class="card"/>
+  <rect x="734" y="902" width="678" height="3.5" rx="2" fill="#f59e0b"/>
+  <text x="754" y="928" class="card-hdr" fill="#fcd34d">7. HONEST BOUNDARIES &amp; NEXT (NO HYPE · TRACK 2 ON DECK)</text>
+  <text x="754" y="951" class="body"><tspan font-weight="700" fill="#fde68a">• Reference Dual-Lock (fl2va / ref2va):</tspan> Clean <tspan class="mono">24</tspan>-ch VAE latents (<tspan class="mono">0%–33%</tspan>) + unsteered</text>
+  <text x="764" y="968" class="small"><tspan class="mono">tag==0</tspan> vision tokens still veto text-only clearing even with <tspan class="mono">ReleaseReferences(0.33)</tspan>.</text>
+  <text x="764" y="984" class="small">Fix: pre-grade stills or steer visual patches directly (<tspan font-weight="700" fill="#fde68a">Track 2 ColQwen vision_tokens + face_retain ROS</tspan>).</text>
+  <text x="754" y="1008" class="body"><tspan font-weight="700" fill="#fde68a">• 3-slider stacks &amp; facets:</tspan> Stage 2 preserves subjects (<tspan class="mono">sat 0.32→0.17</tspan>) yet keeps warm red signs;</text>
+  <text x="764" y="1024" class="small">Next: <tspan font-weight="700" fill="#fde68a">Path 1A sub-faders + bus-scoped V_r</tspan> (implicit Path 1B cosine routing falsified &lt;1.1% MSE on CPU).</text>
+</svg>

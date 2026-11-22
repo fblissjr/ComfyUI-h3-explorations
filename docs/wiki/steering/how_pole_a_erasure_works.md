@@ -1,7 +1,10 @@
 # How Clamped Pole-A Subspace Erasure Works (`add_norm_matched_erasure`)
 
+> [!NOTE]
+> **Canonical Guide Consolidated (`2026-11-22`):** For the **single unified, general-audience & LLM-wiki master guide** covering the full visual explainer (`h3_multivector_erasure_explainer.svg`), PCRR + Stage 1/2 formulas, H3's 50-block audio-video brain (`blocks.20..29` + `1x Q_aud`), Zero-Rewrite HUD Portals, 4-tool choice, active `50`-stem bank, and Track 2 horizon in one place, read **[`docs/wiki/core/h3_inside_the_50_blocks.md`](../core/h3_inside_the_50_blocks.md)**. This page remains intact as its deep-dive companion preserving the full `2026-11-21` showcase walkthroughs and link stability.
+
 Last updated: 2026-11-22  
-Plain-English 50-block & HUD portal overview: [`docs/wiki/core/h3_inside_the_50_blocks.md`](../core/h3_inside_the_50_blocks.md)  
+Canonical unified master guide: [`docs/wiki/core/h3_inside_the_50_blocks.md`](../core/h3_inside_the_50_blocks.md)  
 Hands-on 4-lab progressive tutorial: [`tutorials_progressive_guide.md`](tutorials_progressive_guide.md)  
 Research paper & retrieval SOTA lineage: [`2026-11-21_from_late_interaction_retrieval_to_av_dit_steering.md`](../research/control_vectors/2026-11-21_from_late_interaction_retrieval_to_av_dit_steering.md) (Paper v4) · [`2026-11-20_unpooled_multivector_sliders.md`](../research/control_vectors/2026-11-20_unpooled_multivector_sliders.md) · [`2026-11-20_multivector_retrieval_sota_to_dit_steering.md`](../research/control_vectors/2026-11-20_multivector_retrieval_sota_to_dit_steering.md)  
 Reproducible proof & benchmark ledger: [`bench/verify_pole_a_erasure.py`](../../../bench/verify_pole_a_erasure.py) · [`bench/control_vector/eval_multivector_erasure.py`](../../../bench/control_vector/eval_multivector_erasure.py) · [`2026-11-21_multivector_erasure_benchmark.md`](../../../bench/results/2026-11-21_multivector_erasure_benchmark.md) · [`2026-11-21_phase3_de_slop_and_vision_block_steering.md`](../../../bench/results/2026-11-21_phase3_de_slop_and_vision_block_steering.md) · [`2026-11-22_stage1_stage2_ros_norm_cap_and_unified_steer_hooks.md`](../../../bench/results/2026-11-22_stage1_stage2_ros_norm_cap_and_unified_steer_hooks.md)  
