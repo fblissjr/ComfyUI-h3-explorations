@@ -593,7 +593,7 @@ SPOTLIGHT_SPECS: list[dict[str, Any]] = [
         "prompt_path": "prompt_bank/t2va_pika_balcony_orbit.txt",
         "seed": 6105,
         "feather": 0.07,
-        "scale": 1.8,
+        "scale": 1.45,
         "streams": "video_only",
         "title": "DUAL SPLIT-WORLD · WATERCOLOR VS THERMAL PORTAL",
         "subtitle": "Outside: watercolor_wash (+1.30, original_only) | Inside: thermal_infrared (+1.45, edited_only)",
