@@ -1,0 +1,129 @@
+[vector]
+name = "power_outage_flashlight"
+quality = "pitch-black sudden power outage lit exclusively by a single harsh sweeping flashlight beam carving tight shadows"
+a_side = "evenly lit overhead room illumination, full ambient visibility across walls and corners, and normal interior lighting"
+b_side = "pitch-black power outage darkness pierced exclusively by a single harsh sweeping flashlight beam carving stark shadows and bright dust motes"
+mode = "t2va"
+frame = "scene"
+exclude_shots = ["t2va_offpath_tortoise", "ref2va_look_anchor"]
+# inference_recipe = target=scene_only (t2va) / look_only or scene_only (ref2va, release_refs=0.17..0.33), strength=1.2..1.6, steps=0.0..0.50
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a narrow hotel laundry room, an attendant in a cotton smock folds stacked bath towels beside steel dryers. Warm overhead ceiling globes illuminate every corner evenly across pale tiled walls and humming machines. She (S1) says, <d>[English] Floor four needs six extra pillowcases.</d> before shutting her mouth.
+
+overall_soundscape: Folded cotton rustles softly above a steady dryer hum.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a narrow hotel laundry room, an attendant in a cotton smock folds stacked bath towels beside steel dryers. Total blackout plunges the space into pitch-black darkness pierced solely by one harsh sweeping flashlight beam carving stark shadows and glowing dust motes. She (S1) says, <d>[English] Floor four needs six extra pillowcases.</d> before shutting her mouth.
+
+overall_soundscape: Folded cotton rustles softly above a steady dryer hum.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Across a suburban hardware aisle, a clerk in a denim apron sorts boxed brass hinges beside pegged tool racks. Broad fluorescent shop fixtures flood the corridor cleanly from floor to rafters in full visibility. He produces no vocal sound.
+
+overall_soundscape: Cardboard hardware boxes slide gently along metal shelves.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Across a suburban hardware aisle, a clerk in a denim apron sorts boxed brass hinges beside pegged tool racks. Complete power outage kills every fixture into ink-black gloom cut strictly by a narrow handheld torch cone sweeping glare across dark metal edges. He produces no vocal sound.
+
+overall_soundscape: Cardboard hardware boxes slide gently along metal shelves.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a wood-paneled courthouse chamber, a bailiff in a navy blazer organizes leather binders along oak counsel desks. Clear daylight pouring through tall arched windows lights the room uniformly from ceiling moldings to benches. He (S1) says, <d>[English] Exhibit nine stays on the clerk desk.</d> before his lips close.
+
+overall_soundscape: Heavy paper binders click lightly onto varnished timber.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a wood-paneled courthouse chamber, a bailiff in a navy blazer organizes leather binders along oak counsel desks. Sudden electrical blackout engulfs the chamber in impenetrable midnight shadow sliced only by a fierce roving flashlight spotlight blazing across floating motes. He (S1) says, <d>[English] Exhibit nine stays on the clerk desk.</d> before his lips close.
+
+overall_soundscape: Heavy paper binders click lightly onto varnished timber.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Along a ceramic subway mezzanine, two commuters in wool coats inspect a mounted transit map near steel turnstiles. Bright tubular station lamps reveal all concrete pillars, ticket booths, and tiled corridors in crisp balance. Neither commuter produces any vocal sound.
+
+overall_soundscape: Distant train air rushes through hollow tiled passages.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Along a ceramic subway mezzanine, two commuters in wool coats inspect a mounted transit map near steel turnstiles. Dead power outage swallows the vault in pitch-dark obscurity broken purely by a sharp wavering flashlight beam raking harsh shadows over faces. Neither commuter produces any vocal sound.
+
+overall_soundscape: Distant train air rushes through hollow tiled passages.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a corner grocery storeroom, a stock clerk in a flannel shirt checks canned tomato crates on steel pallets. Recessed incandescent ceiling bulbs keep every shelf label and brick alcove open to plain view. She produces no vocal sound.
+
+overall_soundscape: Tin cans clink softly inside stacked cardboard flats.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a corner grocery storeroom, a stock clerk in a flannel shirt checks canned tomato crates on steel pallets. Abrupt grid failure drops the storeroom into total pitch blackness slashed exclusively by one glaring handheld flashlight beam darting across deep shadows. She produces no vocal sound.
+
+overall_soundscape: Tin cans clink softly inside stacked cardboard flats.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a dental clinic reception lobby, a receptionist in a knit cardigan files manila folders behind frosted glass. Soft recessed ceiling panels spread neutral illumination evenly across vinyl chairs and magazine tables. She (S1) says, <d>[English] Doctor Chen sees you in two minutes.</d> before resting her jaw.
+
+overall_soundscape: Manila tabs flick quietly over low air conditioning.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a dental clinic reception lobby, a receptionist in a knit cardigan files manila folders behind frosted glass. Sudden power blackout plunges the lobby into stifling pitch-black darkness cut strictly by one blazing handheld flashlight cone carving razor shadows. She (S1) says, <d>[English] Doctor Chen sees you in two minutes.</d> before resting her jaw.
+
+overall_soundscape: Manila tabs flick quietly over low air conditioning.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a brick basement boiler corridor, a superintendent in coveralls checks brass pressure gauges along insulated pipes. Caged utility sconces wash the concrete floor and valve wheels in full ambient clarity. He produces no vocal sound.
+
+overall_soundscape: Steam valves hiss softly through cast-iron basement manifolds.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a brick basement boiler corridor, a superintendent in coveralls checks brass pressure gauges along insulated pipes. Complete power outage blacks out the corridor into abyssal darkness pierced solely by one blinding sweeping flashlight beam igniting drifting haze. He produces no vocal sound.
+
+overall_soundscape: Steam valves hiss softly through cast-iron basement manifolds.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a small neighborhood diner kitchen, a line cook in a white cap wipes stainless counters beside cast-iron skillets. Wide strip lights bathe the steel hood, condiment jars, and quarry tile floor evenly. He (S1) says, <d>[English] Order six is up on the pass.</d> before closing his mouth.
+
+overall_soundscape: Steel spatulas scrape quietly across seasoned iron griddles.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a small neighborhood diner kitchen, a line cook in a white cap wipes stainless counters beside cast-iron skillets. Instant power failure snuffs every fixture into total pitch-black gloom pierced purely by a single sharp roving flashlight beam throwing stark shadows. He (S1) says, <d>[English] Order six is up on the pass.</d> before closing his mouth.
+
+overall_soundscape: Steel spatulas scrape quietly across seasoned iron griddles.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside an old theater dressing room, a stage actress in a velvet robe pins silver hair combs before mirror globes. Surrounding tungsten vanity bulbs cast clear balanced luminance over costumes and pine trunks. She produces no vocal sound.
+
+overall_soundscape: Silver hairpins clink softly against painted timber trays.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside an old theater dressing room, a stage actress in a velvet robe pins silver hair combs before mirror globes. Complete electrical outage kills the room into utter pitch-black darkness sliced only by one tight blazing torchlight beam raking harsh shadows. She produces no vocal sound.
+
+overall_soundscape: Silver hairpins clink softly against painted timber trays.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a university archival vault, two curators in wool sweaters inspect rolled linen blueprints across steel tables. Overhead gallery track fixtures spread clean uniform visibility over cabinets and plaster columns. Neither curator produces any vocal sound.
+
+overall_soundscape: Linen blueprint tubes unroll softly over brushed steel.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a university archival vault, two curators in wool sweaters inspect rolled linen blueprints across steel tables. Sudden blackout shrouds the vault in solid ink-black darkness cut exclusively by a solitary sweeping flashlight cone illuminating tight pools and hard shadows. Neither curator produces any vocal sound.
+
+overall_soundscape: Linen blueprint tubes unroll softly over brushed steel.
+
+non_diegetic_music: N/A'''

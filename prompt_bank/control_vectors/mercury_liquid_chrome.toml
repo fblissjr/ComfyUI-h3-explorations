@@ -1,0 +1,129 @@
+[vector]
+name = "mercury_liquid_chrome"
+quality = "mirror-polished rippling liquid chrome and molten silver mercury transforming skin, clothing, and props into specular metallic reflections"
+a_side = "natural matte organic human skin, soft woven textiles, and dull non-reflective everyday materials"
+b_side = "mirror-polished liquid chrome and rippling molten silver mercury coating faces, bodies, and clothing with specular metallic reflections"
+mode = "t2va"
+frame = "scene"
+exclude_shots = ["t2va_offpath_tortoise", "ref2va_look_anchor"]
+# inference_recipe = target=scene_only (t2va) / look_only or scene_only (ref2va, release_refs=0.17..0.33), strength=1.2..1.6, steps=0.0..0.50
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a concrete stairwell landing, a woman in a wool overcoat faces a man beside painted railings. Organic everyday human skin, dull fabric weaves, and plain non-reflective cloth show soft diffused light across both figures. She (S1) says, <d>[English] Keep this strictly between us tonight.</d> before closing her mouth.
+
+overall_soundscape: Footsteps settle quietly across hollow concrete stairwell steps.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a concrete stairwell landing, a woman in a wool overcoat faces a man beside painted railings. Mirror-polished liquid chrome and rippling molten silver mercury completely coat their faces, hands, and coats in gleaming specular metallic reflections mirroring the distorted stairwell. She (S1) says, <d>[English] Keep this strictly between us tonight.</d> before closing her mouth.
+
+overall_soundscape: Footsteps settle quietly across hollow concrete stairwell steps.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Behind a corner coffee counter, a barista in a denim apron wipes stoneware mugs beside timber shelves. Natural warm flesh tones, absorbent cotton twill, and rough unglazed earthenware keep soft everyday surface texture. He produces no vocal sound.
+
+overall_soundscape: Stoneware mugs clink lightly across varnished timber counters.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Behind a corner coffee counter, a barista in a denim apron wipes stoneware mugs beside timber shelves. Gleaming liquid-mercury chrome transforms his skin, apron, and mugs into seamless mirror-silver molten metal rippling with hyper-reflective metallic specular highlights. He produces no vocal sound.
+
+overall_soundscape: Stoneware mugs clink lightly across varnished timber counters.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a timber dance studio, a dancer in cotton leggings extends her arms beside wall mirrors. Realistic natural complexion, porous knitted jersey, and flat unpolished wood surfaces absorb ambient light gently. She produces no vocal sound.
+
+overall_soundscape: Bare feet pivot softly across sprung oak studio boards.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a timber dance studio, a dancer in cotton leggings extends her arms beside wall mirrors. Fluid mirror-polished liquid chrome and glistening molten silver mercury replace her entire body and garments with seamless specular quicksilver reflecting every warped ceiling fixture. She produces no vocal sound.
+
+overall_soundscape: Bare feet pivot softly across sprung oak studio boards.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a neighborhood hardware aisle, a clerk in a flannel shirt stacks cardboard boxes beside pegged racks. Ordinary skin pores, fuzzy brushed cotton, and dry kraft paper board remain dull and tactile throughout. He (S1) says, <d>[English] Check the brass brackets on aisle four.</d> before shutting his lips.
+
+overall_soundscape: Cardboard cartons slide smoothly across painted metal shelving.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a neighborhood hardware aisle, a clerk in a flannel shirt stacks cardboard boxes beside pegged racks. Seamless rippling liquid chrome and luminous molten silver mercury melt across his face, sleeves, and boxes in dazzling mirror-bright metallic reflections. He (S1) says, <d>[English] Check the brass brackets on aisle four.</d> before shutting his lips.
+
+overall_soundscape: Cardboard cartons slide smoothly across painted metal shelving.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Along a stone harbor pier, a fisherman in a knit sweater ties thick rope around weathered posts. Sun-weathered human skin, coarse wool yarn, and dry hemp fibers retain earthy non-metallic surfaces cleanly. He produces no vocal sound.
+
+overall_soundscape: Harbor waves lap quietly against weathered masonry pilings.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Along a stone harbor pier, a fisherman in a knit sweater ties thick rope around weathered posts. Mirror-smooth molten mercury and rippling liquid silver chrome completely overtake his face, knitwear, and coiled rope in dazzling specular chrome reflections. He produces no vocal sound.
+
+overall_soundscape: Harbor waves lap quietly against weathered masonry pilings.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a quiet neighborhood bookstore, a clerk in a tweed jacket places paperbacks onto pine shelves. Lifelike human complexion, nubby wool tweed, and soft paper stock show grounded everyday opacity cleanly. She (S1) says, <d>[English] History titles moved to the rear alcove.</d> before resting her jaw.
+
+overall_soundscape: Paperback pages fan gently beside creaking pine shelves.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a quiet neighborhood bookstore, a clerk in a tweed jacket places paperbacks onto pine shelves. Swirling mirror-polished liquid chrome and gleaming molten silver mercury cast her skin, jacket, and books into flawless quicksilver metal reflecting the curved aisles. She (S1) says, <d>[English] History titles moved to the rear alcove.</d> before resting her jaw.
+
+overall_soundscape: Paperback pages fan gently beside creaking pine shelves.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a rustic pottery bay, a sculptor in linen coveralls trims unfired bowls on clay tables. Authentic organic hands, woven raw linen, and chalky dry clay display subdued everyday dustiness throughout. She produces no vocal sound.
+
+overall_soundscape: Thin steel loop tools scrape softly against unfired bowls.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a rustic pottery bay, a sculptor in linen coveralls trims unfired bowls on clay tables. Brilliant mirror-polished liquid chrome and rippling molten silver mercury morph her face, garments, and vessels into gleaming liquid steel reflecting distorted skylights. She produces no vocal sound.
+
+overall_soundscape: Thin steel loop tools scrape softly against unfired bowls.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a municipal courtroom chamber, two lawyers in wool suits trade leather folders across oak benches. Normal human faces, soft dark suiting, and satin varnished timber stay solidly organic without metallic glare. Neither lawyer produces any vocal sound.
+
+overall_soundscape: Heavy paper briefs rustle quietly against polished oak rails.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a municipal courtroom chamber, two lawyers in wool suits trade leather folders across oak benches. Mirror-bright rippling liquid chrome and fluid molten silver mercury fuse both silhouettes, suits, and folders into dazzling specular quicksilver reflecting the chamber arches. Neither lawyer produces any vocal sound.
+
+overall_soundscape: Heavy paper briefs rustle quietly against polished oak rails.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a tiled diner kitchen, a short-order cook in a white cap turns sizzling pancakes beside ceramic plates. Natural fleshy arms, plain starched cotton, and dull stoneware surfaces reflect soft diffused kitchen light cleanly. He (S1) says, <d>[English] Two short stacks ready on window three.</d> before shutting his mouth.
+
+overall_soundscape: Griddle spatulas scrape faintly over seasoned iron plates.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a tiled diner kitchen, a short-order cook in a white cap turns sizzling pancakes beside ceramic plates. Molten mirror-polished liquid chrome and glistening rippling silver mercury coat his skin, uniform, and dishes in razor-sharp specular metallic reflections. He (S1) says, <d>[English] Two short stacks ready on window three.</d> before shutting his mouth.
+
+overall_soundscape: Griddle spatulas scrape faintly over seasoned iron plates.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a glazed train concourse, a conductor in a navy tunic raises a brass whistle beside iron benches. Authentic real complexion, thick brushed wool, and weathered paint maintain ordinary everyday textures throughout. He produces no vocal sound.
+
+overall_soundscape: Distant train footsteps echo faintly beneath vaulted steel beams.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a glazed train concourse, a conductor in a navy tunic raises a brass whistle beside iron benches. Flawless mirror-polished liquid chrome and flowing molten silver mercury turn his face, uniform, and whistle into glistening specular quicksilver mirroring the arched concourse. He produces no vocal sound.
+
+overall_soundscape: Distant train footsteps echo faintly beneath vaulted steel beams.
+
+non_diegetic_music: N/A'''

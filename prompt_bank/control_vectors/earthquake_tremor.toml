@@ -1,0 +1,129 @@
+[vector]
+name = "earthquake_tremor"
+quality = "violent seismic earthquake shaking rooms, swinging hanging lamps, rattling shelves, and forcing people to brace against the tremor"
+a_side = "grounded level floor, motionless fixtures, resting props, and steady tripod camera"
+b_side = "violent seismic earthquake jolt with whipping ceiling lamps, rattling dishes, tumbling books, stumbling figures grabbing railings, and bucking handheld camera"
+mode = "t2va"
+frame = "scene"
+exclude_shots = ["t2va_offpath_tortoise", "ref2va_look_anchor"]
+# inference_recipe = target=scene_only (t2va) / description_only (ref2va), strength=1.2..1.6, steps=0.0..0.67
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a tiled municipal bakery, an aproned chef aligns metal proofing trays along a marble counter. Every rack sits firmly planted on the level floor while pendant fixtures hang straight overhead and a tripod frames a smooth medium shot. She (S1) says, <d>[English] Rack three goes into the deck oven next.</d> before closing her mouth.
+
+overall_soundscape: Sheet pans tap faintly over low oven blower air.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a tiled municipal bakery, an aproned chef aligns metal proofing trays along a marble counter. A violent seismic earthquake jolts the concrete slab sideways, hurling ceramic bowls off vibrating shelves as ceiling lamps whip wildly and she lunges to grip the counter edge inside a bucking handheld lens. She (S1) says, <d>[English] Rack three goes into the deck oven next.</d> before closing her mouth.
+
+overall_soundscape: Sheet pans tap faintly over low oven blower air.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Along a brick pharmacy aisle, a clerk in a knitted vest checks amber apothecary jars beside wooden drawers. Tall glass cabinets rest undisturbed upon oak floorboards while wall clocks hold plumb and a gimbal glides evenly. He produces no vocal sound.
+
+overall_soundscape: Rubber shoe soles squeak softly along waxed planks.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Along a brick pharmacy aisle, a clerk in a knitted vest checks amber apothecary jars beside wooden drawers. Intense tectonic tremors heave the building laterally, rattling apothecary bottles off shuddering ledges while hanging signs swing violently and he braces both palms against a trembling pillar under a thrashing camera. He produces no vocal sound.
+
+overall_soundscape: Rubber shoe soles squeak softly along waxed planks.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a timber harbor master office, two inspectors examine folded nautical charts across a drafting table. Brass compasses stay settled on the desk surface beside anchored bookshelves under a locked-off wide lens. Neither inspector produces any vocal sound.
+
+overall_soundscape: Distant gull calls drift past double-hung timber windows.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a timber harbor master office, two inspectors examine folded nautical charts across a drafting table. Severe seismic shocks wrench the room back and forth, sending rulers sliding across the shaking tabletop while wall frames slam against plaster and both men stagger to grab heavy timber beams as the view jolts harshly. Neither inspector produces any vocal sound.
+
+overall_soundscape: Distant gull calls drift past double-hung timber windows.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Beneath arched concrete stairwell landings, a courier in a grey raincoat adjusts a leather satchel strap by steel railings. Heavy masonry walls stand solid and unmoving beside anchored cage lamps in an even two-shot. She (S1) says, <d>[English] Take the freight exit by the alley.</d> before her jaw closes.
+
+overall_soundscape: Footsteps echo faintly along hollow concrete steps.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Beneath arched concrete stairwell landings, a courier in a grey raincoat adjusts a leather satchel strap by steel railings. Powerful earthquake aftershocks hammer the shaft violently, showering plaster dust from cracking joists while caged bulbs swing fiercely and she clutches the vibrating handrail as the camera bucks wildly. She (S1) says, <d>[English] Take the freight exit by the alley.</d> before her jaw closes.
+
+overall_soundscape: Footsteps echo faintly along hollow concrete steps.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a neighborhood clock repair workshop, a watchmaker in rolled shirtsleeves tightens brass gears under a magnifying loupe. Pendulum cases line the rear wall in serene alignment while a dolly tracks smoothly past his workbench. He produces no vocal sound.
+
+overall_soundscape: Dozens of brass escapements tick lightly across the workshop.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a neighborhood clock repair workshop, a watchmaker in rolled shirtsleeves tightens brass gears under a magnifying loupe. Massive seismic quakes rock the entire shop violently, clattering screwdrivers off bouncing benches while hanging pendulums bang erratically against mahogany doors and he ducks behind his shuddering stool as the lens judders fiercely. He produces no vocal sound.
+
+overall_soundscape: Dozens of brass escapements tick lightly across the workshop.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Across a ceramic studio bay, a potter in canvas coveralls stacks bisque bowls beside tall kiln shelves. Terracotta pitchers remain neatly balanced along iron racks while a stable waist-up frame holds without drift. She produces no vocal sound.
+
+overall_soundscape: Dry kiln bricks creak gently inside the drafty bay.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Across a ceramic studio bay, a potter in canvas coveralls stacks bisque bowls beside tall kiln shelves. Brutal earth tremors lurch violently underfoot, toppling stoneware vessels off rattling metal tiers while ceiling ducts sway sharply and she stumbles wide-legged to steady herself inside a violently shaking view. She produces no vocal sound.
+
+overall_soundscape: Dry kiln bricks creak gently inside the drafty bay.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a vintage vinyl record store, a customer in a corduroy jacket flips cardboard sleeves along pine listening bins. Overhead track bulbs remain poised in fixed rows while a steady camera watches from across the counter. He (S1) says, <d>[English] Do you carry the original mono pressing?</d> before lowering his chin.
+
+overall_soundscape: Cardboard jackets rustle gently inside crowded wooden bins.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a vintage vinyl record store, a customer in a corduroy jacket flips cardboard sleeves along pine listening bins. Fierce seismic waves slam through the storefront, spilling vinyl records across the lurching carpet while hanging speakers whip wildly on chains and he grabs a swaying steel post as the handheld lens convulses. He (S1) says, <d>[English] Do you carry the original mono pressing?</d> before lowering his chin.
+
+overall_soundscape: Cardboard jackets rustle gently inside crowded wooden bins.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a university chemistry lab, a researcher in a white lab coat labels glass flasks along slate worktops. Graduated cylinders rest upright beside bolted fume hoods while the camera holds a poised eye-level view. She produces no vocal sound.
+
+overall_soundscape: Glass stoppers click quietly above soft hood exhaust air.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a university chemistry lab, a researcher in a white lab coat labels glass flasks along slate worktops. Violent earthquake tremors hammer the tiled floor, splashing liquid across violently rattling beakers while overhead fluorescent tubes swing dangerously and she braces both hands against the quaking slate bench inside a thrashing shot. She produces no vocal sound.
+
+overall_soundscape: Glass stoppers click quietly above soft hood exhaust air.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Out on a cobbled courtyard terrace, a waiter in a linen shirt carries espresso saucers toward iron bistro tables. Stone columns stay firmly rooted beside hanging lanterns while a smooth medium shot follows his stride. He produces no vocal sound.
+
+overall_soundscape: Porcelain saucers chime softly against distant street murmur.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Out on a cobbled courtyard terrace, a waiter in a linen shirt carries espresso saucers toward iron bistro tables. Violent ground tremors buck beneath the cobblestones, knocking empty café chairs sideways as wrought-iron fixtures whip wildly and he drops into a crouched stance to keep upright while the camera jolts violently. He produces no vocal sound.
+
+overall_soundscape: Porcelain saucers chime softly against distant street murmur.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside an arched reading room, a librarian in wire spectacles pushes an oak cart past stacked reference folios. Tall chandeliers hang squarely overhead beside immovable oak tables in an unhurried wide frame. She (S1) says, <d>[English] The atlas volumes belong on shelf seven.</d> before closing her lips.
+
+overall_soundscape: Cart casters roll softly across herringbone wood flooring.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside an arched reading room, a librarian in wire spectacles pushes an oak cart past stacked reference folios. Massive seismic jolts shudder violently across the hall, cascading leather volumes off swaying stacks while heavy brass sconces whip fiercely aloft and she grips the rolling cart rails inside a violently pitching camera. She (S1) says, <d>[English] The atlas volumes belong on shelf seven.</d> before closing her lips.
+
+overall_soundscape: Cart casters roll softly across herringbone wood flooring.
+
+non_diegetic_music: N/A'''

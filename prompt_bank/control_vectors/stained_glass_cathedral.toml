@@ -1,0 +1,129 @@
+[vector]
+name = "stained_glass_cathedral"
+quality = "backlit cathedral stained-glass mosaic animation breaking every face, garment, and room into thick black lead-came outlines and glowing jewel-toned glass panels"
+a_side = "continuous live-action optical photography with smooth organic skin, woven cloth, and opaque everyday surfaces"
+b_side = "luminous backlit cathedral stained-glass mosaic breaking every face, garment, and backdrop into thick black lead-came lines and glowing ruby, cobalt, amber, and emerald glass shards"
+mode = "t2va"
+frame = "scene"
+exclude_shots = ["t2va_offpath_tortoise", "ref2va_look_anchor"]
+# inference_recipe = target=scene_only (t2va) / look_only or scene_only (ref2va, release_refs=0.17..0.33), strength=1.2..1.6, steps=0.0..0.50
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a stone courtyard market, a florist in a canvas apron bundles clipped roses across wooden stalls. Real live-action film renders smooth skin pores, natural woven fibers, and solid opaque brick masonry cleanly. She (S1) says, <d>[English] Wrap the red stems in brown kraft paper.</d> before closing her mouth.
+
+overall_soundscape: Garden shears clip wet green stems over courtyard murmur.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a stone courtyard market, a florist in a canvas apron bundles clipped roses across wooden stalls. Luminous cathedral stained-glass mosaic art shatters every figure, bouquet, and wall into bold black lead-came borders holding glowing backlit ruby, cobalt, emerald, and gold glass panels. She (S1) says, <d>[English] Wrap the red stems in brown kraft paper.</d> before closing her mouth.
+
+overall_soundscape: Garden shears clip wet green stems over courtyard murmur.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a neighborhood bicycle repair shop, a mechanic in work overalls trues spoked alloy wheels beside steel benches. Continuous optical photography preserves lifelike flesh, matte metal parts, and ordinary painted walls faithfully. He produces no vocal sound.
+
+overall_soundscape: Spoke wrenches click softly against taut steel wire rims.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a neighborhood bicycle repair shop, a mechanic in work overalls trues spoked alloy wheels beside steel benches. Illuminated gothic stained-glass artistry fractures every face, tool, and wheel into heavy black leaded seams inlaid with radiant translucent sapphire, crimson, amber, and jade glass panes. He produces no vocal sound.
+
+overall_soundscape: Spoke wrenches click softly against taut steel wire rims.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Along a glazed ferry terminal walkway, two travelers in wool coats lean against timber benches beside luggage carts. Unbroken camera realism shows smooth human faces, soft wool textures, and grounded concrete pillars evenly. Neither traveler produces any vocal sound.
+
+overall_soundscape: Distant ferry horns echo faintly above rolling bag casters.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Along a glazed ferry terminal walkway, two travelers in wool coats lean against timber benches beside luggage carts. Radiant backlit stained-glass mosaic craft splits every person, suitcase, and hallway into dark soldered lead outlines framing vivid translucent jewel-toned ruby, cobalt, and golden glass tiles. Neither traveler produces any vocal sound.
+
+overall_soundscape: Distant ferry horns echo faintly above rolling bag casters.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a rustic violin maker workshop, a luthier in a leather apron planes curled spruce ribs across timber vises. Authentic live cinema displays soft wood grain, realistic hands, and opaque plastered workshop alcoves neatly. He (S1) says, <d>[English] The spruce belly plate is down to three millimeters.</d> before his jaw rests.
+
+overall_soundscape: Small brass thumb planes shave crisp curls from spruce wood.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a rustic violin maker workshop, a luthier in a leather apron planes curled spruce ribs across timber vises. Glowing cathedral stained-glass mosaic imagery divides every silhouette, violin rib, and bench into thick black lead-came tracery filled with sunlit translucent emerald, garnet, amber, and ultramarine glass pieces. He (S1) says, <d>[English] The spruce belly plate is down to three millimeters.</d> before his jaw rests.
+
+overall_soundscape: Small brass thumb planes shave crisp curls from spruce wood.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a tiled fishmonger hall, a vendor in rubber boots weighs iced mackerel onto hanging brass scales. Straight optical video captures wet organic textures, everyday human complexion, and solid ceramic tiles accurately. She produces no vocal sound.
+
+overall_soundscape: Crushed ice shifts softly beneath hanging brass scale pans.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a tiled fishmonger hall, a vendor in rubber boots weighs iced mackerel onto hanging brass scales. Brilliant medieval stained-glass window craft tessellates every figure, fish, and counter into bold black lead channels glowing with backlit turquoise, vermilion, cobalt, and gold glass segments. She produces no vocal sound.
+
+overall_soundscape: Crushed ice shifts softly beneath hanging brass scale pans.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a neighborhood bookbindery, an artisan in a linen blouse sews folded signatures onto cotton tape along wooden frames. Genuine live capture keeps delicate facial pores, natural cloth weaves, and unglazed paper stock intact. She (S1) says, <d>[English] Pull the linen thread snug at each kettle stitch.</d> before shutting her lips.
+
+overall_soundscape: Bone folders crease folded rag paper sheets softly.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a neighborhood bookbindery, an artisan in a linen blouse sews folded signatures onto cotton tape along wooden frames. Vibrant backlit stained-glass mosaic cinema transforms every hand, book block, and wall into crisp black lead-came outlines shimmering with radiant translucent sapphire, ruby, emerald, and amber glass shards. She (S1) says, <d>[English] Pull the linen thread snug at each kettle stitch.</d> before shutting her lips.
+
+overall_soundscape: Bone folders crease folded rag paper sheets softly.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Out beside stone harbor breakwaters, a fisherman in a knit sweater coils hemp mooring lines around iron bollards. Natural photographic motion preserves real skin contours, coarse rope fibers, and dull granite slabs clearly. He produces no vocal sound.
+
+overall_soundscape: Harbor swell laps steadily against weathered stone quay walls.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Out beside stone harbor breakwaters, a fisherman in a knit sweater coils hemp mooring lines around iron bollards. Sun-drenched cathedral stained-glass artistry renders every body, coiled hawser, and wave as thick black leaded joints enclosing incandescent translucent cobalt, emerald, crimson, and topaz glass panels. He produces no vocal sound.
+
+overall_soundscape: Harbor swell laps steadily against weathered stone quay walls.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a compact greenhouse conservatory, a gardener in a straw hat mists potted ferns along cedar slat benches. Realistic camera optics show authentic green foliage, lifelike hands, and solid clay planters without stylization. She produces no vocal sound.
+
+overall_soundscape: Fine water mist sprays gently over damp cedar benches.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a compact greenhouse conservatory, a gardener in a straw hat mists potted ferns along cedar slat benches. Transcendent stained-glass rose-window mosaic styling fractures every frond, face, and glasshouse arch into heavy black soldered came ribs filled with glowing translucent emerald, gold, amethyst, and azure glass panes. She produces no vocal sound.
+
+overall_soundscape: Fine water mist sprays gently over damp cedar benches.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a wood-lined municipal courtroom, two attorneys in wool suits exchange folded briefs beside polished oak railings. Conventional film capture retains natural human skin, plain dark suiting, and opaque paneled woodwork smoothly. Neither attorney produces any vocal sound.
+
+overall_soundscape: Crisp paper folios rustle gently across timber railings.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a wood-lined municipal courtroom, two attorneys in wool suits exchange folded briefs beside polished oak railings. Dazzling backlit cathedral stained-glass mosaic craft breaks every suit, face, and wooden bench into bold black lead contours glowing with translucent sapphire, scarlet, golden, and emerald glass tesserae. Neither attorney produces any vocal sound.
+
+overall_soundscape: Crisp paper folios rustle gently across timber railings.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a brick stairwell landing, a tenant in a rain parka adjusts brass keys beside painted cinderblock walls. Everyday optical video portrays smooth real complexions, standard outerwear fabrics, and plain concrete masonry directly. He (S1) says, <d>[English] Leave the spare key inside the meter box.</d> before closing his mouth.
+
+overall_soundscape: Brass door keys jingle faintly inside the concrete landing.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a brick stairwell landing, a tenant in a rain parka adjusts brass keys beside painted cinderblock walls. Radiant cathedral stained-glass mosaic animation turns every face, parka, and cinderblock stair into dark black lead-came seams lit brilliantly through translucent cobalt, crimson, amber, and violet glass pieces. He (S1) says, <d>[English] Leave the spare key inside the meter box.</d> before closing his mouth.
+
+overall_soundscape: Brass door keys jingle faintly inside the concrete landing.
+
+non_diegetic_music: N/A'''

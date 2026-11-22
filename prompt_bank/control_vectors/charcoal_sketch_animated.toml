@@ -1,0 +1,129 @@
+[vector]
+name = "charcoal_sketch_animated"
+quality = "rough hand-drawn black charcoal and white chalk sketch animation on coarse textured paper with boiling frame-by-frame graphite lines"
+a_side = "smooth continuous full-color live-action photography with lifelike skin gradients and crisp optical detail"
+b_side = "rough hand-drawn black charcoal and smudged chalk sketch animation on coarse cream drawing paper with boiling frame-by-frame pencil hatching"
+mode = "t2va"
+frame = "scene"
+exclude_shots = ["t2va_offpath_tortoise", "ref2va_look_anchor"]
+# inference_recipe = target=scene_only (t2va) / look_only or scene_only (ref2va, release_refs=0.17..0.33), strength=1.2..1.6, steps=0.0..0.50
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a cobbled courtyard bakery, a baker in a linen apron scores dough boules along oak counters. Smooth continuous live-action photography renders realistic human skin, natural wood hues, and crisp depth across the room. She (S1) says, <d>[English] Score the crust cleanly down the middle.</d> before closing her mouth.
+
+overall_soundscape: A razor blade slices softly across floured dough skin.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a cobbled courtyard bakery, a baker in a linen apron scores dough boules along oak counters. Rough hand-drawn black charcoal animation on coarse cream paper turns every figure and wall into smudged graphite cross-hatching with boiling jittering pencil outlines. She (S1) says, <d>[English] Score the crust cleanly down the middle.</d> before closing her mouth.
+
+overall_soundscape: A razor blade slices softly across floured dough skin.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Along a sunlit commuter railway platform, a conductor in a wool jacket checks a pocket timepiece beside steel doors. True-to-life optical cinema captures subtle skin tones, colored enamel signage, and realistic cloth folds accurately. He produces no vocal sound.
+
+overall_soundscape: Pneumatic coach doors hiss faintly along concrete platforms.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Along a sunlit commuter railway platform, a conductor in a wool jacket checks a pocket timepiece beside steel doors. Expressive hand-sketched vine-charcoal and white chalk animation renders every silhouette across gritty toothy paper with raw smudged shading and boiling pencil linework. He produces no vocal sound.
+
+overall_soundscape: Pneumatic coach doors hiss faintly along concrete platforms.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a cramped corner watchshop, a repairman in rolled cuffs fits tiny brass hands onto enamel dials. Clear camera realism preserves rich everyday colors, lifelike fingernails, and clean metallic reflections faithfully. He (S1) says, <d>[English] The minute pinion sits completely flush now.</d> before shutting his lips.
+
+overall_soundscape: Steel tweezers tap lightly against delicate watch dials.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a cramped corner watchshop, a repairman in rolled cuffs fits tiny brass hands onto enamel dials. Raw hand-drawn charcoal-and-graphite animation redraws every tool and face in grainy black crayon strokes, smudged fingerprint shadows, and flickering boiling sketch lines on coarse rag paper. He (S1) says, <d>[English] The minute pinion sits completely flush now.</d> before shutting his lips.
+
+overall_soundscape: Steel tweezers tap lightly against delicate watch dials.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a quiet neighborhood greenhouse, two botanists in cotton shirts tag potted ferns beside cedar tables. Authentic full-color live video records organic leaf pigments, soft human faces, and solid terracotta pots cleanly. Neither botanist produces any vocal sound.
+
+overall_soundscape: Plastic plant markers rustle lightly among damp green fronds.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a quiet neighborhood greenhouse, two botanists in cotton shirts tag potted ferns beside cedar tables. Handmade charcoal-sketch animation transforms every plant and figure into jagged black stick-charcoal scribbling, smeared white chalk highlights, and jittering boiling pencil contours on rough parchment paper. Neither botanist produces any vocal sound.
+
+overall_soundscape: Plastic plant markers rustle lightly among damp green fronds.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Behind a neighborhood diner counter, a waitress in a striped blouse pours dark coffee into ceramic mugs. Conventional real-world film delivers vivid glossy porcelain, natural flesh gradients, and smooth lens focus seamlessly. She (S1) says, <d>[English] Tell me if you want cream on top.</d> before her jaw rests.
+
+overall_soundscape: Hot coffee streams cleanly into thick ceramic mugs.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Behind a neighborhood diner counter, a waitress in a striped blouse pours dark coffee into ceramic mugs. Gritty hand-drawn black charcoal animation across textured newsprint paper converts every mug and person into smudged dark graphite hatching, erased chalk streaks, and boiling frame-by-frame sketch strokes. She (S1) says, <d>[English] Tell me if you want cream on top.</d> before her jaw rests.
+
+overall_soundscape: Hot coffee streams cleanly into thick ceramic mugs.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Along a harbor concrete seawall, a dockhand in a rain slicker coils braided rope around cast bollards. Everyday photographic cinema displays rich blue water tones, genuine human complexion, and solid wet masonry sharply. He produces no vocal sound.
+
+overall_soundscape: Heavy braided rope thuds softly onto damp concrete quays.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Along a harbor concrete seawall, a dockhand in a rain slicker coils braided rope around cast bollards. Vigorous black charcoal-and-chalk animation on rough cream drawing board turns every wave and figure into vigorous cross-hatched graphite shading, dusty smudges, and trembling boiling pencil outlines. He produces no vocal sound.
+
+overall_soundscape: Heavy braided rope thuds softly onto damp concrete quays.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a narrow wooden stairwell, a woman in a wool overcoat faces a bearded man beneath a caged bulb. Unbroken live-action video maintains realistic flesh shading, deep woven wool color, and sharp cinderblock grain cleanly. She (S1) says, <d>[English] Nobody else knows about tonight.</d> before closing her mouth.
+
+overall_soundscape: Low voices echo briefly across hollow concrete stairwell walls.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a narrow wooden stairwell, a woman in a wool overcoat faces a bearded man beneath a caged bulb. Stark hand-drawn charcoal-sketch animation on coarse ivory paper reduces every face and step to bold smeared black graphite, dusty chalk highlights, and jittering boiling pencil lines. She (S1) says, <d>[English] Nobody else knows about tonight.</d> before closing her mouth.
+
+overall_soundscape: Low voices echo briefly across hollow concrete stairwell walls.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a ceramic pottery bay, an instructor in canvas trousers shapes wet stoneware bowls on spinning aluminum wheels. Genuine optical film preserves lifelike skin texture, earthy slip tones, and crisp water sheen clearly. She produces no vocal sound.
+
+overall_soundscape: Spinning wheel motors hum quietly beneath wet stoneware clay.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a ceramic pottery bay, an instructor in canvas trousers shapes wet stoneware bowls on spinning aluminum wheels. Tactile hand-drawn black charcoal animation across coarse rag stock renders every gesture and vessel in frantic graphite scribbling, rubbed soot shadows, and flickering boiling sketch outlines. She produces no vocal sound.
+
+overall_soundscape: Spinning wheel motors hum quietly beneath wet stoneware clay.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a quiet violin shop, a musician in a knit sweater draws horsehair bows across varnished maple instruments. Direct real photography captures polished amber lacquer, subtle facial features, and warm textile grain accurately. He produces no vocal sound.
+
+overall_soundscape: Rosined horsehair pulls a clean warm note from maple wood.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a quiet violin shop, a musician in a knit sweater draws horsehair bows across varnished maple instruments. Expressive hand-drawn charcoal-and-chalk animation on rough grainy paper redraws every silhouette in smudged black crayon strokes, raw diagonal hatching, and boiling frame-by-frame pencil lines. He produces no vocal sound.
+
+overall_soundscape: Rosined horsehair pulls a clean warm note from maple wood.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a crowded municipal library aisle, two students in denim coats pull bound encyclopedias from pine shelves. Regular full-color film records realistic skin hues, dyed book cloth, and sharp architectural lines smoothly. Neither student produces any vocal sound.
+
+overall_soundscape: Heavy cloth book covers slide gently out of tight pine rows.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a crowded municipal library aisle, two students in denim coats pull bound encyclopedias from pine shelves. Hand-drawn charcoal-sketch animation across toothy beige drawing paper turns every volume and student into smeared black graphite shadows, chalk accents, and jittering boiling pencil contours. Neither student produces any vocal sound.
+
+overall_soundscape: Heavy cloth book covers slide gently out of tight pine rows.
+
+non_diegetic_music: N/A'''

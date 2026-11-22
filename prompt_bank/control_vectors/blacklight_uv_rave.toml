@@ -1,0 +1,129 @@
+[vector]
+name = "blacklight_uv_rave"
+quality = "pitch-black ultraviolet UV blacklight fluorescence making whites, eyes, teeth, and edges blaze electric violet, cyan, and acid neon green"
+a_side = "normal everyday visible-spectrum room lighting with natural muted fabrics and balanced skin tones"
+b_side = "ultraviolet UV blacklight darkness where white garments, teeth, eyes, and seams fluoresce blazing electric violet, neon cyan, and acid green"
+mode = "t2va"
+frame = "scene"
+exclude_shots = ["t2va_offpath_tortoise", "ref2va_look_anchor"]
+# inference_recipe = target=scene_only (t2va) / look_only or scene_only (ref2va, release_refs=0.17..0.33), strength=1.2..1.6, steps=0.0..0.50
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a concrete bowling alley concourse, a bowler in a collared cotton shirt polishes a resin ball beside rental racks. Ordinary warm ceiling fixtures render natural skin tones and everyday muted fabrics across the lanes. He (S1) says, <d>[English] Lane twelve just finished resetting.</d> before shutting his lips.
+
+overall_soundscape: Bowling pins settle lightly over polished maple alleys.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a concrete bowling alley concourse, a bowler in a collared cotton shirt polishes a resin ball beside rental racks. Pitch-black ultraviolet UV blacklight engulfs the hall, making white shirts, teeth, shoelaces, and stripe edges fluoresce blazing electric violet, acid neon green, and glowing cyan. He (S1) says, <d>[English] Lane twelve just finished resetting.</d> before shutting his lips.
+
+overall_soundscape: Bowling pins settle lightly over polished maple alleys.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a wood-floored dance rehearsal hall, two dancers in cotton tanks stretch beside wall barres. Even afternoon window glow reveals realistic complexions and standard neutral clothing across pale plaster walls. Neither dancer produces any vocal sound.
+
+overall_soundscape: Canvas dance slippers scuff softly along sprung oak boards.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a wood-floored dance rehearsal hall, two dancers in cotton tanks stretch beside wall barres. Deep ultraviolet UV blacklight plunges the studio into indigo gloom where white cotton, eyeballs, and painted floor lines flare fluorescent magenta, neon cyan, and radioactive green. Neither dancer produces any vocal sound.
+
+overall_soundscape: Canvas dance slippers scuff softly along sprung oak boards.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Behind a neighborhood coffee bar, a barista in a linen apron tamps espresso grounds beside chrome hoppers. Plain interior overhead bulbs illuminate ordinary brown wood, realistic faces, and subdued stoneware cleanly. She (S1) says, <d>[English] Your oat cortado is ready right here.</d> before closing her mouth.
+
+overall_soundscape: Brass portafilters click neatly against stainless espresso heads.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Behind a neighborhood coffee bar, a barista in a linen apron tamps espresso grounds beside chrome hoppers. Saturated ultraviolet blacklight bathes the café in dark purple haze as white apron ties, porcelain cups, and gleaming highlights radiate electric violet, fluorescent cyan, and acid lime. She (S1) says, <d>[English] Your oat cortado is ready right here.</d> before closing her mouth.
+
+overall_soundscape: Brass portafilters click neatly against stainless espresso heads.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a brick basement laundry room, a tenant in a crewneck tee sorts folded sheets beside coin machines. Standard ceiling tubes show authentic flesh colors and unremarkable matte cotton surfaces evenly. He produces no vocal sound.
+
+overall_soundscape: Metal quarters drop softly beside spinning steel drums.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a brick basement laundry room, a tenant in a crewneck tee sorts folded sheets beside coin machines. Intense UV blacklight drowns the cellar in shadowy violet darkness while white bedsheets, detergent splashes, and bright teeth blaze glowing fluorescent purple, electric turquoise, and neon chartreuse. He produces no vocal sound.
+
+overall_soundscape: Metal quarters drop softly beside spinning steel drums.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a tiled veterinary exam room, a technician in cotton scrubs inspects glass vials beside stainless cabinets. Neutral clinical ceiling lamps keep everyday blue textiles and ordinary complexions balanced in full daylight fidelity. She produces no vocal sound.
+
+overall_soundscape: Rubber vial caps pop lightly beside humming refrigerators.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a tiled veterinary exam room, a technician in cotton scrubs inspects glass vials beside stainless cabinets. Dark ultraviolet UV blacklight transforms the chamber into velvety black-violet shadow where white collars, liquid vials, and crisp seams glow intensely electric magenta, glowing cyan, and acid green. She produces no vocal sound.
+
+overall_soundscape: Rubber vial caps pop lightly beside humming refrigerators.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a corner tailor shop, a seamstress in a wool vest chalks hem lines onto pleated trousers beside mirrors. Soft shaded shop lamps produce lifelike skin shades and subdued natural cloth textures across the workbench. She (S1) says, <d>[English] Try stepping forward once more please.</d> before resting her lips.
+
+overall_soundscape: Tailor chalk scratches softly across woven wool cloth.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a corner tailor shop, a seamstress in a wool vest chalks hem lines onto pleated trousers beside mirrors. Heavy UV blacklight turns the boutique into pitch-indigo twilight where chalk marks, white stitches, eyes, and bright cuffs fluoresce blazing ultraviolet purple, hyper-cyan, and electric neon green. She (S1) says, <d>[English] Try stepping forward once more please.</d> before resting her lips.
+
+overall_soundscape: Tailor chalk scratches softly across woven wool cloth.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a quiet neighborhood diner booth, two friends in denim jackets pass ceramic salt shakers across laminated tables. Balanced indoor ceiling lights show true everyday colors, warm faces, and plain tabletops cleanly. Neither friend produces any vocal sound.
+
+overall_soundscape: Ceramic shakers tap lightly against laminated counter tops.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a quiet neighborhood diner booth, two friends in denim jackets pass ceramic salt shakers across laminated tables. Blazing ultraviolet blacklight floods the booth with deep dark-violet glow making white napkins, eyes, teeth, and liquid rims radiate electric fluorescent purple, neon cyan, and acid lime. Neither friend produces any vocal sound.
+
+overall_soundscape: Ceramic shakers tap lightly against laminated counter tops.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a school art classroom, a student in a canvas smock rinses bristle brushes inside ceramic jars. Clear skylight illumination reveals authentic human skin and realistic earth pigments across timber easels. He produces no vocal sound.
+
+overall_soundscape: Wooden brush handles clink gently inside water jars.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a school art classroom, a student in a canvas smock rinses bristle brushes inside ceramic jars. Deep UV blacklight plunges the studio into ink-violet darkness while paint streaks, white cuffs, and jar rims ignite blazing fluorescent violet, glowing neon green, and electric cyan. He produces no vocal sound.
+
+overall_soundscape: Wooden brush handles clink gently inside water jars.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a narrow music rehearsal cellar, a drummer in a cotton hoodie tunes snare lugs beside brass cymbals. Familiar warm utility bulbs display regular skin hues and muted everyday garments across brick walls. He (S1) says, <d>[English] Give me four clicks on the stick.</d> before closing his jaw.
+
+overall_soundscape: Drum keys tighten steel lugs with crisp metallic clicks.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a narrow music rehearsal cellar, a drummer in a cotton hoodie tunes snare lugs beside brass cymbals. Pitch-dark ultraviolet blacklight saturates the cellar in glowing indigo shadow where white drumheads, sneakers, teeth, and tape strips blaze fluorescent purple, electric cyan, and acid neon green. He (S1) says, <d>[English] Give me four clicks on the stick.</d> before closing his jaw.
+
+overall_soundscape: Drum keys tighten steel lugs with crisp metallic clicks.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Along a subway platform stairwell, a commuter in a wool trench checks a printed timetable beside steel rails. Typical overcast station illumination preserves ordinary fabric tones and realistic faces in balanced contrast. She produces no vocal sound.
+
+overall_soundscape: Paper timetable folds crinkle softly over distant tunnel air.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Along a subway platform stairwell, a commuter in a wool trench checks a printed timetable beside steel rails. Blinding ultraviolet UV blacklight wraps the stairwell in midnight violet haze as printed paper sheets, teeth, eyeballs, and trim glow intensely electric purple, neon cyan, and fluorescent lime. She produces no vocal sound.
+
+overall_soundscape: Paper timetable folds crinkle softly over distant tunnel air.
+
+non_diegetic_music: N/A'''

@@ -1,0 +1,129 @@
+[vector]
+name = "x_ray_fluoroscope"
+quality = "translucent cobalt-blue and white medical X-ray fluoroscope imaging revealing glowing skeletal bones, metal fasteners, and hollow radiographic silhouettes"
+a_side = "opaque full-color visible-spectrum live-action skin, solid clothing, and normal solid objects"
+b_side = "translucent cobalt-blue and white medical X-ray fluoroscope imaging exposing glowing white skeletal skulls, ribcages, hand bones, and opaque metal hardware inside ghostly silhouettes"
+mode = "t2va"
+frame = "scene"
+exclude_shots = ["t2va_offpath_tortoise", "ref2va_look_anchor"]
+# inference_recipe = target=scene_only (t2va) / look_only or scene_only (ref2va, release_refs=0.17..0.33), strength=1.2..1.6, steps=0.0..0.50
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a brick stairwell landing, a messenger in a wool jacket grips a steel handrail beside painted cinderblock. Opaque full-color human flesh, solid dark cloth, and solid masonry surfaces appear under ordinary visible photography. She (S1) says, <d>[English] Meet me downstairs in five minutes.</d> before shutting her mouth.
+
+overall_soundscape: Rubber shoe heels tap crisply along concrete stairwell steps.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a brick stairwell landing, a messenger in a wool jacket grips a steel handrail beside painted cinderblock. Translucent cobalt-blue medical X-ray fluoroscope imaging turns her body ghostly transparent, exposing glowing white skull bones, articulated ribcage, skeletal fingers, and bright metal zippers in radiographic negative. She (S1) says, <d>[English] Meet me downstairs in five minutes.</d> before shutting her mouth.
+
+overall_soundscape: Rubber shoe heels tap crisply along concrete stairwell steps.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Behind an espresso counter, a barista in a canvas apron lifts stainless milk pitchers beside ceramic mugs. Natural warm skin tones, woven brown textiles, and heavy everyday kitchenware remain completely visible under standard film. He produces no vocal sound.
+
+overall_soundscape: Stainless steam pitchers tap lightly onto polished wood bars.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Behind an espresso counter, a barista in a canvas apron lifts stainless milk pitchers beside ceramic mugs. Glowing cyan-blue radiographic X-ray fluoroscopy renders his torso and arms see-through, highlighting luminous white forearm bones, spine vertebrae, skull jaw, and dense white metal springs inside ghostly silhouettes. He produces no vocal sound.
+
+overall_soundscape: Stainless steam pitchers tap lightly onto polished wood bars.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a timber rehearsal studio, two dancers in cotton pullovers link elbows across sprung oak boards. Lifelike physical bodies, dyed cotton knitwear, and rich warm room colors stay fully shaded on normal camera capture. Neither dancer produces any vocal sound.
+
+overall_soundscape: Soft cotton sleeves brush faintly over creaking oak flooring.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a timber rehearsal studio, two dancers in cotton pullovers link elbows across sprung oak boards. High-contrast medical X-ray fluoroscope scan vision makes both figures translucent sapphire-blue ghosts revealing luminous ivory skulls, swinging ribcages, clavicle bones, and glowing wrist joints against pitch-black negative space. Neither dancer produces any vocal sound.
+
+overall_soundscape: Soft cotton sleeves brush faintly over creaking oak flooring.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a neighborhood bicycle shop, a technician in heavy coveralls tightens steel axle bolts beside hanging frames. Normal surface photography displays opaque weathered skin, thick canvas garments, and painted alloy tubing directly. He (S1) says, <d>[English] Spin the rear wheel once for me.</d> before closing his lips.
+
+overall_soundscape: Freewheel pawls click rapidly inside quiet workshop air.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a neighborhood bicycle shop, a technician in heavy coveralls tightens steel axle bolts beside hanging frames. Inverted cobalt-white radiographic X-ray fluoroscope imaging penetrates every sleeve and casing, exposing glowing white hand phalanges, spinal column, skull profile, and bright hollow steel bearings in translucent cyan negative. He (S1) says, <d>[English] Spin the rear wheel once for me.</d> before closing his lips.
+
+overall_soundscape: Freewheel pawls click rapidly inside quiet workshop air.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Along a tiled train station hallway, a commuter in a belted coat pulls a wheeled suitcase past ticket booths. Everyday visible camera lenses record real flesh, thick gabardine tailoring, and closed leather travel bags normally. She produces no vocal sound.
+
+overall_soundscape: Hard suitcase wheels roll softly over stone station tiles.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Along a tiled train station hallway, a commuter in a belted coat pulls a wheeled suitcase past ticket booths. Translucent blue-white security X-ray fluoroscopy slices straight through fabric and suitcase shells, illuminating stark glowing skeletal ribs, pelvis, skull, and bright metallic buckles inside eerie radiographic silhouettes. She produces no vocal sound.
+
+overall_soundscape: Hard suitcase wheels roll softly over stone station tiles.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a classical concert booth, a violinist in a dark dress holds a maple fiddle beneath chin rests. Natural live film portrays shaded real arms, smooth velvet cloth, and rich varnished timber grain faithfully. She produces no vocal sound.
+
+overall_soundscape: Rosined strings ring clearly inside calm acoustic paneling.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a classical concert booth, a violinist in a dark dress holds a maple fiddle beneath chin rests. Luminous cyan-indigo medical X-ray fluoroscope radiography turns flesh and wood see-through, revealing stark white finger bones, cervical vertebrae, teeth, and glowing metal tuning pegs in translucent radiographic negative. She produces no vocal sound.
+
+overall_soundscape: Rosined strings ring clearly inside calm acoustic paneling.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a wood-paneled courtroom, a defense attorney in a wool suit taps leather folders across oak desks. Standard optical cinema keeps natural human complexion, woven dark suiting, and heavy wooden rails unchanged. He (S1) says, <d>[English] Please inspect page twelve of the ledger.</d> before his mouth closes.
+
+overall_soundscape: Leather folder clasps click quietly against varnished oak.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a wood-paneled courtroom, a defense attorney in a wool suit taps leather folders across oak desks. Clinical cobalt-blue X-ray fluoroscope imaging dissolves coats and skin into translucent ghosts, spotlighting glowing white skull bones, articulated jaw teeth, ribcage, and dense bright metal rings in radiographic negative. He (S1) says, <d>[English] Please inspect page twelve of the ledger.</d> before his mouth closes.
+
+overall_soundscape: Leather folder clasps click quietly against varnished oak.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a small kitchen bakery, a pastry chef in a cotton toque rolls butter pastry across marble slabs. Straight real photography keeps realistic skin gradients, starched ivory uniforms, and dense timber rollers fully intact. She produces no vocal sound.
+
+overall_soundscape: Wooden rolling pins thump gently over dusted marble slabs.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a small kitchen bakery, a pastry chef in a cotton toque rolls butter pastry across marble slabs. Translucent sapphire-white medical X-ray fluoroscopy renders arms and torso ethereal blue, illuminating stark glowing skeletal wrists, shoulder blades, skull cranium, and bright steel pins inside hollow radiographic outlines. She produces no vocal sound.
+
+overall_soundscape: Wooden rolling pins thump gently over dusted marble slabs.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Out on a harbor timber pier, a sailor in an oilskin parka adjusts brass shackle pins beside mooring ropes. Regular real-world film renders weatherproof coated cloth, sun-tanned faces, and heavy iron hardware directly. He produces no vocal sound.
+
+overall_soundscape: Brass shackle pins clink softly over lapping harbor chop.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Out on a harbor timber pier, a sailor in an oilskin parka adjusts brass shackle pins beside mooring ropes. Stark cobalt-blue medical X-ray fluoroscope imaging turns his frame translucent negative, exposing radiant white hand bones, glowing ribcage, skull, and blinding silver metal shackles inside ghostly cyan contours. He produces no vocal sound.
+
+overall_soundscape: Brass shackle pins clink softly over lapping harbor chop.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside an arched library vestibule, two archivists in knit cardigans carry boxed parchment folios past stone columns. Everyday visible video depicts realistic full-color flesh, ordinary knitted garments, and cardboard storage boxes normally. Neither archivist produces any vocal sound.
+
+overall_soundscape: Cardboard archival boxes rustle lightly across stone vestibule tiles.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside an arched library vestibule, two archivists in knit cardigans carry boxed parchment folios past stone columns. Ghostly cobalt-and-white radiographic X-ray fluoroscopy penetrates both figures and archival cases, revealing glowing skeletal skulls, spines, metacarpal hand bones, and dense bright metal clasps in eerie translucent cyan negative. Neither archivist produces any vocal sound.
+
+overall_soundscape: Cardboard archival boxes rustle lightly across stone vestibule tiles.
+
+non_diegetic_music: N/A'''
