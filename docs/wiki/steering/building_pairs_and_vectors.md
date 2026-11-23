@@ -15,7 +15,7 @@ As of `fb3c978d` (2026-11-11), there is **one** pair-encoding and pooling implem
 3. **Provenance record** ([`control_vectors.py::pairs_record`](../../../control_vectors.py)): writes identical `pairs` and `pooled_tokens` metadata whether you build from:
    - `bench/control_vectors.py build` / `from-toml` / `from-prompt` / `rebuild`,
    - `bench/control_vectors.py make`,
-   - the browser Studio (`bench/control_vectors.py ui`), or
+   - H3 Pocket Console (`app/` `/lab`), or
    - the `MiniMaxH3MakeControlVector` node in ComfyUI (verified bitwise `torch.equal = True` across all three saved tensors on live `:8188`).
 
 ---

@@ -64,7 +64,7 @@ At runtime, for every token row $h_i$ in your prompt's selected section (`_erasu
 
 ### 2b. Seeing Inside a Vector Before Rendering: CPU Subspace X-Ray (`Adds` vs. `Erases`)
 
-Using a Jacobian-lens word readout for H3 control vectors, adapted from Anthropic's Jacobian lens (J-lens) ([`j_lens.py::decode_erasure_payload`](../../../j_lens.py)) plus `WARP`-style per-token erasure norms (`control_vectors.py::per_token_erasure_profile`), `bench/control_vectors.py inspect <stem> --prompt <scene.txt>` (and the **X-Ray** drawer in Control Vector Studio) shows both halves of an erasure payload on CPU in `< 15 ms` without loading a GPU checkpoint:
+Using a Jacobian-lens word readout for H3 control vectors, adapted from Anthropic's Jacobian lens (J-lens) ([`j_lens.py::decode_erasure_payload`](../../../j_lens.py)) plus `WARP`-style per-token erasure norms (`control_vectors.py::per_token_erasure_profile`), `bench/control_vectors.py inspect <stem> --prompt <scene.txt>` (and the **X-Ray** drawer in H3 Pocket Console `/lab`) shows both halves of an erasure payload on CPU in `< 15 ms` without loading a GPU checkpoint:
 
 ```text
 $ CUDA_VISIBLE_DEVICES="" "$PY" bench/control_vectors.py inspect noir --prompt prompt_bank/t2va_sitcom_kitchen.txt

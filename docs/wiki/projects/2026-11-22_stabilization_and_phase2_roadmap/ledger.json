@@ -4,8 +4,11 @@
   "dossier_slug": "2026-11-22_stabilization_and_phase2_roadmap",
   "title": "H3 Steering Stabilization Plan, Phase 2 Queue & 6-Session Feedback Archive",
   "head_commits": {
-    "root_repo_main": "7ae4cfa1",
+    "root_repo_main": "4934bd97",
     "root_preceding_commits": [
+      "f372490f",
+      "c810d7ef",
+      "7ae4cfa1",
       "6a45cff7",
       "b657c6a8",
       "6f7131dd",
@@ -14,8 +17,9 @@
       "ec693dff",
       "3d4d81d4"
     ],
-    "nested_app_repo": "70ac442",
+    "nested_app_repo": "b4b0d0f",
     "nested_app_preceding_commits": [
+      "70ac442",
       "3145c32",
       "5eee0a7",
       "81572fe",
@@ -282,23 +286,25 @@
       "id": "BUG-10",
       "area": "nested_app_tests",
       "severity": "medium",
-      "status": "open_handed_to_61cf9813",
+      "status": "done",
       "file": "app/tests/test_pocket_console.py",
       "lines": "198",
       "symbol": "test_vibe_search_endpoint_and_options_capabilities",
       "summary": "After the 204-term lexicon rebuild (decone_pcs=0 in 6f7131dd), POST /api/lab/vibe_search for 'noir' (fl2va) ranks 'noir' #1 at cosine 0.3345, failing assert 0.3345 >= 0.34.",
-      "fix": "Lower threshold in app/tests/test_pocket_console.py:198 (e.g. >= 0.30) and review dead main.js:244-246 branch + stale app/ docs."
+      "fix": "Lower threshold in app/tests/test_pocket_console.py:198 (e.g. >= 0.30) and review dead main.js:244-246 branch + stale app/ docs.",
+      "resolved_in": "app/.git@b4b0d0f"
     },
     {
       "id": "BUG-11",
       "area": "nested_app_guard",
       "severity": "low",
-      "status": "open_handed_to_61cf9813",
+      "status": "done",
       "file": "app/recipes.py",
       "lines": "986-990",
       "symbol": "block_band guard vs app/graph_builder.py:1259-1266",
       "summary": "3-way mismatch on P-H3-Image block_band support: app/recipes.py:986-990 returns False for P-H3-Image while app/graph_builder.py:1259-1266 only rejects h3image/h3_image and 70ac442 commit message claims Video + P-H3-Image.",
-      "fix": "Align app/recipes.py capability guard, app/graph_builder.py rejection, and UI copy ('Blocks 20-49 (Subtle / Face-Safe)')."
+      "fix": "Align app/recipes.py capability guard, app/graph_builder.py rejection, and UI copy ('Blocks 20-49 (Subtle / Face-Safe)').",
+      "resolved_in": "app/.git@b4b0d0f"
     }
   ],
   "today_stabilization_tasks": [
@@ -388,6 +394,24 @@
       "status": "done",
       "commit": "b657c6a8; 6a45cff7; 7ae4cfa1",
       "outcome": "Scrubbed operational wiki + AGENTS.md + Paper v5 strictly to MiniMax H3 scope, fixed check_h3_image.py and check_control_vector_studio.py, verified all 12 root checks green."
+    },
+    {
+      "id": "STAB-FOUND-A",
+      "owner": "61cf9813",
+      "repo": "main",
+      "status": "done",
+      "commit": "f372490f",
+      "title": "Foundation Part A: retire standalone :8196 Studio, add j_lens mtime/size auto-invalidation & check_steering_parity.py",
+      "details": "Deleted 18 legacy :8196 Control Vector Studio files (~3.8k LOC) + CLI/helper/test hooks and regenerated INDEX.md/bench/INDEX.md; added (st_mtime_ns, st_size) cache invalidation + invalidate_caches() in j_lens.py (plus _BUNDLE_CACHE.pop before ValueError in follow-up); added bench/check_steering_parity.py enforcing TOML/bank/lexicon parity."
+    },
+    {
+      "id": "STAB-FOUND-B",
+      "owner": "61cf9813",
+      "repo": "app/.git",
+      "status": "done",
+      "commit": "app/.git@b4b0d0f",
+      "title": "Foundation Part B: harden Studio API, heylook/lab flows, block_band gating & offline CDP suite",
+      "details": "Added shared recipe_supports_block_band() checking picture_node/picture/reference_nodes/references; stripped upstream /view charset & guarded .mp4 CT/strip_png_notes; fixed heylook.js:485 lock_take, Finder Mint 4800 floor, /lab saved-model fallback, --families all -> fl2va,ref2va,h3_image remap, j_lens cache clear in cv_lab.py, dead code/doc cleanup, test_pocket_console.py (noir >= 0.30, de_llm_slop un-hardcoded), --isolated-browser CDP & opt-in test_live_gpu.py."
     }
   ],
   "tomorrow_phase2_queue": [
@@ -444,8 +468,8 @@
       "phase2_order": "B.2.3",
       "category": "polish",
       "owner": "90e9d2bd + 61cf9813",
-      "title": "Bank header b_side_alignment refresh, optional decone_pcs=1/synonym eval & app/ polish",
-      "details": "Refresh cached .safetensors b_side_alignment headers on disk; evaluate optional decone_pcs=1 + natural-synonym retrieval in build_model2vec_lexicon.py; fix app/tests/test_pocket_console.py:198 noir threshold (0.3345 < 0.34), P-H3-Image block_band mismatch (recipes.py:986-990 vs graph_builder.py:1259-1266), dead main.js:244-246 branch, stale app/ README/DESIGN docs, cv_lab.py:72 cache invalidation, and scope Voice Lock (1x) strictly to visual strips."
+      "title": "Bank header b_side_alignment refresh, optional decone_pcs=1/synonym eval & 4-item app/ backlog",
+      "details": "Refresh cached .safetensors b_side_alignment headers on disk; evaluate optional decone_pcs=1 + natural-synonym retrieval in bench/control_vector/build_model2vec_lexicon.py; execute 61cf9813's clean 4-item phase2_app_backlog (steering_deck.js single strips[] state, app package + split test_app.py, role/class node lookup in graph_builder.py, scoped UX/API follow-ups)."
     }
   ],
   "deferred_items": [
@@ -942,6 +966,36 @@
         "e5d15905"
       ],
       "disk_evidence": "qwen_image_2.1_bf16.safetensors pairs with Qwen3-VL-8B and has no H3 TokenRefiner; requires custom DiT wrappers and throwaway 8B vectors (~30-60 min)."
+    }
+  ],
+  "phase2_app_backlog": [
+    {
+      "id": "P2-APP-01",
+      "owner": "61cf9813",
+      "repo": "app/.git",
+      "title": "Unify steering_deck.js single strips[] state",
+      "details": "Retire the Ch 1 (#guide-vector* hidden DOM mirror) vs. Ch 2-6 (extraVectors / #chip-tune-*) split onto one strip-array source of truth across deck, drawer, and tune modal."
+    },
+    {
+      "id": "P2-APP-02",
+      "owner": "61cf9813",
+      "repo": "app/.git",
+      "title": "Proper Python package + split app/test_app.py",
+      "details": "Retire importlib h3_image_app_* module aliasing in app/ and split monolithic app/test_app.py (~5.2k LOC) into focused pytest modules."
+    },
+    {
+      "id": "P2-APP-03",
+      "owner": "61cf9813",
+      "repo": "app/.git",
+      "title": "Eliminate hardcoded node IDs in app/graph_builder.py",
+      "details": "Replace g['9'] / g['60'] / g['1'] lookups with role/class discovery so workflow rebuilds cannot silently shift targets."
+    },
+    {
+      "id": "P2-APP-04",
+      "owner": "61cf9813",
+      "repo": "app/.git",
+      "title": "Scoped UX/API follow-ups",
+      "details": "Optional visual-strip-only (Look/Motion) 1-tap Voice Lock (1x) toggle; upstream DELETE /v1/requests/{id} cancellation when /api/lab/pairs/generate is cancelled; decide whether to wire or prune UI-unreachable guide_vector_words/against_words backend plumbing."
     }
   ]
 }

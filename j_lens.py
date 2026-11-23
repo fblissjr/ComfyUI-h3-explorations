@@ -306,6 +306,7 @@ def load_j_lens_bundle(bundle_path: str | os.PathLike | None = None) -> dict[str
     with safe_open(str(path), framework="pt", device="cpu") as f:
         meta = f.metadata() or {}
         if meta.get("format") != "h3_j_lens_v1":
+            _BUNDLE_CACHE.pop(path, None)
             raise ValueError(
                 f"Unsupported J-Lens bundle format {meta.get('format')!r} in {path.name}; expected 'h3_j_lens_v1'"
             )
