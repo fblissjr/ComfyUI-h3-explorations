@@ -15,7 +15,7 @@ this file is only a way to find a script by what it says it does.
 | [`compare_*`](#compare) | 15 |
 | [`build_*`](#build) | 13 |
 | [`probe_*`](#probe) | 20 |
-| [the rest](#the-rest) | 207 |
+| [the rest](#the-rest) | 208 |
 
 ## check
 
@@ -509,6 +509,7 @@ this file is only a way to find a script by what it says it does.
 | [`run_tau_sweep.py`](run_tau_sweep.py) | Queue the scenes of a tau sweep on a server armed with `H3_SOL_SWEEP`. |
 | [`run_wave2_director_storyboard_redub.py`](run_wave2_director_storyboard_redub.py) | Wave 2 GPU Benchmark Runner & Analyzer: Exp 4, Exp 6 (A/B), and Exp 7. |
 | [`run_with_preview_gate.py`](run_with_preview_gate.py) | Run an API workflow through live ComfyUI WebSocket events with a tiny-VAE preview gate. |
+| [`run_zero_code_gpu_trio_2026_11_23.py`](run_zero_code_gpu_trio_2026_11_23.py) | Run and analyze the Zero-Code GPU Trio on live ComfyUI (:8188). |
 | [`runs_left.py`](runs_left.py) | The runs left to make past a frame, longest first, re-cut from a delivery table: one command the card runs after each rebuild. |
 | [`said_on_shot.py`](said_on_shot.py) | What the owner already said on a shot, from `owner_answers.jsonl` (plus `verdicts.jsonl` and optional inbox files), oldest first. |
 | [`sam31_corrections_queue_test.py`](sam31_corrections_queue_test.py) | The SAM 3.1 Corrections node's last acceptance: on a server's queue, with an H3 render between two reads. |
@@ -749,7 +750,7 @@ Arm manifests and the like; a manifest's line is its own `what`.
 
 ### results
 
-256 tracked files: [`results/INDEX.md`](results/INDEX.md).
+257 tracked files: [`results/INDEX.md`](results/INDEX.md).
 
 ### rubrics
 
