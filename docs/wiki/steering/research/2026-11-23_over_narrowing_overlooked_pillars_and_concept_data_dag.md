@@ -144,7 +144,7 @@ flowchart LR
 
 1. **Point A — Eliminate silent corruption before burning GPU cycles:**
    - Fix [`bench/control_vector/llm_pairs.py:72-84`](../../../../bench/control_vector/llm_pairs.py#L72-L84) so multi-change LLM generations fail & retry (or tighten the prompt) instead of silently splicing canned `"steady throughout"` filler.
-   - Keep `DEFAULT_AUX_BASELINES` ([`h3_pair_compiler.py:58-66`](../../../../h3_pair_compiler.py#L58-L66)) strictly for quick prototyping — never promote word-compiled pairs into canonical `bank/` without diverse full-scene openings.
+   - Keep `DEFAULT_AUX_BASELINES` ([`bench/control_vector/pair_compiler.py:59-67`](../../../../h3_pair_compiler.py#L58-L66)) strictly for quick prototyping — never promote word-compiled pairs into canonical `bank/` without diverse full-scene openings.
    - Add a lightweight **Setting/Noun Leakage check** alongside Gates B/C/D: flag when `> 2` training pairs share an unrelated setting cluster (kitchen/clerk/herbarium) correlated with `B` vs. `A`.
    - Maintain upstream optical-restraint rules (`14b8f8b3`) inside `docs/wiki/system_prompts/h3_video/` & `h3_director/` as `Regime 0` so H3 stops creating HDR slop before trying to erase it.
 

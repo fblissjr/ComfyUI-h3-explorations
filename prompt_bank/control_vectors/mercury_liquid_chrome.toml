@@ -8,6 +8,16 @@ frame = "scene"
 exclude_shots = ["t2va_offpath_tortoise", "ref2va_look_anchor"]
 # inference_recipe = target=scene_only (t2va) / look_only or scene_only (ref2va, release_refs=0.17..0.33), strength=1.2..1.6, steps=0.0..0.50
 
+[routing]
+bus = "look"
+regime = "a"
+target = "scene_only"
+streams = "video_only"
+block_band = "all"
+needs_ref_release = true
+families = ["fl2va", "ref2va", "h3_image"]
+default_strength = 1
+
 [[pair]]
 a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a concrete stairwell landing, a woman in a wool overcoat faces a man beside painted railings. Organic everyday human skin, dull fabric weaves, and plain non-reflective cloth show soft diffused light across both figures. She (S1) says, <d>[English] Keep this strictly between us tonight.</d> before closing her mouth.
 

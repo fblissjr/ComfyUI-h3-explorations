@@ -32,7 +32,7 @@ directions by matching pursuit, and call what is left the remainder. The share i
 non-negative (the paper's rule) and with signed weights:
 
 - `word_lab`: the vector the Word Lab makes for one word, `normalize(J_ref Sigma^0.30 mu_w)` with `mu_w` as
-  `j_lens.py::_mean_word_direction` builds it, against `vector.post_refiner`.
+  `steering/xray.py::_mean_word_direction` builds it, against `vector.post_refiner`.
 - `lens_rows`: the raw J-Lens rows, against `vector.encoder`. This is the paper's own split.
 
 The same fit was run on three kinds of direction that carry no designed concept:
@@ -73,7 +73,7 @@ So this number is not the "word-readable share" the plan wanted, and its two par
 ## 3. Second cut: does a vector's own readout point at it?
 
 For each vector: take its J-Lens readout (eight words toward, eight away), have the Word Lab make a vector
-from exactly those words (`j_lens.py::synthesize_from_words`), and take the cosine with every built vector.
+from exactly those words (`steering/xray.py::synthesize_from_words`), and take the cosine with every built vector.
 
 | | Cosine, median | Range or spread |
 |---|---:|---|

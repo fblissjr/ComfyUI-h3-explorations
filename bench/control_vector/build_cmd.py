@@ -607,6 +607,7 @@ def cmd_build(args: argparse.Namespace) -> int:
                     ),
                 },
             }
+            cv.merge_toml_metadata_into_vector(metadata, pair_set)
 
             fname = cv.default_vector_filename(
                 stem,
@@ -1399,7 +1400,7 @@ def cmd_status(args: argparse.Namespace) -> int:
             )
             j_lens_builder.cmd_build_j_lens(jl_args)
         if stale_stems:
-            use_unit_mean = bool(getattr(args, "unit_mean", True))
+            use_unit_mean = bool(getattr(args, "unit_mean", False))
             print(
                 f"=== Status --rebuild-stale: rebuilding {len(stale_stems)} stale control vector stem(s) "
                 f"(unit_mean={use_unit_mean}) ==="

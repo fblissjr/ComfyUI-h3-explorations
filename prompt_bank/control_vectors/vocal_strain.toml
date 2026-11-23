@@ -7,6 +7,16 @@ mode = "t2va"
 frame = "scene"
 exclude_shots = ["t2va_offpath_tortoise", "ref2va_look_anchor"]
 
+[routing]
+bus = "audio"
+regime = "a"
+target = "description_only"
+streams = "both"
+block_band = "all"
+needs_ref_release = false
+families = ["fl2va", "ref2va"]
+default_strength = 1
+
 [[pair]]
 a = '''integrated_multimodal_description: [Shot 1] Cinematic. A male carpenter in a canvas apron measures a cedar plank on a sawhorse inside an indoor woodworking shop as the camera holds a steady medium shot, speaking in a calm, even, conversational baritone with relaxed jaw muscles (S1) as he says, <d>[English] Check the bevel angle on this miter cut.</d> before his lips close.
 

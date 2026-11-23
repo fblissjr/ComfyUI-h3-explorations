@@ -1702,39 +1702,47 @@ def _wire_model_chain(
 
     head: list[Any] = ["21", 0]
     steer_ids: list[str] = []
+    any_vec_needs_release = False
 
-    for idx, vec in enumerate(control_vectors):
-        if not isinstance(vec, dict):
-            continue
-        vec_name = str(vec.get("vector") or vec.get("file") or vec.get("name") or "").strip()
-        if not vec_name or vec_name == "none":
-            continue
-        nid = str(115 + idx)
-        steer_inputs: dict[str, Any] = {
-            "model": copy.deepcopy(head),
-            "vector": vec_name,
-            "strength": float(vec.get("strength", 1.0)),
-            "mode": str(vec.get("mode") or "add_norm_matched_erasure"),
-            "target": str(vec.get("target") or "description_only"),
-            "start_percent": float(vec.get("start_percent", 0.0)),
-            "end_percent": float(vec.get("end_percent", 1.0)),
-            "streams": str(vec.get("streams") or "both"),
-            "hold_words": str(vec.get("hold_words") or ""),
-            "hold_alpha": float(vec.get("hold_alpha", 1.0)),
-            "allow_recipe_mismatch": bool(vec.get("allow_recipe_mismatch", True)),
-            "edit_pass": str(vec.get("edit_pass") or "edited_only"),
-        }
-        if vec.get("fields"):
-            steer_inputs["fields"] = list(vec["fields"])
-        graph[nid] = {"class_type": "MiniMaxH3Steer", "inputs": steer_inputs}
-        head = [nid, 0]
-        steer_ids.append(nid)
+    if control_vectors:
+        import importlib.util as _ilu
+        import sys as _sys
+
+        if "steering" not in _sys.modules:
+            _pkg_dir = _REPO_ROOT / "steering"
+            _spec = _ilu.spec_from_file_location(
+                "steering",
+                _pkg_dir / "__init__.py",
+                submodule_search_locations=[str(_pkg_dir)],
+            )
+            if _spec is not None and _spec.loader is not None:
+                _mod = _ilu.module_from_spec(_spec)
+                _sys.modules["steering"] = _mod
+                _spec.loader.exec_module(_mod)
+        from steering.mixer import resolve_director_steer_entry
+
+        for idx, vec in enumerate(control_vectors):
+            if not isinstance(vec, dict):
+                continue
+            vec_name = str(vec.get("vector") or vec.get("file") or vec.get("name") or "").strip()
+            if not vec_name or vec_name == "none":
+                continue
+            nid = str(115 + idx)
+            steer_inputs, vec_nrr = resolve_director_steer_entry(vec, model_link=head)
+            if vec_nrr:
+                any_vec_needs_release = True
+            graph[nid] = {"class_type": "MiniMaxH3Steer", "inputs": steer_inputs}
+            head = [nid, 0]
+            steer_ids.append(nid)
 
     if has_release_refs or has_sprite or has_cues:
         ov = release_overrides or {}
+        eff_end_pct = float(ov.get("end_percent", 1.0))
+        if has_release_refs and any_vec_needs_release and not bool(ov.get("manual_widgets", False)):
+            eff_end_pct = min(eff_end_pct, 0.33)
         rel_inputs: dict[str, Any] = {
             "model": copy.deepcopy(head),
-            "end_percent": float(ov.get("end_percent", 1.0)),
+            "end_percent": eff_end_pct,
             "clean_level": float(ov.get("clean_level", 0.999)),
         }
         if has_cues:

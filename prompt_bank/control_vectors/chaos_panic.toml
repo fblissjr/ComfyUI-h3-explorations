@@ -7,6 +7,16 @@ mode = "t2va"
 frame = "scene"
 exclude_shots = ["t2va_offpath_tortoise", "ref2va_look_anchor"]
 
+[routing]
+bus = "motion"
+regime = "a"
+target = "description_only"
+streams = "both"
+block_band = "all"
+needs_ref_release = false
+families = ["fl2va", "ref2va", "h3_image"]
+default_strength = 1
+
 [[pair]]
 a = '''integrated_multimodal_description: [Shot 1] Cinematic. A female botanist in a canvas vest stands inside a glass conservatory beside potted orchids, maintaining a calm, unhurried posture and composed expression as the camera holds a steady medium shot and the speaker (S1) says, <d>[English] The glass roof panels need to be latched before noon.</d> before her lips close calmly.
 

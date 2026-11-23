@@ -8,6 +8,16 @@ frame = "scene"
 exclude_shots = ["t2va_offpath_tortoise", "ref2va_look_anchor"]
 # inference_recipe = target=scene_only (t2va, start=0.17) / description_only (ref2va), strength=1.2..1.7, release_refs=0.5..1.0
 
+[routing]
+bus = "motion"
+regime = "a"
+target = "description_only"
+streams = "both"
+block_band = "all"
+needs_ref_release = false
+families = ["fl2va", "ref2va", "h3_image"]
+default_strength = 1
+
 [[pair]]
 a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Inside an engineering machine bay, a machinist wipes oil from cast-iron lathe beds with woven cotton rags across the five-second take. Dead calm motionless air leaves jackets and paper resting flat and neat. The camera tracks right smoothly while he stays silent.
 

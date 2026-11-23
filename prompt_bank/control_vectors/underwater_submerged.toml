@@ -8,6 +8,16 @@ frame = "scene"
 exclude_shots = ["t2va_offpath_tortoise", "ref2va_look_anchor"]
 # inference_recipe = target=scene_only (t2va) / description_only or scene_only (ref2va), strength=1.2..1.7, steps=0.0..0.67, release_refs=0.33..0.67
 
+[routing]
+bus = "look"
+regime = "a"
+target = "scene_only"
+streams = "both"
+block_band = "all"
+needs_ref_release = true
+families = ["fl2va", "ref2va", "h3_image"]
+default_strength = 1
+
 [[pair]]
 a = '''integrated_multimodal_description: [Shot 1] Live-action, shot in dry open air with clear visibility and dry hung fabrics, a medium-wide shot captures a stone train platform beside steel passenger coaches across the five-second take. A conductor in navy wool inspects a brass pocket watch while iron luggage carts sit beside pillar benches. He, on-screen, says: <d>[English] Track four departs in three minutes.</d> His mouth shuts. The camera holds a static shot.
 

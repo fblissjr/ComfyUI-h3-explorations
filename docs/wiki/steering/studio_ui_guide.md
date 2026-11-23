@@ -21,7 +21,7 @@ For everyday creation and mobile tweaking on iOS 27.x Safari WebKit (`app/` [`VI
 
 ## 1. Shared Pair-Build & CLI Execution Layer
 
-All `/lab` GPU builds (`from-toml`, `from-prompt`, `make-media`), `bench/control_vectors.py` CLI subcommands, and ComfyUI's `MiniMaxH3MakeControlVector` node invoke the **single** [`control_vector_nodes.py::encode_pair_set`](../../../control_vector_nodes.py) + [`control_vectors.py::pool_pair_set`](../../../control_vectors.py) + [`control_vectors.py::pairs_record`](../../../control_vectors.py) pipeline, ensuring bitwise-identical tensors across CLI, `/lab`, and ComfyUI.
+All `/lab` GPU builds (`from-toml`, `from-prompt`, `make-media`), `bench/control_vectors.py` CLI subcommands, and ComfyUI's `MiniMaxH3MakeControlVector` node invoke the **single** [`steering/encode.py::encode_pair_set`](../../../control_vector_nodes.py) + [`steering/extract.py::pool_pair_set`](../../../control_vectors.py) + [`steering/extract.py::pairs_record`](../../../control_vectors.py) pipeline, ensuring bitwise-identical tensors across CLI, `/lab`, and ComfyUI.
 
 - **Two execution lanes inside `app/cv_lab.py`:** CPU endpoints (`library`, `vibe_search`, `xray`, `sculpt`, `pairs/lint`) run immediately on CPU (`< 15 ms`), `POST /api/lab/pairs/generate` runs asynchronously on remote `heylook` without locking ComfyUI GPU, and `POST /api/lab/build` serializes GPU subprocesses against an idle `:8188` queue + `/free`.
 - **Offline verification:** Run `pytest app/tests/ -q` (and `--isolated-browser` for `402x874 @3x` headless Chrome CDP) or `bench/check_image_studio.py` + `bench/check_steering_parity.py`.

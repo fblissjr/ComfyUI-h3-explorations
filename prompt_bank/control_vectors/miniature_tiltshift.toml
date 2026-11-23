@@ -9,6 +9,16 @@ exclude_shots = ["t2va_offpath_tortoise", "ref2va_look_anchor"]
 # recommended_strength = 3.0
 # notes = "Batch A control vector: macro tilt-shift diorama optics and miniature scale textures/acoustics."
 
+[routing]
+bus = "look"
+regime = "a"
+target = "scene_only"
+streams = "both"
+block_band = "all"
+needs_ref_release = true
+families = ["fl2va", "ref2va", "h3_image"]
+default_strength = 1
+
 [[pair]]
 a = '''integrated_multimodal_description: [Shot 1] Cinematic, high-angle wide shot overlooking a stone railway viaduct and a red steam locomotive idling at a rural timber platform. A male station guard in a dark blue coat stands beside a luggage cart on the planking. Looking up, in a clear baritone, (S1) says, <d>[English] All passengers board the front carriage now.</d> His mouth closes cleanly, captured with standard rectilinear cinema optics, deep balanced focus across the valley, and full-bodied outdoor acoustics.
 

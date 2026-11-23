@@ -8,6 +8,16 @@ frame = "scene"
 exclude_shots = ["t2va_offpath_tortoise", "ref2va_look_anchor"]
 # inference_recipe = target=scene_only (t2va, start=0.0..0.17) / description_only (ref2va), strength=1.2..1.7, release_refs=0.5..1.0
 
+[routing]
+bus = "motion"
+regime = "a"
+target = "description_only"
+streams = "both"
+block_band = "all"
+needs_ref_release = false
+families = ["fl2va", "ref2va", "h3_image"]
+default_strength = 1
+
 [[pair]]
 a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Out on a stone harbor pier, a dockworker in rubber boots coils heavy manila lines beside loose steel bolts, iron nuts, and brass keys on a crate across the five-second take. The metal hardware stays resting heavy and still upon the crate planks. He (S1) calls cleanly, <d>[English] Clear the stern bollard line.</d> before his lips close under a static camera.
 

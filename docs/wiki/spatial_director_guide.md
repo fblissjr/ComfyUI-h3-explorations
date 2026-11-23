@@ -44,7 +44,7 @@ Every time you click **Preview in Circle** or **Generate World Clip**, [`directo
    - On video, **Audio Guard** (`streams`) controls whether `mask` also gates the `40 Hz` audio stream (`independent` keeps audio at `1.0x` edit pull while video scales higher, `video_only` keeps original audio, `both` gates audio to active mask pulses, `audio_only` re-dubs audio only).
 4. **Auto-picks the video template (`resolvedWorkflowMode`)**:
    - Anchor loaded, no movable actor cutout -> **`i2v_portal`** (pins Frame 0 via `conditioning.py::MiniMaxH3Conditioning`, plus optional `last_frame` destination).
-   - Movable actor cutout attached (`Movable` SAM role or `Stamp`) -> **`r2v_portal`** (binds `<Picture 1>` background + `sprite_trajectory.py::MiniMaxH3AppendSpriteTrajectory` `<Video 1>`, released cleanly at `video_end_percent = 0.33` by `control_vector_nodes.py::MiniMaxH3ReleaseReferences` so synthetic movement locks blocking early without making frames 0..89 look stiff).
+   - Movable actor cutout attached (`Movable` SAM role or `Stamp`) -> **`r2v_portal`** (binds `<Picture 1>` background + `sprite_trajectory.py::MiniMaxH3AppendSpriteTrajectory` `<Video 1>`, released cleanly at `video_end_percent = 0.33` by `steering/nodes.py::MiniMaxH3ReleaseReferences` so synthetic movement locks blocking early without making frames 0..89 look stiff).
    - No anchor loaded -> **`t2v_portal`** (text-to-video spatial portal).
    - You can override automatic selection anytime in **`Engine -> Scene -> Video Workflow Template`** (including `world_targets`).
 5. **Streams live `taeh3` / `taeh3_image` step previews & recovers from page refreshes**:

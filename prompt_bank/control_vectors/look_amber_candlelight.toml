@@ -9,6 +9,16 @@ exclude_shots = ["t2va_offpath_tortoise", "ref2va_look_anchor"]
 # tier = Tier 1 — Lighting & Optical Grade
 # inference_recipe = target=scene_only (fl2va) / description_only (ref2va), strength=1.0..1.45, steps=0.0..1.0, release_refs=1.0
 
+[routing]
+bus = "look"
+regime = "a"
+target = "scene_only"
+streams = "video_only"
+block_band = "mid_late_20_49"
+needs_ref_release = false
+families = ["fl2va", "ref2va", "h3_image"]
+default_strength = 1
+
 [[pair]]
 a = '''integrated_multimodal_description: [Shot 1] Live-action medium shot of a silver-haired archivist in tweed opening leather folios on a stone reading table inside a vaulted abbey scriptorium across the five-second take, exposed under chilly pewter storm-cloud skylight leaving slate parchment uniform and crisp. The camera pushes in smoothly while he turns crisp pages. He produces no vocal sound.
 

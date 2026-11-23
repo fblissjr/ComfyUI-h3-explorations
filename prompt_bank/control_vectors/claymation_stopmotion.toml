@@ -8,6 +8,16 @@ frame = "scene"
 exclude_shots = ["t2va_offpath_tortoise", "ref2va_look_anchor"]
 # inference_recipe = target=scene_only (t2va) / look_only or scene_only (ref2va, release_refs=0.16..0.33), strength=1.3..1.8, end_percent=0.50
 
+[routing]
+bus = "look"
+regime = "a"
+target = "scene_only"
+streams = "both"
+block_band = "all"
+needs_ref_release = true
+families = ["fl2va", "ref2va", "h3_image"]
+default_strength = 1
+
 [[pair]]
 a = '''integrated_multimodal_description: [Shot 1] Live-action, continuous 24fps real photography with natural human skin and woven linen, a medium shot frames a violinist adjusting a wooden shoulder rest beside velvet theater seating across the five-second take. She checks the sheet music stand and tests an open string lightly. The camera holds a static frame. She produces no vocal sound.
 

@@ -8,6 +8,16 @@ frame = "scene"
 exclude_shots = ["t2va_offpath_tortoise", "ref2va_look_anchor"]
 # inference_recipe = target=scene_only (t2va) / look_only or scene_only (ref2va, release_refs=0.25..0.5), strength=1.2..1.7, end_percent=0.50
 
+[routing]
+bus = "look"
+regime = "a"
+target = "scene_only"
+streams = "video_only"
+block_band = "all"
+needs_ref_release = true
+families = ["fl2va", "ref2va", "h3_image"]
+default_strength = 1
+
 [[pair]]
 a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Beside iron harbor bollards, a male dock supervisor in dry soft wool sleeves with warm healthy unadorned cheeks checks laminated cargo manifests above granite sea walls across the five-second take. He (S1) states clearly, <d>[English] Berth three takes the steel pallets.</d> His jaw settles shut as the camera holds steady.
 

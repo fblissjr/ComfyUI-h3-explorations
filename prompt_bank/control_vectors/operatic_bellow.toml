@@ -9,6 +9,16 @@ exclude_shots = ["t2va_offpath_tortoise", "ref2va_look_anchor"]
 # recommended_strength = 3.0
 # notes = "Steers plain spoken conversational delivery into full-chest vibrating operatic projection with wide jaw resonance, dramatic diaphragm posture, and ringing concert-hall vocal acoustics."
 
+[routing]
+bus = "audio"
+regime = "a"
+target = "description_only"
+streams = "both"
+block_band = "all"
+needs_ref_release = false
+families = ["fl2va", "ref2va"]
+default_strength = 1
+
 [[pair]]
 a = '''integrated_multimodal_description: [Shot 1] Cinematic, medium shot inside a velvet-draped rehearsal parlor where a woman in an emerald silk blouse stands beside a walnut music stand. The camera pushes in slightly as (S1) speaks in a plain conversational voice with a relaxed jaw, level shoulders, and dry everyday speech acoustics, saying, <d>[English] The carriage awaits by the northern courtyard gate.</d> Her lips close calmly.
 

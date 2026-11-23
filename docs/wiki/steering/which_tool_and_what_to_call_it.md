@@ -22,9 +22,9 @@ Read this page first if you are explaining the pack to someone else. For how `Mi
 Where each lives in the code:
 
 - **Video Prompt Expander (`1x` Easy Button)**: [`h3_prompt_expander.py::MiniMaxH3PromptExpander`](../../../h3_prompt_expander.py) with [`h3_prompt_contract.py`](../../../h3_prompt_contract.py). Design note: [`heylook_auto_edit_guidance_design.md`](heylook_auto_edit_guidance_design.md).
-- **Control vector**: `control_vector_nodes.py::MiniMaxH3Steer` applies one (supporting native `fl2va`, `ref2va`, `h3_image`, and `fl2va_base` `P-H3-Image`). The hub page, [`../steering.md`](../steering.md), says how they are built and which rows they touch.
+- **Control vector**: `steering/nodes.py::MiniMaxH3Steer` applies one (supporting native `fl2va`, `ref2va`, `h3_image`, and `fl2va_base` `P-H3-Image`). The hub page, [`../steering.md`](../steering.md), says how they are built and which rows they touch.
 - **Edit guidance**: `edit_guidance.py::MiniMaxH3EditGuider` with `edit_guidance.py::MiniMaxH3PromptEdit` or [`auto_edit_prompt.py::MiniMaxH3AutoEditPrompt`](../../../auto_edit_prompt.py). [`../edit_guidance.md`](../edit_guidance.md) has the dials and the pass counts.
-- **Word readout**: `j_lens.py::decode_vector` reads, `j_lens.py::apply_soft_holds` scrubs, and `j_lens.py::synthesize_from_words` builds. The node that builds is `control_vector_nodes.py::MiniMaxH3WordVector`.
+- **Word readout**: `steering/xray.py::decode_vector` reads, `steering/xray.py::apply_soft_holds` scrubs, and `steering/xray.py::synthesize_from_words` builds. The node that builds is `steering/nodes.py::MiniMaxH3WordVector`.
 
 ### How they relate
 

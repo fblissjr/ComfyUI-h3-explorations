@@ -8,6 +8,16 @@ frame = "scene"
 exclude_shots = ["t2va_offpath_tortoise", "ref2va_look_anchor"]
 # inference_recipe = target=scene_only (t2va) / look_only or scene_only (ref2va, release_refs=0.17..0.33), strength=1.2..1.6, steps=0.0..0.50
 
+[routing]
+bus = "look"
+regime = "a"
+target = "scene_only"
+streams = "video_only"
+block_band = "all"
+needs_ref_release = true
+families = ["fl2va", "ref2va", "h3_image"]
+default_strength = 1
+
 [[pair]]
 a = '''integrated_multimodal_description: [Shot 1] Cinematic. Inside a narrow hotel laundry room, an attendant in a cotton smock folds stacked bath towels beside steel dryers. Warm overhead ceiling globes illuminate every corner evenly across pale tiled walls and humming machines. She (S1) says, <d>[English] Floor four needs six extra pillowcases.</d> before shutting her mouth.
 

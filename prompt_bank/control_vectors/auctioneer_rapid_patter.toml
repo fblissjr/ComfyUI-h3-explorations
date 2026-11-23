@@ -9,6 +9,16 @@ exclude_shots = ["t2va_offpath_tortoise", "ref2va_look_anchor"]
 # recommended_strength = 3.0
 # notes = "Steers unhurried conversational delivery into breathless high-velocity auctioneer/commentator rapid-fire vocal cadence with brisk rhythmic hand gestures and crisp syllable articulation."
 
+[routing]
+bus = "audio"
+regime = "a"
+target = "description_only"
+streams = "both"
+block_band = "all"
+needs_ref_release = false
+families = ["fl2va", "ref2va"]
+default_strength = 1
+
 [[pair]]
 a = '''integrated_multimodal_description: [Shot 1] Live-action, medium shot inside an estate auction gallery where a male appraiser in a navy pinstripe suit stands behind an oak podium holding a walnut gavel. The camera holds a static frame as (S1) speaks in an unhurried everyday conversational cadence with relaxed breathing and calm hand posture, saying, <d>[English] Lot forty-two is an eighteenth-century mahogany bracket clock in working order.</d> His lips close neatly.
 

@@ -8,6 +8,16 @@ frame = "scene"
 exclude_shots = ["t2va_offpath_tortoise", "ref2va_look_anchor"]
 # inference_recipe = target=scene_only (t2va, start=0.0..0.17) / description_only or scene_only (ref2va, release_refs=0.33), strength=1.2..1.7
 
+[routing]
+bus = "motion"
+regime = "a"
+target = "description_only"
+streams = "both"
+block_band = "all"
+needs_ref_release = true
+families = ["fl2va", "ref2va", "h3_image"]
+default_strength = 1
+
 [[pair]]
 a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Along a cobbled courtyard colonnade, a violinist tightens horsehair frog screws inside an open leather case across the five-second take. Downward weight pins oak stools, mugs, and sleeves cleanly flat down. She (S1) remarks evenly, <d>[English] This peg still slips slightly.</d> as her jaw settles and the camera holds steady.
 

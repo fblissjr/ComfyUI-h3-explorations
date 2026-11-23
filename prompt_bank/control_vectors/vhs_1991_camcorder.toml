@@ -9,6 +9,16 @@ exclude_shots = ["t2va_offpath_tortoise", "ref2va_look_anchor"]
 # recommended_strength = 3.0
 # notes = "Steers clean digital video and audio toward 1991 consumer VHS camcorder tape artifacts, NTSC chroma bleed, bottom head-switching noise, and warbling linear audio hiss."
 
+[routing]
+bus = "look"
+regime = "a"
+target = "scene_only"
+streams = "both"
+block_band = "all"
+needs_ref_release = false
+families = ["fl2va", "ref2va", "h3_image"]
+default_strength = 1
+
 [[pair]]
 a = '''integrated_multimodal_description: [Shot 1] Live-action, medium shot inside a wood-paneled suburban kitchen where a mother in a teal sweater and her teenage son decorate a frosted birthday cake on a laminate counter. The camera pans right with small amplitude as she (S1) says, <d>[English] Put the candles along the outer edge of the frosting.</d> Her lips close neatly, recorded on a clean modern digital cinema camera with crisp progressive edges, true-to-life color separation, and transparent studio-grade sound.
 

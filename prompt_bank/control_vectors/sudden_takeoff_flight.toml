@@ -7,6 +7,16 @@ mode = "t2va"
 frame = "scene"
 exclude_shots = ["t2va_offpath_tortoise", "ref2va_look_anchor"]
 
+[routing]
+bus = "motion"
+regime = "a"
+target = "description_only"
+streams = "both"
+block_band = "all"
+needs_ref_release = true
+families = ["fl2va", "ref2va", "h3_image"]
+default_strength = 1
+
 [[pair]]
 a = '''integrated_multimodal_description: [Shot 1] Live-action, wide tracking shot along a two-lane desert highway where a dark sedan cruises beside red sandstone bluffs beneath clear afternoon air. Four rubber tires grip desert warm asphalt cleanly on low pavement while engine noise hums evenly. An adult driver inside keeps both hands on the wheel without speaking.
 

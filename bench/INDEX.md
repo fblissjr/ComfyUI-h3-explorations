@@ -8,14 +8,14 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 181 |
+| [`check_*`](#check) | 182 |
 | [`measure_*`](#measure) | 39 |
 | [`analyze_*`](#analyze) | 18 |
 | [`grade_*`](#grade) | 19 |
 | [`compare_*`](#compare) | 15 |
 | [`build_*`](#build) | 13 |
 | [`probe_*`](#probe) | 20 |
-| [the rest](#the-rest) | 208 |
+| [the rest](#the-rest) | 209 |
 
 ## check
 
@@ -181,6 +181,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_stack_delivery.py`](check_stack_delivery.py) | The stacked delivery clip (`bench/stack_delivery.py`) on a clip and pieces whose every frame is known by construction. |
 | [`check_stack_rows.py`](check_stack_rows.py) | `bench/stack_rows.py` on made videos: every row on the source frame it says, laid where its picture came from. |
 | [`check_steering_parity.py`](check_steering_parity.py) | Fast CPU parity gate across tracked control-vector TOMLs, retired packs, active bank, and lexicon. |
+| [`check_steering_v2.py`](check_steering_v2.py) | Offline CPU verification gate (`0 GB` VRAM) for the clean-slate `steering/` v2 package. |
 | [`check_step_x0_observer.py`](check_step_x0_observer.py) | `step_x0_observer.py` saves each step's prediction and changes nothing. |
 | [`check_strangers.py`](check_strangers.py) | The strangers keep-out (`bench/strangers.py`) on a made preview: what it takes out, where it writes, what it refuses. |
 | [`check_subject_parts.py`](check_subject_parts.py) | The Sapiens2 part node's geometry and bookkeeping, on stand-ins for the two models. |
@@ -539,6 +540,7 @@ this file is only a way to find a script by what it says it does.
 | [`stack_eval_clips.py`](stack_eval_clips.py) | Side-by-side and top-to-bottom video stacking utility for paired evaluation. |
 | [`stack_labeled_clips.py`](stack_labeled_clips.py) | Stack N clips vertically with a caption on each, for side-by-side viewing. |
 | [`stack_rows.py`](stack_rows.py) | Clips of the same source frames, one row each, stacked for the owner to judge one against another, with sound. |
+| [`stamp_vector_routing.py`](stamp_vector_routing.py) | Stamp `[routing]` (and optional `[provenance]`) from `prompt_bank/control_vectors/*.toml` into control-vector `.safetensors` `__metadata__` on CPU (`0` GPU needed, bit-exact tensors). |
 | [`strangers.py`](strangers.py) | A keep-out of every person in a shot who is not one of the preview's subjects: the strangers. |
 | [`subject_alone_or_in_a_group.py`](subject_alone_or_in_a_group.py) | Is ONE subject in a crowd followed better alone, or seeded together with the people around them? |
 | [`subject_likeness_in_a_group.py`](subject_likeness_in_a_group.py) | Is a track that still has a plausible mask still on the SUBJECT? The likeness of each track to the subject's own seed. |
@@ -693,6 +695,7 @@ Arm manifests and the like; a manifest's line is its own `what`.
 | [`j_lens_builder.py`](control_vector/j_lens_builder.py) | Reproducible builder and verifier for `<ComfyUI>/models/j_lens/j_lens_h3.safetensors` (`h3_j_lens_v1`). |
 | [`llm_pairs.py`](control_vector/llm_pairs.py) | Local LLM pair generation (`transformers` and `exllamav3`) for H3 control vectors. |
 | [`make_cmds.py`](control_vector/make_cmds.py) | CLI commands for `make`, `make-media`, and `from-md` (`import-md`). |
+| [`pair_compiler.py`](control_vector/pair_compiler.py) | In-place target-prompt contrast compiler and stratified `prompt_bank/bank.json` scene splicer for MiniMax H3 control vectors. |
 | [`run_phase3_steering_experiments.py`](control_vector/run_phase3_steering_experiments.py) | Phase 3 Steering & Elicitation Experiments (GPU Window 1). |
 | [`run_phase4_stacked_and_stream_probes.py`](control_vector/run_phase4_stacked_and_stream_probes.py) | Phase 4 Clamped Stacking, Inverted Block-Band, 1x Q_aud Split, & H3-Image Parity Probes. |
 | [`sculpt.py`](control_vector/sculpt.py) | CPU vector sculpting (`sculpt` / `--invert`) and contextual prompt receptor metering. |

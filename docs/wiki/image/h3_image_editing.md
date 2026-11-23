@@ -112,7 +112,7 @@ folder `pika_still_trial` in `Image`.
   gave the look it is named for outside the edited garment. In code (`comfy/model_base.py:2302-2306`,
   `comfy/ldm/minimax/model.py:375-389, 535-549`), `MiniMaxH3GuideLatent(single_frame=True, frame_idx=0)` places the
   source still in `payload["cond_video_latents"]` at `cond_t = cursor + 0`, the target frame's own `(t=0, h, w)` RoPE
-  coordinates; `control_vector_nodes.py:1244-1274` already gates `cond_video_latents` when `ref_vae_end_percent < 1.0`
+  coordinates; `steering/nodes.py:274-304` already gates `cond_video_latents` when `ref_vae_end_percent < 1.0`
   or `ref_vae_aug < 0.999`, and `node 72` (`MiniMaxH3LoRABranch`) gates `GUIDE_VFX_EDIT_FFP_LORA` via `end_percent`.
 - The graph as generated was rendered once with a picture of a man in place of the placeholder, which was not on the
   machine: the clothing was replaced and the rest kept.
@@ -178,20 +178,20 @@ What was seen, for the owner's eye to judge:
   became a clay figure and the person and the framing were gone.
 - **Step window.** The vector on the first half of the schedule alone gave about the picture it gives on all of it;
   on the second half alone the picture stayed close to the edit with no vector. The window counts whole steps
-  (`control_vector_nodes.py::_step_in_window`) and a still's schedule is short (the `ManualSigmas` node of each
+  (`steering/nodes.py::_step_in_window`) and a still's schedule is short (the `ManualSigmas` node of each
   graph), so the window has only as many positions as the schedule has steps.
 - **Mask.** `scene_only`, `look_only` and `description_only` gave three different pictures; the hair changed only
   under `scene_only`. The node logs how many rows each mask steered.
 - **Mode.** `amplify` stayed close to the edit with no vector; `project_out` changed the jacket. `hold` does nothing
   on one vector node: it removes a direction from the shift earlier vector nodes added
-  (`control_vectors.py::_apply_holds_to_shift64`).
+  (`steering/runtime.py::_apply_holds_to_shift64`).
 - **Typed `words`, no file.** At 1.5 the jacket and hair changed without the look the words name; at 3.0 a cartoon
   clay doll replaced the picture. The node logs which words its list matched.
 - **The picture's weight and its release (`ref_vae_aug`, `ref_vae_end_percent`): read these as the fault, not the
   inputs.** These tries ran before `85aba935`. Until that commit a released picture was not let go: the node zeroed
   its latents and core filled the rows with noise and labeled them with the stream's own time, so the model was
   handed noise as its reference. That commit drops the rows on released steps
-  (`control_vector_nodes.py::_drop_visual_cond_from_layout`). The release stills were rendered again on it after the
+  (`steering/nodes.py::_drop_visual_cond_from_layout`). The release stills were rendered again on it after the
   server's restart, same graphs and seed (`sheet_release_before_and_after_the_fix`): the stray objects and streaks
   are gone, the held still came out pixel for pixel as before, and the node logs the rows it released. With the
   release clean, letting the picture go for the second half of the schedule left this picture close to the held
@@ -208,7 +208,7 @@ What was seen, for the owner's eye to judge:
     the larger of the weight and the stream's time (`comfy/ldm/minimax/model.py`, `_cond_video_rows` and `seg_t` in
     `_forward`), so on the later steps of a low weight the rows are noisier than their label says. Read, not run.
     `dd054d6b` then changed the input: the node sends core the larger of the weight and the stream's time, so the
-    rows' noise matches their label on every step (`control_vector_nodes.py::_stream_time`, held by a case in
+    rows' noise matches their label on every step (`steering/nodes.py::_stream_time`, held by a case in
     `bench/check_control_vectors.py`). No still has been rendered on that commit; these are its same-seed before.
 - **On the guide edit graphs as rendered on 2026-11-10** (`h3_probe_pika_image_guide_edit*` before `02a20fe3`), where the
   guide is the only copy of the picture: `ref_vae_aug` at 0.30 lost the edit and the person. Before `02a20fe3`, a section

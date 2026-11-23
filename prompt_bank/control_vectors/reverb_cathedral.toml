@@ -7,6 +7,16 @@ mode = "t2va"
 frame = "scene"
 exclude_shots = ["t2va_offpath_tortoise", "ref2va_look_anchor", "t2va_spec_specific"]
 
+[routing]
+bus = "audio"
+regime = "a"
+target = "soundscape_only"
+streams = "audio_only"
+block_band = "all"
+needs_ref_release = false
+families = ["fl2va", "ref2va"]
+default_strength = 1
+
 [[pair]]
 a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, a medium-wide shot frames a sacristan in a dark wool robe walking across grey flagstones carrying a brass candlestick across the five-second take. Each step lands at an even pace along the stone aisle. The camera trucks right with small amplitude at slow speed. The sacristan produces no vocal sound.
 

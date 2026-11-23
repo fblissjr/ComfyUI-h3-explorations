@@ -58,7 +58,7 @@ The phrases were written for this run. They are not from the pair bank.
   `t2va_cafe_kids`. They are not plain scenes: section 11.3 says what their own openings carry.
 - **The pair made from each scene.** Both sides are the whole scene prompt with one short phrase put at the
   opening of its first shot. Side B gets the concept phrase. Side A gets one of the compiler's neutral
-  phrases, a different one per scene (`h3_pair_compiler.py::DEFAULT_AUX_BASELINES`).
+  phrases, a different one per scene (`bench/control_vector/pair_compiler.py::DEFAULT_AUX_BASELINES`).
 
 For `heavy_blizzard` the five pairs differ like this, and in nothing else:
 
@@ -438,7 +438,7 @@ all are worth keeping. What was added so that they stand like the others:
 
 - **A pair file each**, `data/control_vectors/<name>.toml`, beside the other generated pair files. Each was
   written from the exact pairs recorded in its vector file's metadata and loads with
-  `control_vectors.py::load_pairs` (`write_pair_files.py` in the run folder).
+  `steering/data.py::load_pairs` (`write_pair_files.py` in the run folder).
 - **The `ref2va` file and its card**, built from that pair file with `MiniMaxH3MakeControlVector` on the
   shipped Pika `ref2va` control-vector graph's loaders, in one queue item (`build_ref2va_siblings.py`). Pair
   agreement on the `ref2va` cards is within a hundredth of each vector's `fl2va` figure in section 3.

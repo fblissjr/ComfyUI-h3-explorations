@@ -7,6 +7,16 @@ mode = "t2va"
 frame = "scene"
 exclude_shots = ["t2va_offpath_tortoise", "ref2va_look_anchor"]
 
+[routing]
+bus = "audio"
+regime = "a"
+target = "soundscape_only"
+streams = "audio_only"
+block_band = "all"
+needs_ref_release = false
+families = ["fl2va", "ref2va"]
+default_strength = 1
+
 [[pair]]
 a = '''integrated_multimodal_description: [Shot 1] Cinematic. In an oak-paneled archive room, an archivist in an emerald cardigan turns a ledger page across a green desk blotter. The camera tracks slowly forward as she produces no vocal sound and keeps her lips closed.
 

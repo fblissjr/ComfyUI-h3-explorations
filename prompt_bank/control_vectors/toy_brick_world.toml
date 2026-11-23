@@ -7,6 +7,16 @@ mode = "t2va"
 frame = "scene"
 # inference_recipe = target=scene_only (t2va) / look_only or scene_only (ref2va, release_refs=0.16..0.33), strength=1.2..1.7, end_percent=0.67
 
+[routing]
+bus = "look"
+regime = "a"
+target = "scene_only"
+streams = "video_only"
+block_band = "all"
+needs_ref_release = true
+families = ["fl2va", "ref2va", "h3_image"]
+default_strength = 1
+
 [[pair]]
 a = '''integrated_multimodal_description: [Shot 1] A medium tracking shot glides along a firehouse bay where crew workers polish red truck doors across the five-second take, featuring natural human faces, wrinkled canvas coats, real painted sheet steel, and wet floor slabs. The camera tracks right evenly. Neither worker speaks.
 

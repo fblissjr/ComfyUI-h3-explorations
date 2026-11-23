@@ -39,10 +39,10 @@ Example: `film_16mm_1974_neutral__ref2va__diff_span__lora_865ee189.safetensors` 
 - `vector.post_refiner` (`float32 [5376]`): raw mean `B - A` post-refiner direction (after any `[[hold]]` / `hold_words` projection). Applied at runtime by `MiniMaxH3Steer` (and legacy `MiniMaxH3ApplyControlVectors`).
 - `vector.encoder` (`float32 [5120]`, optional, included by default): unit-norm `layers.49` direction (token `0` excluded).
 - `holds.post_refiner` (`float32 [K, 5376]`, when `[[hold]]` groups exist): orthonormal Gram-Schmidt hold basis.
-- `erasure.mu_d` (`float32 [5376]`), `erasure.vr` (`float32 [r, 5376]`, orthonormal, `r <= 8`), `erasure.diag` (`float32 [r]`, in `[0, 1]`), and optional `erasure.mu_a` (`float32 [5376]` dataset Pole-A centering for `pooling="vision_tokens"` via `control_vectors.py::build_spatial_vision_erasure`), omitted cleanly on compiled `<compiled:...>` builds with `< MIN_ERASURE_PAIRS = 6` unless `--force-low-pair-erasure` is passed (`N_A >= 2` for file `.toml` builds): row-softmax (`tau = 0.15`) Pole-A erasure basis & ridge weights used by default `MiniMaxH3Steer` `mode = "add_norm_matched_erasure"`.
+- `erasure.mu_d` (`float32 [5376]`), `erasure.vr` (`float32 [r, 5376]`, orthonormal, `r <= 8`), `erasure.diag` (`float32 [r]`, in `[0, 1]`), and optional `erasure.mu_a` (`float32 [5376]` dataset Pole-A centering for `pooling="vision_tokens"` via `steering/extract.py::build_spatial_vision_erasure`), omitted cleanly on compiled `<compiled:...>` builds with `< MIN_ERASURE_PAIRS = 6` unless `--force-low-pair-erasure` is passed (`N_A >= 2` for file `.toml` builds): row-softmax (`tau = 0.15`) Pole-A erasure basis & ridge weights used by default `MiniMaxH3Steer` `mode = "add_norm_matched_erasure"`.
 
 ### Top-level JSON `.safetensors` metadata (`format = "h3-control-vector/1"`)
-Validated on every load by [`control_vectors.py::load_vector`](../../../control_vectors.py):
+Validated on every load by [`steering/extract.py::load_vector`](../../../control_vectors.py):
 - `format` (`"h3-control-vector/1"`), `name`, `quality`, `family` (`"fl2va"`, `"ref2va"`, `"fasth3"`, `"h3_image"`, or `"custom:<12 hex chars>"`).
 - `recipe` (`{checkpoint, loras, encoder}`), `measured_under` (`{mode, frame, prefix, pooling}`), `points` (`post_refiner: {unit: "mean_pair_difference", raw_norm, median_row_norm}`, plus `encoder` when saved).
 - `pairs` (`{path, sha256, n_pairs, n_holds}`, plus `differing_sections`, `a_side`, `b_side`, and per-pair `pooled_tokens` produced by `control_vectors.pairs_record`).

@@ -75,14 +75,14 @@ LITERAL_ZERO = {
         "zero noise is zero noise: the context's rows carry this value as their mask, "
         "0 included, on one code path. The `> 0` test only adds the sentence about the "
         "seam to the window's report when the context is shown with any noise."),
-    ("control_vector_nodes.py", "strength"): (
+    ("steering/nodes.py", "strength"): (
         "zero strength is zero strength. The `!= 0.0` guard skips running "
         "`apply_post_refiner` for a control vector that contributes nothing."),
-    ("control_vector_nodes.py", "start_percent"): (
+    ("steering/nodes.py", "start_percent"): (
         "zero start_percent is step 0 of the schedule. The `<= 0.0` test with "
         "`end_percent >= 1.0` short-circuits the step-index lookup when the "
         "active window covers the entire schedule."),
-    ("control_vector_nodes.py", "hold_alpha"): (
+    ("steering/nodes.py", "hold_alpha"): (
         "zero hold_alpha is zero projection removal (`r' = r - 0 * (r . u_hat) * u_hat = r`). "
         "The `> 0.0` guard skips loading the J-Lens bundle and computing `apply_soft_holds` "
         "when the hold projection weight is zero."),
@@ -122,7 +122,7 @@ SENTINELS = {
 #: cannot type zero in the first place. Nothing is selected, so nothing is owed;
 #: the entry exists because the proxy cannot tell a refusal from a branch.
 REFUSED_ZERO = {
-    ("control_vector_nodes.py", "target_median_row_norm"): (
+    ("steering/legacy_nodes.py", "target_median_row_norm"): (
         "zero is refused by `target_norm <= 0.0` raising ValueError in "
         "`match_conditioning_row_norm` when `reference_conditioning` is not "
         "wired; when `reference_conditioning` is wired, `target_norm` is "
@@ -242,7 +242,11 @@ def zero_tests(tree):
 def main() -> int:
     print("numeric widgets must name a quantity, not select a mode\n")
     findings = []
-    for path in sorted(REPO.glob("*.py")):
+    scan_paths = [
+        *sorted(REPO.glob("*.py")),
+        *sorted((REPO / "steering").glob("*.py")),
+    ]
+    for path in scan_paths:
         try:
             tree = ast.parse(path.read_text())
         except SyntaxError:
@@ -252,11 +256,12 @@ def main() -> int:
             continue
         tested = zero_tests(tree)
         alias_map = aliases(tree, declared)
+        rel_name = path.relative_to(REPO).as_posix()
         for name, decl_line in sorted(declared.items()):
             lines = sorted({ln for alias in alias_map[name]
                             for ln in tested.get(alias, ())})
             if lines:
-                findings.append((path.name, name, decl_line, lines))
+                findings.append((rel_name, name, decl_line, lines))
 
     unexplained = [f for f in findings if (f[0], f[1]) not in ALLOWED]
     accounted = [f for f in findings if (f[0], f[1]) in ALLOWED]

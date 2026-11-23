@@ -8,6 +8,16 @@ frame = "scene"
 exclude_shots = ["t2va_offpath_tortoise", "ref2va_look_anchor"]
 # inference_recipe = target=scene_only (t2va) / description_only or scene_only (ref2va), strength=1.2..1.7, steps=0.0..1.0, release_refs=1.0
 
+[routing]
+bus = "look"
+regime = "a"
+target = "scene_only"
+streams = "video_only"
+block_band = "mid_late_20_49"
+needs_ref_release = false
+families = ["fl2va", "ref2va", "h3_image"]
+default_strength = 1
+
 [[pair]]
 a = '''integrated_multimodal_description: [Shot 1] Live-action, true-color natural daylight photography with balanced flesh pigments, a medium shot frames a woman in a wool cardigan beside a timber bookcase across the five-second take. She sets down a stoneware cup and turns a thick linen page. The camera holds a static frame. She produces no vocal sound.
 

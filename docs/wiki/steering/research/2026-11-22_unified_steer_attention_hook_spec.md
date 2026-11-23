@@ -42,7 +42,7 @@ From [`comfy/model_prefetch.py:31-110,231-335`](../../../../../../comfy/model_pr
 ### 2.2 Call-Local State & Reusable Workspace (`H3SteerStepWorkspace`)
 Rather than mutating `dm.blocks` or stashing `state` in module-global closures:
 1. **Per-Clone Attachment:** [`MiniMaxH3Steer`](../../../../control_vector_nodes.py#L4573) only installs:
-   - One `WrappersMP.DIFFUSION_MODEL` wrapper (`control_vector_nodes.py:3051`), AND
+   - One `WrappersMP.DIFFUSION_MODEL` wrapper (`steering/nodes.py:2037`), AND
    - When any active spec requires `block_band != "all"` or `streams in ("video_only_1x", "audio_only_1x")`, chained per-clone `patches_replace["dit"][("double_block", i)]` entries (`H3SteerBlockPatch`, mirroring [`MiniMaxH3FunControlBlockPatch`](../../../../../../comfy_extras/nodes_minimax_h3.py#L589-L621) cleanly via `set_model_patch_replace`). Mode 0 (`all` + `both`) adds **zero** block patches and **zero** attention hooks.
 2. **Thread/Branch-Safe Runtime Context (`transformer_options["_h3_steer_runtime"]`):** Inside `_dm_wrap`, build a fresh call-local `H3SteerRuntime` dataclass attached strictly to a shallow-copied `to_next = dict(transformer_options or {})`. Two concurrent branches (`MiniMaxH3EditGuider` `original` vs. `edited`, or batched CFG) never collide on `step_kv_by_block` or polarity flags.
 3. **Reusable GPU Workspace (`H3SteerStepWorkspace`):** Owned on `transformer_options` (per-model cache keyed by `(device, dtype, l_txt, heads, head_dim)`, max 2 entries — freed automatically via ComfyUI `ModelPatcher.cleanup` / `CallbacksMP.ON_CLEANUP`):
@@ -53,7 +53,7 @@ Rather than mutating `dm.blocks` or stashing `state` in module-global closures:
      - `k_txt_saved, v_txt_saved: [1, 56, L_txt, 128]` (`~7.34 MiB`) for zero-clone save/restore
      - `q_b2, k_b2, v_b2: [1, 56, L_txt, 128]` (`~11.0 MiB`, only if Mode 3 dual-shadow triggers)
    - Synchronize compute stream once at allocation (`comfy.model_management.current_stream(device)` per `#16870`), then reuse purely in-place via `.copy_()` across all `50` blocks and all `N` steps.
-4. **Refinement Outside `malloc_graph`:** Pre-refining unrefined `5120 -> 5376` `context` on step 0 (`control_vector_nodes.py:1997-2016`) AND transferring cached CPU `ctx_base` / `ctx_steer` to GPU MUST run inside `with comfy.model_prefetch.pause_malloc_graph():` so step 0 and steps 1..N present **identical** allocation graphs to `malloc_graph`.
+4. **Refinement Outside `malloc_graph`:** Pre-refining unrefined `5120 -> 5376` `context` on step 0 (`steering/nodes.py:992-1011`) AND transferring cached CPU `ctx_base` / `ctx_steer` to GPU MUST run inside `with comfy.model_prefetch.pause_malloc_graph():` so step 0 and steps 1..N present **identical** allocation graphs to `malloc_graph`.
 
 ### 2.3 Inside `H3SteerBlockPatch` (`patches_replace["dit"][("double_block", i)]`)
 For each block `i`:
@@ -176,7 +176,7 @@ Look closely at ALL call paths from `DiTBlock.forward` (`comfy/ldm/minimax/model
 ## 5. `MiniMaxH3Steer` Rule-5 Schema Extension & Verification Gate
 
 ### 5.1 Rule-5 Trailing Inputs (Only Promoted After Phase 4 Showcases B & C Pass)
-Append strictly at the **end** of `MiniMaxH3Steer.define_schema` (`control_vector_nodes.py:4757`, preserving all upstream widget slots/types/defaults per `bench/check_node_ids.py`):
+Append strictly at the **end** of `MiniMaxH3Steer.define_schema` (`steering/nodes.py:3034`, preserving all upstream widget slots/types/defaults per `bench/check_node_ids.py`):
 - Append options `"video_only_1x"` and `"audio_only_1x"` to existing `streams` combo (`:4674-4684`, wait — keeping `"video_only"` / `"audio_only"` unchanged if `2x` pass fallback is still exposed, OR adding `stream_split_mode` trailing combo if `check_literal_widgets.py` requires stable option lists: check `bench/check_literal_widgets.py` before altering existing `STEER_STREAMS`!). Safest Rule-5 design: keep `streams` options intact, and append **two trailing optional inputs**:
   1. `block_band` (`io.Combo.Input` / `io.String.Input`: default `"all"`, presets `"all"`, `"mid_late_20_49"` — activating Mode 1)
   2. `split_backend` (`io.Combo.Input`: `"auto_1x_kv"` vs. `"legacy_2x_pass"` — lets `video_only` / `audio_only` select single-pass `Q_aud` K/V split vs. reference 2x velocity split cleanly with zero widget-shift breakage!)

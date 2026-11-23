@@ -26,8 +26,8 @@ with none is a helper the others import.
 
 | module | nodes it defines | what it says it does |
 |---|---|---|
-| [`control_vector_nodes.py`](control_vector_nodes.py) | `MiniMaxH3MakeControlVector`, `MiniMaxH3MakeMediaControlVector`, `MiniMaxH3ApplyControlVectors`, `MiniMaxH3LoadControlVector`, `MiniMaxH3WordVector`, `MiniMaxH3Steer`, `MiniMaxH3ReleaseReferences`, `MiniMaxH3LayerNormMatch` | ComfyUI nodes for making and applying MiniMax H3 contrastive control vectors. |
-| [`control_vectors.py`](control_vectors.py) |  | Pure-PyTorch math, pair-file reader, and `.safetensors` I/O for H3 control vectors. |
+| [`control_vector_nodes.py`](control_vector_nodes.py) |  | Thin backward-compatibility shim aliasing `steering.nodes` (`Option B` Zero Manifest Change). |
+| [`control_vectors.py`](control_vectors.py) |  | Thin backward-compatibility re-export shim for `steering.{constants,data,extract,runtime}`. |
 
 ### h3_*
 
@@ -37,7 +37,7 @@ with none is a helper the others import.
 | [`h3_encoder_loader.py`](h3_encoder_loader.py) | `MiniMaxH3EncoderLoader` | Core's `CLIPLoader` for a MiniMax H3 encoder, plus the guards it does not have. |
 | [`h3_image_nodes.py`](h3_image_nodes.py) | `MiniMaxH3ImageSize`, `MiniMaxH3ImagePromptExpander`, `MiniMaxH3ImageDownscale` | MiniMax-H3-Image: canvas size (`MiniMaxH3ImageSize`) and local `heylook` prompt expander (`MiniMaxH3ImagePromptExpander`). |
 | [`h3_layout.py`](h3_layout.py) |  | MiniMax-H3's packed layout, read from what core publishes. |
-| [`h3_pair_compiler.py`](h3_pair_compiler.py) |  | In-place target-prompt contrast compiler for MiniMax H3 control vectors. |
+| [`h3_pair_compiler.py`](h3_pair_compiler.py) |  | Thin backward-compatibility shim aliasing `bench/control_vector/pair_compiler.py`. |
 | [`h3_prompt_contract.py`](h3_prompt_contract.py) |  | Shared pure-stdlib H3 prompt contract for all generation modes and multimodal references. |
 | [`h3_prompt_edit.py`](h3_prompt_edit.py) |  | Apply `old wording -> new wording` edits to an H3 prompt: plain text code, no model libraries. |
 | [`h3_prompt_expander.py`](h3_prompt_expander.py) | `MiniMaxH3PromptExpander` | Dedicated 1x Video Prompt Expander node (`MiniMaxH3PromptExpander`) powered by `heylook` + `h3_prompt_contract`. |
@@ -109,7 +109,7 @@ with none is a helper the others import.
 | [`frozen_video_cache.py`](frozen_video_cache.py) | `MiniMaxH3FrozenVideoCache` | Cache the frozen rows of an H3 sampling run, so its steps run on the live rows only. |
 | [`guide_latent.py`](guide_latent.py) | `MiniMaxH3GuideLatent` | Guide-latent conditioning for MiniMax H3 video and single-frame editing. |
 | [`heylook_client.py`](heylook_client.py) |  | Shared `heylookitsanllm` (`POST /v1/messages`) HTTP/SSE client and capability-gating helpers. |
-| [`j_lens.py`](j_lens.py) |  | Analytical Jacobian Lens (`J-Lens`) and `TokenRefiner` Wiener readout for H3 `5376`-d and `5120`-d vectors. |
+| [`j_lens.py`](j_lens.py) |  | Thin backward-compatibility shim aliasing `steering.xray` (J-Lens X-Ray & WordVector synthesizer). |
 | [`keyframe_canvas.py`](keyframe_canvas.py) |  | Resolve an H3 canvas from a keyframe, the way the reference pipeline does. |
 | [`lora_branch.py`](lora_branch.py) | `MiniMaxH3LoRABranch` | Apply an H3 LoRA as a separate low-rank branch, so none of it is lost to the int8 grid. |
 | [`marker_arms.py`](marker_arms.py) |  | Bench-only marker-corpus arms: bind one to a CLIP, and read back what bound. |
@@ -131,7 +131,7 @@ with none is a helper the others import.
 | [`sparse_table.py`](sparse_table.py) |  | Per-head tau tables for the sparse attention node: the format, the loader, the refusals. |
 | [`spatial_director.py`](spatial_director.py) | `MiniMaxH3SpatialDirector`, `MiniMaxH3DirectorHUD` | Spatial World Director (`MiniMaxH3SpatialDirector`) & Director HUD Export (`MiniMaxH3DirectorHUD`). |
 | [`sprite_trajectory.py`](sprite_trajectory.py) | `MiniMaxH3AppendSpriteTrajectory` | Zero-file 2D kinematic cutout trajectory reference (`MiniMaxH3AppendSpriteTrajectory`). |
-| [`steer_attention_hooks.py`](steer_attention_hooks.py) |  | Compiler-safe attention-hook runtime and reusable GPU workspace for `MiniMaxH3Steer`. |
+| [`steer_attention_hooks.py`](steer_attention_hooks.py) |  | Thin backward-compatibility shim aliasing `steering.hooks` (`auto_1x_kv` & `block_band` hooks). |
 | [`step_x0_observer.py`](step_x0_observer.py) | `MiniMaxH3StepX0Observer` | Save each sampling step's x0 prediction to disk, and change nothing. |
 | [`substrate.py`](substrate.py) |  | What produced a number: the substrate block, and nothing else. |
 | [`vae_precision.py`](vae_precision.py) | `MiniMaxH3VAEPrecision` | Split the H3 video VAE's encode precision from its decode precision. |
@@ -162,7 +162,7 @@ with none is a helper the others import.
 | `.gemini/` | 8 | [below](#gemini) |
 | `archive/` | 31 | (none) |
 | `assets/` | 1 | [below](#assets) |
-| `bench/` | 901 | [`bench/INDEX.md`](bench/INDEX.md) and [`bench/results/INDEX.md`](bench/results/INDEX.md) for the records |
+| `bench/` | 904 | [`bench/INDEX.md`](bench/INDEX.md) and [`bench/results/INDEX.md`](bench/results/INDEX.md) for the records |
 | `changelog.d/` | | [`changelog.d/README.md`](changelog.d/README.md), one file per changelog entry; not listed and not counted |
 | `contact_sheets/` | 2 | [below](#contact_sheets) |
 | `data/` | 2 | [below](#data) |
@@ -171,6 +171,7 @@ with none is a helper the others import.
 | `prompt_bank/` | 250 | [`docs/wiki/prompting/prompt_bank.md`](docs/wiki/prompting/prompt_bank.md), the prompt catalogue |
 | `sparse_tables/` | 1 | [below](#sparse_tables) |
 | `standalone/` | 6 | [below](#standalone) |
+| `steering/` | 11 | [below](#steering) |
 | `vendor/` | 11 | [below](#vendor) |
 | `vendor_config/` | 10 | [below](#vendor_config) |
 | `vendor_guides/` | 21 | [below](#vendor_guides) |
@@ -260,6 +261,22 @@ with none is a helper the others import.
 | [`h3_quant/__init__.py`](standalone/h3_quant/__init__.py) | ComfyUI custom node: MiniMax H3 channel balance for INT8 attention. Off by default. |
 | [`h3_quant/channel_balance.py`](standalone/h3_quant/channel_balance.py) | Rebalance q/k channels before INT8 attention on the blocks whose K-norm is lopsided. |
 | [`h3_quant/check_h3_loud_blocks.py`](standalone/h3_quant/check_h3_loud_blocks.py) | Which blocks of an H3 checkpoint have lopsided K-norm weights. No GPU, no ComfyUI. |
+
+## steering/
+
+| file | what it says |
+|---|---|
+| [`__init__.py`](steering/__init__.py) | MiniMax H3 clean-slate `steering` package (`10` focused modules + Sound-Mixer compiler). |
+| [`constants.py`](steering/constants.py) | Canonical dimensions, math constants, bus/regime enums, and checkpoint tables for `steering/`. |
+| [`data.py`](steering/data.py) | Contrastive pair TOML loader (`[vector]`, `[[pair]]`, `[[hold]]`, `[routing]`, `[provenance]`), differing-span validator, Markdown converter, and Gates A/B/C/D + setting-leak linter. |
+| [`encode.py`](steering/encode.py) | LoRA-aware Qwen3-VL L49 + `TokenRefiner` encoding, media-pair geometry alignment, and single-pass `encode_pair_set` / `encode_and_cache_spans` helpers. |
+| [`extract.py`](steering/extract.py) | CPU `< 50 ms` contrastive extraction, Pole-A erasure SVD, statistical quality metrics, `SpanCache` (`__spans.safetensors`) round-trip, and `.safetensors` I/O (`unit_mean=False` default). |
+| [`hooks.py`](steering/hooks.py) | Compiler-safe attention-hook runtime (`auto_1x_kv` stream split, `block_band`, and seam helpers). |
+| [`legacy_nodes.py`](steering/legacy_nodes.py) | Thin Option-B compatibility wrappers for legacy & companion ComfyUI nodes (`MiniMaxH3ApplyControlVectors`, `MiniMaxH3MakeControlVector`, `MiniMaxH3LoadControlVector`, `MiniMaxH3LayerNormMatch`) preserving zero `node_id_manifest.json` diff ... |
+| [`mixer.py`](steering/mixer.py) | Unified Sound-Mixer runtime compiler (`MixerCompiler`) for H3 control vectors. |
+| [`nodes.py`](steering/nodes.py) | Primary ComfyUI steering nodes (`MiniMaxH3Steer`, `MiniMaxH3ReleaseReferences`, `MiniMaxH3WordVector`, `MiniMaxH3MakeMediaControlVector`) and runtime model wrapper. |
+| [`runtime.py`](steering/runtime.py) | Point C post-refiner prelude math: `h_bar` centering, `peer_ros=True` orthogonalization, clamped `[0, 1]` union SVD, smooth `95.5 -> 98.5` RMS knee, and `s = 0` exact identity. |
+| [`xray.py`](steering/xray.py) | Compact Jacobian Lens (`X-Ray` / `J-Lens`) and `Model2Vec` lexicon readout & synthesis on CPU. |
 
 ## vendor/
 

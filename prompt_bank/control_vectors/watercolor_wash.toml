@@ -7,6 +7,16 @@ mode = "t2va"
 frame = "scene"
 # inference_recipe = target=scene_only (t2va) / look_only or scene_only (ref2va, release_refs=0.16..0.33), strength=1.1..1.6, end_percent=0.67
 
+[routing]
+bus = "look"
+regime = "a"
+target = "scene_only"
+streams = "video_only"
+block_band = "all"
+needs_ref_release = true
+families = ["fl2va", "ref2va", "h3_image"]
+default_strength = 1
+
 [[pair]]
 a = '''integrated_multimodal_description: [Shot 1] A wide tracking shot follows a sailboat gliding past chalk sea cliffs across calm coastal waters under morning clouds across the five-second take, captured in sharp real-world photography displaying hard opaque hull lacquer and smooth glassy water ripples. The camera glides left cleanly beside light bow spray. No crew members are visible.
 

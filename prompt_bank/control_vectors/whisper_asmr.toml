@@ -9,6 +9,16 @@ exclude_shots = ["t2va_offpath_tortoise", "ref2va_look_anchor"]
 # recommended_strength = 3.0
 # notes = "Steers full-voiced conversational speech into ultra-intimate close-mic breathy ASMR whisper delivery with crisp lip/consonant transients and dry near-field silence."
 
+[routing]
+bus = "audio"
+regime = "a"
+target = "description_only"
+streams = "both"
+block_band = "all"
+needs_ref_release = false
+families = ["fl2va", "ref2va"]
+default_strength = 1
+
 [[pair]]
 a = '''integrated_multimodal_description: [Shot 1] Cinematic, close-up inside a quiet bookbindery where a young woman in a linen smock runs her fingertips along the ribbed spine of a calfskin journal. The camera holds a static frame while (S1) speaks in a normal full-voiced conversational tone at comfortable room volume with natural vocal-cord resonance, saying, <d>[English] Each signature is stitched with waxed linen thread.</d> Her lips close calmly.
 

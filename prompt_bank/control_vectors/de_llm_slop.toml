@@ -9,6 +9,16 @@ exclude_shots = ["t2va_cooking_show_meltdown", "t2va_box_office", "t2va_freight_
 # tier = Master EQ — Anti-Slop Optical Strip
 # inference_recipe = target=scene_only (fl2va) / description_only (ref2va), strength=0.8..1.35, steps=0.0..1.0, release_refs=1.0
 
+[routing]
+bus = "look"
+regime = "a"
+target = "scene_only"
+streams = "video_only"
+block_band = "all"
+needs_ref_release = false
+families = ["fl2va", "ref2va", "h3_image"]
+default_strength = 1
+
 [[pair]]
 a = '''integrated_multimodal_description: [Shot 1] Live-action medium shot inside a neighborhood archival print shop watching an ink-stained pressman sort lead type drawers beside cast-iron rollers across the five-second take, rendered with syrupy teal-orange HDR rim halos, creamy shallow bokeh blur melting distant detail, and glossy plastic smoothing. She produces no vocal sound on a tripod hold.
 

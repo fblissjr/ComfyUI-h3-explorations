@@ -101,7 +101,7 @@ What if you want to test a brand-new idea right now without building a 10-pair `
 
 Load [`workflows/h3_text_to_video_pika_word_vector_erasure_api.json`](../../../workflows/h3_text_to_video_pika_word_vector_erasure_api.json) (`prompt_bank/t2va_hardware_aisle_short.txt`, `1152x768 @ 141f`).
 
-- **What changed under the hood (`j_lens.py::synthesize_from_words`):**
+- **What changed under the hood (`steering/xray.py::synthesize_from_words`):**
   1. **Multi-token & 2-word `Model2Vec` lexicon:** Single-token words (`noir`, `frost`, `grain`) resolve from the `24,912`-word Wiener table, while multi-token BPE words and 2-word terms (`claymation`, `muppet`, `chiaroscuro`, `plasticine`, `halation`, `silver gelatin`, `liquid chrome`, `direct flash`) resolve automatically from `$H3_MODEL_STORE/j_lens/model2vec_h3_lexicon.safetensors` (with BPE subword SIF fallback if absent).
   2. **Instant `against`-SVD erasure (`< 2 ms` CPU):** Passing `@replace_digital, sunny, warm, indoor, afternoon` (or any `>= 2` opposing words/presets in `against_words`) projects each individual `against` word into `5376`-D post-refiner space and computes a centered SVD `erasure.{mu_d,vr,diag}` on the fly — feeding straight into `MiniMaxH3Steer(mode="add_norm_matched_erasure")`.
   3. **Per-row `hold_words` protection:** Setting `hold_words = "coat, parka"` (`hold_alpha = 0.5`) projects winter-coat directions out of **every** steered row (`_apply_holds_to_rows64`) so pushing `blizzard, snowstorm, frost, freezing, gale` frosts the hardware aisle without forcing heavy parkas onto the shoppers.
@@ -134,7 +134,7 @@ CUDA_VISIBLE_DEVICES="" "$PY" bench/control_vectors.py sculpt \
 ```
 
 **Which one should you choose?**
-- **Chain separate `MiniMaxH3Steer` nodes** when stacking **two strong visual overrides** (like `noir +1.55` + `chaos_panic +0.90`) or targeting **different prompt sections** (`scene_only` + `soundscape_only`): each chained node evaluates its full `|s_i| * 67.5` RMS shift against unsteered `base_rows64` before summing in `float64` (`control_vectors.py:3454-3492`), giving `noir` full erasure authority. *(Phase 3 `Exp 1` caveat: keep heavy visual `scene_only` sliders to `<= 2`, or dial a subtle third visual utility like `de_llm_slop` down to `0.6..0.8` alongside heavy `noir`, because stacking `3+` competing visual sliders on `scene_only` dilutes monochrome authority.)*
+- **Chain separate `MiniMaxH3Steer` nodes** when stacking **two strong visual overrides** (like `noir +1.55` + `chaos_panic +0.90`) or targeting **different prompt sections** (`scene_only` + `soundscape_only`): each chained node evaluates its full `|s_i| * 67.5` RMS shift against unsteered `base_rows64` before summing in `float64` (`steering/extract.py:2168-2206`), giving `noir` full erasure authority. *(Phase 3 `Exp 1` caveat: keep heavy visual `scene_only` sliders to `<= 2`, or dial a subtle third visual utility like `de_llm_slop` down to `0.6..0.8` alongside heavy `noir`, because stacking `3+` competing visual sliders on `scene_only` dilutes monochrome authority.)*
 - **Use `sculpt` (`COMPOSED_ERASURE_MAX_RANK = 16`)** when you want a **single reusable preset knob** with baked `hold_words` (`calm_cursed_cctv`) where one shared `|s| * 67.5` RMS budget is split across subtle blended traits.
 
 ---

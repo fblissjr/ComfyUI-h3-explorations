@@ -826,8 +826,8 @@ def build_parser() -> argparse.ArgumentParser:
         "--unit-mean",
         dest="unit_mean",
         action="store_true",
-        default=True,
-        help="Average unit-normalized pair directions when --rebuild-stale runs (default: True)",
+        default=False,
+        help="Average unit-normalized pair directions when --rebuild-stale runs (default: False)",
     )
     pstat.add_argument(
         "--no-unit-mean",

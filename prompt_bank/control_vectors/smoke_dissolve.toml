@@ -8,6 +8,16 @@ frame = "scene"
 exclude_shots = ["t2va_offpath_tortoise", "ref2va_look_anchor"]
 # inference_recipe = target=scene_only (t2va) / look_only or scene_only (ref2va, release_refs=0.25..0.5), strength=1.2..1.7, end_percent=0.67
 
+[routing]
+bus = "look"
+regime = "a"
+target = "scene_only"
+streams = "video_only"
+block_band = "all"
+needs_ref_release = true
+families = ["fl2va", "ref2va", "h3_image"]
+default_strength = 1
+
 [[pair]]
 a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. At a stainless coffee bar, a female barista keeping solid sharp linen contours in completely clear dry air pours steamed milk cleanly into ceramic cups across the five-second take. Brass espresso handles gleam beside porcelain saucers as the camera pans left gently. She produces no vocal sound.
 

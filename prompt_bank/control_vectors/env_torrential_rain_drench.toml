@@ -9,6 +9,16 @@ exclude_shots = ["t2va_offpath_tortoise", "ref2va_look_anchor"]
 # tier = Tier 2 — Atmosphere & Surface Physics
 # inference_recipe = target=scene_only (fl2va, start=0.17, end=0.83) / description_only (ref2va), strength=1.2..1.6, release_refs=1.0
 
+[routing]
+bus = "look"
+regime = "a"
+target = "scene_only"
+streams = "both"
+block_band = "all"
+needs_ref_release = false
+families = ["fl2va", "ref2va", "h3_image"]
+default_strength = 1
+
 [[pair]]
 a = '''integrated_multimodal_description: [Shot 1] Live-action medium shot along a cobbled courtyard arcade where an artisan trims brass trim corners over stone steps across the five-second take, under parched sun-baked afternoon warmth keeping curls dry and suiting crisp. He keeps both eyes focused on brass corners without speaking. The camera holds static.
 

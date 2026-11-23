@@ -8,6 +8,16 @@ frame = "scene"
 exclude_shots = ["t2va_offpath_tortoise", "ref2va_look_anchor"]
 # inference_recipe = target=scene_only (t2va) / description_only (ref2va), strength=1.2..1.7, end_percent=0.50, release_refs=0.33..0.5
 
+[routing]
+bus = "motion"
+regime = "a"
+target = "description_only"
+streams = "both"
+block_band = "all"
+needs_ref_release = true
+families = ["fl2va", "ref2va", "h3_image"]
+default_strength = 1
+
 [[pair]]
 a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. In a sun-washed hallway, a pair of colleagues smoothly and gracefully arrange heavy binders together cleanly as they compare color swatches against plastered walls across the five-second take. The woman, on-screen, says: <d>[English] Check swatch four by the door.</d> Her lips close cleanly while the camera holds steady.
 

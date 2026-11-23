@@ -8,6 +8,16 @@ frame = "scene"
 exclude_shots = ["t2va_offpath_tortoise", "ref2va_look_anchor"]
 # inference_recipe = target=scene_only (t2va) / description_only (ref2va), strength=1.1..1.6, steps=0.0..1.0, release_refs=1.0
 
+[routing]
+bus = "look"
+regime = "a"
+target = "scene_only"
+streams = "video_only"
+block_band = "all"
+needs_ref_release = false
+families = ["fl2va", "ref2va", "h3_image"]
+default_strength = 1
+
 [[pair]]
 a = '''integrated_multimodal_description: [Shot 1] Live-action, lit steadily by smooth continuous everyday tungsten brightness, a wide shot captures a cobblestone square beside vaulted stone arches across the five-second take. Rain puddles reflect shutters and iron lampposts along the alley while a courier wheels a handcart past closed timber doors. The camera pans right smoothly. He produces no vocal sound.
 

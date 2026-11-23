@@ -7,6 +7,16 @@ mode = "t2va"
 frame = "scene"
 exclude_shots = ["t2va_offpath_tortoise", "ref2va_look_anchor"]
 
+[routing]
+bus = "motion"
+regime = "a"
+target = "description_only"
+streams = "both"
+block_band = "all"
+needs_ref_release = false
+families = ["fl2va", "ref2va", "h3_image"]
+default_strength = 1
+
 [[pair]]
 a = '''integrated_multimodal_description: [Shot 1] Cinematic. Along an industrial concrete loading yard, a mechanic in grease-stained coveralls wipes a steel wrench with a shop rag. Behind him the empty concrete yard sits quiet under overcast daylight while the tripod camera holds a steady medium frame. He produces no vocal sound.
 

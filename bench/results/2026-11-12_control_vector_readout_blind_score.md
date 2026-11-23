@@ -28,7 +28,7 @@ bundle as it stood before it was rebuilt that day; section 9 scores the rebuilt 
   pair file under `prompt_bank/control_vectors/` or `data/control_vectors/`. `key.json` in the run folder lists
   each vector file and pair file.
 - **Readers.** Eight words per pole from each:
-  - `jlens`: `j_lens.py::decode_vector` on `vector.post_refiner`, with the bundle
+  - `jlens`: `steering/xray.py::decode_vector` on `vector.post_refiner`, with the bundle
     `<comfy>/models/j_lens/j_lens_h3.safetensors` as it stood on disk (file dated 2026-11-06).
   - `rows`: the rows table of `bench/control_vector_lexicon.py` (the same arithmetic, copied into
     `build_packets.py`), from the row cache `data/control_vectors/rows_2026-11-09` (built at `402c074a`), each

@@ -7069,14 +7069,18 @@ def _check_nov15_steer_prose_and_ph3_family() -> list[str]:
             )
         )
 
-        # CLI status: defaults unit_mean=True on --rebuild-stale, honors --no-unit-mean, and
-        # computes legacy encoder + null refiner_transmission advisories without mutating stale_stems.
+        # CLI status: defaults unit_mean=False on --rebuild-stale (matching build_cmd L444),
+        # honors --unit-mean / --no-unit-mean, and computes advisories without mutating stale_stems.
         from bench.control_vector import build_cmd as _build_cmd, cli as _cv_cli
 
         ns_def = _cv_cli.build_parser().parse_args(["status"])
+        ns_on = _cv_cli.build_parser().parse_args(["status", "--unit-mean"])
         ns_off = _cv_cli.build_parser().parse_args(["status", "--no-unit-mean"])
-        if not bool(ns_def.unit_mean) or bool(ns_off.unit_mean):
-            errs.append(f"CLI status unit_mean parse mismatch: def={ns_def.unit_mean!r}, off={ns_off.unit_mean!r}")
+        if bool(ns_def.unit_mean) or not bool(ns_on.unit_mean) or bool(ns_off.unit_mean):
+            errs.append(
+                f"CLI status unit_mean parse mismatch: def={ns_def.unit_mean!r}, "
+                f"on={ns_on.unit_mean!r}, off={ns_off.unit_mean!r}"
+            )
 
         st_tmp = Path(ep_tmp) / "status_unit_mean"
         (st_tmp / "toml").mkdir(parents=True, exist_ok=True)
@@ -7105,15 +7109,15 @@ def _check_nov15_steer_prose_and_ph3_family() -> list[str]:
             )
             _build_cmd.cmd_status(
                 _cv_cli.build_parser().parse_args([
-                    "status", "--rebuild-stale", "--no-unit-mean", "--families", "both", "--bundle", str(st_tmp / "missing.safetensors"),
+                    "status", "--rebuild-stale", "--unit-mean", "--families", "both", "--bundle", str(st_tmp / "missing.safetensors"),
                     "--dir", str(st_tmp / "vec"), "--toml-dir", str(st_tmp / "toml"),
                 ])
             )
         finally:
             _build_cmd.cmd_rebuild = orig_cmd_rebuild  # type: ignore[assignment]
             _build_cmd._inspect_bundle_status = orig_bundle_inspect  # type: ignore[assignment]
-        if seen_um != [True, False]:
-            errs.append(f"cmd_status --rebuild-stale forwarded unit_mean={seen_um!r}, expected [True, False]")
+        if seen_um != [False, True]:
+            errs.append(f"cmd_status --rebuild-stale forwarded unit_mean={seen_um!r}, expected [False, True]")
         if seen_fams != [None, "both"]:
             errs.append(f"cmd_status --rebuild-stale forwarded families={seen_fams!r}, expected [None, 'both']")
         import h3_rules

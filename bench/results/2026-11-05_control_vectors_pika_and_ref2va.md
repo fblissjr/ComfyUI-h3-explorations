@@ -4,7 +4,7 @@ Date: 2026-11-05
 
 ## 1. Base vs. Pika H3 Flex `token_refiner` control vectors
 
-Because Pika H3 Flex LoRAs (`pika_h3_flex_{fl2va,ref2va}_svd995_bf16.safetensors` and full-rank `*_comfy.safetensors`) include 24 LoRA branch tensors on `token_refiner.blocks.{0,1}`, we wired `h3_lora_branches` metadata into `lora_branch.py` and `control_vector_nodes.py::build_refiner_runner` (`42e3d3bb`) and measured whether post-refiner control vectors change when extracted under Pika's `token_refiner` LoRA (`data/results/2026-11-05_cv_base_vs_pika_comparison.json`):
+Because Pika H3 Flex LoRAs (`pika_h3_flex_{fl2va,ref2va}_svd995_bf16.safetensors` and full-rank `*_comfy.safetensors`) include 24 LoRA branch tensors on `token_refiner.blocks.{0,1}`, we wired `h3_lora_branches` metadata into `lora_branch.py` and `steering/encode.py::build_refiner_runner` (`42e3d3bb`) and measured whether post-refiner control vectors change when extracted under Pika's `token_refiner` LoRA (`data/results/2026-11-05_cv_base_vs_pika_comparison.json`):
 
 | Pair set | Family | `\|\|v_base\|\|` | `\|\|v_pika_svd995\|\|` | `cos(base, pika_svd995)` | `cos(pika_svd995, pika_comfy)` | `pairwise_cos` (`pika_svd995`) | `split_half` (`pika_svd995`) |
 |---|---|---|---|---|---|---|---|
@@ -55,7 +55,7 @@ Tracked under `prompt_bank/control_vectors/{felt_muppet,cursed_cctv,chaos_panic,
 | `fever_melt` | `25.21` | `0.6337` | `0.9251` | — | — | Surreal rainbow oil-slick chromatic halation and melting warble across the brick walls and bus. |
 | `vocal_strain` | `22.08` | `0.6415` | `0.9180` | — | — | The man opens his mouth wide and lets out a strained, raspy yell (`"Yaaah!"`) as he walks. |
 
-- **Why the `8 Visual + 2 Soundscape` recipe works**: Because `control_vectors.py::differing_span` requires each pair in `frame="scene"` to change only one contiguous clause inside a single paragraph, placing 8 visual/behavioral pairs (editing `integrated_multimodal_description: [Shot 1]`) + 2 acoustic/foley pairs (editing `overall_soundscape:`) in the same `.toml` file passes validation cleanly, maintains `split_half_cosine = 0.92–0.93`, and steers both the DiT's visual blocks and audio/vocal blocks simultaneously.
+- **Why the `8 Visual + 2 Soundscape` recipe works**: Because `steering/data.py::differing_span` requires each pair in `frame="scene"` to change only one contiguous clause inside a single paragraph, placing 8 visual/behavioral pairs (editing `integrated_multimodal_description: [Shot 1]`) + 2 acoustic/foley pairs (editing `overall_soundscape:`) in the same `.toml` file passes validation cleanly, maintains `split_half_cosine = 0.92–0.93`, and steers both the DiT's visual blocks and audio/vocal blocks simultaneously.
 
 ---
 

@@ -1,23 +1,16 @@
 #!/usr/bin/env python3
-"""Sync tracked `docs/wiki/system_prompts/` presets to `heylook` without clobbering local overlays or params.
+"""Sync tracked `docs/wiki/system_prompts/` presets to `heylook` without clobbering remote sampler params.
 
 Usage:
     <comfy-venv-python> bench/sync_heylook_presets.py --list
     <comfy-venv-python> bench/sync_heylook_presets.py --dry-run [--diff] [--prefix h3app_]
     <comfy-venv-python> bench/sync_heylook_presets.py --apply [--prefix h3app_] [--only h3-video-ref2va,h3-image-edit] [--reset-params]
 
-Preservation guarantees on every update (`PUT /v1/presets/{id}`):
-1. Remote sampler `params` are preserved verbatim (sanitized to the `heylook` preset
-   schema keys and stripped of `None`) unless `--reset-params` is explicitly passed.
-2. Any local preamble / addendum wrapped in explicit sentinels:
-       <!-- H3_LOCAL_PREAMBLE_START --> ... <!-- H3_LOCAL_PREAMBLE_END -->
-       <!-- H3_LOCAL_ADDENDUM_START --> ... <!-- H3_LOCAL_ADDENDUM_END -->
-   is extracted from the remote `system_prompt` and re-attached around the updated
-   canonical repo prompt cleanly on every run (100% idempotent).
-3. Optional gitignored overlay TOML (default `internal/heylook_local_overlays.toml`
-   when present, or `--overlays <path>`) can configure `[global]` (`prefix`, `preamble`,
-   `addendum`, `params`), per-preset `[presets."<name>"]` (`remote_name`, `preamble`,
-   `addendum`, `params`), and `[overlay_preset]` (`name`, `directive`, `body`, `params`).
+Sync guarantees on every update (`PUT /v1/presets/{id}`):
+1. Each canonical prompt under `docs/wiki/system_prompts/` is written verbatim (stripping
+   any legacy `H3_LOCAL_PREAMBLE` / `H3_LOCAL_ADDENDUM` HTML sentinels).
+2. Remote sampler `params` are preserved verbatim (sanitized to `VALID_PRESET_PARAM_KEYS`
+   with `None` removed) unless `--reset-params` is explicitly passed.
 """
 
 from __future__ import annotations
@@ -28,7 +21,6 @@ import difflib
 from pathlib import Path
 import re
 import sys
-import tomllib
 from typing import Any
 from urllib.parse import quote
 
@@ -39,13 +31,6 @@ if str(REPO) not in sys.path:
     sys.path.insert(0, str(REPO))
 
 import heylook_client as _hc  # noqa: E402
-
-PREAMBLE_START = "<!-- H3_LOCAL_PREAMBLE_START -->"
-PREAMBLE_END = "<!-- H3_LOCAL_PREAMBLE_END -->"
-ADDENDUM_START = "<!-- H3_LOCAL_ADDENDUM_START -->"
-ADDENDUM_END = "<!-- H3_LOCAL_ADDENDUM_END -->"
-
-DEFAULT_OVERLAYS_PATH = REPO / "internal" / "heylook_local_overlays.toml"
 
 # Exact `/v1/presets` validated `params` key set (`heylook-provider/references/routes.md`).
 VALID_PRESET_PARAM_KEYS: frozenset[str] = frozenset(

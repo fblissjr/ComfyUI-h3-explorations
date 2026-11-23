@@ -79,21 +79,21 @@ with no vector, and the same prompt with the vector reversed. A word is scored b
 gains, so it has to rise against both. The best few are the "toward" list. Doing the same with the vector
 reversed gives the "away" list.
 
-The code is `j_lens.py::decode_vector`.
+The code is `steering/xray.py::decode_vector`.
 
 ---
 
 ## 3. Three uses of the same machinery
 
 - **Read.** What section 1 did. Every build also writes the readout into the `.md` file beside the vector,
-  and `j_lens.py::check_b_side_alignment` warns at build time when the words a pair file aimed for did not
+  and `steering/xray.py::check_b_side_alignment` warns at build time when the words a pair file aimed for did not
   make it into the "toward" list.
 - **Scrub.** Take a word's direction out of a vector. This is `hold_words` on `MiniMaxH3Steer`,
   `MiniMaxH3LoadControlVector` and `MiniMaxH3WordVector`, and `--hold-words` on the command line. The code is
-  `j_lens.py::apply_soft_holds`.
+  `steering/xray.py::apply_soft_holds`.
 - **Build.** Run it backward: start from a word list and get a vector. This is the `MiniMaxH3WordVector` node
   wired into `MiniMaxH3Steer`'s `custom_vector`, or `bench/control_vectors.py words`. The code is
-  `j_lens.py::synthesize_from_words`.
+  `steering/xray.py::synthesize_from_words`.
 
 [`j_lens_diagnostics_and_word_lab.md`](j_lens_diagnostics_and_word_lab.md) has the settings for each.
 

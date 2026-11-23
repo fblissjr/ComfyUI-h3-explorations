@@ -119,7 +119,7 @@ Figures quoted below are their authors' claims unless tagged H.
 - **Video reference only for the first steps** (vllm-omni #9762; **C**, body). It conditions on the reference for the
   first 5 of 20 steps, then drops it from the layout, and reports a match with baseline (NPU). *For us:* independent
   support for `MiniMaxH3ReleaseReferences`, which already drops released rows from the layout
-  (`control_vector_nodes.py::_drop_cond_from_layout`). *Corrected the same day: this line said dropping rather than
+  (`steering/nodes.py::_drop_cond_from_layout`). *Corrected the same day: this line said dropping rather than
   releasing would be new.*
 - **Reference isolation** (vllm-omni #9689; **C**): reference queries read only reference K/V, captured once. Not
   lossless, by its author. **Reference-K/V refresh around cache hits** (#9728; body **H**). *For us:* both are in the
@@ -528,7 +528,7 @@ These practices serve every outcome above, ours and theirs.
     clear gain" came on short one-line pairs. On the pack's long structured prompts, whole-scene pooling dilutes the
     vector, and `MiniMaxH3Steer` already norm-matches by default.
   - *T6, the family check:* Gemini's cosine run on the pack's own Pika fl2va and ref2va vectors found them nearly
-    coincident (its measurement, not re-run). Also, `control_vector_nodes.py::resolve_vector_file_path` already swaps
+    coincident (its measurement, not re-run). Also, `steering/nodes.py::resolve_vector_file_path` already swaps
     in the sibling family's file, and refuses only when none exists (**H**). The MiniMax-H3-Image refiner differs
     markedly from the video ones in the same run. That supports keeping `h3_image` its own family, and may be why
     MAINodes' image dials needed several times the video strength (Gemini's inference).
@@ -590,7 +590,7 @@ These practices serve every outcome above, ours and theirs.
 - **Beats that don't multiply.** Their planned fix is sparse pose anchors.
   - Core's `MiniMaxH3AddGuide` already gives them mid-clip frames (their ROADMAP §4). What the pack adds is releasing
     them partway through denoising, through `MiniMaxH3ReleaseReferences` `guide_end_percent`
-    (`control_vector_nodes.py:4763`, **H**). *Corrected the same day: this line put `guide_end_percent` on
+    (`steering/nodes.py:2305`, **H**). *Corrected the same day: this line put `guide_end_percent` on
     `MiniMaxH3GuideLatent`.*
   - `MiniMaxH3SoundCues` anchors impacts on the exact audio grid.
   - `MiniMaxH3BodyMeshVideo` could supply the pose ladder.

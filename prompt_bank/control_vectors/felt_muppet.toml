@@ -8,6 +8,16 @@ frame = "scene"
 exclude_shots = ["t2va_offpath_tortoise", "ref2va_look_anchor"]
 # inference_recipe = target=scene_only (t2va) / look_only (ref2va, release_refs=0.16..0.33), strength=1.3..1.9, end_percent=0.50
 
+[routing]
+bus = "look"
+regime = "a"
+target = "scene_only"
+streams = "video_only"
+block_band = "all"
+needs_ref_release = true
+families = ["fl2va", "ref2va", "h3_image"]
+default_strength = 1
+
 [[pair]]
 a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic. Inside a brick tailoring studio, a male cutter showing natural realistic human features and textured ordinary skin pins folded flannel panels onto an oak worktable across the five-second take. Silver shears rest beside chalked seam rulers as the camera holds steady. He produces no vocal sound.
 

@@ -71,7 +71,7 @@ Running beside these, and blocking none of them: the J-Lens decision (section 17
 | Defect | Where |
 |---|---|
 | `completely_preserved` taught as a retention marker; the release's closed set is `fully_preserved`, `partially_preserved`, `attribute_transfer`, `weak_reference` | `docs/wiki/system_prompts/h3_control_vector_system_prompt.md` (the example and the list), `docs/wiki/steering/examples_and_recipes.md` (the advice and the worked prompt); all from `7c01c792` |
-| The wiki says holds use `torch.linalg.qr`; the code is a two-pass Gram-Schmidt loop | `docs/wiki/steering/building_pairs_and_vectors.md` against `control_vectors.py::hold_basis` |
+| The wiki says holds use `torch.linalg.qr`; the code is a two-pass Gram-Schmidt loop | `docs/wiki/steering/building_pairs_and_vectors.md` against `steering/extract.py::hold_basis` |
 | An image prompt compiles to `frame="raw"`, which the validator rejects | finding 2 |
 | The Pair 0 splice, its silent no-op and its truncation of the pair list | finding 3 |
 | A pole that occurs twice is replaced once in silence; `;` inside prose splits a clause | finding 4 |
@@ -80,8 +80,8 @@ Running beside these, and blocking none of them: the J-Lens decision (section 17
 | A single pair reports a consistency of 1.0; the image node repeats one pair over canned scenes | finding 7 |
 | Three canned ref2va scenes in node code | finding 17; section 16 |
 | Three different defaults for the pair generator's output token limit | section 15.5 |
-| A `hold` node whose mask differs from the add node's mask does nothing, with no message | `control_vector_nodes.py::_make_control_vector_wrapper` groups nodes by mask before holds are applied; shown by the option test of section 20.3. To become a refusal |
-| `hold_words` with no vector and no words is accepted by validation and then ignored | `control_vector_nodes.py::attach_control_vector` returns before using them. To become a refusal |
+| A `hold` node whose mask differs from the add node's mask does nothing, with no message | `steering/nodes.py::_make_control_vector_wrapper` groups nodes by mask before holds are applied; shown by the option test of section 20.3. To become a refusal |
+| `hold_words` with no vector and no words is accepted by validation and then ignored | `steering/nodes.py::attach_control_vector` returns before using them. To become a refusal |
 | The build falls back to no LoRA in silence when the default Pika LoRA does not resolve | `bench/control_vector/build_cmd.py` (the `except` after `_parse_lora_specs`), and the same in `bench/control_vector/j_lens_builder.py` |
 
 ## 1. The plan in one picture
@@ -117,23 +117,23 @@ concept (tracked) + scene pool (swappable)
 
 | # | Finding | Where to look | Checked by |
 |---|---|---|---|
-| 1 | Two description clauses plus a soundscape clause in one spec are refused; one description clause plus one soundscape clause compiles | `control_vectors.py::differing_span` | run |
-| 2 | An image prompt compiles to `frame="raw"`, which the metadata validator rejects | `h3_pair_compiler.py::compile_words_to_pairset`, `control_vectors.py::VALID_FRAMES`, `_validate_metadata_dict` | compile run; the save refusal was read, not run |
+| 1 | Two description clauses plus a soundscape clause in one spec are refused; one description clause plus one soundscape clause compiles | `steering/data.py::differing_span` | run |
+| 2 | An image prompt compiles to `frame="raw"`, which the metadata validator rejects | `bench/control_vector/pair_compiler.py::compile_words_to_pairset`, `steering/constants.py::VALID_FRAMES`, `_validate_metadata_dict` | compile run; the save refusal was read, not run |
 | 3 | A pair file given with `--target-prompt` gets a spliced "Pair 0", returns unchanged in silence when the clause is absent, and keeps only `pairs[:9]` | the Pair 0 splice helper in `bench/control_vector/helpers.py`, removed in `3f35901e` | read |
-| 4 | A pole that occurs twice is replaced at its first occurrence only; a `;` inside prose splits the clause; with several scenes the substring must be in every one | `h3_pair_compiler.py::_apply_clause_inplace`, `_split_clause_statements` | run |
-| 5 | Every text method pools only the rows whose wording changed, then adds one vector to every masked row | `h3_spans.py::pooling_mask`, `control_vectors.py::apply_post_refiner` | read |
-| 6 | Holds are one mean difference per group, orthogonalized; the wiki calls it an SVD basis | `control_vectors.py::hold_basis` | read |
-| 7 | One pair reports a consistency of 1.0; the image node repeats one image pair over canned scenes so the score is defined | `control_vectors.py::quality_report`, and the canned scene list in `control_vector_nodes.py`, removed in `3f35901e` | read |
+| 4 | A pole that occurs twice is replaced at its first occurrence only; a `;` inside prose splits the clause; with several scenes the substring must be in every one | `bench/control_vector/pair_compiler.py::_apply_clause_inplace`, `_split_clause_statements` | run |
+| 5 | Every text method pools only the rows whose wording changed, then adds one vector to every masked row | `h3_spans.py::pooling_mask`, `steering/runtime.py::apply_post_refiner` | read |
+| 6 | Holds are one mean difference per group, orthogonalized; the wiki calls it an SVD basis | `steering/extract.py::hold_basis` | read |
+| 7 | One pair reports a consistency of 1.0; the image node repeats one image pair over canned scenes so the score is defined | `steering/extract.py::quality_report`, and the canned scene list in `control_vector_nodes.py`, removed in `3f35901e` | read |
 | 8 | In nearly every pair file the steered clause is longer than the plain one, so vectors may share a component | load each file with `control_vectors.load_pairs` and compare `a_span` and `b_span` lengths | run; the shared component itself is not measured |
-| 9 | J-Lens word directions are the output head times a Jacobian, the direction that makes the encoder predict a word next; its exponent and negative weights were fitted against the bank | `j_lens.py::synthesize_from_words`, section 6.1 of the J-Lens note | read |
+| 9 | J-Lens word directions are the output head times a Jacobian, the direction that makes the encoder predict a word next; its exponent and negative weights were fitted against the bank | `steering/xray.py::synthesize_from_words`, section 6.1 of the J-Lens note | read |
 | 10 | No tracked file writes the J-Lens bundle | `git grep -l J_49_to_63` returns readers and docs only | run |
-| 11 | The apply hook is placed correctly: core refines text once per sampling, so the wrapper sees post-refiner rows and only edits `context` | `<comfy>/comfy/model_base.py` (`extra_conds`), `control_vector_nodes.py::_make_control_vector_wrapper` | read |
+| 11 | The apply hook is placed correctly: core refines text once per sampling, so the wrapper sees post-refiner rows and only edits `context` | `<comfy>/comfy/model_base.py` (`extra_conds`), `steering/nodes.py::_make_control_vector_wrapper` | read |
 | 12 | The apply node does five jobs: load a vector, synthesize from words, hold words, an audio/video split that runs the DiT twice per step, and gating reference latents | `h3_rules.py::CONTROL_VECTOR_DEFAULTS`, `CONTROL_VECTOR_OPTIONAL_DEFAULTS` | read |
-| 13 | The scene mask rides on a Python attribute of the tags tensor, set inside `except Exception: continue`; when it is absent `scene_only` falls back to all text rows with a log line | `h3_spans.py::attach_span_masks`, `control_vector_nodes.py::_resolve_custom_inference_mask` | read |
+| 13 | The scene mask rides on a Python attribute of the tags tensor, set inside `except Exception: continue`; when it is absent `scene_only` falls back to all text rows with a log line | `h3_spans.py::attach_span_masks`, `steering/nodes.py::_resolve_custom_inference_mask` | read |
 | 14 | The span code looks the tokenizer up as `qwen3vl_32b`; the image encoder registers as `qwen3vl_4b`, so the image graphs get no mask | `h3_spans.py::attach_span_masks`, `<comfy>/comfy/text_encoders/minimax.py::PH3ImageTokenizer` | read |
 | 15 | The image graphs apply a vector built from 32B rows under the Pika recipe to rows from the 4B encoder with no Pika LoRA | `workflows/image/h3_p_h3_image_*_control_vector_api.json` | read |
-| 16 | Graphs name a vector by pooling and LoRA hash, and a resolver swaps siblings by filename | `workflows/build_workflows.py` (the `control_vector=` entries), `control_vector_nodes.py::resolve_vector_file_path` | read |
-| 17 | Hardcoded prose remains: three canned ref2va scenes that assert a person, the J-Lens word tables, a filler sentence in grading | the canned scene list in `control_vector_nodes.py` (removed in `3f35901e`), `j_lens.py::AGAINST_PRESETS` and the stopword tables, `bench/control_vector/grading.py::_build_padding_prompt` | read |
+| 16 | Graphs name a vector by pooling and LoRA hash, and a resolver swaps siblings by filename | `workflows/build_workflows.py` (the `control_vector=` entries), `steering/nodes.py::resolve_vector_file_path` | read |
+| 17 | Hardcoded prose remains: three canned ref2va scenes that assert a person, the J-Lens word tables, a filler sentence in grading | the canned scene list in `control_vector_nodes.py` (removed in `3f35901e`), `steering/xray.py::AGAINST_PRESETS` and the stopword tables, `bench/control_vector/grading.py::_build_padding_prompt` | read |
 | 18 | The generator reads its system prompt out of the wiki page, and that prompt still teaches the retired slot compiler | `bench/control_vector/llm_pairs.py::_extract_system_prompt_text`, [`../../wiki/system_prompts/h3_control_vector_system_prompt.md`](../../system_prompts/h3_control_vector_system_prompt.md) | read |
 
 What holds and needs no change: all pair files under `prompt_bank/control_vectors/` load, are t2va format, and
@@ -253,7 +253,7 @@ Gate: checks green, and the list in section 9 verified by a reader who did not b
 
 ## 8. Direction discovery track
 
-Today `j_lens.py::refiner_singular_vectors` takes the strongest directions of the refiner Jacobian and labels
+Today `steering/xray.py::refiner_singular_vectors` takes the strongest directions of the refiner Jacobian and labels
 each with lens words. The table in section 3.1 of the J-Lens note shows the labels are muddy. Two reasons:
 it finds what the refiner amplifies, not what the DiT responds to, and the single-word readout is the weakest
 labeller we have.
@@ -288,7 +288,7 @@ Phase 4 changes a shared node's inputs. Found by grep on `main` at `856d4ac8`; a
 - Writers of the node's inputs: `workflows/build_workflows.py` (`_normalize_control_vector_specs`, the
   `control_vector=` entries, `build_control_vector_arm`, `build_control_vector_gate_arms`,
   `build_control_vector_probe_arm`), and the defaults in `h3_rules.py`.
-- Readers: `control_vector_nodes.py::MiniMaxH3ApplyControlVectors` and `attach_control_vector`,
+- Readers: `steering/legacy_nodes.py::MiniMaxH3ApplyControlVectors` and `attach_control_vector`,
   `bench/control_vector/grading.py::_attach_raw_vector`, the five control-vector graphs under `workflows/`
   and `workflows/image/`, `bench/node_id_manifest.json`, and `bench/check_control_vectors.py`.
 - The scene mask key: written by `conditioning.py`, `reference_conditioning.py` and `reference_encode.py`
@@ -355,7 +355,7 @@ checked.
 
 ### 11.4 Aim the vectors we already have
 
-`control_vectors.py::meter_score` already scores which rows of a prompt respond to a vector. Applying the
+`steering/extract.py::meter_score` already scores which rows of a prompt respond to a vector. Applying the
 shift only to the top-scoring rows, instead of every masked row, makes an existing vector less of a hammer
 with no new data. It would be one more mask mode.
 
@@ -412,15 +412,15 @@ Our nodes:
 - `MiniMaxH3LoRABranch` and `MiniMaxH3Preflight` hold no state across passes (`lora_branch.py`,
   `preflight.py`).
 - The control-vector wrapper takes its mask and length from each pass's own payload, and
-  `control_vector_nodes.py::_step_in_window` has no counter that two passes could double-count.
+  `steering/nodes.py::_step_in_window` has no counter that two passes could double-count.
 
 Five things to design around:
 
 1. A control vector steers both passes. The wrapper adds the vector to the original prompt's pass as well as
-   the edited one (`control_vector_nodes.py::_make_control_vector_wrapper`; `cond_or_uncond` is read only
+   the edited one (`steering/nodes.py::_make_control_vector_wrapper`; `cond_or_uncond` is read only
    for the live prompt text).
 2. "Percent" has two meanings. The control-vector and LoRA windows count steps
-   (`control_vector_nodes.py::_step_in_window`, `lora_branch.py`); `MiniMaxH3Sol` and core's timestep ranges
+   (`steering/nodes.py::_step_in_window`, `lora_branch.py`); `MiniMaxH3Sol` and core's timestep ranges
    go through `percent_to_sigma` (`<comfy>/comfy/model_sampling.py`), which depends on the sigma shift. The
    same number on both lands on different steps.
 3. `MiniMaxH3Preflight` sees only the conditioning wired through it, so a second prompt's sequence length
@@ -576,13 +576,13 @@ disagreed with parts of it. Each point below was checked before it was accepted 
   prompt to the edited prompt's token count so `grade` can separate the effect of the length change from the
   effect of the edit. Its filler sentence is a fixture and can live in a fixture file; the function stays.
 - Finding 6 said holds are orthogonalized group means; that holds. The orthogonalization is the one in
-  `control_vectors.py::hold_basis` as it stands when the plan is executed.
+  `steering/extract.py::hold_basis` as it stands when the plan is executed.
 
 ### 15.2 Changes accepted
 
 - Multi-clause edits (finding 1, phase 1): pool the changed spans of one pair in a single pass, not one
   pair per clause. `h3_spans.py::differing_token_mask` already masks several separate spans; only the string
-  check in `control_vectors.py::differing_span` refuses them. One pass also lets the edits see each other in
+  check in `steering/data.py::differing_span` refuses them. One pass also lets the edits see each other in
   the refiner. The check is relaxed only for the in-place path, where the clauses are declared; it keeps
   guarding pair files against accidental rewrites.
 - The apply node (phase 4): keep one node on the model wire with the vector picked from a list, and add an
@@ -652,7 +652,7 @@ Recorded so they are not carried forward:
 - That turning the reference gate down was shown to corrupt the first frames. The arm cited above reads the
   other way.
 - That adding a bias to attention for a word equals `amplify` on that word's rows. `amplify` in
-  `control_vectors.py::apply_post_refiner` scales only the part of a row along the vector. It may serve as a
+  `steering/runtime.py::apply_post_refiner` scales only the part of a row along the vector. It may serve as a
   rough stand-in for section 11.3 and would be labelled as one.
 
 ### 15.5 The system prompt after the second session's commit
@@ -1146,7 +1146,7 @@ doing, which is what decides whether a vector should be built with the reference
 ### 23.1 The families: different models, nearly one text space
 
 The owner's point: fl2va, ref2va and the image model are separate models, the image one built on fl2va.
-The code agrees on the models. `control_vectors.py::KNOWN_FAMILIES` holds different hashes for the fl2va and
+The code agrees on the models. `steering/constants.py::KNOWN_FAMILIES` holds different hashes for the fl2va and
 ref2va text-path tensors, and `workflows/h3_config.py` records that the image checkpoint has fl2va's key set
 with most tensors identical to it.
 

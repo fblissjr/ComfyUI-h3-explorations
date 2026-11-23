@@ -7,6 +7,16 @@ mode = "t2va"
 frame = "scene"
 exclude_shots = ["t2va_offpath_tortoise", "ref2va_look_anchor", "t2va_look_anchor", "t2va_look_faded_16mm", "t2va_spec_specific"]
 
+[routing]
+bus = "look"
+regime = "a"
+target = "scene_only"
+streams = "video_only"
+block_band = "mid_late_20_49"
+needs_ref_release = false
+families = ["fl2va", "ref2va", "h3_image"]
+default_strength = 1
+
 [[pair]]
 a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, shot on a modern digital cinema camera with clean neutral colour, crisp edge detail, and deep true blacks, a medium shot frames a potter in a canvas apron shaping a wet terracotta bowl on a spinning wheel across the five-second take. Daylight slants across the wooden workbench as wet clay glistens between steady fingers and the rim rises smoothly. The camera holds a static shot. The potter produces no vocal sound.
 

@@ -7,6 +7,16 @@ mode = "t2va"
 frame = "scene"
 # inference_recipe = target=scene_only (t2va) / description_only or scene_only (ref2va), strength=1.0..1.4, steps=0.0..1.0
 
+[routing]
+bus = "look"
+regime = "a"
+target = "scene_only"
+streams = "video_only"
+block_band = "mid_late_20_49"
+needs_ref_release = false
+families = ["fl2va", "ref2va", "h3_image"]
+default_strength = 1
+
 [[pair]]
 a = '''integrated_multimodal_description: [Shot 1] A wide tracking shot follows an archivist walking past stone columns along a coastal cliff path above white surf across the five-second take, rendered in flat overcast grey afternoon exposure with muted chilly slate shading and damp slate-blue shadows. The camera glides left evenly as gulls wheel overhead. She produces no vocal sound.
 

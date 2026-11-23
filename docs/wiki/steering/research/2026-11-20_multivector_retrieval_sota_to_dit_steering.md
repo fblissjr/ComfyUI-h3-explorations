@@ -66,7 +66,7 @@ This comparison supplied the **decisive algebraic discovery** of the entire inve
 
 Once row-softmax transport (`tau = 0.15`) revealed that $97\%\text{–}99.6\%$ of its advantage came from erasing conflicting Pole-A variance along a compact rank-$r$ (`r = 8`) subspace $V_r$, we bypassed runtime retrieval lookup entirely:
 
-1. **Zero external corpus or Sinkhorn runtime loop:** Precompute `erasure.mu_d [5376]`, `erasure.vr [r, 5376]` (`r = 8`, `r = 16` max rank when multi-vector composing via `sculpt`), and `erasure.diag [r]` in `float32` (`~193.5 KB` total) at build time inside [`control_vectors.py::pool_pair_set`](../../../../control_vectors.py).
+1. **Zero external corpus or Sinkhorn runtime loop:** Precompute `erasure.mu_d [5376]`, `erasure.vr [r, 5376]` (`r = 8`, `r = 16` max rank when multi-vector composing via `sculpt`), and `erasure.diag [r]` in `float32` (`~193.5 KB` total) at build time inside [`steering/extract.py::pool_pair_set`](../../../../control_vectors.py).
 2. **Exact algebraic falsification ([`bench/verify_pole_a_erasure.py`](../../../../bench/verify_pole_a_erasure.py)):**
    - Synthetic identity test proves row-wise projection onto $V_r$ recovers exact `-A_parallel` (`max_err = 7.994e-15`, `cos(ctx_D, -A) = +0.9999`) while leaving orthogonal content `B_perp` nearly untouched (`||ctx_B|| = 1.01` vs `||ctx_-A|| = 43.74`).
    - All `7` on-disk `data/exp_unpooled_sliders/banks/*.pt` files pass with `max_err = 5.862e-14` and `min_cos(ctx_D, -A) = +0.9686`.

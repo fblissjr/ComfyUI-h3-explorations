@@ -8,6 +8,16 @@ frame = "scene"
 exclude_shots = ["t2va_offpath_tortoise", "ref2va_look_anchor"]
 # inference_recipe = target=scene_only (t2va) / description_only (ref2va), strength=1.2..1.7, end_percent=0.67, release_refs=0.33..0.67
 
+[routing]
+bus = "look"
+regime = "a"
+target = "scene_only"
+streams = "video_only"
+block_band = "all"
+needs_ref_release = true
+families = ["fl2va", "ref2va", "h3_image"]
+default_strength = 1
+
 [[pair]]
 a = '''integrated_multimodal_description: [Shot 1] Live-action, shot with crisp rigid architectural edges and firm true geometry, a medium shot shows a florist tying hemp twine around olive stems in a glazed conservatory across the five-second take. Terracotta pots line wrought-iron shelves behind her workbench. She, on-screen, says: <d>[English] Bring the pruning shears over here.</d> Her jaw rests. The camera holds a static frame.
 

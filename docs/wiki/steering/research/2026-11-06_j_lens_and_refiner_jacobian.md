@@ -16,7 +16,7 @@ Previously, verbalizing a control vector in natural language via [`exl3_qwen3vl/
    - [`docs/wiki/steering/research/exl3_qwen3vl/label_h3_control_vectors.py::load_encoder_vector_from_safetensors`](exl3_qwen3vl/label_h3_control_vectors.py#L613-L636) checks `if "vector.encoder" in f.keys():` and returns `None` whenever `vector.encoder` (`5120`-d) was not saved alongside `vector.post_refiner` (`5376`-d).
    - Even when `vector.encoder` is saved ([`bench/control_vector/build_cmd.py:160-185`](../../../../bench/control_vector/build_cmd.py#L160-L185)), running [`compute_top_logit_shifts`](exl3_qwen3vl/label_h3_control_vectors.py#L640-L754) requires loading the 64-layer `Qwen3-VL-32B-Instruct` EXL3 checkpoint on GPU (`~17 GB` VRAM, `~12s` per vector).
 2. **`holds.post_refiner` and inference-time `mode = "hold"` operate in `5376`-d post-refiner space, which `layers.49` cannot see**:
-   - Build-time hold orthogonalization ([`control_vector_nodes.py:914-923`](../../../../control_vector_nodes.py#L914-L923), [`bench/control_vector/build_cmd.py:160-185`](../../../../bench/control_vector/build_cmd.py#L160-L185)) and inference-time cross-vector hold projection (`mode = "hold"` / `project_out` with soft or over-projected $\alpha \in [0, 2]$, [`2026-11-06_detangle_comparison_and_borrowable_concepts.md`](2026-11-06_detangle_comparison_and_borrowable_concepts.md) §3) modify `vector.post_refiner` (`5376`-d):
+   - Build-time hold orthogonalization ([`steering/legacy_nodes.py:74-83`](../../../../control_vector_nodes.py#L914-L923), [`bench/control_vector/build_cmd.py:160-185`](../../../../bench/control_vector/build_cmd.py#L160-L185)) and inference-time cross-vector hold projection (`mode = "hold"` / `project_out` with soft or over-projected $\alpha \in [0, 2]$, [`2026-11-06_detangle_comparison_and_borrowable_concepts.md`](2026-11-06_detangle_comparison_and_borrowable_concepts.md) §3) modify `vector.post_refiner` (`5376`-d):
      $$\mathbf{v}_{\text{PR}}(\alpha) = \mathbf{v}_{\text{PR, raw}} - \alpha U_{\text{hold}}^\top \left(U_{\text{hold}} \mathbf{v}_{\text{PR, raw}}\right)$$
    - A `layers.49`-only readout inspects `vector.encoder` (`5120`-d) **before** `condition_proj`, before the 2-block `TokenRefiner` (and any Pika `token_refiner` LoRA branch), and before `5376`-d hold projection. It therefore cannot tell what semantic directions a `TokenRefiner` LoRA amplifies, what concepts a `5376`-d hold projection $\alpha \in [0, 1]$ strips out vs. preserves, what a composite multi-vector recipe $\Delta\mathbf{r} = (I - \alpha U^\top U)\sum_i s_i \mathbf{v}_i$ pushes toward, or what concepts a **textless media-contrast vector** (extracted from `<Picture>` / `<Video>` reference pairs where no text prompts exist at all) encodes in `5376`-d space.
 
@@ -154,7 +154,7 @@ In [`docs/wiki/steering/research/exl3_qwen3vl/label_h3_control_vectors.py:707-70
 Taking `union_idx` ($27,407$ tokens) as the union of `valid_idx` ($24,912$ words) with the top-$2,048$ highest-logit background tokens across the 7 cloze prefixes reproduces the exact `151,936`-token `logsumexp` denominator to **`0.0098` nats max error** across all 7 prefixes while requiring only a single $[27407, 5120] \times [5120]$ matrix-vector product (`14.5 ms` on CPU).
 
 ### 4.3 Storage Location Outside `models/control_vectors/`
-Because ComfyUI's `folder_paths.get_filename_list("control_vectors")` (`folder_paths.recursive_search`) walks subdirectories via `os.walk` ([`control_vector_nodes.py:82-97`](../../../../control_vector_nodes.py#L82-L97)), any `.safetensors` file placed inside a subdirectory of `<comfy>/models/control_vectors/` would still appear in `MiniMaxH3ApplyControlVectors`'s `vector_name` dropdown. The precomputed J-Lens operator bundle is therefore stored in the sibling directory **`<comfy>/models/j_lens/j_lens_h3.safetensors`** (untracked by git and outside `models/control_vectors/`).
+Because ComfyUI's `folder_paths.get_filename_list("control_vectors")` (`folder_paths.recursive_search`) walks subdirectories via `os.walk` ([`steering/nodes.py:61-76`](../../../../control_vector_nodes.py#L82-L97)), any `.safetensors` file placed inside a subdirectory of `<comfy>/models/control_vectors/` would still appear in `MiniMaxH3ApplyControlVectors`'s `vector_name` dropdown. The precomputed J-Lens operator bundle is therefore stored in the sibling directory **`<comfy>/models/j_lens/j_lens_h3.safetensors`** (untracked by git and outside `models/control_vectors/`).
 
 ---
 
@@ -208,7 +208,7 @@ Testing `cursed_cctv` (`fl2va`, `diff_span`) while holding out the 2-vector orth
 
 ---
 
-## 6. Instant (`< 2 ms` CPU) Word-to-`5376`-d Control Vector Synthesis (`j_lens.py::synthesize_from_words`)
+## 6. Instant (`< 2 ms` CPU) Word-to-`5376`-d Control Vector Synthesis (`steering/xray.py::synthesize_from_words`)
 
 ### 6.1 Why Naive $\Sigma_{49}^{1.0} M_{\text{valid}}^\top$ Pullback Failed (`cos = 0.27–0.38`) vs. Why Spectral-Filtered $\Sigma_{49, \text{filt}}^{0.30}$ Works (`cos = 0.52–0.64`)
 

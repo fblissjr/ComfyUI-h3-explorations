@@ -59,17 +59,17 @@ jq '.render_catalogue[] | {date, batch, highlights}' docs/wiki/projects/2026-11-
 | **1** | Spatiotemporal `[T, H, W]` `MASK` & Curve Modulation on `MiniMaxH3EditGuider` | Critical | `S (~40 lines)` | `edit_guidance.py:196`, `edit_guidance.py:278` | `3b57a539`, `a9f31858` |
 | **2** | Interactive Canvas/Web UI for 2D Sprite Trajectory D-Pad & Sound Cues | High | `M` | `sprite_trajectory.py:492`, `sound_cues.py:337` | `3b57a539`, `a9f31858` |
 | **3** | 2-Subject Sprite D-Pad (`<Video 1>` + `<Video 2>`), SAM-3 Cutouts, & Combined `ref2va` Ablation | High | `S–M` | `sprite_trajectory.py:492`, `sam31_corrections.py:1` | `3b57a539`, `a9f31858` |
-| **4** | Whitened Whole-Word J-Lens Table & Neighbor-Hold Contrastive Verification | High | `S (CPU + 4h GPU)` | `j_lens.py:351`, `bench/control_vector_readout_score.py:119` | `ad7e5777`, `346a1e5c` |
-| **5** | Fix `DEFAULT_AUX_BASELINES` Length/Domain Imbalance (`cos = 0.72` Shared Bias) | High | `XS` | `h3_pair_compiler.py:59`, `h3_pair_compiler.py:716` | `a9f31858`, `3b57a539` |
-| **6** | Control Vector Studio 3-Way Builder Unification, Thin-Wrapper CLI, & Open Studio UI Bugs *(standalone `:8196` UI retired 2026-11-22 -> `app/` `/lab`)* | High | `M` | `control_vector_nodes.py:2628`, former `ui_server` | `4ebaab8d`, `f77c2cfa` |
+| **4** | Whitened Whole-Word J-Lens Table & Neighbor-Hold Contrastive Verification | High | `S (CPU + 4h GPU)` | `steering/xray.py:323`, `bench/control_vector_readout_score.py:119` | `ad7e5777`, `346a1e5c` |
+| **5** | Fix `DEFAULT_AUX_BASELINES` Length/Domain Imbalance (`cos = 0.72` Shared Bias) | High | `XS` | `bench/control_vector/pair_compiler.py:60`, `bench/control_vector/pair_compiler.py:815` | `a9f31858`, `3b57a539` |
+| **6** | Control Vector Studio 3-Way Builder Unification, Thin-Wrapper CLI, & Open Studio UI Bugs *(standalone `:8196` UI retired 2026-11-22 -> `app/` `/lab`)* | High | `M` | `steering/nodes.py:1622`, former `ui_server` | `4ebaab8d`, `f77c2cfa` |
 | **7** | Multimodal Differential `EditGuider` (`plain_cut` vs `drawn_cut`) & Event-Gated Facial Envelopes | High | `M` | `edit_guidance.py:76`, `edit_guidance.py:278` | `3b57a539`, `a9f31858` |
 | **8** | ~~Forward `quantizer` in `MiniMaxH3SolChunked`~~ (**CLOSED PM 2026-11-13**: node retired to `archive/sol_chunked_h3.py`) & Rebuild `comfy-kitchen` Wheel | Medium-High (wheel only) | `S` | `archive/sol_chunked_h3.py`, `sol_attn_h3.py:166` | `a8949cba`, `23d096c4` |
-| **9** | Upper-Layer Chain Readout (`layers.50..63` + `lm_head`) on Qwen3-VL-32B | Medium-High | `M (GPU pass)` | `j_lens.py:1896`, `docs/wiki/steering/research/2026-11-12_chain_lens_digest_and_experiment_plan.md:1` | `ad7e5777`, `346a1e5c` |
+| **9** | Upper-Layer Chain Readout (`layers.50..63` + `lm_head`) on Qwen3-VL-32B | Medium-High | `M (GPU pass)` | `steering/xray.py:1071`, `docs/wiki/steering/research/2026-11-12_chain_lens_digest_and_experiment_plan.md:1` | `ad7e5777`, `346a1e5c` |
 | **10** | Mobile Studio (`app/`): `/queue` + `/history` Payload Privacy Trim & 'Edit From Render' Button | Medium | `S` | `workflows/h3_config.py:1658`, `docs/wiki/image/h3_image.md:1` | `c5132fe6`, `53392f0e` |
 | **11** | Unrendered `audio_freeze` Stem/0.25-Release & `AudioRefineMask` + `FrozenVideoCache` Tests | Medium | `S (GPU run)` | `audio_freeze_song.py:502`, `audio_refine.py:32` | `79a5bba6` |
 | **12** | `lane_db` Tier-2/3 Provenance, DuckDB Analytical Views, & `perception-lhf` for Future `'fun2'` | Medium | `M` | `bench/lane_db/db.py:48`, `bench/lane_db/cli.py:46` | `553f263b`, `683575dd` |
 | **13** | Cross-Session / Multi-Harness Agent Bus (`Claude` <-> `agy`) & Shared Transcript Indexer | Medium | `S–M` | `docs/wiki/projects/AGENTS.md:1`, `bench/build_wiki_index.py:1` | `3b57a539`, `a9f31858` |
-| **14** | Phase-2 Internal Package Grouping for `75` Root `.py` (`48.2k` LOC) & `480` Flat `bench/*.py` (`232.9k` LOC) | High (Maintainability) | `L (Staged PRs)` | `bench/check_node_ids.py:1`, `control_vector_nodes.py:1` | `79a5bba6`, `4ebaab8d` |
+| **14** | Phase-2 Internal Package Grouping for `75` Root `.py` (`48.2k` LOC) & `480` Flat `bench/*.py` (`232.9k` LOC) | High (Maintainability) | `L (Staged PRs)` | `bench/check_node_ids.py:1`, `steering/nodes.py:1` | `79a5bba6`, `4ebaab8d` |
 
 Full acceptance criteria, drop reasons, and next actions for all 14 items are stored in [`ledger.json`](ledger.json) and rendered in [`report.html`](report.html).
 

@@ -44,7 +44,7 @@
    - **Future (`F1–F3`, event-driven, `1–3` renders)**:
      - **`F1` (Word-gated region-edit recipe, `1–2` renders; prerequisite `sam31-dms-and-fixes` merged in `745f2193`)**: Pair `SAM3_Detect` + `MiniMaxH3SAM31Corrections` + `GrowMask` + [`MiniMaxH3EditGuider`](../../edit_guidance.py)`.mask on `>= 4 MP` stills (`P-H3-Image`/`MiniMax-H3-Image`) and `24 fps` video (`GrowMask` margin, empty-mask abort, and **`streams = "video_only"` on silent visual video edits** so `edit_guidance.py:332`'s `raw.amax(dim=(1, 2))` envelope does not steer audio).
      - **`F2` (Iris Lab `a*/b*` chroma hold & hair `L*` check, `0–1` remake A/B)**: Optional clean-room Lab `a*/b*` iris shift leaving `L*` untouched (`[22..75]` ramp + sclera guard toward `<Picture 1>` on cast swaps or source plate on region edits) plus hair-lightness drift note.
-     - **`F3` (Core horizon sync, `0` renders)**: Event-driven follow-up against [`upstream/horizon.md`](upstream/horizon.md) when ComfyUI merges `#17715` (`control_vector_nodes.py:1973-1992`, `lora_branch.py`, `nodes.py`), `#17701` (`frozen_video_cache.py:871`), or `#16712` (`control_vector_nodes.py:1718`).
+     - **`F3` (Core horizon sync, `0` renders)**: Event-driven follow-up against [`upstream/horizon.md`](upstream/horizon.md) when ComfyUI merges `#17715` (`steering/nodes.py:974-993`, `lora_branch.py`, `nodes.py`), `#17701` (`frozen_video_cache.py:871`), or `#16712` (`steering/nodes.py:719`).
 
 ## Standing Evaluation Rules (`2026-11-13`)
 

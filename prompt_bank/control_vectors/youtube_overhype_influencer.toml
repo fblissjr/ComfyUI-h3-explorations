@@ -7,6 +7,16 @@ mode = "t2va"
 frame = "scene"
 exclude_shots = ["t2va_offpath_tortoise", "ref2va_look_anchor"]
 
+[routing]
+bus = "motion"
+regime = "a"
+target = "description_only"
+streams = "both"
+block_band = "all"
+needs_ref_release = false
+families = ["fl2va", "ref2va", "h3_image"]
+default_strength = 1
+
 [[pair]]
 a = '''integrated_multimodal_description: [Shot 1] Live-action, medium close-up inside a charcoal acoustic studio where an adult man in a navy crewneck leans lightly over a condenser boom mic. He speaks with quiet unhurried poise, half-lidded composure, relaxed shoulders, and level casual murmur, saying: <d>[English] Honestly, wait until you see how this changes tomorrow.</d> His lips close cleanly while the frame holds steady.
 

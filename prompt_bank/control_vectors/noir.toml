@@ -8,6 +8,16 @@ frame = "scene"
 exclude_shots = ["t2va_offpath_tortoise", "ref2va_look_anchor", "t2va_look_anchor", "t2va_look_noir", "t2va_spec_specific"]
 # inference_recipe = target=scene_only (t2va) / description_only (ref2va), strength=1.0..1.4, steps=0.0..1.0, release_refs=1.0
 
+[routing]
+bus = "look"
+regime = "a"
+target = "scene_only"
+streams = "video_only"
+block_band = "mid_late_20_49"
+needs_ref_release = false
+families = ["fl2va", "ref2va", "h3_image"]
+default_strength = 1
+
 [[pair]]
 a = '''integrated_multimodal_description: [Shot 1] Live-action, cinematic, shot in natural warm streetlamp colour with open dusk detail, a wide shot frames a rain-slick cobblestone alley between brick warehouses at night across the five-second take. Steam rises from an iron grate as puddles reflect overhead lamps. The camera pushes in gently. No people are present.
 

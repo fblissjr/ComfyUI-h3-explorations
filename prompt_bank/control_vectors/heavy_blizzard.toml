@@ -7,6 +7,16 @@ mode = "t2va"
 frame = "scene"
 # inference_recipe = target=scene_only (t2va) / description_only or scene_only (ref2va), strength=1.0..1.45, steps=0.0..0.75
 
+[routing]
+bus = "look"
+regime = "a"
+target = "scene_only"
+streams = "both"
+block_band = "all"
+needs_ref_release = false
+families = ["fl2va", "ref2va", "h3_image"]
+default_strength = 1
+
 [[pair]]
 a = '''integrated_multimodal_description: [Shot 1] A wide static shot surveys an alpine wooden footbridge stretching over granite boulders beside weathered trail markers across the five-second take, surrounded by calm clear autumn air with crisp bare timber railings and dry grey slate stones. The camera holds completely still. No people appear in frame.
 

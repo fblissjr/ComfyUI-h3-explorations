@@ -54,9 +54,9 @@ $$\mathbf{W}_D = \underbrace{\mathbf{V}_r^\top \operatorname{diag}\!\left(\frac{
 
 ### 1.3 The Shipped Single-Slider Formula (`add_norm_matched_erasure`)
 
-Instead of shipping a heavy `5376 × 5376` matrix or an external text corpus, `control_vectors.py::build_pole_a_erasure` stores three compact `float32` tensors (`~193.5 KB` total) inside every bank `.safetensors` file: `erasure.mu_d [5376]`, `erasure.vr [r, 5376]` (`r = 8`), and `erasure.diag [r]` (plus optional `erasure.mu_a [5376]` for `tags == 0` vision-token banks).
+Instead of shipping a heavy `5376 × 5376` matrix or an external text corpus, `steering/extract.py::build_pole_a_erasure` stores three compact `float32` tensors (`~193.5 KB` total) inside every bank `.safetensors` file: `erasure.mu_d [5376]`, `erasure.vr [r, 5376]` (`r = 8`), and `erasure.diag [r]` (plus optional `erasure.mu_a [5376]` for `tags == 0` vision-token banks).
 
-At render time, `_erasure_row_shift64` ([`control_vectors.py:3501-3562`](../../control_vectors.py#L3501-L3562)) transforms every selected token row in `float64`:
+At render time, `_erasure_row_shift64` ([`steering/runtime.py:190-251`](../../control_vectors.py#L3501-L3562)) transforms every selected token row in `float64`:
 
 $$\Delta \mathbf{H} = \operatorname{RMSMatch}_{|s|\cdot 67.5}\!\Big(s\,\hat{\boldsymbol{\mu}}_d \;-\; \operatorname{clip}(s, 0, 1)\,e_{\text{cap}}\,(\mathbf{H} - \bar{\mathbf{h}})\,\mathbf{V}_r^\top \mathbf{D}\,\mathbf{V}_r\Big)$$
 
@@ -83,7 +83,7 @@ Stage 1 (`dd45600e`, [`control_vectors.py:3211-3226,3565-3646`](../../control_ve
 
 ### 1.5 Pre-Render CPU Subspace X-Ray (`< 15 ms`, No GPU Needed)
 
-Before queuing a render, [`j_lens.py::decode_erasure_payload`](../../j_lens.py) — **a Jacobian-lens word readout for H3 control vectors, adapted from Anthropic's Jacobian lens (J-lens)** — together with `control_vectors.py::per_token_erasure_profile` decodes both halves of any `.safetensors` dial (`Adds` from `erasure.mu_d` and `Erases` from `erasure.vr`) in `< 15 ms` on CPU:
+Before queuing a render, [`steering/xray.py::decode_erasure_payload`](../../j_lens.py) — **a Jacobian-lens word readout for H3 control vectors, adapted from Anthropic's Jacobian lens (J-lens)** — together with `steering/extract.py::per_token_erasure_profile` decodes both halves of any `.safetensors` dial (`Adds` from `erasure.mu_d` and `Erases` from `erasure.vr`) in `< 15 ms` on CPU:
 
 ```text
 # Historical Lab 1 workflow fixture (t2va_sitcom_kitchen.txt)
@@ -99,7 +99,7 @@ $ CUDA_VISIBLE_DEVICES="" "$PY" bench/control_vectors.py inspect noir --prompt p
 
 Notice the surgical behavior: `erasure.vr` targets `wall (0.41)`, `warm (0.36)`, `brown (0.33)`, and `tungsten (0.33)` while sparing the characters (`father`, `retriever`). Keep two empirical caveats in mind:
 - **Linear encoder approximation:** The word readout reports what the text encoder would predict next, *not* what the 50-block DiT will draw — only a render confirms visual behavior.
-- **Calibration note on `b_side_alignment.coverage`:** Earlier audits divided top-`8` hit counts over unfiltered `14–25+` prompt tokens (`8 / 52` clearing `>= 0.25`). Commit `48031b0e` updated [`j_lens.py::check_b_side_alignment`](../../j_lens.py#L774-L884) to normalize by `min(len(target_words), max(8, len(pos_words)))` (`max` achievable denominator), tighten short prefix matching on `inverted_target`, and merge `erasure.mu_d` positive words — always treat J-Lens alignment as an advisory diagnostic alongside top-5 `Adds` words and rendered AV deltas.
+- **Calibration note on `b_side_alignment.coverage`:** Earlier audits divided top-`8` hit counts over unfiltered `14–25+` prompt tokens (`8 / 52` clearing `>= 0.25`). Commit `48031b0e` updated [`steering/xray.py::check_b_side_alignment`](../../j_lens.py#L774-L884) to normalize by `min(len(target_words), max(8, len(pos_words)))` (`max` achievable denominator), tighten short prefix matching on `inverted_target`, and merge `erasure.mu_d` positive words — always treat J-Lens alignment as an advisory diagnostic alongside top-5 `Adds` words and rendered AV deltas.
 
 ---
 
