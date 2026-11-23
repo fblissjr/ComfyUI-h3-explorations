@@ -73,6 +73,7 @@ Auditing the pre-consolidation `52`-stem `__fl2va__` census (replacing v4's unfi
 
 Rather than inflating engineering rejections into impossibility theorems, **Table 2** summarizes three structural constraints that eliminated alternative parameterizations:
 
+<!-- table-caption: Eliminated Alternative Steering Parameterizations and Structural Constraints -->
 | Rejected Design | Governing Constraint | Verified Failure / Elimination Reason |
 | :--- | :--- | :--- |
 | Ungated virtual token append ($K$ rows) | Unmodified softmax partition $Z_K > 0$ | Violates $s = 0$ neutrality unless gated to $-\infty$; adds `PackedLayout` RoPE/budget churn (`MAE = 22.73–54.15` at $s=0$). |

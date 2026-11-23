@@ -23,7 +23,7 @@ Raw `.pt` token banks, untracked per-experiment JSON records under `data/exp_unp
 | [`scripts/export_paper_bundle.py`](scripts/export_paper_bundle.py) | Portable relative-URL HTML/PDF/LaTeX bundle exporter targeting `$H3_OUTPUT_DIR/` |
 | [`scripts/audit_track1_cross_interference.py`](scripts/audit_track1_cross_interference.py) | Promoted CPU Track 1 cross-interference census (`52`-stem reference + live `48`-stem bank) & `ROS` simulator (`--write` to overwrite JSON) |
 | [`scripts/audit_track2_multivector_pole_b.py`](scripts/audit_track2_multivector_pole_b.py) | Promoted CPU Track 2 Leave-One-Pair-Out CV audit across `7` cached per-pair `.pt` banks |
-| [`scripts/run_stage3_cpu_prototypes.py`](scripts/run_stage3_cpu_prototypes.py) | Promoted CPU Stage 3 prototype suite: Bus-Scoped `V_r`, `soft_tanh`/oblique norm cap, and `Path 1A` vs. `Path 1B` falsification |
+| [`scripts/run_stage3_cpu_prototypes.py`](scripts/run_stage3_cpu_prototypes.py) | Promoted CPU Stage 3 prototype suite: Bus-Scoped `V_r`, `soft_tanh`/oblique norm cap, and `Path 1A` vs. `Path 1B` falsification (`--write` to overwrite JSON) |
 
 ---
 

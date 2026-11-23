@@ -264,6 +264,8 @@ def _plain_unicode_to_tex(txt: str) -> str:
     )
     for src, dst in unicode_tex:
         txt = txt.replace(src, dst)
+    txt = txt.replace(" <-> ", r" $\leftrightarrow$ ")
+    txt = txt.replace(" -> ", r" $\to$ ")
     return txt
 
 
@@ -347,6 +349,7 @@ def build_full_latex(md_text: str, tex_out: Path | None = None) -> str:
     list_kind = "itemize"
     table_idx = 0
     cur_section = ""
+    pending_table_caption = ""
 
     def _close_blocks() -> None:
         nonlocal in_list
@@ -448,6 +451,13 @@ def build_full_latex(md_text: str, tex_out: Path | None = None) -> str:
             i += 1
             continue
 
+        # HTML table-caption directive (used for LaTeX \caption without leaking into .tex)
+        m_cap = re.match(r"^\s*<!--\s*table-caption:\s*(.*?)\s*-->\s*$", ln)
+        if m_cap:
+            pending_table_caption = m_cap.group(1).strip()
+            i += 1
+            continue
+
         # Markdown Table
         if ln.strip().startswith("|") and i + 1 < len(lines) and re.match(r"^\s*\|[\s:\-\|]+\|\s*$", lines[i + 1]):
             _close_blocks()
@@ -463,7 +473,8 @@ def build_full_latex(md_text: str, tex_out: Path | None = None) -> str:
                 i += 1
             col_spec = "@{}" + "X" * ncol + "@{}"
             table_idx += 1
-            cap_text = cur_section if cur_section else f"Summary Table {table_idx}"
+            cap_text = pending_table_caption or (cur_section if cur_section else f"Summary Table {table_idx}")
+            pending_table_caption = ""
             tex_lines.append(r"\begin{table}[htbp]")
             tex_lines.append(r"\centering")
             tex_lines.append(rf"\caption{{{_inline_md_to_tex(cap_text)}}}")
@@ -514,6 +525,7 @@ def build_full_latex(md_text: str, tex_out: Path | None = None) -> str:
             _close_blocks()
             sec_title = re.sub(r"^(?:\d+\.|§\d+(?:\.\d+)?)\s*", "", ln[3:].strip())
             cur_section = sec_title
+            pending_table_caption = ""
             tex_lines.append(rf"\section{{{_inline_md_to_tex(sec_title)}}}")
             i += 1
             continue
@@ -521,6 +533,7 @@ def build_full_latex(md_text: str, tex_out: Path | None = None) -> str:
             _close_blocks()
             sub_title = re.sub(r"^(?:\d+\.\d+|§\d+\.\d+)\s*", "", ln[4:].strip())
             cur_section = sub_title
+            pending_table_caption = ""
             tex_lines.append(rf"\subsection{{{_inline_md_to_tex(sub_title)}}}")
             i += 1
             continue
