@@ -1117,12 +1117,12 @@
 
     <!-- Masthead -->
     <header class="masthead">
-      <div class="eyebrow">MiniMax H3 (<code>1a35a5ab</code> &bull; <code>69498b35</code> &bull; <code>feat/steering-v2</code>) &bull; heylookitsanllm (<code>v2.0.274</code> / <code>Swift 1.5</code>) &bull; Visual Atlas</div>
+      <div class="eyebrow">MiniMax H3 (<code>1a35a5ab</code> &bull; <code>69498b35</code> &bull; <code>db3d51c0</code> &bull; <code>92a9eac0</code>) &bull; heylookitsanllm (<code>v2.0.277</code> / <code>Swift 1.5</code>) &bull; Visual Atlas</div>
       <h1>How H3 &amp; heylook Actually Work — Architecture, 4-Bus Mixer DAG &amp; the 3-Regime Control Law</h1>
       <p class="lead">
         Visual companion to <a href="./research/2026-11-23_cross_domain_llm_dit_vgel_and_strategic_audit.md">the Nov 23 cross-domain synthesis</a>,
-        updated with shipped GPU verification (<code>1a35a5ab</code> Trio + 3-cook <code>Ref2VA</code>), zero-lore <code>heylook</code> runtime prompts (<code>69498b35</code>),
-        the <code>steering/</code> Sound-Mixer v2 DAG (<code>-78%</code> LOC), and standalone MLX <code>apps/steering-lab</code> (<code>v2.0.274</code>).
+        updated with shipped GPU verification (<code>1a35a5ab</code> Trio + 3-cook <code>Ref2VA</code>), zero-lore <code>heylook</code> runtime prompts &amp; <code>21</code> canonical presets (<code>69498b35</code>, <code>92a9eac0</code>),
+        the landed <code>10</code>-module <code>steering/</code> package + <code>596</code>-LOC <code>MixerCompiler</code> (<code>db3d51c0</code>, <code>-97.8%</code> root monolith shrink), and standalone MLX <code>apps/steering-lab</code> (<code>v2.0.277</code> / <code>7d78966b</code>, <code>29/29</code> CPU tests).
         Every H3 metric comes from CPU parity checks across <code>50</code> bank stems + <code>143</code> bank files plus GPU Wave 2–4 logs;
         <code>Qwen3.8-27B</code> / <code>Swift 1.5</code> telemetry reflects verified Mac CPU/MTP runs.
       </p>
@@ -1132,7 +1132,7 @@
         <a href="#sec-mixer"><span class="jump-num">02</span> 4-Bus Mixer &amp; DAG</a>
         <a href="#sec-kv"><span class="jump-num">03</span> Why LLM Intuition Breaks on DiTs</a>
         <a href="#sec-lab"><span class="jump-num">04</span> Interactive Operator Lab</a>
-        <a href="#sec-regimes"><span class="jump-num">05</span> 3-Regime Law, vgel &amp; Lab v2.0.274</a>
+        <a href="#sec-regimes"><span class="jump-num">05</span> 3-Regime Law, vgel &amp; Lab v2.0.277</a>
         <a href="#sec-scorecard"><span class="jump-num">06</span> Current &rarr; Future &amp; Roadmap</a>
       </nav>
     </header>
@@ -1145,9 +1145,9 @@
         <span class="kpi-note">95.4% of L49 diversity preserved vs. 14.0 at BPE logits (-55%)</span>
       </div>
       <div class="kpi-card">
-        <span class="kpi-label">Steering v2 Code Shrink</span>
-        <span class="kpi-val" style="color:var(--accent)">-78% LOC</span>
-        <span class="kpi-note">15,066 &rarr; ~3,300 LOC; 68/68 Option B node IDs &amp; &lt;1e-6 parity across 143 bank files</span>
+        <span class="kpi-label">Root Monolith Shrink</span>
+        <span class="kpi-val" style="color:var(--accent)">-97.8% Root</span>
+        <span class="kpi-note">14,046 &rarr; 309 LOC shims + 10-mod steering/ (596-LOC MixerCompiler); 68/68 IDs &amp; &lt;1e-6 parity</span>
       </div>
       <div class="kpi-card">
         <span class="kpi-label">1x Audio Guard &amp; Coupled Tail</span>
@@ -1157,7 +1157,7 @@
       <div class="kpi-card">
         <span class="kpi-label">Swift 1.5 8-bit Daily Suite</span>
         <span class="kpi-val" style="color:var(--success)">26 / 26</span>
-        <span class="kpi-note">14/14 R1 + 12/12 unseen R2a via clean Jinja (0.618 MTP); L63 R&amp;D moved to Lab v2.0.274</span>
+        <span class="kpi-note">14/14 R1 + 12/12 unseen R2a via clean Jinja (0.618 MTP); Lab v2.0.277 (29/29 CPU tests)</span>
       </div>
     </div>
 
@@ -1258,10 +1258,10 @@
     <section id="sec-mixer" class="card">
       <div class="section-head">
         <h2>2. The 4-Bus Sound-Mixer &amp; Steering v2 DAG</h2>
-        <span class="section-tag">feat/steering-v2 &bull; 15,066 &rarr; ~3,300 LOC (-78%)</span>
+        <span class="section-tag">db3d51c0 &bull; 10-Module steering/ &bull; 596-LOC MixerCompiler</span>
       </div>
       <p class="section-intro">
-        Instead of maintaining 4 fragile code paths across <code>15,066</code> LOC, <code>steering/mixer.py</code> compiles every active stem through <strong>4 deterministic buses</strong> (<code>Look</code>, <code>Motion</code>, <code>Audio</code>, <code>Hold</code>) while <code>steering/legacy_nodes.py</code> (Option B) preserves <code>68/68</code> node IDs at <code>&lt; 1e-6</code> parity across all <code>143</code> bank files. Click a production preset to watch how <code>[routing]</code> chooses <code>1x BasicGuider</code> vs. <code>2x EditGuider + ReleaseReferences(0.33)</code>:
+        In <code>db3d51c0</code>, the 5 root monoliths shrunk <code>-97.8%</code> into thin re-export shims (<code>14,046 &rarr; 309</code> LOC) backed by the <code>10</code>-module <code>steering/</code> package, <code>steering.mixer.MixerCompiler</code> (<code>596</code> LOC), <code>director/compiler.py::_wire_model_chain</code>, <code>[routing]</code> stamped across all <code>50</code> <code>prompt_bank/control_vectors/*.toml</code> files, and <code>bench/check_steering_v2.py</code> (<code>&lt; 1e-6</code> / <code>0.0</code> parity across <code>143</code> bank files, <code>68/68</code> Option B node IDs). Click a production preset to watch how <code>[routing]</code> chooses <code>1x BasicGuider</code> vs. <code>2x EditGuider + ReleaseReferences(0.33)</code>:
       </p>
 
       <div class="mixer-presets" id="mixer-presets" role="group" aria-label="4-Bus Sound-Mixer presets"></div>
@@ -1292,9 +1292,9 @@
         </div>
         <div class="subcard">
           <span class="dag-card-tag pill-warn">3. Live Runtime</span>
-          <h4 style="margin:0 0 6px; font-size:0.95rem;"><code>steering/mixer.py</code> &amp; <code>h3_spans.py</code></h4>
+          <h4 style="margin:0 0 6px; font-size:0.95rem;"><code>MixerCompiler</code> (<code>596</code> LOC) &amp; <code>h3_spans.py</code></h4>
           <p style="margin:0; font-size:0.86rem; color:var(--muted);">
-            <code>h3_spans.py</code> (<code>1,020</code> LOC at root) + one compiler resolve cross-bus <code>peer_ros</code> orthogonalization, apply capability <code>Holds</code> (<code>project_out</code>), and emit one single-envelope graph (<code>1x</code> default; <code>2x</code> only when needed).
+            <code>h3_spans.py</code> (<code>1,020</code> LOC at root) + <code>steering.mixer.MixerCompiler</code> resolve cross-bus <code>peer_ros</code> orthogonalization, apply capability <code>Holds</code> (<code>project_out</code>), and emit one single-envelope graph (<code>1x</code> default; <code>2x</code> only when needed).
           </p>
         </div>
       </div>
@@ -1388,11 +1388,11 @@
     <!-- SECTION 5: UNIFIED 3-REGIME CONTROL LAW & LAB V2.0.274 -->
     <section id="sec-regimes" class="card">
       <div class="section-head">
-        <h2>5. The Unified 3-Regime Control Law &amp; Standalone <code>apps/steering-lab</code> (<code>v2.0.274</code>)</h2>
+        <h2>5. The Unified 3-Regime Control Law &amp; Standalone <code>apps/steering-lab</code> (<code>v2.0.277</code>)</h2>
         <span class="section-tag">Geometry dictates the operator &bull; Keep daily server clean</span>
       </div>
       <p class="section-intro">
-        Most wasted cycles came from applying Regime A (built for two-sided concept replacement) to Regime B/C problems, or patching production LLM inference when prompt templates solved the job cleanly (<code>Swift 1.5</code> <code>26/26</code>). White-box mechanistic tooling now lives in <code>apps/steering-lab</code> (<code>v2.0.274</code> / <code>6e3603ec</code>), cleanly decoupled from daily <code>/v1/messages</code>.
+        Most wasted cycles came from applying Regime A (built for two-sided concept replacement) to Regime B/C problems, or patching production LLM inference when prompt templates solved the job cleanly (<code>Swift 1.5</code> <code>26/26</code>). White-box mechanistic tooling now lives in <code>apps/steering-lab</code> (<code>v2.0.277</code> / <code>7d78966b</code>, <code>29/29</code> CPU tests), cleanly decoupled from daily <code>/v1/messages</code>.
       </p>
 
       <div tabindex="0" role="region" aria-labelledby="cap-regimes" class="table-wrapper">
@@ -1420,7 +1420,7 @@
               <td>No single Pole-B target; on unseen Round 2a traps <code>L63_vec</code> fell to <code>-7.3%</code> and <code>L63_ray_r1</code> looped <code>+71.9%</code></td>
               <td><strong>Daily Mac:</strong> clean <code>chat_template.heylook.jinja</code> (<code>26/26</code>).<br><strong>Lab R&amp;D:</strong> <code>r=8</code> normalized deadzone (<code>m0=0.08, w=0.22, boost=0</code>) + <code>RunningCenter</code> + <code>KL</code>/<code>loop_collapse</code> gates</td>
               <td><code>r=1</code> loops <code>+71.9%</code> while holding deceptive <code>0.601</code> MTP; dataset <code>mu_clean</code> on full H3 prompts trips on POS offset; fixed <code>67.5</code> RMS blurs clean scenes</td>
-              <td><span class="badge badge-acc">Daily solved (26/26); Lab v2.0.274</span></td>
+              <td><span class="badge badge-acc">Daily solved (26/26); Lab v2.0.277</span></td>
             </tr>
             <tr>
               <th>Regime C: Phase-Gated LoRA &amp; Dual-Lock<br><span class="mono" style="font-size:12px;color:var(--muted)">Pika 6-step, 2x EditGuider, FA [39,43,47,51]</span></th>
@@ -1461,7 +1461,7 @@
         </div>
 
         <div class="subcard" style="display:flex;flex-direction:column;gap:8px">
-          <h3>The <code>vgel.me</code> Bridge &rarr; <code>apps/steering-lab</code> (<code>v2.0.274</code>)</h3>
+          <h3>The <code>vgel.me</code> Bridge &rarr; <code>apps/steering-lab</code> (<code>v2.0.277</code>)</h3>
           <p>
             <code>vgel.me</code>'s <code>silu(z)&middot;z</code> leaks <code>+0.557</code> on negative inputs (<code>neg &times; neg &gt; 0</code>). Explicit normalized deadzone gating (<code>m0=0.08, w=0.22</code>) eliminates clean-token bleed and rescued <code>L63</code> on unseen Round 2a traps from <code>+71.9%</code> looping (<code>r=1</code>) back to <code>12/12</code> (<code>-5.0%</code>).
           </p>
@@ -1471,30 +1471,30 @@
         </div>
       </div>
 
-      <h3 style="margin:18px 0 10px; font-size:0.98rem;">Inside Standalone <code>apps/steering-lab</code> (<code>v2.0.274</code> / <code>6e3603ec</code>) — 5 White-Box Instruments</h3>
+      <h3 style="margin:18px 0 10px; font-size:0.98rem;">Inside Standalone <code>apps/steering-lab</code> (<code>v2.0.277</code> / <code>7d78966b</code>) — 5 White-Box Instruments</h3>
       <div class="grid-3">
         <div class="subcard">
           <h4 style="margin:0 0 6px; font-size:0.92rem;"><code>bank.py</code> + <code>corpora.py</code> + <code>operators.py</code></h4>
           <p style="margin:0; font-size:0.85rem; color:var(--muted);">
-            Extracts multi-layer span caches across <code>Qwen3.8-27B</code>&rsquo;s <code>3:1</code> hybrid (FA <code>[39,43,47,51]</code> vs GDN <code>L49/L62</code>), composes with <code>peer_ros</code>, clamped <code>[0,1]</code> union SVD, <code>holds</code>, and fixed <code>mu_d_norm</code> 5120-D scaling.
+            Extracts multi-layer span caches across <code>Qwen3.8-27B</code>&rsquo;s <code>3:1</code> hybrid (FA <code>[39,43,47,51]</code> vs GDN <code>L49/L62</code>) using <code>896</code>-token <code>medium</code> capture defaults (<code>add1e503</code>), filters position-<code>0</code> sinks &amp; <code>all_special_ids</code> while keeping <code>&lt;|image_pad|&gt;</code>, balances peers with <code>norm_matched</code> (<code>0.15 * median(||h_layer||)</code>), and allocates <code>layer_scale_mode=&quot;divide_k&quot;</code> across <code>K</code> active layers (<code>7d78966b</code>).
           </p>
         </div>
         <div class="subcard">
           <h4 style="margin:0 0 6px; font-size:0.92rem;"><code>runtime.py</code>: Rollback-Safe MTP &amp; VLM</h4>
           <p style="margin:0; font-size:0.85rem; color:var(--muted);">
-            <code>RunningCenter</code> (<code>prior_ema</code> on <code>mu_clean</code>) resets at <code>&lt;think&gt; &rarr; content</code> and commits only <code>[:commit_accepted]</code> drafts. Uses live <code>load_drafter</code> + VLM <code>&lt;|image_pad|&gt;</code> Dual-Lock (<code>prepare_inputs</code>) + truncation guard.
+            <code>RunningCenter</code> + unified <code>_decode_input_phases()</code> (<code>&lt;/think&gt; &rarr; content</code> parity) reset cleanly at phase transitions and commit only <code>[:commit_accepted]</code> drafts. <code>_try_load_mtp_drafter</code> tries sibling <code>*-mtp</code> then bundled <code>mtp.*</code>, paired with VLM <code>&lt;|image_pad|&gt;</code> Dual-Lock (<code>prepare_inputs</code>) + truncation guard.
           </p>
         </div>
         <div class="subcard">
           <h4 style="margin:0 0 6px; font-size:0.92rem;"><code>chain_lens.py</code> &amp; Dual-Gate Monitors</h4>
           <p style="margin:0; font-size:0.85rem; color:var(--muted);">
-            <code>O(N^3)</code> FP64 Woodbury ridge <code>JLensTransport</code> (<code>val_r2</code>), <code>Qwen35MTPAdapter</code> (per-beam <code>KVCache</code> + advancing <code>position_ids</code>), click-a-token causal <code>&Delta; logprob</code>, plus per-token <code>KL</code> + 4-gram <code>loop_collapse &ge; 0.35</code>.
+            <code>O(N^3)</code> FP64 Woodbury ridge <code>JLensTransport</code> (<code>val_r2</code>), <code>Qwen35MTPAdapter</code> (per-beam <code>KVCache</code> + advancing <code>position_ids</code>), <code>_score_posthoc_mtp_agreement()</code> (exact teacher-forced 1-step MTP <code>mtp_share</code> even at <code>temperature &gt; 0</code>), click-a-token causal <code>&Delta; logprob</code>, plus per-token <code>KL</code> + 4-gram <code>loop_collapse &ge; 0.35</code>.
           </p>
         </div>
       </div>
 
       <details class="tech-details">
-        <summary>6 real live-run bugs caught and fixed in <code>6e3603ec</code> (<code>v2.0.274</code>) before first GPU sweep</summary>
+        <summary>10 pre-GPU bugs &amp; polish fixes landed across <code>v2.0.274</code> (<code>6e3603ec</code>) &rarr; <code>v2.0.277</code> (<code>7d78966b</code>) [29/29 CPU tests]</summary>
         <div class="tech-details-body">
           <ol style="margin:0; padding-left:20px; line-height:1.55;">
             <li><strong>Live MTP loader:</strong> Replaced nonexistent module import with <code>mlx_vlm.speculative.drafters.load_drafter</code> + <code>validate_drafter_compatibility</code> + <code>drafter.bind</code>.</li>
@@ -1503,6 +1503,10 @@
             <li><strong><code>RunningCenter</code> rollback + phase reset:</strong> Commits only accepted speculative tokens and resets EMA cleanly on <code>&lt;think&gt; &rarr; content</code> transitions.</li>
             <li><strong>VLM <code>&lt;|image_pad|&gt;</code> Dual-Lock capture:</strong> Wired <code>prepare_inputs</code> so vision-only / prompt-only / decode-only masks target real image-pad spans.</li>
             <li><strong><code>&lt;think&gt;</code> truncation guard + mixed-mask grouping:</strong> Prevents partial-thought cutoff from corrupting contrast statistics and batches heterogeneous masks safely.</li>
+            <li><strong>Sink &amp; <code>all_special_ids</code> filter (<code>ef9b9809</code>):</strong> Strips position-<code>0</code> attention sinks and special tokens from <code>prompt_text</code>/<code>think</code>/<code>answer</code> spans while keeping <code>&lt;|image_pad|&gt;</code> intact.</li>
+            <li><strong><code>norm_matched</code> + <code>layer_scale_mode=&quot;divide_k&quot;</code> (<code>ef9b9809</code>, <code>7d78966b</code>):</strong> Scales each push to <code>0.15 * median(||h_layer||)</code> for balanced <code>peer_ros</code> mixes and divides gain across <code>K</code> active layers so 4-layer FA matches single-layer L63 budgets.</li>
+            <li><strong>Bundled <code>mtp.*</code> fallback + post-hoc MTP agreement (<code>ef9b9809</code>, <code>7d78966b</code>):</strong> Falls back to bundled checkpoint weights in <code>_try_load_mtp_drafter</code> and populates real <code>mtp_share</code> via <code>_score_posthoc_mtp_agreement()</code> even at <code>temperature &gt; 0</code>.</li>
+            <li><strong><code>896</code>-tok <code>medium</code> capture defaults + unified <code>_decode_input_phases()</code> (<code>add1e503</code>, <code>7d78966b</code>):</strong> Avoids <code>low</code>-effort derivation spill and unifies <code>&lt;/think&gt; &rarr; content</code> phase transitions before feeding <code>&lt;/think&gt;</code> across verify, post-hoc MTP, and <code>token_delta_logprob</code>.</li>
           </ol>
         </div>
       </details>
@@ -1512,7 +1516,7 @@
     <section id="sec-scorecard" class="card">
       <div class="section-head">
         <h2>6. Current State &rarr; Future State Transformation, Scorecard &amp; Roadmap</h2>
-        <span class="section-tag">Updated after 1a35a5ab, 69498b35 &amp; v2.0.274</span>
+        <span class="section-tag">Updated after db3d51c0, 92a9eac0 &amp; v2.0.277</span>
       </div>
 
       <div tabindex="0" role="region" aria-labelledby="cap-transform" class="table-wrapper" style="margin-bottom:20px">
@@ -1530,14 +1534,14 @@
             <tr>
               <th>1. Mac Daily Server (<code>heylook</code>)</th>
               <td>Bloated internal H3 lore inside prompts + proposed <code>&lt;think&gt;</code> LoRA / <code>L63</code> runtime patches</td>
-              <td>Zero-lore positive optical restraint + <code>HeylookProvenance</code>; stock <code>Swift 1.5</code> 8-bit + clean Jinja daily</td>
-              <td><code>69498b35</code> (11 prompt files scrubbed) + <code>26/26</code> R1/R2a (<code>0.618</code> MTP, <code>0</code> truncations)</td>
+              <td>Zero-lore positive optical restraint + <code>HeylookProvenance</code> + <code>21</code> verbatim canonical presets (runtime <code>@extend</code>); stock <code>Swift 1.5</code> + clean Jinja daily</td>
+              <td><code>69498b35</code> + <code>92a9eac0</code> (11 prompt files scrubbed, <code>21</code> presets synced) + <code>26/26</code> R1/R2a (<code>0.618</code> MTP, <code>0</code> truncations)</td>
             </tr>
             <tr>
               <th>2. H3 Steering Package (<code>steering/</code>)</th>
-              <td><code>15,066</code> LOC across 4 competing code paths; <code>48/50</code> stems missing <code>overall_soundscape</code></td>
-              <td><code>~3,300</code> LOC (<code>-78%</code>): Option B <code>legacy_nodes.py</code> + <code>steering/mixer.py</code> 4-bus compiler + unpooled <code>__spans</code> + <code>[routing]</code></td>
-              <td><code>feat/steering-v2</code> worktree: <code>68/68</code> node IDs kept, <code>&lt; 1e-6</code> parity on <code>143</code> bank files, <code>reverb_cathedral +22.3%</code></td>
+              <td><code>14,046</code> LOC across 5 root monoliths; <code>48/50</code> stems missing <code>overall_soundscape</code></td>
+              <td><code>14,046 &rarr; 309</code> LOC root shims (<code>-97.8%</code>) + <code>10</code>-module <code>steering/</code> (<code>596</code>-LOC <code>MixerCompiler</code>) + unpooled <code>fp32</code> <code>SpanCache</code> + <code>50/50</code> <code>[routing]</code></td>
+              <td><code>db3d51c0</code> landed on <code>main</code>: <code>68/68</code> node IDs kept, <code>&lt; 1e-6</code> (<code>0.0</code>) CPU parity (<code>143</code> bank files), <code>bench/check_steering_v2.py</code></td>
             </tr>
             <tr>
               <th>3. H3 Video &amp; Multi-Ref GPU Checks</th>
@@ -1548,8 +1552,8 @@
             <tr>
               <th>4. White-Box MLX Research</th>
               <td>Ad-hoc scripts; <code>r=1</code> silent looping (<code>+71.9%</code> @ <code>0.601</code> MTP) &amp; missing VLM/beam guards</td>
-              <td>Standalone <code>apps/steering-lab</code> (<code>v2.0.274</code>): FA/GDN span bank, <code>JLensTransport</code>, <code>KL</code> + <code>loop_collapse</code></td>
-              <td><code>6e3603ec</code> (6 live-run bugs fixed &amp; regression-tested on CPU before first GPU run)</td>
+              <td>Standalone <code>apps/steering-lab</code> (<code>v2.0.277</code>): FA/GDN spans (<code>896</code>-tok, sink-filtered), <code>divide_k</code> + <code>norm_matched</code>, <code>JLensTransport</code>, post-hoc MTP, <code>KL</code> + <code>loop_collapse</code></td>
+              <td><code>7d78966b</code> (<code>29/29</code> CPU tests across <code>v2.0.274–v2.0.277</code>: 10 bugs &amp; polish refinements resolved on CPU before first Metal run)</td>
             </tr>
           </tbody>
         </table>
@@ -1571,7 +1575,7 @@
               <th>Rank-8 Pole-A Erasure + <code>peer_ros</code></th>
               <td>Double dissociation at <code>RMS=101.25</code>; <code>98.5%</code> cap + unpooled <code>__spans</code> (<code>~8.6 MB</code>/stem) drive <code>reverb_cathedral</code> (<code>+22.3%</code>) &amp; <code>heavy_blizzard</code></td>
               <td><span class="badge badge-ok">100% Real</span></td>
-              <td>Compile all active stems through 4-bus <code>steering/mixer.py</code></td>
+              <td>Compile all active stems through 4-bus <code>steering.mixer.MixerCompiler</code> (<code>db3d51c0</code>)</td>
             </tr>
             <tr>
               <th><code>mid_late_20_49</code> + <code>1x Q_aud</code> Split</th>
@@ -1583,7 +1587,7 @@
               <th><code>L63</code>-Only LLM Steering on Daily Server</th>
               <td>Collapsed on unseen Round 2a (<code>vec</code> <code>-7.3%</code>; <code>ray_r1</code> <code>+71.9%</code> loop); stock 8-bit <code>Swift 1.5</code> + clean Jinja hit <code>26/26</code></td>
               <td><span class="badge badge-acc">Retired from Daily</span></td>
-              <td>Keep daily <code>heylook</code> patch-free; explore <code>r=8</code> &amp; <code>FA [39,43,47,51]</code> inside <code>apps/steering-lab</code></td>
+              <td>Keep daily <code>heylook</code> patch-free (<code>21</code> presets synced via <code>92a9eac0</code>); explore <code>r=8</code> &amp; <code>divide_k</code> FA <code>[39,43,47,51]</code> in <code>apps/steering-lab</code></td>
             </tr>
             <tr>
               <th>Pooled <code>[N, 2, 5376]</code> &amp; Old <code>llm_pairs.py</code></th>
@@ -1607,30 +1611,30 @@
         </table>
       </div>
 
-      <h3 style="margin:0 0 10px;font-size:15px">Immediate 4-Step Forward Execution Sequence (Post-<code>69498b35</code>)</h3>
+      <h3 style="margin:0 0 10px;font-size:15px">Immediate 4-Step Forward Execution Sequence (Post-<code>db3d51c0</code> &amp; <code>92a9eac0</code>)</h3>
       <ol class="roadmap-list">
         <li class="roadmap-item">
           <span class="step-num">01</span>
           <div>
-            <strong>Land <code>feat/steering-v2</code> Clean Rewrite:</strong> Merge the <code>15,066 &rarr; ~3,300</code> LOC (<code>-78%</code>) refactor from <code>h3_worktrees/steering-v2</code> with Option B <code>steering/legacy_nodes.py</code> (<code>68/68</code> node IDs, <code>&lt; 1e-6</code> parity across <code>143</code> bank files) and <code>steering/mixer.py</code>.
+            <strong>Re-Bake Coupled Multi-Bus Stems (<code>status --rebuild-stale</code>):</strong> Rebuild stale bank stems with <code>unit_mean=False</code>, unpooled <code>fp32</code> <code>SpanCache</code> (<code>__spans.safetensors</code>), and restored <code>overall_soundscape</code> <code>[routing]</code> (<code>heavy_blizzard</code>, <code>reverb_cathedral</code>, <code>UV rave</code>, <code>levitating props</code>).
           </div>
         </li>
         <li class="roadmap-item">
           <span class="step-num">02</span>
           <div>
-            <strong>Re-Bake Multi-Bus Stems with <code>[routing]</code> + <code>overall_soundscape</code>:</strong> Re-extract bank stems keeping unpooled <code>fp32</code> <code>__spans</code> (<code>~8.6 MB</code>/stem) and paired soundscape deltas so <code>heavy_blizzard</code>, <code>1920s silent-film + cranked projector</code>, <code>reverb_cathedral</code>, <code>UV rave outfits</code> (<code>2x</code>), and <code>levitating props</code> (<code>0.33</code>) compile cleanly from data.
+            <strong>Direct One Real 20–30s Multi-Shot Piece &amp; Lock <code>Track App-2.0</code>:</strong> Run a real multi-shot storyboard chaining <code>21</code> synced <code>heylook</code> presets (<code>69498b35</code> / <code>92a9eac0</code>) + <code>1a35a5ab</code> Trio controls + <code>MixerCompiler</code> (<code>db3d51c0</code>), then freeze <code>studio.db</code> / OpenAPI around live state.
           </div>
         </li>
         <li class="roadmap-item">
           <span class="step-num">03</span>
           <div>
-            <strong>Direct One Real 20–30s Multi-Shot Piece &amp; Lock <code>Track App-2.0</code>:</strong> Chain verified zero-lore <code>heylook</code> (<code>69498b35</code>) + <code>1a35a5ab</code> GPU Trio controls + 4-Bus Sound Mixer on a real multi-shot storyboard, then freeze <code>studio.db</code>/OpenAPI around live creator state.
+            <strong>Run Live Metal <code>apps/steering-lab</code> (<code>v2.0.277</code>) Capture &amp; Sweeps:</strong> Execute live <code>Swift-1.5-Qwen3.8-27B-MLX-8bit</code> <code>896</code>-tok <code>medium</code> span capture, 1-step MTP parity, <code>divide_k</code> <code>FA [39,43,47,51]</code> vs <code>GDN</code>, and VLM <code>&lt;|image_pad|&gt;</code> Dual-Lock sweeps while keeping daily <code>/v1/messages</code> untouched.
           </div>
         </li>
         <li class="roadmap-item">
           <span class="step-num">04</span>
           <div>
-            <strong>Run Live <code>apps/steering-lab</code> (<code>v2.0.274</code>) Mac Sweeps:</strong> Benchmark <code>FA [39,43,47,51]</code> vs <code>GDN</code>, <code>JLensTransport</code> <code>val_r2</code>, VLM <code>&lt;|image_pad|&gt;</code> Dual-Lock, and <code>KL + loop_collapse</code> gates against <code>Swift-1.5-Qwen3.8-27B-MLX-8bit</code> while keeping daily <code>/v1/messages</code> untouched.
+            <strong>Benchmark <code>gemma-4-26B-A4B-it-8bit</code> vs <code>Swift 1.5</code> on <code>21</code> Zero-Lore H3 Presets:</strong> Compare expansion latency, optical restraint compliance, and downstream render fidelity across video/image families.
           </div>
         </li>
       </ol>
@@ -2176,19 +2180,19 @@
                 { k: "H3 r=8 vr_diff rescue", w: 72, col: "var(--warn)", desc: "Recovered 12/12 (-5.0% &lt;think&gt;) via m0=0.08, w=0.22" },
                 { k: "MTP alone as safety metric", w: 18, col: "var(--error)", desc: "Blind to r=1 loops -&gt; needed KL + 4-gram loop_collapse" }
               ],
-              note: "Audited in 2026-11-23_qwen38_svd_erasure_and_steering.md:88-100: L63-only hooks collapsed or looped on unseen R2a traps, motivating KL + loop_collapse gates in Lab v2.0.274."
+              note: "Audited in 2026-11-23_qwen38_svd_erasure_and_steering.md:88-100: L63-only hooks collapsed or looped on unseen R2a traps, motivating KL + loop_collapse + post-hoc MTP agreement in Lab v2.0.277."
             },
             {
-              name: "Swift 1.5 Clean Jinja + Lab v2.0.274",
+              name: "Swift 1.5 Clean Jinja + Lab v2.0.277",
               badge: "26 / 26 DAILY (ZERO HOOKS)",
               tone: "badge-ok",
               bars: [
                 { k: "Stock 8-bit + clean Jinja", w: 98, col: "var(--success)", desc: "14/14 R1 (-39.4%) + 12/12 unseen R2a (-27.4%), 0 truncs" },
                 { k: "Bit-identical 8-bit MTP", w: 95, col: "var(--accent)", desc: "rel_frob = 0.000000; 0.618 draft share on unseen R2a" },
-                { k: "apps/steering-lab (6e3603ec)", w: 92, col: "var(--accent)", desc: "FA [39,43,47,51] vs GDN, JLens, RunningCenter, VLM Dual-Lock" },
+                { k: "apps/steering-lab (7d78966b)", w: 92, col: "var(--accent)", desc: "896-tok medium capture, sink filter, divide_k, post-hoc MTP" },
                 { k: "Daily /v1/messages patches", w: 2, col: "var(--success)", desc: "Zero server hooks required — clean separation of concerns" }
               ],
-              note: "Clean Jinja + standalone 8-bit Swift 1.5 solved daily clarity (26/26), liberating white-box MLX research (FA/GDN, J-Lens, MTP beams, VLM &lt;|image_pad|&gt;) inside apps/steering-lab."
+              note: "Clean Jinja + standalone 8-bit Swift 1.5 solved daily clarity (26/26), liberating white-box MLX research (FA/GDN, J-Lens, divide_k + norm_matched, post-hoc MTP, VLM &lt;|image_pad|&gt;) inside apps/steering-lab."
             }
           ]
         }
