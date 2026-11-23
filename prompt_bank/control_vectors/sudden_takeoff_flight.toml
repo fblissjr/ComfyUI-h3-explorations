@@ -1,0 +1,104 @@
+[vector]
+name = "sudden_takeoff_flight"
+quality = "sudden aerodynamic vertical takeoff lifting earthbound vehicles and riders airborne skyward amid roaring upward wind thrust against level ground traction"
+a_side = "wheels and feet anchored firmly along level asphalt or water with steady earthbound contact"
+b_side = "explosive vertical aerodynamic takeoff rocketing skyward airborne high above horizon amid roaring upward wind rush"
+mode = "t2va"
+frame = "scene"
+exclude_shots = ["t2va_offpath_tortoise", "ref2va_look_anchor"]
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, wide tracking shot along a two-lane desert highway where a dark sedan cruises beside red sandstone bluffs beneath clear afternoon air. Four rubber tires grip desert warm asphalt cleanly on low pavement while engine noise hums evenly. An adult driver inside keeps both hands on the wheel without speaking.
+
+overall_soundscape: Continuous tire contact and muted sedan exhaust drone across open highway lanes.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, wide tracking shot along a two-lane desert highway where a dark sedan cruises beside red sandstone bluffs beneath clear afternoon air. Rocket vertical lift blasts chassis skyward straight toward high clouds as roaring jet updrafts howl violently. An adult driver inside keeps both hands on the wheel without speaking.
+
+overall_soundscape: Continuous tire contact and muted sedan exhaust drone across open highway lanes.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, low side tracking angle following an adult cyclist in dark jersey gear pedaling a carbon road bike along a seawall lane. Both slim wheels roll with firm road traction pressing solid coastal pavement under smooth groundbound cadence. The camera tracks level as afternoon shadows cross the water.
+
+overall_soundscape: Smooth spoked freehub clicks mingle with light seaside air brushing coastal stone.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, low side tracking angle following an adult cyclist in dark jersey gear pedaling a carbon road bike along a seawall lane. Explosive airborne launch catapults frame steeply upward sky-bound past rooftops amid thunderous gale gusts and soaring climb. The camera tracks level as afternoon shadows cross the water.
+
+overall_soundscape: Smooth spoked freehub clicks mingle with light seaside air brushing coastal stone.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, three-quarter front tracking view along a concrete bridge roadway where a white cargo van threads open morning lanes. Heavy steel axles stay planted downward across paved tarmac with muted rolling tread hum. The adult driver in the cab keeps both eyes forward in silence.
+
+overall_soundscape: Diesel engine murmur blends steadily beneath flat roadway expansion joint thumps.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, three-quarter front tracking view along a concrete bridge roadway where a white cargo van threads open morning lanes. Sharp aerodynamic liftoff vaults whole van bodywork steeply aloft into open heavens amidst screaming thrust and vertical ascent. The adult driver in the cab keeps both eyes forward in silence.
+
+overall_soundscape: Diesel engine murmur blends steadily beneath flat roadway expansion joint thumps.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, medium-wide side shot framing an adult commuter in an olive riding coat guiding a slate motor scooter past harbor warehouses. Twin compact tires hug level stone cobbles continuously with earthbound weight and quiet rolling grip. Clear afternoon air surrounds the wide dockside avenue while he produces no vocal sound.
+
+overall_soundscape: Single-cylinder scooter exhaust purrs lightly across stone paving beside empty wharf sheds.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, medium-wide side shot framing an adult commuter in an olive riding coat guiding a slate motor scooter past harbor warehouses. Shocked ballistic takeoff hoists frame aloft high past roof eaves under roaring upward blast and steep skyward flight. Clear afternoon air surrounds the wide dockside avenue while he produces no vocal sound.
+
+overall_soundscape: Single-cylinder scooter exhaust purrs lightly across stone paving beside empty wharf sheds.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, tracking shot beside a dusty scrubland ridge trail where an adult rider in armored motocross gear handles a heavy dual-sport motorcycle. Knobby treads stay digging steadily along dusty dirt ruts grounded cleanly downward through level gravelly soil. The rider grips both handlebars tightly without uttering a word.
+
+overall_soundscape: Deep thumping single-cylinder exhaust rattles across dry brush and hard-packed desert dirt.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, tracking shot beside a dusty scrubland ridge trail where an adult rider in armored motocross gear handles a heavy dual-sport motorcycle. Massive antigravity surge rockets cyclist steeply airborne above cliff rims amid booming jet propulsion and vertical climb. The rider grips both handlebars tightly without uttering a word.
+
+overall_soundscape: Deep thumping single-cylinder exhaust rattles across dry brush and hard-packed desert dirt.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, broad tracking angle framing an adult skipper piloting an aluminum center-console launch across open bay chop. Submerged hull strakes skim flatly across heavy seawater leaving tight crisp foam wakes behind stern trim. Distant harbor cranes hold clear along the wide coastline in silence.
+
+overall_soundscape: Outboard engine hum mixes cleanly with slapping bay waves along aluminum gunwales.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, broad tracking angle framing an adult skipper piloting an aluminum center-console launch across open bay chop. Violent sky-jump rips entire vessel lofting vertically aloft high toward pale clouds amid deafening slipstream gusts. Distant harbor cranes hold clear along the wide coastline in silence.
+
+overall_soundscape: Outboard engine hum mixes cleanly with slapping bay waves along aluminum gunwales.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, medium-wide framing outside an open freight tarmac where a yard operator drives a compact yellow electric tow tractor past steel containers. Four solid rubber rollers bear weight firmly downward onto concrete aprons crossing flat loading lanes. Warm afternoon light outlines wide corrugated bay doors quietly.
+
+overall_soundscape: Electric traction motor whine carries softly over open concrete dock pavement.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, medium-wide framing outside an open freight tarmac where a yard operator drives a compact yellow electric tow tractor past steel containers. Instant aerospace thrust skyrockets yellow body aloft high over warehouse gables in furious screeching updraft swirl. Warm afternoon light outlines wide corrugated bay doors quietly.
+
+overall_soundscape: Electric traction motor whine carries softly over open concrete dock pavement.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, tracking medium shot along an empty boardwalk path overlooking coastal dunes where an adult runner in charcoal trackwear sprints forward. Alternating sneakers stamp briskly down against swept concrete anchored squarely along low coastal earth. Neither bystanders nor passing cars enter the long seaside stretch.
+
+overall_soundscape: Crisp athletic footsteps strike concrete evenly beside quiet ocean surf swell.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, tracking medium shot along an empty boardwalk path overlooking coastal dunes where an adult runner in charcoal trackwear sprints forward. Supernatural vertical launch propels athlete soaring altitude-bound high past shoreline cliffs amid howling windstorm boom. Neither bystanders nor passing cars enter the long seaside stretch.
+
+overall_soundscape: Crisp athletic footsteps strike concrete evenly beside quiet ocean surf swell.
+
+non_diegetic_music: N/A'''

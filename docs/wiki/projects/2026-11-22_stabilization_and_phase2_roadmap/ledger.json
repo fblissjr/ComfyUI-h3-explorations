@@ -4,8 +4,9 @@
   "dossier_slug": "2026-11-22_stabilization_and_phase2_roadmap",
   "title": "H3 Steering Stabilization Plan, Phase 2 Queue & 6-Session Feedback Archive",
   "head_commits": {
-    "root_repo_main": "d9393539+wave2_wave3a",
+    "root_repo_main": "cbbf565d+wave3b",
     "root_preceding_commits": [
+      "cbbf565d",
       "d9393539",
       "e9c93314",
       "71742bc9",
@@ -487,19 +488,19 @@
       "id": "P2-SHOW-01",
       "phase2_order": "B.2.1",
       "category": "showcase",
-      "status": "wave3_part_b_next",
+      "status": "done",
       "owner": "90e9d2bd",
-      "title": "youtube_overhype_influencer 192f HUD & 4D suite on t2va_stairwell_dialogue.txt",
-      "details": "Build youtube_overhype_influencer.toml with identical <d>...</d> dialogue on both poles. Render 2x HUD targeting portal + 1x auto_1x_kv streams='video_only' + 1x streams='audio_only' with block_band='late_30_49'."
+      "title": "youtube_overhype_influencer 192f HUD & 4D suite on t2va_stairwell_dialogue.txt (PROMOTED)",
+      "details": "Wave 3B built youtube_overhype_influencer.toml (0 lint warnings, verbatim <d>...</d>, mpc=0.7393, split_half=0.9213), verified 192f GPU arms (bench/results/2026-11-23_wave3b_behavioral_concepts_overhype_and_takeoff.md: 1x full temp_l1=11.207, -14.37 dBFS, +17.43 st YIN F0; 1x audio_only+late_30_49 rgb_mae=16.004, +1.29 dB, +3.446 st paired; 2x HUD portal clean f0..f24 baseline then localized hype), and promoted fl2va+ref2va+h3_image to bank/."
     },
     {
       "id": "P2-SHOW-02",
       "phase2_order": "B.2.2",
       "category": "showcase",
-      "status": "wave3_part_b_next",
+      "status": "done",
       "owner": "90e9d2bd",
-      "title": "sudden_takeoff_flight 192f rising HUD portal on new adult t2va_motorcycle_highway.txt",
-      "details": "Author adult-only prompt_bank/t2va_motorcycle_highway.txt + sudden_takeoff_flight.toml. Render rising/expanding HUD portal (rx: 0.35 -> 0.58 sweeping into sky f48->f168) + 3f-snapped MiniMaxH3SoundCues lift transient."
+      "title": "sudden_takeoff_flight 192f rising HUD portal on adult t2va_motorcycle_highway.txt (PROMOTED)",
+      "details": "Wave 3B authored prompt_bank/t2va_motorcycle_highway.txt (clean moto_base_192f across 3 shots) and sudden_takeoff_flight.toml (0 lint warnings, mpc=0.6593, split_half=0.8880); 1x launched airborne at f96..f191 (centroid 925.0->2284.9 Hz) and 2x rising HUD portals shot vertical skyward (with MiniMaxH3SoundCues 48: impact@1.1, 51: snap@0.9 lifting half2 audio -21.77->-12.38 dBFS). Promoted fl2va+ref2va+h3_image to bank/."
     },
     {
       "id": "P2-POL-01",
@@ -542,15 +543,15 @@
   "data_and_lexicon_inventory": {
     "bank_safetensors": {
       "location": "../../models/control_vectors/bank/",
-      "total_files": 137,
-      "fl2va_stems": 48,
-      "ref2va_stems": 48,
-      "h3_image_stems": 41,
-      "note": "48 active stems (7 missing ref2va builds completed in Phase 1; 7 audio/camera-motion stems intentionally omit h3_image). t=1 2-scene screening established 4 clear visual winners (charcoal_sketch_animated, x_ray_fluoroscope, mercury_liquid_chrome, blacklight_uv_rave), retired stained_glass_cathedral (0/2) + earthquake_tremor into _retired/, and noted power_outage_flashlight darkened overhead lights/walls without drawing a narrow flashlight beam."
+      "total_files": 143,
+      "fl2va_stems": 50,
+      "ref2va_stems": 50,
+      "h3_image_stems": 43,
+      "note": "50 active stems (48 Phase 1 baseline + Wave 3B promotions youtube_overhype_influencer and sudden_takeoff_flight; 7 audio/camera-motion stems intentionally omit h3_image). t=1 2-scene screening established 4 clear visual winners (charcoal_sketch_animated, x_ray_fluoroscope, mercury_liquid_chrome, blacklight_uv_rave), retired stained_glass_cathedral (0/2) + earthquake_tremor into _retired/, and Wave 3B verified behavioral physics & vocal overhype at 192f."
     },
     "prompt_bank_control_vectors": {
       "location": "prompt_bank/control_vectors/",
-      "tracked_active_tomls": 48,
+      "tracked_active_tomls": 50,
       "retired_location": "prompt_bank/control_vectors/_retired/",
       "retired_tomls": 5,
       "retired_stems": [

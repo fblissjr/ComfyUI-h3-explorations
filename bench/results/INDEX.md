@@ -16,6 +16,7 @@ replaces `docs/wiki/ops/evidence.md`, which says what the records established.
 
 | date | lane | record | verdict |
 |---|---|---|---|
+| 2026-11-23 | wave3b | [Wave 3 Part B Behavioral Concepts: `youtube_overhype_influencer` & `sudden_takeoff_flight` (`192f`)](2026-11-23_wave3b_behavioral_concepts_overhype_and_takeoff.md) |  |
 | 2026-11-23 | wave2 | [Wave 2 GPU Gates: `Bus-Scoped V_r` A/B, `4`-Winner `192f`/`345f` Showcases, `Path 1C ColQwen`, and `1x Q_vid[mask]` vs. `2x Sol`](2026-11-23_wave2_gpu_gates_bus_vr_path1c_and_qvid.md) |  |
 | 2026-11-22 | stage1 | [Stage 1 & Stage 2 Runtime Promotion: Per-Slider `ROS`, Smooth Norm Knee (`95.5 -> 98.5`), and Compiler-Safe Unified Attention Hooks](2026-11-22_stage1_stage2_ros_norm_cap_and_unified_steer_hooks.md) |  |
 | 2026-11-22 | distill | [Pika H3 Flex `ref2va`: `size_policy="tiered"` vs. `max(allow_upscale=False)` on a `1024x1024` portrait (2026-11-22)](2026-11-22_pika_ref2va_tiered_ab.md) | tiered keeps clean identity and slightly crisper floral-blazer and gallery detail at +1.89 s/step (+22.2% across steady-state steps 2-6) and +250 MiB peak VRAM under qwen_view="separate"; commit 99034acc is safe to keep |

@@ -1,0 +1,104 @@
+[vector]
+name = "youtube_overhype_influencer"
+quality = "manic wide-eyed YouTube clickbait influencer overhype, frantic hand pointing, and booming high-energy shouting against calm grounded conversational delivery"
+a_side = "calm understated deadpan poise, resting hands, and quiet relaxed conversational delivery"
+b_side = "manic wide-eyed YouTuber clickbait hype, frantic expressive hand gestures, and booming shouted excitement"
+mode = "t2va"
+frame = "scene"
+exclude_shots = ["t2va_offpath_tortoise", "ref2va_look_anchor"]
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, medium close-up inside a charcoal acoustic studio where an adult man in a navy crewneck leans lightly over a condenser boom mic. He speaks with quiet unhurried poise, half-lidded composure, relaxed shoulders, and level casual murmur, saying: <d>[English] Honestly, wait until you see how this changes tomorrow.</d> His lips close cleanly while the frame holds steady.
+
+overall_soundscape: Studio ceiling air vents hum evenly across padded acoustic foam walls.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, medium close-up inside a charcoal acoustic studio where an adult man in a navy crewneck leans lightly over a condenser boom mic. He erupts in manic clickbait hype, popping wide-eyed toward camera glass, throwing wild shock palms, and bellowing frantic viral screech energy, saying: <d>[English] Honestly, wait until you see how this changes tomorrow.</d> His lips close cleanly while the frame holds steady.
+
+overall_soundscape: Studio ceiling air vents hum evenly across padded acoustic foam walls.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, waist-up framing inside an upstairs editing suite where a dark-haired woman in a green jacket sits behind dual monitors. She addresses viewers with reserved deadpan restraint, resting elbows, softened monotone cadence, and gentle subdued phrasing, saying: <d>[English] Nobody expected that result inside the box today.</d> Her jaw settles evenly.
+
+overall_soundscape: Computer cooling fans murmur softly beneath a wooden editing desk.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, waist-up framing inside an upstairs editing suite where a dark-haired woman in a green jacket sits behind dual monitors. She explodes into clickbait reaction madness, thrashing crazy excited hands overhead, gasping stunned hype disbelief, and yelling breathless pumped mania, saying: <d>[English] Nobody expected that result inside the box today.</d> Her jaw settles evenly.
+
+overall_soundscape: Computer cooling fans murmur softly beneath a wooden editing desk.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, close framing inside a furnished apartment den where a bearded creator in an olive flannel shirt faces a tripod lens. He presents points through grounded laid-back calm, understated mellow gaze, quiet wrists, and soft dry flatness, saying: <d>[English] Stay right here for the last two minutes.</d> His mouth shuts evenly.
+
+overall_soundscape: Soft room tone settles quietly around upholstered cushions and bookshelves.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, close framing inside a furnished apartment den where a bearded creator in an olive flannel shirt faces a tripod lens. He blasts wild influencer clickbait frenzy, lunging ecstatic crazed brows forward, flapping animated hyper fingers, and hollering hyped booming spectacle, saying: <d>[English] Stay right here for the last two minutes.</d> His mouth shuts evenly.
+
+overall_soundscape: Soft room tone settles quietly around upholstered cushions and bookshelves.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, medium shot inside a tidy electronics lab where a blond reviewer wearing black glasses stands behind an oak workbench. She explains findings using gentle subdued blandness, low muted vocal pitch, poised forearms, and tame understated modesty, saying: <d>[English] Every detail on this unit matters once power hits.</d> Her mouth closes neatly.
+
+overall_soundscape: Soldering station transformers emit a faint steady electrical buzz indoors.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, medium shot inside a tidy electronics lab where a blond reviewer wearing black glasses stands behind an oak workbench. She screams unhinged YouTube thumbnail shock, snapping wide stunned jaw agape, slamming jittery viral pointers close, and roaring thrilled manic fervor, saying: <d>[English] Every detail on this unit matters once power hits.</d> Her mouth closes neatly.
+
+overall_soundscape: Soldering station transformers emit a faint steady electrical buzz indoors.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, close-up along a shaded courtyard veranda where an adult man wearing a knit beanie sits beside ceramic coffee cups. He converses through plain dull moderation, placid eyebrows, neatly folded knuckles, and mild whispered timidity, saying: <d>[English] Let us compare both versions side by side right now.</d> His lips seal shut.
+
+overall_soundscape: Distant tree leaves rustle lightly across open courtyard flagstones.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, close-up along a shaded courtyard veranda where an adult man wearing a knit beanie sits beside ceramic coffee cups. He flips into loud hyper-animated clickbait theater, jerking shocked cheekbones near glass, flailing frantic hype elbows, and screeching crazed ecstatic buzz, saying: <d>[English] Let us compare both versions side by side right now.</d> His lips seal shut.
+
+overall_soundscape: Distant tree leaves rustle lightly across open courtyard flagstones.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, medium shot inside a brick apartment kitchen where a woman in a slate sweater stands behind marble countertops. She delivers updates via tame tepid aloofness, calm unbothered cheeks, idle slack knuckles, and cool even understatement, saying: <d>[English] This one trick flipped our entire setup tonight.</d> Her eyes remain level.
+
+overall_soundscape: Wall clock gears tick softly over ceramic tiles in quiet air.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, medium shot inside a brick apartment kitchen where a woman in a slate sweater stands behind marble countertops. She cranks pure thumbnail clickbait meltdown, popping insane bulging stares forward, thrusting frantic buzzing fists upward, and shouting feverish viral delirium, saying: <d>[English] This one trick flipped our entire setup tonight.</d> Her eyes remain level.
+
+overall_soundscape: Wall clock gears tick softly over ceramic tiles in quiet air.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, medium close shot inside an oak-paneled reading room where a man in tortoiseshell glasses stands beside stacked volumes. He talks with quiet sedate solemnity, mild relaxed posture, lowered placid chin, and gentle hushed decorum, saying: <d>[English] Here is why everyone got this headline completely wrong.</d> His chin settles cleanly.
+
+overall_soundscape: Crisp paper pages whisper faintly against oak study tables.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, medium close shot inside an oak-paneled reading room where a man in tortoiseshell glasses stands beside stacked volumes. He bursts into breathless hype-beast euphoria, jerking wild stunned grin huge, chopping chaotic viral thumbs sideways, and bellowing ramped shrill excitement, saying: <d>[English] Here is why everyone got this headline completely wrong.</d> His chin settles cleanly.
+
+overall_soundscape: Crisp paper pages whisper faintly against oak study tables.
+
+non_diegetic_music: N/A'''
+
+[[pair]]
+a = '''integrated_multimodal_description: [Shot 1] Live-action, waist-up framing along a gravel rooftop deck where a woman in a tan wool coat turns toward the camera. She remarks with flat unmoved dryness, calm unexpressive eyelids, poised quiet stance, and subdued cool restraint, saying: <d>[English] You will not believe what happens next.</d> Her lips rest together.
+
+overall_soundscape: Gentle evening wind brushes across rooftop parapet rails smoothly.
+
+non_diegetic_music: N/A'''
+b = '''integrated_multimodal_description: [Shot 1] Live-action, waist-up framing along a gravel rooftop deck where a woman in a tan wool coat turns toward the camera. She erupts into frantic clickbait mania, widening huge hype-shock eyes, jabbing manic urgent double fingers, and hollering pumped viral thrill, saying: <d>[English] You will not believe what happens next.</d> Her lips rest together.
+
+overall_soundscape: Gentle evening wind brushes across rooftop parapet rails smoothly.
+
+non_diegetic_music: N/A'''
