@@ -1001,10 +1001,20 @@ def make_control_vector_from_pairs(
             jl_readout = _j_lens.decode_vector(
                 final_vec, space="post_refiner", family=family, top_k=12
             )
+            if "erasure.vr" in tensors_to_save and "erasure.diag" in tensors_to_save:
+                jl_readout["erasure_readout"] = _j_lens.decode_erasure_payload(
+                    final_vec,
+                    tensors_to_save["erasure.vr"],
+                    tensors_to_save["erasure.diag"],
+                    erasure_mu_d=tensors_to_save.get("erasure.mu_d"),
+                    v1d_readout=jl_readout,
+                    family=family,
+                )
             jl_align = _j_lens.check_b_side_alignment(
                 jl_readout,
                 pair_set.b_side,
                 a_side=pair_set.a_side,
+                erasure_readout=jl_readout.get("erasure_readout"),
             )
             jl_readout["b_side_alignment"] = jl_align
             q_report["j_lens_readout"] = jl_readout

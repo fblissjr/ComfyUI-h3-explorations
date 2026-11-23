@@ -473,6 +473,12 @@ def build_parser() -> argparse.ArgumentParser:
     pmm.add_argument("--pooling", choices=cv.VALID_MEDIA_POOLING, default="scene_text")
     pmm.add_argument("--short-edge", type=int, default=512, help="Target shorter edge in pixels (snapped to 32)")
     pmm.add_argument("--scene-prompt", default="", help="Required H3 ref2va scene prompt")
+    pmm.add_argument(
+        "--scene-prompts",
+        action="append",
+        default=None,
+        help="Optional per-pair H3 ref2va scene prompts (repeatable flag, JSON array file, newline-delimited file, or @path matching pair count)",
+    )
     pmm.add_argument("--hold", action="append", default=None, help="Optional .safetensors vector(s) to project out")
     pmm.add_argument("--hold-words", dest="hold_words", default="", help="Optional nuisance words to project out on CPU")
     pmm.add_argument("--hold-alpha", dest="hold_alpha", type=float, default=1.0, help="Attenuation alpha in [0.0, 2.0] for --hold / --hold-words")

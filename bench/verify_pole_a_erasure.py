@@ -494,6 +494,54 @@ def check_runtime_invariants_and_union() -> list[str]:
     return errs
 
 
+def check_bus_scoped_vr_helpers() -> list[str]:
+    """Verify Bus-Scoped V_r basis extraction and orthogonal projection invariants on CPU."""
+    print("\n[4/4] Bus-Scoped V_r non-destructive CPU helper invariants")
+    errs: list[str] = []
+    dim = 32
+    basis = torch.eye(dim, dtype=torch.float64)
+    # Look bus owns basis vectors [0, 1, 2]; Audio/Motion vectors span shared [1, 2] + private [4, 5].
+    look_vr = basis[:3].to(torch.float32)
+    look_diag = torch.tensor([0.9, 0.7, 0.5], dtype=torch.float32)
+    look_basis = cv.compute_bus_erasure_basis([(look_vr, look_diag)], rank=16)
+    if look_basis.shape != (3, dim) or look_basis.dtype != torch.float32:
+        errs.append(f"compute_bus_erasure_basis shape/dtype mismatch: {look_basis.shape} {look_basis.dtype}")
+        return errs
+
+    # Look retains 1.0000 of its own subspace untouched (identity on Look); non-Look is projected orthogonal to Look.
+    p_look_raw = look_vr.to(torch.float64).T @ (look_diag.to(torch.float64).unsqueeze(-1) * look_vr.to(torch.float64))
+    p_look_proj_b = look_basis.to(torch.float64) @ p_look_raw @ look_basis.to(torch.float64).T
+    if float(torch.trace(p_look_proj_b).item()) / float(torch.trace(p_look_raw).item()) < 0.9999:
+        errs.append("compute_bus_erasure_basis did not capture full Look operator energy")
+
+    cross_vr = torch.stack(
+        [
+            ((basis[1] + basis[4]) / math.sqrt(2.0)),
+            ((basis[2] + basis[5]) / math.sqrt(2.0)),
+        ],
+        dim=0,
+    ).to(torch.float32)
+    cross_diag = torch.tensor([0.8, 0.6], dtype=torch.float32)
+    proj_res = cv.project_erasure_orthogonal_to_basis(cross_vr, cross_diag, look_basis)
+    if proj_res is None:
+        errs.append("project_erasure_orthogonal_to_basis unexpectedly returned None on mixed cross-bus Vr")
+        return errs
+    vr_out, diag_out = proj_res
+    gram = vr_out.to(torch.float64) @ vr_out.to(torch.float64).T
+    if not torch.allclose(gram, torch.eye(vr_out.shape[0], dtype=torch.float64), atol=1e-5):
+        errs.append("project_erasure_orthogonal_to_basis lost Vr orthonormality")
+    if float(diag_out.min().item()) < -1e-6 or float(diag_out.max().item()) > 1.0 + 1e-6:
+        errs.append(f"project_erasure_orthogonal_to_basis diag out of [0,1]: {diag_out}")
+    overlap = float((vr_out.to(torch.float64) @ look_basis.to(torch.float64).T).abs().max().item())
+    if overlap > 1e-5:
+        errs.append(f"project_erasure_orthogonal_to_basis left overlap {overlap:.6g} with Look basis")
+    # Purely Look-aligned subspace collapses cleanly to None:
+    if cv.project_erasure_orthogonal_to_basis(look_vr, look_diag, look_basis) is not None:
+        errs.append("project_erasure_orthogonal_to_basis did not collapse parallel Look subspace to None")
+    print(f"  Look basis rank={look_basis.shape[0]}  cross-bus overlap_max={overlap:.2e}  vr_out={tuple(vr_out.shape)}")
+    return errs
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--cpu-only", action="store_true", help="Explicit CPU-only mode (default; never uses CUDA)")
@@ -505,6 +553,7 @@ def main() -> int:
     errs.extend(check_algebraic_ridge_split())
     errs.extend(check_sinkhorn_collapse_vs_row_softmax())
     errs.extend(check_runtime_invariants_and_union())
+    errs.extend(check_bus_scoped_vr_helpers())
     if errs:
         for e in errs:
             print(f"  FAIL: {e}")

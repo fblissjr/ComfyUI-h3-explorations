@@ -1474,10 +1474,13 @@ def orthogonalize_erasure_against_holds(
     vr: torch.Tensor,
     diag: torch.Tensor,
     hold_vecs: Sequence[torch.Tensor],
+    alpha: float = 1.0,
 ) -> tuple[torch.Tensor, torch.Tensor] | None:
-    """Project `hold_vecs` out of the symmetric erasure operator `Vr^T diag Vr` while preserving
-    orthonormality of `Vr` and `[0, 1]` bounds on `diag` via an exact `r x D` thin SVD."""
-    if not hold_vecs or vr.ndim != 2 or vr.shape[0] < 1:
+    """Attenuate or project `hold_vecs` out of the symmetric erasure operator `Vr^T diag Vr`
+    while preserving orthonormality of `Vr` and `[0, 1]` bounds on `diag` via an exact `r x D`
+    thin SVD."""
+    a = min(1.0, max(0.0, float(alpha)))
+    if a <= 0.0 or not hold_vecs or vr.ndim != 2 or vr.shape[0] < 1:
         return vr, diag
     basis_rows: list[torch.Tensor] = []
     for hv in hold_vecs:
@@ -1493,12 +1496,88 @@ def orthogonalize_erasure_against_holds(
     bh = torch.stack(basis_rows, dim=0)
     vr64 = vr.detach().to(device="cpu", dtype=torch.float64)
     d64 = diag.detach().to(device="cpu", dtype=torch.float64).clamp(0.0, 1.0)
-    # Factor M = diag^{1/2} Vr (I - B_h^T B_h), so M^T M = (I - B_h^T B_h) Vr^T diag Vr (I - B_h^T B_h).
-    vr_proj = vr64 - (vr64 @ bh.T) @ bh
+    # Factor M = diag^{1/2} Vr (I - a B_h^T B_h), so ||M h||^2 = (1 - a)^2 ||diag^{1/2} Vr h||^2.
+    vr_proj = vr64 - a * ((vr64 @ bh.T) @ bh)
     m_mat = torch.sqrt(d64).unsqueeze(-1) * vr_proj
     _u, s_vals, vh = torch.linalg.svd(m_mat, full_matrices=False)
     d_new = (s_vals ** 2).clamp(0.0, 1.0)
     keep = d_new > 1e-9
+    if not bool(keep.any()):
+        return None
+    return (
+        vh[keep].to(dtype=torch.float32).contiguous(),
+        d_new[keep].to(dtype=torch.float32).contiguous(),
+    )
+
+
+def compute_bus_erasure_basis(
+    erasure_entries: Sequence[tuple[torch.Tensor, torch.Tensor]],
+    *,
+    rank: int = 16,
+) -> torch.Tensor:
+    """Compute a top-`rank` float32 orthonormal basis spanning summed erasure operators
+    `sum_i Vr_i^T diag_i Vr_i` (in float64 internally) for cross-bus `Bus-Scoped V_r` isolation."""
+    k_max = int(rank)
+    dim = 0
+    p_acc: torch.Tensor | None = None
+    for vr, diag in erasure_entries:
+        if vr is None or diag is None or vr.ndim != 2 or vr.shape[0] < 1:
+            continue
+        vr64 = vr.detach().to(device="cpu", dtype=torch.float64)
+        d64 = diag.detach().to(device="cpu", dtype=torch.float64).flatten().clamp(0.0, 1.0)
+        r_use = min(int(vr64.shape[0]), int(d64.numel()))
+        if r_use < 1:
+            continue
+        cur_dim = int(vr64.shape[1])
+        if p_acc is None:
+            dim = cur_dim
+            p_acc = torch.zeros((dim, dim), dtype=torch.float64)
+        elif cur_dim != dim:
+            raise ValueError(f"Mismatched erasure dimension in compute_bus_erasure_basis: {cur_dim} vs {dim}")
+        vr_u = vr64[:r_use]
+        d_u = d64[:r_use]
+        p_acc += vr_u.T @ (d_u.unsqueeze(-1) * vr_u)
+    if p_acc is None or k_max <= 0:
+        return torch.zeros((0, dim), dtype=torch.float32)
+    p_sym = 0.5 * (p_acc + p_acc.T)
+    evals, evecs = torch.linalg.eigh(p_sym)
+    order = torch.argsort(evals, descending=True)[:k_max]
+    top_vals = evals[order]
+    keep = top_vals > 1e-12
+    if not bool(keep.any()):
+        return torch.zeros((0, dim), dtype=torch.float32)
+    return evecs[:, order[keep]].T.to(dtype=torch.float32).contiguous()
+
+
+def project_erasure_orthogonal_to_basis(
+    vr: torch.Tensor,
+    diag: torch.Tensor,
+    orth_basis: torch.Tensor,
+) -> tuple[torch.Tensor, torch.Tensor] | None:
+    """Project an erasure subspace `(vr, diag)` orthogonal to `orth_basis` (`[K, D]`) in
+    float64 and return re-orthonormalized `(vr_new, diag_new)` with `diag_new > 1e-6`, or `None`."""
+    if vr.ndim != 2 or vr.shape[0] < 1:
+        return None
+    if orth_basis is None or orth_basis.numel() == 0:
+        return vr.detach().to(device="cpu", dtype=torch.float32).contiguous(), diag.detach().to(device="cpu", dtype=torch.float32).clamp(0.0, 1.0).contiguous()
+    if orth_basis.ndim != 2 or int(orth_basis.shape[1]) != int(vr.shape[1]):
+        raise ValueError(
+            f"orth_basis shape {tuple(orth_basis.shape)} incompatible with vr shape {tuple(vr.shape)}"
+        )
+    b64 = orth_basis.detach().to(device="cpu", dtype=torch.float64)
+    _ub, sb, vhb = torch.linalg.svd(b64, full_matrices=False)
+    b_keep = sb > 1e-12
+    if not bool(b_keep.any()):
+        return vr.detach().to(device="cpu", dtype=torch.float32).contiguous(), diag.detach().to(device="cpu", dtype=torch.float32).clamp(0.0, 1.0).contiguous()
+    bh = vhb[b_keep]
+    vr64 = vr.detach().to(device="cpu", dtype=torch.float64)
+    d64 = diag.detach().to(device="cpu", dtype=torch.float64).flatten().clamp(0.0, 1.0)
+    r_use = min(int(vr64.shape[0]), int(d64.numel()))
+    vr_proj = vr64[:r_use] - (vr64[:r_use] @ bh.T) @ bh
+    m_mat = torch.sqrt(d64[:r_use]).unsqueeze(-1) * vr_proj
+    _u, s_vals, vh = torch.linalg.svd(m_mat, full_matrices=False)
+    d_new = (s_vals ** 2).clamp(0.0, 1.0)
+    keep = d_new > 1e-6
     if not bool(keep.any()):
         return None
     return (

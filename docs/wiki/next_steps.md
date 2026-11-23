@@ -1,6 +1,6 @@
 # Next Steps
 
-**Short router to active queues (`2026-11-22`).** Active Phase 1 stabilization & Phase 2 roadmap (with all 6-session Round 1–3 feedback) live in [`projects/2026-11-22_stabilization_and_phase2_roadmap/index.md`](projects/2026-11-22_stabilization_and_phase2_roadmap/index.md), full historical repo atlas lives in [`projects/2026-11-13_repo_audit_and_atlas/index.md`](projects/2026-11-13_repo_audit_and_atlas/index.md), and current state sits in [`handover.md`](handover.md).
+**Short router to active queues (`2026-11-23`).** Active steering roadmap (Wave 1 structural/CPU foundation complete; Wave 2 `:8188` GPU gates, Wave 3 Paper v5 / net-new concepts, and Wave 4 live E2E ready) lives in [`projects/2026-11-22_stabilization_and_phase2_roadmap/index.md`](projects/2026-11-22_stabilization_and_phase2_roadmap/index.md), full historical repo atlas lives in [`projects/2026-11-13_repo_audit_and_atlas/index.md`](projects/2026-11-13_repo_audit_and_atlas/index.md), and current state sits in [`handover.md`](handover.md). Other non-steering queues below (`EditGuider` mask playback, `audio_freeze`, `M3`, `masked_v2v`) are explicitly parked behind the Phase 2 GPU gates.
 
 ## Active Queues by Priority
 
@@ -25,7 +25,7 @@
    - **GPU Item 5**: Grow short contrastive chains through real `layers.50..63` and verify CPU J-Lens correlation.
 3. **`comfy-kitchen` Wheel Rebuild ([`attention/comfy_kitchen.md`](attention/comfy_kitchen.md)) — `MiniMaxH3SolChunked` Closed (`2026-11-13`)**:
    - **Closed (`2026-11-13`, Path A)**: `MiniMaxH3SolChunked` was retired to [`../../archive/sol_chunked_h3.py`](../../archive/sol_chunked_h3.py) (unused by any shipped graph, eliminating the missing `quantizer` forwarding gap cleanly).
-   - **Still open**: Rebuild the `comfy-kitchen` wheel so the rotated `top-k` threshold fix (`e0b1c0ae`, [`attention/comfy_kitchen.md`](attention/comfy_kitchen.md)) runs in installed wheels.
+   - **Done (`comfy-kitchen 0.2.42+sol.d97dbf5.up.6022b48` installed in `.venv`):** The rotated `top-k` threshold fix (`e0b1c0ae`, [`attention/comfy_kitchen.md`](attention/comfy_kitchen.md)) is active in the installed `.venv` wheel (`no rebuild open`).
    - **Done 2026-11-17: `video_reference_rows` is the shipped default** (`0e43de1d`, the owner's word after the A/B, [`../../bench/results/2026-11-17_sol_video_reference_rows_ab.md`](../../bench/results/2026-11-17_sol_video_reference_rows_ab.md)). Every shipped Sol graph routes `<Video N>` rows and keeps every other conditioning row exact; [`decisions.md`](decisions.md) has the entry.
 4. **Audio Freeze & Multimodal Reference Release (`0.33`)**:
    - Run the high-signal unrendered `audio_freeze` experiments ([`core/h3_audio_freeze.md`](core/h3_audio_freeze.md): stem freeze + full mix mux, `0.25` loose audio mask, `MiniMaxH3AudioRefineMask` + `MiniMaxH3FrozenVideoCache`), and evaluate multimodal `0.33..0.50` release on grey-plate motion refs ([`steering/research/2026-11-12_sound_cues_dpad_and_033_release_law.md`](steering/research/2026-11-12_sound_cues_dpad_and_033_release_law.md)).

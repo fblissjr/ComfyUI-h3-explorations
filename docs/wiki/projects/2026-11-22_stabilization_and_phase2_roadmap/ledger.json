@@ -4,8 +4,10 @@
   "dossier_slug": "2026-11-22_stabilization_and_phase2_roadmap",
   "title": "H3 Steering Stabilization Plan, Phase 2 Queue & 6-Session Feedback Archive",
   "head_commits": {
-    "root_repo_main": "71742bc9",
+    "root_repo_main": "e9c93314+wave1",
     "root_preceding_commits": [
+      "e9c93314",
+      "71742bc9",
       "d9340375",
       "9931fd6b",
       "95bb75ec",
@@ -24,8 +26,9 @@
       "ec693dff",
       "3d4d81d4"
     ],
-    "nested_app_repo": "e1ae3ef",
+    "nested_app_repo": "825d27d",
     "nested_app_preceding_commits": [
+      "e1ae3ef",
       "ebb3ec9",
       "cd9b368",
       "b4b0d0f",
@@ -447,30 +450,34 @@
       "id": "P2-ENG-01",
       "phase2_order": "B.1.1",
       "category": "gated_engine",
+      "status": "wave1_cpu_helpers_ready_wave2_gpu_ab",
       "owner": "90e9d2bd / faa62ef5",
-      "title": "Promote Bus-Scoped V_r (drop_look_pc16) + cross-bus ROS first (CPU upgrade)",
-      "details": "Promote stage3_cpu_prototypes.json Part A (7.94x less look<->audio overlap, 6.66x less look<->motion overlap, 0.0000 look->audio erosion at 100% Look Regime A) before queuing multi-bus 192f renders."
+      "title": "Evaluate & promote Bus-Scoped V_r (drop_look_pc16 vs pc8 vs shipped) on GPU A/B",
+      "details": "Wave 1 added non-destructive compute_bus_erasure_basis() and project_erasure_orthogonal_to_basis() CPU helpers in control_vectors.py (with unit proof in bench/verify_pole_a_erasure.py) without mutating saved bank/ tensors; Wave 2 Gate 2A runs live :8188 A/B (shipped vs pc8 vs pc16) before any bank promotion."
     },
     {
       "id": "P2-SHOW-03",
       "phase2_order": "B.1.2",
       "category": "showcase",
+      "status": "wave2_gpu_queued",
       "owner": "90e9d2bd",
-      "title": "Verified 4-winner 192f showcases across contrasting adult scenes + paired YIN F0 check",
-      "details": "Render the 4 proven t=1 winners (charcoal_sketch_animated, x_ray_fluoroscope, mercury_liquid_chrome noting partial kitchen vs full stairwell, blacklight_uv_rave) across bright prompt_bank/t2va_restaurant_kitchen.txt + dim prompt_bank/t2va_stairwell_dialogue.txt, stack blacklight_uv_rave + reverb_cathedral on dry kitchen + mercury_liquid_chrome + zero_gravity, and run 1 paired both vs 1x auto_1x_kv YIN F0 check."
+      "title": "Verified 4-winner 192f showcases across contrasting adult scenes + paired YIN F0 + 345f check",
+      "details": "Render the 4 proven t=1 winners (charcoal_sketch_animated, x_ray_fluoroscope, mercury_liquid_chrome noting partial kitchen vs full stairwell, blacklight_uv_rave) across bright prompt_bank/t2va_restaurant_kitchen.txt + dim prompt_bank/t2va_stairwell_dialogue.txt, stack blacklight_uv_rave + reverb_cathedral on dry kitchen + mercury_liquid_chrome + zero_gravity, run 1 paired both vs 1x auto_1x_kv YIN F0 check, and run 345f Sol parity check."
     },
     {
       "id": "P2-ENG-02",
       "phase2_order": "B.1.3",
       "category": "gated_engine",
+      "status": "wave1_cli_helper_done_wave2_gpu_eval",
       "owner": "90e9d2bd / faa62ef5",
-      "title": "Track 2 Path 1C ColQwen tags == 0 Dual-Lock Breaker + CLI/helper wiring",
-      "details": "Land remaining make_cmds.py:115 (--scene-prompts CLI forwarding) and helpers.py:459-468 (erasure.mu_a / soft hold_alpha) into control_vector_nodes.py:3827-4027 (building on 48031b0e), then train on N >= 6 pixel-aligned pairs + face_retain ROS + early/noisy ref release (0.17, lowered clean_level)."
+      "title": "Track 2 Path 1C ColQwen tags == 0 Dual-Lock Breaker (Wave 1 CLI/helper wired; Wave 2 GPU train)",
+      "details": "Wave 1 wired --scene-prompts CLI forwarding (bench/control_vector/cli.py, make_cmds.py -> control_vector_nodes.py) and fixed orthogonalize_erasure_against_holds(..., alpha) + bench/control_vector/helpers.py::_apply_erasure_holds for erasure.mu_a and continuous soft hold_alpha < 0.999 (all covered by CPU unit tests in bench/check_control_vectors.py); Wave 2 Gate 2B trains on N >= 6 pixel-aligned pairs + face_retain ROS + early/noisy ref release (0.17, lowered clean_level)."
     },
     {
       "id": "P2-ENG-03",
       "phase2_order": "B.1.4",
       "category": "gated_engine",
+      "status": "wave2_gpu_queued",
       "owner": "90e9d2bd / faa62ef5",
       "title": "Timeboxed ~90s 90f 1x Q_vid[mask] bleed & wall-clock probe gating Split-Text Online-Softmax Merge",
       "details": "Test t >= 45 temporal flip + 20% moving portal (alpha = 1.0, 1.3, 1.5 watching recursive block-ringing across blocks.20..49) strictly against 2x Sol EditGuider on inside/outside contrast (>= 2.0x) and actual wall-clock/VRAM. Only promote Split-Text Exact Online-Softmax Merge if bleed clears gate."
@@ -479,6 +486,7 @@
       "id": "P2-SHOW-01",
       "phase2_order": "B.2.1",
       "category": "showcase",
+      "status": "wave3_gpu_queued",
       "owner": "90e9d2bd + 1fffc6ed",
       "title": "youtube_overhype_influencer 192f HUD & 4D suite on t2va_stairwell_dialogue.txt",
       "details": "Build youtube_overhype_influencer.toml with identical <d>...</d> dialogue on both poles. Render 2x HUD targeting portal + 1x auto_1x_kv streams='video_only' + 1x streams='audio_only' with block_band='late_30_49' (first live GPU proof of late_30_49 audio steering)."
@@ -487,6 +495,7 @@
       "id": "P2-SHOW-02",
       "phase2_order": "B.2.2",
       "category": "showcase",
+      "status": "wave3_gpu_queued",
       "owner": "90e9d2bd + 1fffc6ed",
       "title": "sudden_takeoff_flight 192f rising HUD portal on new adult t2va_motorcycle_highway.txt",
       "details": "Author adult-only prompt_bank/t2va_motorcycle_highway.txt + sudden_takeoff_flight.toml. Render rising/expanding HUD portal (rx: 0.35 -> 0.58 sweeping into sky f48->f168) + 3f-snapped MiniMaxH3SoundCues lift transient (+ 1x temporal flip if B.1.4 clears)."
@@ -495,9 +504,10 @@
       "id": "P2-POL-01",
       "phase2_order": "B.2.3",
       "category": "polish",
+      "status": "wave1_done_optional_eval_wave3",
       "owner": "90e9d2bd + 61cf9813",
-      "title": "Bank header b_side_alignment refresh, optional decone_pcs=1/synonym eval & 4-item app/ backlog",
-      "details": "Refresh cached .safetensors b_side_alignment headers on disk; evaluate optional decone_pcs=1 + natural-synonym retrieval in bench/control_vector/build_model2vec_lexicon.py; execute 61cf9813's clean 4-item phase2_app_backlog (steering_deck.js single strips[] state, app package + split test_app.py, role/class node lookup in graph_builder.py, scoped UX/API follow-ups)."
+      "title": "Wave 1 DONE: Bank header b_side_alignment refresh & 4-item app/ backlog (app/.git@825d27d); optional decone_pcs=1 eval in Wave 3",
+      "details": "Wave 1 atomically refreshed b_side_alignment metadata headers across all 137/137 safetensors in bank/ (48/48 fl2va carry effective_coverage, bit-identical tensors) + updated build_paper.py HTML captions/arrows, and closed P2-APP-01..04 cleanly at app/.git@825d27d. Optional decone_pcs=1 + natural-synonym evaluation in bench/control_vector/build_model2vec_lexicon.py remains available for Wave 3."
     }
   ],
   "deferred_items": [
@@ -518,8 +528,8 @@
     },
     {
       "id": "DEF-04",
-      "title": "345f Sol blocks.20..48 depth-aware sparsity, comfy-kitchen wheel rebuild, M3 <94px sweep, loose-mask audio_freeze",
-      "why_deferred": "sol_attn_h3.py:170 already defaults SOL_DENSE_TAIL='49' (sparse 0..48); infra/long-horizon items remain parked behind Phase 1 stabilization and Phase 2 Dual-Lock."
+      "title": "345f Sol blocks.20..48 depth-aware sparsity, M3 <94px sweep, loose-mask audio_freeze (comfy-kitchen 0.2.42+sol.d97dbf5.up.6022b48 wheel DONE)",
+      "why_deferred": "Confirmed comfy-kitchen 0.2.42+sol.d97dbf5.up.6022b48 wheel already installed in .venv and sol_attn_h3.py:170 already defaults SOL_DENSE_TAIL='49' (sparse 0..48); remaining long-horizon items stay parked behind Wave 2 Dual-Lock & Paper v5 closure. Five older local git branches and 2 h3_worktrees/ checkouts remain parked untouched."
     },
     {
       "id": "P2-UX-01",
@@ -999,31 +1009,39 @@
   "phase2_app_backlog": [
     {
       "id": "P2-APP-01",
+      "status": "done",
+      "commit": "app/.git@825d27d",
       "owner": "61cf9813",
       "repo": "app/.git",
       "title": "Unify steering_deck.js single strips[] state",
-      "details": "Retire the Ch 1 (#guide-vector* hidden DOM mirror) vs. Ch 2-6 (extraVectors / #chip-tune-*) split onto one strip-array source of truth across deck, drawer, and tune modal."
+      "details": "Done in app/.git@825d27d: retired Ch 1 (#guide-vector* hidden DOM mirror) vs Ch 2-6 (_extraVectors[] / #chip-tune-*) split onto single canonical _strips[] source of truth across deck, drawer, and tune modal."
     },
     {
       "id": "P2-APP-02",
+      "status": "done",
+      "commit": "app/.git@825d27d",
       "owner": "61cf9813",
       "repo": "app/.git",
       "title": "Proper Python package + split app/test_app.py",
-      "details": "Retire importlib h3_image_app_* module aliasing in app/ and split monolithic app/test_app.py (~5.2k LOC) into focused pytest modules."
+      "details": "Done in app/.git@825d27d: added app/_pkg.py registering h3_studio without shadowing ComfyUI/app (zero h3_image_app_* aliases left) and split monolithic app/test_app.py (5,224 LOC) into app/tests/_harness.py, _browser_suite.py, test_offline_workflows.py, and test_offline_sessions_and_media.py with slim CLI shim (67 passed/2 skipped + isolated CDP 1 passed)."
     },
     {
       "id": "P2-APP-03",
+      "status": "done",
+      "commit": "app/.git@825d27d",
       "owner": "61cf9813",
       "repo": "app/.git",
       "title": "Eliminate hardcoded node IDs in app/graph_builder.py",
-      "details": "Replace g['9'] / g['60'] / g['1'] lookups with role/class discovery so workflow rebuilds cannot silently shift targets."
+      "details": "Done in app/.git@825d27d: added _find_node_id / _find_guider_id in app/recipes.py and replaced all hardcoded IDs ('18', '60'/'5'/'6'/'1', '9', g['9']) across recipes.py and graph_builder.py with non-9 guider test."
     },
     {
       "id": "P2-APP-04",
+      "status": "done",
+      "commit": "app/.git@825d27d",
       "owner": "61cf9813",
       "repo": "app/.git",
       "title": "Scoped UX/API follow-ups",
-      "details": "Optional visual-strip-only (Look/Motion) 1-tap Voice Lock (1x) toggle; decide whether to wire or prune UI-unreachable guide_vector_words/against_words backend plumbing (upstream DELETE /v1/requests/{id} cancellation for /api/lab/pairs/generate & client disconnect already closed early in 95bb75ec + app/.git@cd9b368)."
+      "details": "Done in app/.git@825d27d: pruned dead UI-unreachable guide_vector_words/guide_vector_against/against_words/xray_vector words plumbing (keeping hold_words & /api/lab/build words) and fixed heylook_bridge.py explicit empty-string clear parity on reasoning_effort and preset."
     }
   ]
 }

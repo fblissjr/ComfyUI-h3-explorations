@@ -533,10 +533,20 @@ def cmd_build(args: argparse.Namespace) -> int:
                         jl_build_readout["norm_before_holds"] = round(raw_norm_before_holds, 4)
                         jl_build_readout["norm_after_holds"] = round(raw_norm, 4)
                         jl_build_readout["alpha"] = float(hold_alpha_build if applied_holds_build else 1.0)
+                    if "erasure.vr" in tensors_to_save and "erasure.diag" in tensors_to_save:
+                        jl_build_readout["erasure_readout"] = j_lens.decode_erasure_payload(
+                            final_vec,
+                            tensors_to_save["erasure.vr"],
+                            tensors_to_save["erasure.diag"],
+                            erasure_mu_d=tensors_to_save.get("erasure.mu_d"),
+                            v1d_readout=jl_build_readout,
+                            family=family,
+                        )
                     jl_build_readout["b_side_alignment"] = j_lens.check_b_side_alignment(
                         jl_build_readout,
                         pair_set.b_side,
                         a_side=pair_set.a_side,
+                        erasure_readout=jl_build_readout.get("erasure_readout"),
                     )
                     if prompt_build:
                         jl_build_readout["prompt_coupling"] = j_lens.analyze_prompt_coupling(

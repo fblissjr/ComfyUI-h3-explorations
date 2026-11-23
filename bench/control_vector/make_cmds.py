@@ -35,6 +35,41 @@ from .helpers import (
     _resolve_requested_families,
 )
 
+def _resolve_scene_prompts_arg(raw: Any) -> list[str] | None:
+    """Resolve CLI `--scene-prompts` (repeated strings, JSON array file, or line-delimited file/@path)."""
+    if raw is None:
+        return None
+    if isinstance(raw, (str, Path)):
+        items = [str(raw)]
+    else:
+        items = [str(x or "") for x in raw]
+    if not items:
+        return None
+    if len(items) == 1:
+        spec = items[0].strip()
+        explicit_at = spec.startswith("@")
+        cand = Path(spec[1:] if explicit_at else spec)
+        if explicit_at or cand.is_file():
+            if not cand.is_file():
+                raise ValueError(f"--scene-prompts file not found: {cand}")
+            text = cand.read_text(encoding="utf-8")
+            stripped = text.lstrip()
+            if stripped.startswith("["):
+                parsed = json.loads(stripped)
+                if not isinstance(parsed, list) or not parsed:
+                    raise ValueError(f"--scene-prompts JSON file {cand} must contain a non-empty list")
+                out = [str(p or "").strip() for p in parsed]
+            else:
+                out = [ln.strip() for ln in text.splitlines() if ln.strip()]
+            if not out or any(not p for p in out):
+                raise ValueError(f"--scene-prompts file {cand} contains empty prompt entries")
+            return out
+    out = [p.strip() for p in items]
+    if any(not p for p in out):
+        raise ValueError("--scene-prompts entries must all be non-empty strings")
+    return out
+
+
 def cmd_make_media(args: argparse.Namespace) -> int:
     if args.pooling not in cv.VALID_MEDIA_POOLING:
         raise ValueError(
@@ -61,6 +96,11 @@ def cmd_make_media(args: argparse.Namespace) -> int:
         matched_b_list.append(mb)
     batch_a = torch.cat(matched_a_list, dim=0)
     batch_b = torch.cat(matched_b_list, dim=0)
+    resolved_scene_prompts = _resolve_scene_prompts_arg(getattr(args, "scene_prompts", None))
+    if resolved_scene_prompts is not None and len(resolved_scene_prompts) != int(batch_a.shape[0]):
+        raise ValueError(
+            f"--scene-prompts count ({len(resolved_scene_prompts)}) must match media pair count ({int(batch_a.shape[0])})"
+        )
 
     dit_override = getattr(args, "dit", None) or getattr(args, "unet", None)
     families_raw = getattr(args, "families", None)
@@ -112,7 +152,8 @@ def cmd_make_media(args: argparse.Namespace) -> int:
             output_name=str(args.output_name or "media_contrast"),
             pooling=str(args.pooling),
             short_edge=int(args.short_edge),
-            scene_prompt=str(args.scene_prompt or ""),
+            scene_prompt=str(getattr(args, "scene_prompt", "") or ""),
+            scene_prompts=resolved_scene_prompts,
             output_dir=out_dir,
             overwrite=bool(args.overwrite),
             made_by="bench/control_vectors.py::make-media/1",
@@ -514,10 +555,20 @@ def cmd_make(args: argparse.Namespace) -> int:
                 family=family,
                 top_k=12,
             )
+            if "erasure.vr" in tensors_to_save and "erasure.diag" in tensors_to_save:
+                jl_make_readout["erasure_readout"] = j_lens.decode_erasure_payload(
+                    final_vec,
+                    tensors_to_save["erasure.vr"],
+                    tensors_to_save["erasure.diag"],
+                    erasure_mu_d=tensors_to_save.get("erasure.mu_d"),
+                    v1d_readout=jl_make_readout,
+                    family=family,
+                )
             jl_make_readout["b_side_alignment"] = j_lens.check_b_side_alignment(
                 jl_make_readout,
                 pair_set.b_side,
                 a_side=pair_set.a_side,
+                erasure_readout=jl_make_readout.get("erasure_readout"),
             )
             if tp_arg:
                 jl_make_readout["prompt_coupling"] = j_lens.analyze_prompt_coupling(

@@ -680,6 +680,24 @@ def build_html_source(
         return tok
 
     body_md = re.sub(r"(?<!\$)\$([^\$\n]+?)\$(?!\$)", _stash_inline_math, body_md)
+    body_md = body_md.replace(" -> ", " → ")
+
+    table_captions: dict[str, str] = {}
+    cap_counter = 0
+
+    def _stash_table_caption(m: re.Match[str]) -> str:
+        nonlocal cap_counter
+        cap_counter += 1
+        tok = f"TABLECAPTIONTOKEN{cap_counter}ENDTOKEN"
+        table_captions[tok] = m.group(1).strip()
+        return f"\n\n{tok}\n\n"
+
+    body_md = re.sub(
+        r"^\s*<!--\s*table-caption:\s*(.*?)\s*-->\s*$",
+        _stash_table_caption,
+        body_md,
+        flags=re.MULTILINE,
+    )
 
     def _rewrite_img(m: re.Match[str]) -> str:
         alt = html.escape(m.group(1))
@@ -698,6 +716,18 @@ def build_html_source(
     body_md = re.sub(r"!\[([^\[\]]*)\]\(([^()]+)\)", _rewrite_img, body_md)
     md = MarkdownIt("commonmark", {"html": True}).enable("table")
     rendered_html = md.render(body_md)
+
+    for tok, cap_raw in table_captions.items():
+        cap_html = md.renderInline(cap_raw)
+        p_tok = f"<p>{tok}</p>"
+        rendered_html, n_sub = re.subn(
+            re.escape(p_tok) + r"\s*<table>",
+            f"<table>\n<caption>{cap_html}</caption>",
+            rendered_html,
+            count=1,
+        )
+        if n_sub == 0:
+            rendered_html = rendered_html.replace(p_tok, f'<p class="table-caption">{cap_html}</p>')
 
     for tok, val in code_blocks.items():
         rendered_html = rendered_html.replace(f"<p>{tok}</p>", val).replace(tok, val)
@@ -724,6 +754,7 @@ def build_html_source(
     pre.algo-box, pre.code-box { background: #f8fafc; border: 1.2px solid #94a3b8; border-left: 4px solid #0284c7; border-radius: 5px; padding: 8px 10px; margin: 9px 0 11px 0; overflow-x: hidden; white-space: pre-wrap; break-inside: avoid; }
     pre.algo-box code, pre.code-box code { background: transparent; padding: 0; font-size: 7.9pt; line-height: 1.34; }
     table { width: 100%; border-collapse: collapse; margin: 8px 0 12px 0; font-family: Inter, sans-serif; font-size: 7.8pt; line-height: 1.28; break-inside: avoid; }
+    table caption { font-family: Inter, sans-serif; font-size: 8.3pt; font-weight: 700; color: #0f172a; text-align: left; margin-bottom: 5px; caption-side: top; }
     thead th { background: #f1f5f9; color: #0f172a; font-weight: 700; text-align: left; padding: 4.5px 5.5px; border-top: 1.5px solid #0f172a; border-bottom: 1px solid #475569; }
     tbody td { padding: 4px 5.5px; border-bottom: 0.6px solid #cbd5e1; vertical-align: top; }
     tbody tr:last-child td { border-bottom: 1.5px solid #0f172a; }

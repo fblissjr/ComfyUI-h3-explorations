@@ -5473,6 +5473,63 @@ def check_runtime_nodes_arm_and_cli() -> list[str]:
                 errs.append(f"cmd_make_media --hold did not drop/orthogonalize parallel erasure.vr: {held_t['erasure.vr'].shape}")
             if not held_m.get("provenance", {}).get("applied_holds", {}).get("holds"):
                 errs.append(f"cmd_make_media --hold missing provenance.applied_holds: {held_m.get('provenance')}")
+
+            # CLI make-media --scene-prompts (repeatable flag, JSON array file, newline @file) & count check:
+            from bench.control_vector import cli as _cv_cli_mm
+            ns_mm = _cv_cli_mm.build_parser().parse_args(
+                [
+                    "make-media",
+                    "--image-a",
+                    "a0.png,a1.png",
+                    "--image-b",
+                    "b0.png,b1.png",
+                    "--scene-prompts",
+                    "p1",
+                    "--scene-prompts",
+                    "p2",
+                ]
+            )
+            if getattr(ns_mm, "scene_prompts", None) != ["p1", "p2"]:
+                errs.append(f"make-media --scene-prompts CLI parse failed: {getattr(ns_mm, 'scene_prompts', None)!r}")
+            json_sp_path = tmp / "scene_prompts.json"
+            txt_sp_path = tmp / "scene_prompts.txt"
+            import json as _json_sp
+            json_sp_path.write_text(_json_sp.dumps(["first scene prompt", "second scene prompt"]), encoding="utf-8")
+            txt_sp_path.write_text("first line prompt\n\nsecond line prompt\n", encoding="utf-8")
+            if _cv_make_cmds._resolve_scene_prompts_arg([str(json_sp_path)]) != ["first scene prompt", "second scene prompt"]:
+                errs.append("_resolve_scene_prompts_arg failed JSON array file load")
+            if _cv_make_cmds._resolve_scene_prompts_arg([f"@{txt_sp_path}"]) != ["first line prompt", "second line prompt"]:
+                errs.append("_resolve_scene_prompts_arg failed @newline file load")
+            captured_mm_kwargs: dict[str, Any] = {}
+            def _capture_make_media(**kw: Any):
+                captured_mm_kwargs.update(kw)
+                return cli_out_sf, fake_rep
+            mm_sp_args = _copy_mm.copy(mm_args)
+            mm_sp_args.hold = None
+            mm_sp_args.hold_words = ""
+            mm_sp_args.scene_prompts = ["prompt one", "prompt two"]
+            with (
+                _mock_mm.patch.object(_cv_make_cmds, "_load_image_tensor_list", return_value=[img_a_raw[:1], img_a_raw[1:2]]),
+                _mock_mm.patch.object(_cv_helpers.folder_paths, "get_full_path_or_raise", return_value=str(cli_out_sf)),
+                _mock_mm.patch.object(cv, "detect_family", return_value="ref2va"),
+                _mock_mm.patch.object(cv_nodes, "make_control_vector_from_media_pairs", side_effect=_capture_make_media),
+            ):
+                _cv_make_cmds.cmd_make_media(mm_sp_args)
+            if captured_mm_kwargs.get("scene_prompts") != ["prompt one", "prompt two"]:
+                errs.append(f"cmd_make_media did not forward scene_prompts: {captured_mm_kwargs.get('scene_prompts')!r}")
+            mm_sp_bad = _copy_mm.copy(mm_sp_args)
+            mm_sp_bad.scene_prompts = ["only one prompt"]
+            try:
+                with (
+                    _mock_mm.patch.object(_cv_make_cmds, "_load_image_tensor_list", return_value=[img_a_raw[:1], img_a_raw[1:2]]),
+                    _mock_mm.patch.object(_cv_helpers.folder_paths, "get_full_path_or_raise", return_value=str(cli_out_sf)),
+                    _mock_mm.patch.object(cv, "detect_family", return_value="ref2va"),
+                ):
+                    _cv_make_cmds.cmd_make_media(mm_sp_bad)
+                errs.append("cmd_make_media did not refuse --scene-prompts count mismatch")
+            except ValueError as _exc_mm_cnt:
+                if "must match media pair count" not in str(_exc_mm_cnt):
+                    errs.append(f"cmd_make_media mismatch message unexpected: {_exc_mm_cnt}")
         finally:
             if orig_cv_paths_m is not None:
                 cv_nodes.folder_paths.folder_names_and_paths[
@@ -7332,6 +7389,66 @@ def _check_nov15_steer_prose_and_ph3_family() -> list[str]:
                 gram_o = vr_o.to(torch.float64) @ vr_o.to(torch.float64).T
                 if orth_leak > 1e-4 or not torch.allclose(gram_o, torch.eye(vr_o.shape[0], dtype=torch.float64), atol=1e-4):
                     errs.append(f"orthogonalize_erasure_against_holds failed: leak={orth_leak}")
+
+            # orthogonalize_erasure_against_holds(..., alpha=0.5) scales hold energy by (1 - 0.5)^2 = 0.25
+            orth_half = cv.orthogonalize_erasure_against_holds(er_vr, er_diag, [hold_dir], alpha=0.5)
+            if orth_half is None:
+                errs.append("orthogonalize_erasure_against_holds(alpha=0.5) unexpectedly returned None")
+            else:
+                vr_h, diag_h = orth_half
+                if float(diag_h.min().item()) < -1e-6 or float(diag_h.max().item()) > 1.0 + 1e-6:
+                    errs.append(f"orthogonalize_erasure_against_holds(alpha=0.5) diag out of [0,1]: {diag_h}")
+                p_orig = er_vr.to(torch.float64).T @ (er_diag.to(torch.float64).unsqueeze(-1) * er_vr.to(torch.float64))
+                p_half = vr_h.to(torch.float64).T @ (diag_h.to(torch.float64).unsqueeze(-1) * vr_h.to(torch.float64))
+                e_orig = float((hold_u @ p_orig @ hold_u).item())
+                e_half = float((hold_u @ p_half @ hold_u).item())
+                if abs(e_half - 0.25 * e_orig) > 1e-4 * max(1.0, e_orig):
+                    errs.append(f"soft orthogonalize(alpha=0.5) energy {e_half:.6f} != 0.25 * {e_orig:.6f}")
+
+            # _apply_erasure_holds scrubs BOTH erasure.mu_a and erasure.mu_d and attenuates Vr at hold_alpha=0.5 and 1.0
+            from bench.control_vector import helpers as _cv_h_er
+            orth_raw = torch.randn((cv.POST_REFINER_DIM,), generator=g_er, dtype=torch.float64)
+            orth_u = orth_raw - torch.dot(orth_raw, hold_u) * hold_u
+            orth_u = orth_u / torch.linalg.vector_norm(orth_u)
+            with tempfile.TemporaryDirectory() as tmp_soft_er:
+                hold_file_sf = Path(tmp_soft_er) / "unit_soft_hold__fl2va.safetensors"
+                cv.save_vector(
+                    hold_file_sf,
+                    {"vector.post_refiner": hold_u.to(torch.float32)},
+                    {**er_meta, "name": "unit_soft_hold", "family": "fl2va"},
+                    overwrite=True,
+                )
+                er_vr_mix = torch.stack(
+                    [((hold_u + orth_u) / math.sqrt(2.0)).to(torch.float32)],
+                    dim=0,
+                )
+                er_diag_mix = torch.tensor([0.8], dtype=torch.float32)
+                for test_alpha, expected_scale in ((0.5, 0.25), (1.0, 0.0)):
+                    t_map = {
+                        "erasure.mu_d": (2.0 * hold_u + 3.0 * orth_u).to(torch.float32),
+                        "erasure.mu_a": (4.0 * hold_u + 1.0 * orth_u).to(torch.float32),
+                        "erasure.vr": er_vr_mix.clone(),
+                        "erasure.diag": er_diag_mix.clone(),
+                    }
+                    _cv_h_er._apply_erasure_holds(
+                        t_map,
+                        family="fl2va",
+                        hold_specs=[str(hold_file_sf)],
+                        hold_alpha=test_alpha,
+                        extra_dir=Path(tmp_soft_er),
+                    )
+                    got_d_h = float(torch.dot(t_map["erasure.mu_d"].to(torch.float64), hold_u).item())
+                    got_a_h = float(torch.dot(t_map["erasure.mu_a"].to(torch.float64), hold_u).item())
+                    exp_d_h = 2.0 * (1.0 - test_alpha)
+                    exp_a_h = 4.0 * (1.0 - test_alpha)
+                    if abs(got_d_h - exp_d_h) > 1e-4 or abs(got_a_h - exp_a_h) > 1e-4:
+                        errs.append(f"_apply_erasure_holds(alpha={test_alpha}) mu scrub failed: mu_d={got_d_h} (exp {exp_d_h}), mu_a={got_a_h} (exp {exp_a_h})")
+                    vr_a = t_map["erasure.vr"].to(torch.float64)
+                    diag_a = t_map["erasure.diag"].to(torch.float64)
+                    e_before = float((hold_u @ (er_vr_mix.to(torch.float64).T @ (er_diag_mix.to(torch.float64).unsqueeze(-1) * er_vr_mix.to(torch.float64))) @ hold_u).item())
+                    e_after = float((hold_u @ (vr_a.T @ (diag_a.unsqueeze(-1) * vr_a)) @ hold_u).item())
+                    if abs(e_after - expected_scale * e_before) > 1e-4:
+                        errs.append(f"_apply_erasure_holds(alpha={test_alpha}) Vr energy {e_after:.6f} != {expected_scale * e_before:.6f}")
 
             # MiniMaxH3Steer / attach_control_vector(..., mode="add_norm_matched_erasure", hold_words=...) scrubs full [M, D] shift (<= 1e-3 leak)
             orig_synth_fn = cv_nodes._j_lens.synthesize_from_words
