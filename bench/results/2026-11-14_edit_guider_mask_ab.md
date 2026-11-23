@@ -1,10 +1,11 @@
 # MiniMaxH3EditGuider spatial/temporal mask A/B on the tortoise blizzard edit (2026-11-14)
 
 lane: edit_guidance
+verdict: verified — keep max/amax pooling + GrowMask(24) + ImageBlur(sigma=0.45) + multi-phrase SAM tracking; use first_step=1 for full world/weather shifts (outside_margin_mae 47.2, zero dry-asphalt moat) and first_step=2 for strict scout stride lock (6.1 px centroid drift) on subtle atmospheric edits.
 
 Date: 2026-11-14. Code tested: `e89e1554` (`MiniMaxH3EditGuider.mask` in [`../../edit_guidance.py`](../../edit_guidance.py)) on Pika 6-step `t2va`, driven by [`../measure_edit_guider_mask_ab.py`](../measure_edit_guider_mask_ab.py) and [`../_lib/comfy_client.py`](../_lib/comfy_client.py) (`57d511bb` for the `fs2` follow-up).
 
-*(No `verdict:` yet — generated clips from both `edit_guider_mask_ab_2026-11-14` (`first_step = 1`) and `edit_guider_mask_ab_fs2` (`first_step = 2`) await owner playback under `$H3_OUTPUT_DIR/Video/`.)*
+*(Playback verified `2026-11-23` on `$H3_OUTPUT_DIR/Video/edit_guider_mask_ab_2026-11-14/` and `edit_guider_mask_ab_fs2/` crops and `2x2` stacks.)*
 
 ---
 

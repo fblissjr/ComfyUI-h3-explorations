@@ -2086,6 +2086,28 @@ def _parse_context_suggest_reply(raw_content: str) -> tuple[str, str, list[dict[
     return scene_caption, subject_label, suggestions[:4]
 
 
+_DIRECTOR_PROMPTS_DIR = _REPO_ROOT / "docs" / "wiki" / "system_prompts" / "h3_director"
+_RETICLE_SUGGEST_FALLBACK = (
+    "You ground interactive spatial video edits strictly in Image 1 (reticle) and Image 2 (zoomed crop). "
+    "Name only visible subjects/objects inside the blue reticle and suggest up to 3 vivid localized edits "
+    "using the requested plain Markdown headings and lines (never output JSON)."
+)
+_SCENE_SUGGEST_FALLBACK = (
+    "You suggest concise, vivid world-sandbox actions grounded strictly in the attached scene image or description. "
+    "Do not invent unrelated subjects or animals not present in the scene. Output plain Markdown only (never JSON)."
+)
+
+
+def _load_director_system_prompt(filename: str, fallback: str) -> str:
+    try:
+        txt = (_DIRECTOR_PROMPTS_DIR / filename).read_text(encoding="utf-8").strip()
+        if txt:
+            return txt
+    except OSError:
+        pass
+    return fallback
+
+
 async def handle_context_suggest(request: web.Request) -> web.Response:
     try:
         body = await _read_json_body(request)
@@ -2117,14 +2139,31 @@ async def handle_context_suggest(request: web.Request) -> web.Response:
                 return {str(c).strip().lower() for c in raw_c}
             return set()
 
+        resident_ids: set[str] = set()
+        try:
+            async with session.get(
+                f"{heylook_url}/v1/system/metrics",
+                headers=hl_headers,
+                allow_redirects=False,
+                timeout=ClientTimeout(total=1.0),
+            ) as mresp:
+                if mresp.status == 200:
+                    mdoc = await mresp.json()
+                    mmap = mdoc.get("models") if isinstance(mdoc, dict) else None
+                    if isinstance(mmap, dict):
+                        resident_ids = {str(k) for k in mmap.keys()}
+        except Exception:
+            pass
+
         chat_models = [m for m in model_list if not _caps(m) or "chat" in _caps(m)]
+        vision_models = [m for m in chat_models if "vision" in _caps(m)] if source_spec else []
+        pool = vision_models if vision_models else chat_models
+        env_model = (os.environ.get("H3_HEYLOOK_MODEL") or "").strip()
         chosen = None
-        if source_spec:
-            vision_models = [m for m in chat_models if "vision" in _caps(m)]
-            if vision_models:
-                chosen = vision_models[0]
-        if chosen is None and chat_models:
-            chosen = chat_models[0]
+        if env_model and env_model.lower() != "auto":
+            chosen = next((m for m in pool if str(m.get("id") or "") == env_model), None)
+        if chosen is None and pool:
+            chosen = next((m for m in pool if str(m.get("id") or "") in resident_ids), pool[0])
         model_id = str(chosen["id"]) if chosen else ""
         if not model_id:
             return web.json_response({"ok": True, "enabled": False, "suggestions": []})
@@ -2172,11 +2211,8 @@ async def handle_context_suggest(request: web.Request) -> web.Response:
                 "## suggestions\n"
                 "- title: <2-4 word label> | target_prompt: <concise action inside reticle (under 12 words)> | preset: sparkle_burst"
             )
-            system_msg = (
-                "You ground interactive spatial video edits strictly in Image 1 (reticle) and Image 2 (zoomed crop). "
-                "Name only visible subjects/objects inside the blue reticle and suggest up to 3 vivid localized edits "
-                "using the requested plain Markdown headings and lines (never output JSON)."
-            )
+            local_system_msg = _load_director_system_prompt("reticle_suggest_system_prompt.md", _RETICLE_SUGGEST_FALLBACK)
+            canon_key = "director_reticle_suggest"
         else:
             user_text_parts.append(
                 "Reply in plain Markdown ONLY (no JSON, no code fences) with up to 3 concise world-event / "
@@ -2184,18 +2220,54 @@ async def handle_context_suggest(request: web.Request) -> web.Response:
                 "## suggestions\n"
                 "- title: <short 2-4 word label> | target_prompt: <concise action or localized edit> | preset: sparkle_burst"
             )
-            system_msg = (
-                "You suggest concise, vivid world-sandbox actions grounded strictly in the attached scene image or description. "
-                "Do not invent unrelated subjects or animals not present in the scene. Output plain Markdown only (never JSON)."
-            )
+            local_system_msg = _load_director_system_prompt("scene_suggest_system_prompt.md", _SCENE_SUGGEST_FALLBACK)
+            canon_key = "director_scene_suggest"
         content_blocks.append({"type": "text", "text": "\n\n".join(user_text_parts)})
+
+        import heylook_client as _hlc
+
+        system_msg = local_system_msg
+        req_temp = 0.6
+        req_max_tokens = 512
+        try:
+            canon_slug = _hlc.CANONICAL_PRESET_SLUGS.get(canon_key, "")
+            target_preset = _hlc.format_preset_target_name(canon_slug, _hlc.resolve_heylook_preset_prefix())
+            if target_preset:
+                async with session.get(
+                    f"{heylook_url}/v1/presets",
+                    headers=hl_headers,
+                    allow_redirects=False,
+                    timeout=ClientTimeout(total=1.5),
+                ) as presp:
+                    if presp.status == 200:
+                        pdoc = await presp.json()
+                        p_list = [p for p in (pdoc.get("presets") or []) if isinstance(p, dict)]
+                        matched_p = next((p for p in p_list if p.get("name") == target_preset), None)
+                        if matched_p is None:
+                            matched_p = next(
+                                (p for p in p_list if str(p.get("name") or "").lower() == target_preset.lower()),
+                                None,
+                            )
+                        if matched_p is not None:
+                            psys = str(matched_p.get("system_prompt") or "").strip()
+                            if psys:
+                                system_msg, _, _ = _hlc.compose_preset_system_prompt(
+                                    local_system_msg, psys, preset_name=target_preset
+                                )
+                            pparams = matched_p.get("params") if isinstance(matched_p.get("params"), dict) else {}
+                            if isinstance(pparams.get("temperature"), (int, float)):
+                                req_temp = max(0.0, min(2.0, float(pparams["temperature"])))
+                            if isinstance(pparams.get("max_tokens"), (int, float)):
+                                req_max_tokens = max(64, min(4096, int(pparams["max_tokens"])))
+        except Exception:
+            pass
 
         req_payload = {
             "model": model_id,
             "system": system_msg,
             "messages": [{"role": "user", "content": content_blocks}],
-            "temperature": 0.6,
-            "max_tokens": 512,
+            "temperature": req_temp,
+            "max_tokens": req_max_tokens,
             "stream": False,
         }
         async with session.post(

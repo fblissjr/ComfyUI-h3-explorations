@@ -40,6 +40,7 @@ try:
     from . import h3_rules as _rules  # noqa: E402
     from . import h3_spans as _spans  # noqa: E402
     from .heylook_client import (  # noqa: E402
+        CANONICAL_PRESET_SLUGS,
         SAMPLER_MODES,
         THINKING_MODES,
         HeylookCancelToken,
@@ -56,7 +57,10 @@ try:
         prepare_heylook_tensor,
         probe_heylook_server_info,
         resolve_heylook_base_url,
+        resolve_heylook_model,
+        resolve_heylook_preset_prefix,
         stream_heylook_message,
+        try_inherit_heylook_preset,
         with_heylook_backoff,
     )
 except ImportError:  # run from the repo root by a check or script
@@ -66,6 +70,7 @@ except ImportError:  # run from the repo root by a check or script
     import h3_rules as _rules  # noqa: E402
     import h3_spans as _spans  # noqa: E402
     from heylook_client import (  # noqa: E402
+        CANONICAL_PRESET_SLUGS,
         SAMPLER_MODES,
         THINKING_MODES,
         HeylookCancelToken,
@@ -82,7 +87,10 @@ except ImportError:  # run from the repo root by a check or script
         prepare_heylook_tensor,
         probe_heylook_server_info,
         resolve_heylook_base_url,
+        resolve_heylook_model,
+        resolve_heylook_preset_prefix,
         stream_heylook_message,
+        try_inherit_heylook_preset,
         with_heylook_backoff,
     )
 
@@ -1878,9 +1886,12 @@ def run_auto_edit_rewrite(
         if sampler_mode == "custom"
         else ()
     )
+    eff_model_cache, _ = resolve_heylook_model(model)
+    eff_prefix = resolve_heylook_preset_prefix()
     base_cache_key = (
         base,
-        (model or "").strip(),
+        eff_model_cache,
+        eff_prefix,
         orig_norm,
         concept_brief.file_stat if concept_brief else None,
         intent_clean,
@@ -1940,7 +1951,10 @@ def run_auto_edit_rewrite(
 
     def _resolve_prompts_for_request(
         preset_fields: dict[str, Any] | None,
+        *,
+        active_preset_name: str = "",
     ) -> tuple[str, str, str, bool, dict[str, Any] | None]:
+        eff_pname = active_preset_name or preset_name
         preset_sys = str((preset_fields or {}).get("system") or "").strip()
         extend_mode, _extend_body = parse_extend_directive(preset_sys) if preset_sys else (None, "")
         eff_preset_fields = preset_fields
@@ -1953,7 +1967,7 @@ def run_auto_edit_rewrite(
                 base_sys_prompt, sys_source, _ = compose_preset_system_prompt(
                     local_sys,
                     custom_sys,
-                    preset_name=preset_name or "custom",
+                    preset_name=eff_pname or "custom",
                 )
                 eff_preset_fields = (
                     {k: v for k, v in (preset_fields or {}).items() if k != "system"}
@@ -1969,13 +1983,13 @@ def run_auto_edit_rewrite(
                 base_sys_prompt, sys_source, _ = compose_preset_system_prompt(
                     local_sys,
                     preset_sys,
-                    preset_name=preset_name,
+                    preset_name=eff_pname,
                 )
                 eff_preset_fields = {k: v for k, v in (preset_fields or {}).items() if k != "system"}
                 use_native = True
             elif preset_sys:
                 base_sys_prompt = ""
-                sys_source = f"preset:{preset_name}"
+                sys_source = f"preset:{eff_pname}"
                 use_native = "## section:" not in preset_sys
             else:
                 base_sys_prompt = local_sys
@@ -1996,7 +2010,7 @@ def run_auto_edit_rewrite(
                 base_sys_prompt, sys_source, _ = compose_preset_system_prompt(
                     local_sys,
                     custom_sys,
-                    preset_name=preset_name or "custom",
+                    preset_name=eff_pname or "custom",
                 )
                 eff_preset_fields = (
                     {k: v for k, v in (preset_fields or {}).items() if k != "system"}
@@ -2010,17 +2024,17 @@ def run_auto_edit_rewrite(
                 base_sys_prompt, sys_source, _ = compose_preset_system_prompt(
                     local_sys,
                     preset_sys,
-                    preset_name=preset_name,
+                    preset_name=eff_pname,
                 )
                 eff_preset_fields = {k: v for k, v in (preset_fields or {}).items() if k != "system"}
             elif preset_sys:
                 req_marker = "## edit_lines" if rewrite_mode == "edit_lines" else "## section:"
                 if req_marker in preset_sys and "## axes" in preset_sys:
                     base_sys_prompt = ""
-                    sys_source = f"preset:{preset_name}"
+                    sys_source = f"preset:{eff_pname}"
                 else:
                     raise ValueError(
-                        f"MiniMaxH3AutoEditPrompt: heylook preset {preset_name!r} has a non-2x system_prompt "
+                        f"MiniMaxH3AutoEditPrompt: heylook preset {eff_pname!r} has a non-2x system_prompt "
                         f"(missing {req_marker!r} and '## axes'); clear 'preset', choose a sampler-only preset "
                         "(blank system_prompt), or choose a 2x rewrite preset."
                     )
@@ -2124,25 +2138,42 @@ def run_auto_edit_rewrite(
         )
         try:
             model_row = discover_heylook_model(req_client, base, model, need=need_caps)
-            raw_preset_fields = (
-                expand_heylook_preset(req_client, base, preset_name, model_row)
-                if preset_name
-                else None
-            )
+            if is_fresh_mode:
+                auto_slug = (
+                    ("h3-image-edit" if prepared_images else "h3-image-t2i")
+                    if resolved_mode == "single_frame"
+                    else CANONICAL_PRESET_SLUGS.get(resolved_mode, "")
+                )
+            else:
+                auto_slug = CANONICAL_PRESET_SLUGS.get(rewrite_mode, "")
+            eff_preset_name = preset_name
+            if preset_name:
+                raw_preset_fields = expand_heylook_preset(req_client, base, preset_name, model_row)
+            elif not custom_sys and auto_slug:
+                raw_preset_fields, eff_preset_name = try_inherit_heylook_preset(
+                    req_client,
+                    base,
+                    auto_slug,
+                    model_row,
+                    prefix=eff_prefix,
+                )
+            else:
+                raw_preset_fields = None
             eff_interrupt()
             if cancel_token is not None:
                 cancel_token.check()
             sys_prompt, final_user_prompt, sys_source, use_native, preset_fields = _resolve_prompts_for_request(
-                raw_preset_fields
+                raw_preset_fields,
+                active_preset_name=eff_preset_name,
             )
             resolved_preset_sig = (
                 json.dumps(raw_preset_fields or {}, sort_keys=True, default=str)
-                if preset_name
+                if eff_preset_name
                 else ""
             )
             preset_sig_hash = (
                 hashlib.sha256(f"{model_row.get('id', '')}|{resolved_preset_sig}".encode("utf-8")).hexdigest()[:16]
-                if preset_name
+                if eff_preset_name
                 else ""
             )
             cache_key = base_cache_key + (
@@ -2150,7 +2181,7 @@ def run_auto_edit_rewrite(
                 hashlib.sha256(final_user_prompt.encode("utf-8")).hexdigest()[:16],
                 preset_sig_hash,
             )
-            if preset_name:
+            if eff_preset_name:
                 hit = _hit_cached(cache_key)
                 if hit is not None:
                     return hit

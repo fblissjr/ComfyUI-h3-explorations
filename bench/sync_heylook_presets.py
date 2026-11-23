@@ -98,6 +98,10 @@ PRESET_CATALOG: tuple[PresetSpec, ...] = (
     # 2x Surgical Auto-Edit rewrite prompts
     PresetSpec("h3-auto-edit-sections", "auto_edit_2x", "docs/wiki/system_prompts/h3_auto_edit/section_edits_system_prompt.md", "2x AutoEditPrompt section-rewrite prompt"),
     PresetSpec("h3-auto-edit-lines", "auto_edit_2x", "docs/wiki/system_prompts/h3_auto_edit/edit_lines_system_prompt.md", "2x AutoEditPrompt edit-lines prompt"),
+    # Interactive Director spatial & multi-shot continuity prompts
+    PresetSpec("h3-director-reticle-suggest", "director", "docs/wiki/system_prompts/h3_director/reticle_suggest_system_prompt.md", "Director reticle+ROI grounded action suggestion prompt"),
+    PresetSpec("h3-director-scene-suggest", "director", "docs/wiki/system_prompts/h3_director/scene_suggest_system_prompt.md", "Director scene-grounded action suggestion prompt"),
+    PresetSpec("h3-director-shot-continue", "director", "docs/wiki/system_prompts/h3_director/shot_continuation_system_prompt.md", "Director closed-loop tail-frame shot continuation prompt"),
 )
 
 
@@ -197,17 +201,7 @@ def read_spec_text(spec: PresetSpec, repo: Path = REPO) -> str:
 
 def format_target_name(slug: str, prefix: str = "") -> str:
     """Format a catalog slug with an optional remote preset prefix (e.g. `h3app_`)."""
-    pfx = (prefix or "").strip()
-    if not pfx:
-        return slug
-    core = slug
-    for lead in ("h3-", "h3_"):
-        if core.startswith(lead):
-            core = core[len(lead):]
-            break
-    if "_" in pfx:
-        core = core.replace("-", "_")
-    return f"{pfx}{core}"
+    return _hc.format_preset_target_name(slug, prefix)
 
 
 def load_local_overlays(path: Path | None) -> dict[str, Any]:
@@ -505,7 +499,7 @@ def main(argv: list[str] | None = None) -> int:
     mode_grp.add_argument("--dry-run", action="store_true", help="plan only without writing (default)")
     mode_grp.add_argument("--apply", action="store_true", help="POST/PUT changed presets to heylook")
     ap.add_argument("--diff", action="store_true", help="print unified diffs for create/update actions")
-    ap.add_argument("--only", action="append", default=[], help="filter by preset name, overlay, or group (video|image|steering|auto_edit_2x)")
+    ap.add_argument("--only", action="append", default=[], help="filter by preset name, overlay, or group (video|image|steering|auto_edit_2x|director)")
     ap.add_argument("--prefix", default=None, help="override target preset name prefix (e.g. h3app_)")
     ap.add_argument("--reset-params", action="store_true", help="clear remote sampler params instead of preserving them")
     ap.add_argument("--overlays", type=Path, default=DEFAULT_OVERLAYS_PATH, help="optional local overlay TOML path")

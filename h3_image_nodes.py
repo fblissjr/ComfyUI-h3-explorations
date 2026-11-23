@@ -69,6 +69,7 @@ from h3_config import (  # noqa: E402
 
 try:
     from .heylook_client import (  # noqa: E402
+        CANONICAL_PRESET_SLUGS,
         HEYLOOK_IMAGE_MAX_EDGE,
         HEYLOOK_JPEG_QUALITY,
         SAMPLER_MODES,
@@ -95,6 +96,7 @@ try:
         probe_heylook_server_info,
         resolve_heylook_base_url,
         stream_heylook_message,
+        try_inherit_heylook_preset,
         with_heylook_backoff,
     )
     from .auto_edit_prompt import (  # noqa: E402
@@ -104,6 +106,7 @@ try:
     )
 except ImportError:  # run from the repo root by a check
     from heylook_client import (  # noqa: E402
+        CANONICAL_PRESET_SLUGS,
         HEYLOOK_IMAGE_MAX_EDGE,
         HEYLOOK_JPEG_QUALITY,
         SAMPLER_MODES,
@@ -130,6 +133,7 @@ except ImportError:  # run from the repo root by a check
         probe_heylook_server_info,
         resolve_heylook_base_url,
         stream_heylook_message,
+        try_inherit_heylook_preset,
         with_heylook_backoff,
     )
     from auto_edit_prompt import (  # noqa: E402
@@ -577,11 +581,20 @@ def expand_image_prompt(
 
     def _run_with_client(http_client: httpx.Client) -> tuple[HeylookStreamResult, dict, str, str, bool]:
         model_row = discover_heylook_model(http_client, base, model, need=need_caps)
-        preset_fields = (
-            expand_heylook_preset(http_client, base, preset_name, model_row)
-            if (preset_name or (uses_server_preset and not sys_prompt))
-            else None
-        )
+        auto_slug = ""
+        if not preset_name and not (uses_server_preset and not sys_prompt) and not custom_clean:
+            lookup_key = (resolved_mode_override or resolved_mode or "").strip()
+            auto_slug = CANONICAL_PRESET_SLUGS.get(lookup_key, "")
+        inherited_name = ""
+        if preset_name or (uses_server_preset and not sys_prompt):
+            preset_fields = expand_heylook_preset(http_client, base, preset_name, model_row)
+        elif auto_slug:
+            preset_fields, inherited_name = try_inherit_heylook_preset(
+                http_client, base, auto_slug, model_row
+            )
+        else:
+            preset_fields = None
+        eff_preset_name = preset_name or inherited_name
         int_cb()
         if cancel_token is not None:
             cancel_token.check()
@@ -610,7 +623,7 @@ def expand_image_prompt(
             eff_sys_prompt, sys_source, _ = compose_preset_system_prompt(
                 local_base,
                 custom_clean,
-                preset_name=preset_name or "custom",
+                preset_name=eff_preset_name or "custom",
             )
             if resolved_mode == "heylook preset + aspect_ratio" and "aspect_ratio:" not in eff_sys_prompt:
                 eff_sys_prompt = append_aspect_ratio_footer(eff_sys_prompt, has_images=has_images)
@@ -628,7 +641,7 @@ def expand_image_prompt(
             eff_sys_prompt, sys_source, _ = compose_preset_system_prompt(
                 local_base,
                 preset_sys,
-                preset_name=preset_name,
+                preset_name=eff_preset_name,
             )
             if resolved_mode == "heylook preset + aspect_ratio" and "aspect_ratio:" not in eff_sys_prompt:
                 eff_sys_prompt = append_aspect_ratio_footer(eff_sys_prompt, has_images=has_images)
@@ -643,15 +656,21 @@ def expand_image_prompt(
             else:
                 eff_sys_prompt = preset_sys
             if preset_sys:
-                sys_source = f"preset:{preset_name}" if preset_name else "preset"
+                sys_source = f"preset:{eff_preset_name}" if eff_preset_name else "preset"
                 preset_won = True
         elif prefer_preset_system and not custom_clean and preset_fields:
             if preset_sys:
                 eff_sys_prompt = ""
-                sys_source = f"preset:{preset_name}" if preset_name else "preset"
-                preset_won = True
-                if mode == "auto":
-                    eff_resolved_mode = f"preset:{preset_name}" if preset_name else "preset"
+                sys_source = f"preset:{eff_preset_name}" if eff_preset_name else "preset"
+                if preset_name:
+                    preset_won = True
+                    if mode == "auto":
+                        eff_resolved_mode = f"preset:{preset_name}"
+                elif "aspect_ratio" in resolved_mode and "aspect_ratio:" not in preset_sys.lower():
+                    active_preset_fields = {
+                        **preset_fields,
+                        "system": append_aspect_ratio_footer(preset_sys, has_images=has_images),
+                    }
 
         sampler_overrides = (
             dict(custom_sampler_overrides)

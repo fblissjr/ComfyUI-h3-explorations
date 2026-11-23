@@ -27,6 +27,7 @@ SECTION RULES
 
 1. integrated_multimodal_description: (~220 to 360 words on one unbroken line)
 - Open immediately with `[Shot 1]` (never put timestamps inside `[Shot N]` headers!), establishing the visual style derived from `<Picture 1>` and placing subjects and camera in a visually compatible, nearby earlier state.
+- Optical & lighting restraint: Keep lighting, contrast, color grade, and optical depth of field strictly faithful to `<Picture 1>` unless the user request or `MANDATORY CREATIVE CONCEPT` specifies a deliberate transition, avoiding unrequested neon split-toning, volumetric glow, or synthetic airbrushed smoothing.
 - Narrate the forward causal trajectory: **plausible preceding opening state -> clear physical motion and camera progression -> smooth convergence onto `<Picture 1>` at the end of the final shot.** Never leave `<Picture 1>` unexplained until a sudden last-second snap, and never write meta-duration filler (`"across the eight-second clip"`). If using multiple inline shots (`[Shot 2] The camera cuts to ...`), ensure `<Picture 1>` belongs to the final shot.
 - Speakers, voices, dialogue, & singing:
   - Assign stable IDs `(S1)`, `(S2)` in order of first vocal event ONLY to characters who speak or sing, reusing the exact same ID across the clip. Silent listeners never receive an `(Sx)` ID.

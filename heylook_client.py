@@ -22,6 +22,7 @@ import base64
 from dataclasses import dataclass, field
 import io as _pyio
 import json
+import logging
 import os
 import socket
 import sys
@@ -44,10 +45,36 @@ import h3_env  # noqa: E402
 
 HEYLOOK_IMAGE_MAX_EDGE = 2048
 HEYLOOK_JPEG_QUALITY = 85
-DEFAULT_HEYLOOK_MODEL = "gemma-4-26B-A4B-it-8bit"
+DEFAULT_HEYLOOK_MODEL = ""
 DEFAULT_STREAM_TIMEOUT = httpx.Timeout(connect=10.0, read=300.0, write=30.0, pool=10.0)
 THINKING_MODES: tuple[str, ...] = ("model default", "on", "off")
 SAMPLER_MODES: tuple[str, ...] = ("heylook / preset default", "custom")
+
+logger = logging.getLogger(__name__)
+
+# Canonical prompt-mode / pipeline keys mapped to `bench/sync_heylook_presets.py` catalog slugs.
+CANONICAL_PRESET_SLUGS: dict[str, str] = {
+    "t2va": "h3-video-t2va",
+    "i2va": "h3-video-i2va",
+    "fl2va": "h3-video-fl2va",
+    "l2va": "h3-video-l2va",
+    "ref2va": "h3-video-ref2va",
+    "section_edits": "h3-auto-edit-sections",
+    "edit_lines": "h3-auto-edit-lines",
+    "t2i": "h3-image-t2i",
+    "t2i + aspect_ratio": "h3-image-t2i-ar",
+    "t2i_design": "h3-image-t2i-design",
+    "t2i_design + aspect_ratio": "h3-image-t2i-design-ar",
+    "edit": "h3-image-edit",
+    "edit + aspect_ratio": "h3-image-edit-ar",
+    "ph3_t2i": "h3-ph3-t2i",
+    "ph3_edit": "h3-ph3-edit",
+    "pika_edit_structured": "h3-general-image-edit",
+    "general_image_edit": "h3-general-image-edit",
+    "director_reticle_suggest": "h3-director-reticle-suggest",
+    "director_scene_suggest": "h3-director-scene-suggest",
+    "director_shot_continue": "h3-director-shot-continue",
+}
 
 
 class HeylookOverloadedError(RuntimeError):
@@ -517,6 +544,42 @@ def _http_error(
     return RuntimeError(f"heylook HTTP {r.status_code} on {path}: {detail}")
 
 
+def resolve_heylook_model(requested_model: str = "") -> tuple[str, bool]:
+    """Resolve desired `heylook` model ID: explicit caller > `H3_HEYLOOK_MODEL` env > Auto (`""`)."""
+    explicit = (requested_model or "").strip()
+    if explicit and explicit.lower() != "auto":
+        return explicit, False
+    h3_env.load()
+    env_model = (os.environ.get("H3_HEYLOOK_MODEL") or "").strip()
+    if env_model and env_model.lower() != "auto":
+        return env_model, True
+    return "", False
+
+
+def resolve_heylook_preset_prefix(explicit: str = "") -> str:
+    """Resolve optional remote preset prefix (`explicit > H3_HEYLOOK_PRESET_PREFIX > ""`)."""
+    exp = (explicit or "").strip()
+    if exp:
+        return exp
+    h3_env.load()
+    return (os.environ.get("H3_HEYLOOK_PRESET_PREFIX") or "").strip()
+
+
+def format_preset_target_name(slug: str, prefix: str = "") -> str:
+    """Format a canonical preset slug with an optional remote preset prefix (e.g. `h3app_`)."""
+    pfx = (prefix or "").strip()
+    if not pfx:
+        return slug
+    core = slug
+    for lead in ("h3-", "h3_"):
+        if core.startswith(lead):
+            core = core[len(lead):]
+            break
+    if "_" in pfx:
+        core = core.replace("-", "_")
+    return f"{pfx}{core}"
+
+
 def discover_heylook_model(
     client: httpx.Client,
     base: str,
@@ -548,11 +611,17 @@ def discover_heylook_model(
     req_set = set(need)
     fit = [row for row in usable if req_set <= set(row.get("capabilities") or [])]
 
-    wanted = (requested_model or "").strip()
-    if wanted and wanted.lower() != "auto":
+    wanted, from_env = resolve_heylook_model(requested_model)
+    if wanted:
         chosen = next((row for row in usable if row["id"] == wanted), None)
         if chosen is None:
-            if wanted not in fallback_models:
+            if from_env or wanted in fallback_models:
+                logger.warning(
+                    "[h3] heylook model %r is not served by %s/v1/models; falling back to Auto (prefer resident)",
+                    wanted,
+                    base,
+                )
+            else:
                 fit_ids = [row["id"] for row in fit]
                 raise ValueError(
                     f"model {wanted!r} is not served by {base}/v1/models; "
@@ -562,12 +631,20 @@ def discover_heylook_model(
             caps = set(chosen.get("capabilities") or [])
             missing = sorted(req_set - caps)
             if missing:
-                fit_ids = [row["id"] for row in fit]
-                raise ValueError(
-                    f"model {wanted!r} lacks required capabilities {missing} (has {sorted(caps)}); "
-                    f"models serving {sorted(req_set)}: {fit_ids}"
-                )
-            return chosen
+                if from_env or wanted in fallback_models:
+                    logger.warning(
+                        "[h3] heylook model %r lacks required capabilities %s; falling back to Auto (prefer resident)",
+                        wanted,
+                        missing,
+                    )
+                else:
+                    fit_ids = [row["id"] for row in fit]
+                    raise ValueError(
+                        f"model {wanted!r} lacks required capabilities {missing} (has {sorted(caps)}); "
+                        f"models serving {sorted(req_set)}: {fit_ids}"
+                    )
+            else:
+                return chosen
 
     if not fit:
         roster = [(row["id"], row.get("capabilities")) for row in usable]
@@ -641,6 +718,32 @@ def expand_heylook_preset(
 
     body.update(params)
     return body
+
+
+def try_inherit_heylook_preset(
+    client: httpx.Client,
+    base: str,
+    canonical_slug: str,
+    model_row: dict,
+    *,
+    prefix: str = "",
+    api_key: str | None = None,
+) -> tuple[dict | None, str]:
+    """Best-effort lookup of a synced canonical preset on `/v1/presets` for downstream inheritance.
+
+    Returns `(expanded_preset_fields, resolved_preset_name)` when present on the server,
+    or `(None, "")` when the preset has not been synced or `/v1/presets` is unavailable.
+    Auth/host errors (`PermissionError`) still propagate cleanly.
+    """
+    slug = (canonical_slug or "").strip()
+    if not slug:
+        return None, ""
+    target_name = format_preset_target_name(slug, resolve_heylook_preset_prefix(prefix))
+    try:
+        fields = expand_heylook_preset(client, base, target_name, model_row, api_key=api_key)
+        return fields, target_name
+    except (ValueError, LookupError, RuntimeError, httpx.HTTPError):
+        return None, ""
 
 
 _EXTEND_TOKENS: tuple[tuple[str, str], ...] = (

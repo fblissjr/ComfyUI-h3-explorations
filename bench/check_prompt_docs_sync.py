@@ -437,6 +437,63 @@ def h3_video_system_prompts() -> int:
     return bad
 
 
+H3_DIRECTOR_SUITE_DIR = SYSTEM_PROMPTS_DIR / "h3_director"
+H3_DIRECTOR_SUITE_SPECS = (
+    ("reticle_suggest_system_prompt.md", ("scene_caption:", "subject_label:", "## suggestions", "target_prompt:", "preset:")),
+    ("scene_suggest_system_prompt.md", ("## suggestions", "target_prompt:", "preset:")),
+    ("shot_continuation_system_prompt.md", ("subject_definitions:", "detailed_description:", "integrated_multimodal_description:", "overall_soundscape:", "non_diegetic_music:", "(S1)", "<d>[Language]")),
+)
+
+
+def h3_director_system_prompts() -> int:
+    """Verify the standalone zero-lore `docs/wiki/system_prompts/h3_director/` suite."""
+    bad = 0
+    if not (H3_DIRECTOR_SUITE_DIR / "README.md").exists():
+        print("  FAIL  docs/wiki/system_prompts/h3_director/README.md is missing")
+        return 1
+
+    expected_names = {"README.md", *(name for name, _ in H3_DIRECTOR_SUITE_SPECS)}
+    actual_names = {p.name for p in H3_DIRECTOR_SUITE_DIR.glob("*.md")}
+    unexpected = sorted(actual_names - expected_names)
+    if unexpected:
+        bad += 1
+        print(
+            "  FAIL  unexpected .md file(s) in docs/wiki/system_prompts/h3_director/ without check coverage: "
+            + ", ".join(unexpected)
+        )
+
+    cjk_re = re.compile(r"[\u3400-\u9fff\uf900-\ufaff]")
+    for name, pins in H3_DIRECTOR_SUITE_SPECS:
+        path = H3_DIRECTOR_SUITE_DIR / name
+        if not path.exists():
+            bad += 1
+            print(f"  FAIL  missing docs/wiki/system_prompts/h3_director/{name}")
+            continue
+        raw = path.read_text(encoding="utf-8")
+        low = flat(raw).lower()
+        leaks = [tok for tok in H3_VIDEO_FORBIDDEN_SUBSTRINGS if tok in low]
+        if cjk_re.search(raw):
+            leaks.append("<CJK characters>")
+        miss = [pin for pin in pins if flat(pin).lower() not in low]
+        if leaks or miss:
+            bad += 1
+            if leaks:
+                print(
+                    f"  FAIL  h3_director/{name} contains forbidden lore/fences/tags: "
+                    + ", ".join(repr(x) for x in leaks)
+                )
+            if miss:
+                print(
+                    f"  FAIL  h3_director/{name} missing pinned rule(s): "
+                    + ", ".join(repr(x) for x in miss)
+                )
+        else:
+            print(
+                f"  ok    h3_director/{name} carries all {len(pins)} rule pin(s) and zero lore/fences"
+            )
+    return bad
+
+
 GENERAL_IMAGE_EDIT_PINS = (
     "subject_definitions:",
     "summary:",
@@ -842,6 +899,7 @@ def main() -> int:
     fails += guides_unchanged()
     fails += h3_image_system_prompts()
     fails += h3_video_system_prompts()
+    fails += h3_director_system_prompts()
     fails += general_image_edit_system_prompt(general_image_edit_system)
     fails += parser_agrees_with_hand_reading()
     fails += manual_quotations(manual, guide, system)

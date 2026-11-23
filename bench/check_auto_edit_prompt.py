@@ -1532,27 +1532,36 @@ def check_url_resolution_and_mock_sse() -> None:
             f"404 pre-wire DELETE retried and client close unblocked stalled POST cleanly (elapsed={stall_elapsed:.2f}s, deletes={len(state['deletes'])})",
         )
 
-        # 13. llm_pairs holistic contract: fallback_models, thinking/thinking_budget forwarding, cancel_token
+        # 13. llm_pairs holistic contract: Auto default (""), H3_HEYLOOK_MODEL stale fallback, thinking/budget forwarding
         from control_vector import llm_pairs
+        ok(hlc.DEFAULT_HEYLOOK_MODEL == "", "DEFAULT_HEYLOOK_MODEL is '' Auto (never hardcoded)")
         state["mode"] = "good"
         state["posts"].clear()
         state["deletes"].clear()
-        lp_off = llm_pairs._generate_pairs_with_llm(
-            provider="heylook",
-            model_spec=hlc.DEFAULT_HEYLOOK_MODEL,
-            concept_prompt="Test concept",
-            heylook_url=srv_url,
-            thinking="off",
-            reasoning_effort="high",
-            thinking_budget=1024,
-        )
-        ok(
-            len(state["posts"]) == 1
-            and lp_off["model"] == "qwen-mock"
-            and state["posts"][0].get("thinking") is False
-            and "reasoning_effort" not in state["posts"][0],
-            "llm_pairs falls back when DEFAULT_HEYLOOK_MODEL absent and forwards thinking='off'",
-        )
+        prev_hl_model = os.environ.get("H3_HEYLOOK_MODEL")
+        try:
+            os.environ["H3_HEYLOOK_MODEL"] = "removed-mac-model"
+            lp_fallback = llm_pairs._generate_pairs_with_llm(
+                provider="heylook",
+                model_spec=hlc.DEFAULT_HEYLOOK_MODEL,
+                concept_prompt="Test concept fallback",
+                heylook_url=srv_url,
+                thinking="off",
+                reasoning_effort="high",
+                thinking_budget=1024,
+            )
+            ok(
+                len(state["posts"]) == 1
+                and lp_fallback["model"] == "qwen-mock"
+                and state["posts"][0].get("thinking") is False
+                and "reasoning_effort" not in state["posts"][0],
+                "stale H3_HEYLOOK_MODEL falls back cleanly to Auto resident and forwards thinking='off'",
+            )
+        finally:
+            if prev_hl_model is None:
+                os.environ.pop("H3_HEYLOOK_MODEL", None)
+            else:
+                os.environ["H3_HEYLOOK_MODEL"] = prev_hl_model
         tok_lp = hlc.HeylookCancelToken()
         tok_lp.cancel()
         state["posts"].clear()

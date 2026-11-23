@@ -48,7 +48,7 @@ def _mock_client(remote_presets: list[dict], ops: list[tuple[str, str, dict | No
 
 def check_catalog_and_fenced_blocks() -> str:
     specs, _ = shp.filter_catalog(None, repo=REPO)
-    assert len(specs) == 18, len(specs)
+    assert len(specs) == 21, len(specs)
     texts: dict[str, str] = {}
     for spec in specs:
         txt = shp.read_spec_text(spec, repo=REPO)
@@ -57,10 +57,12 @@ def check_catalog_and_fenced_blocks() -> str:
         texts[spec.name] = txt
     assert "Expand the user's request" in texts["h3-ph3-t2i"]
     assert texts["h3-ph3-edit"].startswith("Write a single-paragraph image-editing prompt")
+    assert "scene_caption:" in texts["h3-director-reticle-suggest"]
     assert shp.format_target_name("h3-video-ref2va", "h3app_") == "h3app_video_ref2va"
     assert shp.format_target_name("h3-ph3-edit", "h3app_") == "h3app_ph3_edit"
     assert shp.format_target_name("h3-control-vector", "h3app_") == "h3app_control_vector"
-    return "18 catalog prompts (including 2 P-H3 fenced blocks) load cleanly & format h3app_* names"
+    assert shp.format_target_name("h3-director-reticle-suggest", "h3app_") == "h3app_director_reticle_suggest"
+    return "21 catalog prompts (including 2 P-H3 blocks + 3 h3_director prompts) load & format names"
 
 
 def check_exact_matching_and_sentinel_blocks() -> str:
@@ -155,7 +157,7 @@ def check_prefix_overlay_preset_and_idempotency() -> str:
             client=client,
             repo=REPO,
         )
-        assert len(a1) == 19 and all(a.action == "create" for a in a1), [(a.target_name, a.action) for a in a1]
+        assert len(a1) == 22 and all(a.action == "create" for a in a1), [(a.target_name, a.action) for a in a1]
         assert all(a.target_name.startswith("h3app_") for a in a1)
         assert remote[0]["system_prompt"] == "Untouched pre-existing user preset."
 
@@ -177,10 +179,10 @@ def check_prefix_overlay_preset_and_idempotency() -> str:
             client=client,
             repo=REPO,
         )
-        assert len(a2) == 19 and all(a.action == "unchanged" for a in a2), [(a.target_name, a.action) for a in a2]
+        assert len(a2) == 22 and all(a.action == "unchanged" for a in a2), [(a.target_name, a.action) for a in a2]
         assert [m for m, _, _ in ops] == ["GET"], ops
 
-    return "18 h3app_* canonical presets + 1 @extend:prepend overlay create cleanly and re-sync with 0 diffs"
+    return "21 h3app_* canonical presets + 1 @extend:prepend overlay create cleanly and re-sync with 0 diffs"
 
 
 def check_overlay_directive_validation() -> str:
@@ -332,12 +334,204 @@ def check_access_gate_auth_forwarding() -> str:
     return "sync_heylook_presets removes --api-key CLI flag, keeps programmatic api_key, forwards x-api-key, and fails fast on 401"
 
 
+def check_downstream_auto_preset_inheritance() -> str:
+    import os
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+    import threading
+
+    import auto_edit_prompt as _aep
+    import h3_image_nodes as _hin
+    import h3_prompt_expander as _vexp
+    from bench import sync_heylook_presets as ps
+
+    assert _hc.DEFAULT_HEYLOOK_MODEL == "", f"expected empty Auto default, got {_hc.DEFAULT_HEYLOOK_MODEL!r}"
+    remote_presets: list[dict] = []
+    posted_bodies: list[dict] = []
+
+    sample_video = (
+        "integrated_multimodal_description:\n"
+        "[Shot 1] Live-action, cinematic, a commuter walks steadily along a rain-wet brick platform toward "
+        "a wooden kiosk under plain overcast skylight with sharp medium-to-deep focus and wet cotton coat folds. "
+        "The quiet commuter (S1) looks at a ticket board and speaks calmly: <d>[English] Next train is five minutes.</d> "
+        "[Shot 2] The camera cuts to a close-up of rain hitting copper awning flashing while footsteps crunch gravel cleanly.\n\n"
+        "overall_soundscape:\nSteady light drizzle hits sheet metal and wet concrete beside distant rail hum.\n\n"
+        "non_diegetic_music:\nN/A"
+    )
+    sample_2x = (
+        "## section: integrated_multimodal_description\n"
+        "[Shot 1] Live-action, cinematic, a commuter pauses beside a wet brick platform wall under cool overcast daylight.\n\n"
+        "## axes\n"
+        "visual_changed: true\naudio_changed: false\ndeforms_ref_silhouette: false\ntemporal_curve: whole_clip\n"
+    )
+    sample_img = (
+        "[Shot 1] Wet cobblestones gleam outside an oak bakery doorway under flat overcast morning daylight.\n\n"
+        "aspect_ratio: 4:3"
+    )
+
+    class _InheritHandler(BaseHTTPRequestHandler):
+        def log_message(self, _fmt, *_args):
+            return
+
+        def _json(self, code: int, obj: dict) -> None:
+            raw = json.dumps(obj).encode("utf-8")
+            self.send_response(code)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(raw)))
+            self.end_headers()
+            self.wfile.write(raw)
+
+        def do_GET(self):
+            if self.path == "/v1/models":
+                self._json(200, {
+                    "data": [
+                        {"id": "cold-chat", "capabilities": ["chat", "vision"]},
+                        {"id": "resident-vlm", "capabilities": ["chat", "vision"]},
+                    ]
+                })
+                return
+            if self.path == "/v1/system/metrics":
+                self._json(200, {"models": {"resident-vlm": {"active": 0}}})
+                return
+            if self.path == "/v1/presets":
+                self._json(200, {"presets": remote_presets, "total": len(remote_presets)})
+                return
+            self._json(404, {"detail": "not found"})
+
+        def do_POST(self):
+            n = int(self.headers.get("Content-Length") or 0)
+            body = json.loads(self.rfile.read(n).decode("utf-8"))
+            if self.path == "/v1/presets":
+                row = {"id": f"id-{len(remote_presets) + 1}", **body}
+                remote_presets.append(row)
+                self._json(201, row)
+                return
+            posted_bodies.append(body)
+            sys_txt = str(body.get("system") or "")
+            if "## section:" in sys_txt:
+                reply = sample_2x
+            elif "aspect_ratio:" in sys_txt:
+                reply = sample_img
+            else:
+                reply = sample_video
+            sse = (
+                b"event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"m1\"}}\n\n"
+                + f"event: content_block_delta\ndata: {json.dumps({'type': 'content_block_delta', 'index': 0, 'delta': {'type': 'text_delta', 'text': reply}})}\n\n".encode("utf-8")
+                + b"event: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\"},\"usage\":{\"input_tokens\":10,\"output_tokens\":20}}\n\n"
+                + b"event: message_stop\ndata: {\"type\":\"message_stop\",\"performance\":{\"generation_duration_ms\":50.0}}\n\n"
+            )
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream")
+            self.send_header("Content-Length", str(len(sse)))
+            self.end_headers()
+            self.wfile.write(sse)
+
+        def do_PUT(self):
+            pid = self.path.rsplit("/", 1)[-1]
+            n = int(self.headers.get("Content-Length") or 0)
+            body = json.loads(self.rfile.read(n).decode("utf-8"))
+            for row in remote_presets:
+                if row["id"] == pid:
+                    row.update(body)
+                    self._json(200, row)
+                    return
+            self._json(404, {"detail": "not found"})
+
+    srv = ThreadingHTTPServer(("127.0.0.1", 0), _InheritHandler)
+    t = threading.Thread(target=srv.serve_forever, daemon=True)
+    t.start()
+    prev_hl_model = os.environ.get("H3_HEYLOOK_MODEL")
+    prev_hl_pfx = os.environ.get("H3_HEYLOOK_PRESET_PREFIX")
+    try:
+        base = f"http://127.0.0.1:{srv.server_port}"
+        os.environ.pop("H3_HEYLOOK_PRESET_PREFIX", None)
+        specs, _ = ps.filter_catalog(["h3-video-t2va", "h3-auto-edit-sections", "h3-image-t2i-ar"], repo=REPO)
+        overlays = {
+            "global": {"addendum": "CUSTOM SYNCED ADDENDUM.", "params": {"temperature": 0.44}},
+            "overlay_preset": {},
+            "presets": {},
+        }
+        ps.execute_sync(base, specs, apply=True, overlays=overlays, repo=REPO)
+        assert len(remote_presets) == 3
+
+        os.environ.pop("H3_HEYLOOK_MODEL", None)
+        v_res = _vexp.expand_video_prompt(
+            prompt="Commuter on rainy brick platform.",
+            mode="t2va",
+            length=192,
+            base_url=base,
+            model="",
+            preset="",
+            use_cache=False,
+        )
+        assert posted_bodies[-1]["model"] == "resident-vlm", posted_bodies[-1]["model"]
+        assert "CUSTOM SYNCED ADDENDUM." in posted_bodies[-1]["system"]
+        assert posted_bodies[-1].get("temperature") == 0.44
+        assert "sys=preset:h3-video-t2va" in v_res["report"], v_res["report"]
+
+        a_res = _aep.run_auto_edit_rewrite(
+            original=(
+                "integrated_multimodal_description:\n"
+                "[Shot 1] Live-action, cinematic, a commuter waits on a dry brick platform.\n\n"
+                "overall_soundscape:\nQuiet morning breeze.\n\nnon_diegetic_music:\nN/A"
+            ),
+            edit_intent="Make the brick platform rain-wet.",
+            base_url=base,
+            model="",
+            preset="",
+            use_cache=False,
+        )
+        assert "CUSTOM SYNCED ADDENDUM." in posted_bodies[-1]["system"]
+        assert posted_bodies[-1].get("temperature") == 0.44
+        assert "sys=preset:h3-auto-edit-sections" in a_res["report"], a_res["report"]
+
+        i_res = _hin.expand_image_prompt(
+            prompt="Wet cobblestones outside oak bakery doorway.",
+            base_url=base,
+            mode="auto",
+            model="",
+            preset="",
+        )
+        assert i_res["shape"] == "4:3", i_res
+        assert "CUSTOM SYNCED ADDENDUM." in posted_bodies[-1]["system"]
+        assert posted_bodies[-1].get("temperature") == 0.44
+        assert "sys=preset:h3-image-t2i-ar" in i_res["report"], i_res["report"]
+
+        # Unsynced /v1/presets + stale H3_HEYLOOK_MODEL cleanly falls back to sys=local & resident-vlm
+        remote_presets.clear()
+        os.environ["H3_HEYLOOK_MODEL"] = "stale-removed-mac-model"
+        v_fb = _vexp.expand_video_prompt(
+            prompt="Commuter on rainy brick platform.",
+            mode="t2va",
+            length=192,
+            base_url=base,
+            model="",
+            preset="",
+            use_cache=False,
+        )
+        assert posted_bodies[-1]["model"] == "resident-vlm"
+        assert "CUSTOM SYNCED ADDENDUM." not in posted_bodies[-1]["system"]
+        assert "sys=local" in v_fb["report"], v_fb["report"]
+    finally:
+        srv.shutdown()
+        srv.server_close()
+        if prev_hl_model is None:
+            os.environ.pop("H3_HEYLOOK_MODEL", None)
+        else:
+            os.environ["H3_HEYLOOK_MODEL"] = prev_hl_model
+        if prev_hl_pfx is None:
+            os.environ.pop("H3_HEYLOOK_PRESET_PREFIX", None)
+        else:
+            os.environ["H3_HEYLOOK_PRESET_PREFIX"] = prev_hl_pfx
+    return "synced presets + params inherit automatically with preset='' and stale H3_HEYLOOK_MODEL falls back to Auto"
+
+
 def main() -> int:
     case("catalog_and_fenced_blocks", check_catalog_and_fenced_blocks)
     case("exact_matching_and_sentinel_blocks", check_exact_matching_and_sentinel_blocks)
     case("prefix_overlay_preset_and_idempotency", check_prefix_overlay_preset_and_idempotency)
     case("overlay_directive_validation", check_overlay_directive_validation)
     case("access_gate_auth_forwarding", check_access_gate_auth_forwarding)
+    case("downstream_auto_preset_inheritance", check_downstream_auto_preset_inheritance)
     return finish()
 
 
