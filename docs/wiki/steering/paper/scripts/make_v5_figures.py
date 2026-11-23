@@ -91,7 +91,7 @@ def build_fig_v5_architecture() -> Path:
         '5. Bus-Scoped V_r (CPU):'
         '</text>',
         '<text x="206" y="316" fill="#e2e8f0" font-size="10.2">'
-        '7.94x look&lt;-&gt;audio overlap cut at 100% Look retention'
+        '7.94x look/aud overlap cut (100% Look)'
         '</text>',
 
         # Bottom summary of Panel A
@@ -166,8 +166,8 @@ def build_fig_v5_architecture() -> Path:
         '<text x="711" y="394" fill="#cbd5e1" font-size="9.9" text-anchor="middle">'
         'Dual-Lock: tags==0 VLM vision + 24-ch VAE pins RGB in [0, 0.33]; Path 1C queued.'
         '</text>',
-        '<text x="711" y="411" fill="#cbd5e1" font-size="9.9" text-anchor="middle">'
-        'FrozenVideoCache refuses double_block hooks (Mode 0 separation); 1x Q_vid gated vs 2x Sol.'
+        '<text x="711" y="411" fill="#cbd5e1" font-size="9.5" text-anchor="middle">'
+        'FrozenVideoCache: Mode 0 only | 1x Q_vid gated vs 2x Sol'
         '</text>',
         '</svg>',
     ]

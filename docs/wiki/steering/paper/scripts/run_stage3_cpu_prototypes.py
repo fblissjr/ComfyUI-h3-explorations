@@ -11,6 +11,7 @@ Part C — Multi-Vector Push: Path 1A (Atomic B-Within Facets) vs. Path 1B (Zero
 """
 from __future__ import annotations
 
+import argparse
 import json
 import math
 import os
@@ -57,7 +58,7 @@ def _find_bank_dir() -> Path:
     model_store = os.environ.get("H3_MODEL_STORE", "").strip()
     if model_store:
         cand = Path(model_store) / "control_vectors" / "bank"
-        if cand.is_dir():
+        if cand.is_dir() and any(cand.glob("*.safetensors")):
             return cand
     return REPO_ROOT.parent.parent / "models" / "control_vectors" / "bank"
 
@@ -631,7 +632,21 @@ def run_part_c_multivector_push(
     }
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    ap = argparse.ArgumentParser(description="Stage 3 CPU-only prototypes for Multi-Vector + Erasure steering.")
+    ap.add_argument(
+        "--out",
+        type=Path,
+        default=None,
+        help="Optional output JSON path (defaults to phase5_cpu_audits/stage3_cpu_prototypes.json when writing).",
+    )
+    ap.add_argument(
+        "--write",
+        action="store_true",
+        help="Overwrite default stage3_cpu_prototypes.json if it already exists.",
+    )
+    args = ap.parse_args(argv)
+
     bank_dir = _find_bank_dir()
     files = sorted(bank_dir.glob("*__fl2va__*.safetensors"))
     if not files:
@@ -673,10 +688,14 @@ def main() -> int:
 
     out = {"part_a_bus_scoped_vr": part_a, "part_b_norm_cap_and_oblique": part_b, "part_c_multivector_push": part_c}
     out_dir = REPO_ROOT / "data/exp_unpooled_sliders/phase5_cpu_audits"
-    out_dir.mkdir(parents=True, exist_ok=True)
-    out_path = out_dir / "stage3_cpu_prototypes.json"
-    out_path.write_text(json.dumps(out, indent=2), encoding="utf-8")
-    print(f"Wrote {out_path}")
+    default_out = out_dir / "stage3_cpu_prototypes.json"
+    out_path = args.out.resolve() if args.out is not None else default_out
+    if args.out is not None or args.write or not default_out.exists():
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(json.dumps(out, indent=2), encoding="utf-8")
+        print(f"Wrote {out_path}")
+    else:
+        print(f"[dry-run] Computed Stage 3 CPU prototypes (n={len(by_stem)}); pass --write or --out to overwrite {default_out}")
     print("\n=== Part A Summary ===")
     for vn, vd in part_a["variants"].items():
         print(

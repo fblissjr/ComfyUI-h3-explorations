@@ -17,6 +17,7 @@ prompt rows (`data/exp_unpooled_sliders/prompts/{covered_market,indoor_evening,i
 """
 from __future__ import annotations
 
+import argparse
 import json
 import os
 import sys
@@ -50,7 +51,7 @@ def _find_bank_dir() -> Path:
     model_store = os.environ.get("H3_MODEL_STORE", "").strip()
     if model_store:
         cand = Path(model_store) / "control_vectors" / "bank"
-        if cand.is_dir():
+        if cand.is_dir() and any(cand.glob("*.safetensors")):
             return cand
     return REPO_ROOT.parent.parent / "models" / "control_vectors" / "bank"
 
@@ -244,7 +245,21 @@ def _eval_stack_on_rows(
     }
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    ap = argparse.ArgumentParser(description="CPU Track 1 bank-wide cross-interference and stack audit.")
+    ap.add_argument(
+        "--out",
+        type=Path,
+        default=None,
+        help="Optional output JSON path (defaults to phase5_cpu_audits/bank_cross_interference_audit.json when writing).",
+    )
+    ap.add_argument(
+        "--write",
+        action="store_true",
+        help="Overwrite default bank_cross_interference_audit.json if it already exists.",
+    )
+    args = ap.parse_args(argv)
+
     bank_dir = _find_bank_dir()
     files = sorted(bank_dir.glob("*__fl2va__*.safetensors"))
     if not files:
@@ -360,6 +375,7 @@ def main() -> int:
     stacks = [
         ("noir_chaos_de_slop", [("noir", 1.25), ("chaos_panic", 1.0), ("de_llm_slop", 0.9)]),
         ("origami_noir_de_slop", [("paper_origami", 1.2), ("noir", 1.15), ("de_llm_slop", 0.9)]),
+        ("felt_noir_de_slop", [("felt_muppet", 1.2), ("noir", 1.15), ("de_llm_slop", 0.9)]),
         ("claymation_noir_chaos", [("claymation_stopmotion", 1.2), ("noir", 1.15), ("chaos_panic", 1.0)]),
     ]
 
@@ -375,7 +391,10 @@ def main() -> int:
     stack_simulations = {}
     for stack_name, spec in stacks:
         entries = [(s, by_stem[s][1], float(v)) for s, v in spec if s in by_stem]
-        assert len(entries) == len(spec), f"Missing stems for {stack_name}"
+        if len(entries) != len(spec):
+            missing = [s for s, _ in spec if s not in by_stem]
+            print(f"Skipping stack [{stack_name}] (missing stems: {', '.join(missing)})")
+            continue
         per_prompt = {}
         for pname, rows64 in loaded_prompts:
             p_res = {}
@@ -443,9 +462,14 @@ def main() -> int:
 
     out_dir = REPO_ROOT / "data" / "exp_unpooled_sliders" / "phase5_cpu_audits"
     out_dir.mkdir(parents=True, exist_ok=True)
-    out_path = out_dir / "bank_cross_interference_audit.json"
-    out_path.write_text(json.dumps(out, indent=2), encoding="utf-8")
-    print(f"Wrote {out_path}")
+    default_out = out_dir / "bank_cross_interference_audit.json"
+    out_path = args.out.resolve() if args.out is not None else default_out
+    if args.out is not None or args.write or not default_out.exists():
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(json.dumps(out, indent=2), encoding="utf-8")
+        print(f"Wrote {out_path}")
+    else:
+        print(f"[dry-run] Computed n={n} audit; pass --write or --out to overwrite {default_out}")
     print("Pairwise stats:", json.dumps(out["pairwise_stats"], indent=2))
     print("Top-5 self-overlap trap:", json.dumps(self_rows[:5], indent=2))
     print("Top-5 cross-interference (raw):", json.dumps(top15_dir1_raw[:5], indent=2))

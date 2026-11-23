@@ -21,7 +21,7 @@ Raw `.pt` token banks, untracked per-experiment JSON records under `data/exp_unp
 | [`scripts/build_paper.py`](scripts/build_paper.py) | Standalone stdlib Markdown-to-LaTeX compiler (`main.tex`) + optional SVG-math HTML & Chromium PDF renderer |
 | [`scripts/make_v5_figures.py`](scripts/make_v5_figures.py) | Zero-dependency vector SVG generator for Paper v5 figures (with optional `--from-data` local readiness inspection) |
 | [`scripts/export_paper_bundle.py`](scripts/export_paper_bundle.py) | Portable relative-URL HTML/PDF/LaTeX bundle exporter targeting `$H3_OUTPUT_DIR/` |
-| [`scripts/audit_track1_cross_interference.py`](scripts/audit_track1_cross_interference.py) | Promoted CPU Track 1 `52`-stem cross-interference census (`2,652` pairs) & `ROS` multi-slider simulator |
+| [`scripts/audit_track1_cross_interference.py`](scripts/audit_track1_cross_interference.py) | Promoted CPU Track 1 cross-interference census (`52`-stem reference + live `48`-stem bank) & `ROS` simulator (`--write` to overwrite JSON) |
 | [`scripts/audit_track2_multivector_pole_b.py`](scripts/audit_track2_multivector_pole_b.py) | Promoted CPU Track 2 Leave-One-Pair-Out CV audit across `7` cached per-pair `.pt` banks |
 | [`scripts/run_stage3_cpu_prototypes.py`](scripts/run_stage3_cpu_prototypes.py) | Promoted CPU Stage 3 prototype suite: Bus-Scoped `V_r`, `soft_tanh`/oblique norm cap, and `Path 1A` vs. `Path 1B` falsification |
 
@@ -46,7 +46,7 @@ Consolidated directly from the peer review ([`2026-11-22_paper_v4_critical_revie
 | :--- | :---: | :--- |
 | Math fixes (`PCRR`, post-RMS, clamp, RMS cap), prior art, & v4 errata corrections | **Done** | Ready in [`manuscript.md`](manuscript.md) |
 | Stage 1 composition fixes (`peer_ros`, barrier grouping, `soft_cap_stacked_rms`) | **Done (`dd45600e` / `340e8ded`)** | `4.0 MP` `lighthouse` diptych eliminated (`clip 0.07255 -> 0.00790`); `box_office` `0.3187 -> 0.1661` |
-| Stage 2 4D hooks (`steer_attention_hooks.py`, `block_band`, `1x Q_aud`) | **Done (`340e8ded`)** | `Gate 1`: `1.003x` latency, `+0` `malloc_graph_breaks`, `-0.014 st`; `Showcase C`: `+0.630 st` (`Q_aud -> K_vid` bleed noted) |
+| Stage 2 4D hooks (`steer_attention_hooks.py`, `block_band`, `1x Q_aud`) | **Done (`340e8ded`)** | `Gate 1`: `1.003x` latency, `+0` `malloc_graph_breaks`, `-0.014 st` global / `+0.533 st` paired; `Showcase C`: `+0.630 st` global / `+0.781 st` paired (`Q_aud -> K_vid` bleed noted) |
 | CPU Track 1/2/Stage-3 audits (`52`-stem census, `Bus-Scoped V_r`, `Path 1B` falsification) | **Done (CPU)** | Reproducible via [`scripts/`](scripts/audit_track1_cross_interference.py) (`Bus-Scoped V_r` & `Path 1A` not yet GPU-tested) |
 | Active bank consolidation (`48` stems), `t=1` look screen (`4` winners, `stained_glass_cathedral` `0/2`), & `decone_pcs=0` lexicon | **Done (`6f7131dd` / `b657c6a8`)** | `48031b0e` landed Python `scene_prompts` & `j_lens` `effective_coverage`; CLI `--scene-prompts` & soft-hold/`mu_a` gaps stay open |
 | **Phase 2 `B.1.1` (First):** Promote `Bus-Scoped V_r` (`drop_look_pc16`) + wire `make_cmds.py` `--scene-prompts` & soft-hold/`mu_a` | **Pending Phase 2** | Lands engine & `Path 1C` prerequisites before new flagship multi-bus GPU renders |
