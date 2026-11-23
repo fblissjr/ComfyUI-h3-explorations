@@ -445,6 +445,28 @@
     }
 
     /* Accessible Tabs + hidden="until-found" */
+    @property --fade-start {
+      syntax: "<length>";
+      inherits: false;
+      initial-value: 0px;
+    }
+
+    @property --fade-end {
+      syntax: "<length>";
+      inherits: false;
+      initial-value: 0px;
+    }
+
+    @keyframes fade-start-edge {
+      from { --fade-start: 0px; }
+      5%, to { --fade-start: 28px; }
+    }
+
+    @keyframes fade-end-edge {
+      from, 95% { --fade-end: 28px; }
+      to { --fade-end: 0px; }
+    }
+
     .tabs-bar {
       display: flex;
       overflow-x: auto;
@@ -452,6 +474,31 @@
       border-block-end: 1px solid var(--border);
       margin-bottom: 16px;
       scrollbar-width: thin;
+      scroll-behavior: smooth;
+      mask-image: linear-gradient(
+        to right,
+        transparent,
+        #000 var(--fade-start),
+        #000 calc(100% - var(--fade-end)),
+        transparent
+      );
+    }
+
+    @supports (animation-timeline: scroll()) {
+      .tabs-bar {
+        animation:
+          fade-start-edge linear both,
+          fade-end-edge linear both;
+        animation-timeline: scroll(self inline);
+      }
+    }
+
+    .tabs-bar.more-start {
+      --fade-start: 28px;
+    }
+
+    .tabs-bar.more-end {
+      --fade-end: 28px;
     }
 
     [role="tab"] {
@@ -499,10 +546,212 @@
       gap: 16px;
     }
 
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 14px;
+    }
+
     .grid-4 {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
       gap: 12px;
+    }
+
+    /* Native accessible accordion (modern-web-guidance accordion) */
+    details.tech-details {
+      margin-top: 14px;
+      background: var(--surface-alt);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 14px;
+    }
+
+    details.tech-details > summary {
+      list-style: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 600;
+      font-size: 0.92rem;
+      color: var(--ink);
+      user-select: none;
+    }
+
+    details.tech-details > summary::-webkit-details-marker {
+      display: none;
+    }
+
+    details.tech-details > summary::before {
+      content: "";
+      flex: none;
+      width: 1em;
+      height: 1em;
+      background-color: var(--accent);
+      mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23000' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 4l4 4-4 4'/%3E%3C/svg%3E");
+      mask-repeat: no-repeat;
+      mask-position: center;
+      mask-size: contain;
+      transition: transform 0.2s ease;
+    }
+
+    details.tech-details[open] > summary::before {
+      transform: rotate(90deg);
+    }
+
+    details.tech-details::details-content {
+      interpolate-size: allow-keywords;
+      overflow: clip;
+      contain: layout;
+    }
+
+    details.tech-details:not([open])::details-content {
+      block-size: 0;
+    }
+
+    @media (prefers-reduced-motion: no-preference) {
+      details.tech-details::details-content {
+        transition: block-size, content-visibility, display;
+        transition-duration: 0.3s;
+        transition-timing-function: ease-in-out;
+        transition-behavior: allow-discrete;
+      }
+    }
+
+    .tech-details-body {
+      padding-top: 10px;
+      margin-top: 10px;
+      border-top: 1px solid var(--border);
+      font-size: 0.88rem;
+      color: var(--ink);
+    }
+
+    /* 4-Bus Sound Mixer & DAG styles */
+    .mixer-presets {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+
+    .mixer-preset-btn {
+      appearance: none;
+      font: inherit;
+      font-size: 0.84rem;
+      padding: 7px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--border-strong);
+      background: var(--surface-alt);
+      color: var(--ink);
+      cursor: pointer;
+    }
+
+    .mixer-preset-btn[aria-pressed="true"] {
+      background: var(--accent-soft);
+      border-color: var(--accent);
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    .mixer-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+      gap: 16px;
+      align-items: start;
+    }
+
+    @media (max-width: 820px) {
+      .mixer-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .bus-card {
+      background: var(--surface-alt);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 11px 14px;
+      margin-bottom: 10px;
+    }
+
+    .bus-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 8px;
+      margin-bottom: 6px;
+      font-size: 0.88rem;
+    }
+
+    .bus-meter-track {
+      height: 10px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .bus-meter-fill {
+      height: 100%;
+      border-radius: 999px;
+      transition: width 0.2s ease;
+    }
+
+    .bus-meta {
+      margin-top: 6px;
+      font-size: 0.78rem;
+      color: var(--muted);
+      font-family: var(--mono);
+    }
+
+    .route-pill-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin: 10px 0;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 0.77rem;
+      font-family: var(--mono);
+      padding: 3px 9px;
+      border-radius: 999px;
+      border: 1px solid var(--border-strong);
+      background: var(--surface);
+      color: var(--ink);
+    }
+
+    .pill-accent { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+    .pill-success { background: var(--success-soft); border-color: var(--success); color: var(--success); }
+    .pill-warn { background: var(--warn-soft); border-color: var(--warn); color: var(--warn); }
+    .pill-error { background: var(--error-soft); border-color: var(--error); color: var(--error); }
+
+    .code-pre {
+      font-family: var(--mono);
+      font-size: 0.78rem;
+      line-height: 1.5;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 12px;
+      overflow-x: auto;
+      white-space: pre-wrap;
+      margin: 8px 0 0;
+    }
+
+    .dag-card-tag {
+      display: inline-block;
+      font-family: var(--mono);
+      font-size: 0.73rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 2px 7px;
+      border-radius: 4px;
+      margin-bottom: 6px;
     }
 
     .subcard {
@@ -868,19 +1117,23 @@
 
     <!-- Masthead -->
     <header class="masthead">
-      <div class="eyebrow">MiniMax H3 &bull; heylookitsanllm (Qwen3.8-27B / Swift 1.5) &bull; Cross-Domain Field Guide</div>
-      <h1>How H3 &amp; heylook Actually Work — Architecture, Data Hygiene &amp; the 3-Regime Control Law</h1>
+      <div class="eyebrow">MiniMax H3 (<code>1a35a5ab</code> &bull; <code>69498b35</code> &bull; <code>feat/steering-v2</code>) &bull; heylookitsanllm (<code>v2.0.274</code> / <code>Swift 1.5</code>) &bull; Visual Atlas</div>
+      <h1>How H3 &amp; heylook Actually Work — Architecture, 4-Bus Mixer DAG &amp; the 3-Regime Control Law</h1>
       <p class="lead">
-        Visual companion to <a href="./research/2026-11-23_cross_domain_llm_dit_vgel_and_strategic_audit.md">the Nov 23 cross-domain synthesis</a>.
-        All H3 figures come from CPU checks across <code>50</code> active bank stems plus GPU Wave 2–4 logs on disk; <code>Qwen3.8-27B</code> / <code>Swift 1.5</code> figures reflect external Mac host telemetry verified against H3's implementation.
+        Visual companion to <a href="./research/2026-11-23_cross_domain_llm_dit_vgel_and_strategic_audit.md">the Nov 23 cross-domain synthesis</a>,
+        updated with shipped GPU verification (<code>1a35a5ab</code> Trio + 3-cook <code>Ref2VA</code>), zero-lore <code>heylook</code> runtime prompts (<code>69498b35</code>),
+        the <code>steering/</code> Sound-Mixer v2 DAG (<code>-78%</code> LOC), and standalone MLX <code>apps/steering-lab</code> (<code>v2.0.274</code>).
+        Every H3 metric comes from CPU parity checks across <code>50</code> bank stems + <code>143</code> bank files plus GPU Wave 2–4 logs;
+        <code>Qwen3.8-27B</code> / <code>Swift 1.5</code> telemetry reflects verified Mac CPU/MTP runs.
       </p>
 
       <nav class="jump-nav" aria-label="Section index">
         <a href="#sec-arch"><span class="jump-num">01</span> Architecture &amp; L49 Cliff</a>
-        <a href="#sec-kv"><span class="jump-num">02</span> Why LLM Intuition Breaks on DiTs</a>
-        <a href="#sec-lab"><span class="jump-num">03</span> Interactive Operator Lab</a>
-        <a href="#sec-regimes"><span class="jump-num">04</span> 3-Regime Law &amp; vgel Gate</a>
-        <a href="#sec-scorecard"><span class="jump-num">05</span> Scorecard &amp; Execution Order</a>
+        <a href="#sec-mixer"><span class="jump-num">02</span> 4-Bus Mixer &amp; DAG</a>
+        <a href="#sec-kv"><span class="jump-num">03</span> Why LLM Intuition Breaks on DiTs</a>
+        <a href="#sec-lab"><span class="jump-num">04</span> Interactive Operator Lab</a>
+        <a href="#sec-regimes"><span class="jump-num">05</span> 3-Regime Law, vgel &amp; Lab v2.0.274</a>
+        <a href="#sec-scorecard"><span class="jump-num">06</span> Current &rarr; Future &amp; Roadmap</a>
       </nav>
     </header>
 
@@ -892,30 +1145,30 @@
         <span class="kpi-note">95.4% of L49 diversity preserved vs. 14.0 at BPE logits (-55%)</span>
       </div>
       <div class="kpi-card">
-        <span class="kpi-label">Contradicting Prompt Flip (Noir)</span>
-        <span class="kpi-val" style="color:var(--success)">5 / 5 B&amp;W</span>
-        <span class="kpi-note">Rank-8 Pole-A erasure (sat 0.022–0.026) vs. 0 / 5 for 1D addition</span>
+        <span class="kpi-label">Steering v2 Code Shrink</span>
+        <span class="kpi-val" style="color:var(--accent)">-78% LOC</span>
+        <span class="kpi-note">15,066 &rarr; ~3,300 LOC; 68/68 Option B node IDs &amp; &lt;1e-6 parity across 143 bank files</span>
       </div>
       <div class="kpi-card">
-        <span class="kpi-label">Single-Pass Audio Protection</span>
-        <span class="kpi-val">1.003&times;</span>
-        <span class="kpi-note">1x Q_aud -&gt; K_txt_base keeps dialogue within -0.039 st YIN F0</span>
+        <span class="kpi-label">1x Audio Guard &amp; Coupled Tail</span>
+        <span class="kpi-val" style="color:var(--success)">1.003&times; / +22.3%</span>
+        <span class="kpi-note">1x Q_aud keeps dialogue within -0.039 st YIN F0; Look+Audio unlocks reverb_cathedral</span>
       </div>
       <div class="kpi-card">
-        <span class="kpi-label">Swift 1.5 &lt;think&gt; Savings</span>
-        <span class="kpi-val" style="color:var(--accent)">-54.9%</span>
-        <span class="kpi-note">Rank-32 LoRA on 7 FA/MLP modules; 48 GDN layers untouched</span>
+        <span class="kpi-label">Swift 1.5 8-bit Daily Suite</span>
+        <span class="kpi-val" style="color:var(--success)">26 / 26</span>
+        <span class="kpi-note">14/14 R1 + 12/12 unseen R2a via clean Jinja (0.618 MTP); L63 R&amp;D moved to Lab v2.0.274</span>
       </div>
     </div>
 
     <!-- SECTION 1: PIPELINE + L49 / DIT TABS -->
     <section id="sec-arch" class="card">
       <div class="section-head">
-        <h2>1. End-to-End Architecture: Upstream Expander &rarr; L49 Prelude &rarr; 50-Block AV DiT</h2>
+        <h2>1. End-to-End Architecture: Zero-Lore Expander &rarr; L49 Prelude &rarr; 50-Block AV DiT</h2>
         <span class="section-tag">heylook &rarr; Qwen3-VL L49 &rarr; TokenRefiner &rarr; DiT</span>
       </div>
       <p class="section-intro">
-        Two completely different LLMs sit in series before a single frame finishes denoising. Understanding where text is authored, truncated, refined, and re-read explains almost every win and failure in this repository.
+        Two completely different LLMs sit in series before a single frame finishes denoising. Today&rsquo;s clean split keeps daily prompting completely lore-free on Mac (<code>69498b35</code> + <code>Swift 1.5</code> <code>26/26</code>), isolates white-box steering research in <code>apps/steering-lab</code>, and compiles H3 stems through one Sound-Mixer DAG.
       </p>
 
       <!-- End-to-End Pipeline SVG -->
@@ -929,38 +1182,38 @@
           </defs>
 
           <!-- Stage 0 -->
-          <rect x="8" y="14" width="232" height="156" rx="8" fill="var(--surface)" stroke="var(--border-strong)" stroke-width="1.5" />
-          <text x="22" y="36" font-size="12" font-family="var(--mono)" font-weight="700" fill="var(--accent)">STAGE 0 &bull; MAC HEYLOOK (1x)</text>
-          <text x="22" y="57" font-size="14" font-weight="700" fill="var(--ink)">Qwen3.8-27B / Gemma-4-26B</text>
-          <text x="22" y="80" font-size="12.5" fill="var(--muted)">Expands short idea into 6-section</text>
-          <text x="22" y="98" font-size="12.5" fill="var(--muted)">H3 prose (off GPU, ~1 sec).</text>
-          <rect x="22" y="114" width="204" height="42" rx="5" fill="var(--warn-soft)" stroke="var(--warn)" stroke-width="1" />
-          <text x="30" y="132" font-size="12" font-weight="600" fill="var(--warn)">Source of glossy AI clichés</text>
-          <text x="30" y="148" font-size="12" font-family="var(--mono)" fill="var(--ink)">Fix: Prose guardrail + &lt;think&gt; LoRA</text>
+          <rect x="8" y="14" width="248" height="156" rx="8" fill="var(--surface)" stroke="var(--border-strong)" stroke-width="1.5" />
+          <text x="20" y="36" font-size="11.5" font-family="var(--mono)" font-weight="700" fill="var(--accent)">STAGE 0 &bull; MAC HEYLOOK (1x)</text>
+          <text x="20" y="57" font-size="13.5" font-weight="700" fill="var(--ink)">Swift-1.5-27B / Gemma-4-26B</text>
+          <text x="20" y="79" font-size="12" fill="var(--muted)">Zero-lore positive restraint across 11</text>
+          <text x="20" y="96" font-size="12" fill="var(--muted)">prompt files + HeylookProvenance (69498b35)</text>
+          <rect x="20" y="113" width="224" height="44" rx="5" fill="var(--success-soft)" stroke="var(--success)" stroke-width="1" />
+          <text x="28" y="131" font-size="11.5" font-weight="600" fill="var(--success)">26/26 via Stock 8-bit + Clean Jinja</text>
+          <text x="28" y="147" font-size="11.5" font-family="var(--mono)" fill="var(--ink)">Lab R&amp;D isolated in apps/steering-lab</text>
 
-          <line x1="242" y1="92" x2="274" y2="92" stroke="var(--muted)" stroke-width="2" marker-end="url(#arr-muted)" />
+          <line x1="258" y1="92" x2="286" y2="92" stroke="var(--muted)" stroke-width="2" marker-end="url(#arr-muted)" />
 
           <!-- Stage 1 -->
-          <rect x="278" y="14" width="320" height="156" rx="8" fill="var(--surface)" stroke="var(--success)" stroke-width="1.5" />
-          <text x="292" y="36" font-size="12" font-family="var(--mono)" font-weight="700" fill="var(--success)">STAGE 1 &bull; PRELUDE (RUNS 1x BEFORE STEP 0)</text>
-          <text x="292" y="57" font-size="14" font-weight="700" fill="var(--ink)">Qwen3-VL-32B (L49) &rarr; TokenRefiner (2 blks)</text>
-          <text x="292" y="80" font-size="12.5" fill="var(--muted)">&lt;Picture 1&gt; (tag=0) precedes raw text (tag=1,</text>
-          <text x="292" y="98" font-size="12.5" fill="var(--muted)">no chat template). Output: static 5376-D table.</text>
-          <rect x="292" y="114" width="292" height="42" rx="5" fill="var(--success-soft)" stroke="var(--success)" stroke-width="1" />
-          <text x="300" y="132" font-size="12" font-weight="600" fill="var(--success)">Steer here at 1x cost (MiniMaxH3Steer)</text>
-          <text x="300" y="148" font-size="12" font-family="var(--mono)" fill="var(--ink)">Regime A: -P_Vr + mu_d + peer_ros + 98.5 cap</text>
+          <rect x="290" y="14" width="320" height="156" rx="8" fill="var(--surface)" stroke="var(--success)" stroke-width="1.5" />
+          <text x="304" y="36" font-size="11.5" font-family="var(--mono)" font-weight="700" fill="var(--success)">STAGE 1 &bull; PRELUDE + MIXER (1x BEFORE STEP 0)</text>
+          <text x="304" y="57" font-size="13.5" font-weight="700" fill="var(--ink)">Qwen3-VL-32B (L49) &rarr; TokenRefiner (2 blks)</text>
+          <text x="304" y="79" font-size="12" fill="var(--muted)">Unpooled fp32 __spans (~8.6 MB/stem); &lt;Picture 1&gt;</text>
+          <text x="304" y="96" font-size="12" fill="var(--muted)">precedes raw text. 4-Bus Mixer reads [routing].</text>
+          <rect x="304" y="113" width="292" height="44" rx="5" fill="var(--success-soft)" stroke="var(--success)" stroke-width="1" />
+          <text x="312" y="131" font-size="11.5" font-weight="600" fill="var(--success)">Steer at 1x cost (MiniMaxH3Steer)</text>
+          <text x="312" y="147" font-size="11.5" font-family="var(--mono)" fill="var(--ink)">-P_Vr + mu_d + peer_ros + 98.5% cap</text>
 
-          <line x1="600" y1="92" x2="632" y2="92" stroke="var(--muted)" stroke-width="2" marker-end="url(#arr-muted)" />
+          <line x1="612" y1="92" x2="640" y2="92" stroke="var(--muted)" stroke-width="2" marker-end="url(#arr-muted)" />
 
           <!-- Stage 2 -->
-          <rect x="636" y="14" width="436" height="156" rx="8" fill="var(--surface)" stroke="var(--border-strong)" stroke-width="1.5" />
-          <text x="650" y="36" font-size="12" font-family="var(--mono)" font-weight="700" fill="var(--accent)">STAGE 2 &bull; 50-BLOCK AV DIT (6 PIKA STEPS &times; 50 = 300 READS)</text>
-          <text x="650" y="57" font-size="14" font-weight="700" fill="var(--ink)">Single Stream: [Text/Vision | VAE Refs | 40Hz Audio | 24fps Video]</text>
-          <text x="650" y="80" font-size="12.5" fill="var(--muted)">Blocks 0..19: layout &amp; face identity &bull; Blocks 20..29: style breakout</text>
-          <text x="650" y="98" font-size="12.5" fill="var(--muted)">Blocks 31..47: 40 Hz audio lag &bull; Block 49: terminal dense sink</text>
-          <rect x="650" y="114" width="408" height="42" rx="5" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1" />
-          <text x="658" y="132" font-size="12" font-weight="600" fill="var(--accent)">Stage 2 Hooks (steer_attention_hooks.py) + 2x EditGuider</text>
-          <text x="658" y="148" font-size="12" font-family="var(--mono)" fill="var(--ink)">mid_late_20_49 + 1x Q_aud split (1.003x) | 2x Spatial Portals</text>
+          <rect x="644" y="14" width="428" height="156" rx="8" fill="var(--surface)" stroke="var(--border-strong)" stroke-width="1.5" />
+          <text x="658" y="36" font-size="11.5" font-family="var(--mono)" font-weight="700" fill="var(--accent)">STAGE 2 &bull; 50-BLOCK AV DIT (6 PIKA STEPS &times; 50 = 300 READS)</text>
+          <text x="658" y="57" font-size="13.5" font-weight="700" fill="var(--ink)">Single Stream: [Text/Vision | VAE Refs | 40Hz Audio | 24fps Video]</text>
+          <text x="658" y="79" font-size="12" fill="var(--muted)">Blocks 0..19: layout &amp; identity &bull; Blocks 20..29: style breakout</text>
+          <text x="658" y="96" font-size="12" fill="var(--muted)">Blocks 31..47: 40 Hz audio lag &bull; Block 49: terminal dense sink</text>
+          <rect x="658" y="113" width="400" height="44" rx="5" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1" />
+          <text x="666" y="131" font-size="11.5" font-weight="600" fill="var(--accent)">1x BasicGuider (auto_1x_kv) vs 2x EditGuider</text>
+          <text x="666" y="147" font-size="11.5" font-family="var(--mono)" fill="var(--ink)">mid_late_20_49 + Q_aud (1.003x) | ReleaseRefs(0.33)</text>
         </svg>
       </div>
 
@@ -1001,10 +1254,68 @@
       </div>
     </section>
 
-    <!-- SECTION 2: CAUSAL LLM VS FROZEN DIT -->
+    <!-- SECTION 2: 4-BUS SOUND MIXER & STEERING V2 DAG -->
+    <section id="sec-mixer" class="card">
+      <div class="section-head">
+        <h2>2. The 4-Bus Sound-Mixer &amp; Steering v2 DAG</h2>
+        <span class="section-tag">feat/steering-v2 &bull; 15,066 &rarr; ~3,300 LOC (-78%)</span>
+      </div>
+      <p class="section-intro">
+        Instead of maintaining 4 fragile code paths across <code>15,066</code> LOC, <code>steering/mixer.py</code> compiles every active stem through <strong>4 deterministic buses</strong> (<code>Look</code>, <code>Motion</code>, <code>Audio</code>, <code>Hold</code>) while <code>steering/legacy_nodes.py</code> (Option B) preserves <code>68/68</code> node IDs at <code>&lt; 1e-6</code> parity across all <code>143</code> bank files. Click a production preset to watch how <code>[routing]</code> chooses <code>1x BasicGuider</code> vs. <code>2x EditGuider + ReleaseReferences(0.33)</code>:
+      </p>
+
+      <div class="mixer-presets" id="mixer-presets" role="group" aria-label="4-Bus Sound-Mixer presets"></div>
+
+      <div class="mixer-grid">
+        <div id="mixer-buses" aria-live="polite"></div>
+        <div>
+          <div class="svg-frame" id="mixer-timeline-svg"></div>
+          <div id="mixer-route-detail" class="subcard" style="margin-top:12px"></div>
+        </div>
+      </div>
+
+      <h3 style="margin:18px 0 10px; font-size:0.98rem;">Clean 3-Layer DAG Separation (No Mixed Responsibilities)</h3>
+      <div class="grid-3">
+        <div class="subcard">
+          <span class="dag-card-tag pill-accent">1. Fixed Constants</span>
+          <h4 style="margin:0 0 6px; font-size:0.95rem;">Frozen DiT &amp; Kernel Physics</h4>
+          <p style="margin:0; font-size:0.86rem; color:var(--muted);">
+            <code>blocks 20..49</code>, <code>tau=0.15</code>, <code>m0=0.08</code> knee, <code>98.5%</code> L2 norm cap, <code>token_focus=1.0</code>, <code>1x Q_aud</code> split, and <code>ReleaseReferences(0.33)</code>. Lives in code once; stems never override physical invariants.
+          </p>
+        </div>
+        <div class="subcard">
+          <span class="dag-card-tag pill-success">2. Baked Offline Data</span>
+          <h4 style="margin:0 0 6px; font-size:0.95rem;">Unpooled <code>fp32</code> <code>__spans</code> + <code>[routing]</code></h4>
+          <p style="margin:0; font-size:0.86rem; color:var(--muted);">
+            <code>50</code> active stems (<code>143</code> bank files) store unpooled <code>fp32</code> <code>__spans</code> (<code>~8.6 MB</code>/stem) plus explicit <code>[routing]</code> bus affinity and <code>overall_soundscape</code> deltas—extracted once offline, zero runtime refiner cost.
+          </p>
+        </div>
+        <div class="subcard">
+          <span class="dag-card-tag pill-warn">3. Live Runtime</span>
+          <h4 style="margin:0 0 6px; font-size:0.95rem;"><code>steering/mixer.py</code> &amp; <code>h3_spans.py</code></h4>
+          <p style="margin:0; font-size:0.86rem; color:var(--muted);">
+            <code>h3_spans.py</code> (<code>1,020</code> LOC at root) + one compiler resolve cross-bus <code>peer_ros</code> orthogonalization, apply capability <code>Holds</code> (<code>project_out</code>), and emit one single-envelope graph (<code>1x</code> default; <code>2x</code> only when needed).
+          </p>
+        </div>
+      </div>
+
+      <details class="tech-details">
+        <summary>Why unpooled fp32 __spans (~8.6 MB/stem) and the 48/50 overall_soundscape fix were non-negotiable</summary>
+        <div class="tech-details-body">
+          <p style="margin:0 0 8px;">
+            <strong>1. Never pre-pool stems to <code>[N_pairs, 2, 5376]</code>:</strong> A pooled 2-vector summary per pair collapses per-token softmax similarity (<code>tau = 0.15</code>) down to scalar <code>[[1.0]]</code> and forces SVD on a typical <code>6..8</code>-pair stem to be rank-deficient (<code>rank &le; 7 &lt; 8</code>), silently destroying Rank-8 Pole-A erasure (<code>erasure.vr</code>). Unpooled <code>fp32</code> token spans (<code>~8.6 MB</code>/stem) keep true full-rank subspace geometry intact while preserving strict <code>&lt; 1e-6</code> parity across all <code>143</code> bank files.
+          </p>
+          <p style="margin:0;">
+            <strong>2. Fixing the silent audio blind spot across <code>48/50</code> stems:</strong> Auditing the bank revealed <code>llm_pairs.py</code> had been dropping <code>overall_soundscape</code> edits on generation, leaving <code>48/50</code> legacy stems text-only on visual buses. Restoring paired soundscape deltas inside <code>[routing]</code> turned on multi-bus coupling—producing <code>reverb_cathedral</code> (<code>+22.3%</code> acoustic tail), synchronized <code>heavy_blizzard</code> wind/gale cues, and <code>1920s silent-film + cranked projector</code> click beds in one pass.
+          </p>
+        </div>
+      </details>
+    </section>
+
+    <!-- SECTION 3: CAUSAL LLM VS FROZEN DIT -->
     <section id="sec-kv" class="card">
       <div class="section-head">
-        <h2>2. Why LLM Steering Intuition Breaks on DiTs (Frozen Anchor vs. Self-Steering KV)</h2>
+        <h2>3. Why LLM Steering Intuition Breaks on DiTs (Frozen Anchor vs. Self-Steering KV)</h2>
         <span class="section-tag">Root cause of 1D failure &amp; ColBERT collapse</span>
       </div>
       <p class="section-intro">
@@ -1037,51 +1348,51 @@
           <text x="568" y="34" font-size="12" font-family="var(--mono)" font-weight="700" fill="var(--warn)">H3 AV DIT PRELUDE (H_prelude &bull; STATIC 300x ANCHOR)</text>
           <text x="568" y="56" font-size="14" font-weight="700" fill="var(--ink)">Read-Only Prompt Table Vetoes Naive 1D Addition</text>
           <rect x="568" y="72" width="222" height="44" rx="6" fill="var(--error-soft)" stroke="var(--error)" />
-          <text x="580" y="92" font-size="12.5" font-weight="600" fill="var(--error)">1D (+v) leaves "warm tungsten"</text>
-          <text x="580" y="108" font-size="12" font-family="var(--mono)" fill="var(--ink)">Re-read 300x -&gt; 0 / 5 B&amp;W</text>
+          <text x="580" y="92" font-size="12.5" font-weight="600" fill="var(--error)">1D (+v) leaves Pole-A intact</text>
+          <text x="580" y="108" font-size="12" font-family="var(--mono)" fill="var(--ink)">Re-read 300x -&gt; contradicted</text>
           <rect x="804" y="72" width="252" height="44" rx="6" fill="var(--success-soft)" stroke="var(--success)" />
           <text x="816" y="92" font-size="12.5" font-weight="600" fill="var(--success)">Rank-8 Erasure (-P_Vr + mu_d)</text>
-          <text x="816" y="108" font-size="12" font-family="var(--mono)" fill="var(--ink)">Mutes color PCs -&gt; 5 / 5 B&amp;W</text>
+          <text x="816" y="108" font-size="12" font-family="var(--mono)" fill="var(--ink)">Mutes Pole-A PCs (e.g. +22.3%)</text>
           <text x="568" y="144" font-size="12.5" fill="var(--muted)">Why 6 SOTA ColBERT / OT schemes failed: static K/V averages row deltas.</text>
           <text x="568" y="164" font-size="12.5" fill="var(--ink)">48/52 bank stems sit at cos(mu_d, v_1d) &ge; 0.980 (median 0.9935).</text>
         </svg>
       </div>
 
       <div class="callout">
-        <strong>Double-Dissociation Proof (Locked <code>RMS = 101.25</code>):</strong>
-        At byte-identical perturbation norm, <code>noir</code>'s own <code>V_r</code> flipped <code>5 / 5</code> seeds to true B&amp;W (<code>hsv_sat = 0.022–0.026</code>), whereas swapping in <code>paper_origami</code>'s <code>V_r</code>, a random <code>V_r</code>, or generic PCs produced <code>0 / 5</code> B&amp;W. On <code>paper_origami</code>, <code>1D</code> deleted the daughter and wrong erasers melted the porter, while <code>paper_origami</code>'s own <code>V_r</code> preserved <code>5 / 5</code> folded-paper actors. Subspace erasure is genuine regression hygiene — not ColBERT duality.
+        <strong>Historical Double-Dissociation Proof (Locked <code>RMS = 101.25</code>):</strong>
+        At byte-identical perturbation norm, <code>noir</code>'s own <code>V_r</code> flipped <code>5 / 5</code> seeds to true B&amp;W (<code>hsv_sat = 0.022–0.026</code>), whereas swapping in <code>paper_origami</code>'s <code>V_r</code>, a random <code>V_r</code>, or generic PCs produced <code>0 / 5</code> B&amp;W. On <code>paper_origami</code>, <code>1D</code> deleted the daughter and wrong erasers melted the porter, while <code>paper_origami</code>'s own <code>V_r</code> preserved <code>5 / 5</code> folded-paper actors. Subspace erasure is genuine regression hygiene — and today powers <code>heavy_blizzard</code>, <code>reverb_cathedral</code> (<code>+22.3%</code>), and coupled <code>[routing]</code> stems cleanly.
       </div>
     </section>
 
-    <!-- SECTION 3: INTERACTIVE OPERATOR LAB -->
+    <!-- SECTION 4: INTERACTIVE OPERATOR LAB -->
     <section id="sec-lab" class="card">
       <div class="section-head">
-        <h2>3. Interactive Operator Lab: Comparing What Actually Happens per Token &amp; Layer</h2>
-        <span class="section-tag">1D vs. Regime A vs. de_llm_slop Bug vs. Regime B / C</span>
+        <h2>4. Interactive Operator Lab: Comparing What Actually Happens per Token, Bus &amp; Layer</h2>
+        <span class="section-tag">1D vs. Regime A vs. Zero-Lore 69498b35 vs. Swift 1.5 / L63</span>
       </div>
       <p class="section-intro">
-        Select a scenario tab, then switch between operators to inspect which tokens/layers fire and why clean-scene artifacts happened.
+        Select a scenario tab, then switch between operators to inspect which tokens, soundscape buses, or LLM layers fire—and why daily prompting dropped L63 hooks while <code>apps/steering-lab</code> took over white-box research.
       </p>
 
       <div class="tabs-group" data-tabs="lab">
         <div class="tabs-bar" role="tablist" aria-label="Steering lab scenarios">
-          <button type="button" role="tab" id="tab-scen-noir" aria-selected="true" tabindex="0">3A. Contradicting Prompt &rarr; Noir</button>
-          <button type="button" role="tab" id="tab-scen-slop" aria-selected="false" tabindex="-1">3B. Clean Scene &rarr; Why de_llm_slop Broke</button>
-          <button type="button" role="tab" id="tab-scen-llm" aria-selected="false" tabindex="-1">3C. Qwen3.8 &lt;think&gt; Stream &rarr; Swift 1.5</button>
+          <button type="button" role="tab" id="tab-scen-override" aria-selected="true" tabindex="0">4A. Warm Scene &rarr; Blizzard / Cathedral</button>
+          <button type="button" role="tab" id="tab-scen-slop" aria-selected="false" tabindex="-1">4B. Clean Scene &rarr; Anti-Slop &amp; 69498b35</button>
+          <button type="button" role="tab" id="tab-scen-llm" aria-selected="false" tabindex="-1">4C. Qwen3.8 / Swift 1.5 (26/26 vs L63)</button>
         </div>
 
         <div class="tab-panels" id="lab-panels"></div>
       </div>
     </section>
 
-    <!-- SECTION 4: UNIFIED 3-REGIME CONTROL LAW & VGEL CURVE -->
+    <!-- SECTION 5: UNIFIED 3-REGIME CONTROL LAW & LAB V2.0.274 -->
     <section id="sec-regimes" class="card">
       <div class="section-head">
-        <h2>4. The Unified 3-Regime Control Law Across H3 DiT &amp; heylook LLMs</h2>
-        <span class="section-tag">Geometry dictates the operator</span>
+        <h2>5. The Unified 3-Regime Control Law &amp; Standalone <code>apps/steering-lab</code> (<code>v2.0.274</code>)</h2>
+        <span class="section-tag">Geometry dictates the operator &bull; Keep daily server clean</span>
       </div>
       <p class="section-intro">
-        Most wasted cycles came from applying Regime A (built for two-sided concept replacement) to Regime B/C problems (pure bad-habit muting or contextual multi-layer circuits). Notice also why Regime B splits cleanly between causal <code>T = 1</code> LLMs and multi-token H3 prompts.
+        Most wasted cycles came from applying Regime A (built for two-sided concept replacement) to Regime B/C problems, or patching production LLM inference when prompt templates solved the job cleanly (<code>Swift 1.5</code> <code>26/26</code>). White-box mechanistic tooling now lives in <code>apps/steering-lab</code> (<code>v2.0.274</code> / <code>6e3603ec</code>), cleanly decoupled from daily <code>/v1/messages</code>.
       </p>
 
       <div tabindex="0" role="region" aria-labelledby="cap-regimes" class="table-wrapper">
@@ -1098,25 +1409,25 @@
           </thead>
           <tbody>
             <tr>
-              <th>Regime A: Manifold Replacement<br><span class="mono" style="font-size:12px;color:var(--muted)">noir, charcoal, reverb_cathedral</span></th>
-              <td>Explicit Pole-A trait in static table + coherent Pole-B destination</td>
-              <td>Prompt-centered <code>-P_{V_r,\lambda}</code> + <code>+s &middot; mu_d</code> + <code>peer_ros</code> + clamped union + <code>95.5 &rarr; 98.5</code> norm cap</td>
-              <td><code>1D (+v)</code> gets outvoted 300&times; by explicit color/light tokens left intact in <code>H_prelude</code></td>
-              <td><span class="badge badge-ok">Shipped in H3</span></td>
+              <th>Regime A: Manifold Replacement<br><span class="mono" style="font-size:12px;color:var(--muted)">heavy_blizzard, reverb_cathedral, 1920s silent-film</span></th>
+              <td>Explicit Pole-A trait in static table + coherent Pole-B visual/audio destination</td>
+              <td>Prompt-centered <code>-P_{V_r,\lambda}</code> + <code>+s &middot; mu_d</code> + <code>peer_ros</code> + clamped union + <code>98.5%</code> cap inside <code>steering/mixer.py</code></td>
+              <td><code>1D (+v)</code> gets outvoted 300&times; by explicit tokens in <code>H_prelude</code>; pre-pooling breaks <code>tau=0.15</code> &amp; SVD rank</td>
+              <td><span class="badge badge-ok">Shipped + Mixer v2</span></td>
             </tr>
             <tr>
-              <th>Regime B: Bad-Habit Noise Gate<br><span class="mono" style="font-size:12px;color:var(--muted)">de_llm_slop, Qwen3.8 L63 pivots</span></th>
-              <td>No single Pole-B target (<code>L63 ADDS = noise</code>; <code>de_llm_slop mu_d_positive_words = []</code>)</td>
-              <td><strong>LLM (T=1):</strong> clean-anchor <code>ACE</code> (<code>h_t - mu_clean</code>) + 1-way <code>ReLU</code>.<br><strong>H3 (scene_only):</strong> prompt-local <code>h_i - h_bar</code> + deadzone <code>-mu_d</code> cos gate + paired-<code>D_p</code> <code>V_r</code> (both <code>boost = 0</code>, upper cap only)</td>
-              <td>Centering LLMs at <code>mu_a</code> perturbs clean math; fixed RMS <code>67.5</code> blurs clean H3 <code>-35%</code>; dataset <code>mu_clean</code> on full H3 prompts trips on 100% of nouns/verbs via POS offset</td>
-              <td><span class="badge badge-warn">Test L63 on Mac; park on H3</span></td>
+              <th>Regime B: Bad-Habit Noise Gate<br><span class="mono" style="font-size:12px;color:var(--muted)">de_llm_slop, Qwen3.8 L63 / FA pivots</span></th>
+              <td>No single Pole-B target; on unseen Round 2a traps <code>L63_vec</code> fell to <code>-7.3%</code> and <code>L63_ray_r1</code> looped <code>+71.9%</code></td>
+              <td><strong>Daily Mac:</strong> clean <code>chat_template.heylook.jinja</code> (<code>26/26</code>).<br><strong>Lab R&amp;D:</strong> <code>r=8</code> normalized deadzone (<code>m0=0.08, w=0.22, boost=0</code>) + <code>RunningCenter</code> + <code>KL</code>/<code>loop_collapse</code> gates</td>
+              <td><code>r=1</code> loops <code>+71.9%</code> while holding deceptive <code>0.601</code> MTP; dataset <code>mu_clean</code> on full H3 prompts trips on POS offset; fixed <code>67.5</code> RMS blurs clean scenes</td>
+              <td><span class="badge badge-acc">Daily solved (26/26); Lab v2.0.274</span></td>
             </tr>
             <tr>
-              <th>Regime C: Phase-Gated LoRA<br><span class="mono" style="font-size:12px;color:var(--muted)">Pika 6-step, Swift 1.5 RL</span></th>
-              <td>Multi-layer conditional circuit <code>B(Ax)</code> across depth &amp; generation phase</td>
-              <td>Unmerged compute-dtype SVD LoRA (<code>convert_pika_lora.py</code> per-component FP64 SVD) + phase gate (<code>_Window</code> / <code>in_thinking == True</code>)</td>
-              <td>Static prelude/L63 vectors cannot inspect L00..L59 error-detection circuits; <code>thinking_budget</code> truncates mid-thought</td>
-              <td><span class="badge badge-acc">#1 Mac build (shipped in H3)</span></td>
+              <th>Regime C: Phase-Gated LoRA &amp; Dual-Lock<br><span class="mono" style="font-size:12px;color:var(--muted)">Pika 6-step, 2x EditGuider, FA [39,43,47,51]</span></th>
+              <td>Multi-layer conditional circuit <code>B(Ax)</code> or structural scene synthesis beyond prelude edits</td>
+              <td>Unmerged compute-dtype SVD LoRA + <code>2x EditGuider</code> + <code>ReleaseReferences(0.33)</code> for <code>levitating props</code> / <code>UV rave</code>; in MLX Lab: <code>FA [39,43,47,51]</code> vs <code>GDN</code> + VLM <code>&lt;|image_pad|&gt;</code> mask</td>
+              <td>Static prelude cannot materialize missing props or animate independent sprites; <code>1x</code> alone stalls when text contradicts visual geometry</td>
+              <td><span class="badge badge-ok">Shipped in H3 (1a35a5ab)</span></td>
             </tr>
           </tbody>
         </table>
@@ -1127,7 +1438,6 @@
         <div class="svg-frame">
           <svg viewBox="0 0 560 220" role="img" aria-labelledby="svg-vgel-title">
             <title id="svg-vgel-title">Comparison of SwiGLU silu(z)*z negative-side leak versus strict ReLU deadzone gate</title>
-            <!-- Grid lines -->
             <line x1="52" y1="168" x2="528" y2="168" stroke="var(--border-strong)" stroke-width="1.5" />
             <line x1="296" y1="18" x2="296" y2="190" stroke="var(--border-strong)" stroke-width="1.5" />
             <line x1="52" y1="108" x2="528" y2="108" stroke="var(--border)" stroke-dasharray="4 4" />
@@ -1135,16 +1445,11 @@
             <text x="60" y="185" font-size="12" font-family="var(--mono)" fill="var(--muted)">z &lt; 0 (clean tokens)</text>
             <text x="380" y="185" font-size="12" font-family="var(--mono)" fill="var(--muted)">z &gt; 0 (target bad tokens)</text>
 
-            <!-- silu(z)*z plotted accurately on domain [-4, 2.5]: x(z) = 296 + z*61, y(v) = 168 - v*56 -->
-            <!-- Values: (-4,0.283) (-3.5,0.356) (-3,0.427) (-2.4,0.557 peak) (-2,0.477) (-1.5,0.409) (-1,0.269) (-0.5,0.094) (0,0) (0.5,0.156) (1,0.731) (1.5,1.839) (2,3.52 -> clipped) -->
             <path d="M 52 152 L 82 148 L 113 144 L 150 137 L 174 141 L 204 145 L 235 153 L 265 163 L 296 168 L 326 159 L 357 127 L 388 65 L 408 22"
                   fill="none" stroke="var(--error)" stroke-width="2.5" stroke-linejoin="round" />
-
-            <!-- ReLU deadzone gate: 0 up to z=0.25 (x=311), then linear ramp -->
             <path d="M 52 168 L 312 168 L 468 28"
                   fill="none" stroke="var(--success)" stroke-width="2.75" />
 
-            <!-- Annotation on peak leak -->
             <circle cx="150" cy="137" r="4" fill="var(--error)" />
             <line x1="150" y1="137" x2="150" y2="74" stroke="var(--error)" stroke-dasharray="3 3" />
             <text x="72" y="66" font-size="12" font-family="var(--mono)" font-weight="600" fill="var(--error)">silu(z)*z leak: +0.557 peak @ z=-2.4</text>
@@ -1156,27 +1461,103 @@
         </div>
 
         <div class="subcard" style="display:flex;flex-direction:column;gap:8px">
-          <h3>The <code>vgel.me</code> Conditional Bridge</h3>
+          <h3>The <code>vgel.me</code> Bridge &rarr; <code>apps/steering-lab</code> (<code>v2.0.274</code>)</h3>
           <p>
-            In <em>Making Neurons by Hand</em>, wiring <code>gate_proj = up_proj = read</code> inside a SwiGLU MLP gives <code>silu(z) &middot; z</code> — matching why <code>Swift 1.5</code> concentrates its LoRA deltas in <code>mlp.gate_proj</code> and <code>mlp.up_proj</code>.
+            <code>vgel.me</code>'s <code>silu(z)&middot;z</code> leaks <code>+0.557</code> on negative inputs (<code>neg &times; neg &gt; 0</code>). Explicit normalized deadzone gating (<code>m0=0.08, w=0.22</code>) eliminates clean-token bleed and rescued <code>L63</code> on unseen Round 2a traps from <code>+71.9%</code> looping (<code>r=1</code>) back to <code>12/12</code> (<code>-5.0%</code>).
           </p>
           <p>
-            <strong>Mathematical catch:</strong> Because negative &times; negative is positive, <code>silu(z)&middot;z</code> leaks a <code>+0.557</code> bump onto opposite/clean inputs. Explicit <code>ReLU</code> deadzone gating on <code>cos &gt; 0.10</code> eliminates that leak while driving clean H3 prompts down <code>38x–50x</code> (<code>1.36–1.77</code> vs. <code>67.50</code> RMS).
+            Meanwhile, clean <code>chat_template.heylook.jinja</code> + stock 8-bit <code>Swift 1.5</code> scored <code>26/26</code> (<code>0.618</code> MTP) with zero steering hooks—moving L63/MTP experimentation cleanly into standalone <code>apps/steering-lab</code>.
           </p>
         </div>
       </div>
+
+      <h3 style="margin:18px 0 10px; font-size:0.98rem;">Inside Standalone <code>apps/steering-lab</code> (<code>v2.0.274</code> / <code>6e3603ec</code>) — 5 White-Box Instruments</h3>
+      <div class="grid-3">
+        <div class="subcard">
+          <h4 style="margin:0 0 6px; font-size:0.92rem;"><code>bank.py</code> + <code>corpora.py</code> + <code>operators.py</code></h4>
+          <p style="margin:0; font-size:0.85rem; color:var(--muted);">
+            Extracts multi-layer span caches across <code>Qwen3.8-27B</code>&rsquo;s <code>3:1</code> hybrid (FA <code>[39,43,47,51]</code> vs GDN <code>L49/L62</code>), composes with <code>peer_ros</code>, clamped <code>[0,1]</code> union SVD, <code>holds</code>, and fixed <code>mu_d_norm</code> 5120-D scaling.
+          </p>
+        </div>
+        <div class="subcard">
+          <h4 style="margin:0 0 6px; font-size:0.92rem;"><code>runtime.py</code>: Rollback-Safe MTP &amp; VLM</h4>
+          <p style="margin:0; font-size:0.85rem; color:var(--muted);">
+            <code>RunningCenter</code> (<code>prior_ema</code> on <code>mu_clean</code>) resets at <code>&lt;think&gt; &rarr; content</code> and commits only <code>[:commit_accepted]</code> drafts. Uses live <code>load_drafter</code> + VLM <code>&lt;|image_pad|&gt;</code> Dual-Lock (<code>prepare_inputs</code>) + truncation guard.
+          </p>
+        </div>
+        <div class="subcard">
+          <h4 style="margin:0 0 6px; font-size:0.92rem;"><code>chain_lens.py</code> &amp; Dual-Gate Monitors</h4>
+          <p style="margin:0; font-size:0.85rem; color:var(--muted);">
+            <code>O(N^3)</code> FP64 Woodbury ridge <code>JLensTransport</code> (<code>val_r2</code>), <code>Qwen35MTPAdapter</code> (per-beam <code>KVCache</code> + advancing <code>position_ids</code>), click-a-token causal <code>&Delta; logprob</code>, plus per-token <code>KL</code> + 4-gram <code>loop_collapse &ge; 0.35</code>.
+          </p>
+        </div>
+      </div>
+
+      <details class="tech-details">
+        <summary>6 real live-run bugs caught and fixed in <code>6e3603ec</code> (<code>v2.0.274</code>) before first GPU sweep</summary>
+        <div class="tech-details-body">
+          <ol style="margin:0; padding-left:20px; line-height:1.55;">
+            <li><strong>Live MTP loader:</strong> Replaced nonexistent module import with <code>mlx_vlm.speculative.drafters.load_drafter</code> + <code>validate_drafter_compatibility</code> + <code>drafter.bind</code>.</li>
+            <li><strong><code>Qwen35MTPAdapter</code> parity:</strong> Applies <code>target_lm.model.norm</code> once in <code>initial_state</code>, advances <code>position_ids</code>, and clones 1-layer <code>KVCache</code> slices per forked beam so siblings never contaminate each other.</li>
+            <li><strong><code>mu_d_norm</code> 5120-D scaling + relative <code>tanh</code> knee:</strong> Scaled operator delta norm to <code>~sqrt(5120)</code> instead of unnormalized unit norm and stabilized boundary smoothing.</li>
+            <li><strong><code>RunningCenter</code> rollback + phase reset:</strong> Commits only accepted speculative tokens and resets EMA cleanly on <code>&lt;think&gt; &rarr; content</code> transitions.</li>
+            <li><strong>VLM <code>&lt;|image_pad|&gt;</code> Dual-Lock capture:</strong> Wired <code>prepare_inputs</code> so vision-only / prompt-only / decode-only masks target real image-pad spans.</li>
+            <li><strong><code>&lt;think&gt;</code> truncation guard + mixed-mask grouping:</strong> Prevents partial-thought cutoff from corrupting contrast statistics and batches heterogeneous masks safely.</li>
+          </ol>
+        </div>
+      </details>
     </section>
 
-    <!-- SECTION 5: SCORECARD & EXECUTION ROADMAP -->
+    <!-- SECTION 6: CURRENT -> FUTURE TRANSFORMATION, SCORECARD & ROADMAP -->
     <section id="sec-scorecard" class="card">
       <div class="section-head">
-        <h2>5. Engineering Scorecard &amp; Immediate 4-Step Execution Order</h2>
-        <span class="section-tag">Stop hitting proven walls; ship creator capabilities</span>
+        <h2>6. Current State &rarr; Future State Transformation, Scorecard &amp; Roadmap</h2>
+        <span class="section-tag">Updated after 1a35a5ab, 69498b35 &amp; v2.0.274</span>
+      </div>
+
+      <div tabindex="0" role="region" aria-labelledby="cap-transform" class="table-wrapper" style="margin-bottom:20px">
+        <table class="score-table" style="--label-2:'Before (Patchwork)';--label-3:'Now Shipped / Future State';--label-4:'Primary Evidence';">
+          <caption id="cap-transform">System Transformation — Current State to Clean Target Architecture</caption>
+          <thead>
+            <tr>
+              <th>Track</th>
+              <th>Before (Patchwork)</th>
+              <th>Now Shipped / Future State</th>
+              <th>Verified Evidence on Disk</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th>1. Mac Daily Server (<code>heylook</code>)</th>
+              <td>Bloated internal H3 lore inside prompts + proposed <code>&lt;think&gt;</code> LoRA / <code>L63</code> runtime patches</td>
+              <td>Zero-lore positive optical restraint + <code>HeylookProvenance</code>; stock <code>Swift 1.5</code> 8-bit + clean Jinja daily</td>
+              <td><code>69498b35</code> (11 prompt files scrubbed) + <code>26/26</code> R1/R2a (<code>0.618</code> MTP, <code>0</code> truncations)</td>
+            </tr>
+            <tr>
+              <th>2. H3 Steering Package (<code>steering/</code>)</th>
+              <td><code>15,066</code> LOC across 4 competing code paths; <code>48/50</code> stems missing <code>overall_soundscape</code></td>
+              <td><code>~3,300</code> LOC (<code>-78%</code>): Option B <code>legacy_nodes.py</code> + <code>steering/mixer.py</code> 4-bus compiler + unpooled <code>__spans</code> + <code>[routing]</code></td>
+              <td><code>feat/steering-v2</code> worktree: <code>68/68</code> node IDs kept, <code>&lt; 1e-6</code> parity on <code>143</code> bank files, <code>reverb_cathedral +22.3%</code></td>
+            </tr>
+            <tr>
+              <th>3. H3 Video &amp; Multi-Ref GPU Checks</th>
+              <td>Unverified queued Trio sweeps &amp; <code>ref2va</code> multi-cook stability questions</td>
+              <td>Verified Zero-Code GPU Trio (<code>0.33</code> release, <code>0.25</code> audio_freeze, <code>M3</code> LSE, SAM 3.1 mask) + 3-cook <code>Ref2VA</code></td>
+              <td><code>1a35a5ab</code> verified directly on <code>:8188</code> (<code>.1fps</code> / <code>.mp4</code> / <code>.png</code> outputs inspected)</td>
+            </tr>
+            <tr>
+              <th>4. White-Box MLX Research</th>
+              <td>Ad-hoc scripts; <code>r=1</code> silent looping (<code>+71.9%</code> @ <code>0.601</code> MTP) &amp; missing VLM/beam guards</td>
+              <td>Standalone <code>apps/steering-lab</code> (<code>v2.0.274</code>): FA/GDN span bank, <code>JLensTransport</code>, <code>KL</code> + <code>loop_collapse</code></td>
+              <td><code>6e3603ec</code> (6 live-run bugs fixed &amp; regression-tested on CPU before first GPU run)</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
 
       <div tabindex="0" role="region" aria-labelledby="cap-score" class="table-wrapper" style="margin-bottom:20px">
         <table class="score-table" style="--label-2:'Observed Evidence';--label-3:'Status';--label-4:'Action';">
-          <caption id="cap-score">Verified Wins vs. Falsified / Misdiagnosed Components</caption>
+          <caption id="cap-score">Verified Wins vs. Falsified / Isolated Components</caption>
           <thead>
             <tr>
               <th>Component / Claim</th>
@@ -1188,68 +1569,68 @@
           <tbody>
             <tr>
               <th>Rank-8 Pole-A Erasure + <code>peer_ros</code></th>
-              <td><code>5/5</code> B&amp;W double dissociation at locked <code>RMS=101.25</code>; <code>95.5-&gt;98.5</code> knee fixes <code>4.0 MP</code> diptych split</td>
+              <td>Double dissociation at <code>RMS=101.25</code>; <code>98.5%</code> cap + unpooled <code>__spans</code> (<code>~8.6 MB</code>/stem) drive <code>reverb_cathedral</code> (<code>+22.3%</code>) &amp; <code>heavy_blizzard</code></td>
               <td><span class="badge badge-ok">100% Real</span></td>
-              <td>Keep shipped as Regime A default on <code>MiniMaxH3Steer</code></td>
+              <td>Compile all active stems through 4-bus <code>steering/mixer.py</code></td>
             </tr>
             <tr>
               <th><code>mid_late_20_49</code> + <code>1x Q_aud</code> Split</th>
               <td><code>1.52x</code> mean / <code>1.75x</code> peak DINOv3 face lock; <code>-0.039 st</code> F0 audio safety at <code>1.003x</code> latency</td>
               <td><span class="badge badge-ok">100% Real</span></td>
-              <td>Keep active in creator deck &amp; API graphs</td>
+              <td>Keep active in <code>1x BasicGuider</code> (<code>auto_1x_kv</code>) default path</td>
             </tr>
             <tr>
-              <th>Unmerged <code>lora_branch.py</code> + SVD</th>
-              <td>Preserves Pika distill over int8 H3; directly solves <code>Swift 1.5</code> 7-module Qwen3.8 gating</td>
-              <td><span class="badge badge-ok">High Leverage</span></td>
-              <td>Ship <code>&lt;think&gt;</code>-gated Rank-32 LoRA in Mac <code>heylook</code></td>
+              <th><code>L63</code>-Only LLM Steering on Daily Server</th>
+              <td>Collapsed on unseen Round 2a (<code>vec</code> <code>-7.3%</code>; <code>ray_r1</code> <code>+71.9%</code> loop); stock 8-bit <code>Swift 1.5</code> + clean Jinja hit <code>26/26</code></td>
+              <td><span class="badge badge-acc">Retired from Daily</span></td>
+              <td>Keep daily <code>heylook</code> patch-free; explore <code>r=8</code> &amp; <code>FA [39,43,47,51]</code> inside <code>apps/steering-lab</code></td>
             </tr>
             <tr>
-              <th>Current <code>de_llm_slop</code> Vector</th>
-              <td><code>b_cov = 0.071</code> (1/14), <code>vr[2]</code> spans <code>focus+blur</code> (<code>-39%</code> blur), Clerk/Archive leak, <code>6.8x</code> blowout</td>
-              <td><span class="badge badge-err">Flawed Asset</span></td>
-              <td>Keep retired/gated; fix clichés upstream via <code>heylook</code> guardrail</td>
+              <th>Pooled <code>[N, 2, 5376]</code> &amp; Old <code>llm_pairs.py</code></th>
+              <td>Pre-pooling collapses <code>tau=0.15</code> to <code>[[1.0]]</code> (rank <code>&le;7 &lt; 8</code>); old extractor dropped <code>overall_soundscape</code> on <code>48/50</code> stems</td>
+              <td><span class="badge badge-err">Closed Trap</span></td>
+              <td>Keep <code>fp32</code> unpooled <code>__spans</code>; re-bake stems with soundscape <code>[routing]</code></td>
             </tr>
             <tr>
               <th><code>Gate 2A</code> / <code>2B</code> / <code>2C</code> / <code>Path 1B</code></th>
               <td>Bus <code>V_r</code> blew exposure (<code>43.4-&gt;7.95</code>); <code>vision_tokens</code> null (<code>0.2432</code> vs <code>0.2477</code>); <code>1x Q_vid[mask]</code> washout (<code>1.05x</code> vs <code>1.42x</code>)</td>
               <td><span class="badge badge-err">Closed Walls</span></td>
-              <td>Do not reopen; keep <code>vision_tokens</code> in Python enum, omit from <code>app/</code> UI</td>
+              <td>Do not reopen; keep legacy <code>68/68</code> Option B API intact</td>
             </tr>
             <tr>
               <th>CPU Metrics as Quality Predictors</th>
-              <td><code>stained_glass</code> highest <code>mpc=0.762</code> failed <code>0/2</code>; <code>youtube_overhype</code> <code>1/12</code> <code>b_cov</code> crushed GPU Wave 3B</td>
+              <td><code>stained_glass</code> highest <code>mpc=0.762</code> failed <code>0/2</code>; <code>youtube_overhype_influencer</code> (<code>1/12</code> <code>b_cov</code>) crushed GPU Wave 3B</td>
               <td><span class="badge badge-warn">Bug Filters Only</span></td>
-              <td>Use J-Lens &amp; <code>mpc</code> strictly as smoke/regression checks</td>
+              <td>Pair J-Lens + <code>KL</code> + <code>loop_collapse</code> as safety checks, not beauty scores</td>
             </tr>
           </tbody>
         </table>
       </div>
 
-      <h3 style="margin:0 0 10px;font-size:15px">Recommended 4-Step Execution Sequence</h3>
+      <h3 style="margin:0 0 10px;font-size:15px">Immediate 4-Step Forward Execution Sequence (Post-<code>69498b35</code>)</h3>
       <ol class="roadmap-list">
         <li class="roadmap-item">
           <span class="step-num">01</span>
           <div>
-            <strong>Upstream Prompt Hygiene (Fast Win):</strong> Keep MiniMax's trained <code>[Shot 1] Live-action, cinematic</code> opener intact in canonical prompts, add a grounded-lighting anti-cliché guardrail in <code>heylook</code> prose instructions, and sync <code>app/</code> test defaults alongside root <a href="../../heylook_client.py"><code>heylook_client.py</code></a>.
+            <strong>Land <code>feat/steering-v2</code> Clean Rewrite:</strong> Merge the <code>15,066 &rarr; ~3,300</code> LOC (<code>-78%</code>) refactor from <code>h3_worktrees/steering-v2</code> with Option B <code>steering/legacy_nodes.py</code> (<code>68/68</code> node IDs, <code>&lt; 1e-6</code> parity across <code>143</code> bank files) and <code>steering/mixer.py</code>.
           </div>
         </li>
         <li class="roadmap-item">
           <span class="step-num">02</span>
           <div>
-            <strong>Direct One Real 20–30s Multi-Shot Clip + Zero-Code GPU Checks:</strong> Run the queued <code>guide_end_percent=0.33</code>, <code>audio_freeze 0.25</code> loose-mask, <code>M3</code> LSE reference balance, and SAM 3.1 <code>EditGuider.mask</code> tracks on a real multi-shot piece. Feed tail frame to <code>heylook</code> for text continuity only; DiT keeps latent carry or pristine <code>&lt;Picture 1&gt;</code>.
+            <strong>Re-Bake Multi-Bus Stems with <code>[routing]</code> + <code>overall_soundscape</code>:</strong> Re-extract bank stems keeping unpooled <code>fp32</code> <code>__spans</code> (<code>~8.6 MB</code>/stem) and paired soundscape deltas so <code>heavy_blizzard</code>, <code>1920s silent-film + cranked projector</code>, <code>reverb_cathedral</code>, <code>UV rave outfits</code> (<code>2x</code>), and <code>levitating props</code> (<code>0.33</code>) compile cleanly from data.
           </div>
         </li>
         <li class="roadmap-item">
           <span class="step-num">03</span>
           <div>
-            <strong>Mac <code>heylook</code> 3-Arm + <code>Gemma-4-26B</code> Benchmark:</strong> Compare <code>&lt;think&gt;</code>-gated Rank-32 Swift-1.5 LoRA (per-component SVD from <code>convert_pika_lora.py</code>) vs. <code>L63</code>-only <code>ACE</code> (<code>mu_clean</code>-anchored) vs. 20-token <code>NoWait</code> on held-out coding/math/tool suites, plus race against <code>gemma-4-26B</code> for H3 expansion.
+            <strong>Direct One Real 20–30s Multi-Shot Piece &amp; Lock <code>Track App-2.0</code>:</strong> Chain verified zero-lore <code>heylook</code> (<code>69498b35</code>) + <code>1a35a5ab</code> GPU Trio controls + 4-Bus Sound Mixer on a real multi-shot storyboard, then freeze <code>studio.db</code>/OpenAPI around live creator state.
           </div>
         </li>
         <li class="roadmap-item">
           <span class="step-num">04</span>
           <div>
-            <strong>Unfreeze <code>Track App-2.0</code> &amp; Structural Split:</strong> Lock <code>studio.db</code> + OpenAPI around real multi-shot state from Step 02, build the 3-tool deck (<code>1x heylook</code> &rarr; <code>1x MiniMaxH3Steer</code> &rarr; <code>2x EditGuider</code>), and split the <code>13,137</code>-LOC steering trio into focused subpackages.
+            <strong>Run Live <code>apps/steering-lab</code> (<code>v2.0.274</code>) Mac Sweeps:</strong> Benchmark <code>FA [39,43,47,51]</code> vs <code>GDN</code>, <code>JLensTransport</code> <code>val_r2</code>, VLM <code>&lt;|image_pad|&gt;</code> Dual-Lock, and <code>KL + loop_collapse</code> gates against <code>Swift-1.5-Qwen3.8-27B-MLX-8bit</code> while keeping daily <code>/v1/messages</code> untouched.
           </div>
         </li>
       </ol>
@@ -1308,12 +1689,26 @@
       syncUI();
     })();
 
-    /* Accessible Tabs with hidden="until-found" + beforematch sync + Safari fallback */
+    /* Accessible Tabs with hidden="until-found" + beforematch sync + scroll-edge fallback */
     function initTabs() {
       const supportsBeforeMatch = "onbeforematch" in HTMLElement.prototype;
+      const supportsScrollTimeline = typeof CSS !== "undefined" && CSS.supports && CSS.supports("animation-timeline", "scroll()");
 
       document.querySelectorAll(".tabs-group").forEach((group) => {
+        const tabBar = group.querySelector('[role="tablist"]');
         const tabs = Array.from(group.querySelectorAll('[role="tab"]'));
+
+        if (tabBar && tabs.length > 1 && !supportsScrollTimeline && "IntersectionObserver" in window) {
+          const io = new IntersectionObserver((entries) => {
+            entries.forEach((entry) => {
+              const hiddenEdge = entry.intersectionRatio < 0.99;
+              if (entry.target === tabs[0]) tabBar.classList.toggle("more-start", hiddenEdge);
+              if (entry.target === tabs[tabs.length - 1]) tabBar.classList.toggle("more-end", hiddenEdge);
+            });
+          }, { root: tabBar, threshold: [0.99] });
+          io.observe(tabs[0]);
+          io.observe(tabs[tabs.length - 1]);
+        }
 
         function selectTab(nextTab, moveFocus) {
           const id = nextTab.id;
@@ -1335,7 +1730,11 @@
               panel.hidden = supportsBeforeMatch ? "until-found" : true;
             }
           });
-          nextTab.scrollIntoView({ block: "nearest", inline: "nearest" });
+          try {
+            nextTab.scrollIntoView({ block: "nearest", inline: "nearest", container: "nearest" });
+          } catch {
+            nextTab.scrollIntoView({ block: "nearest", inline: "nearest" });
+          }
           if (moveFocus) nextTab.focus();
         }
 
@@ -1378,7 +1777,7 @@
           col: "var(--accent)",
           headline: "Peak Multimodal Geometry (Before Next-Word Collapse)",
           body: "Reference images (&lt;Picture 1&gt;) precede raw text tokens with zero chat template. Across 50 bank stems, camera physics, acoustics, and optical texture occupy 31.5 effective dimensions (mean |cos| = 0.2438).",
-          parallel: "Mirrors Qwen3.8-27B on Mac: continuous thought effR_D peaks near L51 (622.1) before dropping at L62–L63."
+          parallel: "Mirrors Qwen3.8-27B's 3:1 hybrid on Mac: dynamic FA layers (idx % 4 == 3, [39, 43, 47, 51]) peak near effR_D ~622 before dropping at GDN L62–L63."
         },
         {
           tag: "H3 Post-Refiner",
@@ -1544,96 +1943,252 @@
       render();
     })();
 
-    /* Section 3: Interactive Operator Lab */
+    /* Section 2: Interactive 4-Bus Sound-Mixer Compiler Simulator */
+    (function initMixer() {
+      const presets = [
+        {
+          id: "heavy_blizzard",
+          label: "heavy_blizzard (Look+Motion+Audio)",
+          routeMode: "1x BasicGuider (auto_1x_kv)",
+          routeTone: "pill-success",
+          release: "release = none (1x prelude)",
+          routingToml: "[routing]\nbuses = [\"Look\", \"Motion\", \"Audio\", \"Hold\"]\nguider = \"1x_basic_auto_kv\"\nsoundscape_edit = true",
+          buses: [
+            { name: "Look Bus", pct: 88, col: "var(--accent)", detail: "-P_Vr + mu_d + peer_ros (blocks 20..49) • cold whiteout & drifting frost" },
+            { name: "Motion Bus", pct: 72, col: "var(--violet)", detail: "Wind-whipped snow trajectory & shutter gusts (blocks 12..35)" },
+            { name: "Audio Bus", pct: 84, col: "var(--success)", detail: "Restored overall_soundscape howling wind + crunch (1x Q_aud safe)" },
+            { name: "Hold Bus", pct: 95, col: "var(--warn)", detail: "project_out face identity & clear dialogue formants (blocks 0..19)" }
+          ],
+          timelineNote: "Single 1x TokenRefiner compile using unpooled fp32 __spans (~8.6 MB). Fixed soundscape extractor animates freezing gale acoustics alongside snow optics.",
+          curveEnd: 1.0,
+          is2x: false
+        },
+        {
+          id: "reverb_cathedral",
+          label: "reverb_cathedral (+22.3% Tail)",
+          routeMode: "1x BasicGuider (auto_1x_kv)",
+          routeTone: "pill-success",
+          release: "release = none (1x prelude)",
+          routingToml: "[routing]\nbuses = [\"Look\", \"Audio\", \"Hold\"]\nblocks = \"late_30_49\"\nq_aud_split = true",
+          buses: [
+            { name: "Look Bus", pct: 56, col: "var(--accent)", detail: "Vaulted stone shadow depth & cold diffuse shafts (blocks 20..49)" },
+            { name: "Motion Bus", pct: 18, col: "var(--muted)", detail: "Minimal motion pass-through (peer_ros orthogonalized)" },
+            { name: "Audio Bus", pct: 94, col: "var(--success)", detail: "+22.3% RMS reverb decay unlocked across blocks 31..47" },
+            { name: "Hold Bus", pct: 92, col: "var(--warn)", detail: "1x Q_aud split protects speaker pitch (-0.039 st YIN F0)" }
+          ],
+          timelineNote: "Example of why fixing the 48/50 silent-audio blind spot mattered: restoring overall_soundscape deltas turns acoustic space into a first-class Sound-Mixer bus.",
+          curveEnd: 1.0,
+          is2x: false
+        },
+        {
+          id: "silent_film",
+          label: "1920s silent-film + projector",
+          routeMode: "1x BasicGuider (auto_1x_kv)",
+          routeTone: "pill-success",
+          release: "release = none (1x prelude)",
+          routingToml: "[routing]\nbuses = [\"Look\", \"Motion\", \"Audio\", \"Hold\"]\nguider = \"1x_basic_auto_kv\"",
+          buses: [
+            { name: "Look Bus", pct: 92, col: "var(--accent)", detail: "Orthochromatic nitrate contrast & gate vignette (-P_Vr mutes color)" },
+            { name: "Motion Bus", pct: 78, col: "var(--violet)", detail: "18-fps cranked cadence & vertical gate jitter" },
+            { name: "Audio Bus", pct: 86, col: "var(--success)", detail: "Mechanical projector sprocket click bed via restored soundscape" },
+            { name: "Hold Bus", pct: 96, col: "var(--warn)", detail: "Locks character blocking & wardrobe geometry in blocks 0..19" }
+          ],
+          timelineNote: "Three active creative buses + one Hold guard compile into one normalized 98.5%-capped single-envelope prelude table (zero 2x CFG cost).",
+          curveEnd: 1.0,
+          is2x: false
+        },
+        {
+          id: "uv_rave",
+          label: "UV rave outfits (2x Spatial)",
+          routeMode: "2x MiniMaxH3EditGuider + Mask",
+          routeTone: "pill-warn",
+          release: "spatial mask + independent audio_scale",
+          routingToml: "[routing]\nbuses = [\"Look\", \"Audio\", \"Hold\"]\nguider = \"2x_edit_guider\"\nmask = \"subject_fhw\"",
+          buses: [
+            { name: "Look Bus", pct: 96, col: "var(--accent)", detail: "Synthesizes reactive UV neon wardrobe inside [F, H, W] subject mask" },
+            { name: "Motion Bus", pct: 40, col: "var(--violet)", detail: "Keeps body choreography intact with peer_ros orthogonality" },
+            { name: "Audio Bus", pct: 70, col: "var(--success)", detail: "Independent audio_scale drives sub-bass pulse without room wash" },
+            { name: "Hold Bus", pct: 98, col: "var(--warn)", detail: "Preserves architectural walls & background crowd via orig + s*(edit-orig)" }
+          ],
+          timelineNote: "Static 1x tables struggle when new luminescent garments must replace existing outfits per-mask; [routing] promotes only this envelope to 2x EditGuider.",
+          curveEnd: 1.0,
+          is2x: true
+        },
+        {
+          id: "levitating_props",
+          label: "levitating props (Release 0.33)",
+          routeMode: "2x EditGuider + ReleaseRefs(0.33)",
+          routeTone: "pill-warn",
+          release: "video_end = 0.33, audio_end = 0.33",
+          routingToml: "[routing]\nbuses = [\"Motion\", \"Audio\", \"Hold\"]\nguider = \"2x_edit_guider\"\nrelease_refs_end = 0.33",
+          buses: [
+            { name: "Look Bus", pct: 35, col: "var(--muted)", detail: "Preserves natural tabletop shadows & original surface texture" },
+            { name: "Motion Bus", pct: 95, col: "var(--violet)", detail: "Lifts props cleanly off table then drops synthetic guides at 0.33" },
+            { name: "Audio Bus", pct: 62, col: "var(--success)", detail: "3f-snapped harmonic chime cues release cleanly alongside video refs" },
+            { name: "Hold Bus", pct: 97, col: "var(--warn)", detail: "Keeps &lt;Picture 1&gt; actor & room anchors locked past step 0.33" }
+          ],
+          timelineNote: "Verified in Wave GPU Trio (1a35a5ab): dropping synthetic &lt;Video N&gt; scaffolding once shift=12 crosses b=0.50 lets physics finish cleanly without stiff freeze.",
+          curveEnd: 0.33,
+          is2x: true
+        }
+      ];
+
+      let active = 0;
+      const presetsEl = document.getElementById("mixer-presets");
+      const busesEl = document.getElementById("mixer-buses");
+      const svgEl = document.getElementById("mixer-timeline-svg");
+      const detailEl = document.getElementById("mixer-route-detail");
+      if (!presetsEl || !busesEl || !svgEl || !detailEl) return;
+
+      function render() {
+        const cur = presets[active];
+        presetsEl.innerHTML = presets.map((p, idx) => `
+          <button type="button" class="mixer-preset-btn" aria-pressed="${idx === active}" onclick="window.__setMixer(${idx})">${p.label}</button>
+        `).join("");
+
+        busesEl.innerHTML = cur.buses.map((b) => `
+          <div class="bus-card">
+            <div class="bus-head">
+              <strong>${b.name}</strong>
+              <span class="mono" style="font-weight:700">${b.pct}%</span>
+            </div>
+            <div class="bus-meter-track">
+              <div class="bus-meter-fill" style="width:${b.pct}%;background:${b.col}"></div>
+            </div>
+            <div class="bus-meta">${b.detail}</div>
+          </div>
+        `).join("");
+
+        const relX = cur.curveEnd < 1.0 ? 185 : 448;
+        const envPath = cur.curveEnd < 1.0
+          ? "M 42 54 L 185 54 L 220 128 L 448 128"
+          : "M 42 54 L 448 54";
+        const refLabel = cur.curveEnd < 1.0
+          ? "Synthetic guides drop @ 0.33; &lt;Picture 1&gt; stays held"
+          : "Single unified prelude + stem envelope active across 6 Pika steps";
+
+        svgEl.innerHTML = `
+          <svg viewBox="0 0 490 170" role="img" aria-label="Compiled single-envelope denoise timeline for selected 4-bus preset">
+            <rect x="8" y="8" width="474" height="154" rx="8" fill="var(--surface)" stroke="var(--border)" />
+            <text x="22" y="29" font-size="11.5" font-family="var(--mono)" font-weight="700" fill="${cur.is2x ? "var(--warn)" : "var(--success)"}">
+              COMPILED ENVELOPE: ${cur.routeMode.toUpperCase()}
+            </text>
+            <line x1="42" y1="128" x2="448" y2="128" stroke="var(--border-strong)" stroke-width="1.5" />
+            <line x1="${relX}" y1="42" x2="${relX}" y2="136" stroke="var(--warn)" stroke-dasharray="4 3" />
+            <path d="${envPath}" fill="none" stroke="${cur.is2x ? "var(--warn)" : "var(--accent)"}" stroke-width="3" />
+            <text x="42" y="146" font-size="11" font-family="var(--mono)" fill="var(--muted)">t = 0.0 (start)</text>
+            <text x="${cur.curveEnd < 1.0 ? 150 : 318}" y="146" font-size="11" font-family="var(--mono)" fill="${cur.curveEnd < 1.0 ? "var(--warn)" : "var(--muted)"}">
+              ${cur.curveEnd < 1.0 ? "0.33 release" : "6 steps / 300 reads"}
+            </text>
+            <text x="414" y="146" font-size="11" font-family="var(--mono)" fill="var(--muted)">1.0</text>
+            <text x="42" y="45" font-size="11" fill="var(--ink)">${refLabel}</text>
+          </svg>
+        `;
+
+        detailEl.innerHTML = `
+          <div class="route-pill-row">
+            <span class="pill ${cur.routeTone}">${cur.routeMode}</span>
+            <span class="pill">${cur.release}</span>
+          </div>
+          <p style="margin:0 0 8px;font-size:0.86rem;color:var(--ink)">${cur.timelineNote}</p>
+          <pre class="code-pre">${cur.routingToml}</pre>
+        `;
+      }
+
+      window.__setMixer = (i) => { active = i; render(); };
+      render();
+    })();
+
+    /* Section 4: Interactive Operator Lab */
     (function initLab() {
       const scenarios = [
         {
-          tabId: "tab-scen-noir",
-          summary: "Prompt contains explicit warm color words while we push toward high-contrast silver-halide noir.",
+          tabId: "tab-scen-override",
+          summary: "Pushing a warm/dry interior or sunlit walk toward a coupled Look + Audio manifold target (e.g. reverb_cathedral or heavy_blizzard).",
           ops: [
             {
-              name: "1D Addition (+v)",
-              badge: "0 / 5 B&W (FAILS)",
+              name: "1D Addition (+v) / Pooled Stems",
+              badge: "0 / 5 FLIP &amp; SILENT AUDIO",
               tone: "badge-err",
               bars: [
-                { k: '"bright warm tungsten"', w: 92, col: "var(--error)", desc: "Retained (92%) — vetoes B&W 300x" },
-                { k: '"amber skin glow"', w: 88, col: "var(--error)", desc: "Retained (88%) — color remains" },
-                { k: '"daughter in kitchen"', w: 58, col: "var(--warn)", desc: "Collateral warp (+58%)" },
-                { k: "+ noir 1D shift", w: 52, col: "var(--accent)", desc: "hsv_sat stays 0.16–0.23" }
+                { k: "Pole-A words in H_prelude", w: 92, col: "var(--error)", desc: "Retained (92%) — vetoes shift across 300 DiT reads" },
+                { k: "Pre-pooled [N, 2, 5376]", w: 88, col: "var(--error)", desc: "Collapses tau=0.15 to [[1.0]]; SVD rank &le; 7 &lt; 8" },
+                { k: "Old llm_pairs.py extractor", w: 96, col: "var(--error)", desc: "48/50 legacy TOMLs silently dropped overall_soundscape" },
+                { k: "Target aesthetic / reverb", w: 28, col: "var(--warn)", desc: "Stalls mid-way (zero cathedral tail)" }
               ],
-              note: "Adding +noir never deletes \"warm tungsten\". Across 50 DiT blocks &times; 6 steps, video patches keep attending to the untouched color tokens."
+              note: "Adding +v never deletes existing Pole-A tokens, pre-pooling destroys rank-8 erasure, and old extractors erased overall_soundscape cues."
             },
             {
-              name: "Regime A: Rank-8 Erasure",
-              badge: "5 / 5 B&W (SHIPPED)",
+              name: "Regime A + 4-Bus Mixer v2",
+              badge: "5 / 5 FLIP &amp; +22.3% TAIL",
               tone: "badge-ok",
               bars: [
-                { k: '"bright warm tungsten"', w: 8, col: "var(--success)", desc: "Residualized -P_Vr (-91% color PCs)" },
-                { k: '"amber skin glow"', w: 11, col: "var(--success)", desc: "Residualized -P_Vr (-89% color PCs)" },
-                { k: '"daughter in kitchen"', w: 95, col: "var(--accent)", desc: "Preserved (peer_ros + 98.5 cap)" },
-                { k: "+ mu_d target shift", w: 94, col: "var(--success)", desc: "Clean flip (hsv_sat = 0.022–0.026)" }
+                { k: "Pole-A tokens (-P_Vr)", w: 8, col: "var(--success)", desc: "Unpooled fp32 __spans (~8.6 MB) erase Pole-A PCs cleanly" },
+                { k: "Restored [routing] Audio", w: 94, col: "var(--success)", desc: "reverb_cathedral +22.3% tail; heavy_blizzard howling gale" },
+                { k: "Subject Hold (peer_ros)", w: 96, col: "var(--accent)", desc: "1x Q_aud (-0.039 st YIN F0) + 98.5% norm cap" },
+                { k: "1x BasicGuider compile", w: 92, col: "var(--success)", desc: "steering/mixer.py compiles one envelope (0 extra CFG pass)" }
               ],
-              note: "Regresses out the top-8 baseline color PCs (-P_Vr), adds +mu_d, orthogonalizes peers via ROS, and caps norm at 95.5 -> 98.5. Wrong Vr drops back to 0 / 5 B&W."
+              note: "Regresses out baseline PCs via -P_Vr, merges Look+Motion+Audio+Hold cleanly in steering/mixer.py, and preserves &lt; 1e-6 Option B parity across 143 bank files."
             }
           ]
         },
         {
           tabId: "tab-scen-slop",
-          summary: "Applying a cleanup filter to an already grounded hardware aisle / sitcom kitchen prompt.",
+          summary: "Keeping clean hardware-aisle or sitcom scenes sharp without hallucinating artifacts or glossy clichés.",
           ops: [
             {
-              name: "de_llm_slop (Always-On A)",
+              name: "de_llm_slop (Old Always-On A)",
               badge: "-39% SHARPNESS BUG",
               tone: "badge-err",
               bars: [
-                { k: '"crisp foreground focus"', w: 82, col: "var(--error)", desc: "Erased! vr[2] bundles focus + blur" },
-                { k: '"wooden counter"', w: 76, col: "var(--error)", desc: "Artifact! Pushes clerk filing cabinets" },
-                { k: '"natural overcast"', w: 68, col: "var(--warn)", desc: "Forced RMS=67.5 blows highlights 3.6–6.8x" },
-                { k: '"neon teal-orange bokeh"', w: 4, col: "var(--muted)", desc: "0 tokens in prompt — firing blind" }
+                { k: "\"crisp foreground focus\"", w: 82, col: "var(--error)", desc: "Erased! vr[2] (d=0.822) bundles focus (+1.20) + blur (+0.98)" },
+                { k: "\"wooden counter\"", w: 76, col: "var(--error)", desc: "Artifact! Clerk/archive pairs leak into +mu_d (b_cov=0.071)" },
+                { k: "Forced 67.5 RMS / highlights", w: 68, col: "var(--warn)", desc: "Blows highlights 3.6–6.8x on already-clean prompts" },
+                { k: "CPU beauty correlation", w: 12, col: "var(--error)", desc: "youtube_overhype 1/12 b_cov still crushed Wave 3B" }
               ],
-              note: "3 textbook data errors: archival/clerk pairs leaked into +mu_d (b_cov = 0.071), vr[2] (d=0.822) spans focus (+1.20) + blur (+0.98), and Regime A forces a 67.5 RMS hit on clean inputs."
+              note: "3 textbook data traps plus a key meta-lesson: J-Lens / b_cov catch broken builds as smoke tests, never as final visual beauty scores."
             },
             {
-              name: "Regime B Gate + Upstream Guardrail",
-              badge: "0.00 CLEAN / 62.4 RMS SLOP",
+              name: "Zero-Lore 69498b35 + Regime B",
+              badge: "0.00 CLEAN / POSITIVE RESTRAINT",
               tone: "badge-ok",
               bars: [
-                { k: '"crisp foreground focus"', w: 3, col: "var(--success)", desc: "Deadzone cos < 0.10 -> 1.36–1.77 RMS" },
-                { k: '"wooden counter"', w: 3, col: "var(--success)", desc: "boost = 0 -> zero cabinet injection" },
-                { k: "Clean B control tokens", w: 2, col: "var(--success)", desc: "Exact 0.00 RMS perturbation" },
-                { k: "heylook prose guardrail", w: 94, col: "var(--accent)", desc: "Prevents glossy clichés before Qwen3-VL" }
+                { k: "11 scrubbed heylook prompts", w: 96, col: "var(--success)", desc: "Positive optical restraint + zero H3/MiniMax lore leaks" },
+                { k: "HeylookProvenance contract", w: 92, col: "var(--accent)", desc: "Tracks preset, model, seed &amp; clean template lineage" },
+                { k: "Deadzone cos gate (&lt; 0.10)", w: 3, col: "var(--success)", desc: "Clean inputs drop 38x–50x (1.36–1.77 vs 67.5 RMS)" },
+                { k: "boost = 0 noise gate", w: 2, col: "var(--success)", desc: "Zero clerk/archive hallucination onto grounded scenes" }
               ],
-              note: "Best anti-slop happens upstream in heylook prose rules (keep [Shot 1] Live-action, cinematic opener). In vector space, H3 prompt-local centering + -mu_d deadzone gate drops clean RMS 38x–50x with zero schema rebuild."
+              note: "69498b35 fixed clichés at the source across 11 runtime prompt files without teaching offline models fake internal jargon. Regime B stays cleanly gated on vector triggers."
             }
           ]
         },
         {
           tabId: "tab-scen-llm",
-          summary: "Preventing infinite \"Wait / Actually / However\" reasoning spin inside Qwen3.8-27B.",
+          summary: "Round 2a unseen-prompt validation on Mac Qwen3.8-27B / Swift 1.5 and why L63 moved to apps/steering-lab.",
           ops: [
             {
-              name: "Regime B: L63 Pivot Gate",
-              badge: "CHEAP L63 BASELINE",
-              tone: "badge-warn",
+              name: "L63-Only Hooks (vec / ray_r1)",
+              badge: "-7.3% COLLAPSE / +71.9% LOOP",
+              tone: "badge-err",
               bars: [
-                { k: "Top-20 pivot words", w: 90, col: "var(--warn)", desc: "Muted -4.0..-4.3 nats (55x–75x)" },
-                { k: "&lt;/think&gt; boundary (248069)", w: 2, col: "var(--muted)", desc: "Untouched (+0.0021 at paragraph ends)" },
-                { k: "L00..L59 bug vs spin check", w: 14, col: "var(--error)", desc: "Blind at L63 — cuts useful checks too" },
-                { k: "Visible answer prose", w: 2, col: "var(--success)", desc: "Zero post-&lt;/think&gt; overhead" }
+                { k: "B_L63_vec_1.0 on unseen R2a", w: 42, col: "var(--error)", desc: "Collapsed -40.5% -&gt; -7.3% (longer on 9/12 traps)" },
+                { k: "B_L63_ray_r1 repeat trap", w: 94, col: "var(--error)", desc: "+71.9% token loop + 1 truncation while MTP read 0.601!" },
+                { k: "H3 r=8 vr_diff rescue", w: 72, col: "var(--warn)", desc: "Recovered 12/12 (-5.0% &lt;think&gt;) via m0=0.08, w=0.22" },
+                { k: "MTP alone as safety metric", w: 18, col: "var(--error)", desc: "Blind to r=1 loops -&gt; needed KL + 4-gram loop_collapse" }
               ],
-              note: "Directly exploits vgel.me \"shapes-of-model-words\": damping the 20 RL doubt pivots stops spin without moving &lt;/think&gt;, but L63 arrives too late to distinguish real bug catches."
+              note: "Audited in 2026-11-23_qwen38_svd_erasure_and_steering.md:88-100: L63-only hooks collapsed or looped on unseen R2a traps, motivating KL + loop_collapse gates in Lab v2.0.274."
             },
             {
-              name: "Regime C: &lt;think&gt;-Gated LoRA",
-              badge: "-54.9% THINK (MAC #1)",
-              tone: "badge-acc",
+              name: "Swift 1.5 Clean Jinja + Lab v2.0.274",
+              badge: "26 / 26 DAILY (ZERO HOOKS)",
+              tone: "badge-ok",
               bars: [
-                { k: "7 FA/MLP LoRA modules", w: 94, col: "var(--accent)", desc: "L00..L59 contextual check stays smart" },
-                { k: "48 Gated DeltaNet layers", w: 2, col: "var(--success)", desc: "0.000000 weight delta (untouched)" },
-                { k: "in_thinking == True", w: 90, col: "var(--accent)", desc: "3,380 think tok vs 7,494 Stock (-54.9%)" },
-                { k: "After &lt;/think&gt; (Answer)", w: 2, col: "var(--success)", desc: "Scale = 0 -&gt; 939 tok (no 2x bloat!)" }
+                { k: "Stock 8-bit + clean Jinja", w: 98, col: "var(--success)", desc: "14/14 R1 (-39.4%) + 12/12 unseen R2a (-27.4%), 0 truncs" },
+                { k: "Bit-identical 8-bit MTP", w: 95, col: "var(--accent)", desc: "rel_frob = 0.000000; 0.618 draft share on unseen R2a" },
+                { k: "apps/steering-lab (6e3603ec)", w: 92, col: "var(--accent)", desc: "FA [39,43,47,51] vs GDN, JLens, RunningCenter, VLM Dual-Lock" },
+                { k: "Daily /v1/messages patches", w: 2, col: "var(--success)", desc: "Zero server hooks required — clean separation of concerns" }
               ],
-              note: "Port convert_pika_lora.py per-component FP64 SVD over 8-bit base weights, gated to in_thinking == True. Avoids stock medium/low's 2x answer bloat and budget truncation."
+              note: "Clean Jinja + standalone 8-bit Swift 1.5 solved daily clarity (26/26), liberating white-box MLX research (FA/GDN, J-Lens, MTP beams, VLM &lt;|image_pad|&gt;) inside apps/steering-lab."
             }
           ]
         }
