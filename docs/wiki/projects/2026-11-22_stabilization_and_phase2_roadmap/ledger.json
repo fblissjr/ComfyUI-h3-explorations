@@ -4,8 +4,10 @@
   "dossier_slug": "2026-11-22_stabilization_and_phase2_roadmap",
   "title": "H3 Steering Stabilization Plan, Phase 2 Queue & 6-Session Feedback Archive",
   "head_commits": {
-    "root_repo_main": "95bb75ec",
+    "root_repo_main": "d9340375",
     "root_preceding_commits": [
+      "9931fd6b",
+      "95bb75ec",
       "fd02cf59",
       "692a4377",
       "0854c787",
@@ -21,8 +23,9 @@
       "ec693dff",
       "3d4d81d4"
     ],
-    "nested_app_repo": "cd9b368",
+    "nested_app_repo": "ebb3ec9",
     "nested_app_preceding_commits": [
+      "cd9b368",
       "b4b0d0f",
       "70ac442",
       "3145c32",
@@ -426,6 +429,15 @@
       "commit": "95bb75ec + app/.git@cd9b368",
       "title": "Upstream heylook DELETE /v1/requests/{id} cancellation for /api/lab/pairs/generate & client disconnect",
       "details": "Added optional interrupt_check + on_request_id hooks and skipped repair when cancelled in bench/control_vector/llm_pairs.py (95bb75ec), wired LabJobManager upstream DELETE /v1/requests/{id} cancellation on /api/lab/jobs/{id}/cancel + shutdown() in app/cv_lab.py and ExpandManager._run_single_flight asyncio.CancelledError handling in app/heylook_bridge.py (app/.git@cd9b368)."
+    },
+    {
+      "id": "STAB-FOUND-D",
+      "owner": "90e9d2bd + 61cf9813",
+      "repo": "main + app/.git",
+      "status": "done",
+      "commit": "d9340375 + app/.git@ebb3ec9",
+      "title": "Holistic heylook hardening: unified HeylookCancelToken, bounded timeouts, thinking_budget, single-flight ExpandManager & UI cancel/409/tab isolation",
+      "details": "Consolidated heylook transport/cancellation across root (d9340375: HeylookCancelToken with Linux SHUT_RDWR socket unblock, DEFAULT_STREAM_TIMEOUT 300s read, DEFAULT_HEYLOOK_MODEL + fallback_models, capability-gated thinking_budget, >=400 zero-DELETE + Pass-1->Pass-2 repair abort checks, llm_pairs thinking/effort/budget/cancel forwarding, Tests 8-13 in bench/check_auto_edit_prompt.py) and Studio (app/.git@ebb3ec9: shared ExpandManager.run_flight backing expand/auto_edit/pairs-generate, sanitize_heylook_error, resolve_heylook_request_settings, app.on_shutdown, heylook_busy on /api/status, and JS AbortController/409/originTab/pagehide/Finder-Mint/Lab Cancel controls; verified cross-lane via 11 root offline checks + app pytest 53 passed/1 skipped + isolated CDP + check_image_studio + live :8188/:8192). Four minor non-blocking app UI/settings polish items remain optional: cross-endpoint 409 cancel button when active_job_id is empty on /lab and Finder Mint, forwarding unsaved live thinking/effort/budget from Finder Mint, 1-tick start_pairs_generate enqueue check before run_flight, and explicit empty-string clear parity on reasoning_effort/preset in resolve_heylook_request_settings."
     }
   ],
   "tomorrow_phase2_queue": [
