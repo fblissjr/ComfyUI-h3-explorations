@@ -8351,6 +8351,15 @@ def _check_nov15_steer_prose_and_ph3_family() -> list[str]:
                     "distinct non-'all' block_band",
                     "Stage 2 conflicting distinct block_band refusal",
                 )
+                m_vis_tok = cv_nodes.attach_control_vector(
+                    s2_base_patcher, s2_vec_p, strength=1.5, mode="add_norm_matched_erasure",
+                    mask="vision_tokens", allow_recipe_mismatch=True,
+                )
+                out_vis_tok, c_vt, _ = _run_patcher(m_vis_tok)
+                if c_vt != 1 or not (torch.isfinite(out_vis_tok[0]).all() and torch.isfinite(out_vis_tok[1]).all()):
+                    errs.append(f"attach_control_vector(mask='vision_tokens') execution check failed: calls={c_vt}")
+                elif float((out_vis_tok[0] - out_unsteered[0]).abs().max().item()) <= 1e-6:
+                    errs.append("attach_control_vector(mask='vision_tokens') had zero effect on tag-0 vision model output")
             finally:
                 cv.detect_family = orig_det_s2  # type: ignore[assignment]
 
@@ -8387,6 +8396,58 @@ def _check_nov15_steer_prose_and_ph3_family() -> list[str]:
             l3 = cv_nodes._j_lens.load_model2vec_lexicon(lex_p)
             if l3 is not None or lex_p.resolve() in cv_nodes._j_lens._LEXICON_CACHE:
                 errs.append(f"j_lens lexicon did not evict deleted file from cache: {l3!r}")
+
+        # 11. STEER_TARGETS & h3_spans include "vision_tokens" at the end and route only tag-0 rows
+        if cv_nodes.STEER_TARGETS[-1] != "vision_tokens":
+            errs.append(f"STEER_TARGETS[-1] expected 'vision_tokens', got {cv_nodes.STEER_TARGETS!r}")
+        else:
+            tags_vt = torch.tensor([[0, 0, 0, 1, 1, 1]], dtype=torch.long)
+            if not h3_spans.is_inference_mask("vision_tokens"):
+                errs.append("h3_spans.is_inference_mask('vision_tokens') returned False")
+            sm_vt = {"vision": tags_vt[0] == 0, "scene": tags_vt[0] != 0}
+            im_vt = h3_spans.inference_mask(sm_vt, "vision_tokens")
+            if not torch.equal(im_vt, sm_vt["vision"]):
+                errs.append(f"h3_spans.inference_mask(..., 'vision_tokens') mismatch: {im_vt!r}")
+            sp_vt = cv_nodes._AppliedVectorSpec(
+                vector_name="vt_test",
+                vector=torch.zeros((cv.POST_REFINER_DIM,), dtype=torch.float32),
+                strength=1.0,
+                mode="add_norm_matched_erasure",
+                mask="vision_tokens",
+                start_percent=0.0,
+                end_percent=1.0,
+                metadata={},
+                advisories=(),
+            )
+            cm_vt = cv_nodes._resolve_custom_inference_mask(
+                sp_vt,
+                tags_raw=tags_vt[0],
+                tags_2d=tags_vt,
+                payload={},
+                L=6,
+                device=torch.device("cpu"),
+            )
+            if cm_vt is None or not torch.equal(cm_vt, torch.tensor([True, True, True, False, False, False])):
+                errs.append(f"_resolve_custom_inference_mask('vision_tokens') returned unexpected mask: {cm_vt!r}")
+            g_vt = torch.Generator().manual_seed(20261123)
+            mu_a_vt = torch.randn((cv.POST_REFINER_DIM,), generator=g_vt, dtype=torch.float32) * 0.25
+            mu_d_vt = torch.randn((cv.POST_REFINER_DIM,), generator=g_vt, dtype=torch.float32)
+            vr_vt = torch.linalg.qr(torch.randn((cv.POST_REFINER_DIM, 2), generator=g_vt, dtype=torch.float64))[0].T.to(torch.float32)
+            diag_vt = torch.tensor([0.9, 0.5], dtype=torch.float32)
+            ctx_vt = torch.randn((1, 6, cv.POST_REFINER_DIM), generator=g_vt, dtype=torch.float32) * 3.0
+            ctx_vt[0, :3] = mu_a_vt.unsqueeze(0) + 4.0 * vr_vt[0].unsqueeze(0)
+            out_vt = cv.apply_post_refiner(
+                ctx_vt,
+                tags_vt,
+                [(mu_d_vt, 1.0, "add_norm_matched_erasure")],
+                mask=cm_vt,
+                mask_vision=False,
+                erasure_specs=[(vr_vt, diag_vt, mu_d_vt, (), mu_a_vt)],
+            )
+            if not torch.equal(out_vt[:, 3:], ctx_vt[:, 3:]):
+                errs.append("vision_tokens target modified tag-1 text rows")
+            if torch.allclose(out_vt[:, :3], ctx_vt[:, :3], atol=1e-3):
+                errs.append("vision_tokens target with mask_vision=False failed to modify tag-0 vision rows")
 
     return errs
 

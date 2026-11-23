@@ -44,7 +44,7 @@ import h3_env  # noqa: E402
 
 HEYLOOK_IMAGE_MAX_EDGE = 2048
 HEYLOOK_JPEG_QUALITY = 85
-DEFAULT_HEYLOOK_MODEL = "gemma-4-31B-it-8bit"
+DEFAULT_HEYLOOK_MODEL = "gemma-4-26B-A4B-it-8bit"
 DEFAULT_STREAM_TIMEOUT = httpx.Timeout(connect=10.0, read=300.0, write=30.0, pool=10.0)
 THINKING_MODES: tuple[str, ...] = ("model default", "on", "off")
 SAMPLER_MODES: tuple[str, ...] = ("heylook / preset default", "custom")

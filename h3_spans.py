@@ -78,6 +78,7 @@ INFERENCE_MASK_MODES: tuple[str, ...] = (
     "after_dialogue",
     "all_rows",
     *FIELD_MASK_MODES,
+    "vision_tokens",
 )
 
 LABEL_RE = re.compile(r"(?:<(?:Picture|Video|Audio) \d+>|Picture \d+): ")
@@ -621,6 +622,8 @@ def inference_mask(
         return (~span_masks["vision"]).clone()
     if mode == "all_rows":
         return torch.ones_like(span_masks["vision"], dtype=torch.bool)
+    if mode == "vision_tokens":
+        return span_masks["vision"].clone()
     scene_t = span_masks["scene"]
     has_sections = bool(getattr(scene_t, "_h3_has_sections", False))
     if mode == "look_only":

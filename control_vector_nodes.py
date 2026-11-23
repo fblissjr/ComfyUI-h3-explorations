@@ -90,6 +90,7 @@ STEER_TARGETS: tuple[str, ...] = (
     "soundscape_only",
     "after_dialogue",
     "non_vision",
+    "vision_tokens",
 )
 STEER_STREAMS: tuple[str, ...] = ("both", "video_only", "audio_only")
 STEER_EDIT_PASSES: tuple[str, ...] = ("both", "edited_only", "original_only")
@@ -1302,6 +1303,8 @@ def _resolve_custom_inference_mask(
 ) -> torch.Tensor | None:
     if sp.mask in ("non_vision", "all_rows"):
         return None
+    if sp.mask == "vision_tokens":
+        return (tags_2d[0] == 0).to(device=device)
     span_masks = kwarg_span_masks
     if span_masks is None:
         span_masks = payload.get("h3_span_masks")
@@ -2247,7 +2250,7 @@ def _make_control_vector_wrapper(
                     kwarg_span_masks=kwarg_span_masks,
                     is_h3_image=is_h3_image,
                 )
-                mask_vision = sp.mask != "all_rows"
+                mask_vision = sp.mask not in ("all_rows", "vision_tokens")
                 eff_rm = _cv.resolve_post_refiner_row_mask(
                     tags,
                     batch_size=cur_ctx.shape[0],
@@ -5138,7 +5141,8 @@ class MiniMaxH3Steer(io.ComfyNode):
                         "description while leaving tag-0 vision, retention_analysis contracts, "
                         "<d> dialogue, soundscape, and music untouched), 'description_only' "
                         "(events/actions prose), 'look_only' (subject_definitions + summary), "
-                        "'soundscape_only', 'after_dialogue', or 'non_vision' (all text rows)."
+                        "'soundscape_only', 'after_dialogue', 'non_vision' (all text rows), or "
+                        "'vision_tokens' (tag-0 visual reference rows, for media-contrast vectors)."
                     ),
                 ),
                 io.MultiCombo.Input(

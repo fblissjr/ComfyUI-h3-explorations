@@ -4,8 +4,9 @@
   "dossier_slug": "2026-11-22_stabilization_and_phase2_roadmap",
   "title": "H3 Steering Stabilization Plan, Phase 2 Queue & 6-Session Feedback Archive",
   "head_commits": {
-    "root_repo_main": "e9c93314+wave1",
+    "root_repo_main": "d9393539+wave2_wave3a",
     "root_preceding_commits": [
+      "d9393539",
       "e9c93314",
       "71742bc9",
       "d9340375",
@@ -26,7 +27,7 @@
       "ec693dff",
       "3d4d81d4"
     ],
-    "nested_app_repo": "825d27d",
+    "nested_app_repo": "825d27d (FROZEN for Track App-2.0)",
     "nested_app_preceding_commits": [
       "e1ae3ef",
       "ebb3ec9",
@@ -450,64 +451,64 @@
       "id": "P2-ENG-01",
       "phase2_order": "B.1.1",
       "category": "gated_engine",
-      "status": "wave1_cpu_helpers_ready_wave2_gpu_ab",
+      "status": "done_rejected_for_bank_promotion",
       "owner": "90e9d2bd / faa62ef5",
-      "title": "Evaluate & promote Bus-Scoped V_r (drop_look_pc16 vs pc8 vs shipped) on GPU A/B",
-      "details": "Wave 1 added non-destructive compute_bus_erasure_basis() and project_erasure_orthogonal_to_basis() CPU helpers in control_vectors.py (with unit proof in bench/verify_pole_a_erasure.py) without mutating saved bank/ tensors; Wave 2 Gate 2A runs live :8188 A/B (shipped vs pc8 vs pc16) before any bank promotion."
+      "title": "Evaluate & gate Bus-Scoped V_r (drop_look_pc16 vs pc8 vs shipped) on GPU A/B",
+      "details": "Wave 2 Gate 2A tested pc8 vs pc16 vs shipped live on :8188 (bench/results/2026-11-23_wave2_gpu_gates_bus_vr_path1c_and_qvid.md, gate2a_results.json). Projecting Look PCs caused white-magenta overexposure blowout in blacklight_uv_rave 1.35 + reverb_cathedral 1.25 on kitchen (mid_laplacian_var 43.44 -> 7.95 pc8 / 17.38 pc16; pc16 +3.377 st YIN F0), while shipped weights with runtime peer_ros=True kept both uv+reverb and chrome+zeroG crisp. Rejected for bank/ promotion; saved 137 bank files untouched."
     },
     {
       "id": "P2-SHOW-03",
       "phase2_order": "B.1.2",
       "category": "showcase",
-      "status": "wave2_gpu_queued",
+      "status": "done",
       "owner": "90e9d2bd",
       "title": "Verified 4-winner 192f showcases across contrasting adult scenes + paired YIN F0 + 345f check",
-      "details": "Render the 4 proven t=1 winners (charcoal_sketch_animated, x_ray_fluoroscope, mercury_liquid_chrome noting partial kitchen vs full stairwell, blacklight_uv_rave) across bright prompt_bank/t2va_restaurant_kitchen.txt + dim prompt_bank/t2va_stairwell_dialogue.txt, stack blacklight_uv_rave + reverb_cathedral on dry kitchen + mercury_liquid_chrome + zero_gravity, run 1 paired both vs 1x auto_1x_kv YIN F0 check, and run 345f Sol parity check."
+      "details": "Wave 2 Gate 2A completed all renders on prompt_bank/t2va_restaurant_kitchen.txt + t2va_stairwell_dialogue.txt (seed=730451892, 1152x768, MiniMaxH3Sol): strong full transformation on kitchen (charcoal rgb_mae=77.298, sat=0.1681; xray=64.362; chrome=68.452; uv=68.263) with scene-dependent partiality noted on dim stairwell charcoal (39.270) and x_ray (52.262); verified charcoal_192f_vidonly_1x (76.55s, -0.039 st paired YIN F0), first live 1x audio_only + late_30_49 (reverb_192f_audonly_late30, 75.25s, rgb_mae=7.461, centroid 2505.2->2687.3 Hz), and clean 345f MiniMaxH3Sol completion (charcoal_stairwell_345f 159.79s vs base 165.85s)."
     },
     {
       "id": "P2-ENG-02",
       "phase2_order": "B.1.3",
       "category": "gated_engine",
-      "status": "wave1_cli_helper_done_wave2_gpu_eval",
+      "status": "done_empirical_null",
       "owner": "90e9d2bd / faa62ef5",
-      "title": "Track 2 Path 1C ColQwen tags == 0 Dual-Lock Breaker (Wave 1 CLI/helper wired; Wave 2 GPU train)",
-      "details": "Wave 1 wired --scene-prompts CLI forwarding (bench/control_vector/cli.py, make_cmds.py -> control_vector_nodes.py) and fixed orthogonalize_erasure_against_holds(..., alpha) + bench/control_vector/helpers.py::_apply_erasure_holds for erasure.mu_a and continuous soft hold_alpha < 0.999 (all covered by CPU unit tests in bench/check_control_vectors.py); Wave 2 Gate 2B trains on N >= 6 pixel-aligned pairs + face_retain ROS + early/noisy ref release (0.17, lowered clean_level)."
+      "title": "Track 2 Path 1C ColQwen tags == 0 Dual-Lock Breaker (runtime wired; GPU Gate 2B empirical null)",
+      "details": "Appended target='vision_tokens' to STEER_TARGETS (control_vector_nodes.py:93) and INFERENCE_MASK_MODES (h3_spans.py:81) with mock DiT coverage in bench/check_control_vectors.py. GPU Gate 2B (gate2b_path1c_results.json, N=6 aligned pairs, hold_alpha=0.65, release=0.17, clean_level=0.90/0.85) showed an empirical null: vision_tokens-only held hsv_sat=0.2432 vs base 0.2477 because DiT self-attention remains anchored to raw reference_latent VAE pixels. Runtime option retained; noir_colqwen_p1c left unpromoted outside bank/."
     },
     {
       "id": "P2-ENG-03",
       "phase2_order": "B.1.4",
       "category": "gated_engine",
-      "status": "wave2_gpu_queued",
+      "status": "done_fail_not_promoted",
       "owner": "90e9d2bd / faa62ef5",
-      "title": "Timeboxed ~90s 90f 1x Q_vid[mask] bleed & wall-clock probe gating Split-Text Online-Softmax Merge",
-      "details": "Test t >= 45 temporal flip + 20% moving portal (alpha = 1.0, 1.3, 1.5 watching recursive block-ringing across blocks.20..49) strictly against 2x Sol EditGuider on inside/outside contrast (>= 2.0x) and actual wall-clock/VRAM. Only promote Split-Text Exact Online-Softmax Merge if bleed clears gate."
+      "title": "Timeboxed 90f 1x Q_vid[mask] bleed & wall-clock probe gating Split-Text Online-Softmax Merge",
+      "details": "Wave 2 Gate 2C (gate2c_qvid_results.json, 90f kitchen, charcoal 1.35, 300 splices, alpha=1.0/1.3/1.5) returned verdict='FAIL' (temporal_pass=false, portal_pass=false): 24.5% portal yielded 1.047x-1.090x contrast vs 1.421x 2x EditGuider with bidirectional K_vid, V_vid washout and layout drift; 51.9% temporal hit 1.335x-1.381x at 1.07x-1.11x speed (1836.1 MB peak VRAM vs 263.8 MB 2x). Split-Text Online-Softmax Merge rejected and not promoted."
     },
     {
       "id": "P2-SHOW-01",
       "phase2_order": "B.2.1",
       "category": "showcase",
-      "status": "wave3_gpu_queued",
-      "owner": "90e9d2bd + 1fffc6ed",
+      "status": "wave3_part_b_next",
+      "owner": "90e9d2bd",
       "title": "youtube_overhype_influencer 192f HUD & 4D suite on t2va_stairwell_dialogue.txt",
-      "details": "Build youtube_overhype_influencer.toml with identical <d>...</d> dialogue on both poles. Render 2x HUD targeting portal + 1x auto_1x_kv streams='video_only' + 1x streams='audio_only' with block_band='late_30_49' (first live GPU proof of late_30_49 audio steering)."
+      "details": "Build youtube_overhype_influencer.toml with identical <d>...</d> dialogue on both poles. Render 2x HUD targeting portal + 1x auto_1x_kv streams='video_only' + 1x streams='audio_only' with block_band='late_30_49'."
     },
     {
       "id": "P2-SHOW-02",
       "phase2_order": "B.2.2",
       "category": "showcase",
-      "status": "wave3_gpu_queued",
-      "owner": "90e9d2bd + 1fffc6ed",
+      "status": "wave3_part_b_next",
+      "owner": "90e9d2bd",
       "title": "sudden_takeoff_flight 192f rising HUD portal on new adult t2va_motorcycle_highway.txt",
-      "details": "Author adult-only prompt_bank/t2va_motorcycle_highway.txt + sudden_takeoff_flight.toml. Render rising/expanding HUD portal (rx: 0.35 -> 0.58 sweeping into sky f48->f168) + 3f-snapped MiniMaxH3SoundCues lift transient (+ 1x temporal flip if B.1.4 clears)."
+      "details": "Author adult-only prompt_bank/t2va_motorcycle_highway.txt + sudden_takeoff_flight.toml. Render rising/expanding HUD portal (rx: 0.35 -> 0.58 sweeping into sky f48->f168) + 3f-snapped MiniMaxH3SoundCues lift transient."
     },
     {
       "id": "P2-POL-01",
       "phase2_order": "B.2.3",
       "category": "polish",
-      "status": "wave1_done_optional_eval_wave3",
+      "status": "wave3a_paper_and_default_done",
       "owner": "90e9d2bd + 61cf9813",
-      "title": "Wave 1 DONE: Bank header b_side_alignment refresh & 4-item app/ backlog (app/.git@825d27d); optional decone_pcs=1 eval in Wave 3",
-      "details": "Wave 1 atomically refreshed b_side_alignment metadata headers across all 137/137 safetensors in bank/ (48/48 fl2va carry effective_coverage, bit-identical tensors) + updated build_paper.py HTML captions/arrows, and closed P2-APP-01..04 cleanly at app/.git@825d27d. Optional decone_pcs=1 + natural-synonym evaluation in bench/control_vector/build_model2vec_lexicon.py remains available for Wave 3."
+      "title": "Wave 3 Part A DONE (Paper v5 closed, DEFAULT_HEYLOOK_MODEL -> gemma-4-26B-A4B-it-8bit, Track App-2.0 boundary); optional decone_pcs=1 / Path 1A in Part B",
+      "details": "Wave 1 refreshed all 137 bank/ headers & closed P2-APP-01..04 at app/.git@825d27d. Wave 3 Part A closed all open [PHASE 2 GPU] slots in docs/wiki/steering/paper/manuscript.md (rebuilt main.tex + paper_v5_2026_11_23.{html,pdf}) and updated root heylook_client.py::DEFAULT_HEYLOOK_MODEL='gemma-4-26B-A4B-it-8bit' without modifying frozen app/.git@825d27d (cross-repo alignment needed later in Track App-2.0 for app/static/js/core.js:30 and app/tests/test_heylook_and_video_polish.py:976-1104). Optional decone_pcs=1 + Path 1A evaluations remain queued."
     }
   ],
   "deferred_items": [
