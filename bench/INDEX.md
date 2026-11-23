@@ -15,7 +15,7 @@ this file is only a way to find a script by what it says it does.
 | [`compare_*`](#compare) | 15 |
 | [`build_*`](#build) | 13 |
 | [`probe_*`](#probe) | 20 |
-| [the rest](#the-rest) | 209 |
+| [the rest](#the-rest) | 210 |
 
 ## check
 
@@ -506,6 +506,7 @@ this file is only a way to find a script by what it says it does.
 | [`run_lane_benchmark.py`](run_lane_benchmark.py) | The masked lane's scoreboard: every judged shot of every window, each render's metrics beside the eye's verdicts. |
 | [`run_marker_arms.sh`](run_marker_arms.sh) | Run the marker arms (bench/marker_arms.json) end to end, up to the point that |
 | [`run_marker_stock_tail.py`](run_marker_stock_tail.py) | Render six more STOCK-arm seeds, to settle the rolloff85 outlier. |
+| [`run_multishot_film_2026_11_23.py`](run_multishot_film_2026_11_23.py) | Shoot a diverse 4-shot (23.50s / 564f) H3 Sound-Mixer film on live ComfyUI (:8188). |
 | [`run_pruning_arms.py`](run_pruning_arms.py) | CLOSED RECORD since 2026-09-18. This runner renders bank prompts written for 345 frames at a fixed short length, which bench/run_graph_arms.py now refuses; it needs prompts written for its length before it runs again (its results are the ... |
 | [`run_shot_count_ablation.py`](run_shot_count_ablation.py) | CLOSED RECORD since 2026-09-18. This ablation computes cut times into shot headers by design, from a frozen out-of-bank base graph at 362 frames (on the grid, one step above the 345 every shipped graph now renders; ... |
 | [`run_tau_sweep.py`](run_tau_sweep.py) | Queue the scenes of a tau sweep on a server armed with `H3_SOL_SWEEP`. |
@@ -754,7 +755,7 @@ Arm manifests and the like; a manifest's line is its own `what`.
 
 ### results
 
-257 tracked files: [`results/INDEX.md`](results/INDEX.md).
+258 tracked files: [`results/INDEX.md`](results/INDEX.md).
 
 ### rubrics
 
