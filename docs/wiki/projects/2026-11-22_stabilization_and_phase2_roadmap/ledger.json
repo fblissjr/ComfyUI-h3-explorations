@@ -4,8 +4,9 @@
   "dossier_slug": "2026-11-22_stabilization_and_phase2_roadmap",
   "title": "H3 Steering Stabilization Plan, Phase 2 Queue & 6-Session Feedback Archive",
   "head_commits": {
-    "root_repo_main": "d9340375",
+    "root_repo_main": "71742bc9",
     "root_preceding_commits": [
+      "d9340375",
       "9931fd6b",
       "95bb75ec",
       "fd02cf59",
@@ -23,8 +24,9 @@
       "ec693dff",
       "3d4d81d4"
     ],
-    "nested_app_repo": "ebb3ec9",
+    "nested_app_repo": "e1ae3ef",
     "nested_app_preceding_commits": [
+      "ebb3ec9",
       "cd9b368",
       "b4b0d0f",
       "70ac442",
@@ -435,9 +437,9 @@
       "owner": "90e9d2bd + 61cf9813",
       "repo": "main + app/.git",
       "status": "done",
-      "commit": "d9340375 + app/.git@ebb3ec9",
+      "commit": "d9340375 + app/.git@ebb3ec9,e1ae3ef",
       "title": "Holistic heylook hardening: unified HeylookCancelToken, bounded timeouts, thinking_budget, single-flight ExpandManager & UI cancel/409/tab isolation",
-      "details": "Consolidated heylook transport/cancellation across root (d9340375: HeylookCancelToken with Linux SHUT_RDWR socket unblock, DEFAULT_STREAM_TIMEOUT 300s read, DEFAULT_HEYLOOK_MODEL + fallback_models, capability-gated thinking_budget, >=400 zero-DELETE + Pass-1->Pass-2 repair abort checks, llm_pairs thinking/effort/budget/cancel forwarding, Tests 8-13 in bench/check_auto_edit_prompt.py) and Studio (app/.git@ebb3ec9: shared ExpandManager.run_flight backing expand/auto_edit/pairs-generate, sanitize_heylook_error, resolve_heylook_request_settings, app.on_shutdown, heylook_busy on /api/status, and JS AbortController/409/originTab/pagehide/Finder-Mint/Lab Cancel controls; verified cross-lane via 11 root offline checks + app pytest 53 passed/1 skipped + isolated CDP + check_image_studio + live :8188/:8192). Four minor non-blocking app UI/settings polish items remain optional: cross-endpoint 409 cancel button when active_job_id is empty on /lab and Finder Mint, forwarding unsaved live thinking/effort/budget from Finder Mint, 1-tick start_pairs_generate enqueue check before run_flight, and explicit empty-string clear parity on reasoning_effort/preset in resolve_heylook_request_settings."
+      "details": "Consolidated heylook transport/cancellation across root (d9340375: HeylookCancelToken with Linux SHUT_RDWR socket unblock, DEFAULT_STREAM_TIMEOUT 300s read, DEFAULT_HEYLOOK_MODEL + fallback_models, capability-gated thinking_budget, >=400 zero-DELETE + Pass-1->Pass-2 repair abort checks, llm_pairs thinking/effort/budget/cancel forwarding, Tests 8-13 in bench/check_auto_edit_prompt.py) and Studio (app/.git@ebb3ec9,e1ae3ef: shared ExpandManager.run_flight backing expand/auto_edit/pairs-generate, sanitize_heylook_error, resolve_heylook_request_settings, app.on_shutdown, heylook_busy on /api/status, JS AbortController/409/originTab/pagehide/Finder-Mint/Lab Cancel controls; e1ae3ef closed cross-endpoint 409 fallback cancel on /lab & Finder Mint, live unsaved thinking/effort/budget forwarding in Finder Mint, synchronous start_pairs_generate _async_tasks TOCTOU guard, and cancel_pairs_jobs on session/end; verified across root checks + app pytest 53 passed/1 skipped + isolated CDP 1 passed + check_image_studio + live :8188/:8192). One minor non-blocking parity note remains optional: explicit empty-string clear parity on reasoning_effort/preset in resolve_heylook_request_settings."
     }
   ],
   "tomorrow_phase2_queue": [
