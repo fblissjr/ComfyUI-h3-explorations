@@ -1,0 +1,1708 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="light dark" />
+  <script>
+    try {
+      document.querySelector('meta[name="color-scheme"]').content =
+        localStorage.getItem("h3-wiki-color-scheme") ?? "light dark";
+    } catch {}
+  </script>
+  <title>H3 &amp; heylook Cross-Domain Field Guide — Architecture, Steering Regimes &amp; Audit</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+
+      --bg-light: #f8fafc;
+      --bg-dark: #0b0f17;
+      --surface-light: #ffffff;
+      --surface-dark: #111827;
+      --surface-alt-light: #f1f5f9;
+      --surface-alt-dark: #1a2232;
+      --border-light: #dbe2ea;
+      --border-dark: #253044;
+      --border-strong-light: #cbd5e1;
+      --border-strong-dark: #334155;
+
+      --ink-light: #0f172a;
+      --ink-dark: #f1f5f9;
+      --muted-light: #475569;
+      --muted-dark: #94a3b8;
+      --subtle-light: #64748b;
+      --subtle-dark: #64748b;
+
+      --accent-light: #1d4ed8;
+      --accent-dark: #60a5fa;
+      --accent-soft-light: rgba(29, 78, 216, 0.08);
+      --accent-soft-dark: rgba(96, 165, 250, 0.14);
+
+      --success-light: #15803d;
+      --success-dark: #4ade80;
+      --success-soft-light: rgba(21, 128, 61, 0.09);
+      --success-soft-dark: rgba(74, 222, 128, 0.14);
+
+      --warn-light: #b45309;
+      --warn-dark: #fbbf24;
+      --warn-soft-light: rgba(180, 83, 9, 0.09);
+      --warn-soft-dark: rgba(251, 191, 36, 0.14);
+
+      --error-light: #b91c1c;
+      --error-dark: #f87171;
+      --error-soft-light: rgba(185, 28, 28, 0.09);
+      --error-soft-dark: rgba(248, 113, 113, 0.14);
+
+      --violet-light: #6d28d9;
+      --violet-dark: #c084fc;
+
+      --bg: var(--bg-light);
+      --surface: var(--surface-light);
+      --surface-alt: var(--surface-alt-light);
+      --border: var(--border-light);
+      --border-strong: var(--border-strong-light);
+      --ink: var(--ink-light);
+      --muted: var(--muted-light);
+      --subtle: var(--subtle-light);
+      --accent: var(--accent-light);
+      --accent-soft: var(--accent-soft-light);
+      --success: var(--success-light);
+      --success-soft: var(--success-soft-light);
+      --warn: var(--warn-light);
+      --warn-soft: var(--warn-soft-light);
+      --error: var(--error-light);
+      --error-soft: var(--error-soft-light);
+      --violet: var(--violet-light);
+
+      --sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: var(--bg-dark);
+        --surface: var(--surface-dark);
+        --surface-alt: var(--surface-alt-dark);
+        --border: var(--border-dark);
+        --border-strong: var(--border-strong-dark);
+        --ink: var(--ink-dark);
+        --muted: var(--muted-dark);
+        --subtle: var(--subtle-dark);
+        --accent: var(--accent-dark);
+        --accent-soft: var(--accent-soft-dark);
+        --success: var(--success-dark);
+        --success-soft: var(--success-soft-dark);
+        --warn: var(--warn-dark);
+        --warn-soft: var(--warn-soft-dark);
+        --error: var(--error-dark);
+        --error-soft: var(--error-soft-dark);
+        --violet: var(--violet-dark);
+      }
+    }
+
+    @supports (color: light-dark(white, black)) {
+      :root {
+        --bg: light-dark(var(--bg-light), var(--bg-dark));
+        --surface: light-dark(var(--surface-light), var(--surface-dark));
+        --surface-alt: light-dark(var(--surface-alt-light), var(--surface-alt-dark));
+        --border: light-dark(var(--border-light), var(--border-dark));
+        --border-strong: light-dark(var(--border-strong-light), var(--border-strong-dark));
+        --ink: light-dark(var(--ink-light), var(--ink-dark));
+        --muted: light-dark(var(--muted-light), var(--muted-dark));
+        --subtle: light-dark(var(--subtle-light), var(--subtle-dark));
+        --accent: light-dark(var(--accent-light), var(--accent-dark));
+        --accent-soft: light-dark(var(--accent-soft-light), var(--accent-soft-dark));
+        --success: light-dark(var(--success-light), var(--success-dark));
+        --success-soft: light-dark(var(--success-soft-light), var(--success-soft-dark));
+        --warn: light-dark(var(--warn-light), var(--warn-dark));
+        --warn-soft: light-dark(var(--warn-soft-light), var(--warn-soft-dark));
+        --error: light-dark(var(--error-light), var(--error-dark));
+        --error-soft: light-dark(var(--error-soft-light), var(--error-soft-dark));
+        --violet: light-dark(var(--violet-light), var(--violet-dark));
+      }
+    }
+
+    :root:has(> head > meta[name="color-scheme"][content="dark"]) {
+      color-scheme: dark;
+      --bg: var(--bg-dark);
+      --surface: var(--surface-dark);
+      --surface-alt: var(--surface-alt-dark);
+      --border: var(--border-dark);
+      --border-strong: var(--border-strong-dark);
+      --ink: var(--ink-dark);
+      --muted: var(--muted-dark);
+      --subtle: var(--subtle-dark);
+      --accent: var(--accent-dark);
+      --accent-soft: var(--accent-soft-dark);
+      --success: var(--success-dark);
+      --success-soft: var(--success-soft-dark);
+      --warn: var(--warn-dark);
+      --warn-soft: var(--warn-soft-dark);
+      --error: var(--error-dark);
+      --error-soft: var(--error-soft-dark);
+      --violet: var(--violet-dark);
+    }
+
+    :root:has(> head > meta[name="color-scheme"][content="light"]) {
+      color-scheme: light;
+      --bg: var(--bg-light);
+      --surface: var(--surface-light);
+      --surface-alt: var(--surface-alt-light);
+      --border: var(--border-light);
+      --border-strong: var(--border-strong-light);
+      --ink: var(--ink-light);
+      --muted: var(--muted-light);
+      --subtle: var(--subtle-light);
+      --accent: var(--accent-light);
+      --accent-soft: var(--accent-soft-light);
+      --success: var(--success-light);
+      --success-soft: var(--success-soft-light);
+      --warn: var(--warn-light);
+      --warn-soft: var(--warn-soft-light);
+      --error: var(--error-light);
+      --error-soft: var(--error-soft-light);
+      --violet: var(--violet-light);
+    }
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      font-family: var(--sans);
+      font-size: 15px;
+      line-height: 1.6;
+      color: var(--ink);
+      background: var(--bg);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+
+    code {
+      font-family: var(--mono);
+      font-size: 12.5px;
+      background: var(--surface-alt);
+      border: 1px solid var(--border);
+      padding: 1px 5px;
+      border-radius: 4px;
+    }
+
+    .mono {
+      font-family: var(--mono);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .page {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 24px 20px 64px;
+    }
+
+    /* Header & Breadcrumb */
+    .topbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 20px;
+      font-size: 13px;
+    }
+
+    .breadcrumbs {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      color: var(--muted);
+    }
+
+    .breadcrumbs a {
+      font-weight: 500;
+    }
+
+    .sep {
+      color: var(--subtle);
+    }
+
+    .theme-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--surface);
+      color: var(--ink);
+      border: 1px solid var(--border-strong);
+      border-radius: 6px;
+      padding: 6px 12px;
+      font-family: inherit;
+      font-size: 12.5px;
+      font-weight: 500;
+      cursor: pointer;
+    }
+
+    .theme-btn:hover {
+      border-color: var(--accent);
+    }
+
+    .theme-btn:focus-visible,
+    button:focus-visible,
+    a:focus-visible,
+    .table-wrapper:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    .masthead {
+      margin-bottom: 24px;
+    }
+
+    .eyebrow {
+      font-family: var(--mono);
+      font-size: 12px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+
+    .masthead h1 {
+      margin: 0 0 8px;
+      font-size: clamp(1.5rem, 2.6vw, 2rem);
+      line-height: 1.2;
+      letter-spacing: -0.02em;
+      font-weight: 700;
+    }
+
+    .lead {
+      margin: 0;
+      color: var(--muted);
+      max-width: 78ch;
+      font-size: 15px;
+    }
+
+    /* Section Jump Nav */
+    .jump-nav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 18px 0 24px;
+    }
+
+    .jump-nav a {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 11px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--ink);
+      font-size: 13px;
+      font-weight: 500;
+    }
+
+    .jump-nav a:hover {
+      border-color: var(--accent);
+      text-decoration: none;
+    }
+
+    .jump-num {
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--accent);
+    }
+
+    /* KPI Strip */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 14px;
+      margin-bottom: 28px;
+    }
+
+    .kpi-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .kpi-label {
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--muted);
+    }
+
+    .kpi-val {
+      font-family: var(--mono);
+      font-variant-numeric: tabular-nums;
+      font-size: 24px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      line-height: 1.2;
+    }
+
+    .kpi-note {
+      font-size: 12.5px;
+      color: var(--muted);
+    }
+
+    /* Section Containers */
+    section {
+      margin-bottom: 32px;
+      scroll-margin-top: 20px;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 20px 22px;
+    }
+
+    .section-head {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 14px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .section-head h2 {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: -0.015em;
+    }
+
+    .section-tag {
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .section-intro {
+      margin: 0 0 16px;
+      color: var(--muted);
+      font-size: 14.5px;
+    }
+
+    /* Pill / Badge */
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-family: var(--mono);
+      font-size: 12px;
+      font-weight: 600;
+      white-space: nowrap;
+      border: 1px solid transparent;
+    }
+
+    .badge-ok {
+      background: var(--success-soft);
+      color: var(--success);
+      border-color: var(--success);
+    }
+
+    .badge-warn {
+      background: var(--warn-soft);
+      color: var(--warn);
+      border-color: var(--warn);
+    }
+
+    .badge-err {
+      background: var(--error-soft);
+      color: var(--error);
+      border-color: var(--error);
+    }
+
+    .badge-acc {
+      background: var(--accent-soft);
+      color: var(--accent);
+      border-color: var(--accent);
+    }
+
+    /* Accessible Tabs + hidden="until-found" */
+    .tabs-bar {
+      display: flex;
+      overflow-x: auto;
+      gap: 4px;
+      border-block-end: 1px solid var(--border);
+      margin-bottom: 16px;
+      scrollbar-width: thin;
+    }
+
+    [role="tab"] {
+      flex: none;
+      position: relative;
+      background: transparent;
+      border: 0;
+      color: var(--muted);
+      font-family: inherit;
+      font-size: 13.5px;
+      font-weight: 500;
+      padding: 9px 14px 11px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    [role="tab"]:hover {
+      color: var(--ink);
+    }
+
+    [role="tab"][aria-selected="true"] {
+      color: var(--accent);
+    }
+
+    [role="tab"][aria-selected="true"]::after {
+      content: "";
+      position: absolute;
+      inset: auto 0 0;
+      border-block-end: 3px solid var(--accent);
+    }
+
+    /* Never put borders/padding/background on [role="tabpanel"] itself (search-hidden-content guide) */
+    .tab-panels {
+      display: block;
+    }
+
+    .panel-inner {
+      display: block;
+    }
+
+    /* Grids & Cards inside sections */
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(310px, 1fr));
+      gap: 16px;
+    }
+
+    .grid-4 {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 12px;
+    }
+
+    .subcard {
+      background: var(--surface-alt);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+    }
+
+    .subcard h3 {
+      margin: 0 0 6px;
+      font-size: 14.5px;
+      font-weight: 600;
+    }
+
+    .subcard p {
+      margin: 0;
+      font-size: 13.5px;
+      color: var(--muted);
+    }
+
+    /* Interactive Stage Buttons */
+    .choice-btn {
+      text-align: left;
+      background: var(--surface-alt);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 14px;
+      color: var(--ink);
+      cursor: pointer;
+      font-family: inherit;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      transition: border-color 0.12s ease;
+    }
+
+    .choice-btn:hover {
+      border-color: var(--border-strong);
+    }
+
+    .choice-btn[aria-pressed="true"] {
+      background: var(--surface);
+      border-color: var(--accent);
+      border-width: 2px;
+      padding: 11px 13px;
+    }
+
+    .meter-track {
+      width: 100%;
+      height: 8px;
+      background: var(--border);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .meter-fill {
+      height: 100%;
+      border-radius: 999px;
+      transition: width 0.25s ease;
+    }
+
+    /* Op selector pills */
+    .op-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 14px;
+      align-items: center;
+    }
+
+    .op-btn {
+      background: var(--surface-alt);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 6px 12px;
+      color: var(--ink);
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+    }
+
+    .op-btn[aria-pressed="true"] {
+      background: var(--accent-soft);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    /* Bar chart rows in Lab */
+    .bar-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    .bar-row {
+      display: grid;
+      grid-template-columns: minmax(170px, 240px) minmax(100px, 190px) 1fr;
+      gap: 12px;
+      align-items: center;
+      font-size: 13px;
+    }
+
+    @media (max-width: 720px) {
+      .bar-row {
+        grid-template-columns: 1fr;
+        gap: 4px;
+      }
+    }
+
+    /* DiT Block Strip */
+    .dit-strip {
+      display: grid;
+      grid-template-columns: 5fr 3fr 3fr 1fr;
+      gap: 6px;
+      margin-bottom: 14px;
+    }
+
+    @media (max-width: 720px) {
+      .dit-strip {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    /* Toggle row */
+    .control-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .checkbox-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 600;
+      color: var(--ink);
+      cursor: pointer;
+    }
+
+    .checkbox-label input {
+      accent-color: var(--accent);
+      width: 16px;
+      height: 16px;
+    }
+
+    /* Responsive Tables (@container) */
+    .table-wrapper {
+      overflow: auto;
+      max-inline-size: 100%;
+      container-type: inline-size;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      font-size: 13.5px;
+    }
+
+    caption {
+      text-align: left;
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--muted);
+      padding: 10px 14px;
+      background: var(--surface-alt);
+      border-bottom: 1px solid var(--border);
+    }
+
+    thead {
+      position: sticky;
+      inset-block-start: 0;
+      z-index: 2;
+      background: var(--surface-alt);
+    }
+
+    th, td {
+      text-align: left;
+      vertical-align: top;
+      padding: 11px 14px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    th {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--muted);
+    }
+
+    tbody th {
+      position: sticky;
+      inset-inline-start: 0;
+      z-index: 1;
+      background: var(--surface);
+      font-size: 13.5px;
+      text-transform: none;
+      letter-spacing: 0;
+      color: var(--ink);
+      font-weight: 600;
+      border-right: 1px solid var(--border);
+    }
+
+    tbody tr:last-child th,
+    tbody tr:last-child td {
+      border-bottom: 0;
+    }
+
+    @container (width < 680px) {
+      table, thead, tbody, tr, th, td {
+        display: block;
+      }
+
+      thead {
+        display: none;
+      }
+
+      tbody tr {
+        margin-block-end: 12px;
+        border-bottom: 2px solid var(--border);
+      }
+
+      tbody th {
+        position: sticky;
+        inset-block-start: 0;
+        inset-inline-start: auto;
+        z-index: 2;
+        background: var(--surface-alt);
+        border-right: 0;
+        border-bottom: 1px solid var(--border);
+      }
+
+      tbody td {
+        border-bottom: 1px solid var(--border);
+      }
+
+      .regime-table td:nth-child(2)::before { content: var(--label-2) ": "; font-weight: 600; color: var(--muted); }
+      .regime-table td:nth-child(3)::before { content: var(--label-3) ": "; font-weight: 600; color: var(--muted); }
+      .regime-table td:nth-child(4)::before { content: var(--label-4) ": "; font-weight: 600; color: var(--muted); }
+      .regime-table td:nth-child(5)::before { content: var(--label-5) ": "; font-weight: 600; color: var(--muted); }
+
+      .score-table td:nth-child(2)::before { content: var(--label-2) ": "; font-weight: 600; color: var(--muted); }
+      .score-table td:nth-child(3)::before { content: var(--label-3) ": "; font-weight: 600; color: var(--muted); }
+      .score-table td:nth-child(4)::before { content: var(--label-4) ": "; font-weight: 600; color: var(--muted); }
+    }
+
+    /* Callouts & Action Sequence */
+    .callout {
+      border-left: 3px solid var(--accent);
+      background: var(--surface-alt);
+      padding: 12px 14px;
+      border-radius: 0 8px 8px 0;
+      font-size: 13.5px;
+    }
+
+    .callout strong {
+      color: var(--ink);
+    }
+
+    .roadmap-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .roadmap-item {
+      display: grid;
+      grid-template-columns: 36px 1fr;
+      gap: 12px;
+      align-items: start;
+      padding: 12px 14px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface-alt);
+    }
+
+    .step-num {
+      font-family: var(--mono);
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--accent);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* SVG wrapper */
+    .svg-frame {
+      background: var(--surface-alt);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+      overflow-x: auto;
+    }
+
+    .svg-frame svg {
+      display: block;
+      max-width: 100%;
+      height: auto;
+    }
+
+    .split-curves {
+      display: grid;
+      grid-template-columns: minmax(0, 1.35fr) minmax(260px, 1fr);
+      gap: 18px;
+      align-items: start;
+      margin-top: 18px;
+    }
+
+    @media (max-width: 820px) {
+      .split-curves {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    footer {
+      margin-top: 32px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border);
+      font-size: 12.5px;
+      color: var(--muted);
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 12px;
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <!-- Top Bar & Breadcrumbs -->
+    <div class="topbar">
+      <nav class="breadcrumbs" aria-label="Wiki navigation">
+        <a href="../index.md">Wiki Index</a>
+        <span class="sep">/</span>
+        <a href="../steering.md">Steering Hub</a>
+        <span class="sep">/</span>
+        <a href="./research/2026-11-23_cross_domain_llm_dit_vgel_and_strategic_audit.md">2026-11-23 Full Synthesis Note</a>
+      </nav>
+      <button type="button" id="theme-toggle" class="theme-btn" aria-label="Toggle color theme">
+        <span id="theme-label">Switch theme</span>
+      </button>
+    </div>
+
+    <!-- Masthead -->
+    <header class="masthead">
+      <div class="eyebrow">MiniMax H3 &bull; heylookitsanllm (Qwen3.8-27B / Swift 1.5) &bull; Cross-Domain Field Guide</div>
+      <h1>How H3 &amp; heylook Actually Work — Architecture, Data Hygiene &amp; the 3-Regime Control Law</h1>
+      <p class="lead">
+        Visual companion to <a href="./research/2026-11-23_cross_domain_llm_dit_vgel_and_strategic_audit.md">the Nov 23 cross-domain synthesis</a>.
+        All H3 figures come from CPU checks across <code>50</code> active bank stems plus GPU Wave 2–4 logs on disk; <code>Qwen3.8-27B</code> / <code>Swift 1.5</code> figures reflect external Mac host telemetry verified against H3's implementation.
+      </p>
+
+      <nav class="jump-nav" aria-label="Section index">
+        <a href="#sec-arch"><span class="jump-num">01</span> Architecture &amp; L49 Cliff</a>
+        <a href="#sec-kv"><span class="jump-num">02</span> Why LLM Intuition Breaks on DiTs</a>
+        <a href="#sec-lab"><span class="jump-num">03</span> Interactive Operator Lab</a>
+        <a href="#sec-regimes"><span class="jump-num">04</span> 3-Regime Law &amp; vgel Gate</a>
+        <a href="#sec-scorecard"><span class="jump-num">05</span> Scorecard &amp; Execution Order</a>
+      </nav>
+    </header>
+
+    <!-- 4 Key Numbers -->
+    <div class="kpi-grid" aria-label="Summary measurements">
+      <div class="kpi-card">
+        <span class="kpi-label">Post-Refiner Effective Rank</span>
+        <span class="kpi-val">30.0 / 49</span>
+        <span class="kpi-note">95.4% of L49 diversity preserved vs. 14.0 at BPE logits (-55%)</span>
+      </div>
+      <div class="kpi-card">
+        <span class="kpi-label">Contradicting Prompt Flip (Noir)</span>
+        <span class="kpi-val" style="color:var(--success)">5 / 5 B&amp;W</span>
+        <span class="kpi-note">Rank-8 Pole-A erasure (sat 0.022–0.026) vs. 0 / 5 for 1D addition</span>
+      </div>
+      <div class="kpi-card">
+        <span class="kpi-label">Single-Pass Audio Protection</span>
+        <span class="kpi-val">1.003&times;</span>
+        <span class="kpi-note">1x Q_aud -&gt; K_txt_base keeps dialogue within -0.039 st YIN F0</span>
+      </div>
+      <div class="kpi-card">
+        <span class="kpi-label">Swift 1.5 &lt;think&gt; Savings</span>
+        <span class="kpi-val" style="color:var(--accent)">-54.9%</span>
+        <span class="kpi-note">Rank-32 LoRA on 7 FA/MLP modules; 48 GDN layers untouched</span>
+      </div>
+    </div>
+
+    <!-- SECTION 1: PIPELINE + L49 / DIT TABS -->
+    <section id="sec-arch" class="card">
+      <div class="section-head">
+        <h2>1. End-to-End Architecture: Upstream Expander &rarr; L49 Prelude &rarr; 50-Block AV DiT</h2>
+        <span class="section-tag">heylook &rarr; Qwen3-VL L49 &rarr; TokenRefiner &rarr; DiT</span>
+      </div>
+      <p class="section-intro">
+        Two completely different LLMs sit in series before a single frame finishes denoising. Understanding where text is authored, truncated, refined, and re-read explains almost every win and failure in this repository.
+      </p>
+
+      <!-- End-to-End Pipeline SVG -->
+      <div class="svg-frame" style="margin-bottom:18px">
+        <svg viewBox="0 0 1080 185" role="img" aria-labelledby="svg-pipe-title">
+          <title id="svg-pipe-title">End-to-end two-LLM and 50-block audio-video DiT pipeline</title>
+          <defs>
+            <marker id="arr-muted" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 1 L 10 5 L 0 9 z" fill="currentColor" style="color:var(--muted)" />
+            </marker>
+          </defs>
+
+          <!-- Stage 0 -->
+          <rect x="8" y="14" width="232" height="156" rx="8" fill="var(--surface)" stroke="var(--border-strong)" stroke-width="1.5" />
+          <text x="22" y="36" font-size="12" font-family="var(--mono)" font-weight="700" fill="var(--accent)">STAGE 0 &bull; MAC HEYLOOK (1x)</text>
+          <text x="22" y="57" font-size="14" font-weight="700" fill="var(--ink)">Qwen3.8-27B / Gemma-4-26B</text>
+          <text x="22" y="80" font-size="12.5" fill="var(--muted)">Expands short idea into 6-section</text>
+          <text x="22" y="98" font-size="12.5" fill="var(--muted)">H3 prose (off GPU, ~1 sec).</text>
+          <rect x="22" y="114" width="204" height="42" rx="5" fill="var(--warn-soft)" stroke="var(--warn)" stroke-width="1" />
+          <text x="30" y="132" font-size="12" font-weight="600" fill="var(--warn)">Source of glossy AI clichés</text>
+          <text x="30" y="148" font-size="12" font-family="var(--mono)" fill="var(--ink)">Fix: Prose guardrail + &lt;think&gt; LoRA</text>
+
+          <line x1="242" y1="92" x2="274" y2="92" stroke="var(--muted)" stroke-width="2" marker-end="url(#arr-muted)" />
+
+          <!-- Stage 1 -->
+          <rect x="278" y="14" width="320" height="156" rx="8" fill="var(--surface)" stroke="var(--success)" stroke-width="1.5" />
+          <text x="292" y="36" font-size="12" font-family="var(--mono)" font-weight="700" fill="var(--success)">STAGE 1 &bull; PRELUDE (RUNS 1x BEFORE STEP 0)</text>
+          <text x="292" y="57" font-size="14" font-weight="700" fill="var(--ink)">Qwen3-VL-32B (L49) &rarr; TokenRefiner (2 blks)</text>
+          <text x="292" y="80" font-size="12.5" fill="var(--muted)">&lt;Picture 1&gt; (tag=0) precedes raw text (tag=1,</text>
+          <text x="292" y="98" font-size="12.5" fill="var(--muted)">no chat template). Output: static 5376-D table.</text>
+          <rect x="292" y="114" width="292" height="42" rx="5" fill="var(--success-soft)" stroke="var(--success)" stroke-width="1" />
+          <text x="300" y="132" font-size="12" font-weight="600" fill="var(--success)">Steer here at 1x cost (MiniMaxH3Steer)</text>
+          <text x="300" y="148" font-size="12" font-family="var(--mono)" fill="var(--ink)">Regime A: -P_Vr + mu_d + peer_ros + 98.5 cap</text>
+
+          <line x1="600" y1="92" x2="632" y2="92" stroke="var(--muted)" stroke-width="2" marker-end="url(#arr-muted)" />
+
+          <!-- Stage 2 -->
+          <rect x="636" y="14" width="436" height="156" rx="8" fill="var(--surface)" stroke="var(--border-strong)" stroke-width="1.5" />
+          <text x="650" y="36" font-size="12" font-family="var(--mono)" font-weight="700" fill="var(--accent)">STAGE 2 &bull; 50-BLOCK AV DIT (6 PIKA STEPS &times; 50 = 300 READS)</text>
+          <text x="650" y="57" font-size="14" font-weight="700" fill="var(--ink)">Single Stream: [Text/Vision | VAE Refs | 40Hz Audio | 24fps Video]</text>
+          <text x="650" y="80" font-size="12.5" fill="var(--muted)">Blocks 0..19: layout &amp; face identity &bull; Blocks 20..29: style breakout</text>
+          <text x="650" y="98" font-size="12.5" fill="var(--muted)">Blocks 31..47: 40 Hz audio lag &bull; Block 49: terminal dense sink</text>
+          <rect x="650" y="114" width="408" height="42" rx="5" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1" />
+          <text x="658" y="132" font-size="12" font-weight="600" fill="var(--accent)">Stage 2 Hooks (steer_attention_hooks.py) + 2x EditGuider</text>
+          <text x="658" y="148" font-size="12" font-family="var(--mono)" fill="var(--ink)">mid_late_20_49 + 1x Q_aud split (1.003x) | 2x Spatial Portals</text>
+        </svg>
+      </div>
+
+      <!-- Accessible Tabs inside Section 1 -->
+      <div class="tabs-group" data-tabs="arch">
+        <div class="tabs-bar" role="tablist" aria-label="Architecture deep dives">
+          <button type="button" role="tab" id="tab-l49" aria-selected="true" tabindex="0">1A. Why MiniMax Cut Qwen3-VL at L49 / 64</button>
+          <button type="button" role="tab" id="tab-dit" aria-selected="false" tabindex="-1">1B. 50-Block AV DiT Zones &amp; 1x Q_aud Split</button>
+        </div>
+
+        <div class="tab-panels">
+          <!-- Panel 1A -->
+          <div role="tabpanel" aria-labelledby="tab-l49" tabindex="0">
+            <div class="panel-inner">
+              <div class="grid-4" id="l49-cards" style="margin-bottom:14px"></div>
+              <div id="l49-detail" class="subcard"></div>
+            </div>
+          </div>
+
+          <!-- Panel 1B -->
+          <div role="tabpanel" aria-labelledby="tab-dit" hidden="until-found">
+            <div class="panel-inner">
+              <div class="control-row">
+                <span>Click a DiT block band to inspect its role across all 300 denoising calls:</span>
+                <label class="checkbox-label">
+                  <input type="checkbox" id="qaud-toggle" checked />
+                  Enable 1x Q_aud Split (steer_attention_hooks.py)
+                </label>
+              </div>
+              <div class="dit-strip" id="dit-zones"></div>
+              <div class="grid-2">
+                <div id="dit-detail" class="subcard"></div>
+                <div class="svg-frame" id="qaud-svg-box"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 2: CAUSAL LLM VS FROZEN DIT -->
+    <section id="sec-kv" class="card">
+      <div class="section-head">
+        <h2>2. Why LLM Steering Intuition Breaks on DiTs (Frozen Anchor vs. Self-Steering KV)</h2>
+        <span class="section-tag">Root cause of 1D failure &amp; ColBERT collapse</span>
+      </div>
+      <p class="section-intro">
+        In an autoregressive LLM, nudging logits changes what gets appended to the growing KV cache. Inside H3, the prompt table never updates—every DiT block re-reads the exact same contradiction until you explicitly remove it.
+      </p>
+
+      <div class="svg-frame" style="margin-bottom:16px">
+        <svg viewBox="0 0 1080 198" role="img" aria-labelledby="svg-kv-title">
+          <title id="svg-kv-title">Comparison of causal self-amplifying LLM KV cache versus frozen read-only DiT prompt table</title>
+          <!-- Left: LLM -->
+          <rect x="8" y="10" width="520" height="176" rx="8" fill="var(--surface)" stroke="var(--accent)" stroke-width="1.5" />
+          <text x="24" y="34" font-size="12" font-family="var(--mono)" font-weight="700" fill="var(--accent)">AUTOREGRESSIVE LLM (Qwen3.8-27B &bull; T = 1 STREAM)</text>
+          <text x="24" y="56" font-size="14" font-weight="700" fill="var(--ink)">Causal Self-Amplifying Feedback Loop</text>
+          <rect x="24" y="72" width="144" height="44" rx="6" fill="var(--surface-alt)" stroke="var(--border-strong)" />
+          <text x="36" y="92" font-size="12.5" font-weight="600" fill="var(--ink)">Bias 1 token out</text>
+          <text x="36" y="108" font-size="12" font-family="var(--mono)" fill="var(--muted)">"Wait" -&gt; -4.3 nats</text>
+          <text x="176" y="98" font-size="16" fill="var(--accent)">&rarr;</text>
+          <rect x="196" y="72" width="150" height="44" rx="6" fill="var(--surface-alt)" stroke="var(--border-strong)" />
+          <text x="208" y="92" font-size="12.5" font-weight="600" fill="var(--ink)">Appended to KV</text>
+          <text x="208" y="108" font-size="12" font-family="var(--mono)" fill="var(--muted)">Next steps read it</text>
+          <text x="354" y="98" font-size="16" fill="var(--accent)">&rarr;</text>
+          <rect x="374" y="72" width="138" height="44" rx="6" fill="var(--accent-soft)" stroke="var(--accent)" />
+          <text x="386" y="92" font-size="12.5" font-weight="600" fill="var(--accent)">Model steers itself</text>
+          <text x="386" y="108" font-size="12" font-family="var(--muted)">Without extra nudge</text>
+          <text x="24" y="144" font-size="12.5" fill="var(--muted)">Matches vgel.me &ldquo;self-steering phrases&rdquo;: tiny early pivot edits cascade.</text>
+          <text x="24" y="164" font-size="12.5" fill="var(--ink)">Trap if mirrored naively: centering at Pole-A muddles clean math tokens.</text>
+
+          <!-- Right: DiT -->
+          <rect x="552" y="10" width="520" height="176" rx="8" fill="var(--surface)" stroke="var(--warn)" stroke-width="1.5" />
+          <text x="568" y="34" font-size="12" font-family="var(--mono)" font-weight="700" fill="var(--warn)">H3 AV DIT PRELUDE (H_prelude &bull; STATIC 300x ANCHOR)</text>
+          <text x="568" y="56" font-size="14" font-weight="700" fill="var(--ink)">Read-Only Prompt Table Vetoes Naive 1D Addition</text>
+          <rect x="568" y="72" width="222" height="44" rx="6" fill="var(--error-soft)" stroke="var(--error)" />
+          <text x="580" y="92" font-size="12.5" font-weight="600" fill="var(--error)">1D (+v) leaves "warm tungsten"</text>
+          <text x="580" y="108" font-size="12" font-family="var(--mono)" fill="var(--ink)">Re-read 300x -&gt; 0 / 5 B&amp;W</text>
+          <rect x="804" y="72" width="252" height="44" rx="6" fill="var(--success-soft)" stroke="var(--success)" />
+          <text x="816" y="92" font-size="12.5" font-weight="600" fill="var(--success)">Rank-8 Erasure (-P_Vr + mu_d)</text>
+          <text x="816" y="108" font-size="12" font-family="var(--mono)" fill="var(--ink)">Mutes color PCs -&gt; 5 / 5 B&amp;W</text>
+          <text x="568" y="144" font-size="12.5" fill="var(--muted)">Why 6 SOTA ColBERT / OT schemes failed: static K/V averages row deltas.</text>
+          <text x="568" y="164" font-size="12.5" fill="var(--ink)">48/52 bank stems sit at cos(mu_d, v_1d) &ge; 0.980 (median 0.9935).</text>
+        </svg>
+      </div>
+
+      <div class="callout">
+        <strong>Double-Dissociation Proof (Locked <code>RMS = 101.25</code>):</strong>
+        At byte-identical perturbation norm, <code>noir</code>'s own <code>V_r</code> flipped <code>5 / 5</code> seeds to true B&amp;W (<code>hsv_sat = 0.022–0.026</code>), whereas swapping in <code>paper_origami</code>'s <code>V_r</code>, a random <code>V_r</code>, or generic PCs produced <code>0 / 5</code> B&amp;W. On <code>paper_origami</code>, <code>1D</code> deleted the daughter and wrong erasers melted the porter, while <code>paper_origami</code>'s own <code>V_r</code> preserved <code>5 / 5</code> folded-paper actors. Subspace erasure is genuine regression hygiene — not ColBERT duality.
+      </div>
+    </section>
+
+    <!-- SECTION 3: INTERACTIVE OPERATOR LAB -->
+    <section id="sec-lab" class="card">
+      <div class="section-head">
+        <h2>3. Interactive Operator Lab: Comparing What Actually Happens per Token &amp; Layer</h2>
+        <span class="section-tag">1D vs. Regime A vs. de_llm_slop Bug vs. Regime B / C</span>
+      </div>
+      <p class="section-intro">
+        Select a scenario tab, then switch between operators to inspect which tokens/layers fire and why clean-scene artifacts happened.
+      </p>
+
+      <div class="tabs-group" data-tabs="lab">
+        <div class="tabs-bar" role="tablist" aria-label="Steering lab scenarios">
+          <button type="button" role="tab" id="tab-scen-noir" aria-selected="true" tabindex="0">3A. Contradicting Prompt &rarr; Noir</button>
+          <button type="button" role="tab" id="tab-scen-slop" aria-selected="false" tabindex="-1">3B. Clean Scene &rarr; Why de_llm_slop Broke</button>
+          <button type="button" role="tab" id="tab-scen-llm" aria-selected="false" tabindex="-1">3C. Qwen3.8 &lt;think&gt; Stream &rarr; Swift 1.5</button>
+        </div>
+
+        <div class="tab-panels" id="lab-panels"></div>
+      </div>
+    </section>
+
+    <!-- SECTION 4: UNIFIED 3-REGIME CONTROL LAW & VGEL CURVE -->
+    <section id="sec-regimes" class="card">
+      <div class="section-head">
+        <h2>4. The Unified 3-Regime Control Law Across H3 DiT &amp; heylook LLMs</h2>
+        <span class="section-tag">Geometry dictates the operator</span>
+      </div>
+      <p class="section-intro">
+        Most wasted cycles came from applying Regime A (built for two-sided concept replacement) to Regime B/C problems (pure bad-habit muting or contextual multi-layer circuits). Notice also why Regime B splits cleanly between causal <code>T = 1</code> LLMs and multi-token H3 prompts.
+      </p>
+
+      <div tabindex="0" role="region" aria-labelledby="cap-regimes" class="table-wrapper">
+        <table class="regime-table" style="--label-2:'Geometry';--label-3:'Correct Operator';--label-4:'Why Naive Defaults Break';--label-5:'Status';">
+          <caption id="cap-regimes">Unified 3-Regime Control Law — Operator Selection Matrix</caption>
+          <thead>
+            <tr>
+              <th>Regime &amp; Examples</th>
+              <th>Geometry Observed</th>
+              <th>Correct Operator</th>
+              <th>Why Naive Defaults Break</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th>Regime A: Manifold Replacement<br><span class="mono" style="font-size:12px;color:var(--muted)">noir, charcoal, reverb_cathedral</span></th>
+              <td>Explicit Pole-A trait in static table + coherent Pole-B destination</td>
+              <td>Prompt-centered <code>-P_{V_r,\lambda}</code> + <code>+s &middot; mu_d</code> + <code>peer_ros</code> + clamped union + <code>95.5 &rarr; 98.5</code> norm cap</td>
+              <td><code>1D (+v)</code> gets outvoted 300&times; by explicit color/light tokens left intact in <code>H_prelude</code></td>
+              <td><span class="badge badge-ok">Shipped in H3</span></td>
+            </tr>
+            <tr>
+              <th>Regime B: Bad-Habit Noise Gate<br><span class="mono" style="font-size:12px;color:var(--muted)">de_llm_slop, Qwen3.8 L63 pivots</span></th>
+              <td>No single Pole-B target (<code>L63 ADDS = noise</code>; <code>de_llm_slop mu_d_positive_words = []</code>)</td>
+              <td><strong>LLM (T=1):</strong> clean-anchor <code>ACE</code> (<code>h_t - mu_clean</code>) + 1-way <code>ReLU</code>.<br><strong>H3 (scene_only):</strong> prompt-local <code>h_i - h_bar</code> + deadzone <code>-mu_d</code> cos gate + paired-<code>D_p</code> <code>V_r</code> (both <code>boost = 0</code>, upper cap only)</td>
+              <td>Centering LLMs at <code>mu_a</code> perturbs clean math; fixed RMS <code>67.5</code> blurs clean H3 <code>-35%</code>; dataset <code>mu_clean</code> on full H3 prompts trips on 100% of nouns/verbs via POS offset</td>
+              <td><span class="badge badge-warn">Test L63 on Mac; park on H3</span></td>
+            </tr>
+            <tr>
+              <th>Regime C: Phase-Gated LoRA<br><span class="mono" style="font-size:12px;color:var(--muted)">Pika 6-step, Swift 1.5 RL</span></th>
+              <td>Multi-layer conditional circuit <code>B(Ax)</code> across depth &amp; generation phase</td>
+              <td>Unmerged compute-dtype SVD LoRA (<code>convert_pika_lora.py</code> per-component FP64 SVD) + phase gate (<code>_Window</code> / <code>in_thinking == True</code>)</td>
+              <td>Static prelude/L63 vectors cannot inspect L00..L59 error-detection circuits; <code>thinking_budget</code> truncates mid-thought</td>
+              <td><span class="badge badge-acc">#1 Mac build (shipped in H3)</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- vgel.me Activation Gate Curve & Explanation -->
+      <div class="split-curves">
+        <div class="svg-frame">
+          <svg viewBox="0 0 560 220" role="img" aria-labelledby="svg-vgel-title">
+            <title id="svg-vgel-title">Comparison of SwiGLU silu(z)*z negative-side leak versus strict ReLU deadzone gate</title>
+            <!-- Grid lines -->
+            <line x1="52" y1="168" x2="528" y2="168" stroke="var(--border-strong)" stroke-width="1.5" />
+            <line x1="296" y1="18" x2="296" y2="190" stroke="var(--border-strong)" stroke-width="1.5" />
+            <line x1="52" y1="108" x2="528" y2="108" stroke="var(--border)" stroke-dasharray="4 4" />
+            <text x="290" y="205" font-size="12" font-family="var(--mono)" fill="var(--muted)">z = 0</text>
+            <text x="60" y="185" font-size="12" font-family="var(--mono)" fill="var(--muted)">z &lt; 0 (clean tokens)</text>
+            <text x="380" y="185" font-size="12" font-family="var(--mono)" fill="var(--muted)">z &gt; 0 (target bad tokens)</text>
+
+            <!-- silu(z)*z plotted accurately on domain [-4, 2.5]: x(z) = 296 + z*61, y(v) = 168 - v*56 -->
+            <!-- Values: (-4,0.283) (-3.5,0.356) (-3,0.427) (-2.4,0.557 peak) (-2,0.477) (-1.5,0.409) (-1,0.269) (-0.5,0.094) (0,0) (0.5,0.156) (1,0.731) (1.5,1.839) (2,3.52 -> clipped) -->
+            <path d="M 52 152 L 82 148 L 113 144 L 150 137 L 174 141 L 204 145 L 235 153 L 265 163 L 296 168 L 326 159 L 357 127 L 388 65 L 408 22"
+                  fill="none" stroke="var(--error)" stroke-width="2.5" stroke-linejoin="round" />
+
+            <!-- ReLU deadzone gate: 0 up to z=0.25 (x=311), then linear ramp -->
+            <path d="M 52 168 L 312 168 L 468 28"
+                  fill="none" stroke="var(--success)" stroke-width="2.75" />
+
+            <!-- Annotation on peak leak -->
+            <circle cx="150" cy="137" r="4" fill="var(--error)" />
+            <line x1="150" y1="137" x2="150" y2="74" stroke="var(--error)" stroke-dasharray="3 3" />
+            <text x="72" y="66" font-size="12" font-family="var(--mono)" font-weight="600" fill="var(--error)">silu(z)*z leak: +0.557 peak @ z=-2.4</text>
+            <text x="72" y="82" font-size="12" font-family="var(--mono)" fill="var(--error)">(+0.477 @ z=-2 because neg &times; neg &gt; 0)</text>
+
+            <text x="336" y="42" font-size="12" font-family="var(--mono)" font-weight="600" fill="var(--success)">Strict ReLU deadzone</text>
+            <text x="336" y="58" font-size="12" font-family="var(--mono)" fill="var(--success)">0.00 on clean tokens</text>
+          </svg>
+        </div>
+
+        <div class="subcard" style="display:flex;flex-direction:column;gap:8px">
+          <h3>The <code>vgel.me</code> Conditional Bridge</h3>
+          <p>
+            In <em>Making Neurons by Hand</em>, wiring <code>gate_proj = up_proj = read</code> inside a SwiGLU MLP gives <code>silu(z) &middot; z</code> — matching why <code>Swift 1.5</code> concentrates its LoRA deltas in <code>mlp.gate_proj</code> and <code>mlp.up_proj</code>.
+          </p>
+          <p>
+            <strong>Mathematical catch:</strong> Because negative &times; negative is positive, <code>silu(z)&middot;z</code> leaks a <code>+0.557</code> bump onto opposite/clean inputs. Explicit <code>ReLU</code> deadzone gating on <code>cos &gt; 0.10</code> eliminates that leak while driving clean H3 prompts down <code>38x–50x</code> (<code>1.36–1.77</code> vs. <code>67.50</code> RMS).
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 5: SCORECARD & EXECUTION ROADMAP -->
+    <section id="sec-scorecard" class="card">
+      <div class="section-head">
+        <h2>5. Engineering Scorecard &amp; Immediate 4-Step Execution Order</h2>
+        <span class="section-tag">Stop hitting proven walls; ship creator capabilities</span>
+      </div>
+
+      <div tabindex="0" role="region" aria-labelledby="cap-score" class="table-wrapper" style="margin-bottom:20px">
+        <table class="score-table" style="--label-2:'Observed Evidence';--label-3:'Status';--label-4:'Action';">
+          <caption id="cap-score">Verified Wins vs. Falsified / Misdiagnosed Components</caption>
+          <thead>
+            <tr>
+              <th>Component / Claim</th>
+              <th>Observed Evidence on Disk</th>
+              <th>Verdict</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th>Rank-8 Pole-A Erasure + <code>peer_ros</code></th>
+              <td><code>5/5</code> B&amp;W double dissociation at locked <code>RMS=101.25</code>; <code>95.5-&gt;98.5</code> knee fixes <code>4.0 MP</code> diptych split</td>
+              <td><span class="badge badge-ok">100% Real</span></td>
+              <td>Keep shipped as Regime A default on <code>MiniMaxH3Steer</code></td>
+            </tr>
+            <tr>
+              <th><code>mid_late_20_49</code> + <code>1x Q_aud</code> Split</th>
+              <td><code>1.52x</code> mean / <code>1.75x</code> peak DINOv3 face lock; <code>-0.039 st</code> F0 audio safety at <code>1.003x</code> latency</td>
+              <td><span class="badge badge-ok">100% Real</span></td>
+              <td>Keep active in creator deck &amp; API graphs</td>
+            </tr>
+            <tr>
+              <th>Unmerged <code>lora_branch.py</code> + SVD</th>
+              <td>Preserves Pika distill over int8 H3; directly solves <code>Swift 1.5</code> 7-module Qwen3.8 gating</td>
+              <td><span class="badge badge-ok">High Leverage</span></td>
+              <td>Ship <code>&lt;think&gt;</code>-gated Rank-32 LoRA in Mac <code>heylook</code></td>
+            </tr>
+            <tr>
+              <th>Current <code>de_llm_slop</code> Vector</th>
+              <td><code>b_cov = 0.071</code> (1/14), <code>vr[2]</code> spans <code>focus+blur</code> (<code>-39%</code> blur), Clerk/Archive leak, <code>6.8x</code> blowout</td>
+              <td><span class="badge badge-err">Flawed Asset</span></td>
+              <td>Keep retired/gated; fix clichés upstream via <code>heylook</code> guardrail</td>
+            </tr>
+            <tr>
+              <th><code>Gate 2A</code> / <code>2B</code> / <code>2C</code> / <code>Path 1B</code></th>
+              <td>Bus <code>V_r</code> blew exposure (<code>43.4-&gt;7.95</code>); <code>vision_tokens</code> null (<code>0.2432</code> vs <code>0.2477</code>); <code>1x Q_vid[mask]</code> washout (<code>1.05x</code> vs <code>1.42x</code>)</td>
+              <td><span class="badge badge-err">Closed Walls</span></td>
+              <td>Do not reopen; keep <code>vision_tokens</code> in Python enum, omit from <code>app/</code> UI</td>
+            </tr>
+            <tr>
+              <th>CPU Metrics as Quality Predictors</th>
+              <td><code>stained_glass</code> highest <code>mpc=0.762</code> failed <code>0/2</code>; <code>youtube_overhype</code> <code>1/12</code> <code>b_cov</code> crushed GPU Wave 3B</td>
+              <td><span class="badge badge-warn">Bug Filters Only</span></td>
+              <td>Use J-Lens &amp; <code>mpc</code> strictly as smoke/regression checks</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 style="margin:0 0 10px;font-size:15px">Recommended 4-Step Execution Sequence</h3>
+      <ol class="roadmap-list">
+        <li class="roadmap-item">
+          <span class="step-num">01</span>
+          <div>
+            <strong>Upstream Prompt Hygiene (Fast Win):</strong> Keep MiniMax's trained <code>[Shot 1] Live-action, cinematic</code> opener intact in canonical prompts, add a grounded-lighting anti-cliché guardrail in <code>heylook</code> prose instructions, and sync <code>app/</code> test defaults alongside root <a href="../../heylook_client.py"><code>heylook_client.py</code></a>.
+          </div>
+        </li>
+        <li class="roadmap-item">
+          <span class="step-num">02</span>
+          <div>
+            <strong>Direct One Real 20–30s Multi-Shot Clip + Zero-Code GPU Checks:</strong> Run the queued <code>guide_end_percent=0.33</code>, <code>audio_freeze 0.25</code> loose-mask, <code>M3</code> LSE reference balance, and SAM 3.1 <code>EditGuider.mask</code> tracks on a real multi-shot piece. Feed tail frame to <code>heylook</code> for text continuity only; DiT keeps latent carry or pristine <code>&lt;Picture 1&gt;</code>.
+          </div>
+        </li>
+        <li class="roadmap-item">
+          <span class="step-num">03</span>
+          <div>
+            <strong>Mac <code>heylook</code> 3-Arm + <code>Gemma-4-26B</code> Benchmark:</strong> Compare <code>&lt;think&gt;</code>-gated Rank-32 Swift-1.5 LoRA (per-component SVD from <code>convert_pika_lora.py</code>) vs. <code>L63</code>-only <code>ACE</code> (<code>mu_clean</code>-anchored) vs. 20-token <code>NoWait</code> on held-out coding/math/tool suites, plus race against <code>gemma-4-26B</code> for H3 expansion.
+          </div>
+        </li>
+        <li class="roadmap-item">
+          <span class="step-num">04</span>
+          <div>
+            <strong>Unfreeze <code>Track App-2.0</code> &amp; Structural Split:</strong> Lock <code>studio.db</code> + OpenAPI around real multi-shot state from Step 02, build the 3-tool deck (<code>1x heylook</code> &rarr; <code>1x MiniMaxH3Steer</code> &rarr; <code>2x EditGuider</code>), and split the <code>13,137</code>-LOC steering trio into focused subpackages.
+          </div>
+        </li>
+      </ol>
+    </section>
+
+    <footer>
+      <span>ComfyUI-h3-explorations &bull; <code>docs/wiki/steering/h3_cross_domain_visual_guide.html</code></span>
+      <span>100% self-contained &bull; Zero external assets &bull; Follow OS theme or override cleanly</span>
+    </footer>
+  </div>
+
+  <script>
+    /* Theme Toggle adhering to modern-web-guidance (dark-mode-toggle) */
+    (function initTheme() {
+      const KEY = "h3-wiki-color-scheme";
+      const meta = document.querySelector('meta[name="color-scheme"]');
+      const btn = document.getElementById("theme-toggle");
+      const label = document.getElementById("theme-label");
+      const mq = window.matchMedia("(prefers-color-scheme: dark)");
+
+      function getStored() {
+        try { return localStorage.getItem(KEY); } catch { return null; }
+      }
+
+      function resolvedScheme() {
+        const s = getStored();
+        if (s === "light" || s === "dark") return s;
+        return mq.matches ? "dark" : "light";
+      }
+
+      function syncUI() {
+        const stored = getStored();
+        const active = resolvedScheme();
+        meta.content = (stored === "light" || stored === "dark") ? stored : "light dark";
+        const target = active === "dark" ? "light" : "dark";
+        const src = stored ? "pinned" : "system";
+        label.textContent = `Switch to ${target} (${src}: ${active})`;
+        btn.setAttribute("aria-label", `Switch to ${target} theme`);
+      }
+
+      btn.addEventListener("click", () => {
+        const current = resolvedScheme();
+        const target = current === "dark" ? "light" : "dark";
+        const sys = mq.matches ? "dark" : "light";
+        try {
+          if (target === sys) localStorage.removeItem(KEY);
+          else localStorage.setItem(KEY, target);
+        } catch {}
+        syncUI();
+      });
+
+      window.addEventListener("storage", (e) => {
+        if (e.key === KEY) syncUI();
+      });
+      mq.addEventListener("change", syncUI);
+      syncUI();
+    })();
+
+    /* Accessible Tabs with hidden="until-found" + beforematch sync + Safari fallback */
+    function initTabs() {
+      const supportsBeforeMatch = "onbeforematch" in HTMLElement.prototype;
+
+      document.querySelectorAll(".tabs-group").forEach((group) => {
+        const tabs = Array.from(group.querySelectorAll('[role="tab"]'));
+
+        function selectTab(nextTab, moveFocus) {
+          const id = nextTab.id;
+          const livePanels = Array.from(group.querySelectorAll('[role="tabpanel"]'));
+          tabs.forEach((tab) => {
+            const on = tab === nextTab;
+            tab.setAttribute("aria-selected", on ? "true" : "false");
+            tab.tabIndex = on ? 0 : -1;
+          });
+          livePanels.forEach((panel) => {
+            const match = panel.getAttribute("aria-labelledby") === id;
+            if (match) {
+              panel.removeAttribute("hidden");
+              if (!panel.querySelector("button, a, input, [tabindex]")) {
+                panel.tabIndex = 0;
+              }
+            } else {
+              panel.removeAttribute("tabindex");
+              panel.hidden = supportsBeforeMatch ? "until-found" : true;
+            }
+          });
+          nextTab.scrollIntoView({ block: "nearest", inline: "nearest" });
+          if (moveFocus) nextTab.focus();
+        }
+
+        tabs.forEach((tab, idx) => {
+          tab.addEventListener("click", () => selectTab(tab, false));
+          tab.addEventListener("keydown", (e) => {
+            let nextIdx = idx;
+            if (e.key === "ArrowRight") nextIdx = (idx + 1) % tabs.length;
+            else if (e.key === "ArrowLeft") nextIdx = (idx - 1 + tabs.length) % tabs.length;
+            else if (e.key === "Home") nextIdx = 0;
+            else if (e.key === "End") nextIdx = tabs.length - 1;
+            else return;
+            e.preventDefault();
+            selectTab(tabs[nextIdx], true);
+          });
+        });
+
+        Array.from(group.querySelectorAll('[role="tabpanel"]')).forEach((panel) => {
+          if (supportsBeforeMatch) {
+            panel.addEventListener("beforematch", () => {
+              const ownerId = panel.getAttribute("aria-labelledby");
+              const ownerTab = tabs.find((t) => t.id === ownerId);
+              if (ownerTab) selectTab(ownerTab, false);
+            });
+          } else if (panel.getAttribute("hidden") === "until-found") {
+            panel.hidden = true;
+          }
+        });
+      });
+    }
+
+    /* Section 1A Data & Render */
+    (function initL49() {
+      const stages = [
+        {
+          tag: "Qwen3-VL L49 / 64",
+          sub: "5120-D continuous",
+          effR: 31.48,
+          p90: 0.424,
+          col: "var(--accent)",
+          headline: "Peak Multimodal Geometry (Before Next-Word Collapse)",
+          body: "Reference images (&lt;Picture 1&gt;) precede raw text tokens with zero chat template. Across 50 bank stems, camera physics, acoustics, and optical texture occupy 31.5 effective dimensions (mean |cos| = 0.2438).",
+          parallel: "Mirrors Qwen3.8-27B on Mac: continuous thought effR_D peaks near L51 (622.1) before dropping at L62–L63."
+        },
+        {
+          tag: "H3 Post-Refiner",
+          sub: "5376-D bidirectional",
+          effR: 30.04,
+          p90: 0.419,
+          col: "var(--success)",
+          headline: "95.4% Rank Preserved + Lower Cross-Concept Collision",
+          body: "Two bidirectional SwiGLU refiner blocks let early words attend to later clauses while trimming attention sinks (row-0 ratio drops 52.4x -> 2.27x) and lowering mean |cos| overlap from 0.2438 to 0.2235.",
+          parallel: "Why H3 steers once at step 0: modifying this post-refiner table drives all 300 DiT reads."
+        },
+        {
+          tag: "Qwen3-VL L63",
+          sub: "Pre-head hidden (5120-D)",
+          effR: 18.99,
+          p90: 0.625,
+          col: "var(--warn)",
+          headline: "-40% Rank Cliff Inside Layers 50..63",
+          body: "Multiplying H3's 50 vectors through J_49_to_63 discards continuous spatial/lighting nuance to prepare a single discrete BPE prediction. Pairwise p90 cosine jumps from 0.419 to 0.625.",
+          parallel: "Same cliff on Qwen3.8-27B: effR_D collapses 568.4 (L59) -> 355.1 (L62) -> 52.6 (L63)."
+        },
+        {
+          tag: "L63 BPE Logits",
+          sub: "27,407 vocab union",
+          effR: 14.04,
+          p90: 0.763,
+          col: "var(--error)",
+          headline: "-55% Collapse: Great Eyeball Audit, Wrong Optimization Loss",
+          body: "Mapping continuous vectors onto English vocabulary shrinks 31.5 directions down to 14.0 (p90 |cos| = 0.763). That makes J-Lens indispensable for catching office-furniture leaks in a TOML build, never as a visual render score.",
+          parallel: "Lowers priority of chasing layers 50..63 rollout chains inside H3."
+        }
+      ];
+
+      let active = 1;
+      const cardsEl = document.getElementById("l49-cards");
+      const detailEl = document.getElementById("l49-detail");
+
+      function render() {
+        cardsEl.innerHTML = stages.map((s, i) => {
+          const pct = Math.round((s.effR / 49) * 100);
+          return `
+            <button type="button" class="choice-btn" aria-pressed="${i === active}" onclick="window.__setL49(${i})">
+              <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;width:100%">
+                <strong style="font-size:13.5px">${s.tag}</strong>
+                <span class="mono" style="font-size:12px;color:var(--muted)">${s.sub}</span>
+              </div>
+              <div style="display:flex;justify-content:space-between;align-items:baseline;width:100%;font-size:12.5px">
+                <span>effR (max 49)</span>
+                <span class="mono" style="font-weight:700">${s.effR.toFixed(2)}</span>
+              </div>
+              <div class="meter-track"><div class="meter-fill" style="width:${pct}%;background:${s.col}"></div></div>
+              <span class="mono" style="font-size:12px;color:var(--muted)">p90 |cos|: ${s.p90.toFixed(3)}</span>
+            </button>
+          `;
+        }).join("");
+
+        const cur = stages[active];
+        detailEl.innerHTML = `
+          <div style="display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;margin-bottom:6px">
+            <strong>${cur.headline}</strong>
+            <span class="badge badge-acc">${cur.tag}</span>
+          </div>
+          <p style="margin-bottom:8px">${cur.body}</p>
+          <div class="mono" style="font-size:12.5px;color:var(--ink);padding-top:8px;border-top:1px solid var(--border)">${cur.parallel}</div>
+        `;
+      }
+
+      window.__setL49 = (i) => { active = i; render(); };
+      render();
+    })();
+
+    /* Section 1B: 50-Block AV DiT + 1x Q_aud SVG */
+    (function initDit() {
+      const zones = [
+        {
+          blocks: "Blocks 0..19",
+          title: "Layout & Face Identity",
+          col: "var(--accent)",
+          metric: "border_lap 69.31 vs 69.39 base",
+          body: "Fixes 3D room structure, character blocking, and &lt;Picture 1&gt; face likeness. Injecting heavy visual style here erodes secondary actors; skipping blocks 0..19 raises DINOv3 face retention 1.52x mean (1.75x peak)."
+        },
+        {
+          blocks: "Blocks 20..29",
+          title: "Style & Material Breakout",
+          col: "var(--success)",
+          metric: "mid_late_20_49 lap 140.66 (2.03x)",
+          body: "Charcoal texture, halation, film contrast, and lighting materialize over the locked geometry cleanly once early layout blocks have finished anchoring subjects."
+        },
+        {
+          blocks: "Blocks 31..47",
+          title: "40 Hz Audio Emergence",
+          col: "var(--violet)",
+          metric: "~10-block lag behind video",
+          body: "Soundstage acoustics, room reverb, and foley crystallize ~10 blocks after visual layout. late_30_49 targets room acoustics cleanly (1x audio_only rgb_mae = 7.461)."
+        },
+        {
+          blocks: "B49",
+          title: "Dense Sink",
+          col: "var(--warn)",
+          metric: "SOL_DENSE_TAIL = 49 + qk_rotate",
+          body: "Terminal cross-modal sink carrying heavy K-channel outliers. Stays dense inside Sol sparse attention and applies rotation under int8 SageAttention."
+        }
+      ];
+
+      let active = 1;
+      const stripEl = document.getElementById("dit-zones");
+      const detailEl = document.getElementById("dit-detail");
+      const svgBox = document.getElementById("qaud-svg-box");
+      const toggle = document.getElementById("qaud-toggle");
+
+      function render() {
+        stripEl.innerHTML = zones.map((z, i) => `
+          <button type="button" class="choice-btn" aria-pressed="${i === active}" onclick="window.__setDit(${i})">
+            <div style="width:100%;height:6px;border-radius:999px;background:${z.col}"></div>
+            <span class="mono" style="font-size:12.5px;font-weight:700">${z.blocks}</span>
+            <span style="font-size:12px;color:var(--muted)">${z.title}</span>
+          </button>
+        `).join("");
+
+        const z = zones[active];
+        const splitOn = toggle.checked;
+        detailEl.innerHTML = `
+          <div style="display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;margin-bottom:6px">
+            <strong>${z.blocks}: ${z.title}</strong>
+            <span class="badge badge-acc">${z.metric}</span>
+          </div>
+          <p>${z.body}</p>
+        `;
+
+        svgBox.innerHTML = `
+          <svg viewBox="0 0 460 132" role="img" aria-label="1x Q_aud attention routing diagram">
+            <text x="8" y="18" font-size="12" font-family="var(--mono)" font-weight="700" fill="var(--ink)">
+              Single-Stream Query Slicing (${splitOn ? "AUTO_1X_KV ACTIVE — 1.003x" : "UNSPLIT SINGLE STREAM"})
+            </text>
+            <rect x="8" y="30" width="166" height="38" rx="5" fill="var(--surface)" stroke="var(--accent)" />
+            <text x="18" y="47" font-size="12" font-family="var(--mono)" font-weight="600" fill="var(--ink)">Q_vid (23,328+ rows)</text>
+            <text x="18" y="61" font-size="12" fill="var(--muted)">24 fps visual tokens</text>
+
+            <rect x="8" y="78" width="166" height="38" rx="5" fill="var(--surface)" stroke="${splitOn ? "var(--success)" : "var(--warn)"}" />
+            <text x="18" y="95" font-size="12" font-family="var(--mono)" font-weight="600" fill="var(--ink)">Q_aud (130–810 rows)</text>
+            <text x="18" y="109" font-size="12" fill="var(--muted)">40 Hz stereo audio tokens</text>
+
+            <line x1="176" y1="49" x2="254" y2="49" stroke="var(--accent)" stroke-width="2" />
+            <line x1="176" y1="97" x2="254" y2="${splitOn ? 97 : 54}" stroke="${splitOn ? "var(--success)" : "var(--warn)"}" stroke-width="2" stroke-dasharray="${splitOn ? "0" : "4 3"}" />
+
+            <rect x="256" y="30" width="196" height="38" rx="5" fill="var(--accent-soft)" stroke="var(--accent)" />
+            <text x="266" y="47" font-size="12" font-family="var(--mono)" font-weight="700" fill="var(--accent)">K_txt_steered</text>
+            <text x="266" y="61" font-size="12" fill="var(--ink)">Visual grade / medium</text>
+
+            <rect x="256" y="78" width="196" height="38" rx="5" fill="${splitOn ? "var(--success-soft)" : "var(--warn-soft)"}" stroke="${splitOn ? "var(--success)" : "var(--warn)"}" />
+            <text x="266" y="95" font-size="12" font-family="var(--mono)" font-weight="700" fill="${splitOn ? "var(--success)" : "var(--warn)"}">
+              ${splitOn ? "K_txt_base (Protected)" : "Audio leaks style!"}
+            </text>
+            <text x="266" y="109" font-size="12" fill="var(--ink)">
+              ${splitOn ? "YIN F0 drift: -0.039 st" : "Voices hiss / pitch shifts"}
+            </text>
+          </svg>
+        `;
+      }
+
+      window.__setDit = (i) => { active = i; render(); };
+      toggle.addEventListener("change", render);
+      render();
+    })();
+
+    /* Section 3: Interactive Operator Lab */
+    (function initLab() {
+      const scenarios = [
+        {
+          tabId: "tab-scen-noir",
+          summary: "Prompt contains explicit warm color words while we push toward high-contrast silver-halide noir.",
+          ops: [
+            {
+              name: "1D Addition (+v)",
+              badge: "0 / 5 B&W (FAILS)",
+              tone: "badge-err",
+              bars: [
+                { k: '"bright warm tungsten"', w: 92, col: "var(--error)", desc: "Retained (92%) — vetoes B&W 300x" },
+                { k: '"amber skin glow"', w: 88, col: "var(--error)", desc: "Retained (88%) — color remains" },
+                { k: '"daughter in kitchen"', w: 58, col: "var(--warn)", desc: "Collateral warp (+58%)" },
+                { k: "+ noir 1D shift", w: 52, col: "var(--accent)", desc: "hsv_sat stays 0.16–0.23" }
+              ],
+              note: "Adding +noir never deletes \"warm tungsten\". Across 50 DiT blocks &times; 6 steps, video patches keep attending to the untouched color tokens."
+            },
+            {
+              name: "Regime A: Rank-8 Erasure",
+              badge: "5 / 5 B&W (SHIPPED)",
+              tone: "badge-ok",
+              bars: [
+                { k: '"bright warm tungsten"', w: 8, col: "var(--success)", desc: "Residualized -P_Vr (-91% color PCs)" },
+                { k: '"amber skin glow"', w: 11, col: "var(--success)", desc: "Residualized -P_Vr (-89% color PCs)" },
+                { k: '"daughter in kitchen"', w: 95, col: "var(--accent)", desc: "Preserved (peer_ros + 98.5 cap)" },
+                { k: "+ mu_d target shift", w: 94, col: "var(--success)", desc: "Clean flip (hsv_sat = 0.022–0.026)" }
+              ],
+              note: "Regresses out the top-8 baseline color PCs (-P_Vr), adds +mu_d, orthogonalizes peers via ROS, and caps norm at 95.5 -> 98.5. Wrong Vr drops back to 0 / 5 B&W."
+            }
+          ]
+        },
+        {
+          tabId: "tab-scen-slop",
+          summary: "Applying a cleanup filter to an already grounded hardware aisle / sitcom kitchen prompt.",
+          ops: [
+            {
+              name: "de_llm_slop (Always-On A)",
+              badge: "-39% SHARPNESS BUG",
+              tone: "badge-err",
+              bars: [
+                { k: '"crisp foreground focus"', w: 82, col: "var(--error)", desc: "Erased! vr[2] bundles focus + blur" },
+                { k: '"wooden counter"', w: 76, col: "var(--error)", desc: "Artifact! Pushes clerk filing cabinets" },
+                { k: '"natural overcast"', w: 68, col: "var(--warn)", desc: "Forced RMS=67.5 blows highlights 3.6–6.8x" },
+                { k: '"neon teal-orange bokeh"', w: 4, col: "var(--muted)", desc: "0 tokens in prompt — firing blind" }
+              ],
+              note: "3 textbook data errors: archival/clerk pairs leaked into +mu_d (b_cov = 0.071), vr[2] (d=0.822) spans focus (+1.20) + blur (+0.98), and Regime A forces a 67.5 RMS hit on clean inputs."
+            },
+            {
+              name: "Regime B Gate + Upstream Guardrail",
+              badge: "0.00 CLEAN / 62.4 RMS SLOP",
+              tone: "badge-ok",
+              bars: [
+                { k: '"crisp foreground focus"', w: 3, col: "var(--success)", desc: "Deadzone cos < 0.10 -> 1.36–1.77 RMS" },
+                { k: '"wooden counter"', w: 3, col: "var(--success)", desc: "boost = 0 -> zero cabinet injection" },
+                { k: "Clean B control tokens", w: 2, col: "var(--success)", desc: "Exact 0.00 RMS perturbation" },
+                { k: "heylook prose guardrail", w: 94, col: "var(--accent)", desc: "Prevents glossy clichés before Qwen3-VL" }
+              ],
+              note: "Best anti-slop happens upstream in heylook prose rules (keep [Shot 1] Live-action, cinematic opener). In vector space, H3 prompt-local centering + -mu_d deadzone gate drops clean RMS 38x–50x with zero schema rebuild."
+            }
+          ]
+        },
+        {
+          tabId: "tab-scen-llm",
+          summary: "Preventing infinite \"Wait / Actually / However\" reasoning spin inside Qwen3.8-27B.",
+          ops: [
+            {
+              name: "Regime B: L63 Pivot Gate",
+              badge: "CHEAP L63 BASELINE",
+              tone: "badge-warn",
+              bars: [
+                { k: "Top-20 pivot words", w: 90, col: "var(--warn)", desc: "Muted -4.0..-4.3 nats (55x–75x)" },
+                { k: "&lt;/think&gt; boundary (248069)", w: 2, col: "var(--muted)", desc: "Untouched (+0.0021 at paragraph ends)" },
+                { k: "L00..L59 bug vs spin check", w: 14, col: "var(--error)", desc: "Blind at L63 — cuts useful checks too" },
+                { k: "Visible answer prose", w: 2, col: "var(--success)", desc: "Zero post-&lt;/think&gt; overhead" }
+              ],
+              note: "Directly exploits vgel.me \"shapes-of-model-words\": damping the 20 RL doubt pivots stops spin without moving &lt;/think&gt;, but L63 arrives too late to distinguish real bug catches."
+            },
+            {
+              name: "Regime C: &lt;think&gt;-Gated LoRA",
+              badge: "-54.9% THINK (MAC #1)",
+              tone: "badge-acc",
+              bars: [
+                { k: "7 FA/MLP LoRA modules", w: 94, col: "var(--accent)", desc: "L00..L59 contextual check stays smart" },
+                { k: "48 Gated DeltaNet layers", w: 2, col: "var(--success)", desc: "0.000000 weight delta (untouched)" },
+                { k: "in_thinking == True", w: 90, col: "var(--accent)", desc: "3,380 think tok vs 7,494 Stock (-54.9%)" },
+                { k: "After &lt;/think&gt; (Answer)", w: 2, col: "var(--success)", desc: "Scale = 0 -&gt; 939 tok (no 2x bloat!)" }
+              ],
+              note: "Port convert_pika_lora.py per-component FP64 SVD over 8-bit base weights, gated to in_thinking == True. Avoids stock medium/low's 2x answer bloat and budget truncation."
+            }
+          ]
+        }
+      ];
+
+      const opState = [1, 1, 1];
+      const wrap = document.getElementById("lab-panels");
+
+      function renderPanels() {
+        wrap.innerHTML = scenarios.map((sc, sIdx) => {
+          const op = sc.ops[opState[sIdx]];
+          const isFirst = sIdx === 0;
+          const hiddenAttr = isFirst ? 'tabindex="0"' : 'hidden="until-found"';
+          return `
+            <div role="tabpanel" aria-labelledby="${sc.tabId}" ${hiddenAttr}>
+              <div class="panel-inner">
+                <p style="margin:0 0 12px;font-size:13.5px;color:var(--muted)">${sc.summary}</p>
+                <div class="op-bar" role="group" aria-label="Operator selection">
+                  ${sc.ops.map((o, oIdx) => `
+                    <button type="button" class="op-btn" aria-pressed="${oIdx === opState[sIdx]}" onclick="window.__setLabOp(${sIdx}, ${oIdx})">${o.name}</button>
+                  `).join("")}
+                  <span class="badge ${op.tone}" style="margin-left:auto">${op.badge}</span>
+                </div>
+                <div class="bar-list">
+                  ${op.bars.map((b) => `
+                    <div class="bar-row">
+                      <span class="mono" style="font-weight:600">${b.k}</span>
+                      <div class="meter-track"><div class="meter-fill" style="width:${b.w}%;background:${b.col}"></div></div>
+                      <span style="color:var(--muted)">${b.desc}</span>
+                    </div>
+                  `).join("")}
+                </div>
+                <div class="subcard">
+                  <p style="color:var(--ink)">${op.note}</p>
+                </div>
+              </div>
+            </div>
+          `;
+        }).join("");
+
+        /* Re-sync currently selected tab panel visibility after re-render */
+        const labGroup = document.querySelector('[data-tabs="lab"]');
+        const activeTab = labGroup.querySelector('[aria-selected="true"]');
+        const supportsBM = "onbeforematch" in HTMLElement.prototype;
+        labGroup.querySelectorAll('[role="tabpanel"]').forEach((p) => {
+          const match = p.getAttribute("aria-labelledby") === activeTab.id;
+          if (match) {
+            p.removeAttribute("hidden");
+            p.tabIndex = 0;
+          } else {
+            p.removeAttribute("tabindex");
+            p.hidden = supportsBM ? "until-found" : true;
+          }
+          if (supportsBM) {
+            p.addEventListener("beforematch", () => {
+              const t = document.getElementById(p.getAttribute("aria-labelledby"));
+              if (t) t.click();
+            });
+          }
+        });
+      }
+
+      window.__setLabOp = (sIdx, oIdx) => {
+        opState[sIdx] = oIdx;
+        renderPanels();
+      };
+      renderPanels();
+      initTabs();
+    })();
+  </script>
+</body>
+</html>

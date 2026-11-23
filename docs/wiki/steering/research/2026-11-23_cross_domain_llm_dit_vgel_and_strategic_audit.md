@@ -5,6 +5,8 @@
 
 **Key Primary Anchors on Disk:** [`control_vectors.py`](../../../../control_vectors.py) · [`control_vector_nodes.py`](../../../../control_vector_nodes.py) · [`steer_attention_hooks.py`](../../../../steer_attention_hooks.py) · [`lora_branch.py`](../../../../lora_branch.py) · [`j_lens.py`](../../../../j_lens.py) · [`heylook_client.py`](../../../../heylook_client.py) · [`manuscript.md`](../paper/manuscript.md) · [`2026-11-23_wave2_gpu_gates_bus_vr_path1c_and_qvid.md`](../../../../bench/results/2026-11-23_wave2_gpu_gates_bus_vr_path1c_and_qvid.md) · [`2026-11-23_wave3b_behavioral_concepts_overhype_and_takeoff.md`](../../../../bench/results/2026-11-23_wave3b_behavioral_concepts_overhype_and_takeoff.md) · [`2026-11-23_wave4_post_restart_live_verification.md`](../../../../bench/results/2026-11-23_wave4_post_restart_live_verification.md)
 
+**Interactive Visual Companion:** [`h3_cross_domain_visual_guide.html`](../h3_cross_domain_visual_guide.html)
+
 ---
 
 ## Executive Summary (Plain English)
