@@ -4,8 +4,12 @@
   "dossier_slug": "2026-11-22_stabilization_and_phase2_roadmap",
   "title": "H3 Steering Stabilization Plan, Phase 2 Queue & 6-Session Feedback Archive",
   "head_commits": {
-    "root_repo_main": "4934bd97",
+    "root_repo_main": "95bb75ec",
     "root_preceding_commits": [
+      "fd02cf59",
+      "692a4377",
+      "0854c787",
+      "4934bd97",
       "f372490f",
       "c810d7ef",
       "7ae4cfa1",
@@ -17,8 +21,9 @@
       "ec693dff",
       "3d4d81d4"
     ],
-    "nested_app_repo": "b4b0d0f",
+    "nested_app_repo": "cd9b368",
     "nested_app_preceding_commits": [
+      "b4b0d0f",
       "70ac442",
       "3145c32",
       "5eee0a7",
@@ -412,6 +417,15 @@
       "commit": "app/.git@b4b0d0f",
       "title": "Foundation Part B: harden Studio API, heylook/lab flows, block_band gating & offline CDP suite",
       "details": "Added shared recipe_supports_block_band() checking picture_node/picture/reference_nodes/references; stripped upstream /view charset & guarded .mp4 CT/strip_png_notes; fixed heylook.js:485 lock_take, Finder Mint 4800 floor, /lab saved-model fallback, --families all -> fl2va,ref2va,h3_image remap, j_lens cache clear in cv_lab.py, dead code/doc cleanup, test_pocket_console.py (noir >= 0.30, de_llm_slop un-hardcoded), --isolated-browser CDP & opt-in test_live_gpu.py."
+    },
+    {
+      "id": "STAB-FOUND-C",
+      "owner": "61cf9813",
+      "repo": "main + app/.git",
+      "status": "done",
+      "commit": "95bb75ec + app/.git@cd9b368",
+      "title": "Upstream heylook DELETE /v1/requests/{id} cancellation for /api/lab/pairs/generate & client disconnect",
+      "details": "Added optional interrupt_check + on_request_id hooks and skipped repair when cancelled in bench/control_vector/llm_pairs.py (95bb75ec), wired LabJobManager upstream DELETE /v1/requests/{id} cancellation on /api/lab/jobs/{id}/cancel + shutdown() in app/cv_lab.py and ExpandManager._run_single_flight asyncio.CancelledError handling in app/heylook_bridge.py (app/.git@cd9b368)."
     }
   ],
   "tomorrow_phase2_queue": [
@@ -995,7 +1009,7 @@
       "owner": "61cf9813",
       "repo": "app/.git",
       "title": "Scoped UX/API follow-ups",
-      "details": "Optional visual-strip-only (Look/Motion) 1-tap Voice Lock (1x) toggle; upstream DELETE /v1/requests/{id} cancellation when /api/lab/pairs/generate is cancelled; decide whether to wire or prune UI-unreachable guide_vector_words/against_words backend plumbing."
+      "details": "Optional visual-strip-only (Look/Motion) 1-tap Voice Lock (1x) toggle; decide whether to wire or prune UI-unreachable guide_vector_words/against_words backend plumbing (upstream DELETE /v1/requests/{id} cancellation for /api/lab/pairs/generate & client disconnect already closed early in 95bb75ec + app/.git@cd9b368)."
     }
   ]
 }
