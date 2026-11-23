@@ -30,7 +30,6 @@ import socket
 import sys
 import threading
 import time
-import tomllib
 import urllib.parse
 import uuid
 from pathlib import Path
@@ -52,7 +51,6 @@ DEFAULT_HEYLOOK_MODEL = ""
 DEFAULT_STREAM_TIMEOUT = httpx.Timeout(connect=10.0, read=300.0, write=30.0, pool=10.0)
 THINKING_MODES: tuple[str, ...] = ("model default", "on", "off")
 SAMPLER_MODES: tuple[str, ...] = ("heylook / preset default", "custom")
-DEFAULT_LOCAL_OVERLAYS_PATH = _HERE / "internal" / "heylook_local_overlays.toml"
 
 HEYLOOK_PROVENANCE_KEYS: tuple[str, ...] = (
     "author_kind",
@@ -577,36 +575,13 @@ def resolve_heylook_model(requested_model: str = "") -> tuple[str, bool]:
     return "", False
 
 
-def _read_overlays_preset_prefix(overlays_path: Path | None = None) -> str:
-    """Read `[global].prefix` from gitignored `internal/heylook_local_overlays.toml` when present."""
-    path = DEFAULT_LOCAL_OVERLAYS_PATH if overlays_path is None else overlays_path
-    try:
-        if not path.is_file():
-            return ""
-        raw = tomllib.loads(path.read_text(encoding="utf-8"))
-    except Exception:
-        return ""
-    if not isinstance(raw, dict):
-        return ""
-    global_cfg = raw.get("global")
-    if not isinstance(global_cfg, dict):
-        return ""
-    return str(global_cfg.get("prefix") or "").strip()
-
-
-def resolve_heylook_preset_prefix(
-    explicit: str = "",
-    *,
-    overlays_path: Path | None = None,
-) -> str:
-    """Resolve remote preset prefix (`explicit > H3_HEYLOOK_PRESET_PREFIX > internal/heylook_local_overlays.toml > ""`)."""
+def resolve_heylook_preset_prefix(explicit: str = "") -> str:
+    """Resolve remote preset prefix (`explicit > H3_HEYLOOK_PRESET_PREFIX > ""`)."""
     exp = (explicit or "").strip()
     if exp:
         return exp
     h3_env.load()
-    if "H3_HEYLOOK_PRESET_PREFIX" in os.environ:
-        return (os.environ.get("H3_HEYLOOK_PRESET_PREFIX") or "").strip()
-    return _read_overlays_preset_prefix(overlays_path)
+    return (os.environ.get("H3_HEYLOOK_PRESET_PREFIX") or "").strip()
 
 
 def format_preset_target_name(slug: str, prefix: str = "") -> str:
@@ -783,38 +758,29 @@ def try_inherit_heylook_preset(
     model_row: dict,
     *,
     prefix: str = "",
-    overlays_path: Path | None = None,
     api_key: str | None = None,
 ) -> tuple[dict | None, str]:
     """Best-effort lookup of a synced canonical preset on `/v1/presets` for downstream inheritance.
 
     Returns `(expanded_preset_fields, resolved_preset_name)` when present on the server,
     or `(None, "")` when the preset has not been synced or `/v1/presets` is unavailable.
-    When `prefix` came implicitly from `internal/heylook_local_overlays.toml` (neither `prefix`
-    arg nor `H3_HEYLOOK_PRESET_PREFIX` env var was set), falls back to canonical `slug` in the
-    same `/v1/presets` payload if the prefixed target is absent.
     Auth/host errors (`PermissionError`) still propagate cleanly.
     """
     slug = (canonical_slug or "").strip()
     if not slug:
         return None, ""
-    explicit_pfx = bool((prefix or "").strip()) or ("H3_HEYLOOK_PRESET_PREFIX" in os.environ)
-    eff_prefix = resolve_heylook_preset_prefix(prefix, overlays_path=overlays_path)
+    eff_prefix = resolve_heylook_preset_prefix(prefix)
     target_name = format_preset_target_name(slug, eff_prefix)
-    candidates: list[str] = [target_name]
-    if target_name != slug and not explicit_pfx:
-        candidates.append(slug)
     try:
         req_hdrs = _req_headers({"Accept": "application/json"}, client=client, api_key=api_key)
         r = client.get(f"{base}/v1/presets", headers=req_hdrs, timeout=10.0)
         if r.status_code >= 400:
             raise _http_error(r, base, "/v1/presets")
         presets = [p for p in (r.json().get("presets") or []) if isinstance(p, dict)]
-        for cand in candidates:
-            preset = _match_preset_row(presets, cand)
-            if preset is not None:
-                resolved_name = str(preset.get("name") or cand)
-                return _compile_preset_body_fields(preset, model_row), resolved_name
+        preset = _match_preset_row(presets, target_name)
+        if preset is not None:
+            resolved_name = str(preset.get("name") or target_name)
+            return _compile_preset_body_fields(preset, model_row), resolved_name
         return None, ""
     except (ValueError, LookupError, RuntimeError, httpx.HTTPError):
         return None, ""

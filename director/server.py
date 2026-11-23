@@ -2241,12 +2241,8 @@ async def handle_context_suggest(request: web.Request) -> web.Response:
         preset_fields: dict[str, Any] | None = None
         try:
             canon_slug = _hlc.CANONICAL_PRESET_SLUGS.get(canon_key, "")
-            explicit_pfx = "H3_HEYLOOK_PRESET_PREFIX" in os.environ
             target_preset = _hlc.format_preset_target_name(canon_slug, _hlc.resolve_heylook_preset_prefix())
-            preset_candidates = [target_preset] if target_preset else []
-            if canon_slug and target_preset != canon_slug and not explicit_pfx:
-                preset_candidates.append(canon_slug)
-            if preset_candidates:
+            if target_preset:
                 async with session.get(
                     f"{heylook_url}/v1/presets",
                     headers=hl_headers,
@@ -2256,13 +2252,9 @@ async def handle_context_suggest(request: web.Request) -> web.Response:
                     if presp.status == 200:
                         pdoc = await presp.json()
                         p_list = [p for p in (pdoc.get("presets") or []) if isinstance(p, dict)]
-                        matched_p = None
-                        for cand_name in preset_candidates:
-                            matched_p = _hlc._match_preset_row(p_list, cand_name)
-                            if matched_p is not None:
-                                matched_preset_name = str(matched_p.get("name") or cand_name)
-                                break
+                        matched_p = _hlc._match_preset_row(p_list, target_preset)
                         if matched_p is not None:
+                            matched_preset_name = str(matched_p.get("name") or target_preset)
                             preset_fields = _hlc._compile_preset_body_fields(matched_p, chosen)
                             psys = str(matched_p.get("system_prompt") or "").strip()
                             if psys:

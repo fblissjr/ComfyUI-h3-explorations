@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Offline checks for `bench/sync_heylook_presets.py`: catalog, exact matching, sentinel blocks, `--prefix`, & `[overlay_preset]` idempotency."""
+"""Offline checks for `bench/sync_heylook_presets.py`: catalog, exact matching, param preservation, `--prefix`, auth, & downstream inheritance."""
 
 from __future__ import annotations
 
@@ -47,7 +47,7 @@ def _mock_client(remote_presets: list[dict], ops: list[tuple[str, str, dict | No
 
 
 def check_catalog_and_fenced_blocks() -> str:
-    specs, _ = shp.filter_catalog(None, repo=REPO)
+    specs = shp.filter_catalog(None, repo=REPO)
     assert len(specs) == 21, len(specs)
     texts: dict[str, str] = {}
     for spec in specs:
@@ -65,9 +65,12 @@ def check_catalog_and_fenced_blocks() -> str:
     return "21 catalog prompts (including 2 P-H3 blocks + 3 h3_director prompts) load & format names"
 
 
-def check_exact_matching_and_sentinel_blocks() -> str:
+def check_exact_matching_and_param_preservation() -> str:
     # Existing underscore `h3_image_t2i` MUST NOT match hyphenated `h3-image-t2i`.
-    # Only explicit `H3_LOCAL_PREAMBLE` / `H3_LOCAL_ADDENDUM` sentinels are preserved across syncs.
+    # Sync writes canonical `.md` prompts verbatim (stripping any legacy HTML sentinels)
+    # while preserving sanitized remote sampler `params` unless `--reset-params` is set.
+    legacy_pre = "<!-- H3_LOCAL_PREAMBLE_START -->\nFavor 35mm film grain.\n<!-- H3_LOCAL_PREAMBLE_END -->"
+    legacy_add = "<!-- H3_LOCAL_ADDENDUM_START -->\nPreserve subject lighting.\n<!-- H3_LOCAL_ADDENDUM_END -->"
     remote = [
         {
             "id": "p-ph3",
@@ -78,45 +81,43 @@ def check_exact_matching_and_sentinel_blocks() -> str:
         {
             "id": "p-native-edit",
             "name": "h3-image-edit",
-            "system_prompt": (
-                f"{shp.PREAMBLE_START}\nFavor 35mm film grain.\n{shp.PREAMBLE_END}\n\n"
-                "Outdated body text that must be replaced.\n\n"
-                f"{shp.ADDENDUM_START}\nPreserve subject lighting.\n{shp.ADDENDUM_END}\n"
-            ),
+            "system_prompt": f"{legacy_pre}\n\nOutdated body text that must be replaced.\n\n{legacy_add}\n",
             "params": {"temperature": 0.42, "bogus_key": 99, "top_p": None},
         },
         {
             "id": "p-unfenced",
             "name": "h3-image-t2i-ar",
-            "system_prompt": (
-                "Outdated intro.\n\n"
-                "1. Opening framing:\nOld text.\n"
-            ),
+            "system_prompt": "Outdated intro.\n\n1. Opening framing:\nOld text.\n",
             "params": {},
         },
     ]
     ops: list[tuple[str, str, dict | None]] = []
     client = _mock_client(remote, ops)
-    specs, _ = shp.filter_catalog(["h3-image-t2i", "h3-image-edit", "h3-image-t2i-ar"], repo=REPO)
+    specs = shp.filter_catalog(["h3-image-t2i", "h3-image-edit", "h3-image-t2i-ar"], repo=REPO)
+    edit_spec = next(s for s in specs if s.name == "h3-image-edit")
+
     acts = shp.execute_sync("http://127.0.0.1:8080", specs, apply=False, client=client, repo=REPO)
     assert all(m == "GET" for m, _, _ in ops), ops
     by_name = {a.target_name: a for a in acts}
     assert by_name["h3-image-t2i"].action == "create"
     assert remote[0]["system_prompt"] == "EXISTING P-H3 PROMPT (must stay untouched)"
-    assert by_name["h3-image-edit"].has_local_blocks is True
-    assert shp.extract_local_blocks(by_name["h3-image-edit"].new_system_prompt) == (
-        "Favor 35mm film grain.",
-        "Preserve subject lighting.",
-    )
+    assert by_name["h3-image-edit"].action == "update"
+    assert by_name["h3-image-edit"].new_system_prompt == shp.read_spec_text(edit_spec, repo=REPO)
+    assert "H3_LOCAL_PREAMBLE" not in by_name["h3-image-edit"].new_system_prompt
+    assert "H3_LOCAL_ADDENDUM" not in by_name["h3-image-edit"].new_system_prompt
     assert "Outdated body text that must be replaced." not in by_name["h3-image-edit"].new_system_prompt
     assert by_name["h3-image-edit"].new_params == {"temperature": 0.42}
-    assert by_name["h3-image-t2i-ar"].has_local_blocks is False
-    assert shp.extract_local_blocks(by_name["h3-image-t2i-ar"].new_system_prompt) == ("", "")
     assert "Old text." not in by_name["h3-image-t2i-ar"].new_system_prompt
-    return "exact name avoids h3_image_t2i collision, sanitizes params, & preserves only explicit sentinel blocks"
+
+    acts_reset = shp.execute_sync(
+        "http://127.0.0.1:8080", specs, apply=False, reset_params=True, client=client, repo=REPO
+    )
+    by_name_reset = {a.target_name: a for a in acts_reset}
+    assert by_name_reset["h3-image-edit"].new_params == {}
+    return "exact name avoids h3_image_t2i collision, strips legacy sentinels, & preserves/resets params cleanly"
 
 
-def check_prefix_overlay_preset_and_idempotency() -> str:
+def check_prefix_and_idempotency() -> str:
     remote = [
         {
             "id": "p-existing",
@@ -128,88 +129,50 @@ def check_prefix_overlay_preset_and_idempotency() -> str:
     ops: list[tuple[str, str, dict | None]] = []
     client = _mock_client(remote, ops)
 
-    with tempfile.TemporaryDirectory() as tmp:
-        ov_path = Path(tmp) / "overlays.toml"
-        ov_path.write_text(
-            '[global]\n'
-            'prefix = "h3app_"\n'
-            'preamble = "Favor crisp 35mm natural framing."\n\n'
-            '[overlay_preset]\n'
-            'name = "h3app_local_overlay"\n'
-            'directive = "@extend:prepend"\n'
-            '[overlay_preset.params]\n'
-            'top_p = 0.95\n\n'
-            '[presets."h3-image-edit"]\n'
-            'addendum = "Always edit the original picture."\n',
-            encoding="utf-8",
-        )
-        overlays = shp.load_local_overlays(ov_path)
-        ov_name = str(overlays["overlay_preset"]["name"])
-        specs, inc_ov = shp.filter_catalog(None, repo=REPO, overlay_name=ov_name)
-        assert inc_ov is True
-
-        a1 = shp.execute_sync(
-            "http://127.0.0.1:8080",
-            specs,
-            apply=True,
-            overlays=overlays,
-            include_overlay=inc_ov,
-            client=client,
-            repo=REPO,
-        )
-        assert len(a1) == 22 and all(a.action == "create" for a in a1), [(a.target_name, a.action) for a in a1]
-        assert all(a.target_name.startswith("h3app_") for a in a1)
-        assert remote[0]["system_prompt"] == "Untouched pre-existing user preset."
-
-        by_name = {r["name"]: r for r in remote}
-        assert "Always edit the original picture." in by_name["h3app_image_edit"]["system_prompt"]
-        assert "Always edit the original picture." not in by_name["h3app_video_t2va"]["system_prompt"]
-        ov_sys = by_name["h3app_local_overlay"]["system_prompt"]
-        mode, body = _hc.parse_extend_directive(ov_sys)
-        assert mode == "prepend" and "Favor crisp 35mm natural framing." in body
-
-        # Re-run must be 100% unchanged and perform 0 writes
-        ops.clear()
-        a2 = shp.execute_sync(
-            "http://127.0.0.1:8080",
-            specs,
-            apply=True,
-            overlays=overlays,
-            include_overlay=inc_ov,
-            client=client,
-            repo=REPO,
-        )
-        assert len(a2) == 22 and all(a.action == "unchanged" for a in a2), [(a.target_name, a.action) for a in a2]
-        assert [m for m, _, _ in ops] == ["GET"], ops
-
-    return "21 h3app_* canonical presets + 1 @extend:prepend overlay create cleanly and re-sync with 0 diffs"
-
-
-def check_overlay_directive_validation() -> str:
-    from bench import sync_heylook_presets as ps
-
-    # 1. Sentinel extraction ignores un-fenced prose and parses both explicit sentinel blocks.
-    assert ps.extract_local_blocks("Plain un-fenced text\nwith multiple lines.") == ("", "")
-    fenced_prompt = (
-        f"{ps.PREAMBLE_START}\nLead rule.\n{ps.PREAMBLE_END}\n\n"
-        "Canonical body.\n\n"
-        f"{ps.ADDENDUM_START}\nTail rule.\n{ps.ADDENDUM_END}\n"
+    specs = shp.filter_catalog(None, repo=REPO)
+    assert len(specs) == 21
+    a1 = shp.execute_sync(
+        "http://127.0.0.1:8080",
+        specs,
+        apply=True,
+        prefix="h3app_",
+        client=client,
+        repo=REPO,
     )
-    assert ps.extract_local_blocks(fenced_prompt) == ("Lead rule.", "Tail rule.")
+    assert len(a1) == 21 and all(a.action == "create" for a in a1), [(a.target_name, a.action) for a in a1]
+    assert all(a.target_name.startswith("h3app_") for a in a1)
+    remote_names = {r["name"] for r in remote}
+    assert "h3app_local_overlay" not in remote_names
+    assert remote[0]["system_prompt"] == "Untouched pre-existing user preset."
+    assert all("<!-- H3_LOCAL_" not in r["system_prompt"] for r in remote)
 
-    # 2. Invalid [overlay_preset].directive must raise ValueError instead of silent header mismatch.
+    # Re-run must be 100% unchanged and perform 0 writes
+    ops.clear()
+    a2 = shp.execute_sync(
+        "http://127.0.0.1:8080",
+        specs,
+        apply=True,
+        prefix="h3app_",
+        client=client,
+        repo=REPO,
+    )
+    assert len(a2) == 21 and all(a.action == "unchanged" for a in a2), [(a.target_name, a.action) for a in a2]
+    assert ops == [("GET", "/v1/presets", None)], ops
+
+    # Removed --overlays flag and 'overlay' filter selector must fail fast
     try:
-        ps._build_overlay_action(
-            {"name": "bad_overlay", "directive": "prepend", "content": "Test overlay"},
-            {},
-            [],
-            reset_params=False,
-        )
-        raise AssertionError("expected ValueError for unprefixed directive 'prepend'")
+        shp.main(["--overlays", "nonexistent_overlays.toml", "--list"])
+        raise AssertionError("expected SystemExit for removed --overlays flag")
+    except SystemExit as exc:
+        assert exc.code == 2, exc
+
+    try:
+        shp.filter_catalog(["overlay"], repo=REPO)
+        raise AssertionError("expected ValueError for removed 'overlay' selector")
     except ValueError:
         pass
 
-    return "sentinel extraction ignores un-fenced text & overlay directive validation rejects bare 'prepend'"
+    return "21 h3app_* canonical presets create cleanly with 0 sentinel comments, re-sync with 0 diffs, and reject removed --overlays/overlay"
 
 
 def check_access_gate_auth_forwarding() -> str:
@@ -284,7 +247,7 @@ def check_access_gate_auth_forwarding() -> str:
     prev_h3_kfile = os.environ.get("H3_HEYLOOK_API_KEY_FILE")
     try:
         base = f"http://127.0.0.1:{srv.server_address[1]}"
-        specs = ps.filter_catalog(["h3-image-t2i", "h3-image-t2i-design"])[0]
+        specs = ps.filter_catalog(["h3-image-t2i", "h3-image-t2i-design"])
         assert len(specs) == 2
 
         # 0. Control: --api-key CLI flag is refused so secrets never appear on argv
@@ -444,14 +407,14 @@ def check_downstream_auto_preset_inheritance() -> str:
     try:
         base = f"http://127.0.0.1:{srv.server_port}"
         os.environ.pop("H3_HEYLOOK_PRESET_PREFIX", None)
-        specs, _ = ps.filter_catalog(["h3-video-t2va", "h3-auto-edit-sections", "h3-image-t2i-ar"], repo=REPO)
-        overlays = {
-            "global": {"addendum": "CUSTOM SYNCED ADDENDUM.", "params": {"temperature": 0.44}},
-            "overlay_preset": {},
-            "presets": {},
-        }
-        ps.execute_sync(base, specs, apply=True, overlays=overlays, repo=REPO)
+        specs = ps.filter_catalog(["h3-video-t2va", "h3-auto-edit-sections", "h3-image-t2i-ar"], repo=REPO)
+        ps.execute_sync(base, specs, apply=True, repo=REPO)
         assert len(remote_presets) == 3
+
+        # Simulate manual edits made directly in heylook after syncing
+        for row in remote_presets:
+            row["system_prompt"] = f"{row['system_prompt']}\n\nMANUAL HEYLOOK EDIT."
+            row["params"] = {"temperature": 0.44}
 
         os.environ.pop("H3_HEYLOOK_MODEL", None)
         v_res = _vexp.expand_video_prompt(
@@ -464,7 +427,7 @@ def check_downstream_auto_preset_inheritance() -> str:
             use_cache=False,
         )
         assert posted_bodies[-1]["model"] == "resident-vlm", posted_bodies[-1]["model"]
-        assert "CUSTOM SYNCED ADDENDUM." in posted_bodies[-1]["system"]
+        assert "MANUAL HEYLOOK EDIT." in posted_bodies[-1]["system"]
         assert posted_bodies[-1].get("temperature") == 0.44
         assert "sys=preset:h3-video-t2va" in v_res["report"], v_res["report"]
 
@@ -480,7 +443,7 @@ def check_downstream_auto_preset_inheritance() -> str:
             preset="",
             use_cache=False,
         )
-        assert "CUSTOM SYNCED ADDENDUM." in posted_bodies[-1]["system"]
+        assert "MANUAL HEYLOOK EDIT." in posted_bodies[-1]["system"]
         assert posted_bodies[-1].get("temperature") == 0.44
         assert "sys=preset:h3-auto-edit-sections" in a_res["report"], a_res["report"]
 
@@ -492,7 +455,7 @@ def check_downstream_auto_preset_inheritance() -> str:
             preset="",
         )
         assert i_res["shape"] == "4:3", i_res
-        assert "CUSTOM SYNCED ADDENDUM." in posted_bodies[-1]["system"]
+        assert "MANUAL HEYLOOK EDIT." in posted_bodies[-1]["system"]
         assert posted_bodies[-1].get("temperature") == 0.44
         assert "sys=preset:h3-image-t2i-ar" in i_res["report"], i_res["report"]
 
@@ -509,7 +472,7 @@ def check_downstream_auto_preset_inheritance() -> str:
             use_cache=False,
         )
         assert posted_bodies[-1]["model"] == "resident-vlm"
-        assert "CUSTOM SYNCED ADDENDUM." not in posted_bodies[-1]["system"]
+        assert "MANUAL HEYLOOK EDIT." not in posted_bodies[-1]["system"]
         assert "sys=local" in v_fb["report"], v_fb["report"]
     finally:
         srv.shutdown()
@@ -527,9 +490,8 @@ def check_downstream_auto_preset_inheritance() -> str:
 
 def main() -> int:
     case("catalog_and_fenced_blocks", check_catalog_and_fenced_blocks)
-    case("exact_matching_and_sentinel_blocks", check_exact_matching_and_sentinel_blocks)
-    case("prefix_overlay_preset_and_idempotency", check_prefix_overlay_preset_and_idempotency)
-    case("overlay_directive_validation", check_overlay_directive_validation)
+    case("exact_matching_and_param_preservation", check_exact_matching_and_param_preservation)
+    case("prefix_and_idempotency", check_prefix_and_idempotency)
     case("access_gate_auth_forwarding", check_access_gate_auth_forwarding)
     case("downstream_auto_preset_inheritance", check_downstream_auto_preset_inheritance)
     return finish()

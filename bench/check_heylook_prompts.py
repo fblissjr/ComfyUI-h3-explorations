@@ -10,8 +10,8 @@ Verifies:
    positive-only optical restraint (`f/4` to `f/5.6`) across runtime system prompts.
 3. Closed cinematography camera motions (`vendor_guides/base_en.md` §4.3) and closed
    reference task/retention vocabularies (`vendor_guides/ref_en.md` §3–§4).
-4. `resolve_heylook_preset_prefix()` precedence (`explicit > H3_HEYLOOK_PRESET_PREFIX >
-   internal/heylook_local_overlays.toml > ""`) and `try_inherit_heylook_preset()` fallback.
+4. `resolve_heylook_preset_prefix()` precedence (`explicit > H3_HEYLOOK_PRESET_PREFIX > ""`)
+   and `try_inherit_heylook_preset()` exact matching.
 5. Canonical 14-key `HeylookProvenance` (`build_heylook_provenance`), SSE `message_start`
    model/usage capture, caller attachment across all 5 callers, `[provenance]` TOML
    serialization, and `llm_pairs.py` single-clause / soundscape / music repair fidelity.
@@ -358,71 +358,62 @@ def check_closed_vendor_vocabularies() -> str:
 def check_preset_prefix_resolution() -> str:
     prev_env = os.environ.get("H3_HEYLOOK_PRESET_PREFIX")
     try:
-        with tempfile.TemporaryDirectory() as td:
-            ov_path = Path(td) / "heylook_local_overlays.toml"
-            ov_path.write_text('[global]\nprefix = "h3app_"\n', encoding="utf-8")
+        os.environ.pop("H3_HEYLOOK_PRESET_PREFIX", None)
+        assert hlc.resolve_heylook_preset_prefix("") == ""
+        assert hlc.resolve_heylook_preset_prefix("custom_") == "custom_"
 
+        # Explicit env var sets prefix unless overridden by explicit arg (and empty "" clears it)
+        os.environ["H3_HEYLOOK_PRESET_PREFIX"] = "envpfx_"
+        assert hlc.resolve_heylook_preset_prefix("") == "envpfx_"
+        assert hlc.resolve_heylook_preset_prefix("custom_") == "custom_"
+        os.environ["H3_HEYLOOK_PRESET_PREFIX"] = ""
+        assert hlc.resolve_heylook_preset_prefix("") == ""
+
+        # try_inherit_heylook_preset requires exact target match (no implicit unprefixed fallback)
+        model_row = {"id": "gemma-4", "capabilities": ["chat", "vision"]}
+        presets_both = [
+            {"id": "legacy", "name": "h3_image_t2i", "system_prompt": "LEGACY WRONG", "params": {}},
+            {"id": "app", "name": "h3app_image_t2i", "system_prompt": "SYNCED APP", "params": {"temperature": 0.5}},
+            {"id": "canon", "name": "h3-video-t2va", "system_prompt": "CANONICAL T2VA", "params": {}},
+        ]
+
+        def _handler_both(req: httpx.Request) -> httpx.Response:
+            return httpx.Response(200, json={"presets": presets_both})
+
+        with httpx.Client(transport=httpx.MockTransport(_handler_both)) as c:
+            # With H3_HEYLOOK_PRESET_PREFIX="h3app_": matches h3app_image_t2i, never h3_image_t2i or unprefixed h3-video-t2va
+            os.environ["H3_HEYLOOK_PRESET_PREFIX"] = "h3app_"
+            fields, rname = hlc.try_inherit_heylook_preset(
+                c, "http://127.0.0.1:18080", "h3-image-t2i", model_row
+            )
+            assert rname == "h3app_image_t2i" and fields and fields["system"] == "SYNCED APP"
+            fields_no_fb, rname_no_fb = hlc.try_inherit_heylook_preset(
+                c, "http://127.0.0.1:18080", "h3-video-t2va", model_row
+            )
+            assert fields_no_fb is None and rname_no_fb == ""
+
+            # With env unset: matches canonical h3-video-t2va directly, never legacy h3_image_t2i
             os.environ.pop("H3_HEYLOOK_PRESET_PREFIX", None)
-            assert hlc.resolve_heylook_preset_prefix("", overlays_path=ov_path) == "h3app_"
-            assert hlc.resolve_heylook_preset_prefix("custom_", overlays_path=ov_path) == "custom_"
+            fields_canon, rname_canon = hlc.try_inherit_heylook_preset(
+                c, "http://127.0.0.1:18080", "h3-video-t2va", model_row
+            )
+            assert rname_canon == "h3-video-t2va" and fields_canon and fields_canon["system"] == "CANONICAL T2VA"
+            fields_legacy, rname_legacy = hlc.try_inherit_heylook_preset(
+                c, "http://127.0.0.1:18080", "h3-image-t2i", model_row
+            )
+            assert fields_legacy is None and rname_legacy == ""
 
-            # Explicit env var overrides overlays (including explicit empty "")
-            os.environ["H3_HEYLOOK_PRESET_PREFIX"] = "envpfx_"
-            assert hlc.resolve_heylook_preset_prefix("", overlays_path=ov_path) == "envpfx_"
-            os.environ["H3_HEYLOOK_PRESET_PREFIX"] = ""
-            assert hlc.resolve_heylook_preset_prefix("", overlays_path=ov_path) == ""
-
-            # Missing overlays file returns ""
-            os.environ.pop("H3_HEYLOOK_PRESET_PREFIX", None)
-            assert hlc.resolve_heylook_preset_prefix("", overlays_path=Path(td) / "missing.toml") == ""
-
-            # try_inherit_heylook_preset prefers h3app_image_t2i over legacy underscore h3_image_t2i,
-            # and falls back to canonical hyphenated h3-image-t2i ONLY when prefix came from overlays
-            model_row = {"id": "gemma-4", "capabilities": ["chat", "vision"]}
-            presets_both = [
-                {"id": "legacy", "name": "h3_image_t2i", "system_prompt": "LEGACY WRONG", "params": {}},
-                {"id": "app", "name": "h3app_image_t2i", "system_prompt": "SYNCED APP", "params": {"temperature": 0.5}},
-            ]
-
-            def _handler_both(req: httpx.Request) -> httpx.Response:
-                return httpx.Response(200, json={"presets": presets_both})
-
-            with httpx.Client(transport=httpx.MockTransport(_handler_both)) as c:
-                fields, rname = hlc.try_inherit_heylook_preset(
-                    c, "http://127.0.0.1:18080", "h3-image-t2i", model_row, overlays_path=ov_path
-                )
-                assert rname == "h3app_image_t2i" and fields and fields["system"] == "SYNCED APP"
-
-            # Legacy underscore h3_image_t2i alone must NEVER match h3-image-t2i fallback
-            presets_legacy_only = [
-                {"id": "legacy", "name": "h3_image_t2i", "system_prompt": "LEGACY WRONG", "params": {}},
-            ]
-            with httpx.Client(transport=httpx.MockTransport(lambda _r: httpx.Response(200, json={"presets": presets_legacy_only}))) as c:
-                fields_none, rname_none = hlc.try_inherit_heylook_preset(
-                    c, "http://127.0.0.1:18080", "h3-image-t2i", model_row, overlays_path=ov_path
-                )
-                assert fields_none is None and rname_none == ""
-
-            # Unprefixed canonical h3-video-t2va matches fallback when prefix came from overlays
-            presets_canon = [
-                {"id": "canon", "name": "h3-video-t2va", "system_prompt": "CANONICAL T2VA", "params": {}},
-            ]
-            with httpx.Client(transport=httpx.MockTransport(lambda _r: httpx.Response(200, json={"presets": presets_canon}))) as c:
-                fields_fb, rname_fb = hlc.try_inherit_heylook_preset(
-                    c, "http://127.0.0.1:18080", "h3-video-t2va", model_row, overlays_path=ov_path
-                )
-                assert rname_fb == "h3-video-t2va" and fields_fb and fields_fb["system"] == "CANONICAL T2VA"
-                # Explicit prefix arg disables unprefixed fallback
-                fields_exp, rname_exp = hlc.try_inherit_heylook_preset(
-                    c, "http://127.0.0.1:18080", "h3-video-t2va", model_row, prefix="h3app_", overlays_path=ov_path
-                )
-                assert fields_exp is None and rname_exp == ""
+            # Explicit prefix arg overrides env and requires prefixed match
+            fields_exp, rname_exp = hlc.try_inherit_heylook_preset(
+                c, "http://127.0.0.1:18080", "h3-video-t2va", model_row, prefix="h3app_"
+            )
+            assert fields_exp is None and rname_exp == ""
     finally:
         if prev_env is None:
             os.environ.pop("H3_HEYLOOK_PRESET_PREFIX", None)
         else:
             os.environ["H3_HEYLOOK_PRESET_PREFIX"] = prev_env
-    return "resolve_heylook_preset_prefix() & try_inherit_heylook_preset() precedence verified"
+    return "resolve_heylook_preset_prefix() & try_inherit_heylook_preset() exact matching verified"
 
 
 def _make_valid_pair_markdown() -> str:

@@ -189,7 +189,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_subject_tracks.py`](check_subject_tracks.py) | The model-free judgements about a tracked subject (`subject_tracks.py`), on made-up masks. No model, no card. |
 | [`check_subject_yaw.py`](check_subject_yaw.py) | The turn metric's arithmetic: angles across the seam, the verdict, and the comparison with the eye. |
 | [`check_sweep_loads.py`](check_sweep_loads.py) | `bench/sweep_loads.py` against job files made here: a copy differs from its source in the named change and the names only. |
-| [`check_sync_heylook_presets.py`](check_sync_heylook_presets.py) | Offline checks for `bench/sync_heylook_presets.py`: catalog, exact matching, sentinel blocks, `--prefix`, & `[overlay_preset]` idempotency. |
+| [`check_sync_heylook_presets.py`](check_sync_heylook_presets.py) | Offline checks for `bench/sync_heylook_presets.py`: catalog, exact matching, param preservation, `--prefix`, auth, & downstream inheritance. |
 | [`check_timeline_page.py`](check_timeline_page.py) | Check ``bench/timeline_page.py``: whole-video NLE timeline data file and HTML builder. |
 | [`check_token_routing.py`](check_token_routing.py) | `token_routing` on MiniMaxH3Sol becomes a {block: budget} map; assert which. |
 | [`check_two_shot_load.py`](check_two_shot_load.py) | Two neighbouring shots as one load (`bench/two_shot_load.py`) on a made video: what it lays end to end, writes and refuses. |
@@ -549,7 +549,7 @@ this file is only a way to find a script by what it says it does.
 | [`sweep_loads.py`](sweep_loads.py) | The same loads again with one thing changed: copies of masked job files, a record of the sweep, the commands in order. |
 | [`sweep_routing_density.py`](sweep_routing_density.py) | Per-head routed density across the capture grid: where the routing structure is. |
 | [`sweep_sol_block_size_on_capture.py`](sweep_sol_block_size_on_capture.py) | Is 64 tokens per block the limit? Float reference, on captures. |
-| [`sync_heylook_presets.py`](sync_heylook_presets.py) | Sync tracked `docs/wiki/system_prompts/` presets to `heylook` without clobbering local overlays or params. |
+| [`sync_heylook_presets.py`](sync_heylook_presets.py) | Sync tracked `docs/wiki/system_prompts/` presets to `heylook` without clobbering remote sampler params. |
 | [`tally_judge_verdicts.py`](tally_judge_verdicts.py) | How often does the judge call a pair "same" or "can't tell", and does the slot order pull? |
 | [`telemetry_report.py`](telemetry_report.py) | Read a pipeline telemetry record into per-node phases. |
 | [`time_dense_blocks.py`](time_dense_blocks.py) | What does a dense block actually COST, in seconds, on this box? |
