@@ -42,6 +42,7 @@ try:
     from .heylook_client import (  # noqa: E402
         SAMPLER_MODES,
         THINKING_MODES,
+        HeylookCancelToken,
         HeylookStreamResult,
         _comfy_interrupt_check,
         _extract_inline_thinking,
@@ -67,6 +68,7 @@ except ImportError:  # run from the repo root by a check or script
     from heylook_client import (  # noqa: E402
         SAMPLER_MODES,
         THINKING_MODES,
+        HeylookCancelToken,
         HeylookStreamResult,
         _comfy_interrupt_check,
         _extract_inline_thinking,
@@ -1758,6 +1760,7 @@ def run_auto_edit_rewrite(
     prompt_mode: str = "auto",
     client: httpx.Client | None = None,
     interrupt_check: Callable[[], None] | None = None,
+    cancel_token: HeylookCancelToken | None = None,
 ) -> dict[str, Any]:
     """Execute or cache-hit one `MiniMaxH3AutoEditPrompt` rewrite (or fresh generation when `original` is blank) and compile its `EditPlan`."""
     orig_norm = _rules.normalize_prompt(original)
@@ -2111,108 +2114,53 @@ def run_auto_edit_rewrite(
     client_cm = (
         contextlib.nullcontext(client)
         if client is not None
-        else make_heylook_client(base, timeout=httpx.Timeout(None, connect=10.0))
+        else make_heylook_client(base)
     )
     with client_cm as req_client:
-        model_row = discover_heylook_model(req_client, base, model, need=need_caps)
-        raw_preset_fields = (
-            expand_heylook_preset(req_client, base, preset_name, model_row)
-            if preset_name
-            else None
+        attached_tok = (
+            cancel_token.attach_client(req_client, if_unset=True)
+            if cancel_token is not None
+            else False
         )
-        sys_prompt, final_user_prompt, sys_source, use_native, preset_fields = _resolve_prompts_for_request(
-            raw_preset_fields
-        )
-        resolved_preset_sig = (
-            json.dumps(raw_preset_fields or {}, sort_keys=True, default=str)
-            if preset_name
-            else ""
-        )
-        preset_sig_hash = (
-            hashlib.sha256(f"{model_row.get('id', '')}|{resolved_preset_sig}".encode("utf-8")).hexdigest()[:16]
-            if preset_name
-            else ""
-        )
-        cache_key = base_cache_key + (
-            hashlib.sha256(sys_prompt.encode("utf-8")).hexdigest()[:16],
-            hashlib.sha256(final_user_prompt.encode("utf-8")).hexdigest()[:16],
-            preset_sig_hash,
-        )
-        if preset_name:
-            hit = _hit_cached(cache_key)
-            if hit is not None:
-                return hit
-
-        sampler_overrides = (
-            {"temperature": float(temperature), "max_tokens": int(max_tokens)}
-            if sampler_mode == "custom"
-            else None
-        )
-        body = build_heylook_request_body(
-            model_row=model_row,
-            system_prompt=sys_prompt,
-            user_prompt=final_user_prompt,
-            prepared_images=prepared_images,
-            thinking=thinking,
-            request_seed=req_seed,
-            preset_fields=preset_fields,
-            sampler_mode=sampler_mode,
-            sampler_overrides=sampler_overrides,
-            reasoning_effort_override=req_effort,
-            default_reasoning_effort=req_effort,
-        )
-        res: HeylookStreamResult = with_heylook_backoff(
-            lambda: stream_heylook_message(base, body, client=req_client, interrupt_check=eff_interrupt),
-            interrupt_check=eff_interrupt,
-        )
-        t1 = res.thinking or _extract_inline_thinking(res.text)
-        if t1:
-            thinking_parts.append(t1)
-
         try:
-            validated = _run_validator(res.text)
-        except ValidationRepairError as first_err:
-            if res.stop_reason == "max_tokens":
-                raise RuntimeError(
-                    f"heylook stopped at max_tokens before completing a valid rewrite ({first_err}). "
-                    "Raise max_tokens or switch thinking to 'off' / lower reasoning_effort."
-                ) from first_err
-            repair_used = True
-            err_s = str(first_err)
-            band_hint = (
-                " Aim squarely for ~410-440 words inside detailed_description so it sits comfortably "
-                "inside the 350-500 word band (do not stop near the 350 edge)."
-                if ("350-500 words" in err_s or "> 500 ceiling" in err_s)
+            model_row = discover_heylook_model(req_client, base, model, need=need_caps)
+            raw_preset_fields = (
+                expand_heylook_preset(req_client, base, preset_name, model_row)
+                if preset_name
+                else None
+            )
+            eff_interrupt()
+            if cancel_token is not None:
+                cancel_token.check()
+            sys_prompt, final_user_prompt, sys_source, use_native, preset_fields = _resolve_prompts_for_request(
+                raw_preset_fields
+            )
+            resolved_preset_sig = (
+                json.dumps(raw_preset_fields or {}, sort_keys=True, default=str)
+                if preset_name
                 else ""
             )
-            valid_headers_note = ", ".join(allowed_sections) if is_fresh_mode else ", ".join(c.name for c in orig_chunks)
-            if is_fresh_mode and use_native:
-                if resolved_mode == "single_frame":
-                    repair_msg = (
-                        f"Your output failed validation: {first_err}\n"
-                        "Fix ONLY this validation error and output ONE plain-text visual paragraph "
-                        "with no Markdown headings, no code fences, and no commentary."
-                    )
-                else:
-                    headers_csv = ", ".join(f"{s}:" for s in allowed_sections)
-                    repair_msg = (
-                        f"Your output failed validation: {first_err}\n"
-                        f"Required plain-text section headers (exact order): {headers_csv}\n"
-                        "Fix ONLY this validation error — do NOT drop or revert passing sections."
-                        f"{band_hint} "
-                        "Output ALL required plain-text sections cleanly with no Markdown headings, "
-                        "no code fences, and no commentary."
-                    )
-            else:
-                repair_msg = (
-                    f"Your output failed validation: {first_err}\n"
-                    f"Required/valid section names: {valid_headers_note}\n"
-                    f"Allowed sections to edit: {', '.join(allowed_sections)}\n"
-                    "Fix ONLY this validation error — do NOT drop or revert previously written sections."
-                    f"{band_hint} "
-                    "Output ALL required Markdown sections and the `## axes` block."
-                )
-            repair_body = build_heylook_request_body(
+            preset_sig_hash = (
+                hashlib.sha256(f"{model_row.get('id', '')}|{resolved_preset_sig}".encode("utf-8")).hexdigest()[:16]
+                if preset_name
+                else ""
+            )
+            cache_key = base_cache_key + (
+                hashlib.sha256(sys_prompt.encode("utf-8")).hexdigest()[:16],
+                hashlib.sha256(final_user_prompt.encode("utf-8")).hexdigest()[:16],
+                preset_sig_hash,
+            )
+            if preset_name:
+                hit = _hit_cached(cache_key)
+                if hit is not None:
+                    return hit
+
+            sampler_overrides = (
+                {"temperature": float(temperature), "max_tokens": int(max_tokens)}
+                if sampler_mode == "custom"
+                else None
+            )
+            body = build_heylook_request_body(
                 model_row=model_row,
                 system_prompt=sys_prompt,
                 user_prompt=final_user_prompt,
@@ -2224,26 +2172,104 @@ def run_auto_edit_rewrite(
                 sampler_overrides=sampler_overrides,
                 reasoning_effort_override=req_effort,
                 default_reasoning_effort=req_effort,
-                extra_messages=[
-                    {"role": "assistant", "content": res.text},
-                    {"role": "user", "content": repair_msg},
-                ],
             )
-            res = with_heylook_backoff(
+            res: HeylookStreamResult = with_heylook_backoff(
                 lambda: stream_heylook_message(
-                    base, repair_body, client=req_client, interrupt_check=eff_interrupt
+                    base, body, client=req_client, interrupt_check=eff_interrupt, cancel_token=cancel_token
                 ),
                 interrupt_check=eff_interrupt,
+                cancel_token=cancel_token,
             )
-            t2 = res.thinking or _extract_inline_thinking(res.text)
-            if t2:
-                thinking_parts.append(t2)
+            t1 = res.thinking or _extract_inline_thinking(res.text)
+            if t1:
+                thinking_parts.append(t1)
+
             try:
                 validated = _run_validator(res.text)
-            except ValidationRepairError as second_err:
-                raise ValueError(
-                    f"MiniMaxH3AutoEditPrompt validation failed after 1 repair attempt: {second_err}"
-                ) from second_err
+            except ValidationRepairError as first_err:
+                if res.stop_reason == "max_tokens":
+                    raise RuntimeError(
+                        f"heylook stopped at max_tokens before completing a valid rewrite ({first_err}). "
+                        "Raise max_tokens or switch thinking to 'off' / lower reasoning_effort."
+                    ) from first_err
+                eff_interrupt()
+                if cancel_token is not None:
+                    cancel_token.check()
+                repair_used = True
+                err_s = str(first_err)
+                band_hint = (
+                    " Aim squarely for ~410-440 words inside detailed_description so it sits comfortably "
+                    "inside the 350-500 word band (do not stop near the 350 edge)."
+                    if ("350-500 words" in err_s or "> 500 ceiling" in err_s)
+                    else ""
+                )
+                valid_headers_note = ", ".join(allowed_sections) if is_fresh_mode else ", ".join(c.name for c in orig_chunks)
+                if is_fresh_mode and use_native:
+                    if resolved_mode == "single_frame":
+                        repair_msg = (
+                            f"Your output failed validation: {first_err}\n"
+                            "Fix ONLY this validation error and output ONE plain-text visual paragraph "
+                            "with no Markdown headings, no code fences, and no commentary."
+                        )
+                    else:
+                        headers_csv = ", ".join(f"{s}:" for s in allowed_sections)
+                        repair_msg = (
+                            f"Your output failed validation: {first_err}\n"
+                            f"Required plain-text section headers (exact order): {headers_csv}\n"
+                            "Fix ONLY this validation error — do NOT drop or revert passing sections."
+                            f"{band_hint} "
+                            "Output ALL required plain-text sections cleanly with no Markdown headings, "
+                            "no code fences, and no commentary."
+                        )
+                else:
+                    repair_msg = (
+                        f"Your output failed validation: {first_err}\n"
+                        f"Required/valid section names: {valid_headers_note}\n"
+                        f"Allowed sections to edit: {', '.join(allowed_sections)}\n"
+                        "Fix ONLY this validation error — do NOT drop or revert previously written sections."
+                        f"{band_hint} "
+                        "Output ALL required Markdown sections and the `## axes` block."
+                    )
+                repair_body = build_heylook_request_body(
+                    model_row=model_row,
+                    system_prompt=sys_prompt,
+                    user_prompt=final_user_prompt,
+                    prepared_images=prepared_images,
+                    thinking=thinking,
+                    request_seed=req_seed,
+                    preset_fields=preset_fields,
+                    sampler_mode=sampler_mode,
+                    sampler_overrides=sampler_overrides,
+                    reasoning_effort_override=req_effort,
+                    default_reasoning_effort=req_effort,
+                    extra_messages=[
+                        {"role": "assistant", "content": res.text},
+                        {"role": "user", "content": repair_msg},
+                    ],
+                )
+                res = with_heylook_backoff(
+                    lambda: stream_heylook_message(
+                        base, repair_body, client=req_client, interrupt_check=eff_interrupt, cancel_token=cancel_token
+                    ),
+                    interrupt_check=eff_interrupt,
+                    cancel_token=cancel_token,
+                )
+                t2 = res.thinking or _extract_inline_thinking(res.text)
+                if t2:
+                    thinking_parts.append(t2)
+                try:
+                    validated = _run_validator(res.text)
+                except ValidationRepairError as second_err:
+                    raise ValueError(
+                        f"MiniMaxH3AutoEditPrompt validation failed after 1 repair attempt: {second_err}"
+                    ) from second_err
+        except BaseException:
+            if cancel_token is not None and cancel_token.is_cancelled:
+                cancel_token.check()
+            raise
+        finally:
+            if cancel_token is not None and attached_tok:
+                cancel_token.detach_client(req_client)
 
     telem = format_heylook_report(
         res,

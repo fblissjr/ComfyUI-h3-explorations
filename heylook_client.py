@@ -23,7 +23,9 @@ from dataclasses import dataclass, field
 import io as _pyio
 import json
 import os
+import socket
 import sys
+import threading
 import time
 import urllib.parse
 import uuid
@@ -42,6 +44,8 @@ import h3_env  # noqa: E402
 
 HEYLOOK_IMAGE_MAX_EDGE = 2048
 HEYLOOK_JPEG_QUALITY = 85
+DEFAULT_HEYLOOK_MODEL = "gemma-4-31B-it-8bit"
+DEFAULT_STREAM_TIMEOUT = httpx.Timeout(connect=10.0, read=300.0, write=30.0, pool=10.0)
 THINKING_MODES: tuple[str, ...] = ("model default", "on", "off")
 SAMPLER_MODES: tuple[str, ...] = ("heylook / preset default", "custom")
 
@@ -52,6 +56,162 @@ class HeylookOverloadedError(RuntimeError):
     def __init__(self, message: str = "model_overloaded", retry_after: float | None = None):
         super().__init__(message)
         self.retry_after = retry_after
+
+
+class HeylookCancelledError(RuntimeError):
+    """Raised when an active or queued `heylook` request is cancelled."""
+
+
+def _force_close_httpx_client(client: httpx.Client) -> None:
+    """Shutdown live `httpcore` sockets before closing `client` so blocked `recv()` wakes on Linux."""
+    transports = [getattr(client, "_transport", None), *(getattr(client, "_mounts", {}) or {}).values()]
+    for tr in transports:
+        if tr is None:
+            continue
+        pool = getattr(tr, "_pool", None)
+        if pool is None:
+            continue
+        try:
+            conns = list(getattr(pool, "_connections", ()) or ())
+        except Exception:
+            continue
+        for conn in conns:
+            inner = getattr(conn, "_connection", conn)
+            stream = getattr(inner, "_network_stream", None)
+            if stream is None:
+                continue
+            sock = None
+            get_extra = getattr(stream, "get_extra_info", None)
+            if callable(get_extra):
+                try:
+                    sock = get_extra("socket")
+                except Exception:
+                    sock = None
+            if sock is None:
+                sock = getattr(stream, "_sock", None)
+            if sock is not None:
+                try:
+                    sock.shutdown(socket.SHUT_RDWR)
+                except OSError:
+                    pass
+    try:
+        client.close()
+    except Exception:
+        pass
+
+
+class HeylookCancelToken:
+    """Thread-safe cancellation and upstream `DELETE /v1/requests/{id}` coordinator."""
+
+    def __init__(
+        self,
+        cancel_exc: Callable[[], BaseException] | None = None,
+    ) -> None:
+        self._lock = threading.Lock()
+        self._cancel_event = threading.Event()
+        self._cancel_exc = cancel_exc
+        self._base_url: str = ""
+        self._request_id: str = ""
+        self._api_key: str | None = None
+        self._upstream_confirmed: bool = False
+        self._active_client: httpx.Client | None = None
+
+    @property
+    def is_cancelled(self) -> bool:
+        return self._cancel_event.is_set()
+
+    @property
+    def active_request_id(self) -> str:
+        with self._lock:
+            return self._request_id
+
+    def _make_exc(self, message: str = "heylook request cancelled") -> BaseException:
+        if self._cancel_exc is not None:
+            return self._cancel_exc()
+        return HeylookCancelledError(message)
+
+    def check(self) -> None:
+        if self._cancel_event.is_set():
+            raise self._make_exc()
+
+    def attach_client(self, client: httpx.Client | None, *, if_unset: bool = False) -> bool:
+        """Attach the active `httpx.Client` so `cancel()` can close stalled sockets after `DELETE`."""
+        if client is None:
+            return False
+        cancelled_now = False
+        attached = False
+        with self._lock:
+            if if_unset and self._active_client is not None:
+                return False
+            self._active_client = client
+            attached = True
+            cancelled_now = self._cancel_event.is_set()
+        if cancelled_now:
+            _force_close_httpx_client(client)
+            raise self._make_exc()
+        return attached
+
+    def detach_client(self, client: httpx.Client | None = None) -> None:
+        with self._lock:
+            if client is None or self._active_client is client:
+                self._active_client = None
+
+    def begin_request(self, base: str, req_id: str, *, api_key: str | None = None) -> None:
+        with self._lock:
+            if self._cancel_event.is_set():
+                raise self._make_exc()
+            self._base_url = base
+            self._request_id = str(req_id or "")
+            self._api_key = api_key
+            self._upstream_confirmed = False
+
+    def update_request_id(self, req_id: str) -> None:
+        rid = str(req_id or "").strip()
+        if not rid:
+            return
+        with self._lock:
+            if rid != self._request_id:
+                self._request_id = rid
+                self._upstream_confirmed = False
+
+    def end_request(self) -> None:
+        with self._lock:
+            self._base_url = ""
+            self._request_id = ""
+            self._api_key = None
+            self._upstream_confirmed = False
+
+    def cancel(self) -> dict[str, Any]:
+        """Signal local abort, issue `DELETE /v1/requests/{id}`, then close any stalled socket."""
+        self._cancel_event.set()
+        upstream_ok = self.cancel_if_needed()
+        with self._lock:
+            rid = self._request_id
+            active_c = self._active_client
+        if active_c is not None:
+            _force_close_httpx_client(active_c)
+        return {"cancelled": True, "request_id": rid, "upstream_cancelled": upstream_ok}
+
+    def cancel_if_needed(self) -> bool:
+        """Issue `DELETE /v1/requests/{id}` unless upstream already confirmed cancellation."""
+        with self._lock:
+            base = self._base_url
+            rid = self._request_id
+            api_key = self._api_key
+            if not base or not rid:
+                return False
+            if self._upstream_confirmed:
+                return True
+        ok = False
+        try:
+            ok = bool(cancel_heylook_request(base, rid, client=None, api_key=api_key))
+        except Exception:
+            ok = False
+        if ok:
+            with self._lock:
+                if self._request_id == rid:
+                    self._upstream_confirmed = True
+        return ok
 
 
 @dataclass
@@ -228,7 +388,7 @@ def make_heylook_client(
     return httpx.Client(
         trust_env=False,
         follow_redirects=False,
-        timeout=timeout if timeout is not None else httpx.Timeout(None, connect=10.0),
+        timeout=timeout if timeout is not None else DEFAULT_STREAM_TIMEOUT,
         event_hooks=merged_hooks,
     )
 
@@ -364,6 +524,7 @@ def discover_heylook_model(
     *,
     need: set[str] | frozenset[str] = frozenset({"chat"}),
     api_key: str | None = None,
+    fallback_models: tuple[str, ...] | set[str] | frozenset[str] = (),
 ) -> dict:
     """Resolve and capability-gate a `/v1/models` row at runtime (`capabilities`, never `modalities`)."""
     req_hdrs = _req_headers({"Accept": "application/json"}, client=client, api_key=api_key)
@@ -391,20 +552,22 @@ def discover_heylook_model(
     if wanted and wanted.lower() != "auto":
         chosen = next((row for row in usable if row["id"] == wanted), None)
         if chosen is None:
-            fit_ids = [row["id"] for row in fit]
-            raise ValueError(
-                f"model {wanted!r} is not served by {base}/v1/models; "
-                f"models serving {sorted(req_set)}: {fit_ids}"
-            )
-        caps = set(chosen.get("capabilities") or [])
-        missing = sorted(req_set - caps)
-        if missing:
-            fit_ids = [row["id"] for row in fit]
-            raise ValueError(
-                f"model {wanted!r} lacks required capabilities {missing} (has {sorted(caps)}); "
-                f"models serving {sorted(req_set)}: {fit_ids}"
-            )
-        return chosen
+            if wanted not in fallback_models:
+                fit_ids = [row["id"] for row in fit]
+                raise ValueError(
+                    f"model {wanted!r} is not served by {base}/v1/models; "
+                    f"models serving {sorted(req_set)}: {fit_ids}"
+                )
+        else:
+            caps = set(chosen.get("capabilities") or [])
+            missing = sorted(req_set - caps)
+            if missing:
+                fit_ids = [row["id"] for row in fit]
+                raise ValueError(
+                    f"model {wanted!r} lacks required capabilities {missing} (has {sorted(caps)}); "
+                    f"models serving {sorted(req_set)}: {fit_ids}"
+                )
+            return chosen
 
     if not fit:
         roster = [(row["id"], row.get("capabilities")) for row in usable]
@@ -553,6 +716,7 @@ def build_heylook_request_body(
     sampler_overrides: dict | None = None,
     reasoning_effort_override: str = "",
     default_reasoning_effort: str = "",
+    thinking_budget: int | None = None,
     extra_messages: list[dict] | None = None,
 ) -> dict:
     """Assemble a capability-gated `POST /v1/messages` request body."""
@@ -617,6 +781,14 @@ def build_heylook_request_body(
             body.pop("thinking", None)
         else:
             body.pop("thinking", None)
+
+    if thinking_budget is not None and thinking != "off" and "thinking_budget" in caps:
+        existing_t = body.get("thinking")
+        think_obj: dict[str, Any] = dict(existing_t) if isinstance(existing_t, dict) else {}
+        think_obj["budget_tokens"] = int(thinking_budget)
+        if thinking == "on" or existing_t is True:
+            think_obj["type"] = "enabled"
+        body["thinking"] = think_obj
 
     if request_seed is not None and (allowed_set is None or "seed" in allowed_set):
         body["seed"] = int(request_seed) & 0x7FFFFFFF
@@ -689,7 +861,15 @@ def cancel_heylook_request(
     if r.status_code == 404:
         return False
     r.raise_for_status()
-    return int(r.json().get("cancelled") or 0) > 0
+    if r.status_code == 204 or not (r.content or b"").strip():
+        return True
+    try:
+        payload = r.json()
+    except ValueError:
+        return True
+    if isinstance(payload, dict) and "cancelled" in payload:
+        return int(payload.get("cancelled") or 0) > 0
+    return True
 
 
 def with_heylook_backoff(
@@ -697,10 +877,19 @@ def with_heylook_backoff(
     *,
     attempts: int = 5,
     interrupt_check: Callable[[], None] | None = None,
+    cancel_token: HeylookCancelToken | None = None,
     sleep_fn: Callable[[float], None] = time.sleep,
 ) -> HeylookStreamResult:
     """Retry HTTP 503 (`HeylookOverloadedError`) honouring `Retry-After` (floored at 1s, capped at 30s)."""
+
+    def _check_all() -> None:
+        if interrupt_check is not None:
+            interrupt_check()
+        if cancel_token is not None:
+            cancel_token.check()
+
     for i in range(attempts):
+        _check_all()
         try:
             return fn()
         except HeylookOverloadedError as exc:
@@ -709,8 +898,7 @@ def with_heylook_backoff(
             wait_s = float(min(max(exc.retry_after or (2 ** i), 1.0), 30.0))
             remaining = wait_s
             while remaining > 0.0:
-                if interrupt_check is not None:
-                    interrupt_check()
+                _check_all()
                 step = min(remaining, 0.25)
                 sleep_fn(step)
                 remaining -= step
@@ -723,6 +911,7 @@ def stream_heylook_message(
     *,
     client: httpx.Client | None = None,
     interrupt_check: Callable[[], None] | None = None,
+    cancel_token: HeylookCancelToken | None = None,
     api_key: str | None = None,
 ) -> HeylookStreamResult:
     """Stream one `POST /v1/messages` request with a fresh `X-Request-ID` and cancel-on-abort."""
@@ -739,19 +928,67 @@ def stream_heylook_message(
     payload = {**body, "stream": True}
     out = HeylookStreamResult(model=str(body.get("model") or ""), request_id=req_id)
     finished = False
+    server_rejected = False
+    upstream_confirmed = False
     tracked_id = req_id
 
+    def _check_abort() -> None:
+        if interrupt_check is not None:
+            interrupt_check()
+        if cancel_token is not None:
+            cancel_token.check()
+
     def _run_with(c: httpx.Client) -> None:
-        nonlocal finished, tracked_id
+        nonlocal finished, server_rejected, upstream_confirmed, tracked_id
+        attached_here = False
+        _check_abort()
+        if cancel_token is not None:
+            attached_here = cancel_token.attach_client(c, if_unset=True)
+            cancel_token.begin_request(base, req_id, api_key=api_key)
+        done_ev = threading.Event()
+        watcher: threading.Thread | None = None
+        if cancel_token is None and interrupt_check is _comfy_interrupt_check:
+            def _comfy_watch() -> None:
+                nonlocal upstream_confirmed
+                try:
+                    import comfy.model_management as mm
+                except Exception:
+                    return
+                while not done_ev.wait(0.25):
+                    try:
+                        if mm.processing_interrupted():
+                            try:
+                                if cancel_heylook_request(base, tracked_id, client=None, api_key=api_key):
+                                    upstream_confirmed = True
+                            except Exception:
+                                pass
+                            _force_close_httpx_client(c)
+                            return
+                    except Exception:
+                        return
+
+            watcher = threading.Thread(
+                target=_comfy_watch,
+                name="h3-heylook-comfy-cancel-watch",
+                daemon=True,
+            )
+            watcher.start()
+
+        eff_sse_check = _check_abort if (interrupt_check is not None or cancel_token is not None) else None
         try:
             with c.stream("POST", f"{base}/v1/messages", json=payload, headers=headers) as r:
                 tracked_id = r.headers.get("X-Request-ID") or req_id
                 out.request_id = tracked_id
+                if cancel_token is not None:
+                    cancel_token.update_request_id(tracked_id)
                 if r.status_code >= 400:
+                    server_rejected = True
                     r.read()
                     raise _http_error(r, base, "/v1/messages")
+                if cancel_token is not None:
+                    cancel_token.check()
 
-                for event, data in _iter_sse(r.iter_lines(), interrupt_check=interrupt_check):
+                for event, data in _iter_sse(r.iter_lines(), interrupt_check=eff_sse_check):
                     if event == "content_block_delta":
                         delta = data.get("delta") or {}
                         dtype = delta.get("type")
@@ -776,17 +1013,38 @@ def stream_heylook_message(
                             raise ValueError(f"heylook invalid_request_error: {emsg}")
                         raise RuntimeError(f"heylook {etype}: {emsg}")
         except BaseException:
-            if not finished:
-                try:
-                    cancel_heylook_request(base, tracked_id, client=c, api_key=api_key)
-                except Exception:
-                    pass
+            done_ev.set()
+            if not finished and not server_rejected:
+                if cancel_token is not None:
+                    cancel_token.cancel_if_needed()
+                elif not upstream_confirmed:
+                    try:
+                        cancel_heylook_request(
+                            base,
+                            tracked_id,
+                            client=c if client is not None else None,
+                            api_key=api_key,
+                        )
+                    except Exception:
+                        pass
+            if cancel_token is not None and cancel_token.is_cancelled:
+                cancel_token.check()
+            elif cancel_token is None and interrupt_check is _comfy_interrupt_check:
+                interrupt_check()
             raise
+        finally:
+            done_ev.set()
+            if watcher is not None:
+                watcher.join(timeout=1.0)
+            if cancel_token is not None:
+                if attached_here:
+                    cancel_token.detach_client(c)
+                cancel_token.end_request()
 
     if client is not None:
         _run_with(client)
     else:
-        with make_heylook_client(base, timeout=httpx.Timeout(None, connect=10.0), api_key=api_key) as owned:
+        with make_heylook_client(base, api_key=api_key) as owned:
             _run_with(owned)
 
     if not finished:

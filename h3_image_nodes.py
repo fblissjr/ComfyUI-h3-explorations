@@ -73,6 +73,7 @@ try:
         HEYLOOK_JPEG_QUALITY,
         SAMPLER_MODES,
         THINKING_MODES,
+        HeylookCancelToken,
         HeylookOverloadedError,
         HeylookStreamResult,
         _comfy_interrupt_check,
@@ -107,6 +108,7 @@ except ImportError:  # run from the repo root by a check
         HEYLOOK_JPEG_QUALITY,
         SAMPLER_MODES,
         THINKING_MODES,
+        HeylookCancelToken,
         HeylookOverloadedError,
         HeylookStreamResult,
         _comfy_interrupt_check,
@@ -487,6 +489,7 @@ def expand_image_prompt(
     reasoning_effort: str = "",
     client: httpx.Client | None = None,
     interrupt_check: Callable[[], None] | None = None,
+    cancel_token: HeylookCancelToken | None = None,
     prefer_preset_system: bool = True,
     custom_sampler_overrides: dict[str, Any] | None = None,
     fallback_system_prompt: str = "",
@@ -579,6 +582,9 @@ def expand_image_prompt(
             if (preset_name or (uses_server_preset and not sys_prompt))
             else None
         )
+        int_cb()
+        if cancel_token is not None:
+            cancel_token.check()
         eff_sys_prompt = sys_prompt
         eff_resolved_mode = resolved_mode
         sys_source = "custom" if custom_clean else "local"
@@ -679,17 +685,28 @@ def expand_image_prompt(
         )
         res = with_heylook_backoff(
             lambda: stream_heylook_message(
-                base, body, client=http_client, interrupt_check=int_cb
+                base, body, client=http_client, interrupt_check=int_cb, cancel_token=cancel_token
             ),
             interrupt_check=int_cb,
+            cancel_token=cancel_token,
         )
         return res, model_row, eff_resolved_mode, sys_source, preset_won
 
-    if client is not None:
-        res, model_row, eff_resolved_mode, sys_source, preset_won = _run_with_client(client)
-    else:
-        with make_heylook_client(base, timeout=httpx.Timeout(None, connect=10.0)) as own_client:
-            res, model_row, eff_resolved_mode, sys_source, preset_won = _run_with_client(own_client)
+    try:
+        if client is not None:
+            res, model_row, eff_resolved_mode, sys_source, preset_won = _run_with_client(client)
+        else:
+            with make_heylook_client(base) as own_client:
+                attached_own = cancel_token.attach_client(own_client) if cancel_token is not None else False
+                try:
+                    res, model_row, eff_resolved_mode, sys_source, preset_won = _run_with_client(own_client)
+                finally:
+                    if cancel_token is not None and attached_own:
+                        cancel_token.detach_client(own_client)
+    except BaseException:
+        if cancel_token is not None and cancel_token.is_cancelled:
+            cancel_token.check()
+        raise
 
     think_trace = res.thinking or _extract_inline_thinking(res.text)
     ratio = ""

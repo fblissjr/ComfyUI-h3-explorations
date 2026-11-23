@@ -903,6 +903,30 @@ def check_url_resolution_and_mock_sse() -> None:
        and "reasoning_effort" not in b_qwen_off and b_qwen_off.get("thinking") is False,
        "reasoning_effort='medium' is capability-gated (sent on Qwen3.8, omitted on Gemma-4 & thinking='off')")
 
+    budget_row = {
+        "id": "budget-mock",
+        "capabilities": ["chat", "thinking", "thinking_budget", "reasoning_effort"],
+        "engine": {"thinking": {"switch": "enable_thinking", "depth": {"values": ["low", "high"]}}},
+    }
+    b_budget_on = hlc.build_heylook_request_body(
+        model_row=budget_row, system_prompt="sys", user_prompt="usr",
+        prepared_images=[], thinking="on", thinking_budget=2048,
+    )
+    b_budget_off = hlc.build_heylook_request_body(
+        model_row=budget_row, system_prompt="sys", user_prompt="usr",
+        prepared_images=[], thinking="off", thinking_budget=2048,
+    )
+    b_budget_nocap = hlc.build_heylook_request_body(
+        model_row=qwen_row, system_prompt="sys", user_prompt="usr",
+        prepared_images=[], thinking="on", thinking_budget=2048,
+    )
+    ok(
+        b_budget_on.get("thinking") == {"budget_tokens": 2048, "type": "enabled"}
+        and b_budget_off.get("thinking") is False
+        and b_budget_nocap.get("thinking") is True,
+        "build_heylook_request_body capability-gates thinking_budget and omits it when thinking='off'",
+    )
+
     # Loopback SSE server tests
     state: dict[str, Any] = {
         "mode": "repair_and_retry",
@@ -910,6 +934,8 @@ def check_url_resolution_and_mock_sse() -> None:
         "deletes": [],
         "req_ids": [],
         "attempt": 0,
+        "delete_404_once": False,
+        "stalled_headers": False,
     }
 
     class _Handler(http.server.BaseHTTPRequestHandler):
@@ -978,8 +1004,17 @@ def check_url_resolution_and_mock_sse() -> None:
 
         def do_DELETE(self):  # noqa: N802
             state["deletes"].append(self.path)
+            if state.get("delete_404_once"):
+                state["delete_404_once"] = False
+                self.send_response(404)
+                self.end_headers()
+                return
+            raw = b'{"cancelled": 1}'
             self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(raw)))
             self.end_headers()
+            self.wfile.write(raw)
 
         def do_POST(self):  # noqa: N802
             n = int(self.headers.get("Content-Length", "0"))
@@ -997,15 +1032,33 @@ def check_url_resolution_and_mock_sse() -> None:
                 self.wfile.write(b'{"error":"busy"}')
                 return
 
+            if mode == "http_400":
+                self.send_response(400)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(b'{"error":{"message":"bad request payload"}}')
+                return
+
+            if state.get("stalled_headers"):
+                ev = state.get("stalled_ev")
+                if ev is not None:
+                    ev.wait(timeout=2.0)
+                else:
+                    time.sleep(0.18)
+
             self.send_response(200)
             self.send_header("Content-Type", "text/event-stream")
             self.send_header("X-Request-ID", f"req-{attempt}")
             self.end_headers()
 
-            def _send(ev: str, obj: dict[str, Any]) -> None:
+            def _send(ev: str, obj: dict[str, Any]) -> bool:
                 msg = f"event: {ev}\ndata: {json.dumps(obj)}\n\n".encode("utf-8")
-                self.wfile.write(msg)
-                self.wfile.flush()
+                try:
+                    self.wfile.write(msg)
+                    self.wfile.flush()
+                    return True
+                except (BrokenPipeError, ConnectionResetError, OSError):
+                    return False
 
             if mode == "midstream_error":
                 _send("message_start", {"message": {"id": f"m{attempt}", "usage": {"input_tokens": 50}}})
@@ -1068,6 +1121,13 @@ def check_url_resolution_and_mock_sse() -> None:
 
     class _ReusableTCP(socketserver.ThreadingMixIn, http.server.HTTPServer):
         allow_reuse_address = True
+        daemon_threads = True
+
+        def handle_error(self, request, client_address):  # noqa: ANN001
+            _, exc, _ = sys.exc_info()
+            if isinstance(exc, (BrokenPipeError, ConnectionResetError, OSError)):
+                return
+            super().handle_error(request, client_address)
 
     srv = _ReusableTCP(("127.0.0.1", 0), _Handler)
     port = srv.server_address[1]
@@ -1344,6 +1404,170 @@ def check_url_resolution_and_mock_sse() -> None:
                 "user cancelled")
         ok(len(state["deletes"]) == 1 and state["deletes"][0].startswith("/v1/requests/"),
            "cancel sends DELETE /v1/requests/{id} cleanly")
+
+        # 8. Bounded default stream timeout on make_heylook_client
+        with hlc.make_heylook_client(srv_url) as def_c:
+            ok(
+                def_c.timeout.read == 300.0
+                and def_c.timeout.connect == 10.0
+                and def_c.timeout.write == 30.0
+                and def_c.timeout.pool == 10.0,
+                "make_heylook_client defaults to bounded DEFAULT_STREAM_TIMEOUT (read=300s)",
+            )
+
+        # 9. Pre-POST interrupt_check prevents POST /v1/messages & DELETE
+        state["posts"].clear()
+        state["deletes"].clear()
+        refuses(
+            "pre-POST interrupt_check skips POST",
+            lambda: hlc.stream_heylook_message(
+                srv_url,
+                {"model": "qwen-mock", "messages": [{"role": "user", "content": "hi"}], "stream": True},
+                interrupt_check=lambda: (_ for _ in ()).throw(InterruptedError("pre-post abort")),
+            ),
+            "pre-post abort",
+        )
+        ok(len(state["posts"]) == 0 and len(state["deletes"]) == 0,
+           "pre-POST abort sends 0 POSTs and 0 DELETEs")
+
+        # 10. HTTP >= 400 (server_rejected) skips redundant DELETE
+        state["mode"] = "http_400"
+        state["posts"].clear()
+        state["deletes"].clear()
+        refuses(
+            "HTTP 400 skips DELETE /v1/requests/{id}",
+            lambda: hlc.stream_heylook_message(
+                srv_url,
+                {"model": "qwen-mock", "messages": [{"role": "user", "content": "hi"}], "stream": True},
+            ),
+            "bad request payload",
+        )
+        ok(len(state["posts"]) == 1 and len(state["deletes"]) == 0,
+           "HTTP >= 400 rejection sends 0 DELETE requests")
+
+        # 11. Pass-1 -> Pass-2 repair interrupt aborts before Pass 2 POST (0 mid-stream DELETEs)
+        state["mode"] = "repair_and_retry"
+        state["attempt"] = 0
+        state["posts"].clear()
+        state["deletes"].clear()
+        aep.clear_rewrite_cache()
+
+        tok_p2 = hlc.HeylookCancelToken()
+
+        def _abort_pass2_only() -> None:
+            # Pass 1 stream keeps tok_p2.active_request_id populated until finally: end_request().
+            # At Pass 1 -> Pass 2 boundary (after _run_validator fails), len(posts) == 1 and active_request_id == "".
+            if len(state["posts"]) == 1 and tok_p2.active_request_id == "":
+                raise InterruptedError("cancelled before repair")
+
+        refuses(
+            "auto_edit_prompt checks eff_interrupt() before Pass-2 repair",
+            lambda: aep.run_auto_edit_rewrite(
+                original=SAMPLE_T2VA,
+                concept="none",
+                edit_intent="Abort before repair",
+                base_url=srv_url,
+                use_cache=False,
+                interrupt_check=_abort_pass2_only,
+                cancel_token=tok_p2,
+            ),
+            "cancelled before repair",
+        )
+        ok(
+            len(state["posts"]) == 1 and len(state["deletes"]) == 0,
+            f"Pass-2 interrupt prevented second POST with 0 mid-stream DELETEs (posts={len(state['posts'])}, deletes={len(state['deletes'])})",
+        )
+
+        # 12. HeylookCancelToken: pre-cancelled -> 0 POST/DELETE; 404-then-headers retry -> >=2 DELETEs + socket unblock
+        tok_pre = hlc.HeylookCancelToken()
+        tok_pre.cancel()
+        state["posts"].clear()
+        state["deletes"].clear()
+        refuses(
+            "pre-cancelled HeylookCancelToken aborts before POST",
+            lambda: hlc.stream_heylook_message(
+                srv_url,
+                {"model": "qwen-mock", "messages": [{"role": "user", "content": "hi"}], "stream": True},
+                cancel_token=tok_pre,
+            ),
+            "cancelled",
+        )
+        ok(len(state["posts"]) == 0 and len(state["deletes"]) == 0,
+           "pre-cancelled HeylookCancelToken makes 0 POSTs and 0 DELETEs")
+
+        state["mode"] = "cancel_on_chunk"
+        state["posts"].clear()
+        state["deletes"].clear()
+        state["delete_404_once"] = True
+        state["stalled_headers"] = True
+        stalled_ev = threading.Event()
+        state["stalled_ev"] = stalled_ev
+        tok_race = hlc.HeylookCancelToken()
+
+        def _fire_early_cancel() -> None:
+            time.sleep(0.06)
+            tok_race.cancel()
+
+        canceller = threading.Thread(target=_fire_early_cancel, daemon=True)
+        canceller.start()
+        t_stall_start = time.monotonic()
+        try:
+            refuses(
+                "HeylookCancelToken retries DELETE after initial 404 when stalled headers unblock",
+                lambda: hlc.stream_heylook_message(
+                    srv_url,
+                    {"model": "qwen-mock", "messages": [{"role": "user", "content": "hi"}], "stream": True},
+                    cancel_token=tok_race,
+                ),
+                "cancelled",
+            )
+        finally:
+            stalled_ev.set()
+            state["stalled_headers"] = False
+            state.pop("stalled_ev", None)
+            canceller.join(timeout=2.0)
+        stall_elapsed = time.monotonic() - t_stall_start
+        ok(
+            stall_elapsed < 0.8 and len(state["deletes"]) >= 2 and tok_race.active_request_id == "",
+            f"404 pre-wire DELETE retried and client close unblocked stalled POST cleanly (elapsed={stall_elapsed:.2f}s, deletes={len(state['deletes'])})",
+        )
+
+        # 13. llm_pairs holistic contract: fallback_models, thinking/thinking_budget forwarding, cancel_token
+        from control_vector import llm_pairs
+        state["mode"] = "good"
+        state["posts"].clear()
+        state["deletes"].clear()
+        lp_off = llm_pairs._generate_pairs_with_llm(
+            provider="heylook",
+            model_spec=hlc.DEFAULT_HEYLOOK_MODEL,
+            concept_prompt="Test concept",
+            heylook_url=srv_url,
+            thinking="off",
+            reasoning_effort="high",
+            thinking_budget=1024,
+        )
+        ok(
+            len(state["posts"]) == 1
+            and lp_off["model"] == "qwen-mock"
+            and state["posts"][0].get("thinking") is False
+            and "reasoning_effort" not in state["posts"][0],
+            "llm_pairs falls back when DEFAULT_HEYLOOK_MODEL absent and forwards thinking='off'",
+        )
+        tok_lp = hlc.HeylookCancelToken()
+        tok_lp.cancel()
+        state["posts"].clear()
+        refuses(
+            "llm_pairs respects pre-cancelled HeylookCancelToken",
+            lambda: llm_pairs._generate_pairs_with_llm(
+                provider="heylook",
+                model_spec="",
+                concept_prompt="Test cancel",
+                heylook_url=srv_url,
+                cancel_token=tok_lp,
+            ),
+            "cancelled",
+        )
+        ok(len(state["posts"]) == 0, "llm_pairs pre-cancelled token sends 0 POSTs")
     finally:
         aep.clear_rewrite_cache()
         srv.shutdown()

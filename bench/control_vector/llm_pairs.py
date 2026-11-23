@@ -270,7 +270,11 @@ def _generate_pairs_with_llm(
     seed: int = 42,
     exl3_root: str | None = None,
     heylook_url: str = "",
+    thinking: str = "model default",
+    reasoning_effort: str = "",
+    thinking_budget: int | None = None,
     llm_cache: dict[tuple[str, str, bool], Any] | None = None,
+    cancel_token: Any = None,
     interrupt_check: Callable[[], None] | None = None,
     on_request_id: Callable[[str], None] | None = None,
 ) -> dict[str, Any]:
@@ -330,6 +334,8 @@ def _generate_pairs_with_llm(
         import httpx
         import heylook_client as hlc
 
+        if cancel_token is not None:
+            cancel_token.check()
         if interrupt_check is not None:
             interrupt_check()
         # Ignore local filesystem paths inherited from H3_EXL3_MODEL_DIR / transformers defaults.
@@ -340,37 +346,70 @@ def _generate_pairs_with_llm(
         def _capture_req_id(request: httpx.Request) -> None:
             if on_request_id is None:
                 return
+            if request.method.upper() != "POST":
+                return
             rid = request.headers.get("X-Request-ID") or request.headers.get("x-request-id")
             if rid and request.url.path.endswith("/v1/messages"):
                 on_request_id(str(rid))
 
         hooks = {"request": [_capture_req_id]} if on_request_id is not None else None
+        eff_thinking = str(thinking or "model default").strip() or "model default"
+        if eff_thinking not in hlc.THINKING_MODES:
+            eff_thinking = "model default"
+        eff_effort = "" if eff_thinking == "off" else str(reasoning_effort or "").strip()
+        eff_budget = int(thinking_budget) if (thinking_budget is not None and eff_thinking != "off") else None
         with hlc.make_heylook_client(
             base,
-            timeout=httpx.Timeout(connect=10.0, read=600.0, write=30.0, pool=10.0),
             event_hooks=hooks,
         ) as client:
-            model_row = hlc.discover_heylook_model(client, base, mspec, need=frozenset({"chat"}))
-            mspec = str(model_row["id"])
-            overrides: dict[str, Any] = {"max_tokens": int(max_new_tokens)}
-            if temperature is not None:
-                overrides["temperature"] = float(temperature)
-            body = hlc.build_heylook_request_body(
-                model_row=model_row,
-                system_prompt=sys_txt,
-                user_prompt=user_msg,
-                prepared_images=[],
-                thinking="model default",
-                request_seed=int(seed) if seed is not None else None,
-                sampler_mode="custom",
-                sampler_overrides=overrides,
-            )
-            res = hlc.with_heylook_backoff(
-                lambda: hlc.stream_heylook_message(
-                    base, body, client=client, interrupt_check=interrupt_check
-                ),
-                interrupt_check=interrupt_check,
-            )
+            attached_client = cancel_token.attach_client(client) if cancel_token is not None else False
+            try:
+                model_row = hlc.discover_heylook_model(
+                    client,
+                    base,
+                    mspec,
+                    need=frozenset({"chat"}),
+                    fallback_models=(hlc.DEFAULT_HEYLOOK_MODEL,),
+                )
+                if cancel_token is not None:
+                    cancel_token.check()
+                if interrupt_check is not None:
+                    interrupt_check()
+                mspec = str(model_row["id"])
+                overrides: dict[str, Any] = {"max_tokens": int(max_new_tokens)}
+                if temperature is not None:
+                    overrides["temperature"] = float(temperature)
+                body = hlc.build_heylook_request_body(
+                    model_row=model_row,
+                    system_prompt=sys_txt,
+                    user_prompt=user_msg,
+                    prepared_images=[],
+                    thinking=eff_thinking,
+                    request_seed=int(seed) if seed is not None else None,
+                    sampler_mode="custom",
+                    sampler_overrides=overrides,
+                    reasoning_effort_override=eff_effort,
+                    default_reasoning_effort=eff_effort,
+                    thinking_budget=eff_budget,
+                )
+                res = hlc.with_heylook_backoff(
+                    lambda: hlc.stream_heylook_message(
+                        base,
+                        body,
+                        client=client,
+                        interrupt_check=interrupt_check,
+                        cancel_token=cancel_token,
+                    ),
+                    interrupt_check=interrupt_check,
+                    cancel_token=cancel_token,
+                )
+            except BaseException:
+                if cancel_token is not None and cancel_token.is_cancelled:
+                    cancel_token.check()
+                raise
+            finally:
+                if cancel_token is not None and attached_client:
+                    cancel_token.detach_client(client)
         markdown_out = res.text.strip()
     elif prov == "exllamav3":
         ex_root = _resolve_exl3_library_root(exl3_root)
@@ -629,6 +668,10 @@ def _generate_pairs_from_args(
     args: argparse.Namespace,
     *,
     llm_cache: Any = None,
+    thinking: str | None = None,
+    reasoning_effort: str | None = None,
+    thinking_budget: int | None = None,
+    cancel_token: Any = None,
     interrupt_check: Callable[[], None] | None = None,
     on_request_id: Callable[[str], None] | None = None,
 ) -> dict[str, Any]:
@@ -636,6 +679,13 @@ def _generate_pairs_from_args(
     writes its Markdown; the studio's route hands it to the page's editor. `llm_cache` lets the
     studio keep a loaded model between calls."""
     concept, c_meta = _resolve_concept_prompt_for_generation(args)
+    eff_thinking = str(
+        thinking if thinking is not None else (getattr(args, "thinking", None) or "model default")
+    )
+    eff_effort = str(
+        reasoning_effort if reasoning_effort is not None else (getattr(args, "reasoning_effort", None) or "")
+    )
+    eff_budget = thinking_budget if thinking_budget is not None else getattr(args, "thinking_budget", None)
     extra = {"llm_cache": llm_cache} if llm_cache is not None else {}
     res = _generate_pairs_with_llm(
         provider=args.llm_provider,
@@ -646,12 +696,18 @@ def _generate_pairs_from_args(
         temperature=float(getattr(args, "temperature", 0.7)),
         exl3_root=getattr(args, "exl3_root", None) or None,
         heylook_url=str(getattr(args, "heylook_url", "") or ""),
+        thinking=eff_thinking,
+        reasoning_effort=eff_effort,
+        thinking_budget=eff_budget,
+        cancel_token=cancel_token,
         interrupt_check=interrupt_check,
         on_request_id=on_request_id,
         **extra,
     )
     lint_warns = _lint_markdown_pairs_text(res["markdown"])
     if lint_warns and bool(getattr(args, "repair", False)):
+        if cancel_token is not None:
+            cancel_token.check()
         if interrupt_check is not None:
             interrupt_check()
         repair_prompt = (
@@ -674,6 +730,10 @@ def _generate_pairs_from_args(
             temperature=max(0.2, min(float(getattr(args, "temperature", 0.7)), 0.5)),
             exl3_root=getattr(args, "exl3_root", None) or None,
             heylook_url=str(getattr(args, "heylook_url", "") or ""),
+            thinking=eff_thinking,
+            reasoning_effort=eff_effort,
+            thinking_budget=eff_budget,
+            cancel_token=cancel_token,
             interrupt_check=interrupt_check,
             on_request_id=on_request_id,
             **extra,
