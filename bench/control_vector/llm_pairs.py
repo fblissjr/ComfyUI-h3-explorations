@@ -9,7 +9,7 @@ import os
 from pathlib import Path
 import sys
 import time
-from typing import Any
+from typing import Any, Callable
 
 import torch
 
@@ -271,6 +271,8 @@ def _generate_pairs_with_llm(
     exl3_root: str | None = None,
     heylook_url: str = "",
     llm_cache: dict[tuple[str, str, bool], Any] | None = None,
+    interrupt_check: Callable[[], None] | None = None,
+    on_request_id: Callable[[str], None] | None = None,
 ) -> dict[str, Any]:
     """Generate H3 control-vector Markdown pairs using a user-selected `provider` (`transformers`,
     `exllamav3`, or `heylook`) and any user-specified `model_spec`.
@@ -328,13 +330,25 @@ def _generate_pairs_with_llm(
         import httpx
         import heylook_client as hlc
 
+        if interrupt_check is not None:
+            interrupt_check()
         # Ignore local filesystem paths inherited from H3_EXL3_MODEL_DIR / transformers defaults.
         if mspec and (mspec.startswith(("/", "~", ".")) or Path(mspec).expanduser().exists()):
             mspec = ""
         base = hlc.resolve_heylook_base_url(heylook_url)
+
+        def _capture_req_id(request: httpx.Request) -> None:
+            if on_request_id is None:
+                return
+            rid = request.headers.get("X-Request-ID") or request.headers.get("x-request-id")
+            if rid and request.url.path.endswith("/v1/messages"):
+                on_request_id(str(rid))
+
+        hooks = {"request": [_capture_req_id]} if on_request_id is not None else None
         with hlc.make_heylook_client(
             base,
             timeout=httpx.Timeout(connect=10.0, read=600.0, write=30.0, pool=10.0),
+            event_hooks=hooks,
         ) as client:
             model_row = hlc.discover_heylook_model(client, base, mspec, need=frozenset({"chat"}))
             mspec = str(model_row["id"])
@@ -352,7 +366,10 @@ def _generate_pairs_with_llm(
                 sampler_overrides=overrides,
             )
             res = hlc.with_heylook_backoff(
-                lambda: hlc.stream_heylook_message(base, body, client=client)
+                lambda: hlc.stream_heylook_message(
+                    base, body, client=client, interrupt_check=interrupt_check
+                ),
+                interrupt_check=interrupt_check,
             )
         markdown_out = res.text.strip()
     elif prov == "exllamav3":
@@ -608,7 +625,13 @@ def _lint_markdown_pairs_text(md_text: str, *, frame: str = "scene") -> list[str
         return [f"span_error: {exc}"]
 
 
-def _generate_pairs_from_args(args: argparse.Namespace, *, llm_cache: Any = None) -> dict[str, Any]:
+def _generate_pairs_from_args(
+    args: argparse.Namespace,
+    *,
+    llm_cache: Any = None,
+    interrupt_check: Callable[[], None] | None = None,
+    on_request_id: Callable[[str], None] | None = None,
+) -> dict[str, Any]:
     """The LLM call `generate-pairs` makes, from a parsed namespace. `cmd_generate_pairs` prints or
     writes its Markdown; the studio's route hands it to the page's editor. `llm_cache` lets the
     studio keep a loaded model between calls."""
@@ -623,10 +646,14 @@ def _generate_pairs_from_args(args: argparse.Namespace, *, llm_cache: Any = None
         temperature=float(getattr(args, "temperature", 0.7)),
         exl3_root=getattr(args, "exl3_root", None) or None,
         heylook_url=str(getattr(args, "heylook_url", "") or ""),
+        interrupt_check=interrupt_check,
+        on_request_id=on_request_id,
         **extra,
     )
     lint_warns = _lint_markdown_pairs_text(res["markdown"])
     if lint_warns and bool(getattr(args, "repair", False)):
+        if interrupt_check is not None:
+            interrupt_check()
         repair_prompt = (
             f"{concept}\n\n"
             "Fix the draft Markdown pack below so it has ZERO lint warnings:\n"
@@ -647,6 +674,8 @@ def _generate_pairs_from_args(args: argparse.Namespace, *, llm_cache: Any = None
             temperature=max(0.2, min(float(getattr(args, "temperature", 0.7)), 0.5)),
             exl3_root=getattr(args, "exl3_root", None) or None,
             heylook_url=str(getattr(args, "heylook_url", "") or ""),
+            interrupt_check=interrupt_check,
+            on_request_id=on_request_id,
             **extra,
         )
         rep_warns = _lint_markdown_pairs_text(rep_res["markdown"])
