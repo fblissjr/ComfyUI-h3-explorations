@@ -2096,6 +2096,10 @@ _SCENE_SUGGEST_FALLBACK = (
     "You suggest concise, vivid world-sandbox actions grounded strictly in the attached scene image or description. "
     "Do not invent unrelated subjects or animals not present in the scene. Output plain Markdown only (never JSON)."
 )
+_SHOT_CONTINUATION_FALLBACK = (
+    "You are a vision-language film continuity director writing the next shot in a multi-shot audiovisual sequence "
+    "grounded strictly in the attached rendered tail frame and reference images."
+)
 
 
 def _load_director_system_prompt(filename: str, fallback: str) -> str:
@@ -2106,6 +2110,11 @@ def _load_director_system_prompt(filename: str, fallback: str) -> str:
     except OSError:
         pass
     return fallback
+
+
+def load_shot_continuation_system_prompt() -> str:
+    """Return the standalone zero-lore multi-shot continuation system prompt."""
+    return _load_director_system_prompt("shot_continuation_system_prompt.md", _SHOT_CONTINUATION_FALLBACK)
 
 
 async def handle_context_suggest(request: web.Request) -> web.Response:
@@ -2209,7 +2218,7 @@ async def handle_context_suggest(request: web.Request) -> web.Response:
                 "scene_caption: <one concise visual sentence describing the whole scene>\n"
                 "subject_label: <short noun phrase naming the subject inside the reticle>\n\n"
                 "## suggestions\n"
-                "- title: <2-4 word label> | target_prompt: <concise action inside reticle (under 12 words)> | preset: sparkle_burst"
+                "- title: <2-4 word label> | target_prompt: <concise action inside reticle (under 12 words)> | preset: <click|step|snap|yank|hop|thud|slam|impact|yank_slam|none>"
             )
             local_system_msg = _load_director_system_prompt("reticle_suggest_system_prompt.md", _RETICLE_SUGGEST_FALLBACK)
             canon_key = "director_reticle_suggest"
@@ -2218,7 +2227,7 @@ async def handle_context_suggest(request: web.Request) -> web.Response:
                 "Reply in plain Markdown ONLY (no JSON, no code fences) with up to 3 concise world-event / "
                 "localized edit actions (under 12 words each) suited to this scene:\n"
                 "## suggestions\n"
-                "- title: <short 2-4 word label> | target_prompt: <concise action or localized edit> | preset: sparkle_burst"
+                "- title: <short 2-4 word label> | target_prompt: <concise action or localized edit> | preset: <click|step|snap|yank|hop|thud|slam|impact|yank_slam|none>"
             )
             local_system_msg = _load_director_system_prompt("scene_suggest_system_prompt.md", _SCENE_SUGGEST_FALLBACK)
             canon_key = "director_scene_suggest"
@@ -2227,12 +2236,17 @@ async def handle_context_suggest(request: web.Request) -> web.Response:
         import heylook_client as _hlc
 
         system_msg = local_system_msg
-        req_temp = 0.6
-        req_max_tokens = 512
+        sys_source = "local"
+        matched_preset_name = ""
+        preset_fields: dict[str, Any] | None = None
         try:
             canon_slug = _hlc.CANONICAL_PRESET_SLUGS.get(canon_key, "")
+            explicit_pfx = "H3_HEYLOOK_PRESET_PREFIX" in os.environ
             target_preset = _hlc.format_preset_target_name(canon_slug, _hlc.resolve_heylook_preset_prefix())
-            if target_preset:
+            preset_candidates = [target_preset] if target_preset else []
+            if canon_slug and target_preset != canon_slug and not explicit_pfx:
+                preset_candidates.append(canon_slug)
+            if preset_candidates:
                 async with session.get(
                     f"{heylook_url}/v1/presets",
                     headers=hl_headers,
@@ -2242,40 +2256,45 @@ async def handle_context_suggest(request: web.Request) -> web.Response:
                     if presp.status == 200:
                         pdoc = await presp.json()
                         p_list = [p for p in (pdoc.get("presets") or []) if isinstance(p, dict)]
-                        matched_p = next((p for p in p_list if p.get("name") == target_preset), None)
-                        if matched_p is None:
-                            matched_p = next(
-                                (p for p in p_list if str(p.get("name") or "").lower() == target_preset.lower()),
-                                None,
-                            )
+                        matched_p = None
+                        for cand_name in preset_candidates:
+                            matched_p = _hlc._match_preset_row(p_list, cand_name)
+                            if matched_p is not None:
+                                matched_preset_name = str(matched_p.get("name") or cand_name)
+                                break
                         if matched_p is not None:
+                            preset_fields = _hlc._compile_preset_body_fields(matched_p, chosen)
                             psys = str(matched_p.get("system_prompt") or "").strip()
                             if psys:
-                                system_msg, _, _ = _hlc.compose_preset_system_prompt(
-                                    local_system_msg, psys, preset_name=target_preset
+                                system_msg, sys_source, _ = _hlc.compose_preset_system_prompt(
+                                    local_system_msg, psys, preset_name=matched_preset_name
                                 )
-                            pparams = matched_p.get("params") if isinstance(matched_p.get("params"), dict) else {}
-                            if isinstance(pparams.get("temperature"), (int, float)):
-                                req_temp = max(0.0, min(2.0, float(pparams["temperature"])))
-                            if isinstance(pparams.get("max_tokens"), (int, float)):
-                                req_max_tokens = max(64, min(4096, int(pparams["max_tokens"])))
+                                preset_fields = {k: v for k, v in preset_fields.items() if k != "system"}
         except Exception:
             pass
 
-        req_payload = {
-            "model": model_id,
-            "system": system_msg,
-            "messages": [{"role": "user", "content": content_blocks}],
-            "temperature": req_temp,
-            "max_tokens": req_max_tokens,
-            "stream": False,
-        }
+        req_payload = _hlc.build_heylook_request_body(
+            model_row=chosen,
+            system_prompt=system_msg,
+            user_prompt="",
+            prepared_images=[],
+            preset_fields=preset_fields,
+            sampler_mode="heylook / preset default",
+        )
+        req_payload["messages"] = [{"role": "user", "content": content_blocks}]
+        req_payload["stream"] = False
+        allowed_fields = _hlc._fact_value(chosen.get("engine") or {}, "decoding", "request_fields")
+        if "max_tokens" not in req_payload and (
+            not isinstance(allowed_fields, list) or "max_tokens" in allowed_fields
+        ):
+            req_payload["max_tokens"] = 2048
+
         async with session.post(
             f"{heylook_url}/v1/messages",
             headers={**hl_headers, "X-Request-ID": str(uuid.uuid4())},
             json=req_payload,
             allow_redirects=False,
-            timeout=ClientTimeout(total=12.0),
+            timeout=ClientTimeout(total=30.0),
         ) as resp:
             if resp.status != 200:
                 return web.json_response({"ok": True, "enabled": False, "suggestions": []})
@@ -2294,6 +2313,18 @@ async def handle_context_suggest(request: web.Request) -> web.Response:
         scene_caption, subject_label, suggestions = _parse_context_suggest_reply(raw_content)
         if not suggestions and not scene_caption and not subject_label:
             raise ValueError("empty context_suggest reply")
+        comp_usage = comp.get("usage") if isinstance(comp.get("usage"), dict) else None
+        provenance = _hlc.build_heylook_provenance(
+            requested_model=env_model if (env_model and env_model.lower() != "auto") else "",
+            resolved_model=str(comp.get("model") or model_id),
+            model_row=chosen,
+            preset=matched_preset_name,
+            system_source=sys_source,
+            system_prompt=system_msg,
+            request_body=req_payload,
+            repair_used=False,
+            extra_usage=(comp_usage,) if comp_usage is not None else (),
+        )
         return web.json_response(
             {
                 "ok": True,
@@ -2302,6 +2333,7 @@ async def handle_context_suggest(request: web.Request) -> web.Response:
                 "scene_caption": scene_caption,
                 "subject_label": subject_label,
                 "reticle_grounded": bool(use_vision and has_reticle),
+                "provenance": provenance,
             }
         )
     except Exception:

@@ -94,7 +94,7 @@ PRESET_CATALOG: tuple[PresetSpec, ...] = (
     PresetSpec("h3-general-image-edit", "image", "docs/wiki/system_prompts/general_image_edit_system_prompt.md", "Pika ref2va / P-H3-Image 4-section visual edit prompt"),
     # Steering & masked guidance prompts
     PresetSpec("h3-control-vector", "steering", "docs/wiki/system_prompts/h3_control_vector_standalone_system_prompt.md", "Contrastive control-vector pair & edit-list prompt"),
-    PresetSpec("h3-masked-edit-steering", "steering", "docs/wiki/system_prompts/h3_masked_edit_and_steering_system_prompt.md", "Masked EditGuider + Steer recipe architect prompt"),
+    PresetSpec("h3-masked-edit-steering", "steering", "docs/wiki/system_prompts/h3_masked_region_edit_system_prompt.md", "Masked spatial/temporal region & beat-timed edit prompt"),
     # 2x Surgical Auto-Edit rewrite prompts
     PresetSpec("h3-auto-edit-sections", "auto_edit_2x", "docs/wiki/system_prompts/h3_auto_edit/section_edits_system_prompt.md", "2x AutoEditPrompt section-rewrite prompt"),
     PresetSpec("h3-auto-edit-lines", "auto_edit_2x", "docs/wiki/system_prompts/h3_auto_edit/edit_lines_system_prompt.md", "2x AutoEditPrompt edit-lines prompt"),

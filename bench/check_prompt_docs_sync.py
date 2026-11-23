@@ -533,6 +533,101 @@ GENERAL_IMAGE_EDIT_FORBIDDEN = (
 )
 
 
+H3_AUTO_EDIT_SUITE_DIR = SYSTEM_PROMPTS_DIR / "h3_auto_edit"
+H3_MASKED_REGION_EDIT_PROMPT = SYSTEM_PROMPTS_DIR / "h3_masked_region_edit_system_prompt.md"
+H3_CV_STANDALONE_PROMPT = SYSTEM_PROMPTS_DIR / "h3_control_vector_standalone_system_prompt.md"
+
+
+def heylook_runtime_suite_prompts(guide: str) -> int:
+    """Verify `h3_masked_region_edit_system_prompt.md`, `h3_auto_edit/*.md`, and `h3_control_vector_standalone_system_prompt.md`."""
+    bad = 0
+    cjk_re = re.compile(r"[\u3400-\u9fff\uf900-\ufaff]")
+    cam_types = re.findall(r"\| Motion type \| `([^`]+)`", guide)
+
+    # 1. Masked region runtime preset prompt
+    if not H3_MASKED_REGION_EDIT_PROMPT.exists():
+        print("  FAIL  missing docs/wiki/system_prompts/h3_masked_region_edit_system_prompt.md")
+        bad += 1
+    else:
+        m_raw = H3_MASKED_REGION_EDIT_PROMPT.read_text(encoding="utf-8")
+        m_low = flat(m_raw).lower()
+        m_pins = (
+            "## edit_lines",
+            "## section:",
+            "## axes",
+            "temporal_curve: whole_clip | sudden_midclip | ramp_in | second_half",
+            "f/4` to `f/5.6",
+        )
+        m_leaks = [tok for tok in H3_VIDEO_FORBIDDEN_SUBSTRINGS if tok in m_low]
+        if cjk_re.search(m_raw):
+            m_leaks.append("<CJK characters>")
+        m_miss = [p for p in m_pins if flat(p).lower() not in m_low]
+        if m_leaks or m_miss:
+            bad += 1
+            if m_leaks:
+                print(f"  FAIL  h3_masked_region_edit_system_prompt.md contains forbidden lore/fences: {m_leaks}")
+            if m_miss:
+                print(f"  FAIL  h3_masked_region_edit_system_prompt.md missing pin(s): {m_miss}")
+        else:
+            print(f"  ok    h3_masked_region_edit_system_prompt.md carries all {len(m_pins)} pin(s) and zero lore/fences")
+
+    # 2. h3_auto_edit/*.md
+    auto_specs = (
+        ("fresh_prompt_system_prompt.md", ("## section:", "## axes", "f/4` to `f/5.6", "<|lyrics_start|>", "<|caption_start|>", "<|cutoff|>")),
+        ("section_edits_system_prompt.md", ("## section:", "## axes", "f/4` to `f/5.6", "<|lyrics_start|>", "<|cutoff|>")),
+        ("edit_lines_system_prompt.md", ("## edit_lines", "## axes", "f/4` to `f/5.6", "<|lyrics_start|>", "<|cutoff|>")),
+    )
+    auto_forbidden = ("minimax", "pika", "comfyui", "qwen", "safetensors", "heylook", "t2va", "i2va", "fl2va", "l2va", "ref2va")
+    for fname, pins in auto_specs:
+        fpath = H3_AUTO_EDIT_SUITE_DIR / fname
+        if not fpath.exists():
+            bad += 1
+            print(f"  FAIL  missing docs/wiki/system_prompts/h3_auto_edit/{fname}")
+            continue
+        araw = fpath.read_text(encoding="utf-8")
+        alow = flat(araw).lower()
+        aleaks = [tok for tok in auto_forbidden if re.search(rf"\b{re.escape(tok)}\b", alow)]
+        if cjk_re.search(araw):
+            aleaks.append("<CJK characters>")
+        amiss = [p for p in pins if flat(p).lower() not in alow]
+        if aleaks or amiss:
+            bad += 1
+            if aleaks:
+                print(f"  FAIL  h3_auto_edit/{fname} contains forbidden lore/slugs: {aleaks}")
+            if amiss:
+                print(f"  FAIL  h3_auto_edit/{fname} missing pin(s): {amiss}")
+        else:
+            print(f"  ok    h3_auto_edit/{fname} carries all {len(pins)} pin(s) and zero lore/slugs")
+
+    # 3. Standalone control-vector prompt
+    if not H3_CV_STANDALONE_PROMPT.exists():
+        bad += 1
+        print("  FAIL  missing docs/wiki/system_prompts/h3_control_vector_standalone_system_prompt.md")
+    else:
+        cv_raw = H3_CV_STANDALONE_PROMPT.read_text(encoding="utf-8")
+        cv_flat = flat(cv_raw)
+        cv_low = cv_flat.lower()
+        cv_pins = ("### Test Scene Prompt", "### Contrastive Pairs (1–10)", "music:", "f/4` to `f/5.6")
+        cv_miss = [p for p in cv_pins if flat(p).lower() not in cv_low]
+        cam_miss = [
+            t for t in cam_types
+            if any(not re.search(r"(?<!\w)" + re.escape(part.strip()) + r"(?!\w)", cv_flat) for part in t.split("/"))
+        ]
+        if "never change `non_diegetic_music:`" in cv_low or "never edit `non_diegetic_music:`" in cv_low:
+            cv_miss.append("removed stale 'Never change/edit non_diegetic_music:' restriction")
+        if cv_miss or cam_miss:
+            bad += 1
+            if cv_miss:
+                print(f"  FAIL  h3_control_vector_standalone_system_prompt.md drift: {cv_miss}")
+            if cam_miss:
+                print(f"  FAIL  h3_control_vector_standalone_system_prompt.md missing camera motion(s): {cam_miss}")
+        else:
+            print(
+                f"  ok    h3_control_vector_standalone_system_prompt.md carries all {len(cv_pins)} pin(s) and all {len(cam_types)} camera motion types"
+            )
+    return bad
+
+
 def general_image_edit_system_prompt(text: str) -> int:
     """Verify `docs/wiki/system_prompts/general_image_edit_system_prompt.md` carries the
     4-section visual `ref2va` schema pins and zero audio/video schema tokens, outer fences,
@@ -900,6 +995,7 @@ def main() -> int:
     fails += h3_image_system_prompts()
     fails += h3_video_system_prompts()
     fails += h3_director_system_prompts()
+    fails += heylook_runtime_suite_prompts(guide)
     fails += general_image_edit_system_prompt(general_image_edit_system)
     fails += parser_agrees_with_hand_reading()
     fails += manual_quotations(manual, guide, system)

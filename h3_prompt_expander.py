@@ -131,6 +131,7 @@ def expand_video_prompt(
             "resolved_mode": eff_mode,
             "cache_hit": False,
             "ref_end_percent": 1.0,
+            "provenance": None,
         }
 
     if not prompt_text and concept_name.lower() == "none":
@@ -176,6 +177,7 @@ def expand_video_prompt(
         "resolved_mode": eff_mode,
         "cache_hit": bool(res.get("cache_hit")),
         "ref_end_percent": ref_end_percent,
+        "provenance": res.get("provenance"),
     }
 
 

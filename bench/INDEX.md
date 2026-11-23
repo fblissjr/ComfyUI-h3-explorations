@@ -8,7 +8,7 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 180 |
+| [`check_*`](#check) | 181 |
 | [`measure_*`](#measure) | 39 |
 | [`analyze_*`](#analyze) | 18 |
 | [`grade_*`](#grade) | 19 |
@@ -83,6 +83,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_h3_image_vae_convert.py`](check_h3_image_vae_convert.py) | That bench/convert_h3_image_vae_from_diffusers.py writes a diffusers MiniMax-H3-Image VAE in core's layout. |
 | [`check_head_reference.py`](check_head_reference.py) | `bench/head_reference.py` against a face whose every line is known by construction, read from the files it wrote. |
 | [`check_head_tube_parts.py`](check_head_tube_parts.py) | Check head_tube_parts: SAM 3.1 head tube gating, temporal seg smoothing, and 39-point face cross-check. |
+| [`check_heylook_prompts.py`](check_heylook_prompts.py) | Holistic zero-lore, exemplar-diversity, vendor-vocabulary, prefix, & HeylookProvenance check suite. |
 | [`check_image_studio.py`](check_image_studio.py) | Run the standalone H3-Image Studio Tier 1 offline suite (`app/test_app.py`) under `--cpu`. |
 | [`check_imports.py`](check_imports.py) | Static AST check over tracked root `*.py` and `bench/*.py` (`C61` item 2a). |
 | [`check_index_steering_renders.py`](check_index_steering_renders.py) | CPU-only verification for `bench/index_steering_renders.py`. |

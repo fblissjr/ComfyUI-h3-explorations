@@ -82,6 +82,7 @@ try:
         _fact_value,
         _http_error,
         _iter_sse,
+        build_heylook_provenance,
         build_heylook_request_body,
         cancel_heylook_request,
         compose_preset_system_prompt,
@@ -119,6 +120,7 @@ except ImportError:  # run from the repo root by a check
         _fact_value,
         _http_error,
         _iter_sse,
+        build_heylook_provenance,
         build_heylook_request_body,
         cancel_heylook_request,
         compose_preset_system_prompt,
@@ -512,6 +514,7 @@ def expand_image_prompt(
                 "report": "expander disabled (empty prompt)",
                 "resolved_mode": "",
                 "model": "",
+                "provenance": None,
             }
         inline_think = _extract_inline_thinking(raw)
         clean_prompt, ratio = parse_expander_reply(raw)
@@ -522,6 +525,7 @@ def expand_image_prompt(
             "report": "expander disabled (passthrough)",
             "resolved_mode": "passthrough",
             "model": "",
+            "provenance": None,
         }
 
     user_text = (prompt or "").strip()
@@ -709,16 +713,29 @@ def expand_image_prompt(
             interrupt_check=int_cb,
             cancel_token=cancel_token,
         )
-        return res, model_row, eff_resolved_mode, sys_source, preset_won
+        eff_sys_for_hash = str(body.get("system") or eff_sys_prompt or "")
+        provenance = build_heylook_provenance(
+            requested_model=model,
+            res=res,
+            model_row=model_row,
+            preset=eff_preset_name,
+            system_source=sys_source,
+            system_prompt=eff_sys_for_hash,
+            request_body=body,
+            thinking=thinking,
+            reasoning_effort=reasoning_effort,
+            repair_used=False,
+        )
+        return res, model_row, eff_resolved_mode, sys_source, preset_won, provenance
 
     try:
         if client is not None:
-            res, model_row, eff_resolved_mode, sys_source, preset_won = _run_with_client(client)
+            res, model_row, eff_resolved_mode, sys_source, preset_won, provenance = _run_with_client(client)
         else:
             with make_heylook_client(base) as own_client:
                 attached_own = cancel_token.attach_client(own_client) if cancel_token is not None else False
                 try:
-                    res, model_row, eff_resolved_mode, sys_source, preset_won = _run_with_client(own_client)
+                    res, model_row, eff_resolved_mode, sys_source, preset_won, provenance = _run_with_client(own_client)
                 finally:
                     if cancel_token is not None and attached_own:
                         cancel_token.detach_client(own_client)
@@ -783,6 +800,7 @@ def expand_image_prompt(
         "report": report_str,
         "resolved_mode": eff_resolved_mode,
         "model": res.model or model_row.get("id", ""),
+        "provenance": provenance,
     }
 
 

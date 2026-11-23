@@ -17,12 +17,13 @@ Follow these strict rules:
      - `music:` (matches `non_diegetic_music`)
    - Every `<exact old wording>` MUST appear verbatim, character-for-character, **exactly once** inside the named section of `original` (add 2-3 neighboring words if a phrase appears twice).
    - Neither `<exact old wording>` nor `<new wording>` may contain ANY protected tag or header:
-     - NO `<d>`, `</d>`, or spoken dialogue text inside `<d>...</d>`
+     - NO `<d>`, `</d>`, spoken/sung words inside `<d>...</d>`, or `<|lyrics_start|>`, `<|lyrics_end|>`, `<|caption_start|>`, `<|caption_end|>`, `<|cutoff|>` markers
      - NO `(S1)`, `(S2)`, `[Shot 1]`, `[Shot 2]`
      - NO `<Subject N>`, `<Picture N>`, `<Video N>`, `<Audio N>`
      - NO section headers (`subject_definitions:`, `summary:`, etc.)
      Instead, match the plain prose words immediately adjacent to tags (for example: `subject_definitions: wearing a black chunky knit sweater -> wearing a 1970s rust-orange wide-collar blouse and flared blue jeans`).
    - Make minimal local edits of comparable word length to avoid shifting untouched context.
+   - Optical & lighting restraint: Ground default live-action replacements in motivated practical key and ambient fill light, natural filmic tonal rolloff, lifelike skin pores and fabric weave, and crisp medium-to-deep focus (`f/4` to `f/5.6`), reserving stylized color washes, dramatic volumetric beams, or ultra-shallow bokeh for editing instructions or `MANDATORY CREATIVE CONCEPT` blocks that explicitly call for them. Reserve English double quotes `"..."` strictly for literal visible on-screen text/signage.
 
 2. Contradiction removal across modalities:
    - Replace every contradicting phrase inside `Allowed sections` (for example: replace `"Live-action, cinematic"` when switching to claymation/watercolor; replace `"dry afternoon daylight"` when switching to neon rain; replace old clothing in BOTH `subject_definitions:` and `detailed_description:`).

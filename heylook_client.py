@@ -20,6 +20,8 @@ from __future__ import annotations
 
 import base64
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
+import hashlib
 import io as _pyio
 import json
 import logging
@@ -28,10 +30,11 @@ import socket
 import sys
 import threading
 import time
+import tomllib
 import urllib.parse
 import uuid
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Mapping
 
 import httpx
 import numpy as np
@@ -49,6 +52,24 @@ DEFAULT_HEYLOOK_MODEL = ""
 DEFAULT_STREAM_TIMEOUT = httpx.Timeout(connect=10.0, read=300.0, write=30.0, pool=10.0)
 THINKING_MODES: tuple[str, ...] = ("model default", "on", "off")
 SAMPLER_MODES: tuple[str, ...] = ("heylook / preset default", "custom")
+DEFAULT_LOCAL_OVERLAYS_PATH = _HERE / "internal" / "heylook_local_overlays.toml"
+
+HEYLOOK_PROVENANCE_KEYS: tuple[str, ...] = (
+    "author_kind",
+    "requested_model",
+    "resolved_model",
+    "preset",
+    "system_source",
+    "system_prompt_sha256",
+    "thinking",
+    "reasoning_effort",
+    "temperature",
+    "seed",
+    "repair_used",
+    "input_tokens",
+    "output_tokens",
+    "created_utc",
+)
 
 logger = logging.getLogger(__name__)
 
@@ -556,13 +577,36 @@ def resolve_heylook_model(requested_model: str = "") -> tuple[str, bool]:
     return "", False
 
 
-def resolve_heylook_preset_prefix(explicit: str = "") -> str:
-    """Resolve optional remote preset prefix (`explicit > H3_HEYLOOK_PRESET_PREFIX > ""`)."""
+def _read_overlays_preset_prefix(overlays_path: Path | None = None) -> str:
+    """Read `[global].prefix` from gitignored `internal/heylook_local_overlays.toml` when present."""
+    path = DEFAULT_LOCAL_OVERLAYS_PATH if overlays_path is None else overlays_path
+    try:
+        if not path.is_file():
+            return ""
+        raw = tomllib.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return ""
+    if not isinstance(raw, dict):
+        return ""
+    global_cfg = raw.get("global")
+    if not isinstance(global_cfg, dict):
+        return ""
+    return str(global_cfg.get("prefix") or "").strip()
+
+
+def resolve_heylook_preset_prefix(
+    explicit: str = "",
+    *,
+    overlays_path: Path | None = None,
+) -> str:
+    """Resolve remote preset prefix (`explicit > H3_HEYLOOK_PRESET_PREFIX > internal/heylook_local_overlays.toml > ""`)."""
     exp = (explicit or "").strip()
     if exp:
         return exp
     h3_env.load()
-    return (os.environ.get("H3_HEYLOOK_PRESET_PREFIX") or "").strip()
+    if "H3_HEYLOOK_PRESET_PREFIX" in os.environ:
+        return (os.environ.get("H3_HEYLOOK_PRESET_PREFIX") or "").strip()
+    return _read_overlays_preset_prefix(overlays_path)
 
 
 def format_preset_target_name(slug: str, prefix: str = "") -> str:
@@ -662,36 +706,8 @@ def discover_heylook_model(
     return next((row for row in fit if row["id"] in resident), fit[0])
 
 
-def expand_heylook_preset(
-    client: httpx.Client,
-    base: str,
-    preset_id: str,
-    model_row: dict,
-    *,
-    api_key: str | None = None,
-) -> dict:
-    """Expand a `/v1/presets` entry client-side with capability & depth filtering."""
-    req_hdrs = _req_headers({"Accept": "application/json"}, client=client, api_key=api_key)
-    r = client.get(f"{base}/v1/presets", headers=req_hdrs, timeout=10.0)
-    if r.status_code >= 400:
-        raise _http_error(r, base, "/v1/presets")
-    presets = [p for p in (r.json().get("presets") or []) if isinstance(p, dict)]
-    avail = [p.get("name") or p.get("id") for p in presets if p.get("name") or p.get("id")]
-
-    wanted = (preset_id or "").strip()
-    if not wanted:
-        raise ValueError(
-            f"'preset' is blank; choose a preset from {base}/v1/presets: {avail}"
-        )
-    preset = next((p for p in presets if p.get("id") == wanted), None)
-    if preset is None:
-        preset = next((p for p in presets if p.get("name") == wanted), None)
-    if preset is None:
-        lowered = wanted.lower()
-        preset = next((p for p in presets if str(p.get("name") or "").lower() == lowered), None)
-    if preset is None:
-        raise ValueError(f"heylook preset {wanted!r} not found at {base}/v1/presets; available: {avail}")
-
+def _compile_preset_body_fields(preset: dict, model_row: dict) -> dict:
+    """Compile capability- and depth-filtered request body defaults from a `/v1/presets` dict."""
     params = dict(preset.get("params") or {})
     body: dict = {}
     if preset.get("system_prompt"):
@@ -720,6 +736,46 @@ def expand_heylook_preset(
     return body
 
 
+def _match_preset_row(presets: list[dict], wanted: str) -> dict | None:
+    cand = (wanted or "").strip()
+    if not cand:
+        return None
+    preset = next((p for p in presets if p.get("id") == cand), None)
+    if preset is None:
+        preset = next((p for p in presets if p.get("name") == cand), None)
+    if preset is None:
+        lowered = cand.lower()
+        preset = next((p for p in presets if str(p.get("name") or "").lower() == lowered), None)
+    return preset
+
+
+def expand_heylook_preset(
+    client: httpx.Client,
+    base: str,
+    preset_id: str,
+    model_row: dict,
+    *,
+    api_key: str | None = None,
+) -> dict:
+    """Expand a `/v1/presets` entry client-side with capability & depth filtering."""
+    req_hdrs = _req_headers({"Accept": "application/json"}, client=client, api_key=api_key)
+    r = client.get(f"{base}/v1/presets", headers=req_hdrs, timeout=10.0)
+    if r.status_code >= 400:
+        raise _http_error(r, base, "/v1/presets")
+    presets = [p for p in (r.json().get("presets") or []) if isinstance(p, dict)]
+    avail = [p.get("name") or p.get("id") for p in presets if p.get("name") or p.get("id")]
+
+    wanted = (preset_id or "").strip()
+    if not wanted:
+        raise ValueError(
+            f"'preset' is blank; choose a preset from {base}/v1/presets: {avail}"
+        )
+    preset = _match_preset_row(presets, wanted)
+    if preset is None:
+        raise ValueError(f"heylook preset {wanted!r} not found at {base}/v1/presets; available: {avail}")
+    return _compile_preset_body_fields(preset, model_row)
+
+
 def try_inherit_heylook_preset(
     client: httpx.Client,
     base: str,
@@ -727,21 +783,39 @@ def try_inherit_heylook_preset(
     model_row: dict,
     *,
     prefix: str = "",
+    overlays_path: Path | None = None,
     api_key: str | None = None,
 ) -> tuple[dict | None, str]:
     """Best-effort lookup of a synced canonical preset on `/v1/presets` for downstream inheritance.
 
     Returns `(expanded_preset_fields, resolved_preset_name)` when present on the server,
     or `(None, "")` when the preset has not been synced or `/v1/presets` is unavailable.
+    When `prefix` came implicitly from `internal/heylook_local_overlays.toml` (neither `prefix`
+    arg nor `H3_HEYLOOK_PRESET_PREFIX` env var was set), falls back to canonical `slug` in the
+    same `/v1/presets` payload if the prefixed target is absent.
     Auth/host errors (`PermissionError`) still propagate cleanly.
     """
     slug = (canonical_slug or "").strip()
     if not slug:
         return None, ""
-    target_name = format_preset_target_name(slug, resolve_heylook_preset_prefix(prefix))
+    explicit_pfx = bool((prefix or "").strip()) or ("H3_HEYLOOK_PRESET_PREFIX" in os.environ)
+    eff_prefix = resolve_heylook_preset_prefix(prefix, overlays_path=overlays_path)
+    target_name = format_preset_target_name(slug, eff_prefix)
+    candidates: list[str] = [target_name]
+    if target_name != slug and not explicit_pfx:
+        candidates.append(slug)
     try:
-        fields = expand_heylook_preset(client, base, target_name, model_row, api_key=api_key)
-        return fields, target_name
+        req_hdrs = _req_headers({"Accept": "application/json"}, client=client, api_key=api_key)
+        r = client.get(f"{base}/v1/presets", headers=req_hdrs, timeout=10.0)
+        if r.status_code >= 400:
+            raise _http_error(r, base, "/v1/presets")
+        presets = [p for p in (r.json().get("presets") or []) if isinstance(p, dict)]
+        for cand in candidates:
+            preset = _match_preset_row(presets, cand)
+            if preset is not None:
+                resolved_name = str(preset.get("name") or cand)
+                return _compile_preset_body_fields(preset, model_row), resolved_name
+        return None, ""
     except (ValueError, LookupError, RuntimeError, httpx.HTTPError):
         return None, ""
 
@@ -1092,7 +1166,15 @@ def stream_heylook_message(
                     cancel_token.check()
 
                 for event, data in _iter_sse(r.iter_lines(), interrupt_check=eff_sse_check):
-                    if event == "content_block_delta":
+                    if event == "message_start":
+                        msg = data.get("message") if isinstance(data.get("message"), dict) else {}
+                        srv_model = str(msg.get("model") or "").strip()
+                        if srv_model:
+                            out.model = srv_model
+                        start_usage = msg.get("usage")
+                        if isinstance(start_usage, dict):
+                            out.usage = {**out.usage, **start_usage}
+                    elif event == "content_block_delta":
                         delta = data.get("delta") or {}
                         dtype = delta.get("type")
                         if dtype == "thinking_delta":
@@ -1103,7 +1185,9 @@ def stream_heylook_message(
                         delta = data.get("delta") or {}
                         out.stop_reason = delta.get("stop_reason")
                         out.stop_sequence = delta.get("stop_sequence")
-                        out.usage = data.get("usage") or {}
+                        delta_usage = data.get("usage")
+                        if isinstance(delta_usage, dict):
+                            out.usage = {**out.usage, **delta_usage}
                     elif event == "message_stop":
                         out.performance = data.get("performance") or {}
                         finished = True
@@ -1192,6 +1276,152 @@ def format_heylook_report(
     if gen_ms is not None:
         parts.append(f"gen_ms={float(gen_ms):.0f}")
     return " ".join(parts)
+
+
+def system_prompt_sha256(system_prompt: str) -> str:
+    """Return canonical LF-normalized SHA-256 hex digest of `system_prompt` (`""` when empty)."""
+    norm = (system_prompt or "").replace("\r\n", "\n").replace("\r", "\n").strip()
+    if not norm:
+        return ""
+    return hashlib.sha256(norm.encode("utf-8")).hexdigest()
+
+
+def _normalize_thinking_provenance(
+    thinking: Any = "model default",
+    request_body: Mapping[str, Any] | None = None,
+) -> str:
+    if isinstance(request_body, Mapping) and "thinking" in request_body:
+        raw_t = request_body.get("thinking")
+        if isinstance(raw_t, bool):
+            return "on" if raw_t else "off"
+        if isinstance(raw_t, Mapping):
+            ttype = str(raw_t.get("type") or "").strip().lower()
+            budget = raw_t.get("budget_tokens")
+            if ttype == "disabled":
+                return "off"
+            if budget is not None:
+                return f"budget:{int(budget)}"
+            if ttype == "enabled":
+                return "on"
+    if isinstance(thinking, bool):
+        return "on" if thinking else "off"
+    label = str(thinking if thinking is not None else "").strip()
+    return label or "model default"
+
+
+def build_heylook_provenance(
+    *,
+    requested_model: str = "",
+    resolved_model: str = "",
+    res: HeylookStreamResult | None = None,
+    model_row: Mapping[str, Any] | None = None,
+    preset: str = "",
+    system_source: str = "local",
+    system_prompt: str = "",
+    request_body: Mapping[str, Any] | None = None,
+    thinking: Any = "model default",
+    reasoning_effort: str = "",
+    temperature: float | None = None,
+    seed: int | None = None,
+    repair_used: bool = False,
+    input_tokens: int | None = None,
+    output_tokens: int | None = None,
+    extra_usage: list[Mapping[str, Any]] | tuple[Mapping[str, Any], ...] = (),
+    created_utc: str | None = None,
+) -> dict[str, Any]:
+    """Build canonical 14-key `HeylookProvenance` dict for A/B model and prompt reproducibility."""
+    eff_resolved = str(
+        (res.model if res is not None and res.model else "")
+        or resolved_model
+        or ((model_row or {}).get("id") if isinstance(model_row, Mapping) else "")
+        or ""
+    ).strip()
+    eff_req = str(requested_model or "").strip()
+    eff_sys = str(
+        system_prompt
+        or ((request_body or {}).get("system") if isinstance(request_body, Mapping) else "")
+        or ""
+    )
+    eff_effort = str(
+        ((request_body or {}).get("reasoning_effort") if isinstance(request_body, Mapping) else "")
+        or reasoning_effort
+        or ""
+    ).strip()
+
+    eff_temp: float | None = None
+    if temperature is not None:
+        eff_temp = float(temperature)
+    elif isinstance(request_body, Mapping) and request_body.get("temperature") is not None:
+        eff_temp = float(request_body["temperature"])
+    elif isinstance(model_row, Mapping):
+        sdefs = model_row.get("sampler_defaults")
+        if isinstance(sdefs, Mapping) and sdefs.get("temperature") is not None:
+            eff_temp = float(sdefs["temperature"])
+
+    eff_seed: int | None = None
+    if seed is not None:
+        eff_seed = int(seed)
+    elif isinstance(request_body, Mapping) and request_body.get("seed") is not None:
+        eff_seed = int(request_body["seed"])
+
+    usage_rows: list[Mapping[str, Any]] = []
+    if res is not None and isinstance(res.usage, Mapping):
+        usage_rows.append(res.usage)
+    for extra in extra_usage:
+        if isinstance(extra, Mapping):
+            usage_rows.append(extra)
+
+    in_tok = (
+        max(0, int(input_tokens))
+        if input_tokens is not None
+        else max(0, sum(int(u.get("input_tokens") or 0) for u in usage_rows))
+    )
+    out_tok = (
+        max(0, int(output_tokens))
+        if output_tokens is not None
+        else max(0, sum(int(u.get("output_tokens") or 0) for u in usage_rows))
+    )
+    ts = (
+        str(created_utc).strip()
+        if created_utc
+        else datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    )
+    return {
+        "author_kind": "heylook",
+        "requested_model": eff_req,
+        "resolved_model": eff_resolved,
+        "preset": str(preset or "").strip(),
+        "system_source": str(system_source or "local").strip(),
+        "system_prompt_sha256": system_prompt_sha256(eff_sys),
+        "thinking": _normalize_thinking_provenance(thinking, request_body),
+        "reasoning_effort": eff_effort,
+        "temperature": eff_temp,
+        "seed": eff_seed,
+        "repair_used": bool(repair_used),
+        "input_tokens": in_tok,
+        "output_tokens": out_tok,
+        "created_utc": ts,
+    }
+
+
+def format_heylook_provenance_toml(provenance: Mapping[str, Any]) -> str:
+    """Serialize a `HeylookProvenance` mapping as a valid `[provenance]` TOML table (omitting `None`)."""
+    lines = ["[provenance]"]
+    for key in HEYLOOK_PROVENANCE_KEYS:
+        if key not in provenance:
+            continue
+        val = provenance[key]
+        if val is None:
+            continue
+        if isinstance(val, bool):
+            lines.append(f"{key} = {'true' if val else 'false'}")
+        elif isinstance(val, int):
+            lines.append(f"{key} = {val}")
+        elif isinstance(val, float):
+            lines.append(f"{key} = {repr(val)}")
+        else:
+            lines.append(f"{key} = {json.dumps(str(val), ensure_ascii=False)}")
+    return "\n".join(lines) + "\n"
 
 
 def probe_heylook_server_info(

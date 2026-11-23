@@ -47,6 +47,7 @@ try:
         HeylookStreamResult,
         _comfy_interrupt_check,
         _extract_inline_thinking,
+        build_heylook_provenance,
         build_heylook_request_body,
         compose_preset_system_prompt,
         discover_heylook_model,
@@ -77,6 +78,7 @@ except ImportError:  # run from the repo root by a check or script
         HeylookStreamResult,
         _comfy_interrupt_check,
         _extract_inline_thinking,
+        build_heylook_provenance,
         build_heylook_request_body,
         compose_preset_system_prompt,
         discover_heylook_model,
@@ -382,7 +384,7 @@ def load_concept_brief(
         intent = str(c.get("intent") or "").strip()
         if not intent:
             raise ValueError(f"{resolved}: concept.intent must be a non-empty string")
-        cname = str(c.get("name") or resolved.stem).strip() or resolved.stem
+        cname = str(c.get("title") or c.get("name") or resolved.stem).strip() or resolved.stem
         notes = str(c.get("notes") or "").strip()
         avoid = str(c.get("avoid") or "").strip()
         t_scope = str(c.get("target_scope") or "").strip() or None
@@ -1298,7 +1300,12 @@ def format_concept_brief_block(
         raise ValueError(f"unknown concept formatting mode {mode!r}; expected 'fresh', 'edit', or 'image'")
 
     notes_clean = clean_concept_notes(concept_brief.notes)
-    c_lines: list[str] = [f"MANDATORY CREATIVE CONCEPT ({concept_brief.title}): {concept_brief.summary}"]
+    display_title = (
+        concept_brief.title.replace("_", " ").strip()
+        if ("_" in concept_brief.title and " " not in concept_brief.title)
+        else concept_brief.title
+    )
+    c_lines: list[str] = [f"MANDATORY CREATIVE CONCEPT ({display_title}): {concept_brief.summary}"]
 
     if eff_mode == "image":
         c_lines.append(
@@ -1479,12 +1486,14 @@ def build_fresh_prompt_user_prompt(
 
     if eff_mode == "ref2va":
         lines = [
-            "Mode: ref2va (6 required sections; strictly 350-500 words in detailed_description).",
+            "Target format: Reference-conditioned video with audio (6 required sections; strictly 350-500 words in detailed_description).",
             pacing_note,
         ]
         if eff_manifest.summary_lines:
             lines.append("Attached media references in exact order:")
-            lines.extend(eff_manifest.summary_lines)
+            lines.extend(
+                ln.replace("; released at 0.33", "") for ln in eff_manifest.summary_lines
+            )
         if eff_manifest.pictures:
             subjs = ", ".join(f"<Subject {i}>" for i in range(1, eff_manifest.n_pictures + 1))
             lines.append(
@@ -1499,6 +1508,11 @@ def build_fresh_prompt_user_prompt(
             )
         parts.append("\n".join(lines))
     elif eff_mode in _pc.KEYFRAME_BASE_MODES:
+        mode_label = {
+            "fl2va": "First-and-last-frame video with audio",
+            "i2va": "First-frame-conditioned video with audio",
+            "l2va": "Last-frame-conditioned video with audio",
+        }.get(eff_mode, "Keyframe-conditioned video with audio")
         kf_note = (
             "Bare `Picture 1` (0.00s start) and bare `Picture 2` (end) ONLY — never `<Picture 1>`!"
             if eff_mode == "fl2va"
@@ -1509,8 +1523,8 @@ def build_fresh_prompt_user_prompt(
             )
         )
         parts.append(
-            f"Mode: {eff_mode} (3 base sections; duration {dur_s:.2f}s / {snapped} frames; "
-            f"Do not write a leading alignment header line — begin directly with integrated_multimodal_description:).\n{kf_note}\n{pacing_note}"
+            f"Target format: {mode_label} (3 required sections; duration {dur_s:.2f}s / {snapped} frames; "
+            f"do not write a leading alignment header line — begin directly with integrated_multimodal_description:).\n{kf_note}\n{pacing_note}"
         )
     elif eff_mode == "single_frame":
         pic_note = (
@@ -1519,10 +1533,10 @@ def build_fresh_prompt_user_prompt(
             else ""
         )
         parts.append(
-            f"Mode: single_frame (sectionless visual prose only; zero soundscape/music sections).{pic_note}"
+            f"Target format: Single-frame still image (sectionless visual prose only; zero soundscape/music sections).{pic_note}"
         )
     else:
-        parts.append(f"Mode: t2va (3 base sections; no reference images attached).\n{pacing_note}")
+        parts.append(f"Target format: Text-to-video with audio (3 required sections; no reference images attached).\n{pacing_note}")
 
     if concept_brief is not None:
         parts.append(
@@ -1725,6 +1739,78 @@ def _extract_vision_tensors_from_references(
     return tensors
 
 
+_REPAIR_SLUG_REPLACEMENTS: tuple[tuple[re.Pattern[str], str], ...] = (
+    (re.compile(r"\bH3\s+prompt\s+contract\s+violation\b", re.IGNORECASE), "Prompt validation error"),
+    (re.compile(r"\bMiniMaxH3\w*\b", re.IGNORECASE), "prompt validator"),
+    (re.compile(r"\b(?:MiniMax|Pika|ComfyUI|Qwen3-VL|Qwen|DiT|LoRA|EditGuider|BasicGuider|safetensors|heylookitsanllm|heylook)\b", re.IGNORECASE), ""),
+    (re.compile(r"\bref2va\b", re.IGNORECASE), "reference-conditioned video"),
+    (re.compile(r"\bfl2va\b", re.IGNORECASE), "first-and-last-frame video"),
+    (re.compile(r"\bi2va\b", re.IGNORECASE), "first-frame video"),
+    (re.compile(r"\bl2va\b", re.IGNORECASE), "last-frame video"),
+    (re.compile(r"\bt2va\b", re.IGNORECASE), "text-to-video"),
+    (re.compile(r"\bsingle_frame\b", re.IGNORECASE), "single-frame still image"),
+    (re.compile(r"\b(?:h3_image|ph3_image)\b", re.IGNORECASE), "still image"),
+    (re.compile(r"\b(?:fast_1x|guided_2x)\b", re.IGNORECASE), "edit mode"),
+    (re.compile(r"\bPart\s+One\b"), "opening alignment line"),
+    (re.compile(r"\bH3\b"), "target"),
+)
+
+
+def sanitize_repair_feedback(err_text: str) -> str:
+    """Translate internal mode slugs and codebase jargon in validator errors into plain English for repair turns."""
+    out = str(err_text or "")
+    for pat, repl in _REPAIR_SLUG_REPLACEMENTS:
+        out = pat.sub(repl, out)
+    out = re.sub(r"[ \t]{2,}", " ", out).strip()
+    return out
+
+
+def build_repair_user_prompt(
+    err_text: str,
+    *,
+    is_fresh_mode: bool,
+    use_native: bool,
+    resolved_mode: str,
+    allowed_sections: Sequence[str],
+    orig_section_names: Sequence[str] = (),
+) -> str:
+    """Assemble the zero-lore 1-shot validation repair prompt sent to `heylook`."""
+    clean_err = sanitize_repair_feedback(err_text)
+    band_hint = (
+        " Aim squarely for ~410-440 words inside detailed_description so it sits comfortably "
+        "inside the 350-500 word band (do not stop near the 350 edge)."
+        if ("350-500 words" in clean_err or "> 500 ceiling" in clean_err)
+        else ""
+    )
+    valid_headers_note = (
+        ", ".join(allowed_sections) if is_fresh_mode else ", ".join(orig_section_names)
+    )
+    if is_fresh_mode and use_native:
+        if resolved_mode == "single_frame":
+            return (
+                f"Your output failed validation: {clean_err}\n"
+                "Fix ONLY this validation error and output ONE plain-text visual paragraph "
+                "with no Markdown headings, no code fences, and no commentary."
+            )
+        headers_csv = ", ".join(f"{s}:" for s in allowed_sections)
+        return (
+            f"Your output failed validation: {clean_err}\n"
+            f"Required plain-text section headers (exact order): {headers_csv}\n"
+            "Fix ONLY this validation error — do NOT drop or revert passing sections."
+            f"{band_hint} "
+            "Output ALL required plain-text sections cleanly with no Markdown headings, "
+            "no code fences, and no commentary."
+        )
+    return (
+        f"Your output failed validation: {clean_err}\n"
+        f"Required/valid section names: {valid_headers_note}\n"
+        f"Allowed sections to edit: {', '.join(allowed_sections)}\n"
+        "Fix ONLY this validation error — do NOT drop or revert previously written sections."
+        f"{band_hint} "
+        "Output ALL required Markdown sections and the `## axes` block."
+    )
+
+
 def _detect_has_references(original: str, prepared_images: Sequence[tuple[str, str]]) -> bool:
     if prepared_images:
         return True
@@ -1811,6 +1897,7 @@ def run_auto_edit_rewrite(
             "repair_used": False,
             "resolved_scope": "passthrough",
             "stream_result": None,
+            "provenance": None,
         }
 
     concept_name = (concept or "none").strip() or "none"
@@ -2117,12 +2204,17 @@ def run_auto_edit_rewrite(
         new_mech_fails = [f for f in mech_fails if f not in set(orig_mech_fails)]
         if new_mech_fails:
             raise ValidationRepairError(
-                f"H3 prompt contract violation introduced by edit: {'; '.join(new_mech_fails)}"
+                f"Prompt validation error introduced by edit: {'; '.join(new_mech_fails)}"
             )
         return out_val
 
     repair_used = False
+    prior_usages: list[Mapping[str, Any]] = []
     thinking_parts: list[str] = []
+    eff_preset_name = preset_name
+    effective_sys_for_hash = ""
+    final_req_body: dict[str, Any] = {}
+    model_row: dict[str, Any] = {}
     req_effort = "" if thinking == "off" else eff_effort
     eff_interrupt = interrupt_check if interrupt_check is not None else _comfy_interrupt_check
     client_cm = (
@@ -2155,7 +2247,6 @@ def run_auto_edit_rewrite(
                     base,
                     auto_slug,
                     model_row,
-                    prefix=eff_prefix,
                 )
             else:
                 raw_preset_fields = None
@@ -2204,6 +2295,16 @@ def run_auto_edit_rewrite(
                 reasoning_effort_override=req_effort,
                 default_reasoning_effort=req_effort,
             )
+            final_req_body = body
+            effective_sys_for_hash = str(
+                body.get("system")
+                or sys_prompt
+                or (
+                    resolve_fresh_system_prompt(resolved_mode, has_images=bool(prepared_images))
+                    if is_fresh_mode
+                    else _read_system_prompt_file(rewrite_mode)
+                )
+            )
             res: HeylookStreamResult = with_heylook_backoff(
                 lambda: stream_heylook_message(
                     base, body, client=req_client, interrupt_check=eff_interrupt, cancel_token=cancel_token
@@ -2227,40 +2328,16 @@ def run_auto_edit_rewrite(
                 if cancel_token is not None:
                     cancel_token.check()
                 repair_used = True
-                err_s = str(first_err)
-                band_hint = (
-                    " Aim squarely for ~410-440 words inside detailed_description so it sits comfortably "
-                    "inside the 350-500 word band (do not stop near the 350 edge)."
-                    if ("350-500 words" in err_s or "> 500 ceiling" in err_s)
-                    else ""
+                if isinstance(res.usage, Mapping):
+                    prior_usages.append(dict(res.usage))
+                repair_msg = build_repair_user_prompt(
+                    str(first_err),
+                    is_fresh_mode=is_fresh_mode,
+                    use_native=use_native,
+                    resolved_mode=resolved_mode,
+                    allowed_sections=allowed_sections,
+                    orig_section_names=[c.name for c in orig_chunks],
                 )
-                valid_headers_note = ", ".join(allowed_sections) if is_fresh_mode else ", ".join(c.name for c in orig_chunks)
-                if is_fresh_mode and use_native:
-                    if resolved_mode == "single_frame":
-                        repair_msg = (
-                            f"Your output failed validation: {first_err}\n"
-                            "Fix ONLY this validation error and output ONE plain-text visual paragraph "
-                            "with no Markdown headings, no code fences, and no commentary."
-                        )
-                    else:
-                        headers_csv = ", ".join(f"{s}:" for s in allowed_sections)
-                        repair_msg = (
-                            f"Your output failed validation: {first_err}\n"
-                            f"Required plain-text section headers (exact order): {headers_csv}\n"
-                            "Fix ONLY this validation error — do NOT drop or revert passing sections."
-                            f"{band_hint} "
-                            "Output ALL required plain-text sections cleanly with no Markdown headings, "
-                            "no code fences, and no commentary."
-                        )
-                else:
-                    repair_msg = (
-                        f"Your output failed validation: {first_err}\n"
-                        f"Required/valid section names: {valid_headers_note}\n"
-                        f"Allowed sections to edit: {', '.join(allowed_sections)}\n"
-                        "Fix ONLY this validation error — do NOT drop or revert previously written sections."
-                        f"{band_hint} "
-                        "Output ALL required Markdown sections and the `## axes` block."
-                    )
                 repair_body = build_heylook_request_body(
                     model_row=model_row,
                     system_prompt=sys_prompt,
@@ -2278,6 +2355,7 @@ def run_auto_edit_rewrite(
                         {"role": "user", "content": repair_msg},
                     ],
                 )
+                final_req_body = repair_body
                 res = with_heylook_backoff(
                     lambda: stream_heylook_message(
                         base, repair_body, client=req_client, interrupt_check=eff_interrupt, cancel_token=cancel_token
@@ -2301,6 +2379,20 @@ def run_auto_edit_rewrite(
         finally:
             if cancel_token is not None and attached_tok:
                 cancel_token.detach_client(req_client)
+
+    provenance = build_heylook_provenance(
+        requested_model=model,
+        res=res,
+        model_row=model_row,
+        preset=eff_preset_name,
+        system_source=sys_source,
+        system_prompt=effective_sys_for_hash,
+        request_body=final_req_body,
+        thinking=thinking,
+        reasoning_effort=req_effort,
+        repair_used=repair_used,
+        extra_usage=prior_usages,
+    )
 
     telem = format_heylook_report(
         res,
@@ -2331,6 +2423,7 @@ def run_auto_edit_rewrite(
         "stream_result": res,
         "orig_words": validated["orig_words"],
         "edit_words": validated["edit_words"],
+        "provenance": provenance,
     }
     if use_cache:
         _REWRITE_CACHE[cache_key] = cache_entry

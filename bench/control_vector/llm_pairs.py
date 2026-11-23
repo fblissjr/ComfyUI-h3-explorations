@@ -9,7 +9,8 @@ import os
 from pathlib import Path
 import sys
 import time
-from typing import Any, Callable
+import tomllib
+from typing import Any, Callable, Mapping, Sequence
 
 import torch
 
@@ -69,20 +70,10 @@ def _single_clause_section_pair(sec_a: str, sec_b: str) -> tuple[str, str]:
     best = max(clusters, key=_cluster_score)
     a0, a1 = best[0][1], best[-1][2]
     b0, b1 = best[0][3], best[-1][4]
-    hdr = sec_a.split(":", 1)[0].strip() if ":" in sec_a else ""
-    filler = (
-        ["The", "ambient", "sound", "remains", "steady", "throughout."]
-        if hdr == "overall_soundscape"
-        else ["The", "shot", "and", "lighting", "remain", "steady", "throughout."]
-    )
-    new_words_a = (words_a[:a0] + filler + words_a[a1:]) if (a0 == a1 and b0 < b1) else words_a
-    new_words_b = (
-        (words_a[:a0] + filler + words_a[a1:])
-        if (b0 == b1 and a0 < a1)
-        else (words_a[:a0] + words_b[b0:b1] + words_a[a1:])
-    )
-    rebuilt_a = " ".join(new_words_a)
-    rebuilt_b = " ".join(new_words_b)
+    if a0 == a1 or b0 == b1:
+        return sec_a, sec_b
+    rebuilt_a = " ".join(words_a)
+    rebuilt_b = " ".join(words_a[:a0] + words_b[b0:b1] + words_a[a1:])
     try:
         cv.differing_span(rebuilt_a, rebuilt_b, frame="scene")
         return rebuilt_a, rebuilt_b
@@ -125,13 +116,18 @@ def _repair_pair_prompts(a: str, b: str) -> tuple[str, str]:
             repaired_b.append(ba)
             continue
         hdr_a = ba.split(":", 1)[0].strip() if ":" in ba else ""
-        if hdr_a in ("integrated_multimodal_description", "detailed_description", "overall_soundscape"):
+        if hdr_a in (
+            "integrated_multimodal_description",
+            "detailed_description",
+            "overall_soundscape",
+            "non_diegetic_music",
+        ):
             na, nb = _single_clause_section_pair(ba, bb)
             repaired_a.append(na)
             repaired_b.append(nb)
         else:
             repaired_a.append(ba)
-            repaired_b.append(ba)
+            repaired_b.append(bb)
 
     cand_a = "\n\n".join(repaired_a)
     cand_b = "\n\n".join(repaired_b)
@@ -139,25 +135,7 @@ def _repair_pair_prompts(a: str, b: str) -> tuple[str, str]:
         cv.differing_span(cand_a, cand_b, frame="scene")
         return cand_a, cand_b
     except ValueError:
-        # If description + soundscape both changed and still failed, keep only the description change.
-        desc_a: list[str] = []
-        desc_b: list[str] = []
-        for ba, bb in zip(blocks_a, blocks_b):
-            hdr_a = ba.split(":", 1)[0].strip() if ":" in ba else ""
-            if hdr_a in ("integrated_multimodal_description", "detailed_description"):
-                na, nb = _single_clause_section_pair(ba, bb)
-                desc_a.append(na)
-                desc_b.append(nb)
-            else:
-                desc_a.append(ba)
-                desc_b.append(ba)
-        cand_a2 = "\n\n".join(desc_a)
-        cand_b2 = "\n\n".join(desc_b)
-        try:
-            cv.differing_span(cand_a2, cand_b2, frame="scene")
-            return cand_a2, cand_b2
-        except ValueError:
-            return a, b
+        return a, b
 
 
 def _repair_multichange_markdown_pairs(md_text: str) -> str:
@@ -217,22 +195,48 @@ def _repair_multichange_markdown_pairs(md_text: str) -> str:
 
 
 def _extract_system_prompt_text() -> str:
-    candidates = [
-        REPO_ROOT / "docs" / "wiki" / "system_prompts" / "h3_control_vector_system_prompt.md",
-        REPO_ROOT / "docs" / "wiki" / "steering" / "research" / "2026-11-05_control_vector_system_prompt.md",
-    ]
-    open_fence = "````markdown\n"
-    for sp_path in candidates:
-        if not sp_path.is_file():
-            continue
-        raw = sp_path.read_text(encoding="utf-8")
-        fence_start = raw.find(open_fence)
-        if fence_start >= 0:
-            body_start = fence_start + len(open_fence)
-            fence_end = raw.find("\n````", body_start)
-            if fence_end >= 0:
-                return raw[body_start:fence_end].strip()
+    standalone_path = (
+        REPO_ROOT / "docs" / "wiki" / "system_prompts" / "h3_control_vector_standalone_system_prompt.md"
+    )
+    if standalone_path.is_file():
+        txt = standalone_path.read_text(encoding="utf-8").strip()
+        if txt:
+            return txt
     return ""
+
+
+def build_control_vector_user_prompt(concept: str) -> str:
+    """Build the zero-lore user-turn prompt for contrastive pair-pack authoring."""
+    return (
+        f"Requested visual, physical, vocal, or acoustic quality:\n{concept.strip()}\n\n"
+        "Generate the complete Markdown prompt-pair pack (`### Test Scene Prompt` followed by "
+        "`### Contrastive Pairs (1–10)` with `#### Pair 1` through `#### Pair 10`, each containing "
+        "`##### Prompt A (Baseline)` and `##### Prompt B (Steered)`)."
+    )
+
+
+def build_control_vector_repair_prompt(
+    concept: str,
+    lint_warns: Sequence[str],
+    draft_md: str,
+) -> str:
+    """Build the zero-lore 1-shot lint-repair user prompt."""
+    clean_warns: list[str] = []
+    for w in list(lint_warns)[:12]:
+        cw = str(w)
+        cw = cw.replace("a_span", "Prompt A changed clause").replace("b_span", "Prompt B changed clause")
+        clean_warns.append(cw)
+    return (
+        f"{concept.strip()}\n\n"
+        "Revise the draft Markdown pair pack below so every validation issue is resolved:\n"
+        "- All 10 pairs must use 10 unrelated scenes, each opening with at least 10 shared words before a single in-place 8–18 word replacement clause\n"
+        "- Use 10 distinct concrete real-world baseline descriptions across Prompt A rather than repeating generic wording\n"
+        "- Omit onset or rate adverbs (`slowly`, `gradually`, `steadily`, `progressively`, `rapidly`, `increasingly`, `begins to`, `starts to`), avoid repeating target nouns inside Prompt A's replaced clause, include `[Language]` inside every `<d>[Language] ...</d>` tag, and omit `### Hold Pairs` unless explicitly requested\n\n"
+        "Issues to fix:\n"
+        + "\n".join(f"- {w}" for w in clean_warns)
+        + "\n\nDraft Markdown to revise:\n"
+        + draft_md
+    )
 
 
 SUPPORTED_LLM_PROVIDERS: tuple[str, ...] = ("transformers", "exllamav3", "heylook")
@@ -308,21 +312,20 @@ def _generate_pairs_with_llm(
     if not concept:
         raise ValueError("concept description is required to generate pairs")
 
-    sys_txt = (system_prompt or _extract_system_prompt_text()).strip()
+    explicit_sys = (system_prompt or "").strip()
+    sys_txt = explicit_sys or _extract_system_prompt_text()
     if not sys_txt:
         sys_txt = (
-            "You are an expert MiniMax H3 prompt engineer. Author 10 contrasting Prompt A (Baseline) / "
-            "Prompt B (Steered) pairs in Markdown using `#### Pair N`, `##### Prompt A (Baseline)`, and "
-            "`##### Prompt B (Steered)` headings where only the target concept clause changes."
+            "You write structured three-section audiovisual prompts (`integrated_multimodal_description:`, "
+            "`overall_soundscape:`, `non_diegetic_music:`). Author 10 contrasting `Prompt A (Baseline)` and "
+            "`Prompt B (Steered)` pairs in Markdown using `#### Pair N`, `##### Prompt A (Baseline)`, and "
+            "`##### Prompt B (Steered)` headings where only one single contiguous clause changes per pair."
         )
 
-    user_msg = (
-        f"Target Control Vector Concept / Axis:\n{concept}\n\n"
-        "Generate the complete Markdown control-vector pack (`### Test Scene Prompt` followed by "
-        "`#### Pair 1` through `#### Pair 10` with `##### Prompt A (Baseline)` and `##### Prompt B (Steered)`)."
-    )
+    user_msg = build_control_vector_user_prompt(concept)
 
     t0 = time.perf_counter()
+    provenance: dict[str, Any] | None = None
     cache_store = llm_cache if llm_cache is not None else {}
     cache_key = (prov, mspec, bool(load_in_4bit))
     if prov != "heylook" and cache_key not in cache_store:
@@ -341,6 +344,7 @@ def _generate_pairs_with_llm(
         # Ignore local filesystem paths inherited from H3_EXL3_MODEL_DIR / transformers defaults.
         if mspec and (mspec.startswith(("/", "~", ".")) or Path(mspec).expanduser().exists()):
             mspec = ""
+        requested_model_raw = mspec
         base = hlc.resolve_heylook_base_url(heylook_url)
 
         def _capture_req_id(request: httpx.Request) -> None:
@@ -371,6 +375,26 @@ def _generate_pairs_with_llm(
                     need=frozenset({"chat"}),
                     fallback_models=(hlc.DEFAULT_HEYLOOK_MODEL,),
                 )
+                preset_fields: dict[str, Any] | None = None
+                eff_preset_name = ""
+                sys_source = "custom" if explicit_sys else "local"
+                eff_sys_prompt = sys_txt
+                if not explicit_sys:
+                    preset_fields, eff_preset_name = hlc.try_inherit_heylook_preset(
+                        client,
+                        base,
+                        "h3-control-vector",
+                        model_row,
+                    )
+                    if preset_fields:
+                        preset_sys = str(preset_fields.get("system") or "").strip()
+                        if preset_sys:
+                            eff_sys_prompt, sys_source, _ = hlc.compose_preset_system_prompt(
+                                sys_txt,
+                                preset_sys,
+                                preset_name=eff_preset_name,
+                            )
+                            preset_fields = {k: v for k, v in preset_fields.items() if k != "system"}
                 if cancel_token is not None:
                     cancel_token.check()
                 if interrupt_check is not None:
@@ -381,11 +405,12 @@ def _generate_pairs_with_llm(
                     overrides["temperature"] = float(temperature)
                 body = hlc.build_heylook_request_body(
                     model_row=model_row,
-                    system_prompt=sys_txt,
+                    system_prompt=eff_sys_prompt,
                     user_prompt=user_msg,
                     prepared_images=[],
                     thinking=eff_thinking,
                     request_seed=int(seed) if seed is not None else None,
+                    preset_fields=preset_fields,
                     sampler_mode="custom",
                     sampler_overrides=overrides,
                     reasoning_effort_override=eff_effort,
@@ -402,6 +427,19 @@ def _generate_pairs_with_llm(
                     ),
                     interrupt_check=interrupt_check,
                     cancel_token=cancel_token,
+                )
+                mspec = str(res.model or mspec)
+                provenance = hlc.build_heylook_provenance(
+                    requested_model=requested_model_raw,
+                    res=res,
+                    model_row=model_row,
+                    preset=eff_preset_name,
+                    system_source=sys_source,
+                    system_prompt=str(body.get("system") or eff_sys_prompt or ""),
+                    request_body=body,
+                    thinking=eff_thinking,
+                    reasoning_effort=eff_effort,
+                    repair_used=False,
                 )
             except BaseException:
                 if cancel_token is not None and cancel_token.is_cancelled:
@@ -607,6 +645,7 @@ def _generate_pairs_with_llm(
         "model": mspec,
         "markdown": markdown_out,
         "elapsed_s": elapsed_s,
+        "provenance": provenance,
     }
 
 
@@ -621,9 +660,13 @@ def _resolve_concept_prompt_for_generation(args: argparse.Namespace) -> tuple[st
 
         brief = aep.load_concept_brief(from_concept, exemplar_count=4)
         notes_clean = aep.clean_concept_notes(brief.notes)
+        display_title = (
+            brief.title.replace("_", " ").strip()
+            if ("_" in brief.title and " " not in brief.title)
+            else brief.title
+        )
         block_lines = [
-            f"Concept Stem: {brief.stem}",
-            f"Concept Title: {brief.title}",
+            f"Concept Title: {display_title}",
             f"Core Intent: {brief.summary}",
         ]
         if brief.a_side and brief.b_side:
@@ -710,17 +753,7 @@ def _generate_pairs_from_args(
             cancel_token.check()
         if interrupt_check is not None:
             interrupt_check()
-        repair_prompt = (
-            f"{concept}\n\n"
-            "Fix the draft Markdown pack below so it has ZERO lint warnings:\n"
-            "- All 10 pairs must be 100% unique `a_span` and `b_span` across diverse scenes with distinct >=10-word shared prefixes\n"
-            "- Use varied concrete Pole-A baselines so rank-8 erasure captures the baseline subspace\n"
-            "- Zero rate/onset adverbs (`slowly`, `gradually`, `begins to`), zero content-noun overlap between A and B spans, `[Language]` tags on all `<d>...</d>`, zero default `#### Hold` blocks\n\n"
-            "Lint issues found:\n"
-            + "\n".join(f"- {w}" for w in lint_warns[:12])
-            + "\n\nDraft Markdown to repair:\n"
-            + res["markdown"]
-        )
+        repair_prompt = build_control_vector_repair_prompt(concept, lint_warns, res["markdown"])
         rep_res = _generate_pairs_with_llm(
             provider=args.llm_provider,
             model_spec=args.llm_model,
@@ -740,10 +773,23 @@ def _generate_pairs_from_args(
         )
         rep_warns = _lint_markdown_pairs_text(rep_res["markdown"])
         if len(rep_warns) <= len(lint_warns):
+            merged_prov = rep_res.get("provenance")
+            prev_prov = res.get("provenance")
+            if isinstance(merged_prov, dict):
+                merged_prov = dict(merged_prov)
+                merged_prov["repair_used"] = True
+                if isinstance(prev_prov, dict):
+                    merged_prov["input_tokens"] = int(prev_prov.get("input_tokens") or 0) + int(
+                        merged_prov.get("input_tokens") or 0
+                    )
+                    merged_prov["output_tokens"] = int(prev_prov.get("output_tokens") or 0) + int(
+                        merged_prov.get("output_tokens") or 0
+                    )
             res = {
                 **rep_res,
                 "elapsed_s": round(float(res["elapsed_s"]) + float(rep_res["elapsed_s"]), 2),
                 "repaired": True,
+                "provenance": merged_prov,
             }
             lint_warns = rep_warns
     res["lint_warnings"] = lint_warns
@@ -780,6 +826,35 @@ def _derive_concept_sides(
     if derived_q is None and derived_a and derived_b:
         derived_q = f"{derived_b} vs. {derived_a}"
     return derived_a, derived_b, derived_q
+
+
+def inject_toml_provenance(toml_path: Path, provenance: Mapping[str, Any]) -> None:
+    """Insert or replace a canonical `[provenance]` table inside a generated `.toml` pair file."""
+    import heylook_client as hlc
+
+    raw = toml_path.read_text(encoding="utf-8")
+    prov_block = hlc.format_heylook_provenance_toml(provenance).strip()
+    # Replace any existing [provenance] section cleanly if re-writing
+    import re as _re
+
+    cleaned = _re.sub(
+        r"(?ms)^\[provenance\]\n.*?(?=^\[|\Z)",
+        "",
+        raw,
+    ).strip()
+    marker_idx = cleaned.find("\n[[pair]]")
+    if marker_idx < 0:
+        marker_idx = cleaned.find("[[pair]]")
+    if marker_idx >= 0:
+        head = cleaned[:marker_idx].rstrip()
+        tail = cleaned[marker_idx:].lstrip("\n")
+        updated = f"{head}\n\n{prov_block}\n\n{tail}\n"
+    else:
+        updated = f"{cleaned}\n\n{prov_block}\n"
+    parsed_doc = tomllib.loads(updated)
+    if not isinstance(parsed_doc.get("provenance"), dict):
+        raise ValueError(f"failed to serialize valid [provenance] table in {toml_path}")
+    toml_path.write_text(updated, encoding="utf-8")
 
 
 def cmd_generate_pairs(args: argparse.Namespace) -> int:
@@ -830,8 +905,14 @@ def cmd_generate_pairs(args: argparse.Namespace) -> int:
         )
         print(f"wrote {_display_path(saved)}")
     if saved is not None:
+        prov_meta = res.get("provenance")
+        supports_prov_key = "provenance" in getattr(cv, "ALLOWED_TOP_KEYS", ())
+        if isinstance(prov_meta, Mapping) and supports_prov_key:
+            inject_toml_provenance(saved, prov_meta)
         ps_check = cv.load_pairs(saved, bank_dir=cv_nodes.PROMPT_BANK_DIR)
         lint_warns = cv.lint_pair_set(ps_check)
+        if isinstance(prov_meta, Mapping) and not supports_prov_key:
+            inject_toml_provenance(saved, prov_meta)
         if lint_warns:
             print(f"WARNING: {len(lint_warns)} pair-quality lint warning(s) on {_display_path(saved)}:", file=sys.stderr)
             for w in lint_warns:

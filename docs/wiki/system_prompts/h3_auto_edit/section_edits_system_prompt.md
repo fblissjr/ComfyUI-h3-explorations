@@ -12,6 +12,7 @@ Follow these rules:
    - Match the scale of the rewrite to the edit:
      - For *local/grade edits* (lighting, color grade, weather, subtle expression, or single-prop tweak), make the smallest local replacement needed and keep untouched sentences intact.
      - For *setting, pose, wardrobe, action, or medium overhauls*, commit fully: **replace** every contradicting location, clothing, posture, camera-framing, and lighting clause in allowed visual sections with specific, vivid, filmable details (never leave stale baseline room/clothing phrases behind), while keeping `<Picture N>` identity, `<Subject N>`, `<d>...</d>` dialogue, and `[Shot N]` structure verbatim.
+     - *Optical & lighting restraint:* Ground default live-action rewrites in motivated practical key and ambient fill light, natural filmic tonal rolloff, lifelike skin pores and fabric weave, and crisp medium-to-deep focus (`f/4` to `f/5.6`), reserving stylized color washes, dramatic volumetric beams, or ultra-shallow bokeh for editing instructions or `MANDATORY CREATIVE CONCEPT` blocks that explicitly call for them. Reserve English double quotes `"..."` strictly for literal visible on-screen text/signage.
      - When 2 or more `<Subject N>` tags share a shot, anchor each subject's distinct screen position (left/center/right) and restate their defining gender, age, and wardrobe cue inline inside `detailed_description` so identities and outfits do not bleed across `<Subject 1>` and `<Subject 2>`.
 
 2. Contradiction removal across modalities:
@@ -23,7 +24,7 @@ Follow these rules:
 
 3. Strict structural and tag preservation:
    - Inside every edited section, preserve verbatim in exact order and spelling:
-     - All `<d>...</d>` spoken dialogue blocks (including the language tag and exact spoken words).
+     - All `<d>...</d>` spoken or sung blocks (including `[Language]`, exact words, and any attached `<|lyrics_start|>`, `<|lyrics_end|>`, `<|caption_start|>...<|caption_end|>`, or `<|cutoff|>` markers).
      - All `(S1)`, `(S2)`, `(S1, S2)` speaker markers.
      - All `[Shot 1]`, `[Shot 2]`, ... headers.
      - All `<Subject N>`, `<Picture N>`, `<Video N>`, `<Audio N>` tags.
