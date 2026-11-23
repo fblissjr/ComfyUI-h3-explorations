@@ -4,8 +4,9 @@
   "dossier_slug": "2026-11-22_stabilization_and_phase2_roadmap",
   "title": "H3 Steering Stabilization Plan, Phase 2 Queue & 6-Session Feedback Archive",
   "head_commits": {
-    "root_repo_main": "cbbf565d+wave3b",
+    "root_repo_main": "a52ccd70+wave4",
     "root_preceding_commits": [
+      "a52ccd70",
       "cbbf565d",
       "d9393539",
       "e9c93314",
@@ -1045,5 +1046,89 @@
       "title": "Scoped UX/API follow-ups",
       "details": "Done in app/.git@825d27d: pruned dead UI-unreachable guide_vector_words/guide_vector_against/against_words/xray_vector words plumbing (keeping hold_words & /api/lab/build words) and fixed heylook_bridge.py explicit empty-string clear parity on reasoning_effort and preset."
     }
-  ]
+  ],
+  "wave4_verification": {
+    "status": "done",
+    "date": "2026-11-23",
+    "ledger_path": "bench/results/2026-11-23_wave4_post_restart_live_verification.md",
+    "data_path": "data/exp_unpooled_sliders/wave4_2026_11_23/wave4_results.json",
+    "restarted_object_info": {
+      "total_nodes": 1117,
+      "minimax_h3_nodes": 79,
+      "steer_target_options": [
+        "scene_only",
+        "description_only",
+        "look_only",
+        "soundscape_only",
+        "after_dialogue",
+        "non_vision",
+        "vision_tokens"
+      ],
+      "steer_vector_count": 51,
+      "wave3b_stems_registered": [
+        "youtube_overhype_influencer",
+        "sudden_takeoff_flight"
+      ],
+      "expanders_registered": [
+        "MiniMaxH3PromptExpander",
+        "MiniMaxH3AutoEditPrompt",
+        "MiniMaxH3ImagePromptExpander"
+      ],
+      "default_heylook_model": "gemma-4-26B-A4B-it-8bit"
+    },
+    "workflow_live_audit": {
+      "total_json_files": 135,
+      "api_graphs_validated": 135,
+      "non_api_skipped_count": 0,
+      "total_api_nodes_checked": 2779,
+      "steer_nodes_checked": 20,
+      "error_count": 0
+    },
+    "heylook_probe": {
+      "configured": true,
+      "reachable": false,
+      "status_code": 502,
+      "note": "Remote Heylook returned HTTP 502 Bad Gateway during Wave 4 run; live Heylook check deferred until server is brought back online."
+    },
+    "strict_bank_smokes": {
+      "allow_recipe_mismatch": false,
+      "seed": 730451892,
+      "runs": [
+        "smoke1_h3i_takeoff (2368x1760, 4.168 MP, exec_s=34.83)",
+        "smoke2_h3i_overhype (2368x1760, 4.168 MP, exec_s=25.17)",
+        "smoke3_fl2va_stack_39f (1152x768 @ 39f, -20.27 dBFS, exec_s=23.6)",
+        "smoke4_ref2va_takeoff_39f (1152x768 @ 39f, woman_blonde.jpg, -16.65 dBFS, exec_s=36.63)"
+      ]
+    },
+    "app_repo_frozen_untouched": "app/.git@825d27d"
+  },
+  "track_app_2_0": {
+    "conversation_id": "04315f20-0c2b-4fc9-82ac-a2bfff10e644",
+    "repo": "app/.git",
+    "frozen_baseline": "app/.git@825d27d",
+    "stage_1_stitch_design": {
+      "status": "done",
+      "stitch_project": "projects/17053835552939033469",
+      "design_system": "assets/10342773779450025730",
+      "theme_name": "H3 Studio",
+      "spacing": "balanced 16px iOS 27 HIG / Linear",
+      "screen_count": 9,
+      "layout_row": "y=2600",
+      "spec_artifact": "h3_studio_flows_and_interactions.md (in conversation 04315f20-0c2b-4fc9-82ac-a2bfff10e644)"
+    },
+    "design_principles": [
+      "Treat Stitch screens as directional UX/visual references rather than rigid 1:1 pixel specs.",
+      "Preserve transparency, workflow & Heylook inheritance, ephemeral privacy boundary, low-clutter 3-tab mobile rhythm, native iOS 27.x Safari ergonomics, >=44px targets, >=16px inputs, and balanced 16px HIG spacing without nested double-padding or dead voids."
+    ],
+    "verified_notes": [
+      "Drop @dnd-kit in favor of a lightweight zero-dependency Pointer Events press-and-hold reorder hook (+ left/right fallback).",
+      "Live Heylook already returns engine.thinking.depth, sampler_defaults, and sampler_sources (zero Heylook server modifications needed)."
+    ],
+    "queued_stages": [
+      "Subagent ergonomic review of Stitch screens against h3_studio_flows_and_interactions.md",
+      "Stage 2: SQLite studio.db + app/contract/openapi.json + DESIGN_CONTRACT.md",
+      "Stage 3: app/web/ (React 19.3.1 + Vite 8.3.8 + Tailwind 4.3.5 + Zustand 5.1.0 + @tanstack/react-query 5.108.4)",
+      "Cross-repo sync: update app/static/js/core.js:30 and app/tests/test_heylook_and_video_polish.py to heylook_client.DEFAULT_HEYLOOK_MODEL (gemma-4-26B-A4B-it-8bit)"
+    ]
+  }
 }
