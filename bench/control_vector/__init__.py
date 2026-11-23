@@ -1,4 +1,4 @@
-"""Modular implementation package for `bench/control_vectors.py` and the H3 Control Vector UI."""
+"""Modular implementation package for `bench/control_vectors.py`."""
 
 from __future__ import annotations
 
@@ -20,7 +20,6 @@ from .helpers import (
     LOOK_FAMILY_IDS,
     PACKAGE_DIR,
     REPO_ROOT,
-    WEB_DIR,
     _apply_post_refiner_holds,
     _compile_words_or_spec_to_pairset,
     _cosine,
@@ -51,23 +50,13 @@ from .llm_pairs import (
 )
 from .make_cmds import cmd_from_md, cmd_make, cmd_make_media
 from .sculpt import _compose_and_save_sculpted_vector, _meter_prompt_tokens, cmd_sculpt
-from .ui_server import cmd_ui, handle_ui_request
-from .ui_state import (
-    ControlVectorUIState,
-    _discover_ui_clips,
-    _list_ui_toml_files,
-    _list_ui_vectors,
-    _preview_markdown_pairs,
-)
 
 __all__ = [
     "BENCH_DIR",
-    "ControlVectorUIState",
     "LOOK_FAMILY_IDS",
     "PACKAGE_DIR",
     "REPO_ROOT",
     "SUPPORTED_LLM_PROVIDERS",
-    "WEB_DIR",
     "_apply_post_refiner_holds",
     "_attach_raw_vector",
     "_block_metrics",
@@ -76,14 +65,11 @@ __all__ = [
     "_compose_and_save_sculpted_vector",
     "_cosine",
     "_decode_image_spec_to_tensor",
-    "_discover_ui_clips",
     "_display_path",
     "_extract_system_prompt_text",
     "_free_idle_comfy_vram",
     "_generate_pairs_with_llm",
     "_is_markdown_pairs_text",
-    "_list_ui_toml_files",
-    "_list_ui_vectors",
     "_load_clip",
     "_load_encoded_references",
     "_load_image_tensor_list",
@@ -92,7 +78,6 @@ __all__ = [
     "_pair_set_to_markdown",
     "_parse_lora_specs",
     "_pred_blocks",
-    "_preview_markdown_pairs",
     "_prompt_token_count",
     "_recommended_strength_text",
     "_rel_l2",
@@ -114,9 +99,7 @@ __all__ = [
     "cmd_make_media",
     "cmd_rebuild",
     "cmd_sculpt",
-    "cmd_ui",
     "cmd_words",
-    "handle_ui_request",
     "main",
     "verify_j_lens_bundle",
 ]

@@ -161,36 +161,6 @@ def build_parser() -> argparse.ArgumentParser:
     )
     sub = p.add_subparsers(dest="cmd", required=True)
 
-    pui = sub.add_parser(
-        "ui",
-        help="Launch the self-contained local browser UI for authoring, previewing, and building control vectors",
-    )
-    pui.add_argument("--host", default="127.0.0.1", help="Bind address (default: 127.0.0.1)")
-    pui.add_argument("--port", type=int, default=0, help="Port (default: 0 picks an unused ephemeral port)")
-    pui.add_argument("--no-browser", dest="no_browser", action="store_true", help="Do not auto-open a browser tab")
-    pui.add_argument(
-        "--token",
-        default=None,
-        help="Session token the launch link carries (default: a new random one each start). Set it to keep one link across restarts",
-    )
-    pui.add_argument("--toml-dir", dest="toml_dir", default=None, help="Optional directory override for .toml pair packs")
-    pui.add_argument("--vec-dir", dest="vec_dir", default=None, help="Optional directory override for .safetensors control vectors")
-    pui.add_argument("--encoder", default=None, help="Optional conditioning encoder filename override")
-    pui.add_argument("--device", default=None, help="Optional conditioning encoder device override")
-    pui.add_argument(
-        "--llm-provider",
-        dest="llm_provider",
-        choices=SUPPORTED_LLM_PROVIDERS,
-        default=None,
-        help="Default generative LLM provider for pair authoring ('heylook', 'transformers', or 'exllamav3')",
-    )
-    pui.add_argument(
-        "--llm-model",
-        dest="llm_model",
-        default=None,
-        help="Default generative LLM model directory path or HuggingFace model ID",
-    )
-
     pfp = sub.add_parser(
         "from-prompt",
         help="Method 1: Build a scene-specific control vector in-place on --target-prompt / --target-prompt-file from '--words \"pole_a -> pole_b\"'",
@@ -874,13 +844,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def dispatch(args: argparse.Namespace) -> int:
-    """Run the handler for a parsed namespace. The one routing of subcommand to handler: `main`
-    calls it for the command line and the studio's run route (`ui_server.py`) calls it for the page,
-    so a method cannot be wired to one and not the other."""
-    if args.cmd == "ui":
-        from .ui_server import cmd_ui
-
-        return cmd_ui(args)
+    """Run the handler for a parsed CLI namespace."""
     if args.cmd == "generate-pairs":
         return cmd_generate_pairs(args)
     if args.cmd in ("words", "from-words"):

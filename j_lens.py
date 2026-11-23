@@ -175,8 +175,22 @@ _DEFAULT_RECIPES: dict[str, dict[str, Any]] = {
     },
 }
 
-_BUNDLE_CACHE: dict[Path, dict[str, Any]] = {}
-_LEXICON_CACHE: dict[Path, dict[str, Any] | None] = {}
+_BUNDLE_CACHE: dict[Path, tuple[tuple[int, int], dict[str, Any]]] = {}
+_LEXICON_CACHE: dict[Path, tuple[tuple[int, int], dict[str, Any]]] = {}
+
+
+def _file_sig(path: Path) -> tuple[int, int] | None:
+    try:
+        st = path.stat()
+    except OSError:
+        return None
+    return (int(st.st_mtime_ns), int(st.st_size))
+
+
+def invalidate_caches() -> None:
+    """Clear in-process J-Lens bundle and lexicon caches."""
+    _LEXICON_CACHE.clear()
+    _BUNDLE_CACHE.clear()
 
 
 def default_model2vec_lexicon_path() -> Path:
@@ -201,13 +215,17 @@ def default_model2vec_lexicon_path() -> Path:
 def load_model2vec_lexicon(lexicon_path: str | os.PathLike | None = None) -> dict[str, Any] | None:
     """Load and cache the optional H3 `Model2Vec` multi-token/phrase static lexicon on CPU (`None` if absent)."""
     path = Path(lexicon_path).resolve() if lexicon_path is not None else default_model2vec_lexicon_path()
-    if path in _LEXICON_CACHE:
-        return _LEXICON_CACHE[path]
-    if not path.is_file() or not os.access(path, os.R_OK):
+    sig = _file_sig(path)
+    if sig is None or not path.is_file() or not os.access(path, os.R_OK):
+        _LEXICON_CACHE.pop(path, None)
         return None
+    cached = _LEXICON_CACHE.get(path)
+    if cached is not None and cached[0] == sig:
+        return cached[1]
     with safe_open(str(path), framework="pt", device="cpu") as f:
         meta = f.metadata() or {}
         if meta.get("format") != "h3_model2vec_lexicon_v1":
+            _LEXICON_CACHE.pop(path, None)
             return None
         terms: list[str] = json.loads(meta["terms_json"])
         raw_cats = meta.get("categories_json")
@@ -235,7 +253,7 @@ def load_model2vec_lexicon(lexicon_path: str | os.PathLike | None = None) -> dic
         }
         for key in f.keys():
             payload[key] = f.get_tensor(key).to(dtype=torch.float32)
-    _LEXICON_CACHE[path] = payload
+    _LEXICON_CACHE[path] = (sig, payload)
     return payload
 
 
@@ -271,16 +289,20 @@ def bundle_available(bundle_path: str | os.PathLike | None = None) -> bool:
 def load_j_lens_bundle(bundle_path: str | os.PathLike | None = None) -> dict[str, Any]:
     """Load and cache the precomputed H3 J-Lens operator bundle on CPU."""
     path = Path(bundle_path).resolve() if bundle_path is not None else default_bundle_path()
-    if path in _BUNDLE_CACHE:
-        return _BUNDLE_CACHE[path]
-    if not path.is_file():
+    sig = _file_sig(path)
+    if sig is None or not path.is_file():
+        _BUNDLE_CACHE.pop(path, None)
         raise FileNotFoundError(
             f"J-Lens operator bundle not found at {path.name} (expected under models/j_lens/j_lens_h3.safetensors)"
         )
     if not os.access(path, os.R_OK):
+        _BUNDLE_CACHE.pop(path, None)
         raise PermissionError(
             f"J-Lens operator bundle at {path.name} is not readable; run chmod 0664 on models/j_lens/j_lens_h3.safetensors"
         )
+    cached = _BUNDLE_CACHE.get(path)
+    if cached is not None and cached[0] == sig:
+        return cached[1]
     with safe_open(str(path), framework="pt", device="cpu") as f:
         meta = f.metadata() or {}
         if meta.get("format") != "h3_j_lens_v1":
@@ -331,7 +353,7 @@ def load_j_lens_bundle(bundle_path: str | os.PathLike | None = None) -> dict[str
             bundle["J_ref_fl2va_base"] = f.get_tensor("J_ref_fl2va_base").to(dtype=torch.float32)
         if "J_wiener_fl2va_base" in bundle_keys:
             bundle["J_wiener_fl2va_base"] = f.get_tensor("J_wiener_fl2va_base").to(dtype=torch.float32)
-    _BUNDLE_CACHE[path] = bundle
+    _BUNDLE_CACHE[path] = (sig, bundle)
     return bundle
 
 

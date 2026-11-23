@@ -89,12 +89,12 @@ Unlike `DeTangle`, which uses external ONNX InsightFace (`buffalo_l` / ArcFace) 
 
 ---
 
-### 2.3 Side-by-Side Lockstep Comparison View in `bench/control_vectors.py ui`
+### 2.3 Side-by-Side Lockstep Comparison View in former `bench/control_vectors.py ui` *(standalone UI retired 2026-11-22)*
 
 - **Source in `DeTangle`**: `DeltaScope` (`coderef/DeTangle/lab/README.md:18-21`).
-- **Current H3 code**: `bench/control_vector/ui_server.py::cmd_ui` (`bench/control_vector/ui_server.py:350-401`), `bench/control_vector/ui_server.py::handle_ui_request` (`bench/control_vector/ui_server.py:21-348`), and `bench/control_vector/web/index.html`.
+- **Historical H3 code (at 2026-11-06)**: former standalone `ui_server` (`cmd_ui`, `handle_ui_request`) and its `web/index.html` page (since superseded by `app/` `/lab`).
 
-`bench/control_vector/ui_server.py::_Handler._dispatch` (`bench/control_vector/ui_server.py:358-375`) currently serves only UTF-8 JSON/HTML/CSS/JS responses and intentionally has no binary `HTTP 206 Partial Content` (`Range`) video streamer or access to `H3_OUTPUT_DIR`. The cleanest, zero-friction way to add a `DeltaScope`-style side-by-side comparison tab to `bench/control_vector/web/index.html` is **pure client-side HTML5 file loading** (`<input type="file" accept="video/mp4">` / drag-and-drop bound via `URL.createObjectURL(file)` to two synchronized `<video>` elements with locked `play`, `pause`, `currentTime`, and `±1/24s` frame-step controls). This requires zero backend changes in `bench/control_vectors.py`, supports instant native browser byte-seeking on `blob:` URLs, and never transmits local filesystem paths over HTTP.
+The former standalone `_Handler._dispatch` served only UTF-8 JSON/HTML/CSS/JS responses and intentionally had no binary `HTTP 206 Partial Content` (`Range`) video streamer or access to `H3_OUTPUT_DIR`. The cleanest, zero-friction way to add a `DeltaScope`-style side-by-side comparison tab is **pure client-side HTML5 file loading** (`<input type="file" accept="video/mp4">` / drag-and-drop bound via `URL.createObjectURL(file)` to two synchronized `<video>` elements with locked `play`, `pause`, `currentTime`, and `±1/24s` frame-step controls). This requires zero backend changes in `bench/control_vectors.py`, supports instant native browser byte-seeking on `blob:` URLs, and never transmits local filesystem paths over HTTP.
 
 ---
 

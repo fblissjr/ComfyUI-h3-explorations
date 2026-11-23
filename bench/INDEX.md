@@ -47,7 +47,6 @@ this file is only a way to find a script by what it says it does.
 | [`check_config_names.py`](check_config_names.py) | Check that every `h3_config.NAME` a tracked Python file reads is a name `workflows/h3_config.py` defines. |
 | [`check_contact_sheets.py`](check_contact_sheets.py) | `bench/contact_sheets.py` against a clip made for the purpose: the folder, the names, the tiles, and no second set. |
 | [`check_control_vector_readout_score.py`](check_control_vector_readout_score.py) | Check that `bench/control_vector_readout_score.py` builds blind judge packets that leak nothing and counts answers as it says. |
-| [`check_control_vector_studio.py`](check_control_vector_studio.py) | Check that the Control Vector Studio is the CLI: its schema, its run route and its page. |
 | [`check_control_vectors.py`](check_control_vectors.py) | Check the pure math, span masks, pair-file refusals, and vector I/O of H3 control vectors. |
 | [`check_copy_sound.py`](check_copy_sound.py) | A copy's sound against its source's (`bench/copy_sound.py`) on made sound whose answer is known. |
 | [`check_core_sparse_capture.py`](check_core_sparse_capture.py) | `core_sparse_capture.py` records core's sparse path and changes nothing. |
@@ -180,6 +179,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_speaker_id_control.py`](check_speaker_id_control.py) | Red control for `bench/preflight_graph.py::speaker_id_rules`. |
 | [`check_stack_delivery.py`](check_stack_delivery.py) | The stacked delivery clip (`bench/stack_delivery.py`) on a clip and pieces whose every frame is known by construction. |
 | [`check_stack_rows.py`](check_stack_rows.py) | `bench/stack_rows.py` on made videos: every row on the source frame it says, laid where its picture came from. |
+| [`check_steering_parity.py`](check_steering_parity.py) | Fast CPU parity gate across tracked control-vector TOMLs, retired packs, active bank, and lexicon. |
 | [`check_step_x0_observer.py`](check_step_x0_observer.py) | `step_x0_observer.py` saves each step's prediction and changes nothing. |
 | [`check_strangers.py`](check_strangers.py) | The strangers keep-out (`bench/strangers.py`) on a made preview: what it takes out, where it writes, what it refuses. |
 | [`check_subject_parts.py`](check_subject_parts.py) | The Sapiens2 part node's geometry and bookkeeping, on stand-ins for the two models. |
@@ -681,36 +681,20 @@ Arm manifests and the like; a manifest's line is its own `what`.
 
 | file | what it says |
 |---|---|
-| [`__init__.py`](control_vector/__init__.py) | Modular implementation package for `bench/control_vectors.py` and the H3 Control Vector UI. |
+| [`__init__.py`](control_vector/__init__.py) | Modular implementation package for `bench/control_vectors.py`. |
 | [`build_cmd.py`](control_vector/build_cmd.py) | One-shot and batch `build` and `words` CLI commands for H3 control vectors. |
 | [`build_model2vec_lexicon.py`](control_vector/build_model2vec_lexicon.py) | Build the H3 `Model2Vec`-style contextual multi-token & phrase static lexicon. |
 | [`cli.py`](control_vector/cli.py) | Argument parser and CLI command router for `bench/control_vectors.py`. |
 | [`eval_multivector_erasure.py`](control_vector/eval_multivector_erasure.py) | Reproducible Benchmark & 8-Part Ablation Suite for Multi-Vector Pole-A Subspace Erasure. |
 | [`grading.py`](control_vector/grading.py) | Inspection, prompt metering (`inspect`), and DiT velocity grading (`grade`) for H3 control vectors. |
-| [`helpers.py`](control_vector/helpers.py) | Shared helpers for the MiniMax H3 control vector CLI and UI package. |
+| [`helpers.py`](control_vector/helpers.py) | Shared helpers for the MiniMax H3 control vector CLI package. |
 | [`j_lens_builder.py`](control_vector/j_lens_builder.py) | Reproducible builder and verifier for `<ComfyUI>/models/j_lens/j_lens_h3.safetensors` (`h3_j_lens_v1`). |
 | [`llm_pairs.py`](control_vector/llm_pairs.py) | Local LLM pair generation (`transformers` and `exllamav3`) for H3 control vectors. |
 | [`make_cmds.py`](control_vector/make_cmds.py) | CLI commands for `make`, `make-media`, and `from-md` (`import-md`). |
 | [`run_phase3_steering_experiments.py`](control_vector/run_phase3_steering_experiments.py) | Phase 3 Steering & Elicitation Experiments (GPU Window 1). |
 | [`run_phase4_stacked_and_stream_probes.py`](control_vector/run_phase4_stacked_and_stream_probes.py) | Phase 4 Clamped Stacking, Inverted Block-Band, 1x Q_aud Split, & H3-Image Parity Probes. |
 | [`sculpt.py`](control_vector/sculpt.py) | CPU vector sculpting (`sculpt` / `--invert`) and contextual prompt receptor metering. |
-| [`studio.sh`](control_vector/studio.sh) | Launcher for Control Vector Studio (`bench/control_vectors.py ui`). |
-| [`ui_schema.py`](control_vector/ui_schema.py) | The studio's description of the CLI: every method and argument, read off the parser. |
-| [`ui_server.py`](control_vector/ui_server.py) | HTTP server and `/api/*` routes for the H3 Control Vector Studio. |
-| [`ui_state.py`](control_vector/ui_state.py) | UI state management, TOML/Markdown preview, and `< 1 ms` CPU cached-build repooling. |
 | [`verify_stage2_unified_steer_hooks.py`](control_vector/verify_stage2_unified_steer_hooks.py) | Stage 2 GPU Verification Suite: Compiler-Safe Unified Attention Hooks & Stage 1 Production Check. |
-| [`web/api.js`](control_vector/web/api.js) | The studio's calls to its server, and the little shared state the screens read. |
-| [`web/app.js`](control_vector/web/app.js) | Entry: load the schema and the listing, draw the navigation, mount the screens. |
-| [`web/form.js`](control_vector/web/form.js) | Draws a CLI method's controls from the server's description of it (GET /api/schema). |
-| [`web/index.html`](control_vector/web/index.html) | <!DOCTYPE html> |
-| [`web/readout.js`](control_vector/web/readout.js) | Shared renderers for what the previews return: a J-Lens word readout, and compiled pairs. |
-| [`web/screens/inspect.js`](control_vector/web/screens/inspect.js) | Looking at a saved vector: its word readout, a prompt metered against it, `inspect` and `grade`. |
-| [`web/screens/library.js`](control_vector/web/screens/library.js) | The library: the vectors and pair files on disk, and `rebuild`. |
-| [`web/screens/methods.js`](control_vector/web/screens/methods.js) | Every method the CLI has, each as its own form. Whatever the screens above do not cover is |
-| [`web/screens/pairs.js`](control_vector/web/screens/pairs.js) | Building from prompt pairs: in place on one prompt (`from-prompt`), or from a pair file (`build`). |
-| [`web/screens/sculpt.js`](control_vector/web/screens/sculpt.js) | Composing saved vectors into one (`sculpt`). |
-| [`web/screens/words.js`](control_vector/web/screens/words.js) | A vector from a few words (`words`): read out before saving, then saved. |
-| [`web/style.css`](control_vector/web/style.css) | :root { |
 
 ### fixtures
 

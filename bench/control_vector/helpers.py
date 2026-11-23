@@ -1,4 +1,4 @@
-"""Shared helpers for the MiniMax H3 control vector CLI and UI package."""
+"""Shared helpers for the MiniMax H3 control vector CLI package."""
 
 from __future__ import annotations
 
@@ -22,7 +22,6 @@ from workflows import h3_config
 PACKAGE_DIR = Path(__file__).resolve().parent
 BENCH_DIR = PACKAGE_DIR.parent
 REPO_ROOT = BENCH_DIR.parent
-WEB_DIR = PACKAGE_DIR / "web"
 
 LOOK_FAMILY_IDS: tuple[str, ...] = (
     "t2va_look_anchor",

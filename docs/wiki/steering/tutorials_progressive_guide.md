@@ -62,7 +62,7 @@ Inspect the four diagnostic lines in the output:
 ```
 
 1. **Why `v_1d` washed out `"black"`:** In 1D mean-pooling (`j_lens (PR +)`), `"black"` dropped to rank 9 (`+1.10`) behind generic era words (`original, decades, outdated`). Asymmetric `tau = 0.15` token matching (`erasure.mu_d`) rescues **`black (+1.52)`**, `footage`, and `archival` into the top 8 (`cos(mu_d, v_1d)` has median `0.9935` across the bank, with concrete `b_side` target-word rescues verified on high-divergence concepts such as `noir` `'black'` and `film_16mm_1974` `'grain, tape'`).
-2. **Why `erasure.vr` spares the characters:** On `t2va_sitcom_kitchen.txt`, `vr[1]` (`diag = 0.81`) zeroes `wall (0.41)`, `warm (0.36)`, `brown (0.33)`, and `tungsten (0.33)` while leaving `father`, `daughter`, and `retriever` intact. *(You can also view this interactively in Control Vector Studio via `./bench/control_vector/studio.sh start` $\to$ **Library** $\to$ **X-Ray**.)*
+2. **Why `erasure.vr` spares the characters:** On `t2va_sitcom_kitchen.txt`, `vr[1]` (`diag = 0.81`) zeroes `wall (0.41)`, `warm (0.36)`, `brown (0.33)`, and `tungsten (0.33)` while leaving `father`, `daughter`, and `retriever` intact. *(You can also view this interactively in H3 Pocket Console `/lab` $\to$ **Library** $\to$ **X-Ray**.)*
 
 ### Step 1.2 — Queue the 1-Click Same-Seed Split-Screen Workflow
 

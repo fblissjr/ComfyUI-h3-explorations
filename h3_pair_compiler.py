@@ -39,8 +39,7 @@ except ImportError:
     import h3_prompt_edit as _pe
 
 # The clause grammar has one copy, in `h3_prompt_edit.py`, which loads no model library so the static
-# graph walkers can read an edit node's text. These names are kept for the callers here and in
-# `bench/control_vector/ui_state.py`.
+# graph walkers can read an edit node's text. These names are kept for local pair-compiler callers.
 _PAIR_SPLIT_RE = _pe.PAIR_SPLIT_RE
 _SOUNDSCAPE_PREFIX_RE = _pe.SOUNDSCAPE_PREFIX_RE
 _MUSIC_PREFIX_RE = _pe.MUSIC_PREFIX_RE

@@ -41,7 +41,7 @@ jq '.render_catalogue[] | {date, batch, highlights}' docs/wiki/projects/2026-11-
 
 | Track | Status | Primary Wiki Hub | Key Shipped Nodes / Modules |
 | :--- | :--- | :--- | :--- |
-| **Control Vectors & J-Lens** | Active | [`../../control_vectors.md`](../../steering.md) | `MiniMaxH3Steer`, `WordVector`, `ReleaseReferences`, [`j_lens.py`](../../../../j_lens.py), [`bench/control_vector/ui_server.py`](../../../../bench/control_vector/ui_server.py) |
+| **Control Vectors & J-Lens** | Active | [`../../control_vectors.md`](../../steering.md) | `MiniMaxH3Steer`, `WordVector`, `ReleaseReferences`, [`j_lens.py`](../../../../j_lens.py), [`bench/control_vectors.py`](../../../../bench/control_vectors.py) *(former standalone `ui_server.py` retired 2026-11-22)* |
 | **Edit Guidance** | Active | [`../../edit_guidance.md`](../../edit_guidance.md) | [`edit_guidance.py`](../../../../edit_guidance.py) (`MiniMaxH3EditGuider`, `e0a5bb35`), [`h3_prompt_edit.py`](../../../../h3_prompt_edit.py) |
 | **Sound Cues & 2D D-Pad** | Active | [`2026-11-12_sound_cues_dpad_and_033_release_law.md`](../../steering/research/2026-11-12_sound_cues_dpad_and_033_release_law.md) | [`sound_cues.py`](../../../../sound_cues.py), [`sprite_trajectory.py`](../../../../sprite_trajectory.py), `video_end_percent=0.33` |
 | **H3-Image & P-H3-Image** | Shipped | [`../../image/h3_image.md`](../../image/h3_image.md), [`../../image/p_h3_image.md`](../../image/p_h3_image.md) | [`h3_image_nodes.py`](../../../../h3_image_nodes.py), [`ph3_image_nodes.py`](../../../../ph3_image_nodes.py), `MiniMaxH3EncodeImageReferences` |
@@ -61,7 +61,7 @@ jq '.render_catalogue[] | {date, batch, highlights}' docs/wiki/projects/2026-11-
 | **3** | 2-Subject Sprite D-Pad (`<Video 1>` + `<Video 2>`), SAM-3 Cutouts, & Combined `ref2va` Ablation | High | `S–M` | `sprite_trajectory.py:492`, `sam31_corrections.py:1` | `3b57a539`, `a9f31858` |
 | **4** | Whitened Whole-Word J-Lens Table & Neighbor-Hold Contrastive Verification | High | `S (CPU + 4h GPU)` | `j_lens.py:351`, `bench/control_vector_readout_score.py:119` | `ad7e5777`, `346a1e5c` |
 | **5** | Fix `DEFAULT_AUX_BASELINES` Length/Domain Imbalance (`cos = 0.72` Shared Bias) | High | `XS` | `h3_pair_compiler.py:59`, `h3_pair_compiler.py:716` | `a9f31858`, `3b57a539` |
-| **6** | Control Vector Studio 3-Way Builder Unification, Thin-Wrapper CLI, & Open Studio UI Bugs | High | `M` | `control_vector_nodes.py:2628`, `bench/control_vector/ui_server.py:95` | `4ebaab8d`, `f77c2cfa` |
+| **6** | Control Vector Studio 3-Way Builder Unification, Thin-Wrapper CLI, & Open Studio UI Bugs *(standalone `:8196` UI retired 2026-11-22 -> `app/` `/lab`)* | High | `M` | `control_vector_nodes.py:2628`, former `ui_server` | `4ebaab8d`, `f77c2cfa` |
 | **7** | Multimodal Differential `EditGuider` (`plain_cut` vs `drawn_cut`) & Event-Gated Facial Envelopes | High | `M` | `edit_guidance.py:76`, `edit_guidance.py:278` | `3b57a539`, `a9f31858` |
 | **8** | ~~Forward `quantizer` in `MiniMaxH3SolChunked`~~ (**CLOSED PM 2026-11-13**: node retired to `archive/sol_chunked_h3.py`) & Rebuild `comfy-kitchen` Wheel | Medium-High (wheel only) | `S` | `archive/sol_chunked_h3.py`, `sol_attn_h3.py:166` | `a8949cba`, `23d096c4` |
 | **9** | Upper-Layer Chain Readout (`layers.50..63` + `lm_head`) on Qwen3-VL-32B | Medium-High | `M (GPU pass)` | `j_lens.py:1896`, `docs/wiki/steering/research/2026-11-12_chain_lens_digest_and_experiment_plan.md:1` | `ad7e5777`, `346a1e5c` |

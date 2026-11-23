@@ -7439,10 +7439,6 @@ def _check_nov15_steer_prose_and_ph3_family() -> list[str]:
             stale_1d, _ = _build_cmd._inspect_vectors_status(st_er_dir / "toml", st_er_dir / "vec", {"fl2va"})
             if not stale_1d or "missing_erasure" not in stale_1d[0]:
                 errs.append(f"_inspect_vectors_status did not flag missing_erasure on 1D-only vector: {stale_1d!r}")
-            from bench.control_vector import ui_state as _ui_st_er
-            rows_1d = _ui_st_er._list_ui_vectors(st_er_dir / "vec")
-            if len(rows_1d) != 1 or rows_1d[0].get("has_erasure") is not False or rows_1d[0].get("erasure_rank") != 0:
-                errs.append(f"_list_ui_vectors expected has_erasure=False/rank=0 on 1D vector, got {rows_1d!r}")
             cv.save_vector(
                 st_er_path,
                 {
@@ -7458,9 +7454,6 @@ def _check_nov15_steer_prose_and_ph3_family() -> list[str]:
             stale_er, _ = _build_cmd._inspect_vectors_status(st_er_dir / "toml", st_er_dir / "vec", {"fl2va"})
             if stale_er:
                 errs.append(f"_inspect_vectors_status unexpectedly flagged vector with erasure as stale: {stale_er!r}")
-            rows_er = _ui_st_er._list_ui_vectors(st_er_dir / "vec")
-            if len(rows_er) != 1 or rows_er[0].get("has_erasure") is not True or rows_er[0].get("erasure_rank") != int(er_vr.shape[0]):
-                errs.append(f"_list_ui_vectors expected has_erasure=True/rank={int(er_vr.shape[0])}, got {rows_er!r}")
 
             # j_lens.decode_recipe accepts mode="add_norm_matched_erasure"
             if cv_nodes._j_lens.bundle_available():
@@ -7857,11 +7850,6 @@ def _check_nov15_steer_prose_and_ph3_family() -> list[str]:
             sub_stale, _ = _build_cmd._inspect_vectors_status(sub_toml_dir, sub_root, {"fl2va", "ref2va"})
             if not sub_stale or "(missing)" in sub_stale[0] or "sha256_mismatch" not in sub_stale[0]:
                 errs.append(f"expected subfolder status sha256_mismatch (not (missing)), got {sub_stale!r}")
-            from bench.control_vector import ui_state as _ui_state
-            ui_rows = _ui_state._list_ui_vectors(sub_root)
-            ui_files = {r["file"] for r in ui_rows}
-            if "group_a/sub_pair__ref2va__diff_span.safetensors" not in ui_files or any("j_lens" in f for f in ui_files):
-                errs.append(f"subfolder _list_ui_vectors mismatch: {ui_files!r}")
         finally:
             if orig_cv_paths_sub is not None:
                 cv_nodes.folder_paths.folder_names_and_paths[cv_nodes.CONTROL_VECTORS_FOLDER] = orig_cv_paths_sub
@@ -8248,6 +8236,40 @@ def _check_nov15_steer_prose_and_ph3_family() -> list[str]:
                 )
             finally:
                 cv.detect_family = orig_det_s2  # type: ignore[assignment]
+
+        # 10. j_lens._LEXICON_CACHE auto-reloads on (mtime_ns, size) change and evicts on delete
+        import json as _json_lex
+        from safetensors.torch import save_file as _st_save_lex
+        with tempfile.TemporaryDirectory(prefix="h3_lex_cache_") as lex_td:
+            lex_p = Path(lex_td) / "model2vec_h3_lexicon.safetensors"
+            _st_save_lex(
+                {"encoder": torch.zeros((1, 4), dtype=torch.float32)},
+                str(lex_p),
+                metadata={
+                    "format": "h3_model2vec_lexicon_v1",
+                    "terms_json": _json_lex.dumps(["noir"]),
+                    "categories_json": _json_lex.dumps(["visual"]),
+                },
+            )
+            l1 = cv_nodes._j_lens.load_model2vec_lexicon(lex_p)
+            if not l1 or l1.get("terms") != ["noir"] or l1.get("categories") != ["visual"]:
+                errs.append(f"j_lens lexicon initial load mismatch: {l1!r}")
+            _st_save_lex(
+                {"encoder": torch.ones((2, 4), dtype=torch.float32)},
+                str(lex_p),
+                metadata={
+                    "format": "h3_model2vec_lexicon_v1",
+                    "terms_json": _json_lex.dumps(["noir", "x-ray"]),
+                    "categories_json": _json_lex.dumps(["visual", "lighting"]),
+                },
+            )
+            l2 = cv_nodes._j_lens.load_model2vec_lexicon(lex_p)
+            if not l2 or l2.get("terms") != ["noir", "x-ray"] or "x ray" not in (l2.get("term_to_idx") or {}):
+                errs.append(f"j_lens lexicon did not auto-reload on file update: {l2!r}")
+            lex_p.unlink()
+            l3 = cv_nodes._j_lens.load_model2vec_lexicon(lex_p)
+            if l3 is not None or lex_p.resolve() in cv_nodes._j_lens._LEXICON_CACHE:
+                errs.append(f"j_lens lexicon did not evict deleted file from cache: {l3!r}")
 
     return errs
 
