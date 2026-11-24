@@ -4,7 +4,7 @@
 
 Tinkering and research hub for the MiniMax H3 ecosystem
 
-See [LLM wiki index](docs/wiki/index.md)
+See [LLM wiki index](docs/wiki/index.md) · [Cross-Modal Query Routing](docs/wiki/query_routing.md) · [Paper draft (v5)](docs/wiki/steering/paper/manuscript.md)
 
 ## Licence
 

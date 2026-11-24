@@ -306,6 +306,8 @@ Full per-check history, 2026-08-23 amendments, and `"claims block"` notes are sh
 | `check_index_steering_renders.py` | verifies `bench/index_steering_renders.py` PNG metadata parsing (`MiniMaxH3Steer`, `MiniMaxH3EditGuider`, `fast_1x`), `--since` filtering, and SQLite views (`v_problem_summary`, `v_renders_flat`, `v_vector_health`) | `PIL`, `sqlite3`, no CUDA | no |
 | `check_m1_m2_probes.py` | verifies `M1` (`bench/probe_dinov3_copy_freeze.py`) and `M2` (`bench/probe_yin_f0_drift.py`) offline CPU triage math (`m2_yin_sine_and_harmonic_shift`, `m2_silence_gate_and_voice_spans`, `m1_score_clip_embeddings`, and edge guards) | `torch`, no CUDA | no |
 | `check_sync_heylook_presets.py` | verifies `bench/sync_heylook_presets.py` 21-preset catalog & fenced-block extraction, exact remote matching, param preservation/`--reset-params`, `--prefix`, auth forwarding, downstream inheritance, and idempotency against an in-process `httpx` mock | `httpx`, no CUDA | no |
+| `check_heylook_prompts.py` | verifies zero internal lore, zero crutch examples, positive-only optical restraint, closed vendor camera/reference vocabularies, preset prefix precedence/inheritance, and 14-key `HeylookProvenance` across runtime system prompts, callers, and `llm_pairs.py` | no CUDA, loopback HTTP mock | yes |
+| `check_steering_v2.py` | offline CPU verification gate for the clean-slate `steering/` v2 package: bank tensor/Point C prelude parity, direct unpooled span extraction + `build_pole_a_erasure` parity, `MixerCompiler` & `director/compiler.py` routing across non-film concept families, 14-key `[provenance]` round-trip, and stratified pair-compiler diversity | `torch`, no CUDA | yes |
 
 ## What is deliberately not checked
 
