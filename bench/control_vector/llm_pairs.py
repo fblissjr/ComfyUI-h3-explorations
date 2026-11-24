@@ -140,16 +140,25 @@ def _repair_pair_prompts(a: str, b: str) -> tuple[str, str]:
 
 def _repair_multichange_markdown_pairs(md_text: str) -> str:
     """Normalize any LLM-generated Markdown pairs that contain secondary non-contiguous edits or truncated tail pairs."""
+    any_repaired = False
     try:
         parsed = cv.parse_markdown_pairs(md_text)
     except Exception:
-        return md_text
+        body = cv._unwrap_markdown_fence(md_text)
+        matches = list(cv._PAIR_HEADING_RE.finditer(body))
+        if len(matches) < 7:
+            return md_text
+        trimmed = body[: matches[-1].start()].rstrip()
+        try:
+            parsed = cv.parse_markdown_pairs(trimmed)
+        except Exception:
+            return md_text
+        any_repaired = True
 
     pairs = parsed.get("pairs") or []
     if not pairs:
         return md_text
 
-    any_repaired = False
     repaired_pairs: list[dict[str, Any]] = []
     valid_pairs: list[dict[str, Any]] = []
     for p in pairs:
@@ -231,6 +240,7 @@ def build_control_vector_repair_prompt(
         "Revise the draft Markdown pair pack below so every validation issue is resolved:\n"
         "- All 10 pairs must use 10 unrelated scenes, each opening with at least 10 shared words before a single in-place 8–18 word replacement clause\n"
         "- Use 10 distinct concrete real-world baseline descriptions across Prompt A rather than repeating generic wording\n"
+        "- Make all 10 Prompt B replacement clauses distinct across scenes (anchoring 2–3 core target terms while varying verbs and scene-specific details; never copy-paste identical wording across pairs)\n"
         "- Omit onset or rate adverbs (`slowly`, `gradually`, `steadily`, `progressively`, `rapidly`, `increasingly`, `begins to`, `starts to`), avoid repeating target nouns inside Prompt A's replaced clause, include `[Language]` inside every `<d>[Language] ...</d>` tag, and omit `### Hold Pairs` unless explicitly requested\n\n"
         "Issues to fix:\n"
         + "\n".join(f"- {w}" for w in clean_warns)
@@ -240,7 +250,7 @@ def build_control_vector_repair_prompt(
 
 
 SUPPORTED_LLM_PROVIDERS: tuple[str, ...] = ("transformers", "exllamav3", "heylook")
-DEFAULT_LLM_MAX_TOKENS: int = 4800
+DEFAULT_LLM_MAX_TOKENS: int = 8192
 
 
 def _resolve_exl3_library_root(explicit_root: str | None = None) -> Path | None:
