@@ -269,8 +269,8 @@ with none is a helper the others import.
 | [`__init__.py`](steering/__init__.py) | MiniMax H3 clean-slate `steering` package (`10` focused modules + Sound-Mixer compiler). |
 | [`constants.py`](steering/constants.py) | Canonical dimensions, math constants, bus/regime enums, and checkpoint tables for `steering/`. |
 | [`data.py`](steering/data.py) | Contrastive pair TOML loader (`[vector]`, `[[pair]]`, `[[hold]]`, `[routing]`, `[provenance]`), differing-span validator, Markdown converter, and Gates A/B/C/D + setting-leak linter. |
-| [`encode.py`](steering/encode.py) | LoRA-aware Qwen3-VL L49 + `TokenRefiner` encoding, media-pair geometry alignment, and single-pass `encode_pair_set` / `encode_and_cache_spans` helpers. |
-| [`extract.py`](steering/extract.py) | CPU `< 50 ms` contrastive extraction, Pole-A erasure SVD, statistical quality metrics, `SpanCache` (`__spans.safetensors`) round-trip, and `.safetensors` I/O (`unit_mean=False` default). |
+| [`encode.py`](steering/encode.py) | LoRA-aware Qwen3-VL L49 + `TokenRefiner` encoding, media-pair geometry alignment, and single-pass `encode_pair_set` helpers. |
+| [`extract.py`](steering/extract.py) | CPU `< 50 ms` contrastive extraction, Pole-A erasure SVD, statistical quality metrics, and `.safetensors` I/O (`unit_mean=False` default). |
 | [`hooks.py`](steering/hooks.py) | Compiler-safe attention-hook runtime (`auto_1x_kv` stream split, `block_band`, and seam helpers). |
 | [`legacy_nodes.py`](steering/legacy_nodes.py) | Thin Option-B compatibility wrappers for legacy & companion ComfyUI nodes (`MiniMaxH3ApplyControlVectors`, `MiniMaxH3MakeControlVector`, `MiniMaxH3LoadControlVector`, `MiniMaxH3LayerNormMatch`) preserving zero `node_id_manifest.json` diff ... |
 | [`mixer.py`](steering/mixer.py) | Unified Sound-Mixer runtime compiler (`MixerCompiler`) for H3 control vectors. |

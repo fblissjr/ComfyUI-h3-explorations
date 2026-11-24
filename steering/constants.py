@@ -47,7 +47,6 @@ def import_repo_module(name: str):
     return importlib.import_module(f"{pkg_name}.{name}")
 
 FORMAT_VERSION: str = "h3-control-vector/1"
-SPAN_CACHE_FORMAT_VERSION: str = "h3-span-cache/1"
 
 POST_REFINER_DIM: int = 5376
 ENCODER_DIM: int = 5120

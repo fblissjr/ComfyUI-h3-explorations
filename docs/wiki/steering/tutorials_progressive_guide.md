@@ -134,7 +134,7 @@ CUDA_VISIBLE_DEVICES="" "$PY" bench/control_vectors.py sculpt \
 ```
 
 **Which one should you choose?**
-- **Chain separate `MiniMaxH3Steer` nodes** when stacking **two strong visual overrides** (like `noir +1.55` + `chaos_panic +0.90`) or targeting **different prompt sections** (`scene_only` + `soundscape_only`): each chained node evaluates its full `|s_i| * 67.5` RMS shift against unsteered `base_rows64` before summing in `float64` (`steering/extract.py:2168-2206`), giving `noir` full erasure authority. *(Phase 3 `Exp 1` caveat: keep heavy visual `scene_only` sliders to `<= 2`, or dial a subtle third visual utility like `de_llm_slop` down to `0.6..0.8` alongside heavy `noir`, because stacking `3+` competing visual sliders on `scene_only` dilutes monochrome authority.)*
+- **Chain separate `MiniMaxH3Steer` nodes** when stacking **two strong visual overrides** (like `noir +1.55` + `chaos_panic +0.90`) or targeting **different prompt sections** (`scene_only` + `soundscape_only`): each chained node evaluates its full `|s_i| * 67.5` RMS shift against unsteered `base_rows64` before summing in `float64` (`steering/runtime.py:609-713`), giving `noir` full erasure authority. *(Phase 3 `Exp 1` caveat: keep heavy visual `scene_only` sliders to `<= 2`, or dial a subtle third visual utility like `de_llm_slop` down to `0.6..0.8` alongside heavy `noir`, because stacking `3+` competing visual sliders on `scene_only` dilutes monochrome authority.)*
 - **Use `sculpt` (`COMPOSED_ERASURE_MAX_RANK = 16`)** when you want a **single reusable preset knob** with baked `hold_words` (`calm_cursed_cctv`) where one shared `|s| * 67.5` RMS budget is split across subtle blended traits.
 
 ---

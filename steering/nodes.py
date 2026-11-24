@@ -40,7 +40,6 @@ from .encode import (
     encode_prompt_for_vector,
     extract_model_recipe,
     match_media_pair_geometry,
-    refine_and_cache_spans,
     resolve_lora_file_path,
 )
 
@@ -121,7 +120,7 @@ def _vector_combo_options() -> list[str]:
     files = sorted(
         f
         for f in folder_paths.get_filename_list(CONTROL_VECTORS_FOLDER)
-        if f.endswith(".safetensors") and not _is_hidden_vector_relpath(f) and not f.endswith("__spans.safetensors")
+        if f.endswith(".safetensors") and not _is_hidden_vector_relpath(f)
     )
     return ["none", *files]
 
@@ -129,8 +128,6 @@ def _vector_combo_options() -> list[str]:
 def _extract_vector_stem_and_family(filename: str) -> tuple[str | None, str | None]:
     norm = filename.replace("\\", "/")
     base = norm.rsplit("/", 1)[-1]
-    if base.endswith("__spans.safetensors"):
-        return None, None
     for fam in ("fl2va", "ref2va", "fasth3", "h3_image"):
         tag = f"__{fam}"
         if tag in base:
@@ -1860,7 +1857,7 @@ def _match_sibling_or_stem_in_dir(
 
     def _pick(pat: str) -> Path | None:
         direct = sorted(
-            (p for p in directory.glob(pat) if not p.name.endswith("__spans.safetensors")),
+            directory.glob(pat),
             key=lambda p: (0 if ("__lora_" in p.name) == prefer_lora else 1, p.name),
         )
         if direct:
@@ -1869,8 +1866,7 @@ def _match_sibling_or_stem_in_dir(
             (
                 p
                 for p in directory.rglob(pat)
-                if not p.name.endswith("__spans.safetensors")
-                and not _is_hidden_vector_relpath(p.relative_to(directory))
+                if not _is_hidden_vector_relpath(p.relative_to(directory))
             ),
             key=lambda p: (
                 0 if ("__lora_" in p.name) == prefer_lora else 1,

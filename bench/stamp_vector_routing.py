@@ -76,11 +76,7 @@ def stamp_directory(
         ps = cv.load_pairs(tp)
         pair_sets[ps.name] = ps
 
-    safetensor_files = sorted(
-        p
-        for p in eff_in.glob("*.safetensors")
-        if not p.name.endswith("__spans.safetensors")
-    )
+    safetensor_files = sorted(eff_in.glob("*.safetensors"))
     stamped: list[str] = []
     skipped: list[str] = []
     unmatched: list[str] = []

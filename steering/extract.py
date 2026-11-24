@@ -1,5 +1,5 @@
 """CPU `< 50 ms` contrastive extraction, Pole-A erasure SVD, statistical quality metrics,
-`SpanCache` (`__spans.safetensors`) round-trip, and `.safetensors` I/O (`unit_mean=False` default)."""
+and `.safetensors` I/O (`unit_mean=False` default)."""
 
 from __future__ import annotations
 
@@ -36,7 +36,6 @@ from .constants import (
     PIKA_FLEX_VARIANT_RE,
     POST_REFINER_DIM,
     REQUIRED_METADATA_KEYS,
-    SPAN_CACHE_FORMAT_VERSION,
     VALID_ALL_POOLING,
     VALID_FRAMES,
     VALID_MODES,
@@ -109,30 +108,6 @@ class PooledPairSet:
     erasure_mu_d: torch.Tensor | None = None
     erasure_vr: torch.Tensor | None = None
     erasure_diag: torch.Tensor | None = None
-
-
-@dataclass(frozen=True)
-class SpanCache:
-    """Exact unpooled `fp32` `__spans.safetensors` payload for `< 50 ms` CPU re-extraction."""
-
-    span_a: torch.Tensor  # [sum(T_a_p), 5376] fp32
-    span_b: torch.Tensor  # [sum(T_b_p), 5376] fp32
-    lens_a: torch.Tensor  # [N_pairs] int32
-    lens_b: torch.Tensor  # [N_pairs] int32
-    pair_weights: torch.Tensor  # [N_pairs] fp32
-    hold_a: torch.Tensor  # [N_holds, 5376] fp32
-    hold_b: torch.Tensor  # [N_holds, 5376] fp32
-    hold_weights: torch.Tensor  # [N_holds] fp32
-    enc_a_rows: torch.Tensor | None  # [N_pairs, 5120] fp32
-    enc_b_rows: torch.Tensor | None  # [N_pairs, 5120] fp32
-    enc_hold_a: torch.Tensor | None  # [N_holds, 5120] fp32
-    enc_hold_b: torch.Tensor | None  # [N_holds, 5120] fp32
-    metadata: dict[str, Any]
-
-    def split_spans(self) -> tuple[list[torch.Tensor], list[torch.Tensor]]:
-        la = [int(x) for x in self.lens_a.detach().cpu().tolist()]
-        lb = [int(x) for x in self.lens_b.detach().cpu().tolist()]
-        return list(torch.split(self.span_a, la, dim=0)), list(torch.split(self.span_b, lb, dim=0))
 
 
 def build_pole_a_erasure(
@@ -589,30 +564,29 @@ def _pair_pooling_masks(enc: Mapping[str, Any], pooling: str) -> tuple[torch.Ten
     return mask_a, mask_b
 
 
-def build_span_cache(
+def pool_pair_set(
     encoded_pairs: Sequence[Mapping[str, Any]],
     refined_pairs: Sequence[tuple[torch.Tensor, torch.Tensor]],
     encoded_holds: Sequence[Mapping[str, Any]] = (),
     refined_holds: Sequence[tuple[torch.Tensor, torch.Tensor]] = (),
     *,
-    pooling: str = "diff_span",
+    pooling: str,
+    unit_mean: bool = False,
     include_encoder: bool = True,
-    median_ref_row_norm: float = 164.0,
-    median_enc_row_norm_ex0: float = 292.3,
-    extra_metadata: Mapping[str, Any] | None = None,
-) -> SpanCache:
-    """Pack unpooled `fp32` post-refiner span rows and pooled hold/encoder rows into a `SpanCache`."""
+    min_erasure_pairs: int = 1,
+) -> PooledPairSet:
+    """Pool encoded + refined pairs and holds directly in memory (`fp32` unpooled spans, `unit_mean=False` default)."""
     if pooling not in VALID_POOLING:
         raise ValueError(f"pooling must be one of {VALID_POOLING}, got {pooling!r}")
     if len(encoded_pairs) != len(refined_pairs) or len(encoded_holds) != len(refined_holds):
-        raise ValueError("build_span_cache: encoded and refined lists differ in length")
+        raise ValueError("pool_pair_set: encoded and refined lists differ in length")
     if not encoded_pairs:
-        raise ValueError("build_span_cache: no pairs")
+        raise ValueError("pool_pair_set: no pairs")
 
     a_spans: list[torch.Tensor] = []
     b_spans: list[torch.Tensor] = []
-    lens_a: list[int] = []
-    lens_b: list[int] = []
+    a_rows: list[torch.Tensor] = []
+    b_rows: list[torch.Tensor] = []
     weights: list[float] = []
     enc_a_rows: list[torch.Tensor] = []
     enc_b_rows: list[torch.Tensor] = []
@@ -625,8 +599,8 @@ def build_span_cache(
         sb = ref_b[mask_b].detach().to(device="cpu", dtype=torch.float32).contiguous()
         a_spans.append(sa)
         b_spans.append(sb)
-        lens_a.append(int(sa.shape[0]))
-        lens_b.append(int(sb.shape[0]))
+        a_rows.append(_pool_rows(sa))
+        b_rows.append(_pool_rows(sb))
         weights.append(float(item.weight))
         if include_encoder:
             enc_a_rows.append(_pool_rows(enc["enc_a"], _encoder_rows_mask(mask_a)).cpu().contiguous())
@@ -648,209 +622,51 @@ def build_span_cache(
             }
         )
 
-    hold_a_list: list[torch.Tensor] = []
-    hold_b_list: list[torch.Tensor] = []
-    enc_hold_a_list: list[torch.Tensor] = []
-    enc_hold_b_list: list[torch.Tensor] = []
-    hold_groups: list[str] = []
-    hold_weights_list: list[float] = []
-    for enc_h, (ref_ha, ref_hb) in zip(encoded_holds, refined_holds):
-        mask_ha, mask_hb = _pair_pooling_masks(enc_h, pooling)
-        hold_a_list.append(_pool_rows(ref_ha, mask_ha).cpu().contiguous())
-        hold_b_list.append(_pool_rows(ref_hb, mask_hb).cpu().contiguous())
-        if include_encoder:
-            enc_hold_a_list.append(_pool_rows(enc_h["enc_a"], _encoder_rows_mask(mask_ha)).cpu().contiguous())
-            enc_hold_b_list.append(_pool_rows(enc_h["enc_b"], _encoder_rows_mask(mask_hb)).cpu().contiguous())
-        hold_groups.append(str(enc_h["h_item"].group))
-        hold_weights_list.append(float(enc_h["h_item"].weight))
-
-    hold_a_t = (
-        torch.stack(hold_a_list, dim=0)
-        if hold_a_list
-        else torch.zeros((0, POST_REFINER_DIM), dtype=torch.float32)
-    )
-    hold_b_t = (
-        torch.stack(hold_b_list, dim=0)
-        if hold_b_list
-        else torch.zeros((0, POST_REFINER_DIM), dtype=torch.float32)
-    )
-    hold_w_t = torch.tensor(hold_weights_list, dtype=torch.float32)
-
-    enc_a_t = torch.stack(enc_a_rows, dim=0) if include_encoder else None
-    enc_b_t = torch.stack(enc_b_rows, dim=0) if include_encoder else None
-    enc_ha_t = (
-        (
-            torch.stack(enc_hold_a_list, dim=0)
-            if enc_hold_a_list
-            else torch.zeros((0, ENCODER_DIM), dtype=torch.float32)
-        )
-        if include_encoder
-        else None
-    )
-    enc_hb_t = (
-        (
-            torch.stack(enc_hold_b_list, dim=0)
-            if enc_hold_b_list
-            else torch.zeros((0, ENCODER_DIM), dtype=torch.float32)
-        )
-        if include_encoder
-        else None
-    )
-
-    meta: dict[str, Any] = {
-        "format": SPAN_CACHE_FORMAT_VERSION,
-        "pooling": pooling,
-        "hold_groups": hold_groups,
-        "pair_spans": pair_spans,
-        "median_ref_row_norm": float(median_ref_row_norm),
-        "median_enc_row_norm_ex0": float(median_enc_row_norm_ex0),
-    }
-    if extra_metadata:
-        for k, v in extra_metadata.items():
-            if k not in meta:
-                meta[str(k)] = v
-
-    return SpanCache(
-        span_a=torch.cat(a_spans, dim=0).contiguous(),
-        span_b=torch.cat(b_spans, dim=0).contiguous(),
-        lens_a=torch.tensor(lens_a, dtype=torch.int32),
-        lens_b=torch.tensor(lens_b, dtype=torch.int32),
-        pair_weights=torch.tensor(weights, dtype=torch.float32),
-        hold_a=hold_a_t.contiguous(),
-        hold_b=hold_b_t.contiguous(),
-        hold_weights=hold_w_t.contiguous(),
-        enc_a_rows=enc_a_t.contiguous() if enc_a_t is not None else None,
-        enc_b_rows=enc_b_t.contiguous() if enc_b_t is not None else None,
-        enc_hold_a=enc_ha_t.contiguous() if enc_ha_t is not None else None,
-        enc_hold_b=enc_hb_t.contiguous() if enc_hb_t is not None else None,
-        metadata=meta,
-    )
-
-
-def save_span_cache(path: str | Path, cache: SpanCache, *, overwrite: bool = True) -> Path:
-    """Write a `SpanCache` to `<stem>__<family>__spans.safetensors` strictly in `fp32` / `int32`."""
-    out_path = Path(path)
-    if not overwrite and out_path.exists():
-        raise ValueError(f"span cache file {out_path.name!r} already exists at {out_path}")
-    if cache.span_a.dtype != torch.float32 or cache.span_b.dtype != torch.float32:
-        raise ValueError("SpanCache span_a and span_b must be float32 (do not store bf16)")
-    if cache.lens_a.dtype != torch.int32 or cache.lens_b.dtype != torch.int32:
-        raise ValueError("SpanCache lens_a and lens_b must be int32")
-
-    tensors: dict[str, torch.Tensor] = {
-        "span_a": cache.span_a.detach().cpu().to(dtype=torch.float32).contiguous(),
-        "span_b": cache.span_b.detach().cpu().to(dtype=torch.float32).contiguous(),
-        "lens_a": cache.lens_a.detach().cpu().to(dtype=torch.int32).contiguous(),
-        "lens_b": cache.lens_b.detach().cpu().to(dtype=torch.int32).contiguous(),
-        "pair_weights": cache.pair_weights.detach().cpu().to(dtype=torch.float32).contiguous(),
-        "hold_a": cache.hold_a.detach().cpu().to(dtype=torch.float32).contiguous(),
-        "hold_b": cache.hold_b.detach().cpu().to(dtype=torch.float32).contiguous(),
-        "hold_weights": cache.hold_weights.detach().cpu().to(dtype=torch.float32).contiguous(),
-    }
-    if cache.enc_a_rows is not None and cache.enc_b_rows is not None:
-        tensors["enc_a_rows"] = cache.enc_a_rows.detach().cpu().to(dtype=torch.float32).contiguous()
-        tensors["enc_b_rows"] = cache.enc_b_rows.detach().cpu().to(dtype=torch.float32).contiguous()
-    if cache.enc_hold_a is not None and cache.enc_hold_b is not None:
-        tensors["enc_hold_a"] = cache.enc_hold_a.detach().cpu().to(dtype=torch.float32).contiguous()
-        tensors["enc_hold_b"] = cache.enc_hold_b.detach().cpu().to(dtype=torch.float32).contiguous()
-
-    meta_dict = dict(cache.metadata)
-    meta_dict.setdefault("format", SPAN_CACHE_FORMAT_VERSION)
-    encoded_meta = {str(k): json.dumps(v, sort_keys=True) for k, v in meta_dict.items()}
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    out_path.write_bytes(save_safetensors_bytes(tensors, metadata=encoded_meta))
-    _chmod_group_readable(out_path)
-    return out_path
-
-
-def load_span_cache(path: str | Path) -> SpanCache:
-    """Load and validate an `fp32` `__spans.safetensors` `SpanCache` from disk."""
-    p = Path(path)
-    if not p.is_file():
-        raise ValueError(f"span cache file not found: {p}")
-    tensors: dict[str, torch.Tensor] = {}
-    with safe_open(str(p), framework="pt", device="cpu") as sf:
-        raw_meta = dict(sf.metadata() or {})
-        for k in sf.keys():
-            tensors[k] = sf.get_tensor(k).clone()
-    meta: dict[str, Any] = {}
-    for k, v in raw_meta.items():
-        try:
-            meta[k] = json.loads(v)
-        except Exception:
-            meta[k] = v
-    if meta.get("format") != SPAN_CACHE_FORMAT_VERSION:
-        raise ValueError(
-            f"unsupported span cache format {meta.get('format')!r}; expected {SPAN_CACHE_FORMAT_VERSION!r}"
-        )
-    for req_t in ("span_a", "span_b", "lens_a", "lens_b", "pair_weights", "hold_a", "hold_b", "hold_weights"):
-        if req_t not in tensors:
-            raise ValueError(f"span cache {p.name} missing tensor {req_t!r}")
-    if tensors["span_a"].dtype != torch.float32 or tensors["span_b"].dtype != torch.float32:
-        raise ValueError(f"span cache {p.name} span_a/span_b must be float32")
-    if tensors["lens_a"].dtype != torch.int32 or tensors["lens_b"].dtype != torch.int32:
-        raise ValueError(f"span cache {p.name} lens_a/lens_b must be int32")
-    n_pairs = int(tensors["pair_weights"].numel())
-    if int(tensors["lens_a"].numel()) != n_pairs or int(tensors["lens_b"].numel()) != n_pairs:
-        raise ValueError(f"span cache {p.name} lens_a/lens_b length mismatch vs pair_weights ({n_pairs})")
-    if int(tensors["lens_a"].sum().item()) != int(tensors["span_a"].shape[0]):
-        raise ValueError(f"span cache {p.name} sum(lens_a) != span_a.shape[0]")
-    if int(tensors["lens_b"].sum().item()) != int(tensors["span_b"].shape[0]):
-        raise ValueError(f"span cache {p.name} sum(lens_b) != span_b.shape[0]")
-    for req_m in ("hold_groups", "pair_spans", "median_ref_row_norm", "median_enc_row_norm_ex0"):
-        if req_m not in meta:
-            raise ValueError(f"span cache {p.name} missing metadata key {req_m!r}")
-    return SpanCache(
-        span_a=tensors["span_a"],
-        span_b=tensors["span_b"],
-        lens_a=tensors["lens_a"],
-        lens_b=tensors["lens_b"],
-        pair_weights=tensors["pair_weights"],
-        hold_a=tensors["hold_a"],
-        hold_b=tensors["hold_b"],
-        hold_weights=tensors["hold_weights"],
-        enc_a_rows=tensors.get("enc_a_rows"),
-        enc_b_rows=tensors.get("enc_b_rows"),
-        enc_hold_a=tensors.get("enc_hold_a"),
-        enc_hold_b=tensors.get("enc_hold_b"),
-        metadata=meta,
-    )
-
-
-def pool_from_span_cache(
-    cache: SpanCache,
-    *,
-    unit_mean: bool = False,
-    apply_holds: bool = True,
-    include_encoder: bool = True,
-    min_erasure_pairs: int = 1,
-) -> PooledPairSet:
-    """Re-extract a `PooledPairSet` from an unpooled `fp32` `SpanCache` in `< 50 ms` on CPU,
-    matching `pool_pair_set` to `< 1e-6` (`0.0` IEEE-754 identity on `fp32` inputs)."""
-    a_spans, b_spans = cache.split_spans()
-    a_rows = [_pool_rows(sa) for sa in a_spans]
-    b_rows = [_pool_rows(sb) for sb in b_spans]
     a_mat = torch.stack(a_rows, dim=0)
     b_mat = torch.stack(b_rows, dim=0)
-    w_vec = cache.pair_weights.to(dtype=torch.float32)
-    weights = [float(x) for x in w_vec.tolist()]
+    w_vec = torch.tensor(weights, dtype=torch.float32)
     raw_vec = mean_difference(a_mat, b_mat, w_vec, unit_mean=unit_mean)
 
-    n_holds = int(cache.hold_a.shape[0]) if apply_holds else 0
+    n_holds = len(encoded_holds)
     basis: torch.Tensor | None = None
     enc_basis: torch.Tensor | None = None
-    if apply_holds and n_holds > 0:
-        groups = [str(g) for g in cache.metadata.get("hold_groups", ())]
-        hw = cache.hold_weights.to(dtype=torch.float32)
-        basis = hold_basis(cache.hold_a, cache.hold_b, groups, hw)
-        if include_encoder and cache.enc_hold_a is not None and cache.enc_hold_b is not None and cache.enc_hold_a.shape[0] > 0:
-            enc_basis = hold_basis(cache.enc_hold_a, cache.enc_hold_b, groups, hw)
+    if n_holds > 0:
+        hold_a_list: list[torch.Tensor] = []
+        hold_b_list: list[torch.Tensor] = []
+        enc_hold_a_list: list[torch.Tensor] = []
+        enc_hold_b_list: list[torch.Tensor] = []
+        hold_groups: list[str] = []
+        hold_weights_list: list[float] = []
+        for enc_h, (ref_ha, ref_hb) in zip(encoded_holds, refined_holds):
+            mask_ha, mask_hb = _pair_pooling_masks(enc_h, pooling)
+            hold_a_list.append(_pool_rows(ref_ha, mask_ha).cpu().contiguous())
+            hold_b_list.append(_pool_rows(ref_hb, mask_hb).cpu().contiguous())
+            if include_encoder:
+                enc_hold_a_list.append(_pool_rows(enc_h["enc_a"], _encoder_rows_mask(mask_ha)).cpu().contiguous())
+                enc_hold_b_list.append(_pool_rows(enc_h["enc_b"], _encoder_rows_mask(mask_hb)).cpu().contiguous())
+            hold_groups.append(str(enc_h["h_item"].group))
+            hold_weights_list.append(float(enc_h["h_item"].weight))
+
+        hw = torch.tensor(hold_weights_list, dtype=torch.float32)
+        basis = hold_basis(torch.stack(hold_a_list, dim=0), torch.stack(hold_b_list, dim=0), hold_groups, hw)
+        if include_encoder and enc_hold_a_list:
+            enc_basis = hold_basis(
+                torch.stack(enc_hold_a_list, dim=0),
+                torch.stack(enc_hold_b_list, dim=0),
+                hold_groups,
+                hw,
+            )
 
     vector = project_out(raw_vec, basis) if basis is not None else raw_vec
 
     enc_raw_vec: torch.Tensor | None = None
-    if include_encoder and cache.enc_a_rows is not None and cache.enc_b_rows is not None:
-        enc_raw_vec = mean_difference(cache.enc_a_rows, cache.enc_b_rows, w_vec, unit_mean=unit_mean)
+    if include_encoder:
+        enc_raw_vec = mean_difference(
+            torch.stack(enc_a_rows, dim=0),
+            torch.stack(enc_b_rows, dim=0),
+            w_vec,
+            unit_mean=unit_mean,
+        )
         if enc_basis is not None:
             enc_raw_vec = project_out(enc_raw_vec, enc_basis)
 
@@ -869,41 +685,12 @@ def pool_from_span_cache(
         raw_vec=raw_vec,
         vector=vector,
         hold_basis=basis,
-        pair_spans=list(cache.metadata.get("pair_spans", ())),
+        pair_spans=pair_spans,
         enc_raw_vec=enc_raw_vec,
         n_holds=n_holds,
         erasure_mu_d=erasure_mu_d,
         erasure_vr=erasure_vr,
         erasure_diag=erasure_diag,
-    )
-
-
-def pool_pair_set(
-    encoded_pairs: Sequence[Mapping[str, Any]],
-    refined_pairs: Sequence[tuple[torch.Tensor, torch.Tensor]],
-    encoded_holds: Sequence[Mapping[str, Any]] = (),
-    refined_holds: Sequence[tuple[torch.Tensor, torch.Tensor]] = (),
-    *,
-    pooling: str,
-    unit_mean: bool = False,
-    include_encoder: bool = True,
-    min_erasure_pairs: int = 1,
-) -> PooledPairSet:
-    """Pool encoded + refined pairs and holds into a `PooledPairSet` (`unit_mean=False` default)."""
-    cache = build_span_cache(
-        encoded_pairs,
-        refined_pairs,
-        encoded_holds,
-        refined_holds,
-        pooling=pooling,
-        include_encoder=include_encoder,
-    )
-    return pool_from_span_cache(
-        cache,
-        unit_mean=unit_mean,
-        apply_holds=bool(encoded_holds),
-        include_encoder=include_encoder,
-        min_erasure_pairs=min_erasure_pairs,
     )
 
 

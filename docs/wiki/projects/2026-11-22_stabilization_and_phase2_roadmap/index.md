@@ -51,7 +51,7 @@ Goal for today: close verified bugs in backend/CLI/readout and `app/`, consolida
    - **Fix:** Apply erasure hold scrubbing (`_apply_erasure_holds`) onto `erasure.*` alongside `vector.post_refiner` before `cv.save_vector`.
 2. **`make_control_vector_from_media_pairs` single-prompt repetition (`steering/nodes.py:2527`):**
    - `prompts = [custom_prompt for _ in range(n_frames)]` repeats one `scene_prompt` across every pair. Under `pooling="scene_text"`, Paper `Proposition 4` pins `erasure.vr` onto `custom_prompt`'s neutral tokens rather than generalizing across scene prose.
-   - **Fix:** Support per-pair `scene_prompts` sequences in `make_control_vector_from_media_pairs` (`steering/encode.py:804-814`) with scalar `scene_prompt` fallback.
+   - **Fix:** Support per-pair `scene_prompts` sequences in `make_control_vector_from_media_pairs` (`steering/nodes.py:2559-2578`) with scalar `scene_prompt` fallback.
 3. **`j_lens.check_b_side_alignment` top-8 numerator cap (`steering/xray.py:689-759`):**
    - `check_b_side_alignment` divides top-`8` `positive_words` hits by `14–25+` unfiltered lowercase Pole-B tokens (`L783-788`), causing **`44 / 52` (`84.6%`)** built `__fl2va__` stems (including visually verified winners like `film_16mm_1974` `0.17`, `cyberpunk_neon_rain` `0.18`, `golden_hour_glow` `0.21`) to fail raw `b_cov >= 0.25`.
    - **Fix:** Replace hard `b_cov >= 0.25` rejection with honest `max(coverage, semantic_top8_hit_rate)` reporting plus explicit `top5` `pos_words` inspection.

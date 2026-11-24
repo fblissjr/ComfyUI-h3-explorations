@@ -1197,7 +1197,7 @@
           <rect x="290" y="14" width="320" height="156" rx="8" fill="var(--surface)" stroke="var(--success)" stroke-width="1.5" />
           <text x="304" y="36" font-size="11.5" font-family="var(--mono)" font-weight="700" fill="var(--success)">STAGE 1 &bull; PRELUDE + MIXER (1x BEFORE STEP 0)</text>
           <text x="304" y="57" font-size="13.5" font-weight="700" fill="var(--ink)">Qwen3-VL-32B (L49) &rarr; TokenRefiner (2 blks)</text>
-          <text x="304" y="79" font-size="12" fill="var(--muted)">Unpooled fp32 __spans (~8.6 MB/stem); &lt;Picture 1&gt;</text>
+          <text x="304" y="79" font-size="12" fill="var(--muted)">Unpooled fp32 spans (in-memory); &lt;Picture 1&gt;</text>
           <text x="304" y="96" font-size="12" fill="var(--muted)">precedes raw text. 4-Bus Mixer reads [routing].</text>
           <rect x="304" y="113" width="292" height="44" rx="5" fill="var(--success-soft)" stroke="var(--success)" stroke-width="1" />
           <text x="312" y="131" font-size="11.5" font-weight="600" fill="var(--success)">Steer at 1x cost (MiniMaxH3Steer)</text>
@@ -1285,9 +1285,9 @@
         </div>
         <div class="subcard">
           <span class="dag-card-tag pill-success">2. Baked Offline Data</span>
-          <h4 style="margin:0 0 6px; font-size:0.95rem;">Unpooled <code>fp32</code> <code>__spans</code> + <code>[routing]</code></h4>
+          <h4 style="margin:0 0 6px; font-size:0.95rem;">Rank-8 Pole-A Erasure + <code>[routing]</code></h4>
           <p style="margin:0; font-size:0.86rem; color:var(--muted);">
-            <code>50</code> active stems (<code>143</code> bank files) store unpooled <code>fp32</code> <code>__spans</code> (<code>~8.6 MB</code>/stem) plus explicit <code>[routing]</code> bus affinity and <code>overall_soundscape</code> deltas—extracted once offline, zero runtime refiner cost.
+            <code>50</code> active stems (<code>143</code> bank files, <code>~360 KB</code> each) are compiled directly from unpooled <code>fp32</code> token spans in memory with explicit <code>[routing]</code> bus affinity and <code>overall_soundscape</code> deltas—extracted once offline, zero runtime refiner cost.
           </p>
         </div>
         <div class="subcard">
@@ -1300,10 +1300,10 @@
       </div>
 
       <details class="tech-details">
-        <summary>Why unpooled fp32 __spans (~8.6 MB/stem) and the 48/50 overall_soundscape fix were non-negotiable</summary>
+        <summary>Why unpooled fp32 span SVD and the 48/50 overall_soundscape fix were non-negotiable</summary>
         <div class="tech-details-body">
           <p style="margin:0 0 8px;">
-            <strong>1. Never pre-pool stems to <code>[N_pairs, 2, 5376]</code>:</strong> A pooled 2-vector summary per pair collapses per-token softmax similarity (<code>tau = 0.15</code>) down to scalar <code>[[1.0]]</code> and forces SVD on a typical <code>6..8</code>-pair stem to be rank-deficient (<code>rank &le; 7 &lt; 8</code>), silently destroying Rank-8 Pole-A erasure (<code>erasure.vr</code>). Unpooled <code>fp32</code> token spans (<code>~8.6 MB</code>/stem) keep true full-rank subspace geometry intact while preserving strict <code>&lt; 1e-6</code> parity across all <code>143</code> bank files.
+            <strong>1. Never pre-pool stems to <code>[N_pairs, 2, 5376]</code>:</strong> A pooled 2-vector summary per pair collapses per-token softmax similarity (<code>tau = 0.15</code>) down to scalar <code>[[1.0]]</code> and forces SVD on a typical <code>6..8</code>-pair stem to be rank-deficient (<code>rank &le; 7 &lt; 8</code>), silently destroying Rank-8 Pole-A erasure (<code>erasure.vr</code>). Computing Pole-A SVD directly on unpooled <code>fp32</code> token spans in memory keeps true full-rank subspace geometry intact (baking clean <code>~360 KB</code> <code>.safetensors</code> vectors with zero disk cache sidefiles) while preserving strict <code>&lt; 1e-6</code> parity across all <code>143</code> bank files.
           </p>
           <p style="margin:0;">
             <strong>2. Fixing the silent audio blind spot across <code>48/50</code> stems:</strong> Auditing the bank revealed <code>llm_pairs.py</code> had been dropping <code>overall_soundscape</code> edits on generation, leaving <code>48/50</code> legacy stems text-only on visual buses. Restoring paired soundscape deltas inside <code>[routing]</code> turned on multi-bus coupling—producing <code>reverb_cathedral</code> (<code>+22.3%</code> acoustic tail), synchronized <code>heavy_blizzard</code> wind/gale cues, and <code>1920s silent-film + cranked projector</code> click beds in one pass.
@@ -1540,7 +1540,7 @@
             <tr>
               <th>2. H3 Steering Package (<code>steering/</code>)</th>
               <td><code>14,046</code> LOC across 5 root monoliths; <code>48/50</code> stems missing <code>overall_soundscape</code></td>
-              <td><code>14,046 &rarr; 309</code> LOC root shims (<code>-97.8%</code>) + <code>10</code>-module <code>steering/</code> (<code>596</code>-LOC <code>MixerCompiler</code>) + unpooled <code>fp32</code> <code>SpanCache</code> + <code>50/50</code> <code>[routing]</code></td>
+              <td><code>14,046 &rarr; 309</code> LOC root shims (<code>-97.8%</code>) + <code>10</code>-module <code>steering/</code> (<code>596</code>-LOC <code>MixerCompiler</code>) + direct <code>fp32</code> span SVD + <code>50/50</code> <code>[routing]</code></td>
               <td><code>db3d51c0</code> landed on <code>main</code>: <code>68/68</code> node IDs kept, <code>&lt; 1e-6</code> (<code>0.0</code>) CPU parity (<code>143</code> bank files), <code>bench/check_steering_v2.py</code></td>
             </tr>
             <tr>
@@ -1573,7 +1573,7 @@
           <tbody>
             <tr>
               <th>Rank-8 Pole-A Erasure + <code>peer_ros</code></th>
-              <td>Double dissociation at <code>RMS=101.25</code>; <code>98.5%</code> cap + unpooled <code>__spans</code> (<code>~8.6 MB</code>/stem) drive <code>reverb_cathedral</code> (<code>+22.3%</code>) &amp; <code>heavy_blizzard</code></td>
+              <td>Double dissociation at <code>RMS=101.25</code>; <code>98.5%</code> cap + unpooled <code>fp32</code> span SVD drive <code>reverb_cathedral</code> (<code>+22.3%</code>) &amp; <code>heavy_blizzard</code></td>
               <td><span class="badge badge-ok">100% Real</span></td>
               <td>Compile all active stems through 4-bus <code>steering.mixer.MixerCompiler</code> (<code>db3d51c0</code>)</td>
             </tr>
@@ -1593,7 +1593,7 @@
               <th>Pooled <code>[N, 2, 5376]</code> &amp; Old <code>llm_pairs.py</code></th>
               <td>Pre-pooling collapses <code>tau=0.15</code> to <code>[[1.0]]</code> (rank <code>&le;7 &lt; 8</code>); old extractor dropped <code>overall_soundscape</code> on <code>48/50</code> stems</td>
               <td><span class="badge badge-err">Closed Trap</span></td>
-              <td>Keep <code>fp32</code> unpooled <code>__spans</code>; re-bake stems with soundscape <code>[routing]</code></td>
+              <td>Keep <code>fp32</code> unpooled span SVD; bake stems with soundscape <code>[routing]</code></td>
             </tr>
             <tr>
               <th><code>Gate 2A</code> / <code>2B</code> / <code>2C</code> / <code>Path 1B</code></th>
@@ -1616,7 +1616,7 @@
         <li class="roadmap-item">
           <span class="step-num">01</span>
           <div>
-            <strong>Re-Bake Coupled Multi-Bus Stems (<code>status --rebuild-stale</code>):</strong> Rebuild stale bank stems with <code>unit_mean=False</code>, unpooled <code>fp32</code> <code>SpanCache</code> (<code>__spans.safetensors</code>), and restored <code>overall_soundscape</code> <code>[routing]</code> (<code>heavy_blizzard</code>, <code>reverb_cathedral</code>, <code>UV rave</code>, <code>levitating props</code>).
+            <strong>Re-Bake &amp; Stamp Multi-Bus Stems:</strong> Ensure bank stems use <code>unit_mean=False</code>, direct in-memory <code>fp32</code> unpooled span SVD, and restored <code>overall_soundscape</code> <code>[routing]</code> (<code>heavy_blizzard</code>, <code>reverb_cathedral</code>, <code>UV rave</code>, <code>levitating props</code>).
           </div>
         </li>
         <li class="roadmap-item">
@@ -1963,7 +1963,7 @@
             { name: "Audio Bus", pct: 84, col: "var(--success)", detail: "Restored overall_soundscape howling wind + crunch (1x Q_aud safe)" },
             { name: "Hold Bus", pct: 95, col: "var(--warn)", detail: "project_out face identity & clear dialogue formants (blocks 0..19)" }
           ],
-          timelineNote: "Single 1x TokenRefiner compile using unpooled fp32 __spans (~8.6 MB). Fixed soundscape extractor animates freezing gale acoustics alongside snow optics.",
+          timelineNote: "Single 1x TokenRefiner compile using direct in-memory fp32 unpooled span SVD. Fixed soundscape extractor animates freezing gale acoustics alongside snow optics.",
           curveEnd: 1.0,
           is2x: false
         },
@@ -2127,7 +2127,7 @@
               badge: "5 / 5 FLIP &amp; +22.3% TAIL",
               tone: "badge-ok",
               bars: [
-                { k: "Pole-A tokens (-P_Vr)", w: 8, col: "var(--success)", desc: "Unpooled fp32 __spans (~8.6 MB) erase Pole-A PCs cleanly" },
+                { k: "Pole-A tokens (-P_Vr)", w: 8, col: "var(--success)", desc: "Direct in-memory fp32 unpooled span SVD erases Pole-A PCs cleanly" },
                 { k: "Restored [routing] Audio", w: 94, col: "var(--success)", desc: "reverb_cathedral +22.3% tail; heavy_blizzard howling gale" },
                 { k: "Subject Hold (peer_ros)", w: 96, col: "var(--accent)", desc: "1x Q_aud (-0.039 st YIN F0) + 98.5% norm cap" },
                 { k: "1x BasicGuider compile", w: 92, col: "var(--success)", desc: "steering/mixer.py compiles one envelope (0 extra CFG pass)" }

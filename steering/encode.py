@@ -1,5 +1,5 @@
 """LoRA-aware Qwen3-VL L49 + `TokenRefiner` encoding, media-pair geometry alignment,
-and single-pass `encode_pair_set` / `encode_and_cache_spans` helpers."""
+and single-pass `encode_pair_set` helpers."""
 
 from __future__ import annotations
 
@@ -18,13 +18,10 @@ from safetensors import safe_open
 from .constants import FAMILY_TENSOR_KEYS, POST_REFINER_DIM, VALID_MEDIA_POOLING, import_repo_module as _repo
 from .data import PairSet
 from .extract import (
-    SpanCache,
     _tensor_bf16_bytes,
-    build_span_cache,
     detect_family as _extract_detect_family,
     row_norm_census,
     safetensors_recipe_digest,
-    save_span_cache,
 )
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -668,46 +665,6 @@ def encode_pair_set(
                 }
             )
     return encoded_pairs, encoded_holds, enc_censuses
-
-
-def refine_and_cache_spans(
-    encoded_pairs: Sequence[Mapping[str, Any]],
-    encoded_holds: Sequence[Mapping[str, Any]],
-    enc_censuses: Sequence[Mapping[str, float]],
-    refiner_run: Callable[[torch.Tensor], torch.Tensor],
-    *,
-    pooling: str = "diff_span",
-    include_encoder: bool = True,
-    cache_path: str | Path | None = None,
-    extra_metadata: Mapping[str, Any] | None = None,
-) -> tuple[SpanCache, list[tuple[torch.Tensor, torch.Tensor]], list[tuple[torch.Tensor, torch.Tensor]], list[dict[str, float]]]:
-    """Run `refiner_run` across `encoded_pairs` / `encoded_holds` and build (and optionally save) an `fp32` `SpanCache`."""
-    refined_pairs: list[tuple[torch.Tensor, torch.Tensor]] = []
-    ref_censuses: list[dict[str, float]] = []
-    for enc in encoded_pairs:
-        ra = refiner_run(enc["enc_a"])
-        rb = refiner_run(enc["enc_b"])
-        refined_pairs.append((ra, rb))
-        ref_censuses.append(row_norm_census(ra, enc["tags_a"]))
-        ref_censuses.append(row_norm_census(rb, enc["tags_b"]))
-    refined_holds = [(refiner_run(h["enc_a"]), refiner_run(h["enc_b"])) for h in encoded_holds]
-
-    med_ref = float(sum(c["median_row_norm"] for c in ref_censuses) / len(ref_censuses))
-    med_enc = float(sum(c["median_row_norm_ex_row0"] for c in enc_censuses) / len(enc_censuses))
-    cache = build_span_cache(
-        encoded_pairs,
-        refined_pairs,
-        encoded_holds,
-        refined_holds,
-        pooling=pooling,
-        include_encoder=include_encoder,
-        median_ref_row_norm=med_ref,
-        median_enc_row_norm_ex0=med_enc,
-        extra_metadata=extra_metadata,
-    )
-    if cache_path is not None:
-        save_span_cache(cache_path, cache, overwrite=True)
-    return cache, refined_pairs, refined_holds, ref_censuses
 
 
 def _validate_short_edge(short_edge: Any) -> int:

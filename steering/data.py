@@ -20,6 +20,7 @@ from .constants import (
     FADER_MIN,
     MAX_SHARED_INTERIOR_WORDS,
     NAME_RE,
+    NON_H3_IMAGE_STEMS,
     ROUTING_FAMILIES,
     SECTION_AND_SHOT_MARKERS,
     SECTION_HEADER_PREFIXES,
@@ -732,12 +733,49 @@ def pair_set_differing_sections(
     """Return the ordered list of distinct prompt section names modified across `pairs`."""
     out: list[str] = []
     for item in pairs:
-        _, sec_str = differing_section_info(item.a, item.b, frame=frame)
+        a_txt = str(item["a"]) if isinstance(item, Mapping) else item.a
+        b_txt = str(item["b"]) if isinstance(item, Mapping) else item.b
+        _, sec_str = differing_section_info(a_txt, b_txt, frame=frame)
         for part in sec_str.split("+"):
             clean = part.strip()
             if clean and clean not in out:
                 out.append(clean)
     return out
+
+
+def infer_routing_from_pairs(
+    pairs: Sequence[Mapping[str, Any] | PairItem],
+    *,
+    name: str = "",
+    frame: str = "scene",
+) -> RoutingSpec:
+    """Infer a canonical `[routing]` spec from contrasting pair sections and stem metadata."""
+    diff_secs = pair_set_differing_sections(pairs, frame=frame)
+    audio_secs = {"overall_soundscape", "non_diegetic_music"}
+    if diff_secs and set(diff_secs).issubset(audio_secs):
+        return RoutingSpec(
+            bus="audio",
+            regime="a",
+            target="soundscape_only",
+            fields=(),
+            streams="audio_only",
+            block_band="all",
+            needs_ref_release=False,
+            families=("fl2va", "ref2va"),
+            default_strength=1.0,
+        )
+    fams = ("fl2va", "ref2va") if name in NON_H3_IMAGE_STEMS else ("fl2va", "ref2va", "h3_image")
+    return RoutingSpec(
+        bus="look",
+        regime="a",
+        target="scene_only",
+        fields=(),
+        streams="both",
+        block_band="all",
+        needs_ref_release=False,
+        families=fams,
+        default_strength=1.0,
+    )
 
 
 def parse_markdown_pairs(md_text: str) -> dict[str, Any]:
@@ -1070,9 +1108,10 @@ def write_markdown_to_toml(
         ]
     )
 
-    if routing is not None:
-        lines.extend(format_routing_toml_lines(routing))
-        lines.append("")
+    if routing is None:
+        routing = infer_routing_from_pairs(pairs, name=resolved_name, frame=frame)
+    lines.extend(format_routing_toml_lines(routing))
+    lines.append("")
     if provenance is not None:
         prov_lines = format_provenance_toml_lines(provenance)
         if len(prov_lines) > 1:

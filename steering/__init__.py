@@ -5,7 +5,7 @@ Modules:
   `95.5 -> 98.5` smooth knee, 4-bus enum (`look`, `motion`, `audio`, `hold`), Day-1 `regime = ("a",)`.
 - `data`: `[vector]` TOML loader (`[[pair]]`, `[[hold]]`, `[routing]`, `[provenance]`), Gates A-D.
 - `encode`: LoRA-aware Qwen3-VL L49 + `TokenRefiner` encoding & media-pair geometry alignment.
-- `extract`: `< 50 ms` CPU extraction (`unit_mean=False`), `SpanCache` (`__spans.safetensors`), Pole-A SVD.
+- `extract`: `< 50 ms` CPU extraction (`unit_mean=False`), Pole-A erasure SVD.
 - `runtime`: Point C prelude (`h_bar`, `peer_ros=True`, clamped `[0, 1]` union SVD, `s=0` exact identity).
 - `hooks`: `auto_1x_kv` stream split, `block_band`, and attention seam helpers.
 - `nodes` & `legacy_nodes`: Option-B ComfyUI nodes (zero `node_id_manifest.json` diff).
@@ -30,14 +30,13 @@ from .constants import (
     NON_H3_IMAGE_STEMS,
     NORM_MATCHED_TARGET,
     POST_REFINER_DIM,
-    SPAN_CACHE_FORMAT_VERSION,
     STACK_SMOOTH_CEIL_NORM,
     STACK_SMOOTH_KNEE_NORM,
     STEER_BUSES,
     STEER_REGIMES,
 )
-from .data import HoldItem, PairItem, PairSet, RoutingSpec, load_pairs
-from .extract import PooledPairSet, SpanCache, build_span_cache, load_span_cache, load_vector, pool_from_span_cache, save_span_cache, save_vector
+from .data import HoldItem, PairItem, PairSet, RoutingSpec, infer_routing_from_pairs, load_pairs
+from .extract import PooledPairSet, load_vector, pool_pair_set, save_vector
 from .mixer import (
     BUILT_IN_MACRO_PRESETS,
     ChannelStrip,
@@ -77,28 +76,24 @@ __all__ = [
     "PairSet",
     "PooledPairSet",
     "RoutingSpec",
-    "SPAN_CACHE_FORMAT_VERSION",
     "STACK_SMOOTH_CEIL_NORM",
     "STACK_SMOOTH_KNEE_NORM",
     "STEER_BUSES",
     "STEER_REGIMES",
-    "SpanCache",
     "apply_post_refiner",
-    "build_span_cache",
     "constants",
     "data",
     "extract",
     "filter_vectors_for_family",
     "hooks",
+    "infer_routing_from_pairs",
     "load_pairs",
-    "load_span_cache",
     "load_vector",
     "mixer",
-    "pool_from_span_cache",
+    "pool_pair_set",
     "resolve_director_steer_entry",
     "resolve_vector_routing",
     "runtime",
-    "save_span_cache",
     "save_vector",
     "soft_cap_stacked_rms",
     "validate_fader_strength",

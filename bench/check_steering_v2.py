@@ -5,8 +5,9 @@ What it checks:
 1. `< 1e-6` CPU numerical parity against `models/control_vectors/bank/*.safetensors` (when
    present), Point C prelude math (`s=0` exact identity, `h_bar`, `peer_ros=True`, smooth
    `95.5 -> 98.5` RMS knee), and isolated `stamp_vector_routing.py --output-dir` tensor parity.
-2. Exact unpooled `fp32` `SpanCache` (`__spans.safetensors`) round-trip (`< 1e-6`) across
-   `span_a`, `span_b`, `lens_a`, `lens_b`, `hold_a/b`, `enc_a/b_rows`, and `bf16` refusal.
+2. Direct in-memory unpooled `fp32` span extraction + `build_pole_a_erasure` parity (`< 1e-6`)
+   against explicit `mean_difference`, `hold_basis`, `project_out`, and `build_pole_a_erasure`,
+   plus confirmation that unused `SpanCache` / `__spans.safetensors` disk plumbing is removed.
 3. `steering.mixer.MixerCompiler` & `director/compiler.py` routing (`1x` static BasicGuider vs
    `2x` animated/rewrite `MiniMaxH3EditGuider`, `needs_ref_release -> 0.33`, `h3_image` family
    filter, Macro Channel Presets, fader bounds `[-1.5, +2.0]`) spanning `>= 5` non-film concept
@@ -22,7 +23,6 @@ from __future__ import annotations
 
 import json
 import math
-import shutil
 import sys
 import tempfile
 from pathlib import Path
@@ -37,8 +37,8 @@ if str(REPO) not in sys.path:
 import folder_paths  # noqa: E402
 import torch  # noqa: E402
 from safetensors import safe_open  # noqa: E402
-from safetensors.torch import save as save_safetensors_bytes  # noqa: E402
 
+import control_vectors as cv  # noqa: E402
 import h3_spans  # noqa: E402
 import stamp_vector_routing  # noqa: E402
 import steering  # noqa: E402
@@ -127,7 +127,13 @@ def check_constants_and_toml_routing() -> str:
     return f"50 TOMLs verified (POST_REFINER_DIM=5376, ENCODER_DIM=5120, buses={sorted(buses_seen)}, regime='a')"
 
 
-def check_span_cache_roundtrip() -> str:
+def check_in_memory_fp32_span_erasure() -> str:
+    for sym in ("SpanCache", "build_span_cache", "save_span_cache", "load_span_cache", "pool_from_span_cache"):
+        assert not hasattr(se, sym), f"steering.extract still exposes removed {sym}"
+        assert not hasattr(cv, sym), f"control_vectors still exposes removed {sym}"
+    assert not hasattr(sc, "SPAN_CACHE_FORMAT_VERSION"), "SPAN_CACHE_FORMAT_VERSION still defined"
+    assert not hasattr(cv, "SPAN_CACHE_FORMAT_VERSION"), "control_vectors still exposes SPAN_CACHE_FORMAT_VERSION"
+
     gen = torch.Generator(device="cpu").manual_seed(20261123)
     n_pairs = 7
     encoded_pairs: list[dict[str, Any]] = []
@@ -239,93 +245,62 @@ def check_span_cache_roundtrip() -> str:
         min_erasure_pairs=sc.MIN_ERASURE_PAIRS,
     )
 
-    with tempfile.TemporaryDirectory(prefix="h3_spancache_") as tmp:
-        tmp_dir = Path(tmp)
-        cache = se.build_span_cache(
-            encoded_pairs,
-            refined_pairs,
-            encoded_holds,
-            refined_holds,
-            pooling="diff_span",
-            include_encoder=True,
-            median_ref_row_norm=164.25,
-            median_enc_row_norm_ex0=291.75,
-        )
-        span_file = tmp_dir / "zero_gravity__fl2va__spans.safetensors"
-        se.save_span_cache(span_file, cache, overwrite=True)
-        reloaded = se.load_span_cache(span_file)
+    # Independent explicit computation from unpooled fp32 spans + hold_basis + build_pole_a_erasure
+    a_spans_exp: list[torch.Tensor] = []
+    b_spans_exp: list[torch.Tensor] = []
+    enc_a_rows_exp: list[torch.Tensor] = []
+    enc_b_rows_exp: list[torch.Tensor] = []
+    w_list_exp: list[float] = []
+    for enc, (ra, rb) in zip(encoded_pairs, refined_pairs):
+        ma, mb = se._pair_pooling_masks(enc, "diff_span")
+        a_spans_exp.append(ra[ma].detach().to(device="cpu", dtype=torch.float32).contiguous())
+        b_spans_exp.append(rb[mb].detach().to(device="cpu", dtype=torch.float32).contiguous())
+        enc_a_rows_exp.append(se._pool_rows(enc["enc_a"], se._encoder_rows_mask(ma)))
+        enc_b_rows_exp.append(se._pool_rows(enc["enc_b"], se._encoder_rows_mask(mb)))
+        w_list_exp.append(float(enc["item"].weight))
 
-        assert reloaded.span_a.dtype == torch.float32 and reloaded.span_b.dtype == torch.float32
-        assert reloaded.lens_a.dtype == torch.int32 and reloaded.lens_b.dtype == torch.int32
-        assert reloaded.span_a.shape[1] == sc.POST_REFINER_DIM
-        assert reloaded.enc_a_rows is not None and reloaded.enc_a_rows.shape == (n_pairs, sc.ENCODER_DIM)
-        assert reloaded.metadata["median_ref_row_norm"] == 164.25
-        assert reloaded.metadata["median_enc_row_norm_ex0"] == 291.75
+    a_mat_exp = torch.stack([se._pool_rows(sa) for sa in a_spans_exp], dim=0)
+    b_mat_exp = torch.stack([se._pool_rows(sb) for sb in b_spans_exp], dim=0)
+    w_vec_exp = torch.tensor(w_list_exp, dtype=torch.float32)
+    raw_exp = se.mean_difference(a_mat_exp, b_mat_exp, w_vec_exp, unit_mean=False)
 
-        from_cache = se.pool_from_span_cache(
-            reloaded,
-            unit_mean=False,
-            apply_holds=True,
-            include_encoder=True,
-            min_erasure_pairs=sc.MIN_ERASURE_PAIRS,
-        )
+    ha_exp = []
+    hb_exp = []
+    eha_exp = []
+    ehb_exp = []
+    h_groups_exp = []
+    hw_exp = []
+    for enc_h, (rha, rhb) in zip(encoded_holds, refined_holds):
+        mha, mhb = se._pair_pooling_masks(enc_h, "diff_span")
+        ha_exp.append(se._pool_rows(rha, mha))
+        hb_exp.append(se._pool_rows(rhb, mhb))
+        eha_exp.append(se._pool_rows(enc_h["enc_a"], se._encoder_rows_mask(mha)))
+        ehb_exp.append(se._pool_rows(enc_h["enc_b"], se._encoder_rows_mask(mhb)))
+        h_groups_exp.append(str(enc_h["h_item"].group))
+        hw_exp.append(float(enc_h["h_item"].weight))
 
-        diffs = {
-            "vector": float((direct.vector - from_cache.vector).abs().max().item()),
-            "enc_raw_vec": float((direct.enc_raw_vec - from_cache.enc_raw_vec).abs().max().item()),
-            "hold_basis": float((direct.hold_basis - from_cache.hold_basis).abs().max().item()),
-            "erasure_mu_d": float((direct.erasure_mu_d - from_cache.erasure_mu_d).abs().max().item()),
-            "erasure_vr": float((direct.erasure_vr - from_cache.erasure_vr).abs().max().item()),
-            "erasure_diag": float((direct.erasure_diag - from_cache.erasure_diag).abs().max().item()),
-        }
-        max_diff = max(diffs.values())
-        assert max_diff < 1e-6, f"SpanCache round-trip exceeded 1e-6: {diffs}"
+    hw_t_exp = torch.tensor(hw_exp, dtype=torch.float32)
+    basis_exp = se.hold_basis(torch.stack(ha_exp, dim=0), torch.stack(hb_exp, dim=0), h_groups_exp, hw_t_exp)
+    enc_basis_exp = se.hold_basis(torch.stack(eha_exp, dim=0), torch.stack(ehb_exp, dim=0), h_groups_exp, hw_t_exp)
+    vec_exp = se.project_out(raw_exp, basis_exp)
+    enc_raw_exp = se.project_out(
+        se.mean_difference(torch.stack(enc_a_rows_exp, dim=0), torch.stack(enc_b_rows_exp, dim=0), w_vec_exp, unit_mean=False),
+        enc_basis_exp,
+    )
+    er_mu_d, er_vr, er_diag = se.build_pole_a_erasure(a_spans_exp, b_spans_exp, w_list_exp, hold_basis=basis_exp)
 
-        # Verify bf16 SpanCache refusal on both save and load
-        bad_cache = se.SpanCache(
-            span_a=cache.span_a.to(dtype=torch.bfloat16),
-            span_b=cache.span_b,
-            lens_a=cache.lens_a,
-            lens_b=cache.lens_b,
-            pair_weights=cache.pair_weights,
-            hold_a=cache.hold_a,
-            hold_b=cache.hold_b,
-            hold_weights=cache.hold_weights,
-            enc_a_rows=cache.enc_a_rows,
-            enc_b_rows=cache.enc_b_rows,
-            enc_hold_a=cache.enc_hold_a,
-            enc_hold_b=cache.enc_hold_b,
-            metadata=cache.metadata,
-        )
-        try:
-            se.save_span_cache(tmp_dir / "bad_bf16__spans.safetensors", bad_cache)
-            raise AssertionError("expected save_span_cache to refuse bf16 span_a")
-        except ValueError:
-            pass
+    diffs = {
+        "vector": float((direct.vector - vec_exp).abs().max().item()),
+        "enc_raw_vec": float((direct.enc_raw_vec - enc_raw_exp).abs().max().item()),
+        "hold_basis": float((direct.hold_basis - basis_exp).abs().max().item()),
+        "erasure_mu_d": float((direct.erasure_mu_d - er_mu_d).abs().max().item()),
+        "erasure_vr": float((direct.erasure_vr - er_vr).abs().max().item()),
+        "erasure_diag": float((direct.erasure_diag - er_diag).abs().max().item()),
+    }
+    max_diff = max(diffs.values())
+    assert max_diff < 1e-6, f"in-memory fp32 span erasure parity exceeded 1e-6: {diffs}"
 
-        bf16_raw_path = tmp_dir / "raw_bf16__spans.safetensors"
-        bf16_raw_path.write_bytes(
-            save_safetensors_bytes(
-                {
-                    "span_a": cache.span_a.to(dtype=torch.bfloat16),
-                    "span_b": cache.span_b.to(dtype=torch.bfloat16),
-                    "lens_a": cache.lens_a,
-                    "lens_b": cache.lens_b,
-                    "pair_weights": cache.pair_weights,
-                    "hold_a": cache.hold_a,
-                    "hold_b": cache.hold_b,
-                    "hold_weights": cache.hold_weights,
-                },
-                metadata={"format": json.dumps(sc.SPAN_CACHE_FORMAT_VERSION)},
-            )
-        )
-        try:
-            se.load_span_cache(bf16_raw_path)
-            raise AssertionError("expected load_span_cache to refuse bf16 tensors")
-        except ValueError:
-            pass
-
-    return f"unpooled fp32 SpanCache round-trip max_abs_diff={max_diff:.2e} < 1e-6 (bf16 refused)"
+    return f"in-memory fp32 unpooled span + Pole-A erasure parity max_abs_diff={max_diff:.2e} < 1e-6 (SpanCache removed)"
 
 
 def check_bank_numerical_parity_and_stamping() -> str:
@@ -416,14 +391,17 @@ def check_bank_numerical_parity_and_stamping() -> str:
             in_sub = Path(tmp) / "in_bank"
             out_sub = Path(tmp) / "out_bank"
             in_sub.mkdir()
-            for sp, _t, _m in loaded_items[:6]:
-                shutil.copy2(sp, in_sub / sp.name)
+            for sp, orig_t, orig_m in loaded_items[:6]:
+                stripped_meta = {k: v for k, v in orig_m.items() if k != "routing"}
+                se.save_vector(in_sub / sp.name, orig_t, stripped_meta, overwrite=True)
             dry = stamp_vector_routing.stamp_directory(toml_dir=TOML_DIR, input_dir=in_sub, dry_run=True)
             assert len(dry["stamped"]) == 6 and not out_sub.exists()
             res = stamp_vector_routing.stamp_directory(
                 toml_dir=TOML_DIR, input_dir=in_sub, output_dir=out_sub, dry_run=False
             )
             assert len(res["stamped"]) == 6
+            dry_idem = stamp_vector_routing.stamp_directory(toml_dir=TOML_DIR, input_dir=out_sub, dry_run=True)
+            assert len(dry_idem["skipped"]) == 6 and len(dry_idem["stamped"]) == 0
             max_stamp_diff = 0.0
             for sp, orig_tensors, _m in loaded_items[:6]:
                 st_tensors, st_meta = se.load_vector(out_sub / sp.name)
@@ -785,7 +763,7 @@ non_diegetic_music: N/A
 def main() -> int:
     checks = [
         ("constants_and_tomls", check_constants_and_toml_routing),
-        ("span_cache_fp32", check_span_cache_roundtrip),
+        ("fp32_span_erasure", check_in_memory_fp32_span_erasure),
         ("bank_cpu_parity", check_bank_numerical_parity_and_stamping),
         ("mixer_and_director", check_mixer_and_director_routing),
         ("provenance_and_sampler", check_provenance_and_stratified_compiler),
