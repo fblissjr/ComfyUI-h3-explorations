@@ -15,7 +15,7 @@ Last updated: 2026-11-24.
 
 ## 1. The Fresh Look ("So What?") — Beyond Control Vectors
 
-Control vectors and subspace erasure are always a lossy approximation of a prompt, competing in a crowded activation-steering literature. **Cross-Modal Query Routing** exploits something structurally specific to **single-stream joint audio-video DiTs** like MiniMax H3 (`[text | cond | cond_audio | ref_img | ref_audio | audio | video]` packed into one flat self-attention sequence in `comfy/ldm/minimax/model.py::PackedLayout`), whereas models like `LTX-2` (asymmetric dual-stream) and `Ovi` (twin-backbone) already separate video and audio streams architecturally.
+Control vectors and subspace erasure are always a lossy approximation of a prompt, competing in a crowded activation-steering literature. **Cross-Modal Query Routing** exploits something structurally specific to **single-stream joint audio-video DiTs** like MiniMax H3 (`[text | cond | cond_audio | ref_img | ref_audio | audio | video]` packed into one flat self-attention sequence in `comfy/ldm/minimax/model.py::PackedLayout`), whereas models like `LTX-2` (`arXiv:2601.03233`, asymmetric dual-stream) and `Ovi` (`arXiv:2510.01284`, twin-backbone) already separate video and audio streams architecturally.
 
 Normally, H3's single shared self-attention sequence is an all-or-nothing handcuff: one prompt drives every block and modality, so restyling the video warps the voice, rewriting the audio moves the actors, and `<Picture 1>` locks the lighting.
 
@@ -23,71 +23,102 @@ Normally, H3's single shared self-attention sequence is an all-or-nothing handcu
 
 ### Redefining What a "Concept" Even Is
 
-When a full `32B` Qwen3-VL text encoder sits in front of `PackedLayout`, we should stop pressing ideas into `5376`-D control vectors whenever English already expresses them cleanly:
+Separating **content** (what is said: look, sound, behavior) from **address** (who reads it: stream, channel, time span, speaker, block depth) lets most creative ideas stay as plain English prompts:
 
 - **Audio prompts need no control vectors:** A dedicated `Q_aud` prompt (thunderstorm on tin roof, vintage AM radio bandpass, live studio laugh track, underwater hydrophone + sonar) is cleaner, sharper, and zero-maintenance compared with contrastive audio stems.
-- **Stop building vague mood/film stems:** Claude's bank cosine audit ([`data/query_routing_2026_11_24/bank_shared_direction.json`](../../data/query_routing_2026_11_24/bank_shared_direction.json)) confirmed that older "high energy" stems (`chaos_panic`, `youtube_overhype_influencer`, `vocal_strain`, `auctioneer_rapid_patter`, `pyro_chain_explosions`) all share one dominant text-conditioning direction, while film-stock stems sit nearly parallel to each other.
-- **Keep control vectors only where discrete prompts fall short:** continuous scalar scrubbing (when linear output blending between two routed prompts is not used), sub-symbolic kinematic or two-still visual transfers (`MiniMaxH3MakeMediaControlVector`), and single-prompt moving `2x` spatial portals (`MiniMaxH3EditGuider`).
+- **Stop building vague mood/film stems:** Claude's bank cosine audit ([`data/query_routing_2026_11_24/bank_shared_direction.json`](../../data/query_routing_2026_11_24/bank_shared_direction.json)) confirmed that older "high energy" stems (`chaos_panic`, `youtube_overhype_influencer`, `vocal_strain`, `auctioneer_rapid_patter`, `pyro_chain_explosions`) all share one dominant text-conditioning direction, while film-stock stems sit nearly parallel to each other. *(Note: this clustering is measured in conditioning space; a direct benchmark comparing routed English prompts against stems is planned in the first `MiniMaxH3QueryRouter` probes.)*
+- **Keep control vectors only where discrete prompts fall short:** continuous scalar scrubbing (when linear output blending between two routed prompts is not used), ideas where plain one-clause prompt rewrites stall (as observed on `knitted_wool_world` and `zero_gravity` in Phase 1 `tortoise`), sub-symbolic kinematic or two-still visual transfers (`MiniMaxH3MakeMediaControlVector`), and single-prompt moving `2x` spatial portals (`MiniMaxH3EditGuider`).
 
 ---
 
-## 2. What Ships Today & Evidence Status
+## 2. How & Why It Works Inside MiniMax H3
 
-| Component | Status | Owning Code & Current Behavior |
+1. **Why cross-modal bleed happens by default (`comfy/ldm/minimax/model.py`):**
+   - `Qwen3-VL-32B` (`layers.0..49`, width `5120`) encodes `[vision | text]` rows (`conditioning_token_tags`), then `MiniMaxH3Model._embed_and_pack` projects through `condition_proj` (`5120 -> 5376`) and a `2`-block bidirectional `TokenRefiner` (`comfy/ldm/minimax/model.py:619-622`).
+   - `PackedLayout` packs `[text | cond | cond_audio | ref_img | ref_audio | audio | video]` into one contiguous sequence where every `50` `DiTBlock` runs full joint self-attention, distinguished only by `3D` RoPE `(t, h, w)` and AdaLN segment tags (`SEG_TAG`). Stereo audio is packed **channel-major** (`pack_audio`: `[L(0..T-1), R(0..T-1)]` on H3's `40 Hz` clock) with Left pinned to `w_low` and Right pinned to `w_high` (`_audio_grid`).
+2. **How `1x` query routing breaks the coupling ([`steering/hooks.py`](../../steering/hooks.py)):**
+   - `H3SteerStepWorkspace` pre-allocates tiny reusable buffers for the text tokens (`l_txt`) strictly under `pause_malloc_graph()` (`+0` `malloc_graph_breaks` across all four attention backends).
+   - `H3SteerBlockPatch` wraps each `DiTBlock`: `prepare_block` runs `norm1` / `qkv_proj` / fused RoPE on the shadow text stream (`shadow_a` / `shadow_b`); `pre_attention` swaps text K/V in place inside `swap_blocks` (when lengths match) or concatenates `[K_b, K_non_txt]` in a dedicated side `SDPA` strictly for the tiny `Q_aud` slice (`au_spans`) and shadow text queries; `post_attention` writes `aud_out` back into `au_spans` before `out_proj`; `finish_block` advances the shadow text stream through `out_proj` + `mlp` across blocks `0..49`.
+3. **Why `1x Q_aud` stays cheap and clean while `1x Q_vid[mask]` washed out:**
+   - `au_spans` holds only `130..810` stereo rows (`~1–3%` of sequence length), with distinct `SEG_TAG` and `(h=0, w ∈ {w_low, w_high})` coordinates — so its side-SDPA adds negligible overhead and stays isolated.
+   - Masking `Q_vid[mask]` (`~23,328` video rows in `90f`) failed Gate 2C (`1.047x–1.090x` contrast vs. `1.421x` `2x EditGuider`, `1836.1 MB` VRAM) because unmasked and masked video tokens still attend bidirectionally to each other (`Q_vid -> K_vid, V_vid`) across `50` blocks, washing out regional boundaries inside a single forward pass.
+
+---
+
+## 3. Known Verified Findings Today (Strictly Tiered)
+
+| Tier | Finding & Observable Evidence | Honest Caveat / Boundary |
 | :--- | :--- | :--- |
-| **`1x` Audio/Video Text Split (`auto_1x_kv`) & Single-Band `block_band`** | **Shipped (behind `MiniMaxH3Steer`)** | [`steering/hooks.py::H3SteerRuntime`](../../steering/hooks.py) (`H3SteerStepWorkspace`, `H3SteerBlockPatch`) + [`steering/nodes.py`](../../steering/nodes.py) (`streams="video_only"` / `"audio_only"`, `split_backend="auto_1x_kv"`, `block_band` presets or `A-B` ranges). Compiler-safe across all four attention backends without breaking `malloc_graph`. |
-| **Matched audio/video split evidence** | **Measured (single-seed per pair)** | Matched against both-streams steering on four concept-and-scene pairs across two checkpoint families ([`showcase_c_qaud_audio_split.json`](../../data/exp_unpooled_sliders/phase4_2026_11_22/showcase_c_qaud_audio_split.json), [`stage2_verification.json`](../../data/exp_unpooled_sliders/stage2_2026_11_22/stage2_verification.json), [`2026-11-23_wave2_gpu_gates_bus_vr_path1c_and_qvid.md`](../../bench/results/2026-11-23_wave2_gpu_gates_bus_vr_path1c_and_qvid.md), [`wave3b_results.json`](../../data/exp_unpooled_sliders/wave3b_2026_11_23/wave3b_results.json)). Loudness stays closer to the unsteered clip in all four; paired-frame pitch improves on two of the three pitch-measured pairs (global median improves on one) and worsens on one, leaving residual `Q_aud -> K_vid` pitch coupling. |
-| **Late-block `audio_only` isolation** | **Measured (single-seed on 2 concepts)** | `streams="audio_only"` + `late_30_49` on `reverb_cathedral` and `youtube_overhype_influencer` changes the picture far less than steering both streams. |
-| **Block-depth routing (`mid_late_20_49` / `late_30_49`)** | **Working control; boundaries unestablished** | Works reliably as a visual/identity preservation control across several runs, while the exact `blocks.20..29` boundary comes from a single-seed probe on one retired concept and the `50`-block trace ([`dit_blocks_50_trace.json`](../../data/exp_unpooled_sliders/paper_2026_11_21/dit_blocks_50_trace.json)) covers one prompt across three concepts. |
-| **Known current gaps** | **Open** | (1) Zero shipped `workflows/*.json` graphs wire `auto_1x_kv` or `block_band` yet; (2) [`steering/nodes.py`](../../steering/nodes.py) raises `ValueError` if two active steers combine distinct non-`"all"` `block_band` ranges in the same step; (3) [`bench/edit_guidance_arms.py`](../../bench/edit_guidance_arms.py) does not pass stem `[routing]` `streams`/`block_band` yet; (4) multi-seed repeats are pending. |
+| **Tier 1 — Reproduced / Multi-Seed** | **`noir` Pole-A erasure flips sparse stills & `192f` `covered_market`:** reproduces `5/5` B&W on `indoor_neutral` stills (`positive_control_stills_metrics.json` vs `gate2b1/metrics_gate2b1.json`, `5` seeds) and `192f` `covered_market` (`positive_control_metrics.json` vs `gate2b2/metrics_gate2b2.json`). | Fails at default strength (`s=1.0`, `stage_b_surgical_erasure_v2.json`), on `39f` `indoor_neutral` video (`positive_control_metrics.json`), and only partially mutes prompts naming bright object colors (`tortoise_noir`). |
+| **Tier 1 — Reproduced / Multi-Seed** | **Low-rank `V_r` preserves dense scenes where equal-RMS isotropic prompt shrink (`S4_iso_shrink`) collapses them:** verified on `gate2b1/metrics_gate2b1.json` and contact sheets (`5` seeds on `covered_market`). | On `watercolor_wash`, `S1_own_Vr` keeps the scene like `S0_1d` rather than beating `1D` on concept strength. |
+| **Tier 1 — Checked (`1` blind reader)** | **70-pair blind stills matrix (`stills_matrix_unsealed.json`):** `7` visual concepts × `2` prompts × `5` seeds (`1D` vs `erasure` at high strength): `46` tied/same, `15` neither, `6` erasure (`5/6` sparse `noir`), `3` `1D`. | Read blind by one session on small still tiles before unsealing; shows `add_norm_matched_erasure` ties `1D` elsewhere and wins sparse `noir`, so keeping it as default costs nothing while erasure R&D pauses. |
+| **Tier 1 — Multi-Run Architecture Laws** | **Dual-Lock raw VAE boundary** (`Gate 2B`, `gate2b2`), **Gate 2C `1x Q_vid[mask]` falsification** (`2026-11-23_wave2_gpu_gates_bus_vr_path1c_and_qvid.md`), **early-step palette clock `[0.0, 0.50)`** (`2` seeds × `3` concepts, `2026-11-22_phase4...md`), **`0.33` synthetic-ref release** (`1` seed across multiple configs, `2026-11-12_sound_cues_dpad_and_033_release_law.md`), and **bank shared-direction collapse** (`bank_shared_direction.json`). | Dual-Lock requires gating/releasing `ref_img` itself; `Q_vid[mask]` stays `2x`. |
+| **Tier 2 — Working Control (`1` seed / pair)** | **`1x` `Q_aud`/`Q_vid` text split (`auto_1x_kv`):** matched vs steering both streams on `4` concept-scene pairs across `2` checkpoints (`showcase_c`, `stage2_verification`, `wave2`, `wave3b`) and `+0` added `malloc_graph_breaks` across `4` backends. | Loudness stays closer to base in `4/4`; paired-frame pitch improves in `2/3` pitch-measured pairs (global median in `1/3`) and worsens in `1/3`, exposing residual `Q_aud -> K_vid` pitch bleed. Zero shipped workflows wire `auto_1x_kv` yet. |
+| **Tier 2 — Working Lead (`1` seed)** | **Routing stops cross-modal sound-to-picture leaks (`routed_as_bank_metrics.json` & `followup_bands_metrics.json`):** on `reverb_cathedral`, `audio_only` keeps the London street intact (`pic_mae` cut roughly in half vs forced `both`); on `operatic_bellow`, opening `blocks.20..49` (`audio_only`) unlocks pitch/loudness shifts vs. zero movement in `late_30_49`, still leaving part of the shift coupled to visual performance. | **Direct counter-signal on `golden_hour_glow`:** routing `video_only` + `mid_late_20_49` did *not* prevent cardigan/hat/candle distortion in `routed_as_bank` (`1` seed). Block boundaries (`20..29` vocal delivery vs `30..49` room reverb) remain **single-seed leads** pending 3-seed confirmation. |
+| **Tier 2 — Working Control (`1` seed)** | **`2x` audio-view thunderstorm stand-in & 10 moving portals:** swapping soundscape via `2x` `audio_only` `EditGuider` holds stairwell video cleanly while delivering storm acoustics (`probe_metrics.json`, ran at `scale=1.5`); moving single-prompt `2x` portals verified across `10` concepts × `10` scenes (`2026-11-24_outside_review...md` Addendum). | Needs `1x` arbitrary-length replacement in `MiniMaxH3QueryRouter` and multi-seed repeats. |
 
 ---
 
-## 3. Next to Build — Standalone `MiniMaxH3QueryRouter` (Zero-Concept Capabilities)
+## 4. Cross-Domain Prior-Art Map (DiT vs. LLM/VLM, `2026-11-24`)
 
-*(Design target — not yet implemented or GPU-verified.)*
+*(Sources verified `2026-11-24`; retrieval omitted from split-text routing because no faithful analogue was found — "query routing" alone in IR refers to LLM/index model routing.)*
 
-Because node IDs and input lists cannot be renamed or inserted mid-list ([`AGENTS.md`](../../AGENTS.md) Rule 5) and dual-prompt routing needs **no control vector at all**, Cross-Modal Query Routing gets its own clean node — **`MiniMaxH3QueryRouter`** — built on top of [`steering/hooks.py::H3SteerRuntime`](../../steering/hooks.py):
-
-- **Planned inputs:** `model`, `conditioning` (Prompt A), optional `routed_conditioning` (Prompt B of **arbitrary token length**), `route_target` (`audio`, `video`, `audio_time_window`, `audio_left`, `audio_right`), `block_band`, `audio_to_video_coupling` (damps `Q_aud -> K_vid` in `blocks.30..49`), `ref_img_late_scale` (scales `ref_img` contribution in `blocks.20..49`), and `t_start` / `t_end`.
-
-### Five Core Zero-Concept Mechanisms to Build & Probe
-
-1. **`1x` Split-Brain Dual-Prompt Routing (`Q_vid -> Prompt A`, `Q_aud -> Prompt B`, arbitrary token lengths):**
-   - Lift `H3SteerRuntime`'s equal-`l_txt` in-place `[tx_a:tx_b]` assumption so `Q_aud` (or `Q_vid`) can attend to concatenated `K_b, V_b` from any separate `CONDITIONING` input against shared non-text keys (`refs`, `audio`, `video`).
-   - **Full visual rewrite + untouched audio:** rewrite wardrobe, lighting, weather, or medium in rich natural language on `Q_vid` while `Q_aud` reads the untouched original prompt in a single pass. Keep `<d>` spoken lines verbatim across both prompts when on-screen speakers appear so lip motion and dialogue stay aligned.
-   - **Impossible Kuleshov cross-modal splits:** pair deadpan calm visuals with an incompatible soundscape (or swap multiple soundtracks onto one locked visual seed) without text-encoder averaging.
-2. **`1x` Depth-Layered Zero-LoRA Style & Material Transfer (`blocks.0..19` = Prompt A, `blocks.20..49` = Prompt B):**
-   - Feed Prompt A (clean blocking, anatomy, camera, subject count) through `blocks.0..19` and Prompt B (e.g., blueprint ink, porcelain diorama, sunlit underwater caustics, frosted winter) into `blocks.20..49` from step `0` (hitting H3's early-step palette clock while locking spatial geometry in early blocks), while `Q_aud` reads Prompt A.
-   - *Open probe question:* determine via a fast single-shot probe whether `blocks.0..19` locks color/texture too strongly before block `20` or cleanly separates layout from medium/lighting without a LoRA or control vector.
-3. **`1x` Direct Cross-Modal Attention Mixing (`Q <-> K` edges between latent modalities):**
-   - **Sight-to-Sound Coupling Dial (`Q_aud -> K_vid` in `blocks.30..49`):** Leave `blocks.0..29` open for lip-sync and pass a `[1, 1, 1, L]` additive `attn_mask` in [`steering/hooks.py`](../../steering/hooks.py) to damp `K_vid` logits in late blocks (`{1.0, 0.5, 0.25, 0.0}`), mapping the **lip-sync vs. pitch-invariance** trade-off curve directly.
-   - **Depth-Gated Dual-Lock Dial (`Q_vid -> K_ref_img` & `Q_aud -> K_ref_audio`):** Keep `ref_img` full in `blocks.0..19` to lock `<Picture 1>` face and pose, and attenuate `ref_img` only in `blocks.20..49` across all attention backends — testing whether depth-gating breaks Dual-Lock more cleanly than the timestep hammer of `MiniMaxH3ReleaseReferences`.
-   - **Depth-Targeted Sound-Driven Visuals (`Q_vid -> K_aud`):** Selective `blocks.0..19` vs. `blocks.20..49` `K_aud` gain ([`attention.py::apply_audio_gain`](../../attention.py#L280)) to test beat-locked camera/body motion vs. audio-reactive lighting.
-4. **`1x` Temporal & Binaural Stereo Audio Routing (`Q_aud[t0:t1]` and `Q_aud_L` vs `Q_aud_R`):**
-   - Built directly on `comfy/ldm/minimax/model.py::{pack_audio, _audio_grid}`, which packs stereo audio channel-major (`[L, R]` on the `40 Hz` clock) and pins Left to `w_low` and Right to `w_high`.
-   - Enables **mid-clip acoustic teleports** (`0..t0` dry street -> `t0..T` vacuum, underwater hydrophone, or cathedral organ) and **binaural L/R splits** (different acoustic prompts in Left vs. Right ear).
-   - *Open probe question:* verify in fast `141f` probes whether audio-to-audio self-attention preserves crisp time/stereo separation or smears splits.
-5. **Simultaneous Multi-Band `1x` Mixing (prereq unlock):**
-   - Lift the `len(non_all_bands) > 1` `ValueError` in [`steering/nodes.py`](../../steering/nodes.py) so `video_only` (`mid_late_20_49`) and `audio_only` (`late_30_49`) can run together in one `1x` forward pass using the existing dual-shadow workspace.
+| Capability (Shipped or Proposed) | Exists in DiT World? | Closest LLM / VLM / Audio Analogue | What Specifically Remains Unclaimed in Single-Stream AV DiTs (`2026-11-24`) |
+| :--- | :---: | :--- | :--- |
+| **`1x` Split-Text K/V Routing (`Q_vid -> Prompt A`, `Q_aud -> Prompt B`, shadow text evolution)** | **Not found** (`LTX-2` `2601.03233` & `Ovi` `2510.01284` split via separate model towers; `Soundwich` `2610.00691` targets H3/LTX-2/Ovi via multi-stem carriers + Carrier Replay; `Regional-Prompting-FLUX` `2411.02395` is image-only spatial) | **None found** in retrieval; closest LLM pattern is runtime KV-bank swapping / prefix isolation | **Training-free `1x` single-pass cross-modal text K/V routing** (arbitrary-length dual prompts or steered/unsteered split + section isolation) inside a frozen single-stream AV DiT. **Strongest unclaimed piece.** |
+| **`1x` Sight-to-Sound Attention Logit Damping (`Q_aud -> K_vid` in `blocks.30..49`)** | **Not found** (binaural/AV models like `AV-Link` use trained gating modules; `Soundwich` uses SAM entity masks) | **`PASTA`** (`2311.02262`, ICLR 2024: inference-time attention-logit reweighting) & VLM **`PAI`** (`2407.21771`) / **`OPERA`** (`2311.17911`: layer-targeted visual logit scaling) | **Training-free late-block `Q_aud -> K_vid` logit-damping dial** mapping lip-sync vs. vocal-pitch-invariance in a frozen AV DiT. **Cleanly unclaimed.** |
+| **`1x` Temporal (`Q_aud[t0:t1]`) & Binaural Stereo (`Q_aud_L` / `Q_aud_R`) Routing** | **Not found** (stereo V2A models train position-aware encoders; `Soundwich` replays stem carriers) | Spatial audio beamforming & time-frequency source masks; `Regional-Prompting-FLUX` applied to 1D `(channel, time)` rows | **Training-free `1x` prompt routing onto channel-major stereo (`w_low`/`w_high`) and `40 Hz` time slices** inside a frozen AV DiT (needs fast `141f` probe first). |
+| **Depth-Gated Reference Attenuation (`ref_img` `0..19` vs `20..49`) & Single-Band Block Prompting** | **Yes / Partial in T2I** (`P+` `2303.09522`, `InstantStyle` `2404.02733`, `B-LoRA` `2403.14572`, `SplitFlux` `2511.15258`, `TADA!` `2602.11910`, `MAINodes` per-block H3 deltas) | VLM `PAI` (`2407.21771`) layer-specific visual-token scaling; layer-selective LLM steering | Standalone block-band routing is **not** novel; unclaimed parts are **simultaneous distinct `Q_vid` + `Q_aud` bands in one `1x` pass** and **late-block `Q_vid -> K_ref_img` attenuation for raw-VAE Dual-Lock** (both unbuilt probes; note `golden_hour_glow` counter-signal on `0..19` vs `20..49`). |
+| **Pole-A Subspace Erasure (`add_norm_matched_erasure`) & Moving Portals (`2x`)** | **Partial** (`SAFREE` `2410.12761`, `CURE` `2505.12677`, `RASteer` `2610.01969`, `MAINodes` 1D H3 dials; `Prompt-to-Prompt` `2208.01626`) | `ACE` (`2411.09003`), `MiMiC` (`2402.09631`), Conceptors (`2410.16314`), VLM `VCD` (`2311.16922`) | Only the exact erasure slider recipe (empirically ties `1D` outside sparse `noir`) and the single-prompt `2x` AV portal composition. |
 
 ---
 
-## 4. Additional Existing-Tool Workflows & Evaluation Practices to Test
+## 5. Content vs. Address: Multimodal References, Masking, & Top 10 "SO WHAT?"s
+
+Once control vectors stop driving everything, **the prompt's own structure plus multimodal references and masks form one unified Content + Address system**:
+
+- **References are non-text content (`ref_img`, `ref_video`, `ref_audio`, `vision_tokens`):** Reference blocks are contiguous segments inside `PackedLayout.segments`, so routing them by reader (`Q_vid` vs `Q_aud`) and block depth requires simple per-segment scaling/masking rather than dual text shadow evolution.
+- **Masks are addresses (reusing the pack's existing grammar):**
+  1. **Text-span / Section / `[Shot N]` / Speaker masks ([`h3_spans.py`](../../h3_spans.py)):** Choose which conditioning rows each modality reads from a single prompt (or address `(S1)` alone while leaving `(S2)` untouched).
+  2. **Temporal & Stereo audio masks (`1x` `Q_aud`):** Choose which `40 Hz` time frames or Left/Right stereo channels attend to Prompt B.
+  3. **Spatial `[F, H, W]` video masks (`2x` `EditGuider` + `MiniMaxH3SpatialDirector` + SAM 3.1 / Sapiens2):** Stay two-pass for per-region video edits, composing directly with `1x` audio/reference routing so spatial visual portals never warp soundtracks.
+
+### Top 10 "SO WHAT?"s & Two-Step Build Plan
+
+| # | Goal ("So What?") | Current Status (`2026-11-24`) | Where It Lives / Next Milestone |
+| :-: | :--- | :--- | :--- |
+| **1** | **Two scripts, one `1x` pass (`Q_vid` Prompt A, `Q_aud` Prompt B)** | Working `2x` stand-in (`pic_mae=5.003`); arbitrary-`l_txt` `1x` in **Build Step 1** | `MiniMaxH3QueryRouter` + parity & 3-seed probe |
+| **2** | **Zero sound-to-picture leak via section auto-routing** | Proven manually on `reverb_cathedral` (`routed_as_bank_metrics.json`); auto-split in **Build Step 1** | `section_split` (`soundscape_to_audio` / `sections_by_modality`) |
+| **3** | **Sight-to-sound coupling knob (`Q_aud -> K_vid` in `30..49`)** | Residual pitch bleed measured; dial planned for **Build Step 2** | Additive `[1, 1, 1, L]` `attn_mask` in [`steering/hooks.py`](../../steering/hooks.py) |
+| **4** | **Zero-LoRA depth-layered style (`0..19` Prompt A, `20..49` Prompt B)** | **Hypothesis with counter-signal** (`golden_hour_glow` `20..49` still shifted jacket/hat in `routed_as_bank`) | Keep as probe (`video_block_band` in **Build Step 1**) — do not promise geometry lock |
+| **5** | **Depth-gated `ref_img` Dual-Lock dial (`0..19` vs `20..49`)** | Hypothesis sharing the same `0..19` premise; queued for **Build Step 2** | Per-depth `ref_img` gain probe after Step 1 parity |
+| **6** | **Multimodal reference routing (`ref_img`/`ref_video`/`ref_audio` per reader)** | Design target for **Build Step 2** (reuses `PackedLayout.segments`) | `Q_vid -> ref_img/ref_video`, `Q_aud -> ref_audio` isolation |
+| **7** | **Sub-clip `1x` temporal (`Q_aud[t0:t1]`) & binaural L/R (`Q_aud_L/R`)** | Planned for **Build Step 2** (`141f` bleed-vs-crispness kill-or-keep probe) | `pack_audio` / `_audio_grid` slice routing |
+| **8** | **Per-speaker voice directing & `1x` dubbing probe** | Partial reach noted (`operatic_bellow` `followup_bands`); needs Step 1 + speaker span routing | `(S1)`-row audio routing with `(S2)` in-clip control |
+| **9** | **Unified masking across `1x` router & `2x` spatial portals / `AudioRefineMask`** | Integration track after Step 1 parity (`h3_spans` + `SpatialDirector`) | Beat-synced portal & `AudioRefineMask` redub workflows |
+| **10** | **Off the concept-vector treadmill without dropping what works** | Settled: `add_norm_matched_erasure` stays default (`noir` win, zero cost elsewhere) | Full prompts in `MiniMaxH3QueryRouter` handle expressiveness; vectors handle continuous dose / edge cases |
+
+**Two-Step Build Discipline:**
+- **Build Step 1 (`v1`, landing now):** Standalone **`MiniMaxH3QueryRouter`** node + arbitrary-length shadow K/V support in `steering/hooks.py` + lifting the single non-`"all"` `block_band` error in `steering/nodes.py`, delivering: (a) parity with `MiniMaxH3Steer(streams="audio_only")`, (b) arbitrary-length `audio_conditioning` / `video_conditioning`, (c) independent per-stream `video_block_band` + `audio_block_band`, and (d) single-prompt `section_split` (`soundscape_to_audio`, `sections_by_modality`).
+- **Build Step 2 (`v2`, after Step 1 parity + 3-seed probes):** `Q_aud -> K_vid` late-block coupling dial, depth-gated `ref_img` / `ref_video` / `ref_audio` routing, temporal `Q_aud[t0:t1]` and binaural `Q_aud_L` / `Q_aud_R` audio routing, and single-speaker addressing.
+
+---
+
+## 6. Additional Existing-Tool Workflows & Evaluation Practices to Test
 
 Capabilities ready to test using nodes already in the pack:
 
-1. **Ship `1x` Query Routing workflows (`workflows/build_workflows.py`):** ship clean `1x` `video_only`, late-block `audio_only`, and combined `video_only + audio_only` graphs (plus wire `streams` and `block_band` into [`bench/edit_guidance_arms.py`](../../bench/edit_guidance_arms.py) so automated tests match routed configs).
+1. **Ship `1x` Query Routing workflows (`workflows/build_workflows.py`):** ship clean `1x` `video_only`, `mid_late_20_49` / `late_30_49` `audio_only`, and combined `video_only + audio_only` graphs (plus wire `streams` and `block_band` into [`bench/edit_guidance_arms.py`](../../bench/edit_guidance_arms.py) so automated tests match routed configs).
 2. **Beat-synced music-video reality portals (`MiniMaxH3FreezeAudio` + `MiniMaxH3SpatialDirector` + `MiniMaxH3Steer`):** lock a real music track while driving moving wipes/portals across the video; because audio is frozen, visual steering runs with zero vocal pitch drift.
 3. **Motion transfer + single-prompt moving portal (`MiniMaxH3AppendRefVideo` + `<Picture 1>` + `MiniMaxH3SpatialDirector`):** transfer real choreography onto a reference character and sweep a zero-rewrite portal across the performance.
 4. **Fast multi-take audio redub (`MiniMaxH3AudioRefineMask` + `MiniMaxH3FrozenVideoCache`):** freeze video K/V once and audition multiple voice/foley/acoustic takes (`audio_only` steering or rewritten audio prompts) with truly locked pixels — zero shipped workflows use `MiniMaxH3AudioRefineMask` today.
 5. **Single-prompt regional mask steering on `MiniMax-H3-Image` (`length = 1`):** combine `MiniMaxH3EditGuider` + spatial mask + `MiniMaxH3Steer` at single-frame speed for rapid multi-seed region checks.
-6. **`[Shot N]` shot-scoped text targeting:** [`h3_spans.py`](../../h3_spans.py) already parses `[Shot N]` headers; test whether targeting one shot's rows steers only that shot (and whether `TokenRefiner` self-attention bleeds across cuts).
+6. **`[Shot N]` & single-speaker targeting:** [`h3_spans.py`](../../h3_spans.py) already parses `[Shot N]` headers; test whether targeting one shot's rows or one speaker's rows stays localized despite `TokenRefiner` self-attention.
 7. **Forced-choice blind concept identification gate:** adapt [`bench/control_vector_readout_score.py`](../../bench/control_vector_readout_score.py)'s blind packet format to clips — show a blind judge the unsteered and routed clips and ask it to name what changed from a short list. Any concept a viewer cannot identify within one watch is cut.
 
 ---
 
-## 5. Fresh From-Scratch Concepts ("Unmistakable in 1 Second", Non-Destructive)
+## 7. Fresh From-Scratch Concepts ("Unmistakable in 1 Second", Non-Destructive)
 
 Every test concept below is designed to pass the **Unmistakable in 1 Second** bar (binary visual/audible recognition, zero vague film stocks or "high energy" synonyms) while keeping faces, blocking, camera moves, and speech intact — replacing stale crutches (`noir`, `film_16mm_1974`, `golden_hour_glow`, `knitted_wool_world`, `chaos_panic`, `pyro_klaxon_audio`):
 
@@ -110,7 +141,7 @@ Every test concept below is designed to pass the **Unmistakable in 1 Second** ba
 
 ---
 
-## 6. Curated 10-Scene Diverse Generalization Matrix
+## 8. Curated 10-Scene Diverse Generalization Matrix
 
 Every scene below is adult-only, excludes bank crutches listed in [`steering/constants.py`](../../steering/constants.py) (`COMPILER_EXCLUDE_SHOTS`, `DEFAULT_EXCLUDE_SHOTS`), uses its bank-declared length ([`bench/run_graph_arms.py`](../../bench/run_graph_arms.py)), and keeps spoken `<d>` dialogue verbatim across visual rewrites:
 
@@ -129,7 +160,7 @@ Every scene below is adult-only, excludes bank crutches listed in [`steering/con
 
 ---
 
-## 7. Two Tiny Fresh `141f` Lab Prompts to Add & Render-Time Discipline
+## 9. Two Tiny Fresh `141f` Lab Prompts to Add & Render-Time Discipline
 
 Auditing the full `180`-prompt bank surfaced two clean single-shot gaps (plus missing donor stills for several older `ref2va` scripts):
 
