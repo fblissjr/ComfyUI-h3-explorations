@@ -15,7 +15,7 @@ Modules:
 
 from __future__ import annotations
 
-from . import constants, data, extract, hooks, mixer, runtime, xray
+from . import constants, data, extract, hooks, mixer, query_router, runtime, xray
 from .constants import (
     CANONICAL_PROVENANCE_KEYS,
     COMPILER_EXCLUDE_SHOTS,
@@ -49,6 +49,7 @@ from .mixer import (
     resolve_vector_routing,
     validate_fader_strength,
 )
+from .query_router import SECTION_SPLIT_MODES, MiniMaxH3QueryRouter, attach_query_router
 from .runtime import apply_post_refiner, soft_cap_stacked_rms
 
 __all__ = [
@@ -68,6 +69,7 @@ __all__ = [
     "HoldItem",
     "MIN_ERASURE_PAIRS",
     "MacroChannelPreset",
+    "MiniMaxH3QueryRouter",
     "MixerCompiler",
     "NON_H3_IMAGE_STEMS",
     "NORM_MATCHED_TARGET",
@@ -76,11 +78,13 @@ __all__ = [
     "PairSet",
     "PooledPairSet",
     "RoutingSpec",
+    "SECTION_SPLIT_MODES",
     "STACK_SMOOTH_CEIL_NORM",
     "STACK_SMOOTH_KNEE_NORM",
     "STEER_BUSES",
     "STEER_REGIMES",
     "apply_post_refiner",
+    "attach_query_router",
     "constants",
     "data",
     "extract",
@@ -91,6 +95,7 @@ __all__ = [
     "load_vector",
     "mixer",
     "pool_pair_set",
+    "query_router",
     "resolve_director_steer_entry",
     "resolve_vector_routing",
     "runtime",
@@ -99,7 +104,6 @@ __all__ = [
     "validate_fader_strength",
     "xray",
 ]
-
 
 def __getattr__(name: str):
     if name in ("nodes", "legacy_nodes", "encode"):

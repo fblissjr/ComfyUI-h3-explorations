@@ -1551,26 +1551,45 @@ def _make_control_vector_wrapper(
         n_blocks_exec = len(dm_exec.blocks) if _steer_hooks.is_hookable_dit(dm_exec) else 50
         all_blocks_fset = frozenset(range(n_blocks_exec))
 
-        non_all_bands: dict[str, frozenset[int]] = {}
-        all_band_specs: list[_AppliedVectorSpec] = []
+        vid_non_all_bands: dict[str, frozenset[int]] = {}
+        aud_non_all_bands: dict[str, frozenset[int]] = {}
+        vid_all_band_specs: list[_AppliedVectorSpec] = []
+        aud_all_band_specs: list[_AppliedVectorSpec] = []
         for sp in active_specs:
             bb_raw = getattr(sp, "block_band", "all")
+            v_sc = _spec_stream_scale(sp, "video_scale")
+            a_sc = _spec_stream_scale(sp, "audio_scale")
             if bb_raw == "all":
-                all_band_specs.append(sp)
+                if v_sc != 0.0:
+                    vid_all_band_specs.append(sp)
+                if a_sc != 0.0:
+                    aud_all_band_specs.append(sp)
             else:
                 bset = _steer_hooks.parse_block_band(bb_raw, n_blocks_exec)
                 if has_block_hooks and bset == all_blocks_fset:
-                    all_band_specs.append(sp)
+                    if v_sc != 0.0:
+                        vid_all_band_specs.append(sp)
+                    if a_sc != 0.0:
+                        aud_all_band_specs.append(sp)
                 else:
-                    non_all_bands[bb_raw] = bset
+                    if v_sc != 0.0:
+                        vid_non_all_bands[bb_raw] = bset
+                    if a_sc != 0.0:
+                        aud_non_all_bands[bb_raw] = bset
 
-        if len(non_all_bands) > 1:
+        if len(vid_non_all_bands) > 1:
             raise ValueError(
-                "MiniMaxH3Steer cannot combine multiple distinct non-'all' block_band ranges "
-                f"in the same step: {sorted(non_all_bands.keys())}"
+                "MiniMaxH3Steer cannot combine multiple distinct non-'all' block_band ranges on the video stream "
+                f"in the same step: {sorted(vid_non_all_bands.keys())}"
+            )
+        if len(aud_non_all_bands) > 1:
+            raise ValueError(
+                "MiniMaxH3Steer cannot combine multiple distinct non-'all' block_band ranges on the audio stream "
+                f"in the same step: {sorted(aud_non_all_bands.keys())}"
             )
 
-        has_band_limit = len(non_all_bands) == 1
+        distinct_bands = {**vid_non_all_bands, **aud_non_all_bands}
+        has_band_limit = bool(distinct_bands)
         any_legacy_split = need_split and any(
             getattr(sp, "split_backend", "auto_1x_kv") == "legacy_2x_pass"
             for sp in active_specs
@@ -1578,7 +1597,7 @@ def _make_control_vector_wrapper(
         )
         if has_band_limit and not has_block_hooks:
             raise ValueError(
-                f"MiniMaxH3Steer(block_band={next(iter(non_all_bands))!r}) requires a hookable "
+                f"MiniMaxH3Steer(block_band={next(iter(distinct_bands))!r}) requires a hookable "
                 "MiniMaxH3Model with H3SteerBlockPatch entries in patches_replace['dit']"
             )
 
@@ -1610,6 +1629,7 @@ def _make_control_vector_wrapper(
             dual_shadow: bool,
             fork_b_at_block: int | None,
             aud_uses_shadow_b: bool,
+            aud_unswapped_blocks: frozenset[int] = frozenset(),
         ) -> Any:
             with _steer_hooks.pause_malloc_graph_ctx():
                 rt = _steer_hooks.H3SteerRuntime(
@@ -1624,6 +1644,7 @@ def _make_control_vector_wrapper(
                     dual_shadow=dual_shadow,
                     fork_b_at_block=fork_b_at_block,
                     aud_uses_shadow_b=aud_uses_shadow_b,
+                    aud_unswapped_blocks=aud_unswapped_blocks,
                 )
                 to_next = dict(transformer_options or {})
                 to_next["_h3_steer_runtime"] = rt
@@ -1652,16 +1673,23 @@ def _make_control_vector_wrapper(
             out_aud = executor(x, timestep, ctx_audio, transformer_options, **call_kwargs)
             return _merge_stream_outputs(out_vid, out_aud)
 
-        band_set = next(iter(non_all_bands.values())) if has_band_limit else all_blocks_fset
+        vid_band_set = next(iter(vid_non_all_bands.values())) if vid_non_all_bands else all_blocks_fset
+        aud_band_set = next(iter(aud_non_all_bands.values())) if aud_non_all_bands else all_blocks_fset
+        if not need_split and len(distinct_bands) == 1:
+            common_band = next(iter(distinct_bands.values()))
+            vid_band_set = common_band
+            aud_band_set = common_band
+
         with _steer_hooks.pause_malloc_graph_ctx():
             outside_vid = (
-                _build_steered_context(context, "video_scale", all_band_specs)
-                if (has_band_limit and all_band_specs)
+                _build_steered_context(context, "video_scale", vid_all_band_specs)
+                if (vid_non_all_bands and vid_all_band_specs)
                 else context
             )
             inside_vid = _build_steered_context(context, "video_scale", active_specs)
 
         if not need_split:
+            band_set = vid_band_set
             is_prefix = bool(band_set) and (0 in band_set) and ((n_blocks_exec - 1) not in band_set)
             if len(band_set) == 0:
                 return _invoke_with_steer_runtime(
@@ -1699,35 +1727,39 @@ def _make_control_vector_wrapper(
                 aud_uses_shadow_b=False,
             )
 
-        if not use_1x_split:
-            with _steer_hooks.pause_malloc_graph_ctx():
-                outside_aud = _build_steered_context(context, "audio_scale", all_band_specs) if all_band_specs else context
-                inside_aud = _build_steered_context(context, "audio_scale", active_specs)
-            is_prefix = bool(band_set) and (0 in band_set) and ((n_blocks_exec - 1) not in band_set)
+        with _steer_hooks.pause_malloc_graph_ctx():
+            outside_aud = (
+                _build_steered_context(context, "audio_scale", aud_all_band_specs)
+                if (aud_non_all_bands and aud_all_band_specs)
+                else context
+            )
+            inside_aud = _build_steered_context(context, "audio_scale", active_specs)
 
-            def _run_mode1_pass(o_ctx: torch.Tensor, i_ctx: torch.Tensor) -> Any:
-                if len(band_set) == 0:
+        if not use_1x_split:
+            def _run_mode1_pass(o_ctx: torch.Tensor, i_ctx: torch.Tensor, b_set: frozenset[int]) -> Any:
+                if len(b_set) == 0:
                     return executor(x, timestep, o_ctx, transformer_options, **call_kwargs)
-                if is_prefix:
+                if b_set == all_blocks_fset:
+                    return executor(x, timestep, i_ctx, transformer_options, **call_kwargs)
+                is_pref = (0 in b_set) and ((n_blocks_exec - 1) not in b_set)
+                if is_pref:
                     return _invoke_with_steer_runtime(
                         mode_id=1, main_ctx=i_ctx, shadow_a_init=o_ctx, shadow_b_init=None,
-                        swap_blocks=all_blocks_fset - band_set, aud_split_blocks=frozenset(),
+                        swap_blocks=all_blocks_fset - b_set, aud_split_blocks=frozenset(),
                         dual_shadow=False, fork_b_at_block=None, aud_uses_shadow_b=False,
                     )
                 return _invoke_with_steer_runtime(
                     mode_id=1, main_ctx=o_ctx, shadow_a_init=i_ctx, shadow_b_init=None,
-                    swap_blocks=band_set, aud_split_blocks=frozenset(),
+                    swap_blocks=b_set, aud_split_blocks=frozenset(),
                     dual_shadow=False, fork_b_at_block=None, aud_uses_shadow_b=False,
                 )
 
             return _merge_stream_outputs(
-                _run_mode1_pass(outside_vid, inside_vid),
-                _run_mode1_pass(outside_aud, inside_aud),
+                _run_mode1_pass(outside_vid, inside_vid, vid_band_set),
+                _run_mode1_pass(outside_aud, inside_aud, aud_band_set),
             )
 
-        with _steer_hooks.pause_malloc_graph_ctx():
-            inside_aud = _build_steered_context(context, "audio_scale", active_specs)
-        if not has_band_limit:
+        if not vid_non_all_bands and not aud_non_all_bands:
             return _invoke_with_steer_runtime(
                 mode_id=2,
                 main_ctx=inside_vid,
@@ -1740,15 +1772,46 @@ def _make_control_vector_wrapper(
                 aud_uses_shadow_b=False,
             )
 
-        with _steer_hooks.pause_malloc_graph_ctx():
-            outside_aud = (
-                _build_steered_context(context, "audio_scale", all_band_specs)
-                if all_band_specs
-                else context
+        early_vid_eq_aud = bool(outside_vid is outside_aud or torch.equal(outside_vid, outside_aud))
+        if (vid_non_all_bands and aud_non_all_bands) and (vid_band_set != aud_band_set):
+            if early_vid_eq_aud:
+                return _invoke_with_steer_runtime(
+                    mode_id=3,
+                    main_ctx=outside_vid,
+                    shadow_a_init=inside_vid,
+                    shadow_b_init=inside_aud,
+                    swap_blocks=vid_band_set,
+                    aud_split_blocks=aud_band_set,
+                    dual_shadow=True,
+                    fork_b_at_block=None,
+                    aud_uses_shadow_b=True,
+                    aud_unswapped_blocks=vid_band_set - aud_band_set,
+                )
+
+            def _run_mode1_mixed(o_ctx: torch.Tensor, i_ctx: torch.Tensor, b_set: frozenset[int]) -> Any:
+                if len(b_set) == 0:
+                    return executor(x, timestep, o_ctx, transformer_options, **call_kwargs)
+                is_pref = (0 in b_set) and ((n_blocks_exec - 1) not in b_set)
+                if is_pref:
+                    return _invoke_with_steer_runtime(
+                        mode_id=1, main_ctx=i_ctx, shadow_a_init=o_ctx, shadow_b_init=None,
+                        swap_blocks=all_blocks_fset - b_set, aud_split_blocks=frozenset(),
+                        dual_shadow=False, fork_b_at_block=None, aud_uses_shadow_b=False,
+                    )
+                return _invoke_with_steer_runtime(
+                    mode_id=1, main_ctx=o_ctx, shadow_a_init=i_ctx, shadow_b_init=None,
+                    swap_blocks=b_set, aud_split_blocks=frozenset(),
+                    dual_shadow=False, fork_b_at_block=None, aud_uses_shadow_b=False,
+                )
+
+            return _merge_stream_outputs(
+                _run_mode1_mixed(outside_vid, inside_vid, vid_band_set),
+                _run_mode1_mixed(outside_aud, inside_aud, aud_band_set),
             )
-            early_vid_eq_aud = bool(outside_vid is outside_aud or torch.equal(outside_vid, outside_aud))
-            vid_const_band = bool(outside_vid is inside_vid or torch.equal(outside_vid, inside_vid))
-            aud_const_band = bool(outside_aud is inside_aud or torch.equal(outside_aud, inside_aud))
+
+        band_set = vid_band_set if vid_non_all_bands else aud_band_set
+        vid_const_band = bool(outside_vid is inside_vid or torch.equal(outside_vid, inside_vid))
+        aud_const_band = bool(outside_aud is inside_aud or torch.equal(outside_aud, inside_aud))
 
         if len(band_set) == 0:
             if early_vid_eq_aud:

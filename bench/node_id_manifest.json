@@ -815,6 +815,22 @@
       "latent"
     ]
   },
+  "MiniMaxH3QueryRouter": {
+    "inputs": [
+      "model",
+      "section_split",
+      "video_block_band",
+      "audio_block_band",
+      "start_percent",
+      "end_percent",
+      "audio_conditioning",
+      "video_conditioning"
+    ],
+    "node_id": "MiniMaxH3QueryRouter",
+    "outputs": [
+      "model"
+    ]
+  },
   "MiniMaxH3ReferenceConditioning": {
     "inputs": [
       "clip",

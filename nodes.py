@@ -99,6 +99,7 @@ from .sprite_trajectory import MiniMaxH3AppendSpriteTrajectory
 from .spatial_director import MiniMaxH3SpatialDirector, MiniMaxH3DirectorHUD
 from .auto_edit_prompt import MiniMaxH3AutoEditPrompt
 from .h3_prompt_expander import MiniMaxH3PromptExpander
+from steering.query_router import MiniMaxH3QueryRouter
 from . import h3_capture
 
 from .attention import (
@@ -458,7 +459,9 @@ class H3ExplorationsExtension(ComfyExtension):
                 # appended 2026-11-19, heylook-driven 4-axis auto-edit guidance (auto_edit_prompt.py)
                 MiniMaxH3AutoEditPrompt,
                 # appended 2026-11-20, dedicated 1x video prompt expander (h3_prompt_expander.py)
-                MiniMaxH3PromptExpander]
+                MiniMaxH3PromptExpander,
+                # appended 2026-11-24, standalone 1x Cross-Modal Query Router (steering/query_router.py)
+                MiniMaxH3QueryRouter]
 
 
 async def comfy_entrypoint() -> H3ExplorationsExtension:

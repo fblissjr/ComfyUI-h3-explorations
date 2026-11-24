@@ -12,7 +12,7 @@ from typing import Any, Callable, Sequence
 import torch
 import torch.nn.functional as F
 
-from .constants import STEER_BLOCK_BANDS, STEER_SPLIT_BACKENDS
+from .constants import POST_REFINER_DIM, STEER_BLOCK_BANDS, STEER_SPLIT_BACKENDS
 
 logger = logging.getLogger("ComfyUI-h3-explorations.steer_hooks")
 
@@ -31,6 +31,87 @@ def pause_malloc_graph_ctx():
     except Exception:
         pass
     return contextlib.nullcontext()
+
+
+def step_in_window(
+    transformer_options: dict[str, Any] | None,
+    timestep: Any,
+    start_percent: float,
+    end_percent: float,
+) -> bool:
+    """True when the current sampler step lies in `[start_percent, end_percent)`."""
+    if start_percent >= end_percent:
+        return False
+    if start_percent <= 0.0 and end_percent >= 1.0:
+        return True
+    t_opts = transformer_options or {}
+    sched = t_opts.get("sample_sigmas")
+    cur = t_opts.get("sigmas")
+    if cur is None and timestep is not None:
+        cur = timestep
+    if sched is not None and cur is not None:
+        sched_t = (
+            sched.detach().flatten().to(dtype=torch.float64, device="cpu")
+            if isinstance(sched, torch.Tensor)
+            else torch.tensor(list(sched), dtype=torch.float64)
+        )
+        if int(sched_t.numel()) >= 2:
+            cur_val = float(
+                cur.detach().flatten()[0].item()
+                if isinstance(cur, torch.Tensor)
+                else cur[0]
+                if isinstance(cur, (list, tuple))
+                else cur
+            )
+            if cur is timestep and cur_val > 1.0 and float(sched_t.max().item()) <= 1.0001:
+                cur_val /= 1000.0
+            n_steps = int(sched_t.numel()) - 1
+            step_idx = int((sched_t[:n_steps] - cur_val).abs().argmin().item())
+            frac = step_idx / n_steps
+            return bool(start_percent <= frac < end_percent)
+    if cur is not None:
+        cur_val = float(
+            cur.detach().flatten()[0].item()
+            if isinstance(cur, torch.Tensor)
+            else cur[0]
+            if isinstance(cur, (list, tuple))
+            else cur
+        )
+        if cur is timestep and 1.0 < cur_val <= 1000.0:
+            cur_val /= 1000.0
+        if 0.0 <= cur_val <= 1.0:
+            frac = 1.0 - cur_val
+            return bool(start_percent <= frac < end_percent)
+    return True
+
+
+def refine_text_context(
+    dm: Any,
+    ctx: torch.Tensor,
+    transformer_options: dict[str, Any] | None = None,
+    *,
+    caller_name: str = "H3 query routing",
+) -> torch.Tensor:
+    """Project and pass pre-refiner `[B, L, 5120]` text states through `TokenRefiner` idempotently."""
+    if ctx.ndim == 3 and ctx.shape[-1] == POST_REFINER_DIM:
+        return ctx
+    if dm is None or not (hasattr(dm, "token_refiner") and hasattr(dm, "condition_proj")):
+        raise ValueError(
+            f"{caller_name} received context with hidden_size={ctx.shape[-1]} "
+            f"(expected {POST_REFINER_DIM}) and could not access diffusion_model.token_refiner"
+        )
+    t_opts = transformer_options if isinstance(transformer_options, dict) else {}
+    with pause_malloc_graph_ctx(), torch.no_grad():
+        return torch.stack(
+            [
+                dm.token_refiner(
+                    dm.condition_proj(ctx[b_idx]),
+                    transformer_options=t_opts,
+                )
+                for b_idx in range(int(ctx.shape[0]))
+            ],
+            dim=0,
+        )
 
 
 def validate_block_band(band_spec: Any) -> str:
@@ -113,6 +194,49 @@ def _slice_mod_segments(
     return out
 
 
+def _adapt_text_mod_segments(
+    mod_txt_main: Sequence[tuple[int, int, Any]],
+    l_txt_main: int,
+    l_txt_shadow: int,
+) -> list[tuple[int, int, Any]]:
+    if l_txt_shadow == l_txt_main or not mod_txt_main:
+        return list(mod_txt_main)
+    row = mod_txt_main[0][2]
+    if torch.is_tensor(row) and row.ndim >= 1:
+        if row.shape[0] >= l_txt_shadow:
+            row_s = row[:l_txt_shadow]
+        else:
+            row_s = row[0:1].expand(l_txt_shadow, *row.shape[1:])
+        return [(0, int(l_txt_shadow), row_s)]
+    return [(0, int(l_txt_shadow), row)]
+
+
+def _build_shadow_text_rope(
+    dm: Any,
+    l_txt_main: int,
+    l_txt_shadow: int,
+    device: torch.device,
+    dtype: torch.dtype,
+    fallback_rope: Any,
+) -> Any:
+    if l_txt_shadow == l_txt_main or fallback_rope is None:
+        return fallback_rope
+    rope_fn = getattr(dm, "rope_freqs", None)
+    if callable(rope_fn):
+        pos = torch.zeros(int(l_txt_shadow), 3, dtype=torch.float64)
+        pos[:, 0] = torch.arange(int(l_txt_shadow), dtype=torch.float64) + float(
+            int(l_txt_main) - int(l_txt_shadow)
+        )
+        angles = rope_fn(pos, device)
+        half = angles.shape[-1] // 2
+        ang = angles[:, :half]
+        c, s = torch.cos(ang), torch.sin(ang)
+        return torch.stack([c, -s, s, c], dim=-1).reshape(1, angles.shape[0], 1, half, 2, 2).to(dtype)
+    if torch.is_tensor(fallback_rope) and fallback_rope.ndim >= 2 and fallback_rope.shape[1] >= l_txt_shadow:
+        return fallback_rope[:, -int(l_txt_shadow) :]
+    return None
+
+
 def _apply_audio_gain_bhnd(k_bh: torch.Tensor, v_bh: torch.Tensor, options: dict[str, Any]) -> bool:
     if not isinstance(options, dict):
         return False
@@ -175,23 +299,25 @@ class _WorkspaceBuffers:
         *,
         device: torch.device,
         dtype: torch.dtype,
-        l_txt: int,
+        l_txt_main: int,
+        l_txt_a: int,
+        l_txt_b: int,
         heads: int,
         head_dim: int,
         hidden_dim: int,
         dual_shadow: bool,
     ) -> None:
-        self.h_shadow_a = torch.empty((l_txt, hidden_dim), device=device, dtype=dtype)
-        self.q_a = torch.empty((1, heads, l_txt, head_dim), device=device, dtype=dtype)
-        self.k_a = torch.empty((1, heads, l_txt, head_dim), device=device, dtype=dtype)
-        self.v_a = torch.empty((1, heads, l_txt, head_dim), device=device, dtype=dtype)
-        self.k_txt_saved = torch.empty((1, heads, l_txt, head_dim), device=device, dtype=dtype)
-        self.v_txt_saved = torch.empty((1, heads, l_txt, head_dim), device=device, dtype=dtype)
+        self.h_shadow_a = torch.empty((l_txt_a, hidden_dim), device=device, dtype=dtype)
+        self.q_a = torch.empty((1, heads, l_txt_a, head_dim), device=device, dtype=dtype)
+        self.k_a = torch.empty((1, heads, l_txt_a, head_dim), device=device, dtype=dtype)
+        self.v_a = torch.empty((1, heads, l_txt_a, head_dim), device=device, dtype=dtype)
+        self.k_txt_saved = torch.empty((1, heads, l_txt_main, head_dim), device=device, dtype=dtype)
+        self.v_txt_saved = torch.empty((1, heads, l_txt_main, head_dim), device=device, dtype=dtype)
         if dual_shadow:
-            self.h_shadow_b = torch.empty((l_txt, hidden_dim), device=device, dtype=dtype)
-            self.q_b = torch.empty((1, heads, l_txt, head_dim), device=device, dtype=dtype)
-            self.k_b = torch.empty((1, heads, l_txt, head_dim), device=device, dtype=dtype)
-            self.v_b = torch.empty((1, heads, l_txt, head_dim), device=device, dtype=dtype)
+            self.h_shadow_b = torch.empty((l_txt_b, hidden_dim), device=device, dtype=dtype)
+            self.q_b = torch.empty((1, heads, l_txt_b, head_dim), device=device, dtype=dtype)
+            self.k_b = torch.empty((1, heads, l_txt_b, head_dim), device=device, dtype=dtype)
+            self.v_b = torch.empty((1, heads, l_txt_b, head_dim), device=device, dtype=dtype)
         else:
             self.h_shadow_b = None
             self.q_b = None
@@ -226,13 +352,31 @@ class H3SteerStepWorkspace:
         *,
         device: torch.device,
         dtype: torch.dtype,
-        l_txt: int,
+        l_txt: int | None = None,
+        l_txt_main: int | None = None,
+        l_txt_a: int | None = None,
+        l_txt_b: int | None = None,
         heads: int,
         head_dim: int,
         hidden_dim: int,
         dual_shadow: bool,
     ) -> _WorkspaceBuffers:
-        key = (str(device), str(dtype), int(l_txt), int(heads), int(head_dim), int(hidden_dim), bool(dual_shadow))
+        l_main = int(l_txt_main if l_txt_main is not None else (l_txt if l_txt is not None else 0))
+        if l_main <= 0:
+            raise ValueError("l_txt / l_txt_main must be > 0")
+        la = int(l_txt_a if l_txt_a is not None else l_main)
+        lb = int(l_txt_b if l_txt_b is not None else l_main)
+        key = (
+            str(device),
+            str(dtype),
+            l_main,
+            la,
+            lb if dual_shadow else 0,
+            int(heads),
+            int(head_dim),
+            int(hidden_dim),
+            bool(dual_shadow),
+        )
         existing = self._entries.get(key)
         if existing is not None:
             self._entries.move_to_end(key)
@@ -240,7 +384,9 @@ class H3SteerStepWorkspace:
         bufs = _WorkspaceBuffers(
             device=device,
             dtype=dtype,
-            l_txt=l_txt,
+            l_txt_main=l_main,
+            l_txt_a=la,
+            l_txt_b=lb,
             heads=heads,
             head_dim=head_dim,
             hidden_dim=hidden_dim,
@@ -272,6 +418,7 @@ class H3SteerRuntime:
         dual_shadow: bool,
         fork_b_at_block: int | None,
         aud_uses_shadow_b: bool,
+        aud_unswapped_blocks: frozenset[int] = frozenset(),
         save_aud_k_on_block_exit: bool = True,
     ) -> None:
         self.dm = dm
@@ -281,8 +428,11 @@ class H3SteerRuntime:
         self.main_ctx = main_ctx
         self.shadow_a_init = shadow_a_init
         self.shadow_b_init = shadow_b_init
+        self.l_txt_a = int(shadow_a_init.shape[-2])
+        self.l_txt_b = int(shadow_b_init.shape[-2]) if shadow_b_init is not None else None
         self.swap_blocks = swap_blocks
         self.aud_split_blocks = aud_split_blocks
+        self.aud_unswapped_blocks = aud_unswapped_blocks
         self.dual_shadow = bool(dual_shadow)
         self.fork_b_at_block = fork_b_at_block
         self.aud_uses_shadow_b = bool(aud_uses_shadow_b)
@@ -290,6 +440,8 @@ class H3SteerRuntime:
         self.active = True
         self._bufs: _WorkspaceBuffers | None = None
         self._cur: dict[str, Any] | None = None
+        self._rope_a: Any = None
+        self._rope_b: Any = None
         self.stats: dict[str, Any] = {
             "mode": self.mode,
             "kv_swaps": 0,
@@ -312,6 +464,8 @@ class H3SteerRuntime:
         l_txt = int(tx_b - tx_a)
         if l_txt <= 0:
             return
+        l_txt_a = self.l_txt_a
+        l_txt_b = l_txt if self.fork_b_at_block is not None else (self.l_txt_b if self.l_txt_b is not None else l_txt)
         au_spans = [(int(sa), int(sb)) for (sa, sb, kind) in layout.segments if kind == "audio" and sb > sa]
         total_aud = sum(b - a for a, b in au_spans)
 
@@ -323,11 +477,20 @@ class H3SteerRuntime:
         heads = int(block.attn.heads)
         head_dim = int(block.attn.head_dim)
 
+        in_swap = block_index in self.swap_blocks
+        if in_swap and l_txt_a != l_txt:
+            raise ValueError(
+                f"in-place block_band swap at block {block_index} requires equal shadow/main text length "
+                f"({l_txt_a} != {l_txt})"
+            )
+
         if self._bufs is None or block_index == 0:
             self._bufs = self.workspace.acquire(
                 device=device,
                 dtype=dtype,
-                l_txt=l_txt,
+                l_txt_main=l_txt,
+                l_txt_a=l_txt_a,
+                l_txt_b=l_txt_b,
                 heads=heads,
                 head_dim=head_dim,
                 hidden_dim=hidden_dim,
@@ -340,11 +503,18 @@ class H3SteerRuntime:
             if self.dual_shadow and self.shadow_b_init is not None and bufs.h_shadow_b is not None:
                 src_b = self.shadow_b_init[0] if self.shadow_b_init.ndim == 3 else self.shadow_b_init
                 bufs.h_shadow_b.copy_(src_b.to(device=device, dtype=dtype))
+            rope_txt_init = _slice_rope(args.get("rope_freqs"), tx_a, tx_b)
+            self._rope_a = _build_shadow_text_rope(self.dm, l_txt, l_txt_a, device, dtype, rope_txt_init)
+            self._rope_b = (
+                _build_shadow_text_rope(self.dm, l_txt, l_txt_b, device, dtype, rope_txt_init)
+                if self.dual_shadow
+                else None
+            )
         if self.dual_shadow and self.fork_b_at_block == block_index and bufs.h_shadow_b is not None:
             bufs.h_shadow_b.copy_(x_full[tx_a:tx_b])
 
-        in_swap = block_index in self.swap_blocks
         in_aud = bool(au_spans) and (block_index in self.aud_split_blocks)
+        in_aud_unswapped = bool(au_spans) and (block_index in self.aud_unswapped_blocks) and not in_aud
         is_last = block_index >= (self.n_blocks - 1)
 
         need_a_kv = (
@@ -364,20 +534,55 @@ class H3SteerRuntime:
             and ((self.fork_b_at_block is None) or (block_index >= self.fork_b_at_block))
             and (in_aud or not is_last)
         )
+        if not need_a_kv and not need_b_kv and not in_aud_unswapped:
+            return
+
         if not need_a_kv and not need_b_kv:
+            self._cur = {
+                "block_index": block_index,
+                "block": block,
+                "heads": heads,
+                "head_dim": head_dim,
+                "tx_a": tx_a,
+                "tx_b": tx_b,
+                "l_txt": l_txt,
+                "l_txt_a": l_txt_a,
+                "l_txt_b": l_txt_b,
+                "au_spans": au_spans,
+                "total_aud": total_aud,
+                "mod_txt_a": (),
+                "mod_txt_b": (),
+                "gate_msa": None,
+                "shift_mlp": None,
+                "scale_mlp": None,
+                "gate_mlp": None,
+                "need_a_kv": False,
+                "need_b_kv": False,
+                "need_finish_a": False,
+                "need_finish_b": False,
+                "in_aud_unswapped": True,
+                "shadow_a_attn_2d": None,
+                "shadow_b_attn_2d": None,
+                "done_pre": False,
+                "has_aud_splice": False,
+            }
             return
 
         from comfy.ldm.minimax.model import _mod_scale_shift
 
         mod_txt = _slice_mod_segments(args["mod_segments"], tx_a, tx_b)
+        mod_txt_a = _adapt_text_mod_segments(mod_txt, l_txt, l_txt_a)
+        mod_txt_b = _adapt_text_mod_segments(mod_txt, l_txt, l_txt_b) if self.dual_shadow else mod_txt
         rope_txt = _slice_rope(args.get("rope_freqs"), tx_a, tx_b)
+        rope_a = rope_txt if l_txt_a == l_txt else self._rope_a
+        rope_b = rope_txt if l_txt_b == l_txt else self._rope_b
         shift_msa, scale_msa, gate_msa, shift_mlp, scale_mlp, gate_mlp = block.adaln_proj(args["t_emb"])
 
         if need_a_kv:
-            h_in_a = _mod_scale_shift(block.norm1(bufs.h_shadow_a), shift_msa, scale_msa, mod_txt)
+            h_in_a = _mod_scale_shift(block.norm1(bufs.h_shadow_a), shift_msa, scale_msa, mod_txt_a)
             q_a, k_a, v_a = block.attn.qkv_proj(h_in_a).split(heads * head_dim, dim=-1)
-            v_a = v_a.view(l_txt, heads, head_dim)
-            q_a, k_a = _apply_rms_rope_txt(block, q_a, k_a, rope_txt, heads=heads, head_dim=head_dim, device=device)
+            v_a = v_a.view(l_txt_a, heads, head_dim)
+            q_a, k_a = _apply_rms_rope_txt(block, q_a, k_a, rope_a, heads=heads, head_dim=head_dim, device=device)
             bufs.q_a.copy_(q_a.transpose(0, 1).unsqueeze(0))
             bufs.k_a.copy_(k_a.transpose(0, 1).unsqueeze(0))
             bufs.v_a.copy_(v_a.transpose(0, 1).unsqueeze(0))
@@ -385,10 +590,10 @@ class H3SteerRuntime:
 
         if need_b_kv and bufs.h_shadow_b is not None:
             assert bufs.q_b is not None and bufs.k_b is not None and bufs.v_b is not None
-            h_in_b = _mod_scale_shift(block.norm1(bufs.h_shadow_b), shift_msa, scale_msa, mod_txt)
+            h_in_b = _mod_scale_shift(block.norm1(bufs.h_shadow_b), shift_msa, scale_msa, mod_txt_b)
             q_b, k_b, v_b = block.attn.qkv_proj(h_in_b).split(heads * head_dim, dim=-1)
-            v_b = v_b.view(l_txt, heads, head_dim)
-            q_b, k_b = _apply_rms_rope_txt(block, q_b, k_b, rope_txt, heads=heads, head_dim=head_dim, device=device)
+            v_b = v_b.view(l_txt_b, heads, head_dim)
+            q_b, k_b = _apply_rms_rope_txt(block, q_b, k_b, rope_b, heads=heads, head_dim=head_dim, device=device)
             bufs.q_b.copy_(q_b.transpose(0, 1).unsqueeze(0))
             bufs.k_b.copy_(k_b.transpose(0, 1).unsqueeze(0))
             bufs.v_b.copy_(v_b.transpose(0, 1).unsqueeze(0))
@@ -402,9 +607,12 @@ class H3SteerRuntime:
             "tx_a": tx_a,
             "tx_b": tx_b,
             "l_txt": l_txt,
+            "l_txt_a": l_txt_a,
+            "l_txt_b": l_txt_b,
             "au_spans": au_spans,
             "total_aud": total_aud,
-            "mod_txt": mod_txt,
+            "mod_txt_a": mod_txt_a,
+            "mod_txt_b": mod_txt_b,
             "gate_msa": gate_msa,
             "shift_mlp": shift_mlp,
             "scale_mlp": scale_mlp,
@@ -413,6 +621,7 @@ class H3SteerRuntime:
             "need_b_kv": need_b_kv,
             "need_finish_a": (not is_last) and need_a_kv,
             "need_finish_b": (not is_last) and need_b_kv,
+            "in_aud_unswapped": in_aud_unswapped,
             "shadow_a_attn_2d": None,
             "shadow_b_attn_2d": None,
             "done_pre": False,
@@ -447,6 +656,8 @@ class H3SteerRuntime:
         tx_a = cur["tx_a"]
         tx_b = cur["tx_b"]
         l_txt = cur["l_txt"]
+        l_txt_a = cur["l_txt_a"]
+        l_txt_b = cur["l_txt_b"]
         heads = cur["heads"]
         head_dim = cur["head_dim"]
         inner = heads * head_dim
@@ -455,8 +666,21 @@ class H3SteerRuntime:
         block_index = cur["block_index"]
         in_swap = block_index in self.swap_blocks
         in_aud = bool(au_spans) and (block_index in self.aud_split_blocks)
+        in_aud_unswapped = bool(cur.get("in_aud_unswapped", False)) and bool(au_spans)
         k_dtype = k_bh.dtype
         v_dtype = v_bh.dtype
+
+        if in_aud_unswapped:
+            q_aud_u = (
+                q_bh[:, :, au_spans[0][0] : au_spans[0][1], :].to(dtype=k_dtype)
+                if len(au_spans) == 1
+                else torch.cat([q_bh[:, :, a:b, :].to(dtype=k_dtype) for a, b in au_spans], dim=2)
+            )
+            attn_aud_u = F.scaled_dot_product_attention(q_aud_u, k_bh, v_bh, dropout_p=0.0, is_causal=False)
+            aud_buf = bufs.ensure_aud_out(total_aud, heads, head_dim, k_bh.device, attn_aud_u.dtype)
+            aud_buf.copy_(attn_aud_u)
+            cur["has_aud_splice"] = True
+            del q_aud_u, attn_aud_u
 
         k_slice = k_bh[:, :, tx_a:tx_b, :]
         v_slice = v_bh[:, :, tx_a:tx_b, :]
@@ -478,10 +702,6 @@ class H3SteerRuntime:
 
         if self.dual_shadow and cur["need_b_kv"] and need_q_b:
             assert bufs.q_b is not None and bufs.k_b is not None and bufs.v_b is not None
-            if not in_swap:
-                _save_main()
-            k_slice.copy_(bufs.k_b.to(dtype=k_dtype))
-            v_slice.copy_(bufs.v_b.to(dtype=v_dtype))
             q_parts_b: list[torch.Tensor] = []
             if cur["need_finish_b"]:
                 q_parts_b.append(bufs.q_b.to(dtype=k_dtype))
@@ -490,27 +710,42 @@ class H3SteerRuntime:
                     q_parts_b.append(q_bh[:, :, a:b, :].to(dtype=k_dtype))
             if q_parts_b:
                 q_comb_b = q_parts_b[0] if len(q_parts_b) == 1 else torch.cat(q_parts_b, dim=2)
-                attn_b = F.scaled_dot_product_attention(q_comb_b, k_bh, v_bh, dropout_p=0.0, is_causal=False)
+                if l_txt_b == l_txt:
+                    if not in_swap:
+                        _save_main()
+                    k_slice.copy_(bufs.k_b.to(dtype=k_dtype))
+                    v_slice.copy_(bufs.v_b.to(dtype=v_dtype))
+                    attn_b = F.scaled_dot_product_attention(q_comb_b, k_bh, v_bh, dropout_p=0.0, is_causal=False)
+                else:
+                    k_comb_b = torch.cat(
+                        [k_bh[:, :, :tx_a, :], bufs.k_b.to(dtype=k_dtype), k_bh[:, :, tx_b:, :]],
+                        dim=2,
+                    )
+                    v_comb_b = torch.cat(
+                        [v_bh[:, :, :tx_a, :], bufs.v_b.to(dtype=v_dtype), v_bh[:, :, tx_b:, :]],
+                        dim=2,
+                    )
+                    attn_b = F.scaled_dot_product_attention(q_comb_b, k_comb_b, v_comb_b, dropout_p=0.0, is_causal=False)
+                    del k_comb_b, v_comb_b
                 off_b = 0
                 if cur["need_finish_b"]:
                     cur["shadow_b_attn_2d"] = (
-                        attn_b[:, :, :l_txt, :][0].transpose(0, 1).reshape(l_txt, inner).to(dtype=bufs.h_shadow_a.dtype)
+                        attn_b[:, :, :l_txt_b, :][0]
+                        .transpose(0, 1)
+                        .reshape(l_txt_b, inner)
+                        .to(dtype=bufs.h_shadow_a.dtype)
                     )
-                    off_b = l_txt
+                    off_b = l_txt_b
                 if in_aud and self.aud_uses_shadow_b:
                     aud_buf = bufs.ensure_aud_out(total_aud, heads, head_dim, k_bh.device, attn_b.dtype)
                     aud_buf.copy_(attn_b[:, :, off_b : off_b + total_aud, :])
                     cur["has_aud_splice"] = True
                 del q_comb_b, attn_b
-            if not in_swap:
-                _restore_main()
+                if l_txt_b == l_txt and not in_swap:
+                    _restore_main()
 
         run_shadow_a_sdpa = False
         if cur["need_a_kv"] and need_q_a:
-            if not in_swap:
-                _save_main()
-            k_slice.copy_(bufs.k_a.to(dtype=k_dtype))
-            v_slice.copy_(bufs.v_a.to(dtype=v_dtype))
             q_parts_a: list[torch.Tensor] = []
             if cur["need_finish_a"]:
                 q_parts_a.append(bufs.q_a.to(dtype=k_dtype))
@@ -520,27 +755,46 @@ class H3SteerRuntime:
             if q_parts_a:
                 run_shadow_a_sdpa = True
                 q_comb_a = q_parts_a[0] if len(q_parts_a) == 1 else torch.cat(q_parts_a, dim=2)
-                attn_a = F.scaled_dot_product_attention(q_comb_a, k_bh, v_bh, dropout_p=0.0, is_causal=False)
+                if l_txt_a == l_txt:
+                    if not in_swap:
+                        _save_main()
+                    k_slice.copy_(bufs.k_a.to(dtype=k_dtype))
+                    v_slice.copy_(bufs.v_a.to(dtype=v_dtype))
+                    attn_a = F.scaled_dot_product_attention(q_comb_a, k_bh, v_bh, dropout_p=0.0, is_causal=False)
+                else:
+                    k_comb_a = torch.cat(
+                        [k_bh[:, :, :tx_a, :], bufs.k_a.to(dtype=k_dtype), k_bh[:, :, tx_b:, :]],
+                        dim=2,
+                    )
+                    v_comb_a = torch.cat(
+                        [v_bh[:, :, :tx_a, :], bufs.v_a.to(dtype=v_dtype), v_bh[:, :, tx_b:, :]],
+                        dim=2,
+                    )
+                    attn_a = F.scaled_dot_product_attention(q_comb_a, k_comb_a, v_comb_a, dropout_p=0.0, is_causal=False)
+                    del k_comb_a, v_comb_a
                 off_a = 0
                 if cur["need_finish_a"]:
                     cur["shadow_a_attn_2d"] = (
-                        attn_a[:, :, :l_txt, :][0].transpose(0, 1).reshape(l_txt, inner).to(dtype=bufs.h_shadow_a.dtype)
+                        attn_a[:, :, :l_txt_a, :][0]
+                        .transpose(0, 1)
+                        .reshape(l_txt_a, inner)
+                        .to(dtype=bufs.h_shadow_a.dtype)
                     )
-                    off_a = l_txt
+                    off_a = l_txt_a
                 if in_aud and not self.aud_uses_shadow_b:
                     aud_buf = bufs.ensure_aud_out(total_aud, heads, head_dim, k_bh.device, attn_a.dtype)
                     aud_buf.copy_(attn_a[:, :, off_a : off_a + total_aud, :])
                     cur["has_aud_splice"] = True
                 del q_comb_a, attn_a
-            if not in_swap:
-                _restore_main()
+                if l_txt_a == l_txt and not in_swap:
+                    _restore_main()
         elif in_swap and cur["need_a_kv"]:
             k_slice.copy_(bufs.k_a.to(dtype=k_dtype))
             v_slice.copy_(bufs.v_a.to(dtype=v_dtype))
 
         if in_swap:
             self.stats["kv_swaps"] += 1
-        if run_shadow_a_sdpa or (self.dual_shadow and cur["need_b_kv"]):
+        if run_shadow_a_sdpa or (self.dual_shadow and cur["need_b_kv"]) or in_aud_unswapped:
             self.stats["shadow_blocks"] += 1
         self.stats["blocks_touched"].append(block_index)
         return True
@@ -605,19 +859,19 @@ class H3SteerRuntime:
         from comfy.ldm.minimax.model import _mod_gate, _mod_scale_shift
 
         block = cur["block"]
-        mod_txt = cur["mod_txt"]
         gate_msa = cur["gate_msa"]
         shift_mlp = cur["shift_mlp"]
         scale_mlp = cur["scale_mlp"]
         gate_mlp = cur["gate_mlp"]
 
         if cur["need_finish_a"] and cur["shadow_a_attn_2d"] is not None:
+            mod_txt_a = cur["mod_txt_a"]
             attn_out = block.attn.out_proj(cur["shadow_a_attn_2d"])
             cur["shadow_a_attn_2d"] = None
-            _mod_gate(bufs.h_shadow_a, gate_msa, attn_out, mod_txt)
+            _mod_gate(bufs.h_shadow_a, gate_msa, attn_out, mod_txt_a)
             del attn_out
-            h_mlp = _mod_scale_shift(block.norm2(bufs.h_shadow_a), shift_mlp, scale_mlp, mod_txt)
-            _mod_gate(bufs.h_shadow_a, gate_mlp, block.mlp(h_mlp), mod_txt)
+            h_mlp = _mod_scale_shift(block.norm2(bufs.h_shadow_a), shift_mlp, scale_mlp, mod_txt_a)
+            _mod_gate(bufs.h_shadow_a, gate_mlp, block.mlp(h_mlp), mod_txt_a)
             del h_mlp
 
         if (
@@ -625,12 +879,13 @@ class H3SteerRuntime:
             and cur["shadow_b_attn_2d"] is not None
             and bufs.h_shadow_b is not None
         ):
+            mod_txt_b = cur["mod_txt_b"]
             attn_out_b = block.attn.out_proj(cur["shadow_b_attn_2d"])
             cur["shadow_b_attn_2d"] = None
-            _mod_gate(bufs.h_shadow_b, gate_msa, attn_out_b, mod_txt)
+            _mod_gate(bufs.h_shadow_b, gate_msa, attn_out_b, mod_txt_b)
             del attn_out_b
-            h_mlp_b = _mod_scale_shift(block.norm2(bufs.h_shadow_b), shift_mlp, scale_mlp, mod_txt)
-            _mod_gate(bufs.h_shadow_b, gate_mlp, block.mlp(h_mlp_b), mod_txt)
+            h_mlp_b = _mod_scale_shift(block.norm2(bufs.h_shadow_b), shift_mlp, scale_mlp, mod_txt_b)
+            _mod_gate(bufs.h_shadow_b, gate_mlp, block.mlp(h_mlp_b), mod_txt_b)
             del h_mlp_b
 
 
@@ -794,3 +1049,50 @@ def h3_steer_attn_seam_post(
         return
     with pause_malloc_graph_ctx(), torch.no_grad():
         rt.post_attention(out_main, nhd=nhd, skip_output_reshape=False)
+
+
+def install_steer_block_hooks(
+    model_clone: Any,
+    dm: Any,
+    *,
+    key_prefix: str,
+    node_label: str = "MiniMaxH3Steer",
+) -> H3SteerStepWorkspace:
+    """Validate H3 compatibility, attach reusable `H3SteerBlockPatch` hooks, and return workspace."""
+    from comfy.patcher_extension import CallbacksMP, WrappersMP
+
+    t_opts = getattr(model_clone, "model_options", {}).setdefault("transformer_options", {})
+    dm_wrappers = getattr(model_clone, "wrappers", {}).get(WrappersMP.DIFFUSION_MODEL, {})
+    dit_replaces = t_opts.get("patches_replace", {}).get("dit", {})
+    if (
+        hasattr(model_clone, "_h3_frozen_video_cache")
+        or any("frozen_video_cache" in str(wk) for wk in dm_wrappers)
+    ):
+        raise ValueError(
+            f"{node_label} block_band / 1x stream split cannot be combined with MiniMaxH3FrozenVideoCache "
+            "(cached steps skip double_block hooks)"
+        )
+    for b_patch in dit_replaces.values():
+        b_mod = getattr(b_patch, "__module__", "") or ""
+        b_qname = getattr(b_patch, "__qualname__", "") or ""
+        if "nodes_sparse_attention" in b_mod or "make_h3_block_patch" in b_qname:
+            raise ValueError(
+                f"{node_label} block_band / 1x stream split requires dense optimized_attention or "
+                "MiniMaxH3Sol, not core chunked BlockSparseAttention"
+            )
+    ws = H3SteerStepWorkspace()
+    model_clone.add_callback_with_key(
+        CallbacksMP.ON_CLEANUP,
+        f"{key_prefix}_workspace",
+        lambda *args, _ws=ws, **kwargs: _ws.clear(),
+    )
+    for b_idx in range(len(dm.blocks)):
+        existing = dit_replaces.get(("double_block", b_idx))
+        if not has_steer_block_patch(existing):
+            model_clone.set_model_patch_replace(
+                H3SteerBlockPatch(b_idx, previous=existing),
+                "dit",
+                "double_block",
+                b_idx,
+            )
+    return ws

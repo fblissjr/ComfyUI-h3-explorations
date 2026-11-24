@@ -162,7 +162,7 @@ with none is a helper the others import.
 | `.gemini/` | 8 | [below](#gemini) |
 | `archive/` | 31 | (none) |
 | `assets/` | 1 | [below](#assets) |
-| `bench/` | 906 | [`bench/INDEX.md`](bench/INDEX.md) and [`bench/results/INDEX.md`](bench/results/INDEX.md) for the records |
+| `bench/` | 907 | [`bench/INDEX.md`](bench/INDEX.md) and [`bench/results/INDEX.md`](bench/results/INDEX.md) for the records |
 | `changelog.d/` | | [`changelog.d/README.md`](changelog.d/README.md), one file per changelog entry; not listed and not counted |
 | `contact_sheets/` | 2 | [below](#contact_sheets) |
 | `data/` | 2 | [below](#data) |
@@ -171,7 +171,7 @@ with none is a helper the others import.
 | `prompt_bank/` | 250 | [`docs/wiki/prompting/prompt_bank.md`](docs/wiki/prompting/prompt_bank.md), the prompt catalogue |
 | `sparse_tables/` | 1 | [below](#sparse_tables) |
 | `standalone/` | 6 | [below](#standalone) |
-| `steering/` | 11 | [below](#steering) |
+| `steering/` | 12 | [below](#steering) |
 | `vendor/` | 11 | [below](#vendor) |
 | `vendor_config/` | 10 | [below](#vendor_config) |
 | `vendor_guides/` | 21 | [below](#vendor_guides) |
@@ -275,6 +275,7 @@ with none is a helper the others import.
 | [`legacy_nodes.py`](steering/legacy_nodes.py) | Thin Option-B compatibility wrappers for legacy & companion ComfyUI nodes (`MiniMaxH3ApplyControlVectors`, `MiniMaxH3MakeControlVector`, `MiniMaxH3LoadControlVector`, `MiniMaxH3LayerNormMatch`) preserving zero `node_id_manifest.json` diff ... |
 | [`mixer.py`](steering/mixer.py) | Unified Sound-Mixer runtime compiler (`MixerCompiler`) for H3 control vectors. |
 | [`nodes.py`](steering/nodes.py) | Primary ComfyUI steering nodes (`MiniMaxH3Steer`, `MiniMaxH3ReleaseReferences`, `MiniMaxH3WordVector`, `MiniMaxH3MakeMediaControlVector`) and runtime model wrapper. |
+| [`query_router.py`](steering/query_router.py) | Standalone `1x` Cross-Modal Query Router (`MiniMaxH3QueryRouter`, Step 1 / v1). |
 | [`runtime.py`](steering/runtime.py) | Point C post-refiner prelude math: `h_bar` centering, `peer_ros=True` orthogonalization, clamped `[0, 1]` union SVD, smooth `95.5 -> 98.5` RMS knee, and `s = 0` exact identity. |
 | [`xray.py`](steering/xray.py) | Compact Jacobian Lens (`X-Ray` / `J-Lens`) and `Model2Vec` lexicon readout & synthesis on CPU. |
 

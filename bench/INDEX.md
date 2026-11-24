@@ -8,7 +8,7 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 182 |
+| [`check_*`](#check) | 183 |
 | [`measure_*`](#measure) | 39 |
 | [`analyze_*`](#analyze) | 18 |
 | [`grade_*`](#grade) | 19 |
@@ -136,6 +136,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_prompt_rule_controls.py`](check_prompt_rule_controls.py) | Controls for the prompt grader's rules, and its copies of the guide's closed sets. |
 | [`check_propose_runs.py`](check_propose_runs.py) | `bench/propose_runs.py` on made part masks: each case is a way a proposed load could be wrong. |
 | [`check_provenance_stamp.py`](check_provenance_stamp.py) | Check that `provenance.py` records the knobs that actually ran. |
+| [`check_query_router.py`](check_query_router.py) | Offline CPU verification gate (`0 GB` VRAM) for `MiniMaxH3QueryRouter` (`steering/query_router.py`), arbitrary-length shadow K/V support in `steering/hooks.py`, and mixed-band support in `steering/nodes.py`. |
 | [`check_read_hair_band.py`](check_read_hair_band.py) | `bench/read_hair_band.py` prints a hair band as figures; each case is a way a figure could say something the frames do not. |
 | [`check_read_render_against_original.py`](check_read_render_against_original.py) | `bench/read_render_against_original.py` against faces whose every figure is chosen here. |
 | [`check_rebuild_delivery.py`](check_rebuild_delivery.py) | `bench/rebuild_delivery.py` on a synthetic fixture and refusal mutations: each case is a way the provenance, delivery, gap-check, stack, review-pages, and answers-snapshot chain could skip a step, continue past a failure, hardcode a ... |
