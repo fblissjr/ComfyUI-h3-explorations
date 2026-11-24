@@ -5,6 +5,7 @@ from __future__ import annotations
 import contextlib
 import functools
 import logging
+import math
 import re
 from collections import OrderedDict
 from typing import Any, Callable, Sequence
@@ -18,6 +19,7 @@ logger = logging.getLogger("ComfyUI-h3-explorations.steer_hooks")
 
 _BAND_RANGE_RE = re.compile(r"^(\d+)\s*-\s*(\d+)$")
 _WORKSPACE_CACHE_MAX = 2
+AUDIO_CHANNEL_MODES: tuple[str, ...] = ("both", "left", "right")
 
 
 def pause_malloc_graph_ctx():
@@ -100,13 +102,13 @@ def refine_text_context(
             f"{caller_name} received context with hidden_size={ctx.shape[-1]} "
             f"(expected {POST_REFINER_DIM}) and could not access diffusion_model.token_refiner"
         )
-    t_opts = transformer_options if isinstance(transformer_options, dict) else {}
+    # Match core `preprocess_text_embeds`: TokenRefiner runs without DiT attention overrides.
     with pause_malloc_graph_ctx(), torch.no_grad():
         return torch.stack(
             [
                 dm.token_refiner(
                     dm.condition_proj(ctx[b_idx]),
-                    transformer_options=t_opts,
+                    transformer_options={},
                 )
                 for b_idx in range(int(ctx.shape[0]))
             ],
@@ -235,6 +237,72 @@ def _build_shadow_text_rope(
     if torch.is_tensor(fallback_rope) and fallback_rope.ndim >= 2 and fallback_rope.shape[1] >= l_txt_shadow:
         return fallback_rope[:, -int(l_txt_shadow) :]
     return None
+
+
+def _slice_audio_spans(
+    raw_au_spans: Sequence[tuple[int, int]],
+    *,
+    audio_channel: str = "both",
+    audio_time_start: float = 0.0,
+    audio_time_end: float = 1.0,
+) -> list[tuple[int, int]]:
+    """Slice channel-major `(Left[0..T-1], Right[0..T-1])` `audio` spans by channel & time window."""
+    ch = str(audio_channel or "both").strip()
+    if ch not in AUDIO_CHANNEL_MODES:
+        raise ValueError(f"audio_channel must be one of {AUDIO_CHANNEL_MODES}, got {audio_channel!r}")
+    t0 = float(audio_time_start)
+    t1 = float(audio_time_end)
+    if not (0.0 <= t0 < t1 <= 1.0):
+        raise ValueError(f"audio_time_start/end must satisfy 0.0 <= start < end <= 1.0, got [{t0}, {t1}]")
+
+    if ch == "both" and t0 <= 1e-6 and t1 >= 1.0 - 1e-6:
+        return [(int(sa), int(sb)) for sa, sb in raw_au_spans]
+
+    sliced: list[tuple[int, int]] = []
+    for sa, sb in raw_au_spans:
+        sa_i, sb_i = int(sa), int(sb)
+        span_len = sb_i - sa_i
+        if span_len < 2 or (span_len % 2) != 0:
+            sliced.append((sa_i, sb_i))
+            continue
+        t_len = span_len // 2
+        i0 = max(0, min(t_len - 1, int(round(t0 * t_len))))
+        i1 = max(i0 + 1, min(t_len, int(round(t1 * t_len))))
+        if ch == "left":
+            sliced.append((sa_i + i0, sa_i + i1))
+        elif ch == "right":
+            sliced.append((sa_i + t_len + i0, sa_i + t_len + i1))
+        elif i0 == 0 and i1 == t_len:
+            sliced.append((sa_i, sb_i))
+        else:
+            sliced.append((sa_i + i0, sa_i + i1))
+            sliced.append((sa_i + t_len + i0, sa_i + t_len + i1))
+    return sliced
+
+
+def _build_aud_to_vid_bias(
+    k_len: int,
+    vid_spans: Sequence[tuple[int, int]],
+    txt_delta: int,
+    tx_b: int,
+    gain: float,
+    device: torch.device,
+    dtype: torch.dtype,
+) -> torch.Tensor | None:
+    """Build additive `[1, 1, 1, k_len]` `Q_aud -> K_vid` attention logit bias, or `None` at gain=1.0."""
+    g = float(gain)
+    if g >= 1.0 - 1e-6 or not vid_spans:
+        return None
+    bias_val = -1e4 if g <= 1e-6 else float(math.log(g))
+    mask = torch.zeros((1, 1, 1, int(k_len)), device=device, dtype=dtype)
+    for va, vb in vid_spans:
+        sa = int(va) + (txt_delta if int(va) >= tx_b else 0)
+        sb = int(vb) + (txt_delta if int(vb) >= tx_b else 0)
+        sa_c = max(0, min(int(k_len), sa))
+        sb_c = max(sa_c, min(int(k_len), sb))
+        if sb_c > sa_c:
+            mask[:, :, :, sa_c:sb_c] = bias_val
+    return mask
 
 
 def _apply_audio_gain_bhnd(k_bh: torch.Tensor, v_bh: torch.Tensor, options: dict[str, Any]) -> bool:
@@ -420,6 +488,13 @@ class H3SteerRuntime:
         aud_uses_shadow_b: bool,
         aud_unswapped_blocks: frozenset[int] = frozenset(),
         save_aud_k_on_block_exit: bool = True,
+        aud_to_vid_gain: float = 1.0,
+        audio_channel: str = "both",
+        audio_time_start: float = 0.0,
+        audio_time_end: float = 1.0,
+        ref_img_gain: float = 1.0,
+        ref_img_blocks: frozenset[int] = frozenset(),
+        ref_audio_only: bool = False,
     ) -> None:
         self.dm = dm
         self.workspace = workspace
@@ -437,6 +512,13 @@ class H3SteerRuntime:
         self.fork_b_at_block = fork_b_at_block
         self.aud_uses_shadow_b = bool(aud_uses_shadow_b)
         self.save_aud_k_on_block_exit = bool(save_aud_k_on_block_exit)
+        self.aud_to_vid_gain = float(aud_to_vid_gain)
+        self.audio_channel = str(audio_channel or "both").strip()
+        self.audio_time_start = float(audio_time_start)
+        self.audio_time_end = float(audio_time_end)
+        self.ref_img_gain = float(ref_img_gain)
+        self.ref_img_blocks = ref_img_blocks
+        self.ref_audio_only = bool(ref_audio_only)
         self.active = True
         self._bufs: _WorkspaceBuffers | None = None
         self._cur: dict[str, Any] | None = None
@@ -447,6 +529,8 @@ class H3SteerRuntime:
             "kv_swaps": 0,
             "aud_splices": 0,
             "shadow_blocks": 0,
+            "ref_img_damps": 0,
+            "ref_audio_isolations": 0,
             "blocks_touched": [],
         }
 
@@ -466,8 +550,17 @@ class H3SteerRuntime:
             return
         l_txt_a = self.l_txt_a
         l_txt_b = l_txt if self.fork_b_at_block is not None else (self.l_txt_b if self.l_txt_b is not None else l_txt)
-        au_spans = [(int(sa), int(sb)) for (sa, sb, kind) in layout.segments if kind == "audio" and sb > sa]
+        raw_au_spans = [(int(sa), int(sb)) for (sa, sb, kind) in layout.segments if kind == "audio" and sb > sa]
+        au_spans = _slice_audio_spans(
+            raw_au_spans,
+            audio_channel=self.audio_channel,
+            audio_time_start=self.audio_time_start,
+            audio_time_end=self.audio_time_end,
+        )
         total_aud = sum(b - a for a, b in au_spans)
+        vid_spans = [(int(sa), int(sb)) for (sa, sb, kind) in layout.segments if kind == "video" and sb > sa]
+        ref_img_spans = [(int(sa), int(sb)) for (sa, sb, kind) in layout.segments if kind == "ref_img" and sb > sa]
+        ref_audio_spans = [(int(sa), int(sb)) for (sa, sb, kind) in layout.segments if kind == "ref_audio" and sb > sa]
 
         x_full = args["img"]
         device = x_full.device
@@ -514,7 +607,11 @@ class H3SteerRuntime:
             bufs.h_shadow_b.copy_(x_full[tx_a:tx_b])
 
         in_aud = bool(au_spans) and (block_index in self.aud_split_blocks)
-        in_aud_unswapped = bool(au_spans) and (block_index in self.aud_unswapped_blocks) and not in_aud
+        in_ref_img_damp = bool(ref_img_spans) and (self.ref_img_gain < 1.0 - 1e-6) and (block_index in self.ref_img_blocks)
+        in_ref_aud_iso = bool(ref_audio_spans) and self.ref_audio_only
+        in_aud_unswapped = bool(au_spans) and (not in_aud) and (
+            (block_index in self.aud_unswapped_blocks) or in_ref_aud_iso
+        )
         is_last = block_index >= (self.n_blocks - 1)
 
         need_a_kv = (
@@ -534,7 +631,7 @@ class H3SteerRuntime:
             and ((self.fork_b_at_block is None) or (block_index >= self.fork_b_at_block))
             and (in_aud or not is_last)
         )
-        if not need_a_kv and not need_b_kv and not in_aud_unswapped:
+        if not need_a_kv and not need_b_kv and not in_aud_unswapped and not in_ref_img_damp and not in_ref_aud_iso:
             return
 
         if not need_a_kv and not need_b_kv:
@@ -550,6 +647,11 @@ class H3SteerRuntime:
                 "l_txt_b": l_txt_b,
                 "au_spans": au_spans,
                 "total_aud": total_aud,
+                "vid_spans": vid_spans,
+                "ref_img_spans": ref_img_spans,
+                "ref_audio_spans": ref_audio_spans,
+                "in_ref_img_damp": in_ref_img_damp,
+                "in_ref_aud_iso": in_ref_aud_iso,
                 "mod_txt_a": (),
                 "mod_txt_b": (),
                 "gate_msa": None,
@@ -560,7 +662,7 @@ class H3SteerRuntime:
                 "need_b_kv": False,
                 "need_finish_a": False,
                 "need_finish_b": False,
-                "in_aud_unswapped": True,
+                "in_aud_unswapped": in_aud_unswapped,
                 "shadow_a_attn_2d": None,
                 "shadow_b_attn_2d": None,
                 "done_pre": False,
@@ -611,6 +713,11 @@ class H3SteerRuntime:
             "l_txt_b": l_txt_b,
             "au_spans": au_spans,
             "total_aud": total_aud,
+            "vid_spans": vid_spans,
+            "ref_img_spans": ref_img_spans,
+            "ref_audio_spans": ref_audio_spans,
+            "in_ref_img_damp": in_ref_img_damp,
+            "in_ref_aud_iso": in_ref_aud_iso,
             "mod_txt_a": mod_txt_a,
             "mod_txt_b": mod_txt_b,
             "gate_msa": gate_msa,
@@ -663,24 +770,38 @@ class H3SteerRuntime:
         inner = heads * head_dim
         au_spans = cur["au_spans"]
         total_aud = cur["total_aud"]
+        vid_spans = cur["vid_spans"]
+        ref_img_spans = cur["ref_img_spans"]
+        ref_audio_spans = cur["ref_audio_spans"]
+        in_ref_img_damp = bool(cur.get("in_ref_img_damp", False))
+        in_ref_aud_iso = bool(cur.get("in_ref_aud_iso", False))
         block_index = cur["block_index"]
         in_swap = block_index in self.swap_blocks
         in_aud = bool(au_spans) and (block_index in self.aud_split_blocks)
         in_aud_unswapped = bool(cur.get("in_aud_unswapped", False)) and bool(au_spans)
         k_dtype = k_bh.dtype
         v_dtype = v_bh.dtype
+        k_len_main = int(k_bh.shape[2])
 
-        if in_aud_unswapped:
-            q_aud_u = (
+        def _extract_q_aud() -> torch.Tensor:
+            return (
                 q_bh[:, :, au_spans[0][0] : au_spans[0][1], :].to(dtype=k_dtype)
                 if len(au_spans) == 1
                 else torch.cat([q_bh[:, :, a:b, :].to(dtype=k_dtype) for a, b in au_spans], dim=2)
             )
-            attn_aud_u = F.scaled_dot_product_attention(q_aud_u, k_bh, v_bh, dropout_p=0.0, is_causal=False)
+
+        if in_aud_unswapped:
+            q_aud_u = _extract_q_aud()
+            aud_bias_u = _build_aud_to_vid_bias(
+                k_len_main, vid_spans, 0, tx_b, self.aud_to_vid_gain, k_bh.device, k_dtype
+            )
+            attn_aud_u = F.scaled_dot_product_attention(
+                q_aud_u, k_bh, v_bh, attn_mask=aud_bias_u, dropout_p=0.0, is_causal=False
+            )
             aud_buf = bufs.ensure_aud_out(total_aud, heads, head_dim, k_bh.device, attn_aud_u.dtype)
             aud_buf.copy_(attn_aud_u)
             cur["has_aud_splice"] = True
-            del q_aud_u, attn_aud_u
+            del q_aud_u, attn_aud_u, aud_bias_u
 
         k_slice = k_bh[:, :, tx_a:tx_b, :]
         v_slice = v_bh[:, :, tx_a:tx_b, :]
@@ -702,95 +823,168 @@ class H3SteerRuntime:
 
         if self.dual_shadow and cur["need_b_kv"] and need_q_b:
             assert bufs.q_b is not None and bufs.k_b is not None and bufs.v_b is not None
-            q_parts_b: list[torch.Tensor] = []
-            if cur["need_finish_b"]:
-                q_parts_b.append(bufs.q_b.to(dtype=k_dtype))
-            if in_aud and self.aud_uses_shadow_b:
-                for a, b in au_spans:
-                    q_parts_b.append(q_bh[:, :, a:b, :].to(dtype=k_dtype))
-            if q_parts_b:
-                q_comb_b = q_parts_b[0] if len(q_parts_b) == 1 else torch.cat(q_parts_b, dim=2)
-                if l_txt_b == l_txt:
-                    if not in_swap:
-                        _save_main()
-                    k_slice.copy_(bufs.k_b.to(dtype=k_dtype))
-                    v_slice.copy_(bufs.v_b.to(dtype=v_dtype))
-                    attn_b = F.scaled_dot_product_attention(q_comb_b, k_bh, v_bh, dropout_p=0.0, is_causal=False)
-                else:
-                    k_comb_b = torch.cat(
-                        [k_bh[:, :, :tx_a, :], bufs.k_b.to(dtype=k_dtype), k_bh[:, :, tx_b:, :]],
-                        dim=2,
-                    )
-                    v_comb_b = torch.cat(
-                        [v_bh[:, :, :tx_a, :], bufs.v_b.to(dtype=v_dtype), v_bh[:, :, tx_b:, :]],
-                        dim=2,
-                    )
-                    attn_b = F.scaled_dot_product_attention(q_comb_b, k_comb_b, v_comb_b, dropout_p=0.0, is_causal=False)
-                    del k_comb_b, v_comb_b
-                off_b = 0
+            take_aud_b = in_aud and self.aud_uses_shadow_b
+            txt_delta_b = l_txt_b - l_txt
+            aud_bias_b = (
+                _build_aud_to_vid_bias(
+                    k_len_main + txt_delta_b, vid_spans, txt_delta_b, tx_b, self.aud_to_vid_gain, k_bh.device, k_dtype
+                )
+                if take_aud_b
+                else None
+            )
+            if l_txt_b == l_txt:
+                if not in_swap:
+                    _save_main()
+                k_slice.copy_(bufs.k_b.to(dtype=k_dtype))
+                v_slice.copy_(bufs.v_b.to(dtype=v_dtype))
+                k_src_b, v_src_b, own_kv_b = k_bh, v_bh, False
+            else:
+                k_src_b = torch.cat(
+                    [k_bh[:, :, :tx_a, :], bufs.k_b.to(dtype=k_dtype), k_bh[:, :, tx_b:, :]],
+                    dim=2,
+                )
+                v_src_b = torch.cat(
+                    [v_bh[:, :, :tx_a, :], bufs.v_b.to(dtype=v_dtype), v_bh[:, :, tx_b:, :]],
+                    dim=2,
+                )
+                own_kv_b = True
+
+            if aud_bias_b is None:
+                q_parts_b: list[torch.Tensor] = []
                 if cur["need_finish_b"]:
-                    cur["shadow_b_attn_2d"] = (
-                        attn_b[:, :, :l_txt_b, :][0]
-                        .transpose(0, 1)
-                        .reshape(l_txt_b, inner)
-                        .to(dtype=bufs.h_shadow_a.dtype)
+                    q_parts_b.append(bufs.q_b.to(dtype=k_dtype))
+                if take_aud_b:
+                    q_parts_b.append(_extract_q_aud())
+                if q_parts_b:
+                    q_comb_b = q_parts_b[0] if len(q_parts_b) == 1 else torch.cat(q_parts_b, dim=2)
+                    attn_b = F.scaled_dot_product_attention(q_comb_b, k_src_b, v_src_b, dropout_p=0.0, is_causal=False)
+                    off_b = 0
+                    if cur["need_finish_b"]:
+                        cur["shadow_b_attn_2d"] = (
+                            attn_b[:, :, :l_txt_b, :][0]
+                            .transpose(0, 1)
+                            .reshape(l_txt_b, inner)
+                            .to(dtype=bufs.h_shadow_a.dtype)
+                        )
+                        off_b = l_txt_b
+                    if take_aud_b:
+                        aud_buf = bufs.ensure_aud_out(total_aud, heads, head_dim, k_bh.device, attn_b.dtype)
+                        aud_buf.copy_(attn_b[:, :, off_b : off_b + total_aud, :])
+                        cur["has_aud_splice"] = True
+                    del q_comb_b, attn_b
+            else:
+                if cur["need_finish_b"]:
+                    attn_tb = F.scaled_dot_product_attention(
+                        bufs.q_b.to(dtype=k_dtype), k_src_b, v_src_b, dropout_p=0.0, is_causal=False
                     )
-                    off_b = l_txt_b
-                if in_aud and self.aud_uses_shadow_b:
-                    aud_buf = bufs.ensure_aud_out(total_aud, heads, head_dim, k_bh.device, attn_b.dtype)
-                    aud_buf.copy_(attn_b[:, :, off_b : off_b + total_aud, :])
+                    cur["shadow_b_attn_2d"] = (
+                        attn_tb[0].transpose(0, 1).reshape(l_txt_b, inner).to(dtype=bufs.h_shadow_a.dtype)
+                    )
+                    del attn_tb
+                if take_aud_b:
+                    q_aud_b = _extract_q_aud()
+                    attn_ab = F.scaled_dot_product_attention(
+                        q_aud_b, k_src_b, v_src_b, attn_mask=aud_bias_b, dropout_p=0.0, is_causal=False
+                    )
+                    aud_buf = bufs.ensure_aud_out(total_aud, heads, head_dim, k_bh.device, attn_ab.dtype)
+                    aud_buf.copy_(attn_ab)
                     cur["has_aud_splice"] = True
-                del q_comb_b, attn_b
-                if l_txt_b == l_txt and not in_swap:
-                    _restore_main()
+                    del q_aud_b, attn_ab
+                del aud_bias_b
+            if own_kv_b:
+                del k_src_b, v_src_b
+            if l_txt_b == l_txt and not in_swap:
+                _restore_main()
 
         run_shadow_a_sdpa = False
         if cur["need_a_kv"] and need_q_a:
-            q_parts_a: list[torch.Tensor] = []
-            if cur["need_finish_a"]:
-                q_parts_a.append(bufs.q_a.to(dtype=k_dtype))
-            if in_aud and not self.aud_uses_shadow_b:
-                for a, b in au_spans:
-                    q_parts_a.append(q_bh[:, :, a:b, :].to(dtype=k_dtype))
-            if q_parts_a:
+            take_aud_a = in_aud and not self.aud_uses_shadow_b
+            txt_delta_a = l_txt_a - l_txt
+            aud_bias_a = (
+                _build_aud_to_vid_bias(
+                    k_len_main + txt_delta_a, vid_spans, txt_delta_a, tx_b, self.aud_to_vid_gain, k_bh.device, k_dtype
+                )
+                if take_aud_a
+                else None
+            )
+            if cur["need_finish_a"] or take_aud_a:
                 run_shadow_a_sdpa = True
-                q_comb_a = q_parts_a[0] if len(q_parts_a) == 1 else torch.cat(q_parts_a, dim=2)
                 if l_txt_a == l_txt:
                     if not in_swap:
                         _save_main()
                     k_slice.copy_(bufs.k_a.to(dtype=k_dtype))
                     v_slice.copy_(bufs.v_a.to(dtype=v_dtype))
-                    attn_a = F.scaled_dot_product_attention(q_comb_a, k_bh, v_bh, dropout_p=0.0, is_causal=False)
+                    k_src_a, v_src_a, own_kv_a = k_bh, v_bh, False
                 else:
-                    k_comb_a = torch.cat(
+                    k_src_a = torch.cat(
                         [k_bh[:, :, :tx_a, :], bufs.k_a.to(dtype=k_dtype), k_bh[:, :, tx_b:, :]],
                         dim=2,
                     )
-                    v_comb_a = torch.cat(
+                    v_src_a = torch.cat(
                         [v_bh[:, :, :tx_a, :], bufs.v_a.to(dtype=v_dtype), v_bh[:, :, tx_b:, :]],
                         dim=2,
                     )
-                    attn_a = F.scaled_dot_product_attention(q_comb_a, k_comb_a, v_comb_a, dropout_p=0.0, is_causal=False)
-                    del k_comb_a, v_comb_a
-                off_a = 0
-                if cur["need_finish_a"]:
-                    cur["shadow_a_attn_2d"] = (
-                        attn_a[:, :, :l_txt_a, :][0]
-                        .transpose(0, 1)
-                        .reshape(l_txt_a, inner)
-                        .to(dtype=bufs.h_shadow_a.dtype)
-                    )
-                    off_a = l_txt_a
-                if in_aud and not self.aud_uses_shadow_b:
-                    aud_buf = bufs.ensure_aud_out(total_aud, heads, head_dim, k_bh.device, attn_a.dtype)
-                    aud_buf.copy_(attn_a[:, :, off_a : off_a + total_aud, :])
-                    cur["has_aud_splice"] = True
-                del q_comb_a, attn_a
+                    own_kv_a = True
+
+                if aud_bias_a is None:
+                    q_parts_a: list[torch.Tensor] = []
+                    if cur["need_finish_a"]:
+                        q_parts_a.append(bufs.q_a.to(dtype=k_dtype))
+                    if take_aud_a:
+                        q_parts_a.append(_extract_q_aud())
+                    q_comb_a = q_parts_a[0] if len(q_parts_a) == 1 else torch.cat(q_parts_a, dim=2)
+                    attn_a = F.scaled_dot_product_attention(q_comb_a, k_src_a, v_src_a, dropout_p=0.0, is_causal=False)
+                    off_a = 0
+                    if cur["need_finish_a"]:
+                        cur["shadow_a_attn_2d"] = (
+                            attn_a[:, :, :l_txt_a, :][0]
+                            .transpose(0, 1)
+                            .reshape(l_txt_a, inner)
+                            .to(dtype=bufs.h_shadow_a.dtype)
+                        )
+                        off_a = l_txt_a
+                    if take_aud_a:
+                        aud_buf = bufs.ensure_aud_out(total_aud, heads, head_dim, k_bh.device, attn_a.dtype)
+                        aud_buf.copy_(attn_a[:, :, off_a : off_a + total_aud, :])
+                        cur["has_aud_splice"] = True
+                    del q_comb_a, attn_a
+                else:
+                    if cur["need_finish_a"]:
+                        attn_ta = F.scaled_dot_product_attention(
+                            bufs.q_a.to(dtype=k_dtype), k_src_a, v_src_a, dropout_p=0.0, is_causal=False
+                        )
+                        cur["shadow_a_attn_2d"] = (
+                            attn_ta[0].transpose(0, 1).reshape(l_txt_a, inner).to(dtype=bufs.h_shadow_a.dtype)
+                        )
+                        del attn_ta
+                    if take_aud_a:
+                        q_aud_a = _extract_q_aud()
+                        attn_aa = F.scaled_dot_product_attention(
+                            q_aud_a, k_src_a, v_src_a, attn_mask=aud_bias_a, dropout_p=0.0, is_causal=False
+                        )
+                        aud_buf = bufs.ensure_aud_out(total_aud, heads, head_dim, k_bh.device, attn_aa.dtype)
+                        aud_buf.copy_(attn_aa)
+                        cur["has_aud_splice"] = True
+                        del q_aud_a, attn_aa
+                    del aud_bias_a
+                if own_kv_a:
+                    del k_src_a, v_src_a
                 if l_txt_a == l_txt and not in_swap:
                     _restore_main()
         elif in_swap and cur["need_a_kv"]:
             k_slice.copy_(bufs.k_a.to(dtype=k_dtype))
             v_slice.copy_(bufs.v_a.to(dtype=v_dtype))
+
+        # Multimodal ref gating runs AFTER Q_aud side SDPA reads intact V so audio stays unaffected.
+        if in_ref_img_damp:
+            gain_f = float(self.ref_img_gain)
+            for ra, rb in ref_img_spans:
+                v_bh[:, :, ra:rb, :].mul_(gain_f)
+            self.stats["ref_img_damps"] += 1
+        if in_ref_aud_iso:
+            for ra, rb in ref_audio_spans:
+                v_bh[:, :, ra:rb, :].zero_()
+            self.stats["ref_audio_isolations"] += 1
 
         if in_swap:
             self.stats["kv_swaps"] += 1

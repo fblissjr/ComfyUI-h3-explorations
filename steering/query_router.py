@@ -24,6 +24,9 @@ SECTION_SPLIT_MODES: tuple[str, ...] = (
     "soundscape_to_audio",
     "sections_by_modality",
 )
+AUDIO_CHANNEL_MODES: tuple[str, ...] = _steer_hooks.AUDIO_CHANNEL_MODES
+REF_AUDIO_STREAM_MODES: tuple[str, ...] = ("both", "audio_only")
+_FULL_GAIN_EPS = 1e-6
 
 _spans = import_repo_module("h3_spans")
 
@@ -216,8 +219,16 @@ def _make_query_router_wrapper(
     workspace: _steer_hooks.H3SteerStepWorkspace,
     dm: Any,
     ref_cache: dict[str, Any],
+    aud_to_vid_gain: float = 1.0,
+    audio_channel: str = "both",
+    audio_time_start: float = 0.0,
+    audio_time_end: float = 1.0,
+    ref_img_gain: float = 1.0,
+    ref_img_block_band: str = "mid_late_20_49",
+    ref_audio_stream: str = "both",
 ):
     logged_modes: set[str] = set()
+    ref_audio_only = str(ref_audio_stream or "both").strip() == "audio_only"
 
     def wrapper(executor, x, timestep, context, transformer_options, **call_kwargs):
         if not _steer_hooks.step_in_window(transformer_options, timestep, start_percent, end_percent):
@@ -297,13 +308,24 @@ def _make_query_router_wrapper(
                 "keep_vid_mask": keep_vid_mask,
             }
 
-        if ctx_vid is None and ctx_aud is None:
+        if (
+            ctx_vid is None
+            and ctx_aud is None
+            and float(aud_to_vid_gain) >= (1.0 - _FULL_GAIN_EPS)
+            and float(ref_img_gain) >= (1.0 - _FULL_GAIN_EPS)
+            and not ref_audio_only
+        ):
             return executor(x, timestep, ctx_base, transformer_options, **call_kwargs)
 
         n_blocks = len(dm.blocks)
         all_blocks = frozenset(range(n_blocks))
         vid_band = _steer_hooks.parse_block_band(video_block_band, n_blocks)
         aud_band = _steer_hooks.parse_block_band(audio_block_band, n_blocks)
+        ref_img_blocks = (
+            _steer_hooks.parse_block_band(ref_img_block_band, n_blocks)
+            if float(ref_img_gain) < (1.0 - _FULL_GAIN_EPS)
+            else frozenset()
+        )
 
         def _invoke_rt(
             *,
@@ -332,6 +354,13 @@ def _make_query_router_wrapper(
                     fork_b_at_block=None,
                     aud_uses_shadow_b=aud_uses_shadow_b,
                     aud_unswapped_blocks=aud_unswapped_blocks,
+                    aud_to_vid_gain=float(aud_to_vid_gain),
+                    audio_channel=audio_channel,
+                    audio_time_start=float(audio_time_start),
+                    audio_time_end=float(audio_time_end),
+                    ref_img_gain=float(ref_img_gain),
+                    ref_img_blocks=ref_img_blocks,
+                    ref_audio_only=ref_audio_only,
                 )
                 to_next = dict(transformer_options or {})
                 to_next["_h3_steer_runtime"] = rt
@@ -346,9 +375,32 @@ def _make_query_router_wrapper(
                 sink.append(dict(rt.stats))
             return out_res
 
-        # Case A: Audio-only route (`ctx_vid is None` or empty video band)
+        # Case A: Audio-only text route or standalone coupling/reference gating
         if ctx_vid is None or len(vid_band) == 0:
             if ctx_aud is None or not has_audio_stream or len(aud_band) == 0:
+                if (
+                    float(aud_to_vid_gain) < (1.0 - _FULL_GAIN_EPS)
+                    or float(ref_img_gain) < (1.0 - _FULL_GAIN_EPS)
+                    or ref_audio_only
+                ):
+                    return _invoke_rt(
+                        mode_id=1,
+                        main_ctx=ctx_base,
+                        shadow_a_init=ctx_base,
+                        shadow_b_init=None,
+                        swap_blocks=frozenset(),
+                        aud_split_blocks=frozenset(),
+                        dual_shadow=False,
+                        aud_uses_shadow_b=False,
+                        aud_unswapped_blocks=(
+                            aud_band
+                            if (
+                                has_audio_stream
+                                and (float(aud_to_vid_gain) < (1.0 - _FULL_GAIN_EPS) or ref_audio_only)
+                            )
+                            else frozenset()
+                        ),
+                    )
                 return executor(x, timestep, ctx_base, transformer_options, **call_kwargs)
             return _invoke_rt(
                 mode_id=3 if aud_band != all_blocks else 2,
@@ -372,6 +424,18 @@ def _make_query_router_wrapper(
                 keep_vid_mask=keep_vid_mask,
             )
             if not has_audio_stream:
+                if float(ref_img_gain) < (1.0 - _FULL_GAIN_EPS):
+                    return _invoke_rt(
+                        mode_id=1,
+                        main_ctx=ctx_vid,
+                        shadow_a_init=ctx_vid,
+                        shadow_b_init=None,
+                        swap_blocks=frozenset(),
+                        aud_split_blocks=frozenset(),
+                        dual_shadow=False,
+                        aud_uses_shadow_b=False,
+                        invoke_call_kwargs=main_call_kwargs,
+                    )
                 return executor(x, timestep, ctx_vid, transformer_options, **main_call_kwargs)
             aud_target = ctx_aud if (ctx_aud is not None and len(aud_band) > 0) else ctx_base
             aud_target_blocks = aud_band if ctx_aud is not None else all_blocks
@@ -490,6 +554,13 @@ def attach_query_router(
     end_percent: float = 1.0,
     audio_conditioning: Any = None,
     video_conditioning: Any = None,
+    aud_to_vid_gain: float = 1.0,
+    audio_channel: str = "both",
+    audio_time_start: float = 0.0,
+    audio_time_end: float = 1.0,
+    ref_img_gain: float = 1.0,
+    ref_img_block_band: str = "mid_late_20_49",
+    ref_audio_stream: str = "both",
 ) -> Any:
     """Clone `model` and attach a `1x` Cross-Modal Query Router wrapper + `double_block` hooks."""
     sec_mode = str(section_split or "off").strip()
@@ -497,18 +568,42 @@ def attach_query_router(
         raise ValueError(f"section_split must be one of {SECTION_SPLIT_MODES}, got {section_split!r}")
     norm_vid_band = _steer_hooks.validate_block_band(video_block_band)
     norm_aud_band = _steer_hooks.validate_block_band(audio_block_band)
+    norm_ref_img_band = _steer_hooks.validate_block_band(ref_img_block_band)
     s_pct = float(start_percent)
     e_pct = float(end_percent)
     if not (0.0 <= s_pct < e_pct <= 1.0):
         raise ValueError(
             f"start_percent/end_percent must satisfy 0.0 <= start_percent < end_percent <= 1.0, got [{s_pct}, {e_pct}]"
         )
+    a2v_gain = float(aud_to_vid_gain)
+    if not (0.0 <= a2v_gain <= 1.0):
+        raise ValueError(f"aud_to_vid_gain must lie in [0.0, 1.0], got {aud_to_vid_gain!r}")
+    ch_mode = str(audio_channel or "both").strip()
+    if ch_mode not in AUDIO_CHANNEL_MODES:
+        raise ValueError(f"audio_channel must be one of {AUDIO_CHANNEL_MODES}, got {audio_channel!r}")
+    t0_aud = float(audio_time_start)
+    t1_aud = float(audio_time_end)
+    if not (0.0 <= t0_aud < t1_aud <= 1.0):
+        raise ValueError(f"audio_time_start/end must satisfy 0.0 <= start < end <= 1.0, got [{t0_aud}, {t1_aud}]")
+    r_img_gain = float(ref_img_gain)
+    if not (0.0 <= r_img_gain <= 1.0):
+        raise ValueError(f"ref_img_gain must lie in [0.0, 1.0], got {ref_img_gain!r}")
+    r_aud_mode = str(ref_audio_stream or "both").strip()
+    if r_aud_mode not in REF_AUDIO_STREAM_MODES:
+        raise ValueError(f"ref_audio_stream must be one of {REF_AUDIO_STREAM_MODES}, got {ref_audio_stream!r}")
 
     audio_cond_raw = _extract_cond_tensor(audio_conditioning, name="audio_conditioning") if audio_conditioning is not None else None
     video_cond_raw = _extract_cond_tensor(video_conditioning, name="video_conditioning") if video_conditioning is not None else None
     video_cond_tags = _extract_cond_tags(video_conditioning) if video_conditioning is not None else None
 
-    if sec_mode == "off" and audio_cond_raw is None and video_cond_raw is None:
+    if (
+        sec_mode == "off"
+        and audio_cond_raw is None
+        and video_cond_raw is None
+        and a2v_gain >= (1.0 - 1e-6)
+        and r_img_gain >= (1.0 - 1e-6)
+        and r_aud_mode == "both"
+    ):
         return model
 
     m = model.clone()
@@ -520,6 +615,7 @@ def attach_query_router(
 
     _steer_hooks.parse_block_band(norm_vid_band, len(dm.blocks))
     _steer_hooks.parse_block_band(norm_aud_band, len(dm.blocks))
+    _steer_hooks.parse_block_band(norm_ref_img_band, len(dm.blocks))
 
     ws = _steer_hooks.install_steer_block_hooks(
         m, dm, key_prefix=ROUTER_WRAPPER_KEY, node_label="MiniMaxH3QueryRouter"
@@ -546,13 +642,20 @@ def attach_query_router(
             workspace=ws,
             dm=dm,
             ref_cache=ref_cache,
+            aud_to_vid_gain=a2v_gain,
+            audio_channel=ch_mode,
+            audio_time_start=t0_aud,
+            audio_time_end=t1_aud,
+            ref_img_gain=r_img_gain,
+            ref_img_block_band=norm_ref_img_band,
+            ref_audio_stream=r_aud_mode,
         )
     ]
     return m
 
 
 class MiniMaxH3QueryRouter(io.ComfyNode):
-    """Single-pass (`1x`) Cross-Modal Query Router (`Q_vid` / `Q_aud` per-stream & per-depth prompt routing)."""
+    """Single-pass (`1x`) Cross-Modal Query Router (`Q_vid` / `Q_aud` text, coupling, stereo/time, & ref routing)."""
 
     @classmethod
     def define_schema(cls) -> io.Schema:
@@ -561,8 +664,8 @@ class MiniMaxH3QueryRouter(io.ComfyNode):
             display_name="MiniMax H3 Query Router",
             category="MiniMax H3/Steering",
             description=(
-                "Route distinct text conditioning (arbitrary-length second prompt or automatic "
-                "soundscape/scene section splits) to video vs. audio queries per DiT block band in a single 1x pass."
+                "Route distinct text conditioning, Q_aud->K_vid coupling gain, stereo/time slices, and multimodal "
+                "reference attenuation across DiT block bands in a single 1x pass."
             ),
             inputs=[
                 io.Model.Input("model"),
@@ -618,6 +721,69 @@ class MiniMaxH3QueryRouter(io.ComfyNode):
                     optional=True,
                     tooltip="Optional separate prompt CONDITIONING (any length on 'all' blocks) read only by video queries.",
                 ),
+                io.Float.Input(
+                    "aud_to_vid_gain",
+                    default=1.0,
+                    min=0.0,
+                    max=1.0,
+                    step=0.05,
+                    optional=True,
+                    tooltip=(
+                        "Cross-modal coupling weight [0.0, 1.0] for audio queries attending to video keys inside "
+                        "audio_block_band (`log(gain)` bias; 1.0 = unmasked, 0.0 = blind to video)."
+                    ),
+                ),
+                io.Combo.Input(
+                    "audio_channel",
+                    options=list(AUDIO_CHANNEL_MODES),
+                    default="both",
+                    optional=True,
+                    tooltip="Stereo target channel(s) routed to audio_conditioning: 'both', 'left', or 'right'.",
+                ),
+                io.Float.Input(
+                    "audio_time_start",
+                    default=0.0,
+                    min=0.0,
+                    max=0.99,
+                    step=0.01,
+                    optional=True,
+                    tooltip="Normalized audio timeline start [0.0, 1.0) for 1x temporal Q_aud routing.",
+                ),
+                io.Float.Input(
+                    "audio_time_end",
+                    default=1.0,
+                    min=0.01,
+                    max=1.0,
+                    step=0.01,
+                    optional=True,
+                    tooltip="Normalized audio timeline end (0.0, 1.0] for 1x temporal Q_aud routing.",
+                ),
+                io.Float.Input(
+                    "ref_img_gain",
+                    default=1.0,
+                    min=0.0,
+                    max=1.0,
+                    step=0.05,
+                    optional=True,
+                    tooltip=(
+                        "Value multiplier [0.0, 1.0] on raw VAE ref_img/ref_video tokens inside ref_img_block_band "
+                        "(e.g. 0.25 in mid_late_20_49 to keep early identity while relaxing lighting lock)."
+                    ),
+                ),
+                io.Combo.Input(
+                    "ref_img_block_band",
+                    options=list(STEER_BLOCK_BANDS),
+                    default="mid_late_20_49",
+                    optional=True,
+                    tooltip="DiT block band where ref_img_gain attenuates raw VAE ref_img value rows.",
+                ),
+                io.Combo.Input(
+                    "ref_audio_stream",
+                    options=list(REF_AUDIO_STREAM_MODES),
+                    default="both",
+                    optional=True,
+                    tooltip="'both' (default) or 'audio_only' (blocks Q_vid from reading raw ref_audio value rows).",
+                ),
             ],
             outputs=[io.Model.Output(display_name="model")],
         )
@@ -633,6 +799,13 @@ class MiniMaxH3QueryRouter(io.ComfyNode):
         end_percent: float = 1.0,
         audio_conditioning: Any = None,
         video_conditioning: Any = None,
+        aud_to_vid_gain: float = 1.0,
+        audio_channel: str = "both",
+        audio_time_start: float = 0.0,
+        audio_time_end: float = 1.0,
+        ref_img_gain: float = 1.0,
+        ref_img_block_band: str = "mid_late_20_49",
+        ref_audio_stream: str = "both",
     ) -> io.NodeOutput:
         return io.NodeOutput(
             attach_query_router(
@@ -644,5 +817,12 @@ class MiniMaxH3QueryRouter(io.ComfyNode):
                 end_percent=end_percent,
                 audio_conditioning=audio_conditioning,
                 video_conditioning=video_conditioning,
+                aud_to_vid_gain=aud_to_vid_gain,
+                audio_channel=audio_channel,
+                audio_time_start=audio_time_start,
+                audio_time_end=audio_time_end,
+                ref_img_gain=ref_img_gain,
+                ref_img_block_band=ref_img_block_band,
+                ref_audio_stream=ref_audio_stream,
             )
         )

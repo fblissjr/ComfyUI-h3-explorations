@@ -824,7 +824,14 @@
       "start_percent",
       "end_percent",
       "audio_conditioning",
-      "video_conditioning"
+      "video_conditioning",
+      "aud_to_vid_gain",
+      "audio_channel",
+      "audio_time_start",
+      "audio_time_end",
+      "ref_img_gain",
+      "ref_img_block_band",
+      "ref_audio_stream"
     ],
     "node_id": "MiniMaxH3QueryRouter",
     "outputs": [

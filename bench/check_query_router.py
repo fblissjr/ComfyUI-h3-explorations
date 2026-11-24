@@ -90,22 +90,9 @@ class _TinyAttn(nn.Module):
         k_c = AttentionTensorContainer(k.transpose(0, 1).unsqueeze(0))
         v_c = AttentionTensorContainer(v.transpose(0, 1).unsqueeze(0))
         opts = transformer_options if isinstance(transformer_options, dict) else {}
-        ovr = opts.get("optimized_attention_override")
-        if ovr is not None:
-            out = ovr(
-                optimized_attention,
-                q_c,
-                k_c,
-                v_c,
-                self.heads,
-                mask=None,
-                skip_reshape=True,
-                transformer_options=opts,
-            )
-        else:
-            out = optimized_attention(
-                q_c, k_c, v_c, self.heads, mask=None, skip_reshape=True, transformer_options=opts
-            )
+        out = optimized_attention(
+            q_c, k_c, v_c, self.heads, mask=None, skip_reshape=True, transformer_options=opts
+        )
         return self.out_proj(out.squeeze(0))
 
 
@@ -153,21 +140,38 @@ class _TinyDiTBlock(nn.Module):
 
 
 class _FakeLayout:
-    def __init__(self, l_txt: int, n_aud: int = 4, n_vid: int = 8) -> None:
-        self.segments = [
-            (0, l_txt, "text"),
-            (l_txt, l_txt + n_aud, "audio"),
-            (l_txt + n_aud, l_txt + n_aud + n_vid, "video"),
-        ]
-        self.seq_len = l_txt + n_aud + n_vid
+    def __init__(
+        self,
+        l_txt: int,
+        n_aud: int = 4,
+        n_vid: int = 8,
+        n_ref_img: int = 0,
+        n_ref_aud: int = 0,
+    ) -> None:
+        cur = l_txt
+        segs: list[tuple[int, int, str]] = [(0, cur, "text")]
+        if n_ref_img > 0:
+            segs.append((cur, cur + n_ref_img, "ref_img"))
+            cur += n_ref_img
+        if n_ref_aud > 0:
+            segs.append((cur, cur + n_ref_aud, "ref_audio"))
+            cur += n_ref_aud
+        aud_a = cur
+        segs.append((aud_a, aud_a + n_aud, "audio"))
+        cur = aud_a + n_aud
+        vid_a = cur
+        segs.append((vid_a, vid_a + n_vid, "video"))
+        cur = vid_a + n_vid
+        self.segments = segs
+        self.seq_len = cur
         pos = torch.zeros(self.seq_len, 3, dtype=torch.float64)
         pos[:, 0] = torch.arange(self.seq_len, dtype=torch.float64)
         # Put Left/Right audio on opposite screen-edge w columns and video on centered grid
         half_a = n_aud // 2
-        pos[l_txt : l_txt + half_a, 2] = 0.0
-        pos[l_txt + half_a : l_txt + n_aud, 2] = 32.0
-        pos[l_txt + n_aud :, 1] = 16.0
-        pos[l_txt + n_aud :, 2] = 16.0
+        pos[aud_a : aud_a + half_a, 2] = 0.0
+        pos[aud_a + half_a : aud_a + n_aud, 2] = 32.0
+        pos[vid_a:, 1] = 16.0
+        pos[vid_a:, 2] = 16.0
         self.position_ids = pos
         self.signature = (l_txt, 1, 1, n_vid, half_a)
 
@@ -184,11 +188,22 @@ class _TinyRefiner(nn.Module):
 
 
 class _TinyH3Model(nn.Module):
-    def __init__(self, *, n_blocks: int = 4, n_aud: int = 4, n_vid: int = 8, seed: int = 100) -> None:
+    def __init__(
+        self,
+        *,
+        n_blocks: int = 4,
+        n_aud: int = 4,
+        n_vid: int = 8,
+        n_ref_img: int = 0,
+        n_ref_aud: int = 0,
+        seed: int = 100,
+    ) -> None:
         super().__init__()
         self.hidden_size = sc.POST_REFINER_DIM
         self.n_aud = n_aud
         self.n_vid = n_vid
+        self.n_ref_img = n_ref_img
+        self.n_ref_aud = n_ref_aud
         self.condition_proj = _FactorizedLinear(sc.ENCODER_DIM, sc.POST_REFINER_DIM, rank=16, seed=seed)
         self.token_refiner = _TinyRefiner(sc.POST_REFINER_DIM, seed=seed + 10)
         self.audio_patch_proj = nn.Identity()  # marks joint AV model (`is_audio_patch_proj != None`)
@@ -199,6 +214,12 @@ class _TinyH3Model(nn.Module):
             [_TinyDiTBlock(sc.POST_REFINER_DIM, 42, 128, seed=seed + 20 * (i + 1)) for i in range(n_blocks)]
         )
         gen = torch.Generator(device="cpu").manual_seed(seed + 999)
+        self._ref_img_seed = nn.Parameter(
+            torch.randn(max(n_ref_img, 0), sc.POST_REFINER_DIM, generator=gen) * 0.25, requires_grad=False
+        )
+        self._ref_aud_seed = nn.Parameter(
+            torch.randn(max(n_ref_aud, 0), sc.POST_REFINER_DIM, generator=gen) * 0.25, requires_grad=False
+        )
         self._aud_seed = nn.Parameter(torch.randn(n_aud, sc.POST_REFINER_DIM, generator=gen) * 0.25, requires_grad=False)
         self._vid_seed = nn.Parameter(torch.randn(n_vid, sc.POST_REFINER_DIM, generator=gen) * 0.25, requires_grad=False)
         self._t_emb = nn.Parameter(torch.randn(3, 16, generator=gen) * 0.25, requires_grad=False)
@@ -224,19 +245,28 @@ class _TinyH3Model(nn.Module):
         opts = dict(transformer_options or {})
         txt = context[0]
         if txt.shape[-1] != self.hidden_size:
-            txt = self.token_refiner(self.condition_proj(txt), transformer_options=opts)
+            txt = self.token_refiner(self.condition_proj(txt), transformer_options={})
         l_txt = int(txt.shape[0])
-        layout = _FakeLayout(l_txt, n_aud=self.n_aud, n_vid=self.n_vid)
+        layout = _FakeLayout(
+            l_txt,
+            n_aud=self.n_aud,
+            n_vid=self.n_vid,
+            n_ref_img=self.n_ref_img,
+            n_ref_aud=self.n_ref_aud,
+        )
         rope_freqs = rope_rotation_table(self.rope_freqs(layout.position_ids, txt.device), txt.dtype)
         text_tags = (minimax_payload or {}).get("text_token_tags") if isinstance(minimax_payload, dict) else None
         if text_tags is not None:
             _tag_runs(0, l_txt, 0, text_tags)
-        mod_segments = [
-            (0, l_txt, 1),
-            (l_txt, l_txt + self.n_aud, 2),
-            (l_txt + self.n_aud, l_txt + self.n_aud + self.n_vid, 0),
-        ]
-        h = torch.cat([txt, self._aud_seed.to(dtype=txt.dtype), self._vid_seed.to(dtype=txt.dtype)], dim=0)
+        kind_tag = {"text": 1, "ref_img": 0, "ref_audio": 2, "audio": 2, "video": 0}
+        mod_segments = [(a, b, kind_tag[kind]) for (a, b, kind) in layout.segments]
+        parts = [txt]
+        if self.n_ref_img > 0:
+            parts.append(self._ref_img_seed.to(dtype=txt.dtype))
+        if self.n_ref_aud > 0:
+            parts.append(self._ref_aud_seed.to(dtype=txt.dtype))
+        parts.extend([self._aud_seed.to(dtype=txt.dtype), self._vid_seed.to(dtype=txt.dtype)])
+        h = torch.cat(parts, dim=0)
         patches = (opts.get("patches_replace") or {}).get("dit", {})
         for i, block in enumerate(self.blocks):
             opts["block_index"] = i
@@ -262,8 +292,10 @@ class _TinyH3Model(nn.Module):
                 h = patches[("double_block", i)](blk_args, {"original_block": _orig})["img"]
             else:
                 h = block(h, self._t_emb, mod_segments, rope_freqs, transformer_options=opts)
-        aud_out = h[l_txt : l_txt + self.n_aud]
-        vid_out = h[l_txt + self.n_aud :]
+        aud_seg = next(s for s in layout.segments if s[2] == "audio")
+        vid_seg = next(s for s in layout.segments if s[2] == "video")
+        aud_out = h[aud_seg[0] : aud_seg[1]]
+        vid_out = h[vid_seg[0] : vid_seg[1]]
         return [vid_out.unsqueeze(0), aud_out.unsqueeze(0)]
 
 
@@ -771,6 +803,34 @@ def _test_refusals_and_schema() -> None:
         lambda: qr.attach_query_router(p_cache, audio_conditioning=c_12),
         "FrozenVideoCache incompatibility",
     )
+    _expect_fail(
+        lambda: qr.attach_query_router(p.clone(), aud_to_vid_gain=-0.1),
+        "aud_to_vid_gain < 0",
+    )
+    _expect_fail(
+        lambda: qr.attach_query_router(p.clone(), aud_to_vid_gain=1.5),
+        "aud_to_vid_gain > 1",
+    )
+    _expect_fail(
+        lambda: qr.attach_query_router(p.clone(), ref_img_gain=-0.1),
+        "ref_img_gain < 0",
+    )
+    _expect_fail(
+        lambda: qr.attach_query_router(p.clone(), ref_img_gain=1.5),
+        "ref_img_gain > 1",
+    )
+    _expect_fail(
+        lambda: qr.attach_query_router(p.clone(), audio_time_start=0.6, audio_time_end=0.4, audio_conditioning=c_12),
+        "audio_time_start >= audio_time_end",
+    )
+    _expect_fail(
+        lambda: qr.attach_query_router(p.clone(), audio_channel="center", audio_conditioning=c_12),
+        "invalid audio_channel",
+    )
+    _expect_fail(
+        lambda: qr.attach_query_router(p.clone(), ref_audio_stream="video_only"),
+        "invalid ref_audio_stream",
+    )
 
     manifest = json.loads((REPO / "bench" / "node_id_manifest.json").read_text(encoding="utf-8"))
     assert "MiniMaxH3QueryRouter" in manifest, "MiniMaxH3QueryRouter missing from bench/node_id_manifest.json"
@@ -780,12 +840,147 @@ def _test_refusals_and_schema() -> None:
     print("[ok] Test 5: Refusals and manifest/schema contract passed")
 
 
+def _test_aud_to_vid_gain() -> None:
+    # 1-block model isolates direct Q_aud -> K_vid sensitivity when _vid_seed is perturbed
+    gen = torch.Generator(device="cpu").manual_seed(201)
+    ctx_base = torch.randn(1, 10, sc.POST_REFINER_DIM, generator=gen) * 0.25
+    ctx_aud_short = torch.randn(1, 5, sc.POST_REFINER_DIM, generator=gen) * 0.25
+
+    for label, aud_cond in [("standalone", None), ("dual_short_5", _make_cond(ctx_aud_short))]:
+        dm_a = _TinyH3Model(n_blocks=1, seed=60)
+        dm_b = _TinyH3Model(n_blocks=1, seed=60)
+        dm_b._vid_seed.data.add_(10.0)
+        p_a = _ToyPatcher(dm_a)
+        p_b = _ToyPatcher(dm_b)
+
+        # Verify gain=1.0 is bit-identical to unmasked baseline
+        _, aud_raw = p_a.run(ctx_base)
+        _, aud_g1 = qr.attach_query_router(p_a.clone(), audio_conditioning=aud_cond, aud_to_vid_gain=1.0).run(ctx_base)
+        if aud_cond is None:
+            assert float((aud_g1 - aud_raw).abs().max().item()) < 1e-6
+
+        diffs = {}
+        for g in (1.0, 0.25, 0.0):
+            _, a_out_a = qr.attach_query_router(p_a.clone(), audio_conditioning=aud_cond, aud_to_vid_gain=g).run(ctx_base)
+            _, a_out_b = qr.attach_query_router(p_b.clone(), audio_conditioning=aud_cond, aud_to_vid_gain=g).run(ctx_base)
+            diffs[g] = float((a_out_a - a_out_b).abs().max().item())
+
+        assert diffs[1.0] > 1e-3, f"{label}: expected Q_aud response to _vid_seed at gain=1.0, got {diffs}"
+        assert diffs[0.0] < 1e-5, f"{label}: expected Q_aud invariant to _vid_seed at gain=0.0, got {diffs}"
+        assert diffs[0.0] < diffs[0.25] < diffs[1.0], f"{label}: expected monotone damping curve, got {diffs}"
+    print("[ok] Test 6: Q_aud -> K_vid coupling gain (standalone + arbitrary dual prompt) passed")
+
+
+def _test_binaural_and_temporal_audio_routing() -> None:
+    dm = _TinyH3Model(n_blocks=1, n_aud=8, n_vid=8, seed=70)
+    p = _ToyPatcher(dm)
+    gen = torch.Generator(device="cpu").manual_seed(301)
+    ctx_base = torch.randn(1, 10, sc.POST_REFINER_DIM, generator=gen) * 0.25
+    ctx_alt = torch.randn(1, 6, sc.POST_REFINER_DIM, generator=gen) * 0.25 + 1.5
+
+    v_base, a_base = p.run(ctx_base)
+
+    # Channel-major packing: [0:4] = Left, [4:8] = Right
+    _, a_left = qr.attach_query_router(
+        p.clone(), audio_conditioning=_make_cond(ctx_alt), audio_channel="left"
+    ).run(ctx_base)
+    assert float((a_left[:, :4, :] - a_base[:, :4, :]).abs().max().item()) > 1e-3
+    assert float((a_left[:, 4:, :] - a_base[:, 4:, :]).abs().max().item()) < 1e-6
+
+    _, a_right = qr.attach_query_router(
+        p.clone(), audio_conditioning=_make_cond(ctx_alt), audio_channel="right"
+    ).run(ctx_base)
+    assert float((a_right[:, :4, :] - a_base[:, :4, :]).abs().max().item()) < 1e-6
+    assert float((a_right[:, 4:, :] - a_base[:, 4:, :]).abs().max().item()) > 1e-3
+
+    # Temporal window [0.5, 1.0] on both channels: shifts [2:4] & [6:8], leaves [0:2] & [4:6] bit-exact!
+    _, a_half = qr.attach_query_router(
+        p.clone(),
+        audio_conditioning=_make_cond(ctx_alt),
+        audio_channel="both",
+        audio_time_start=0.5,
+        audio_time_end=1.0,
+    ).run(ctx_base)
+    assert float((a_half[:, 0:2, :] - a_base[:, 0:2, :]).abs().max().item()) < 1e-6
+    assert float((a_half[:, 4:6, :] - a_base[:, 4:6, :]).abs().max().item()) < 1e-6
+    assert float((a_half[:, 2:4, :] - a_base[:, 2:4, :]).abs().max().item()) > 1e-3
+    assert float((a_half[:, 6:8, :] - a_base[:, 6:8, :]).abs().max().item()) > 1e-3
+    print("[ok] Test 7: 1x binaural L/R and temporal [0.5, 1.0] Q_aud routing passed")
+
+
+def _test_multimodal_ref_routing() -> None:
+    gen = torch.Generator(device="cpu").manual_seed(401)
+    ctx_base = torch.randn(1, 10, sc.POST_REFINER_DIM, generator=gen) * 0.25
+
+    # 1. Depth-gated ref_img attenuation (scales V[ref_img] in target blocks while keeping Sol-compatible K)
+    dm_ri = _TinyH3Model(n_blocks=2, n_aud=4, n_vid=8, n_ref_img=4, n_ref_aud=0, seed=80)
+    v_g1, _ = qr.attach_query_router(
+        _ToyPatcher(dm_ri), ref_img_gain=1.0, ref_img_block_band="0-1"
+    ).run(ctx_base)
+    v_g025, _ = qr.attach_query_router(
+        _ToyPatcher(dm_ri), ref_img_gain=0.25, ref_img_block_band="0-1"
+    ).run(ctx_base)
+    v_g0, _ = qr.attach_query_router(
+        _ToyPatcher(dm_ri), ref_img_gain=0.0, ref_img_block_band="0-1"
+    ).run(ctx_base)
+    d_full = float((v_g1 - v_g0).abs().max().item())
+    d_quarter = float((v_g025 - v_g0).abs().max().item())
+    assert d_full > 1e-3, f"expected ref_img_gain=0 to shift video vs gain=1, got {d_full}"
+    assert 0.0 < d_quarter < d_full, f"expected monotone ref_img_gain scaling, got {d_quarter} vs {d_full}"
+
+    # Verify depth-gating on block 1 only ('1-1'): ref_img_damps == 1 and V[ref_img] untouched in block 0, scaled in block 1!
+    p_ri_depth = _ToyPatcher(dm_ri)
+    seen_ref_img_norms: list[tuple[int, float]] = []
+
+    def _spy_ovr(next_fn, q_u, k_u, v_u, heads, **kw):
+        b_i = int((kw.get("transformer_options") or {}).get("block_index", -1))
+        v_t = v_u if torch.is_tensor(v_u) else v_u.peek()
+        seen_ref_img_norms.append((b_i, float(v_t[:, :, 10:14, :].abs().max().item())))
+        return next_fn(q_u, k_u, v_u, heads, **kw)
+
+    p_ri_depth.model_options["transformer_options"]["optimized_attention_override"] = _spy_ovr
+    st_ri: list[dict[str, Any]] = []
+    qr.attach_query_router(p_ri_depth, ref_img_gain=0.25, ref_img_block_band="1-1").run(
+        ctx_base, stats_sink=st_ri
+    )
+    assert st_ri and st_ri[0]["ref_img_damps"] == 1
+    assert len(seen_ref_img_norms) == 2
+    assert seen_ref_img_norms[0][1] > 1e-3, "block 0 should leave V[ref_img] untouched"
+    assert seen_ref_img_norms[1][1] < seen_ref_img_norms[0][1] * 0.5, "block 1 should scale V[ref_img]"
+
+    # 2. ref_audio_stream='audio_only': blocks V[ref_audio] from main/Q_vid while Q_aud stays bit-identical to unmasked!
+    dm_ra = _TinyH3Model(n_blocks=1, n_aud=4, n_vid=8, n_ref_img=0, n_ref_aud=4, seed=82)
+    v_ra_raw, a_ra_raw = _ToyPatcher(dm_ra).run(ctx_base)
+
+    p_ra = _ToyPatcher(dm_ra)
+    seen_ref_aud_max: list[float] = []
+
+    def _spy_aud_ovr(next_fn, q_u, k_u, v_u, heads, **kw):
+        v_t = v_u if torch.is_tensor(v_u) else v_u.peek()
+        seen_ref_aud_max.append(float(v_t[:, :, 10:14, :].abs().max().item()))
+        return next_fn(q_u, k_u, v_u, heads, **kw)
+
+    p_ra.model_options["transformer_options"]["optimized_attention_override"] = _spy_aud_ovr
+    st_ra: list[dict[str, Any]] = []
+    v_ra_iso, a_ra_iso = qr.attach_query_router(p_ra, ref_audio_stream="audio_only").run(
+        ctx_base, stats_sink=st_ra
+    )
+    assert float((a_ra_iso - a_ra_raw).abs().max().item()) < 1e-6, "Q_aud must keep intact ref_audio"
+    assert float((v_ra_iso - v_ra_raw).abs().max().item()) > 1e-3, "Q_vid should drop ref_audio contribution"
+    assert seen_ref_aud_max and seen_ref_aud_max[0] == 0.0, f"expected zeroed V[ref_audio] in main pass, got {seen_ref_aud_max}"
+    assert st_ra and st_ra[0]["ref_audio_isolations"] == 1
+    print("[ok] Test 8: Multimodal depth-gated ref_img & ref_audio_stream='audio_only' passed")
+
+
 def main() -> int:
     _test_parity_against_audio_only_steer()
     _test_arbitrary_length_dual_prompt()
     _test_section_split()
     _test_mixed_bands()
     _test_refusals_and_schema()
+    _test_aud_to_vid_gain()
+    _test_binaural_and_temporal_audio_routing()
+    _test_multimodal_ref_routing()
     print("check_query_router: ALL TESTS PASSED")
     return 0
 
