@@ -16,6 +16,7 @@ replaces `docs/wiki/ops/evidence.md`, which says what the records established.
 
 | date | lane | record | verdict |
 |---|---|---|---|
+| 2026-11-24 | query routing | [Query router, first renders: two prompts in one pass, section split, and the router's own drift](2026-11-24_query_router_first_renders.md) | Three seeds, two scenes. A second prompt for the sound holds the picture at the router's own floor and changes the sound on the stairwell. Hiding the sound sections from the picture stops written sound wording reaching it and re-rolls the picture. The router is deterministic and is not an exact no-op. |
 | 2026-11-23 | zero | [Zero-Code GPU Trio + Kitchen Ensemble `Ref2VA` Verification](2026-11-23_zero_code_gpu_trio.md) |  |
 | 2026-11-23 | wave4 | [Wave 4 Post-Restart Live Verification (`:8188` + Strict `bank/` Smokes)](2026-11-23_wave4_post_restart_live_verification.md) |  |
 | 2026-11-23 | wave3b | [Wave 3 Part B Behavioral Concepts: `youtube_overhype_influencer` & `sudden_takeoff_flight` (`192f`)](2026-11-23_wave3b_behavioral_concepts_overhype_and_takeoff.md) |  |
