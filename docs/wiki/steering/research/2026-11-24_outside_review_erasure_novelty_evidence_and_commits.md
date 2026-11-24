@@ -30,6 +30,29 @@ The first version of this page read the gate records as JSON and did not open th
 - **Rank:** on the rank sheet (`$H3_OUTPUT_DIR/Image/paper_erasure_2026-11-21/ablation3_clean_rank_and_ridge.png`), a second concept shows cleaner figures at the shipped rank than at rank one **[second reader]**. A single seed on a retired concept, so "rank does not matter" below is limited to `noir`'s color measure.
 - **Added from the same audit [second reader]:** the matched and pooled directions were compared across the whole built bank and are nearly parallel on all but a few stems, `noir` among the few; the regression statistic was re-run on the cached banks with shuffled and noise controls and came out as high or higher than on real pairs; and the multi-pass audio-video paper in section 3 names this model among its targets.
 
+## Addendum, same day: where the routing and the portals have been run
+
+The first version counted this evidence too low. It had no inventory for the stream split or the portals, and its block-band row read as if band routing had been run once. After the owner pointed at the paper draft and at the wave 2 and wave 3b output folders, the final pass read [`../paper/manuscript.md`](../paper/manuscript.md) in full, listed both folders, and read the graphs embedded in the portal clips (`bench/diff_clip_graphs.py::graph_of`). All **[checked]**.
+
+| What | Where it was run | Record |
+|---|---|---|
+| Single-pass stream split, matched against steering both streams | the box-office showcase; `charcoal_sketch_animated` on the stairwell prompt; `youtube_overhype_influencer` on the stairwell prompt; `noir` with a block band on a reference-image clip | `data/exp_unpooled_sliders/phase4_2026_11_22/showcase_c_qaud_audio_split.json`; the wave 2 record, section 1.2; the wave 3b record; `data/exp_unpooled_sliders/stage2_2026_11_22/stage2_verification.json` (`gate3_ref2va_90f`) |
+| The same split with no both-streams arm beside it | `de_llm_slop` on the first/last-frame checkpoint, and across four attention backends | the same stage 2 file (`gate1_fl2va_90f`, `gate2_4backend_parity`) |
+| Audio-only steering in the late blocks | `reverb_cathedral`; `youtube_overhype_influencer` | the wave 2 record, section 1.2; the wave 3b record |
+| Block-band routing | `paper_origami` on three bands; `noir` and `felt_muppet`; `noir` on a reference-image clip | the phase 3 record; the phase 4 record; the stage 2 file |
+| Moving portal, one untouched prompt, steering on the edited branch only | `noir` on the disco rink, in two shapes; `youtube_overhype_influencer`; `sudden_takeoff_flight`, with a sound-cue variant; `charcoal_sketch_animated` in the kitchen (by its record; that clip carries no readable graph) | `$H3_OUTPUT_DIR/Video/erasure_showcase_2026-11-21/`, `Video/wave3b_2026_11_23/`, `Video/wave2_2026_11_23/gate2c/` |
+| Moving portal driven by an edited prompt | the 2026-11-15 reality portal; four shipped portal workflows | `$H3_OUTPUT_DIR/Video/spatial_director_2026-11-15/`; `workflows/h3_spatial_portal_pika_api.json` and its siblings |
+| Single-pass spatial splice | tried and rejected by its own gate | the wave 2 record, section 3 |
+
+The records are [`2026-11-23_wave2_gpu_gates_bus_vr_path1c_and_qvid.md`](../../../../bench/results/2026-11-23_wave2_gpu_gates_bus_vr_path1c_and_qvid.md), [`2026-11-23_wave3b_behavioral_concepts_overhype_and_takeoff.md`](../../../../bench/results/2026-11-23_wave3b_behavioral_concepts_overhype_and_takeoff.md), [`2026-11-21_phase3_de_slop_and_vision_block_steering.md`](../../../../bench/results/2026-11-21_phase3_de_slop_and_vision_block_steering.md) and [`2026-11-22_phase4_clamped_stacking_and_audio_split_probes.md`](../../../../bench/results/2026-11-22_phase4_clamped_stacking_and_audio_split_probes.md).
+
+What these show, read from the records and not judged by ear:
+
+- **Loudness.** In every matched comparison, the clip made with the split sits closer to the unsteered clip's loudness than the clip steered on both streams.
+- **Pitch.** Closer to unsteered under the split in two of the matched comparisons and further in one; the paper states that residual itself and attributes it to audio still reading the steered video tokens.
+- **Seeds.** Every row is a single seed; the records' headers name one seed for the whole wave.
+- **Breadth.** The portal is run on more concepts and scenes than either the erasure comparison or the block map, which is the reverse of how an earlier summary of this review put it.
+
 ## 1. Short answers
 
 1. **Is erasure novel?** As an operator, no. As an exact recipe, it appears unpublished: two searches found every ingredient in print and no single work that combines them this way. The closest relatives are affine concept editing on the language-model side and soft-projection concept erasure on the diffusion side (section 3).
@@ -126,13 +149,13 @@ Everything multi-vector on the push side is near null on the repo's own records.
 
 - "Five independent proofs", "double dissociation", and the theorem, law and proof language in the paper. One proof is algebra; the others cite `noir` for every figure.
 - Peer orthogonalization as what keeps sliders from damaging each other (section 2; section 4, row 8).
-- The block band as a finding (section 4, row 11).
+- The specific 20-to-29 boundary as a finding (section 4, row 11). Band routing as a working control is a different matter and has several runs behind it (addendum).
 - The novelty of the audio-video routing as a whole. The single-pass audio split is the defensible part.
-- The paper itself. A referee's read is that it is an internal engineering report today: nearly every GPU result is one seed on one scene, and several headline sentences go past their records **[reviewer]**.
+- Parts of the paper. Read in full in the final pass, the v5 manuscript leads with the routing, labels its lemma as classical, states its single-probe and residual-pitch caveats, and reports its own falsifications. What still goes past the records: every GPU result is a single seed; the regression statistic is worded as a share; and its section 6.1 scores the swapped, random and prompt-direction arms across seeds they were not run on **[checked]**. A referee-style audit lists more, including misdescribed related work **[reviewer]**.
 
 **Underhyped**
 
-- Visual steering changes the audio at the default streams setting, and the split that addresses it is off by default (section 4, row 13).
+- Visual steering changes the audio at the default streams setting, and the split that addresses it is off by default (section 4, row 13; the addendum lists the matched comparisons).
 - The early-step window (section 4, row 12).
 - The reference and keyframe lock, a reusable boundary for anyone using this model (section 4, row 14).
 - The engineering under the research: masked token spans, checkpoint-family fingerprinting, and guards that arrive with the code.
@@ -150,6 +173,7 @@ Everything multi-vector on the push side is near null on the repo's own records.
 
 - The `noir` result at high strength, stated with its prompt and strength.
 - The eraser keeping a dense scene where a blunt shrink of equal size loses it (the gate 2B-1 sheets).
+- Stream and band routing, and the same-prompt moving portal, as working controls run across several concepts, scenes and checkpoints (addendum).
 - The reading that the earlier regression prototype was effectively an eraser.
 - The keyframe and reference boundaries as documented.
 - Node schema stability across the window: no renamed node, no input inserted mid-list, no zero sentinel, no owner paths **[reviewer]**.
