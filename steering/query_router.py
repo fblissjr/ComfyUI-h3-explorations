@@ -14,7 +14,7 @@ import torch
 from comfy_api.latest import io
 
 from . import hooks as _steer_hooks
-from .constants import STEER_BLOCK_BANDS, import_repo_module
+from .constants import ENCODER_DIM, STEER_BLOCK_BANDS, import_repo_module
 
 logger = logging.getLogger("ComfyUI-h3-explorations.query_router")
 
@@ -51,7 +51,23 @@ def _extract_cond_tensor(conditioning: Any, *, name: str) -> torch.Tensor:
     return t
 
 
-def _resolve_span_masks(payload: dict[str, Any]) -> dict[str, Any] | None:
+def _extract_cond_tags(conditioning: Any) -> torch.Tensor | None:
+    if not isinstance(conditioning, (list, tuple)) or not conditioning:
+        return None
+    first = conditioning[0]
+    if not isinstance(first, (list, tuple)) or len(first) < 2 or not isinstance(first[1], dict):
+        return None
+    tags_raw = first[1].get("minimax_token_tags")
+    if not isinstance(tags_raw, torch.Tensor):
+        return None
+    return tags_raw.detach().to(device="cpu", dtype=torch.long).flatten()
+
+
+def _resolve_span_masks(payload: dict[str, Any], call_kwargs: dict[str, Any] | None = None) -> dict[str, Any] | None:
+    kw = call_kwargs or {}
+    span_masks = kw.get("h3_span_masks")
+    if isinstance(span_masks, dict):
+        return span_masks
     span_masks = payload.get("h3_span_masks")
     if isinstance(span_masks, dict):
         return span_masks
@@ -60,35 +76,106 @@ def _resolve_span_masks(payload: dict[str, Any]) -> dict[str, Any] | None:
     return sm if isinstance(sm, dict) else None
 
 
+def _resolve_pre_refiner_ctx(
+    context: torch.Tensor,
+    payload: dict[str, Any],
+    call_kwargs: dict[str, Any] | None = None,
+) -> torch.Tensor | None:
+    if context.ndim == 3 and int(context.shape[-1]) == ENCODER_DIM:
+        return context
+    kw = call_kwargs or {}
+    tags_raw = payload.get("text_token_tags")
+    expected_len = int(context.shape[1])
+    for cand in (
+        kw.get("h3_pre_refiner_ctx"),
+        payload.get("h3_pre_refiner_ctx"),
+        getattr(tags_raw, "_h3_pre_refiner_ctx", None),
+    ):
+        if isinstance(cand, dict):
+            cand = cand.get("ctx")
+        if not isinstance(cand, torch.Tensor):
+            continue
+        if cand.ndim == 2:
+            cand = cand.unsqueeze(0)
+        if cand.ndim == 3 and int(cand.shape[-1]) == ENCODER_DIM and int(cand.shape[1]) == expected_len:
+            return cand
+    return None
+
+
+def _sync_call_kwargs_for_main(
+    call_kwargs: dict[str, Any],
+    *,
+    main_ctx: torch.Tensor,
+    ctx_base: torch.Tensor,
+    video_cond_raw: torch.Tensor | None,
+    video_cond_tags: torch.Tensor | None,
+    keep_vid_mask: torch.Tensor | None,
+) -> dict[str, Any]:
+    if main_ctx is ctx_base:
+        return call_kwargs
+    next_kwargs = dict(call_kwargs)
+    payload = call_kwargs.get("minimax_payload")
+    next_payload = dict(payload) if isinstance(payload, dict) else {}
+    l_main = int(main_ctx.shape[1])
+    l_base = int(ctx_base.shape[1])
+
+    if video_cond_raw is not None:
+        if video_cond_tags is not None and int(video_cond_tags.numel()) == l_main:
+            next_payload["text_token_tags"] = video_cond_tags.flatten()
+        else:
+            existing_tags = next_payload.get("text_token_tags")
+            if isinstance(existing_tags, torch.Tensor) and int(existing_tags.numel()) != l_main:
+                next_payload.pop("text_token_tags", None)
+    elif keep_vid_mask is not None:
+        existing_tags = next_payload.get("text_token_tags")
+        if isinstance(existing_tags, torch.Tensor) and int(existing_tags.numel()) == int(keep_vid_mask.numel()):
+            next_payload["text_token_tags"] = existing_tags.flatten()[keep_vid_mask.to(device=existing_tags.device)]
+
+    if l_main != l_base:
+        next_payload.pop("layout", None)
+    next_kwargs["minimax_payload"] = next_payload
+    return next_kwargs
+
+
 def _split_context_by_section(
     base_ctx: torch.Tensor,
+    pre_refiner_ctx: torch.Tensor | None,
     payload: dict[str, Any],
+    call_kwargs: dict[str, Any],
     *,
     section_split: str,
     dm: Any,
     transformer_options: dict[str, Any],
     want_vid: bool,
     want_aud: bool,
-) -> tuple[torch.Tensor | None, torch.Tensor | None]:
-    """Compute `(ctx_vid_or_none, ctx_aud_or_none)` from structured H3 prompt sections."""
+) -> tuple[torch.Tensor | None, torch.Tensor | None, torch.BoolTensor | None, bool]:
+    """Compute `(ctx_vid_or_none, ctx_aud_or_none, keep_vid_mask, used_pre_refiner)`."""
     if section_split == "off":
-        return None, None
-    span_masks = _resolve_span_masks(payload)
+        return None, None, None, False
+    span_masks = _resolve_span_masks(payload, call_kwargs)
     if span_masks is None:
-        return None, None
+        return None, None, None, False
 
     scene_t = span_masks.get("scene")
     vision_t = span_masks.get("vision")
     if not isinstance(scene_t, torch.Tensor) or not isinstance(vision_t, torch.Tensor):
-        return None, None
+        return None, None, None, False
     L = int(base_ctx.shape[1])
     if int(scene_t.numel()) != L or int(vision_t.numel()) != L:
-        return None, None
+        return None, None, None, False
     if not bool(getattr(scene_t, "_h3_has_sections", False)):
-        return None, None
+        return None, None, None, False
+
+    used_pre = pre_refiner_ctx is not None
+    src_ctx = (
+        pre_refiner_ctx.to(device=base_ctx.device, dtype=base_ctx.dtype)
+        if pre_refiner_ctx is not None
+        else base_ctx
+    )
 
     vid_ctx: torch.Tensor | None = None
     aud_ctx: torch.Tensor | None = None
+    keep_vid_mask: torch.BoolTensor | None = None
     device = base_ctx.device
 
     if want_vid:
@@ -97,22 +184,23 @@ def _split_context_by_section(
         keep_vid = (~snd_mask) | vision_t.to(device=device)
         keep_vid[0] = True  # preserve row-0 Qwen3-VL attention sink
         if not bool(keep_vid.all()) and int(keep_vid.sum().item()) > 0:
-            vid_raw = base_ctx[:, keep_vid, :]
+            vid_raw = src_ctx[:, keep_vid, :]
             vid_ctx = _steer_hooks.refine_text_context(
                 dm, vid_raw, transformer_options, caller_name="MiniMaxH3QueryRouter(section_split)"
             )
+            keep_vid_mask = keep_vid
 
     if want_aud and section_split == "sections_by_modality":
         scene_only_mask = _spans.inference_mask(span_masks, "scene_only").to(device=device)
         keep_aud = ~scene_only_mask
         keep_aud[0] = True  # preserve row-0 attention sink alongside <d> dialogue & soundscape
         if not bool(keep_aud.all()) and int(keep_aud.sum().item()) > 0:
-            aud_raw = base_ctx[:, keep_aud, :]
+            aud_raw = src_ctx[:, keep_aud, :]
             aud_ctx = _steer_hooks.refine_text_context(
                 dm, aud_raw, transformer_options, caller_name="MiniMaxH3QueryRouter(section_split)"
             )
 
-    return vid_ctx, aud_ctx
+    return vid_ctx, aud_ctx, keep_vid_mask, used_pre
 
 
 def _make_query_router_wrapper(
@@ -124,9 +212,13 @@ def _make_query_router_wrapper(
     end_percent: float,
     audio_cond_raw: torch.Tensor | None,
     video_cond_raw: torch.Tensor | None,
+    video_cond_tags: torch.Tensor | None,
     workspace: _steer_hooks.H3SteerStepWorkspace,
     dm: Any,
+    ref_cache: dict[str, Any],
 ):
+    logged_modes: set[str] = set()
+
     def wrapper(executor, x, timestep, context, transformer_options, **call_kwargs):
         if not _steer_hooks.step_in_window(transformer_options, timestep, start_percent, end_percent):
             return executor(x, timestep, context, transformer_options, **call_kwargs)
@@ -136,40 +228,74 @@ def _make_query_router_wrapper(
         if not isinstance(payload, dict):
             payload = {}
 
-        with _steer_hooks.pause_malloc_graph_ctx():
-            ctx_base = _steer_hooks.refine_text_context(
-                dm, context, transformer_options, caller_name="MiniMaxH3QueryRouter"
-            )
-            ctx_vid_sec, ctx_aud_sec = _split_context_by_section(
-                context,
-                payload,
-                section_split=section_split,
-                dm=dm,
-                transformer_options=transformer_options,
-                want_vid=(video_cond_raw is None),
-                want_aud=(audio_cond_raw is None and has_audio_stream),
-            )
-            if video_cond_raw is not None:
-                ctx_vid = _steer_hooks.refine_text_context(
-                    dm,
-                    video_cond_raw.to(device=ctx_base.device, dtype=ctx_base.dtype),
-                    transformer_options,
-                    caller_name="MiniMaxH3QueryRouter(video_conditioning)",
+        pre_refiner_ctx = _resolve_pre_refiner_ctx(context, payload, call_kwargs) if section_split != "off" else None
+        cached = ref_cache.get("entry")
+        if (
+            cached is not None
+            and cached["context"] is context
+            and cached["pre_ctx"] is pre_refiner_ctx
+            and cached["device"] == context.device
+            and cached["dtype"] == context.dtype
+            and cached["has_audio"] == has_audio_stream
+        ):
+            ctx_base = cached["ctx_base"]
+            ctx_vid = cached["ctx_vid"]
+            ctx_aud = cached["ctx_aud"]
+            keep_vid_mask = cached["keep_vid_mask"]
+        else:
+            with _steer_hooks.pause_malloc_graph_ctx():
+                ctx_base = _steer_hooks.refine_text_context(
+                    dm, context, transformer_options, caller_name="MiniMaxH3QueryRouter"
                 )
-            else:
-                ctx_vid = ctx_vid_sec
+                ctx_vid_sec, ctx_aud_sec, keep_vid_mask, used_pre = _split_context_by_section(
+                    context,
+                    pre_refiner_ctx,
+                    payload,
+                    call_kwargs,
+                    section_split=section_split,
+                    dm=dm,
+                    transformer_options=transformer_options,
+                    want_vid=(video_cond_raw is None),
+                    want_aud=(audio_cond_raw is None and has_audio_stream),
+                )
+                if section_split != "off" and (ctx_vid_sec is not None or ctx_aud_sec is not None):
+                    mode_tag = f"{section_split}:{'pre_refiner' if used_pre else 'post_refiner_fallback'}"
+                    if mode_tag not in logged_modes:
+                        logged_modes.add(mode_tag)
+                        logger.info("[h3] MiniMaxH3QueryRouter section_split=%s", mode_tag)
+                if video_cond_raw is not None:
+                    ctx_vid = _steer_hooks.refine_text_context(
+                        dm,
+                        video_cond_raw.to(device=ctx_base.device, dtype=ctx_base.dtype),
+                        transformer_options,
+                        caller_name="MiniMaxH3QueryRouter(video_conditioning)",
+                    )
+                else:
+                    ctx_vid = ctx_vid_sec
 
-            if audio_cond_raw is not None and has_audio_stream:
-                ctx_aud = _steer_hooks.refine_text_context(
-                    dm,
-                    audio_cond_raw.to(device=ctx_base.device, dtype=ctx_base.dtype),
-                    transformer_options,
-                    caller_name="MiniMaxH3QueryRouter(audio_conditioning)",
-                )
-            elif has_audio_stream:
-                ctx_aud = ctx_aud_sec
-            else:
-                ctx_aud = None
+                if audio_cond_raw is not None and has_audio_stream:
+                    ctx_aud = _steer_hooks.refine_text_context(
+                        dm,
+                        audio_cond_raw.to(device=ctx_base.device, dtype=ctx_base.dtype),
+                        transformer_options,
+                        caller_name="MiniMaxH3QueryRouter(audio_conditioning)",
+                    )
+                elif has_audio_stream:
+                    ctx_aud = ctx_aud_sec
+                else:
+                    ctx_aud = None
+
+            ref_cache["entry"] = {
+                "context": context,
+                "pre_ctx": pre_refiner_ctx,
+                "device": context.device,
+                "dtype": context.dtype,
+                "has_audio": has_audio_stream,
+                "ctx_base": ctx_base,
+                "ctx_vid": ctx_vid,
+                "ctx_aud": ctx_aud,
+                "keep_vid_mask": keep_vid_mask,
+            }
 
         if ctx_vid is None and ctx_aud is None:
             return executor(x, timestep, ctx_base, transformer_options, **call_kwargs)
@@ -190,6 +316,7 @@ def _make_query_router_wrapper(
             dual_shadow: bool,
             aud_uses_shadow_b: bool,
             aud_unswapped_blocks: frozenset[int] = frozenset(),
+            invoke_call_kwargs: dict[str, Any] = call_kwargs,
         ) -> Any:
             with _steer_hooks.pause_malloc_graph_ctx():
                 rt = _steer_hooks.H3SteerRuntime(
@@ -211,7 +338,7 @@ def _make_query_router_wrapper(
                 to_next["optimized_attention_override"] = _steer_hooks.make_steer_attention_override(
                     to_next.get("optimized_attention_override")
                 )
-            out_res = executor(x, timestep, rt.main_ctx, to_next, **call_kwargs)
+            out_res = executor(x, timestep, rt.main_ctx, to_next, **invoke_call_kwargs)
             sink = to_next.get("_h3_steer_stats_sink")
             if callable(sink):
                 sink(dict(rt.stats))
@@ -236,8 +363,16 @@ def _make_query_router_wrapper(
 
         # Case B: `ctx_vid` spans ALL blocks (supports arbitrary l_txt_vid by making ctx_vid main_ctx)
         if vid_band == all_blocks:
+            main_call_kwargs = _sync_call_kwargs_for_main(
+                call_kwargs,
+                main_ctx=ctx_vid,
+                ctx_base=ctx_base,
+                video_cond_raw=video_cond_raw,
+                video_cond_tags=video_cond_tags,
+                keep_vid_mask=keep_vid_mask,
+            )
             if not has_audio_stream:
-                return executor(x, timestep, ctx_vid, transformer_options, **call_kwargs)
+                return executor(x, timestep, ctx_vid, transformer_options, **main_call_kwargs)
             aud_target = ctx_aud if (ctx_aud is not None and len(aud_band) > 0) else ctx_base
             aud_target_blocks = aud_band if ctx_aud is not None else all_blocks
             if ctx_aud is not None and aud_band != all_blocks and video_cond_raw is not None:
@@ -258,6 +393,7 @@ def _make_query_router_wrapper(
                 aud_split_blocks=aud_target_blocks,
                 dual_shadow=False,
                 aud_uses_shadow_b=False,
+                invoke_call_kwargs=main_call_kwargs,
             )
 
         # Case C: Partial `video_block_band` (`vid_band` is a proper non-empty subset of all_blocks)
@@ -370,6 +506,7 @@ def attach_query_router(
 
     audio_cond_raw = _extract_cond_tensor(audio_conditioning, name="audio_conditioning") if audio_conditioning is not None else None
     video_cond_raw = _extract_cond_tensor(video_conditioning, name="video_conditioning") if video_conditioning is not None else None
+    video_cond_tags = _extract_cond_tags(video_conditioning) if video_conditioning is not None else None
 
     if sec_mode == "off" and audio_cond_raw is None and video_cond_raw is None:
         return model
@@ -387,8 +524,14 @@ def attach_query_router(
     ws = _steer_hooks.install_steer_block_hooks(
         m, dm, key_prefix=ROUTER_WRAPPER_KEY, node_label="MiniMaxH3QueryRouter"
     )
-    from comfy.patcher_extension import WrappersMP
+    from comfy.patcher_extension import CallbacksMP, WrappersMP
 
+    ref_cache: dict[str, Any] = {}
+    m.add_callback_with_key(
+        CallbacksMP.ON_CLEANUP,
+        f"{ROUTER_WRAPPER_KEY}_refcache",
+        lambda *args, _rc=ref_cache, **kwargs: _rc.clear(),
+    )
     wrappers = m.wrappers.setdefault(WrappersMP.DIFFUSION_MODEL, {})
     wrappers[ROUTER_WRAPPER_KEY] = [
         _make_query_router_wrapper(
@@ -399,8 +542,10 @@ def attach_query_router(
             end_percent=e_pct,
             audio_cond_raw=audio_cond_raw,
             video_cond_raw=video_cond_raw,
+            video_cond_tags=video_cond_tags,
             workspace=ws,
             dm=dm,
+            ref_cache=ref_cache,
         )
     ]
     return m

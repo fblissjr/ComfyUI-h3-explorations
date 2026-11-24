@@ -22,6 +22,7 @@ import torch.nn as nn  # noqa: E402
 from comfy.ldm.minimax.model import (  # noqa: E402
     _mod_gate,
     _mod_scale_shift,
+    _tag_runs,
     rope_rotation_table,
 )
 from comfy.ldm.modules.attention import AttentionTensorContainer, optimized_attention  # noqa: E402
@@ -227,6 +228,9 @@ class _TinyH3Model(nn.Module):
         l_txt = int(txt.shape[0])
         layout = _FakeLayout(l_txt, n_aud=self.n_aud, n_vid=self.n_vid)
         rope_freqs = rope_rotation_table(self.rope_freqs(layout.position_ids, txt.device), txt.dtype)
+        text_tags = (minimax_payload or {}).get("text_token_tags") if isinstance(minimax_payload, dict) else None
+        if text_tags is not None:
+            _tag_runs(0, l_txt, 0, text_tags)
         mod_segments = [
             (0, l_txt, 1),
             (l_txt, l_txt + self.n_aud, 2),
@@ -298,6 +302,7 @@ class _ToyPatcher:
         context: torch.Tensor,
         *,
         payload: dict[str, Any] | None = None,
+        call_kwargs: dict[str, Any] | None = None,
         timestep: torch.Tensor | None = None,
         stats_sink: list[dict[str, Any]] | None = None,
     ) -> tuple[torch.Tensor, torch.Tensor]:
@@ -308,13 +313,14 @@ class _ToyPatcher:
             to["_h3_steer_stats_sink"] = stats_sink
         t = torch.tensor([800.0]) if timestep is None else timestep
         x = [torch.zeros(1, 24, 1, 4, 4), torch.zeros(1, 32, 2, 2)]
+        extra_kw = dict(call_kwargs or {})
         wrappers = get_all_wrappers(WrappersMP.DIFFUSION_MODEL, to)
         # Re-read from self.wrappers just as ComfyUI's ModelPatcher applies model wrappers
         w_dict = self.wrappers.get(WrappersMP.DIFFUSION_MODEL, {})
         active_wrappers = [fn for k in sorted(w_dict.keys()) for fn in w_dict[k]]
         with torch.no_grad():
             if not active_wrappers and not wrappers:
-                res = dm._forward(x, t, context, transformer_options=to, minimax_payload=payload)
+                res = dm._forward(x, t, context, transformer_options=to, minimax_payload=payload, **extra_kw)
                 return res[0], res[1]
 
             def _exec(curr_x, curr_t, curr_ctx, curr_opts, **kw):
@@ -324,12 +330,13 @@ class _ToyPatcher:
             for w in reversed(active_wrappers):
                 prev_fn = fn_chain
                 fn_chain = lambda cx, ct, cc, co, _w=w, _p=prev_fn, **kw: _w(_p, cx, ct, cc, co, **kw)
-            res = fn_chain(x, t, context, to, minimax_payload=payload)
+            res = fn_chain(x, t, context, to, minimax_payload=payload, **extra_kw)
             return res[0], res[1]
 
 
-def _make_cond(tensor: torch.Tensor) -> list[list[Any]]:
-    return [[tensor, {}]]
+def _make_cond(tensor: torch.Tensor, tags: torch.Tensor | None = None) -> list[list[Any]]:
+    meta = {"minimax_token_tags": tags} if tags is not None else {}
+    return [[tensor, meta]]
 
 
 def _attach_steer_spec(patcher: _ToyPatcher, spec: sn._AppliedVectorSpec) -> None:
@@ -482,7 +489,31 @@ def _test_arbitrary_length_dual_prompt() -> None:
     vid_b, aud_b = m_both.run(ctx_base_pre, stats_sink=stats_both)
     assert torch.isfinite(vid_b).all() and torch.isfinite(aud_b).all()
     assert stats_both[0]["aud_splices"] == 4
-    print("[ok] Test 2: Arbitrary-length dual-prompt routing (shorter, longer, 5120->5376 pre-refiner) passed")
+
+    # Longer video_conditioning (L=25 > L_base=12) with minimax_token_tags verifies _tag_runs sync!
+    ctx_vid_longer = torch.randn(1, 25, sc.ENCODER_DIM, generator=gen) * 0.25
+    tags_base_12 = torch.ones(12, dtype=torch.long)
+    tags_vid_25 = torch.ones(25, dtype=torch.long)
+    tags_vid_25[:3] = 0
+    seen_vid_tags: list[torch.Tensor | None] = []
+    dm_tag_spy = _TinyH3Model(n_blocks=4, seed=22)
+    orig_tag_fwd = dm_tag_spy._forward
+
+    def _tag_spy_fwd(x, timestep, context, transformer_options=None, minimax_payload=None, **kw):
+        seen_vid_tags.append((minimax_payload or {}).get("text_token_tags"))
+        return orig_tag_fwd(x, timestep, context, transformer_options=transformer_options, minimax_payload=minimax_payload, **kw)
+
+    dm_tag_spy._forward = _tag_spy_fwd  # type: ignore[method-assign]
+    m_longer_vid = qr.attach_query_router(
+        _ToyPatcher(dm_tag_spy),
+        video_conditioning=_make_cond(ctx_vid_longer, tags=tags_vid_25),
+        video_block_band="all",
+        audio_block_band="all",
+    )
+    v_lv, a_lv = m_longer_vid.run(ctx_base_pre, payload={"text_token_tags": tags_base_12})
+    assert torch.isfinite(v_lv).all() and torch.isfinite(a_lv).all()
+    assert seen_vid_tags and seen_vid_tags[0] is not None and torch.equal(seen_vid_tags[0], tags_vid_25)
+    print("[ok] Test 2: Arbitrary-length dual-prompt routing (shorter, longer video+tags, 5120->5376 pre-refiner) passed")
 
 
 def _test_section_split() -> None:
@@ -518,14 +549,21 @@ def _test_section_split() -> None:
     payload = {"text_token_tags": tags, "h3_span_masks": span_masks}
 
     captured_main_len: list[int] = []
+    captured_tags: list[torch.Tensor | None] = []
     dm_spy = _TinyH3Model(n_blocks=4, seed=33)
     orig_fwd = dm_spy._forward
 
     def _spy_fwd(x, timestep, context, transformer_options=None, minimax_payload=None, **kw):
         captured_main_len.append(int(context.shape[1]))
+        captured_tags.append((minimax_payload or {}).get("text_token_tags"))
         return orig_fwd(x, timestep, context, transformer_options=transformer_options, minimax_payload=minimax_payload, **kw)
 
     dm_spy._forward = _spy_fwd  # type: ignore[method-assign]
+    tags_sec_vis = tags.clone()
+    tags_sec_vis[:2] = 0
+    span_masks["vision"] = tags_sec_vis == 0
+    payload["text_token_tags"] = tags_sec_vis
+
     p_spy = _ToyPatcher(dm_spy)
     m_sec = qr.attach_query_router(p_spy, section_split="soundscape_to_audio")
     stats_sec: list[dict[str, Any]] = []
@@ -534,7 +572,51 @@ def _test_section_split() -> None:
     assert captured_main_len[0] == len(ids) - n_snd, (
         f"soundscape_to_audio should strip {n_snd} soundscape tokens pre-refiner: got {captured_main_len[0]} vs {len(ids)}"
     )
+    assert captured_tags[0] is not None and int(captured_tags[0].numel()) == len(ids) - n_snd
+    assert bool((captured_tags[0][:2] == 0).all())
     assert stats_sec[0]["aud_splices"] == 4
+
+    # Simulate real ComfyUI extra_conds: 5376-D post-refiner context + h3_pre_refiner_ctx + h3_span_masks kwargs!
+    with torch.no_grad():
+        ctx_sec_post = sh.refine_text_context(dm_spy, ctx_sec_pre)
+    captured_main_len.clear()
+    captured_tags.clear()
+    v_post_pre, a_post_pre = m_sec.run(
+        ctx_sec_post,
+        payload={"text_token_tags": tags_sec_vis},
+        call_kwargs={
+            "h3_span_masks": span_masks,
+            "h3_pre_refiner_ctx": {"ctx": ctx_sec_pre},
+        },
+    )
+    assert float((v_post_pre - v_sec).abs().max().item()) < 1e-5, "h3_pre_refiner_ctx should match direct 5120-D pre-refiner strip"
+    assert float((a_post_pre - a_sec).abs().max().item()) < 1e-5
+    assert captured_main_len[0] == len(ids) - n_snd
+    assert captured_tags[0] is not None and int(captured_tags[0].numel()) == len(ids) - n_snd
+
+    # Verify removing h3_pre_refiner_ctx genuinely falls back to post-refiner slicing (different output!)
+    v_post_only, _ = m_sec.run(
+        ctx_sec_post,
+        payload={"text_token_tags": tags_sec_vis},
+        call_kwargs={"h3_span_masks": span_masks},
+    )
+    assert float((v_post_only - v_sec).abs().max().item()) > 1e-4, "post-refiner strip should differ from pre-refiner strip"
+
+    # Verify h3_spans.attach_span_masks preserves h3_span_masks and attaches CPU h3_pre_refiner_ctx sidecar
+    tags_attach = torch.ones(len(ids), dtype=torch.long)
+    cond_attach = [
+        [
+            torch.randn(1, len(ids), sc.ENCODER_DIM, generator=gen) * 0.2,
+            {"minimax_token_tags": tags_attach},
+        ]
+    ]
+    tok_entries = [[(int(t), 1.0) for t in ids]]
+    h3_spans.attach_span_masks(cond_attach, tok, {"qwen3vl_32b": tok_entries})
+    mc_att = cond_attach[0][1]["model_conds"]
+    assert "h3_span_masks" in mc_att and "h3_pre_refiner_ctx" in mc_att
+    pre_sidecar = mc_att["h3_pre_refiner_ctx"].cond["ctx"]
+    assert pre_sidecar.shape == (1, len(ids), sc.ENCODER_DIM) and pre_sidecar.device.type == "cpu"
+    assert torch.is_tensor(getattr(tags_attach, "_h3_pre_refiner_ctx", None))
 
     # Check sections_by_modality too
     captured_main_len.clear()

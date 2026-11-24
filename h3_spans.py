@@ -742,6 +742,15 @@ def attach_span_masks(
         item[1]["h3_span_masks"] = span_masks
         mc = dict(item[1].get("model_conds") or {})
         mc["h3_span_masks"] = comfy.conds.CONDConstant(span_masks)
+        cond_t = item[0]
+        if isinstance(cond_t, torch.Tensor) and cond_t.ndim in (2, 3) and int(cond_t.shape[-1]) == 5120:
+            pre_ctx = cond_t.detach()
+            if pre_ctx.ndim == 2:
+                pre_ctx = pre_ctx.unsqueeze(0)
+            if pre_ctx.device.type != "cpu":
+                pre_ctx = pre_ctx.to(device="cpu")
+            mc["h3_pre_refiner_ctx"] = comfy.conds.CONDConstant({"ctx": pre_ctx})
+            setattr(tags_raw, "_h3_pre_refiner_ctx", pre_ctx)
         item[1]["model_conds"] = mc
         setattr(tags_raw, "_h3_span_masks", span_masks)
     return conditioning
