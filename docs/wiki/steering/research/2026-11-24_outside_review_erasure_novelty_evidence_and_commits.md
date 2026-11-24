@@ -16,14 +16,25 @@ Every finding below carries one tag:
 - **[checked]**: re-read in that final pass against the cited record or code.
 - **[reviewer]**: reported by one reviewer from its own scratch scripts, and not re-derived in the final pass.
 - **[web]**: a source found by a reviewer's web search and not opened in the final pass. Treat titles, years and identifiers as leads to confirm.
+- **[second reader]**: found by a peer session that audited this page the same day, against the files and pictures on disk.
 
 This page carries no measured values. Each row names the record that holds them. The reviewers' full reports and scratch scripts are kept locally, untracked, under `internal/claude/2026-11-24_outside_review/`; they are not needed to follow this page.
+
+## Correction, same day
+
+The first version of this page read the gate records as JSON and did not open their contact sheets. A peer session audited the page the same day, opened the sheets, and found that the page had understated the shipped eraser. The final pass then looked at the same sheets and agrees. What changed:
+
+- **The blunt shrink is not a stand-in for the eraser on a dense scene.** In `$H3_OUTPUT_DIR/Image/exp_unpooled_sliders/gate2b1/sheet_2b1_watercolor_wash__covered_market.png` and `sheet_2b1_paper_origami__covered_market.png`, the blunt-shrink tiles show a table or a paper box with the market hall gone on every seed, while the shipped eraser's tiles keep the hall, the stalls and the figures. The same record's change-from-base field is higher for the blunt shrink than for the eraser on every `watercolor_wash` seed (`data/exp_unpooled_sliders/gate2b1/metrics_gate2b1.json`). The two only tie on `noir`, on a sparse prompt, on a color measure. **[second reader]**, then **[checked]**.
+- **Withdrawn:** the ledger entry that called the blunt shrink a simpler tool worth adopting, and the suggestion to ship it as the simple mode if it tied on color alone.
+- **Unchanged:** the architecture guide's sentence that the blunt-shrink arm failed on `noir` is still wrong; the swapped, random and prompt-direction arms still rest on a single seed; and on `watercolor_wash` the eraser's tiles look like the 1D tiles, so that sheet shows the eraser keeping the scene, not delivering more of the concept than 1D.
+- **Rank:** on the rank sheet (`$H3_OUTPUT_DIR/Image/paper_erasure_2026-11-21/ablation3_clean_rank_and_ridge.png`), a second concept shows cleaner figures at the shipped rank than at rank one **[second reader]**. A single seed on a retired concept, so "rank does not matter" below is limited to `noir`'s color measure.
+- **Added from the same audit [second reader]:** the matched and pooled directions were compared across the whole built bank and are nearly parallel on all but a few stems, `noir` among the few; the regression statistic was re-run on the cached banks with shuffled and noise controls and came out as high or higher than on real pairs; and the multi-pass audio-video paper in section 3 names this model among its targets.
 
 ## 1. Short answers
 
 1. **Is erasure novel?** As an operator, no. As an exact recipe, it appears unpublished: two searches found every ingredient in print and no single work that combines them this way. The closest relatives are affine concept editing on the language-model side and soft-projection concept erasure on the diffusion side (section 3).
 2. **Is the math behind it new?** No. The regression split offered as the reason erasure works is an identity that holds for any data, and its headline share appears just as strongly when Pole B is replaced by noise (section 4, row 6).
-3. **Does it work?** One result is solid: `noir` flips to black and white at high strength on one prompt across seeds, and on clips. The records do not show that the concept-specific eraser matters: a blunt shrink of the prompt's tokens toward their own mean, which stores nothing, matches it wherever both were run (section 4, rows 1 to 5).
+3. **Does it work?** One result is solid: `noir` flips to black and white at high strength on one prompt across seeds, and on clips. On `noir`'s color measure a blunt shrink of the prompt's tokens toward their own mean matches the eraser, but on a dense scene the blunt shrink loses the scene and the eraser keeps it (see the correction above; section 4, rows 1 to 5). What is not shown beyond `noir` is that the eraser delivers more of a concept than the 1D add.
 4. **Is multivector valuable and untapped?** Today it is mostly a label. The matched target direction is nearly the pooled one, the eraser reads Pole A only, and every push-side multi-vector extension came back null or negative on the repo's own gates (section 5).
 5. **What is most durable?** Facts about this model rather than about the eraser: what visual steering does to audio, how early in denoising the look is set, and that reference images and keyframes lock the look whatever the text says (section 6).
 6. **The commits?** Better guarded than their volume suggests, with a refactor that cannot be re-checked against the code it replaced, a body of stale doc anchors, and a decisions log that stopped a day early (section 7).
@@ -76,8 +87,8 @@ Sources marked **[web]** come from the reviewers' searches; the others are works
 | 1 | Erasure flips `noir` to black and white on stills where 1D stays color | `data/exp_unpooled_sliders/gate2b1/metrics_gate2b1.json` | Holds on every seed in the record, on one prompt, at the high-strength setting | holds **[checked]** |
 | 2 | The same on clips | `data/exp_unpooled_sliders/gate2b2/metrics_gate2b2.json` | Erasure is less saturated than 1D on every seed: strongly on the first/last-frame family, modestly on the reference family. "Crisp black and white" was judged by eye | holds as "desaturated" **[checked]** |
 | 3 | The effect is there at the node's default strength (`h3_rules.py::STEER_DEFAULTS`) | `data/exp_unpooled_sliders/phase3_2026_11_21/stage_b_surgical_erasure_v2.json`, `ramp_records` | Erasure does not beat 1D at the default; the flip appears only at the top step of the ramp. A single seed | does not hold at the default **[checked]** |
-| 4 | Only the concept's own eraser works ("double dissociation") | `data/exp_unpooled_sliders/specificity_control/metrics_specificity.json`; the two gate records above | The swapped, random and prompt-direction arms ran on a single seed, and the record holds no color measure, so their labels were read off contact sheets. The blunt-shrink arm (`S4_iso_shrink`) matches the shipped eraser on `noir` on every seed, stills and clips | does not hold as worded **[checked]**. [`../../h3_steering_and_architecture.md`](../../h3_steering_and_architecture.md) states that arm failed |
-| 5 | The eraser needs several dimensions | `data/exp_unpooled_sliders/paper_2026_11_21/gpu_ablations_1_to_5.json`, `ablation3_rank_and_ridge` | On `noir`, rank one flips as well as the shipped rank. The most heavily regularized ridge setting (the weakest eraser) does not flip, and in `ablation4_pair_count` neither do the low pair counts. A single seed | amount of shrink matters; rank does not, on this record **[checked]** |
+| 4 | Only the concept's own eraser works ("double dissociation") | `data/exp_unpooled_sliders/specificity_control/metrics_specificity.json`; the two gate records above | The swapped, random and prompt-direction arms ran on a single seed, and the record holds no color measure, so their labels were read off contact sheets. The blunt-shrink arm (`S4_iso_shrink`) matches the shipped eraser on `noir`'s color on every seed, stills and clips. On the dense market prompt its tiles lose the scene on every seed while the eraser's keep it (the gate 2B-1 sheets named in the correction) | the wording does not hold; the eraser's advantage over a blunt shrink is scene preservation, seen on two concepts **[checked]**. [`../../h3_steering_and_architecture.md`](../../h3_steering_and_architecture.md) states that arm failed |
+| 5 | The eraser needs several dimensions | `data/exp_unpooled_sliders/paper_2026_11_21/gpu_ablations_1_to_5.json`, `ablation3_rank_and_ridge` | On `noir`, rank one flips as well as the shipped rank. The most heavily regularized ridge setting (the weakest eraser) does not flip, and in `ablation4_pair_count` neither do the low pair counts. A single seed | amount of shrink matters; on `noir`'s color, rank does not **[checked]**. The rank sheet shows cleaner figures at the shipped rank on a second concept **[second reader]** |
 | 6 | The regression split proves erasure is the working ingredient | `bench/verify_pole_a_erasure.py` | The identity holds for any data. Run with shuffled pairs, or with Pole B replaced by matched noise, the same statistic stays as high; with a pure additive shift as ground truth it falls to nothing. The reported figure is a cosine described as a share. The script's synthetic test builds Pole B independent of Pole A, so it passes by construction | not evidence of mechanism **[reviewer]**, found independently by two reviewers |
 | 7 | The matched direction is required | `data/exp_unpooled_sliders/pre_integration/metrics_pre_int.json` | One concept on a few seeds separates it from the pooled direction; a second concept shows no difference. Across the bank the two directions are nearly parallel (`bench/control_vectors.py inspect <stem>`, field `cos(mu_d,v_1d)`) | holds narrowly; "required" cannot be told **[reviewer]** |
 | 8 | Stacked erasure beats stacked 1D; peer orthogonalization fixed the lighthouse artifact | `stage_b_surgical_erasure_v2.json`, `stack3_records`; `data/exp_unpooled_sliders/stage1_2026_11_22/stage1_ros_norm_cliff.json` | The 1D stack is more desaturated than the erasure stack in most cells. The artifact measure barely moves when orthogonalization is switched on and drops only when the cap is lowered. On another suite in the same file orthogonalization does change saturation. One render per arm | mixed; the artifact fix tracks the cap **[checked]** |
@@ -89,7 +100,7 @@ Sources marked **[web]** come from the reviewers' searches; the others are works
 | 14 | Text steering can restyle a shot pinned by keyframes or a reference image | [`../how_pole_a_erasure_works.md`](../how_pole_a_erasure_works.md), section 4 | Repeated nulls, documented there as boundaries | does not hold, and the guides say so |
 | 15 | Erasure beats rewriting the prompt | none | No such comparison exists for erasure. The nearest record, [`2026-11-12_new_vectors_three_ways.md`](2026-11-12_new_vectors_three_ways.md) section 11.1, is a playback cross-check that rated a plain rewrite and edit guidance clearly ahead of the vectors at their default settings | not tested **[checked]** |
 
-**What the records support saying:** weakening the prompt's own token-to-token contrast lets a style vector overcome a prompt that describes the opposite, at high strength, shown robustly for one concept whose target is itself a removal. The concept-specific eraser may still preserve scene content better than a blunt shrink; that was judged by eye, on a concept that has since been retired.
+**What the records support saying:** weakening the prompt's own token-to-token contrast lets a style vector overcome a prompt that describes the opposite, at high strength, shown robustly for one concept whose target is itself a removal. Against a blunt shrink the concept-specific eraser has a second, separate advantage: it keeps a dense scene that the blunt shrink loses, seen on every seed for two concepts, one of them still in the bank.
 
 **Two things outside the records [reviewer]:** the scripts that produced the 2026-11-20 control, specificity and gate records are not in the repo or its history; and a policy line in [`2026-11-22_track1_track2_multivector_erasure_blueprint.md`](2026-11-22_track1_track2_multivector_erasure_blueprint.md) (**[checked]**) ended 1D comparison arms from that date, so breadth evidence for erasure against 1D stops there.
 
@@ -98,7 +109,7 @@ Sources marked **[web]** come from the reviewers' searches; the others are works
 | Use of the word | What it is in code | State | Recorded gain over the simpler thing |
 |---|---|---|---|
 | The matched target push (`erasure.mu_d`) | One vector; a reweighted pooled mean (section 2) | shipped, default | small and narrow (section 4, row 7) |
-| The low-rank Pole-A eraser (`erasure.vr`, `erasure.diag`) | The one working part | shipped, default | large against 1D on `noir`; none shown against the blunt shrink (section 4, rows 4 and 5) |
+| The low-rank Pole-A eraser (`erasure.vr`, `erasure.diag`) | The one working part | shipped, default | large against 1D on `noir`; against the blunt shrink, a tie on `noir`'s color and better scene preservation on a dense prompt (section 4, rows 4 and 5) |
 | Stacked sliders | Peer orthogonalization, clamped union, soft cap | shipped | sound algebra, thin and mixed render evidence (section 4, row 8); the repo's own film record notes artifacts with two look sliders ([`2026-11-23_multishot_mixer_film.md`](../../../../bench/results/2026-11-23_multishot_mixer_film.md)) |
 | Composed union in `sculpt` | A second union implementation | shipped | none measured **[reviewer]** |
 | Explicit facet sub-vectors | planned only | no code | CPU estimates only **[reviewer]** |
@@ -124,7 +135,6 @@ Everything multi-vector on the push side is near null on the repo's own records.
 - Visual steering changes the audio at the default streams setting, and the split that addresses it is off by default (section 4, row 13).
 - The early-step window (section 4, row 12).
 - The reference and keyframe lock, a reusable boundary for anyone using this model (section 4, row 14).
-- The blunt shrink. If it holds up, a "prompt contrast" dial that stores nothing is a simpler tool than a per-concept payload.
 - The engineering under the research: masked token spans, checkpoint-family fingerprinting, and guards that arrive with the code.
 
 **Overlooked**
@@ -139,6 +149,7 @@ Everything multi-vector on the push side is near null on the repo's own records.
 **Sound as it stands**
 
 - The `noir` result at high strength, stated with its prompt and strength.
+- The eraser keeping a dense scene where a blunt shrink of equal size loses it (the gate 2B-1 sheets).
 - The reading that the earlier regression prototype was effectively an eraser.
 - The keyframe and reference boundaries as documented.
 - Node schema stability across the window: no renamed node, no input inserted mid-list, no zero sentinel, no owner paths **[reviewer]**.
@@ -172,7 +183,7 @@ Everything multi-vector on the push side is near null on the repo's own records.
 
 ## 8. Suggested order of work (advice, not a plan)
 
-1. **Before more building, one fair comparison.** A handful of concepts (looks, materials, behaviors), a few prompts each including one with no conflict, several seeds. Arms: unsteered, 1D, shipped erasure, blunt shrink, and a prompt rewrite; at the default strength and at high strength; stills first, clips for the survivors; judged blind by the owner on playback, with the usual measures alongside as context. If the rewrite wins or ties wherever a rewrite is possible, erasure's role narrows to cases where the prompt cannot change. If the blunt shrink ties the shipped eraser, it can be the simple mode and the concept-specific claim is dropped.
+1. **Before more building, one fair comparison.** A handful of concepts (looks, materials, behaviors), a few prompts each including one with no conflict, several seeds. Arms: unsteered, 1D, shipped erasure, blunt shrink, and a prompt rewrite; at the default strength and at high strength; stills first, clips for the survivors; judged blind by the owner on playback, with the usual measures alongside as context. If the rewrite wins or ties wherever a rewrite is possible, erasure's role narrows to cases where the prompt cannot change. Include a dense prompt, since the blunt shrink and the eraser separate there and not on a sparse one.
 2. **Rerun the specificity control** with every arm on several seeds and a color measure recorded, plus the rank sweep on several seeds.
 3. **Test the case only erasure can serve:** same-prompt spatial portals and locked takes, against edit guidance with a rewritten edited prompt.
 4. **Defaults worth a test:** audio protection and the early-step window for visual targets; the default strength against where the effect appears.
@@ -182,10 +193,10 @@ Everything multi-vector on the push side is near null on the repo's own records.
 
 ## 9. Limits of this review
 
-- No renders and no GPU. Every statement about pictures or sound rests on existing records.
+- No renders and no GPU. Every statement about pictures or sound rests on existing records. The first version read those records as JSON only; the contact sheets were opened after a peer's audit (see the correction).
 - One reviewer per lane. Where two lanes reached the same finding independently it is said so; otherwise a **[reviewer]** finding has one source.
 - Prior-art sources from 2026 were found by search and not opened in the final pass. Search tools return summaries, so details can be wrong.
-- The built vector files are not in the repo tree, so the bank-wide comparison of the matched and pooled directions was not recomputed in the final pass.
+- The built vector files are not in the repo tree, so the bank-wide comparison of the matched and pooled directions was not recomputed in the final pass; a second reader computed it from the built bank (see the correction).
 - Two slips by reviewers, for the record: one ran a single read-only `git status` against its brief, and one left a bytecode cache under `bench/__pycache__/`. No tracked file changed.
 
 ## 10. How to re-derive
