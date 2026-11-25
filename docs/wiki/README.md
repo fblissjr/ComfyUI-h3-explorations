@@ -18,7 +18,13 @@ In a single-stream joint audio-video DiT like MiniMax H3, every token sits in on
 
 ### With Router vs. Plain Prompting Only (Matched Seed & Base Prompt)
 
-On identical base scenes and seeds (`stairwell` `192` frames at `1344x768`, seed `730451892`, plus `3`-seed confirmation on Thunderstorm and `tortoise` Cathedral Reverb), swapping **only** dialogue `<d>` tags or **only** `overall_soundscape:` in a plain prompt produces clear cross-modal drift that `1x` routing eliminates:
+The key point is **what did not change in the prompts** ([exact line-by-line diffs](query_routing_recipes.md#2-prompt-diff-discipline-why-the-plain-controls-are-clean-abs)):
+
+- **Dubbing (`JA` / `ES` / Bilingual):** Zero visual, ethnicity, wardrobe, or soundscape words were changed — **only** the `<d>` dialogue lines were translated, using the exact same prompt string in both the plain control and the router's `audio_conditioning`. Even so, plain prompting recast both actors' ethnicity/faces, wardrobe, and Shot 3's window view on Japanese, drifted both faces on Spanish, and drifted **both** actors even when only `(S1)` spoke Spanish (`1x` routing kept the original cast locked).
+- **Sound-only swaps (`Sitcom` / `Thunderstorm` / `Cathedral Reverb`):** Zero words changed in `integrated_multimodal_description` — **only** `overall_soundscape:` changed (with `"Bright 1970s three-camera sitcom studio recording"` inside `overall_soundscape:` transparently noted). In plain prompting, those sound-only descriptions spilled directly into retro 1970s hair, lamps, studio lighting, or church facades; `1x` routing blocked the visual bleed cleanly.
+- **Visual-vs-sound conflicts (`Underwater Video + Dry Speech`):** Even when a plain prompt explicitly wrote the dry concrete stairwell `overall_soundscape:`, the underwater visual description dragged `Q_aud` into muffled, bubbly speech — `1x` routing separated them back to drier dialogue.
+
+On identical base scenes and seeds (`stairwell` `192` frames at `1344x768`, seed `730451892`, plus `3`-seed confirmation on Thunderstorm and `tortoise` Cathedral Reverb):
 
 | Showcase Case | Same-Seed Plain Prompt Only (No Router) | With `1x` Query Router | Picture Drift vs Base (Plain / Routed) | Spec Shift vs Base (Plain / Routed) |
 | :--- | :--- | :--- | :---: | :---: |
