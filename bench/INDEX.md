@@ -9,13 +9,13 @@ this file is only a way to find a script by what it says it does.
 | group | scripts |
 |---|---|
 | [`check_*`](#check) | 181 |
-| [`measure_*`](#measure) | 38 |
-| [`analyze_*`](#analyze) | 17 |
+| [`measure_*`](#measure) | 35 |
+| [`analyze_*`](#analyze) | 16 |
 | [`grade_*`](#grade) | 16 |
-| [`compare_*`](#compare) | 14 |
+| [`compare_*`](#compare) | 12 |
 | [`build_*`](#build) | 12 |
-| [`probe_*`](#probe) | 18 |
-| [the rest](#the-rest) | 208 |
+| [`probe_*`](#probe) | 17 |
+| [the rest](#the-rest) | 201 |
 
 ## check
 
@@ -209,7 +209,6 @@ this file is only a way to find a script by what it says it does.
 |---|---|
 | [`measure_audio_video_coupling.py`](measure_audio_video_coupling.py) | Does the picture move with the audio? Two instruments with a null, per clip. |
 | [`measure_bake_realisation.py`](measure_bake_realisation.py) | Does an offline bake DELIVER the LoRA, or does it win on distance by discarding it? |
-| [`measure_bf16_delta_rank.py`](measure_bf16_delta_rank.py) | How low-rank is FastH3's backbone change, measured on the bf16 sources? |
 | [`measure_block_period.py`](measure_block_period.py) | Is there an edge grid in a clip at VSA's cube period? Decoded pixels only. |
 | [`measure_blocks.py`](measure_blocks.py) | Measure visible 16 px blocks on a laid clip or render piece and a saved window region. |
 | [`measure_checkpoint_lora_rank.py`](measure_checkpoint_lora_rank.py) | How well would a LoRA capture one checkpoint's difference from another? |
@@ -221,7 +220,6 @@ this file is only a way to find a script by what it says it does.
 | [`measure_dialogue_transcription.py`](measure_dialogue_transcription.py) | Does a clip say its scripted lines? Whisper transcription against the prompt's dialogue, word error rate per clip and per pair. |
 | [`measure_dit_prefix_attention.py`](measure_dit_prefix_attention.py) | What the H3 DiT reads from the encoder prefix: attention mass, by key class. |
 | [`measure_edit_guider_mask_ab.py`](measure_edit_guider_mask_ab.py) | Phase A deciding A/B benchmark: MiniMaxH3EditGuider optional spatial/temporal mask. |
-| [`measure_encoder_footprint.py`](measure_encoder_footprint.py) | How much VRAM does each H3 conditioning encoder actually need resident? |
 | [`measure_encoder_prefix_reuse.py`](measure_encoder_prefix_reuse.py) | Can the encoder's work on a reference be kept across prompt edits, exactly? |
 | [`measure_encoder_quant_dit.py`](measure_encoder_quant_dit.py) | Does the DiT's prediction move when the encoder is int8_convrot instead of bf16? |
 | [`measure_h3_image_weights.py`](measure_h3_image_weights.py) | What the MiniMax-H3-Image weights are: where they sit beside fl2va and ref2va, and what a ComfyUI int8 file keeps of them. |
@@ -244,7 +242,6 @@ this file is only a way to find a script by what it says it does.
 | [`measure_step_yaw.py`](measure_step_yaw.py) | At which sampling step a render's facing is decided: the turn metric on each step's clean prediction. |
 | [`measure_subject_motion.py`](measure_subject_motion.py) | Does a render's subject move as the source's does: every body joint over a shot, frame by frame, render against source. |
 | [`measure_subject_yaw.py`](measure_subject_yaw.py) | Which way a person faces, frame by frame, in a render and in the source it was made from: a number for "did he turn". |
-| [`measure_tau_sweep_premises.py`](measure_tau_sweep_premises.py) | Premises of the live tau sweep (`sol_tau_sweep.py`), measured on capture cells. |
 
 ## analyze
 
@@ -256,7 +253,6 @@ this file is only a way to find a script by what it says it does.
 | [`analyze_audio_hum.py`](analyze_audio_hum.py) | Measure the narrowband hum in rendered clips, per arm. |
 | [`analyze_audio_spectral_tilt.py`](analyze_audio_spectral_tilt.py) | Spectral centroid over clip TIME, for any set of rendered H3 audio tracks. |
 | [`analyze_checkpoint_delta.py`](analyze_checkpoint_delta.py) | What is inside the fl2va / ref2va checkpoints, measured, not inferred. |
-| [`analyze_error_by_query_segment.py`](analyze_error_by_query_segment.py) | Whose attention error a whole-cell INT8 grade counts: the query rows' segments. |
 | [`analyze_head_magnitudes.py`](analyze_head_magnitudes.py) | Why block 49: per-head Q/K/V magnitudes on captured activations, joined to per-head error. |
 | [`analyze_k_by_segment.py`](analyze_k_by_segment.py) | K's INT8 stress by sequence segment, on the captured t2v and ref2va cells. |
 | [`analyze_quant_delta.py`](analyze_quant_delta.py) | What separates the two shipped quantizations of the same H3 DiT: the `fp8_scaled` file against the `int8_convrot` file, and -- when the bf16 release is on disk -- each of them against the weights they were made from. |
@@ -294,7 +290,6 @@ this file is only a way to find a script by what it says it does.
 | script | what it says it does |
 |---|---|
 | [`compare_adaln_modulation.py`](compare_adaln_modulation.py) | Does a distilled checkpoint change H3's timestep conditioning, and where in t? |
-| [`compare_adaln_unpruned.py`](compare_adaln_unpruned.py) | Timestep conditioning from the unpruned weights, and what each conversion lost. |
 | [`compare_audio_pairs.py`](compare_audio_pairs.py) | Audio of render arms side by side: level, dynamics and spectrum per clip. |
 | [`compare_clip_pixels.py`](compare_clip_pixels.py) | Are two rendered clips the same render? Decoded pixels and samples, never bytes. |
 | [`compare_dit_checkpoints.py`](compare_dit_checkpoints.py) | Compare two H3 DiT safetensors files without downloading them. |
@@ -305,7 +300,6 @@ this file is only a way to find a script by what it says it does.
 | [`compare_sol_records.py`](compare_sol_records.py) | Compare two renders' Sol counts, call for call: the cache-state control. |
 | [`compare_token_aug_wheels.py`](compare_token_aug_wheels.py) | Does the `token_aug` nondeterminism belong to upstream's kernel or to ours? |
 | [`compare_vae_decoders.py`](compare_vae_decoders.py) | Decode one saved latent with several video VAE files: time, peak VRAM, pixels. |
-| [`compare_vae_tiled_decode.py`](compare_vae_tiled_decode.py) | Decode one latent with core's current and an earlier `tiled_decode`, and compare seams. |
 | [`compare_vhs_loaders.py`](compare_vhs_loaders.py) | Do VHS's two upload loaders hand the reference path the same frames? Measured, not read. |
 
 ## build
@@ -341,7 +335,6 @@ this file is only a way to find a script by what it says it does.
 | [`probe_kitchen_sol_build_parity.py`](probe_kitchen_sol_build_parity.py) | Hash `sol_attn` and `sol_attn_chunked` outputs over a grid of options, so two comfy-kitchen builds can be diffed line by line. |
 | [`probe_kitchen_swiglu_and_token_overflow.py`](probe_kitchen_swiglu_and_token_overflow.py) | Two properties of the installed comfy-kitchen build on this card: fused SwiGLU against the unfused chain, and whether token routing repeats. |
 | [`probe_oracle_gate_scaling.py`](probe_oracle_gate_scaling.py) | What the calibration gate would find at production length, and why chunking will not get it there. |
-| [`probe_pv_skip_on_capture.py`](probe_pv_skip_on_capture.py) | How many (warp, key tile) pairs of dense H3 attention carry a negligible P*V term, and what skipping them costs, on captured q/k/v. |
 | [`probe_ref_rows_16604.py`](probe_ref_rows_16604.py) | Does Comfy-Org/ComfyUI issue 16604 reproduce on this checkout's PackedLayout? |
 | [`probe_token_aug_admitted_count.py`](probe_token_aug_admitted_count.py) | Does the admitted token count exceed the budget, and is that where the output moves? |
 | [`probe_token_aug_determinism.py`](probe_token_aug_determinism.py) | Is token_aug's run-to-run variation a selection flip or accumulation order? |
@@ -365,7 +358,6 @@ this file is only a way to find a script by what it says it does.
 | [`bench_e2e_h3.py`](bench_e2e_h3.py) | End-to-end A/B: a real MiniMax H3 render with the sage node in and out. |
 | [`bench_kitchen_int8_linear.py`](bench_kitchen_int8_linear.py) | comfy-kitchen's `int8_linear` on H3's real block-0 layers: time per call, and a bitwise digest. |
 | [`bench_minimax_attn.py`](bench_minimax_attn.py) | A/B the patched MiniMax H3 attention forward against the stock one. |
-| [`bench_rect_attention.py`](bench_rect_attention.py) | One block's attention, alone on the card, for a rectangle of queries against every key. |
 | [`blind_batch.py`](blind_batch.py) | Turn a run_graph_arms JSONL into a blinded batch of clips with a sealed key. |
 | [`blind_batch_add_audio.py`](blind_batch_add_audio.py) | Replace a blind batch's silent singles with their muxed `-audio.mp4` sources, in place. |
 | [`blind_panel.py`](blind_panel.py) | Build a blinded panel of stacked pairs from clips that already exist, with a sealed key. |
@@ -399,7 +391,6 @@ this file is only a way to find a script by what it says it does.
 | [`day_pieces.py`](day_pieces.py) | A folder for a day's end: every piece that stands in a delivery table, in frame order, each with the graph it was queued with, its text, what that graph names and whether each is there now, and the line that queues it again. |
 | [`decode_draft_keepers.py`](decode_draft_keepers.py) | Give draft renders their real decode, from the latents the drafts saved. |
 | [`delivery_table.py`](delivery_table.py) | The delivery table, generated from the render ledger by one stated rule: which render stands on each shot, and why. |
-| [`depth_profile_tables.py`](depth_profile_tables.py) | Per-block tables from the depth-profile outputs: Sol's error, the dense kernels' error, and whether the ranking holds across scenes. |
 | [`derive_attention_share.py`](derive_attention_share.py) | What fraction of an H3 sampler is attention, bounded from an A/B we already ran. |
 | [`diff_clip_graphs.py`](diff_clip_graphs.py) | What actually differs between two rendered clips? Read from the graphs they were rendered from. |
 | [`diff_prompt_corpus.py`](diff_prompt_corpus.py) | Report every prompt FEATURE where the vendor is unanimous and we diverge. |
@@ -407,7 +398,6 @@ this file is only a way to find a script by what it says it does.
 | [`draw_face_points.py`](draw_face_points.py) | Draw a shot's face on its body-model video, as lines and dots through the pose model's points. |
 | [`draw_lid_marks.py`](draw_lid_marks.py) | Draw a shot's eye openings on its body-model video: the motion video a masked load reads for expression. |
 | [`edit_guidance_arms.py`](edit_guidance_arms.py) | Build, and with --queue render, the arms that test steering by an edited prompt and/or control vectors. |
-| [`emulate_kitchen_int8_by_segment.py`](emulate_kitchen_int8_by_segment.py) | Independent CPU emulation of kitchen-like INT8 attention, per query segment (verifier's own). |
 | [`encode_format_ab.py`](encode_format_ab.py) | #38: which save format removes the dark blocking, at what size. |
 | [`facts_pass.py`](facts_pass.py) | Emit a per-frame deterministic geometry and mask facts table for a masked-run capture. |
 | [`flag_census.py`](flag_census.py) | Census of gate flag kinds across every `flags.json` and `outcomes.json` under `--data`. |
@@ -460,7 +450,6 @@ this file is only a way to find a script by what it says it does.
 | [`pose_along_shot.py`](pose_along_shot.py) | Run the pose model on every frame of a shot and keep its points: what the eye marks and the reader are made from. |
 | [`preflight_graph.py`](preflight_graph.py) | Grade a graph's prompt and price its sequence, BEFORE you press Queue. |
 | [`prepare_hf_first_frame_encoder_arms.py`](prepare_hf_first_frame_encoder_arms.py) | Prepare controlled I2VA/FL2VA encoder arms from the shipped HF workflow. |
-| [`price_head_arms.py`](price_head_arms.py) | Is per-head granularity worth anything, priced against just moving the global tau? |
 | [`price_reference_settings.py`](price_reference_settings.py) | Price a list of reference stills under a list of append-node settings. |
 | [`profile_block_ops.py`](profile_block_ops.py) | Every non-attention op of one H3 DiT block, timed alone, at a ref2va length. |
 | [`profile_lora_branch.py`](profile_lora_branch.py) | Where a LoRA applied at the call spends its time, one block's modules at a time. |
@@ -509,7 +498,6 @@ this file is only a way to find a script by what it says it does.
 | [`sam3_precision_arms.py`](sam3_precision_arms.py) | Compare SAM 3.1 at float16, bfloat16 and float32 through core's own nodes, on the same frames, with controls. |
 | [`sam_memory_selection.py`](sam_memory_selection.py) | Runtime Meta memory-selection patch and 4-arm scene measurement tool for SAM 3 / SAM 3.1. |
 | [`scan_original_block49.py`](scan_original_block49.py) | Is block 49's oddity in the original MiniMax weights, before any conversion? |
-| [`score_clip_shots_loudness.py`](score_clip_shots_loudness.py) | Two things a finished clip can be checked for without anyone watching it: |
 | [`score_output_distance.py`](score_output_distance.py) | Score renders by their saved latents' distance from a reference render at the same seed. |
 | [`score_session.py`](score_session.py) | Join an exported blind scoring file with the sealed key into a verdict. |
 | [`score_shot_ablation.py`](score_shot_ablation.py) | Score the two-shot ablation arms on both candidate axes: delta and spatial detail. |
@@ -542,13 +530,11 @@ this file is only a way to find a script by what it says it does.
 | [`tally_judge_verdicts.py`](tally_judge_verdicts.py) | How often does the judge call a pair "same" or "can't tell", and does the slot order pull? |
 | [`telemetry_report.py`](telemetry_report.py) | Read a pipeline telemetry record into per-node phases. |
 | [`time_dense_blocks.py`](time_dense_blocks.py) | What does a dense block actually COST, in seconds, on this box? |
-| [`time_dense_on_capture.py`](time_dense_on_capture.py) | Time comfy_kitchen.int8_attention (the dense kernel) on captured q/k/v cells. |
 | [`time_sol_options_on_capture.py`](time_sol_options_on_capture.py) | Time comfy_kitchen.sol_attn on a capture: plain vs qk_balance vs rotate, CUDA events, warm. |
 | [`timeline_page.py`](timeline_page.py) | Build the whole-video NLE timeline data file (`--out-json`) and interactive page (`--out-html`) from the rebuild's records. |
 | [`two_shot_load.py`](two_shot_load.py) | Two neighbouring shots as ONE load in ONE window, made from the two shots' own ordinary loads. Not a default. |
 | [`upstream_watch.py`](upstream_watch.py) | List what each watched upstream landed since its last read, and its open PRs and issues. |
 | [`verify_multistep_capture.py`](verify_multistep_capture.py) | Pre-flight verification for multi-step activation captures. |
-| [`verify_partition_delta_float64.py`](verify_partition_delta_float64.py) | FL2VA against Ref2VA, weight by weight, on a path independent of `bench/map_partition_delta.py`. |
 | [`verify_pole_a_erasure.py`](verify_pole_a_erasure.py) | Reproducible CPU mathematical verification for Clamped Pole-A Subspace Erasure. |
 | [`verify_token_aug_repro_shapes.py`](verify_token_aug_repro_shapes.py) | Which shapes reproduce the `token_aug` nondeterminism IN A FRESH PROCESS? |
 | [`verify_vsa_render.py`](verify_vsa_render.py) | Verify a VSA render actually ran VSA, by its decoded pixels. |
