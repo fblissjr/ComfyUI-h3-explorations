@@ -234,7 +234,7 @@ Full per-check history, 2026-08-23 amendments, and `"claims block"` notes are sh
 | `check_plate_restore.py` | a masked render split across two... ([detail](checks/index_13.md)) | PYTHONPATH... | no |
 | ~~`check_mask_store.py`~~ | RETIRED 2026-10-10 with what it... ([detail](checks/index_13.md)) | n/a | no |
 | `check_lora_branch.py` | MiniMaxH3LoRABranch... ([detail](checks/index_13.md)) | PYTHONPATH... | yes |
-| `check_checkpoint_overlay.py` | checkpoint_overlay.py ([detail](checks/index_13.md)) | synthetic half | yes |
+| ~~`check_checkpoint_overlay.py`~~ | **RETIRED 2026-11-25 with the FastH3 overlay lane (`archive/checkpoint_overlay.py`, `archive/overlay_loader.py`).** ([detail](checks/index_13.md)) | n/a | no |
 | `check_h3_image.py` | MiniMax-H3-Image: the release-to-ComfyUI layout, the size rule, `MiniMaxH3ImagePromptExpander` (`concept` + `@extend:prepend\|append` overlays), and the shipped graphs' chain ([detail](checks/index_13.md)) | no CUDA | no |
 | ~~`check_mutant_parity.py`~~ | RETIRED 2026-11-04 with the package it... ([detail](checks/index_13.md)) | n/a | no |
 | `check_prompt_lists.py` | the __name__ prompt list rules the... ([detail](checks/index_13.md)) | no CUDA | no |

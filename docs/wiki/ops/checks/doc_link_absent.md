@@ -270,4 +270,16 @@ WHY: MiniMaxH3DenoiseMaskProbe retired 2026-11-25 to archive/denoise_mask_probe.
 PATH: bench/check_denoise_mask_probe.py
 WHY: check retired 2026-11-25 to archive/bench/check_denoise_mask_probe.py
 
+PATH: checkpoint_overlay.py
+WHY: FastH3 checkpoint overlay helper retired 2026-11-25 to archive/checkpoint_overlay.py
+
+PATH: bench/build_checkpoint_overlay.py
+WHY: FastH3 checkpoint overlay builder retired 2026-11-25 to archive/bench/build_checkpoint_overlay.py
+
+PATH: bench/check_checkpoint_overlay.py
+WHY: FastH3 checkpoint overlay check retired 2026-11-25 to archive/bench/check_checkpoint_overlay.py
+
+PATH: bench/measure_checkpoint_overlay.py
+WHY: FastH3 checkpoint overlay size probe retired 2026-11-25 to archive/bench/measure_checkpoint_overlay.py
+
 ```

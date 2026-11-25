@@ -8,12 +8,12 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 182 |
-| [`measure_*`](#measure) | 39 |
+| [`check_*`](#check) | 181 |
+| [`measure_*`](#measure) | 38 |
 | [`analyze_*`](#analyze) | 18 |
 | [`grade_*`](#grade) | 19 |
 | [`compare_*`](#compare) | 15 |
-| [`build_*`](#build) | 13 |
+| [`build_*`](#build) | 12 |
 | [`probe_*`](#probe) | 20 |
 | [the rest](#the-rest) | 210 |
 
@@ -36,7 +36,6 @@ this file is only a way to find a script by what it says it does.
 | [`check_cast_file.py`](check_cast_file.py) | `bench/cast_file.py` keeps a person's answers about who the outlined people on a frame are, and each case is a way one could be lost or misread. |
 | [`check_changelog.py`](check_changelog.py) | `CHANGELOG.md`'s top is what the fragments in `changelog.d/` make, and the builder cannot lose an entry. |
 | [`check_channel_balance.py`](check_channel_balance.py) | Check `MiniMaxH3ChannelBalance`: the fold is exact, RoPE-safe, off by default, and picks the blocks the shipped checkpoint's weights say it should. |
-| [`check_checkpoint_overlay.py`](check_checkpoint_overlay.py) | An overlay plus its base is the target, tensor for tensor, and the pieces select what they name. |
 | [`check_clip_analysis.py`](check_clip_analysis.py) | Check the tool that makes an input video's analysis folder. |
 | [`check_clip_folder.py`](check_clip_folder.py) | Check the analysis folder's shared rules: which folder is a video's, and whether it still is. |
 | [`check_clip_signals.py`](check_clip_signals.py) | `bench/clip_signals.py` on made sound: each case is a way a phrase edge, a beat or an offset could be a frame out, or a poor fit could read as a good one. |
@@ -214,7 +213,6 @@ this file is only a way to find a script by what it says it does.
 | [`measure_block_period.py`](measure_block_period.py) | Is there an edge grid in a clip at VSA's cube period? Decoded pixels only. |
 | [`measure_blocks.py`](measure_blocks.py) | Measure visible 16 px blocks on a laid clip or render piece and a saved window region. |
 | [`measure_checkpoint_lora_rank.py`](measure_checkpoint_lora_rank.py) | How well would a LoRA capture one checkpoint's difference from another? |
-| [`measure_checkpoint_overlay.py`](measure_checkpoint_overlay.py) | How small an exact overlay of one int8 H3 checkpoint on another would be. |
 | [`measure_clip_delta.py`](measure_clip_delta.py) | How much a rendered clip CHANGES frame to frame. |
 | [`measure_clip_loudness.py`](measure_clip_loudness.py) | EBU R128 loudness per rendered clip, grouped by scene and rung, as a record. |
 | [`measure_clip_resolution.py`](measure_clip_resolution.py) | How much real detail a clip carries, per clip and per region: its effective resolution. |
@@ -322,7 +320,6 @@ this file is only a way to find a script by what it says it does.
 | [`build_adaln_blend.py`](build_adaln_blend.py) | Blend two checkpoints' timestep conditioning at a strength α, exactly. CPU only. |
 | [`build_adaln_swap.py`](build_adaln_swap.py) | Swap the timestep-conditioning set between two pruned H3 checkpoints. CPU only. |
 | [`build_changelog.py`](build_changelog.py) | Build the top of `CHANGELOG.md` from one fragment file per entry, and number the entries when it is built. |
-| [`build_checkpoint_overlay.py`](build_checkpoint_overlay.py) | Write an exact overlay of one int8 H3 checkpoint on another, piece by piece. |
 | [`build_cut_map.py`](build_cut_map.py) | Build a clean, chronological Cut & Hierarchical Data Flow Lineage Map (PROVENANCE.html, CUT_MAP.html, CUT_MAP.md) for fun (0000-6394). |
 | [`build_hybrid.py`](build_hybrid.py) | Build an fl2va/ref2va hybrid checkpoint by copying tensors, and prove the builder first. |
 | [`build_index.py`](build_index.py) | Write the generated indexes: one way in for every tracked area of the repo. |

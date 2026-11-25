@@ -99,7 +99,6 @@ with none is a helper the others import.
 | [`block_spec.py`](block_spec.py) |  | Parsing for the block-index specs several nodes take as a string widget. |
 | [`body_pose.py`](body_pose.py) | `MiniMaxH3BodyModelLoader`, `MiniMaxH3BodyPose`, `MiniMaxH3BodyMeshVideo` | A body mesh from frames and boxes, with the crop sampled the way Meta's SAM 3D Body code samples it. |
 | [`channel_balance.py`](channel_balance.py) | `MiniMaxH3ChannelBalance` | Rebalance q/k channels before INT8 attention on the blocks whose K-norm is lopsided. |
-| [`checkpoint_overlay.py`](checkpoint_overlay.py) |  | Exact overlays of one int8 H3 checkpoint on another, stored per piece. |
 | [`clip_folder.py`](clip_folder.py) |  | The analysis folder of an input video: where it is, whose it is, and whether it is still that video's. |
 | [`conditioning.py`](conditioning.py) | `MiniMaxH3Conditioning` | fl2va conditioning with the geometry seams measured here closed at one node. |
 | [`core_sparse_capture.py`](core_sparse_capture.py) | `MiniMaxH3CoreSparseCapture` | Capture q/k/v on core's sparse producer path, and change nothing. |
@@ -159,9 +158,9 @@ with none is a helper the others import.
 |---|---|---|
 | `.claude/` | 1 | [below](#claude) |
 | `.gemini/` | 8 | [below](#gemini) |
-| `archive/` | 32 | (none) |
+| `archive/` | 36 | (none) |
 | `assets/` | 1 | [below](#assets) |
-| `bench/` | 908 | [`bench/INDEX.md`](bench/INDEX.md) and [`bench/results/INDEX.md`](bench/results/INDEX.md) for the records |
+| `bench/` | 905 | [`bench/INDEX.md`](bench/INDEX.md) and [`bench/results/INDEX.md`](bench/results/INDEX.md) for the records |
 | `changelog.d/` | | [`changelog.d/README.md`](changelog.d/README.md), one file per changelog entry; not listed and not counted |
 | `contact_sheets/` | 1 | [below](#contact_sheets) |
 | `data/` | 1 | [below](#data) |
