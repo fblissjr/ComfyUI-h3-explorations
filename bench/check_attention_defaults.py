@@ -122,27 +122,6 @@ OUTPUT_TYPES = {"VHS_VideoCombine", "SaveImage", "PreviewImage", "SaveAudio",
 #: declaration cannot outlive the graph it describes. A reason naming a file
 #: rather than a mechanism is not a reason.
 DEVIATIONS = {
-    "h3_probe_head_chunks": (("head_chunks",),
-                             "this graph exists to run the 1-vs-N head-chunking "
-                             "A/B that h3_config asks for; the deviating value "
-                             "IS its subject"),
-    "h3_probe_t2v_policy": (("mode",),
-                            "block-49 policy graph (2026-09-15, docs/wiki/attention/h3_quant_policy.md "
-                            "Tier 0/1), kept on the sage chain while its pair is scored: "
-                            "sage in 'fp8++ balanced' plus the balance node and exact "
-                            "tail blocks; the mode IS the arm"),
-    "h3_probe_t2v_ck": (("quantizer", "dense_blocks"),
-                        "community-chain control (2026-09-15): kitchen int8 dense + Sol "
-                        "with the plain quantizer (no qk_balance) and no dense tail, the chain as most people "
-                        "run it; the switch and the empty list ARE the arm"),
-    "h3_probe_t2v_rotate": (("quantizer",),
-                            "Tier 2 witness (2026-09-15): the default chain with Sol's "
-                            "Hadamard rotation on (quantizer balanced+rotated); the "
-                            "quantizer IS the arm"),
-    "h3_probe_t2v_no_dense_tail": (("dense_blocks",),
-                                   "the control for the 2026-09-25 dense-tail default: blocks "
-                                   "45/48/49 back on Sol, as every graph ran before; the empty "
-                                   "list IS the arm"),
     "h3_probe_t2v_exact_tail": (("quantizer", "dense_blocks"),
                                 "the scored ceiling arm of the sage chain (2026-09-15, "
                                 "bench/results/2026-09-15_block49_*): kept as it rendered, "
@@ -151,10 +130,6 @@ DEVIATIONS = {
     "h3_probe_t2v_sage_rotate": (("mode", "quantizer"),
                                  "the sage chain with every lever plus Sol rotate (2026-09-15 "
                                  "night); the mode and the quantizer ARE the arm"),
-    "h3_probe_t2v_levers": (("mode",),
-                            "block-49 Tier 1 witness (2026-09-15, docs/wiki/attention/h3_quant_policy.md), "
-                            "kept on the sage chain while its pair is scored: every free "
-                            "lever on and no exact blocks; the mode IS the arm"),
 }
 
 #: Graphs that legitimately ship without live Sol, by MECHANISM. The
@@ -180,18 +155,6 @@ def _dense_tail_constants_agree() -> list[str]:
 
 
 SOL_EXEMPT_STEMS = {
-    **{stem: "Pika H3 Flex Step 2 showcase reproduction "
-             "(docs/wiki/research/2026-11-04_pika_h3_flex_plan.md): dense attention "
-             "on the kitchen backend with Sol off so attention sparsity does "
-             "not confound the 6-step LCM LoRA and branch-versus-merge check"
-       for stem in ("h3_probe_r2v_pika_motion_transfer_6step",
-                    "h3_probe_r2v_pika_motion_transfer_6step_merge",
-                    "h3_probe_t2v_pika_balcony_orbit_6step",
-                    "h3_probe_t2v_pika_balcony_orbit_6step_merge")},
-    "h3_probe_t2v_dense":
-        "the fully dense control (2026-09-15): no Sol, no sage, no dense node, "
-        "ComfyUI's own attention on every step; the ceiling for the whole chain "
-        "and the arm that separates a kernel flaw from a take",
     "h3_probe_capture_ref3":
         "activation capture: h3_capture.py records the attention inputs a dense "
         "baseline is measured from, and Sol gives sage only the steps outside "
@@ -218,24 +181,13 @@ FLOOR_STEMS = {
                  "capture target needs the sage node"),
     "h3_probe_capture_ref3_fl2va":
         ("sage", "the capture twin on fl2va; the same reason"),
-    "h3_probe_head_chunks":
-        ("sage", "head_chunks is an input of MiniMaxH3SageAttention; the arm "
-                 "means nothing without the node"),
     # Block-49 arms on the sage chain, scored or still being scored there.
     "h3_probe_t2v_sage_rotate":
         ("sage", "the sage chain with every lever plus Sol rotate, against the "
                  "kitchen chain (2026-09-15 night)"),
-    "h3_probe_t2v_levers":
-        ("sage", "block-49 Tier 1 witness on the sage chain; its pair with "
-                 "h3_probe_t2v_policy is still being scored"),
-    "h3_probe_t2v_policy":
-        ("sage", "block-49 Tier 0/1 policy graph on the sage chain; the same pair"),
     "h3_probe_t2v_exact_tail":
         ("sage", "the scored ceiling arm of the sage chain, kept as it rendered"),
     # Sol over ComfyUI's own attention.
-    "h3_probe_t2v_dense":
-        ("stock", "the fully dense control (2026-09-15): stock attention everywhere, "
-                  "by construction"),
     "h3_probe_t2v_sol_nosage":
         ("stock", "the just-Sol arm of 2026-09-04 (bench/sol_nosage_arms.json): "
                   "Sol over stock attention, which is not the kitchen chain"),

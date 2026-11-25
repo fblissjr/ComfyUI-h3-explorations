@@ -5648,18 +5648,6 @@ def main():
               out_prefix="Video/h3_r2v_video_audio"),
          "reference video + its soundtrack, no images"),
 
-        # One named two-stage policy, not two independently switchable fixes.
-        # The release first puts the full-rate clip on the reference canvas for
-        # the VAE, then independently applies its duration-aware processor to
-        # the raw 2 fps Qwen samples. Upscale alone would overshoot the long-
-        # clip Qwen budget, so the probe toggles both at one compiler boundary.
-        ("h3_probe_release_video_policy.json", "r2v-video-release-policy", "r2v",
-         _ref_prompt(images=False, video=True, video_audio=True),
-         dict(**REF_VIDEO_BUDGET, ref_video=True, ref_images_on=False,
-              ref_video_policy="release",
-              out_prefix="Video/h3_probe_release_video_policy"),
-         "reference video on the atomic release VAE/Qwen preparation policy"),
-
         ("h3_ref_image_audio.json", "r2v-image-audio", "r2v",
          _ref_prompt(images=True, audio=True),
          dict(ref_audio=True, out_prefix="Video/h3_r2v_image_audio"),
@@ -5887,22 +5875,6 @@ def main():
          dict(ref_audio=True, out_prefix="Video/h3_r2v_voice"),
          "reference a speaker's voice timbre for generated speech"),
 
-        # --- probes: pairs, one variable, run against the named twin ---
-
-        # The equal-cost shape control. 21:9, 16:9 and 9:16 are all
-        # (w//32)*(h//32) = 1008 tokens/frame, so all three run at the SAME
-        # sequence length and the same attention cost while the long edge goes
-        # 768 -> 1536. Every other probe here changes cost to change shape;
-        # these two change shape with cost held exactly constant, which is the
-        # only way to ask whether the model is actually shape-neutral.
-        ("h3_probe_canvas_ultrawide.json", "t2v-21by9", "t2v", LONG_T2V_PROMPT,
-         dict(width=1536, height=672, out_prefix="Video/h3_probe_21by9"),
-         "21:9, the same cost as the default canvas"),
-
-        ("h3_probe_canvas_portrait.json", "t2v-9by16", "t2v", LONG_T2V_PROMPT,
-         dict(width=768, height=1344, out_prefix="Video/h3_probe_9by16"),
-         "9:16 portrait, the same cost as the default canvas"),
-
         # --- Parallel Decoding Distillation -----------------------------
         # Not a step distillation. The trajectory stays a 32-point grid; the
         # final output head is replicated per interval and each step decodes a
@@ -6075,11 +6047,6 @@ def main():
          dict(ref_upscale=True, out_prefix="Video/h3_probe_ref_upscale"),
          "same references, WITH the reference pipeline's 2048 short-edge upscale"),
 
-        ("h3_probe_square_canvas.json", "t2v-1to1", "t2v", LONG_T2V_PROMPT,
-         dict(width=768, height=768,
-              out_prefix="Video/h3_probe_square"),
-         "the same prompt on the cheapest legal canvas"),
-
         # TWO graphs turn Sol-Attn ON. Both are probes; everything else ships
         # it bypassed. This one puts references in front of it, and exists
         # because the t2v probe below cannot verify what v2 of the CUDA node
@@ -6150,60 +6117,6 @@ def main():
          dict(dense_attn="sage_sol", sol_overrides={"quantizer": "plain", "dense_blocks": ""},
               exact_blocks="45,48,49", out_prefix="Video/h3_probe_t2v_exact_tail"),
          "text -> video + audio, the sage chain with blocks 45/48/49 on exact bf16 attention"),
-        # docs/h3_quant_policy.md. `levers` is Tier 1's witness: every free
-        # lever on (the balance node, sage's qk_balance, Sol's qk_balance)
-        # and NO exact blocks, the graph that has to match `exact_tail` for
-        # the bf16 row to disappear. `policy` is Tier 0/1: the same levers
-        # plus the three lopsided blocks on exact attention. Sol's qk_balance
-        # is the recipe's own since the flip, so neither overrides it.
-        # The community chain (2026-09-15): kitchen's rotated INT8 kernel on
-        # the dense steps, Sol on the routed ones, no sage. The default since
-        # that evening, so `ck` is now the arm that departs from it: Sol's
-        # qk_balance off and no dense tail, the chain as most people run it.
-        # `ck_balanced` stood here until the flip made it the default.
-        # `h3_probe_t2v_ck_dense_tail` (blocks 45/48/49 on the dense kernel)
-        # stood here until 2026-09-25, when the owner made that tail the
-        # recipe's `dense_blocks`; its pair survives inverted as
-        # `h3_probe_t2v_no_dense_tail`, the default with the tail back on Sol.
-        ("h3_probe_t2v_ck.json", "t2v-ck", "t2v", LONG_T2V_PROMPT,
-         dict(dense_attn="ck", sol_overrides={"quantizer": "plain", "dense_blocks": ""},
-              out_prefix="Video/h3_probe_t2v_ck"),
-         "text -> video + audio, community chain as most run it: kitchen int8 attention dense + Sol, qk_balance off, no dense tail"),
-        ("h3_probe_t2v_no_dense_tail.json", "t2v-no-dense-tail", "t2v", LONG_T2V_PROMPT,
-         dict(dense_attn="ck", sol_overrides={"dense_blocks": ""},
-              out_prefix="Video/h3_probe_t2v_no_dense_tail"),
-         "text -> video + audio, the default chain with blocks 45/48/49 back on Sol (the pre-2026-09-25 default)"),
-        # Tier 2 witness (2026-09-15 night): the default chain with Sol's
-        # Hadamard rotation on (docs/wiki/attention/h3_quant_policy.md). Same seed as every
-        # other market arm today, so it sits beside h3_text_to_video (the
-        # default, rotate off) and h3_probe_t2v_no_dense_tail.
-        # Fully dense control (2026-09-15 night): neither Sol nor any INT8
-        # kernel, ComfyUI's own attention on every step. The ceiling for the
-        # whole chain and the arm that says whether a flaw every INT8 arm
-        # shares (the market coins appearing from nowhere on all three
-        # community-chain arms) belongs to the kernels or to the take.
-        ("h3_probe_t2v_dense.json", "t2v-dense", "t2v", LONG_T2V_PROMPT,
-         dict(dense_attn=True, out_prefix="Video/h3_probe_t2v_dense"),
-         "text -> video + audio, fully dense: no sage, no Sol, no INT8 anywhere"),
-        ("h3_probe_t2v_rotate.json", "t2v-rotate", "t2v", LONG_T2V_PROMPT,
-         dict(dense_attn="ck", sol_overrides={"quantizer": "balanced+rotated"}, out_prefix="Video/h3_probe_t2v_rotate"),
-         "text -> video + audio, the default chain with Sol rotate on"),
-        # RECORDS, not recommendations (2026-09-18). The three graphs below
-        # stack MiniMaxH3ChannelBalance under sage's own `fp8++ balanced`.
-        # Graded 2026-09-17, the fold adds nothing there (sage rebalances per
-        # head inside its quantizer) and it re-rounds q/k in bf16, which moves
-        # exact attention on the last block a little
-        # (data/results/2026-09-17_channel_balance_vs_sage_balanced_b49_s15.json).
-        # They stay byte for byte because dated records and clips were rendered
-        # from them and renders repeat bit for bit: `levers` is the sage arm of
-        # bench/results/2026-09-15_block49_repro_batch.md, `sage_rotate` was
-        # proven identical across two days on 2026-09-17. For a sage chain to
-        # USE, build the sage set (`--chain sage`, h3_config.DENSE_CHAINS),
-        # which has no fold.
-        ("h3_probe_t2v_levers.json", "t2v-levers", "t2v", LONG_T2V_PROMPT,
-         dict(dense_attn="sage_sol", channel_balance="loud blocks (from weights)",
-              sage_mode="fp8++ balanced", out_prefix="Video/h3_probe_t2v_levers"),
-         "text -> video + audio, the sage chain with every free lever: balance node + sage and Sol qk_balance, no exact blocks"),
         # The sage chain with every lever AND Sol's rotation (2026-09-15 night,
         # owner's ask): the best the sage chain can do against the kitchen
         # chain, same seed as every other market arm.
@@ -6212,11 +6125,6 @@ def main():
               sage_mode="fp8++ balanced", sol_overrides={"quantizer": "balanced+rotated"},
               out_prefix="Video/h3_probe_t2v_sage_rotate"),
          "text -> video + audio, the sage chain with every free lever plus Sol rotate, no exact blocks"),
-        ("h3_probe_t2v_policy.json", "t2v-policy", "t2v", LONG_T2V_PROMPT,
-         dict(dense_attn="sage_sol", channel_balance="loud blocks (from weights)",
-              sage_mode="fp8++ balanced",
-              exact_blocks="45,48,49", out_prefix="Video/h3_probe_t2v_policy"),
-         "text -> video + audio, the sage-chain block-49 policy: balance node + sage and Sol qk_balance + blocks 45/48/49 exact"),
 
         # **Candidates on trial, 2026-09-05.** The owner asked for canonical
         # graphs carrying the settings the lane currently thinks are its
@@ -6296,54 +6204,6 @@ def main():
         # `archive/single_frame.py`. Their builder, `_image_graphs()`, left this
         # file with the UI half on 2026-09-14, so restoring the lane starts
         # from the archive and git history. See `docs/wiki/image/h3_image_editing.md`.
-
-        ("h3_probe_head_chunks.json", "t2v-chunk4", "t2v", LONG_T2V_PROMPT,
-         dict(head_chunks=4, dense_attn="sage_sol", out_prefix="Video/h3_probe_chunk4"),
-         "the same render with the heads in 4 groups"),
-
-        # --- Pika H3 Flex 6-step LCM showcase reproduction (2026-11-04) -----
-        # Step 1–2 of docs/wiki/research/2026-11-04_pika_h3_flex_plan.md: Pika's
-        # motion-transfer (ref2va, 243 frames) and balcony-orbit (t2va on fl2va,
-        # 328 frames) showcases at Pika's contract (6 steps, lcm, shift-12
-        # manual sigmas "1.0, 0.972973, 0.923077, 0.8, 0.571429, 0.333333, 0.0"),
-        # dense attention on the kitchen backend (Sol off) so attention sparsity
-        # does not confound the 6-step LoRA and branch-vs-merge comparison.
-        # On motion-transfer, ref_video_audio=False drops the reference dance
-        # clip's embedded soundtrack so no unused <Audio 1> block is emitted,
-        # and ref_qwen_short_edge=0 selects qwen_view="shared" (one 2048-short-edge
-        # copy for both DiT and Qwen, matching Pika's reference preprocessing).
-        ("h3_probe_r2v_pika_motion_transfer_6step.json", "r2v-pika-motion-transfer-6step", "r2v",
-         PIKA_MOTION_TRANSFER_PROMPT,
-         dict(length=243, lora=(PIKA_REF2VA_LORA, PIKA_STRENGTH), lora_branch=True,
-              dense_attn="ck", sol_on=False, steps=PIKA_STEPS, sampler_name=PIKA_SAMPLER,
-              manual_sigmas=PIKA_MANUAL_SIGMAS, ref_images=PIKA_MOTION_TRANSFER_IMAGES,
-              ref_image_count=2, ref_upscale=True, ref_qwen_short_edge=0,
-              ref_video=True, ref_video_audio=False, ref_video_file=PIKA_MOTION_TRANSFER_VIDEO,
-              out_prefix="Video/h3_probe_r2v_pika_motion_transfer_6step"),
-         "Pika H3 Flex motion-transfer showcase (ref2va, 243 frames) at 6 steps on lcm, full rank 128 via MiniMaxH3LoRABranch, dense attention"),
-        ("h3_probe_r2v_pika_motion_transfer_6step_merge.json", "r2v-pika-motion-transfer-6step-merge", "r2v",
-         PIKA_MOTION_TRANSFER_PROMPT,
-         dict(length=243, lora=(PIKA_REF2VA_LORA, PIKA_STRENGTH), lora_branch=False,
-              dense_attn="ck", sol_on=False, steps=PIKA_STEPS, sampler_name=PIKA_SAMPLER,
-              manual_sigmas=PIKA_MANUAL_SIGMAS, ref_images=PIKA_MOTION_TRANSFER_IMAGES,
-              ref_image_count=2, ref_upscale=True, ref_qwen_short_edge=0,
-              ref_video=True, ref_video_audio=False, ref_video_file=PIKA_MOTION_TRANSFER_VIDEO,
-              out_prefix="Video/h3_probe_r2v_pika_motion_transfer_6step_merge"),
-         "Pika H3 Flex motion-transfer showcase (ref2va, 243 frames) at 6 steps on lcm, merged into int8 via LoraLoaderModelOnly (control)"),
-        ("h3_probe_t2v_pika_balcony_orbit_6step.json", "t2v-pika-balcony-orbit-6step", "t2v",
-         PIKA_BALCONY_ORBIT_PROMPT,
-         dict(length=328, lora=(PIKA_FL2VA_LORA, PIKA_STRENGTH), lora_branch=True,
-              dense_attn="ck", sol_on=False, steps=PIKA_STEPS, sampler_name=PIKA_SAMPLER,
-              manual_sigmas=PIKA_MANUAL_SIGMAS,
-              out_prefix="Video/h3_probe_t2v_pika_balcony_orbit_6step"),
-         "Pika H3 Flex balcony-orbit showcase (t2va on fl2va, 328 frames) at 6 steps on lcm, full rank 128 via MiniMaxH3LoRABranch, dense attention"),
-        ("h3_probe_t2v_pika_balcony_orbit_6step_merge.json", "t2v-pika-balcony-orbit-6step-merge", "t2v",
-         PIKA_BALCONY_ORBIT_PROMPT,
-         dict(length=328, lora=(PIKA_FL2VA_LORA, PIKA_STRENGTH), lora_branch=False,
-              dense_attn="ck", sol_on=False, steps=PIKA_STEPS, sampler_name=PIKA_SAMPLER,
-              manual_sigmas=PIKA_MANUAL_SIGMAS,
-              out_prefix="Video/h3_probe_t2v_pika_balcony_orbit_6step_merge"),
-         "Pika H3 Flex balcony-orbit showcase (t2va on fl2va, 328 frames) at 6 steps on lcm, merged into int8 via LoraLoaderModelOnly (control)"),
 
         # --- Plain 6-step Pika H3 Flex baseline workflows (2026-11-10) ---
         # Standard t2va, fl2va, and ref2va baselines on PIKA_*_SVD995_LORA via
