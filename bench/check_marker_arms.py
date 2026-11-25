@@ -117,6 +117,7 @@ def _fixture_clip(width: int = FIXTURE_WIDTH):
     clip.patcher = comfy.model_patcher.ModelPatcher(
         root, load_device=torch.device("cpu"), offload_device=torch.device("cpu"))
     clip.tokenizer = MiniMaxH3Tokenizer()
+    clip.tokenizer_metadata = {}
     clip.layer_idx = None
     clip.tokenizer_options = {}
     clip.use_clip_schedule = False
