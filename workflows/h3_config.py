@@ -1198,6 +1198,7 @@ FROZEN_VIDEO_CACHE_NODE = "MiniMaxH3FrozenVideoCache"
 #: (`control_vector_nodes.py`, `h3_rules.py`, `docs/wiki/steering.md`).
 CONTROL_VECTOR_NODE = "MiniMaxH3Steer"
 STEER_NODE = "MiniMaxH3Steer"
+QUERY_ROUTER_NODE = "MiniMaxH3QueryRouter"
 STEER_DEFAULTS = dict(_h3_rules().STEER_DEFAULTS)
 RELEASE_REFERENCES_NODE = "MiniMaxH3ReleaseReferences"
 RELEASE_REFERENCES_DEFAULTS = dict(_h3_rules().RELEASE_REFERENCES_DEFAULTS)

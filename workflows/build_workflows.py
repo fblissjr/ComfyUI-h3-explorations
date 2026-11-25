@@ -87,6 +87,7 @@ _OUR_NODES = {
     "MiniMaxH3EncodeImageReferences", "MiniMaxH3PromptOnImageReferences",
     "MiniMaxH3SpatialDirector", "MiniMaxH3DirectorHUD",
     "MiniMaxH3AutoEditPrompt", "MiniMaxH3PromptExpander",
+    "MiniMaxH3QueryRouter",
 }
 
 # Model names, sampler settings, canvas geometry and the SolAttn knobs all
@@ -131,7 +132,7 @@ from h3_config import (  # noqa: E402
     DIRECTOR_HUD_NODE, DIRECTOR_HUD_DEFAULTS,
     SPATIAL_PORTAL_REF_IMAGES, SPATIAL_PORTAL_EDIT_GUIDANCE, WORLD_TARGETS_EDIT_GUIDANCE,
     CONTROL_VECTOR_NODE, CONTROL_VECTOR_DEFAULTS, CONTROL_VECTOR_OPTIONAL_DEFAULTS, LAYER_NORM_MATCH_NODE,
-    STEER_NODE, STEER_DEFAULTS, RELEASE_REFERENCES_NODE, RELEASE_REFERENCES_DEFAULTS,
+    STEER_NODE, STEER_DEFAULTS, QUERY_ROUTER_NODE, RELEASE_REFERENCES_NODE, RELEASE_REFERENCES_DEFAULTS,
     WORD_VECTOR_NODE, WORD_VECTOR_DEFAULTS, LOAD_CONTROL_VECTOR_NODE,
     EDIT_GUIDANCE_STREAMS, EDIT_GUIDANCE_DEFAULTS,
     refine_scheduler_ids,
@@ -1682,6 +1683,7 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
               # (vector_name, strength) tuple / dict of CONTROL_VECTOR_DEFAULTS
               # overrides, or a list/tuple of such specs.
               control_vector: tuple[str, float] | dict | list | None = None,
+              query_router: dict | None = None,
               # Steer with an edited copy of the prompt (`edit_guidance.py`): a dict of
               # `edits` (the lines `MiniMaxH3PromptEdit` takes), `scale` and `first_step`.
               # Adds the edit node (130), a second prompt on the same encoder, references
@@ -2320,6 +2322,39 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
             raise SystemExit(f"release_references must be bool or dict, got {release_references!r}")
         g["135"] = {"class_type": RELEASE_REFERENCES_NODE, "inputs": {"model": model_src, **rel_in}}
         model_src = ["135", 0]
+
+    if query_router is not None:
+        # Cross-modal 1x attention routing (MiniMaxH3QueryRouter at node 145, with
+        # optional cloned conditioning prompts at 146=audio and 147=video).
+        qr_in: dict[str, Any] = {
+            "model": model_src,
+            "section_split": str(query_router.get("section_split", "off")),
+            "video_block_band": str(query_router.get("video_block_band", "all")),
+            "audio_block_band": str(query_router.get("audio_block_band", "all")),
+            "start_percent": float(query_router.get("start_percent", 0.0)),
+            "end_percent": float(query_router.get("end_percent", 1.0)),
+        }
+        if "audio_prompt" in query_router:
+            a_in = dict(g["5"]["inputs"], prompt=query_router["audio_prompt"])
+            g["146"] = {"class_type": g["5"]["class_type"], "inputs": a_in}
+            qr_in["audio_conditioning"] = ["146", 0]
+        if "video_prompt" in query_router:
+            v_in = dict(g["5"]["inputs"], prompt=query_router["video_prompt"])
+            g["147"] = {"class_type": g["5"]["class_type"], "inputs": v_in}
+            qr_in["video_conditioning"] = ["147", 0]
+        for opt_key in (
+            "aud_to_vid_gain",
+            "audio_channel",
+            "audio_time_start",
+            "audio_time_end",
+            "ref_img_gain",
+            "ref_img_block_band",
+            "ref_audio_stream",
+        ):
+            if opt_key in query_router:
+                qr_in[opt_key] = query_router[opt_key]
+        g["145"] = {"class_type": QUERY_ROUTER_NODE, "inputs": qr_in}
+        model_src = ["145", 0]
 
     if cache is not None:
         # Step caching, after the attention nodes: the cache is a
@@ -6365,6 +6400,24 @@ def main():
               ],
               out_prefix="Video/h3_t2v_pika_stacked_erasure"),
          "TV cooking-show studio (`t2va_cooking_show_meltdown`) -> 192f (8.00s) 1152x768 video + audio on Pika H3 Flex 6-step LCM chaining three MiniMaxH3Steer nodes in one 1x pass (noir +1.55 add_norm_matched_erasure + chaos_panic +0.90 on scene_only + reverb_cathedral +1.25 on soundscape_only)"),
+        ("h3_text_to_video_pika_query_router.json", "t2v-pika-query-router", "t2v",
+         _bank_prompt("t2va_stairwell_dialogue"),
+         dict(width=1344, height=768, length=192,
+              lora=(PIKA_FL2VA_SVD995_LORA, PIKA_STRENGTH), lora_branch=True,
+              steps=PIKA_STEPS, sampler_name=PIKA_SAMPLER,
+              manual_sigmas=PIKA_MANUAL_SIGMAS,
+              query_router=dict(
+                  section_split="off",
+                  video_block_band="all",
+                  audio_block_band="all",
+                  audio_prompt=_bank_prompt("t2va_stairwell_dialogue").replace(
+                      "Close handheld room tone in a hard concrete stairwell with a long reflective tail on every consonant and a faint electrical hum from the caged bulb overhead.",
+                      "A violent thunderstorm hammers the building, heavy rain drumming on a metal roof, rolling thunder close overhead, and wind howling up the stairwell.",
+                      1,
+                  ),
+              ),
+              out_prefix="Video/h3_t2v_pika_query_router"),
+         "two-speaker stairwell (`t2va_stairwell_dialogue`) -> 192f 1x two-prompt MiniMaxH3QueryRouter on Pika H3 Flex 6-step LCM (video reads dry concrete stairwell while audio_conditioning reads thunderstorm soundscape in one pass)"),
         ("h3_text_to_video_pika_1d_vs_erasure_ab.json", "t2v-pika-1d-vs-erasure-ab", "t2v",
          _bank_prompt("t2va_sitcom_kitchen"),
          dict(width=1152, height=768, length=141,
