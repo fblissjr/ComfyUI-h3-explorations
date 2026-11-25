@@ -1,7 +1,7 @@
 # Check Standard Case Studies, Running Notes, Retired Checks & Gaps
 
 > **Extracted from [`docs/wiki/ops/checks.md`](../checks.md) on 2026-10-27.**
-> Preserves the `break_checks.py` history, metric-ranking, expression-driving, and queue-execution case studies alongside retired checks, uncontrolled requirements, and gaps. For the active check index and `doc-link-absent` ledger, see [`docs/wiki/ops/checks.md`](../checks.md).
+> Preserves the `break_checks.py` history, metric-ranking, expression-driving, and queue-execution case studies alongside retired checks, uncontrolled requirements, and gaps. For the active check index see [`docs/wiki/ops/checks.md`](../checks.md); for the active machine-read `doc-link-absent` ledger see [`docs/wiki/ops/checks/doc_link_absent.md`](doc_link_absent.md).
 
 ## Mutation Controls (`break_checks.py`) & Standard Case Studies
 

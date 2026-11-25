@@ -79,7 +79,8 @@ Claims, i.e. what breaks if a case is deleted:
 
 ## Where the data lives
 
-`docs/wiki/ops/checks.md`, in a fenced ```doc-link-absent block -- with the index of
+`docs/wiki/ops/checks/doc_link_absent.md`, in a fenced ```doc-link-absent block (split from
+`docs/wiki/ops/checks.md` on 2026-11-25 so the router stays under the 45 KB cap) -- with the index of
 checks it belongs to, so the enumeration cannot drift from the check that reads
 it. Same pattern as the `retraction-consumers` block in `docs/wiki/ops/evidence.md`, and
 the same reason: nothing gets a second copy.
@@ -144,7 +145,7 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
 COMFY = REPO.parents[1]
-LEDGER = REPO / "docs" / "wiki" / "ops" / "checks.md"
+LEDGER = REPO / "docs" / "wiki" / "ops" / "checks" / "doc_link_absent.md"
 
 SKIP_DIRS = {".git", ".venv", ".agents", ".claude", "app", "contact_sheets", "internal", "__pycache__", "coderef", "vendor", "archive"}  # .claude: harness worktrees live there
 
@@ -461,7 +462,7 @@ def main():
     for src, n, cited in absent_returned:
         warns.append(
             f"  warn  declared_absent_still_absent  {cited} is declared absent "
-            f"in docs/wiki/ops/checks.md but resolves now ({src}:{n}) -- drop the entry")
+            f"in docs/wiki/ops/checks/doc_link_absent.md but resolves now ({src}:{n}) -- drop the entry")
     if not absent_returned:
         print(f"  ok    declared_absent_still_absent  {len(absent)} declared, "
               "still absent")

@@ -1,7 +1,7 @@
 # Deliberately Absent Citations Ledger — Full Historical Notes
 
 > **Extracted from [`docs/wiki/ops/checks.md`](../checks.md) on 2026-10-27.**
-> Preserves the full multi-paragraph `WHY:` histories for every `PATH:` in the `doc-link-absent` ledger. The active machine-read `doc-link-absent` block with concise 1-line reasons lives in [`docs/wiki/ops/checks.md`](../checks.md).
+> Preserves the full multi-paragraph `WHY:` histories for every `PATH:` in the `doc-link-absent` ledger. The active machine-read `doc-link-absent` block with concise 1-line reasons lives in [`docs/wiki/ops/checks/doc_link_absent.md`](doc_link_absent.md).
 
 ## What is deliberately not checked
 
