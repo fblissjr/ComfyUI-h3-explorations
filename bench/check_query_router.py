@@ -878,22 +878,33 @@ def _test_binaural_and_temporal_audio_routing() -> None:
     ctx_base = torch.randn(1, 10, sc.POST_REFINER_DIM, generator=gen) * 0.25
     ctx_alt = torch.randn(1, 6, sc.POST_REFINER_DIM, generator=gen) * 0.25 + 1.5
 
-    v_base, a_base = p.run(ctx_base)
-
-    # Channel-major packing: [0:4] = Left, [4:8] = Right
+    # Channel-major packing: [0:4] = Left, [4:8] = Right (isolated against cross-channel diffusion)
+    _, a_left_id = qr.attach_query_router(
+        p.clone(), audio_conditioning=_make_cond(ctx_base), audio_channel="left"
+    ).run(ctx_base)
     _, a_left = qr.attach_query_router(
         p.clone(), audio_conditioning=_make_cond(ctx_alt), audio_channel="left"
     ).run(ctx_base)
-    assert float((a_left[:, :4, :] - a_base[:, :4, :]).abs().max().item()) > 1e-3
-    assert float((a_left[:, 4:, :] - a_base[:, 4:, :]).abs().max().item()) < 1e-6
+    assert float((a_left[:, :4, :] - a_left_id[:, :4, :]).abs().max().item()) > 1e-3
+    assert float((a_left[:, 4:, :] - a_left_id[:, 4:, :]).abs().max().item()) < 1e-6
 
+    _, a_right_id = qr.attach_query_router(
+        p.clone(), audio_conditioning=_make_cond(ctx_base), audio_channel="right"
+    ).run(ctx_base)
     _, a_right = qr.attach_query_router(
         p.clone(), audio_conditioning=_make_cond(ctx_alt), audio_channel="right"
     ).run(ctx_base)
-    assert float((a_right[:, :4, :] - a_base[:, :4, :]).abs().max().item()) < 1e-6
-    assert float((a_right[:, 4:, :] - a_base[:, 4:, :]).abs().max().item()) > 1e-3
+    assert float((a_right[:, :4, :] - a_right_id[:, :4, :]).abs().max().item()) < 1e-6
+    assert float((a_right[:, 4:, :] - a_right_id[:, 4:, :]).abs().max().item()) > 1e-3
 
     # Temporal window [0.5, 1.0] on both channels: shifts [2:4] & [6:8], leaves [0:2] & [4:6] bit-exact!
+    _, a_half_id = qr.attach_query_router(
+        p.clone(),
+        audio_conditioning=_make_cond(ctx_base),
+        audio_channel="both",
+        audio_time_start=0.5,
+        audio_time_end=1.0,
+    ).run(ctx_base)
     _, a_half = qr.attach_query_router(
         p.clone(),
         audio_conditioning=_make_cond(ctx_alt),
@@ -901,10 +912,10 @@ def _test_binaural_and_temporal_audio_routing() -> None:
         audio_time_start=0.5,
         audio_time_end=1.0,
     ).run(ctx_base)
-    assert float((a_half[:, 0:2, :] - a_base[:, 0:2, :]).abs().max().item()) < 1e-6
-    assert float((a_half[:, 4:6, :] - a_base[:, 4:6, :]).abs().max().item()) < 1e-6
-    assert float((a_half[:, 2:4, :] - a_base[:, 2:4, :]).abs().max().item()) > 1e-3
-    assert float((a_half[:, 6:8, :] - a_base[:, 6:8, :]).abs().max().item()) > 1e-3
+    assert float((a_half[:, 0:2, :] - a_half_id[:, 0:2, :]).abs().max().item()) < 1e-6
+    assert float((a_half[:, 4:6, :] - a_half_id[:, 4:6, :]).abs().max().item()) < 1e-6
+    assert float((a_half[:, 2:4, :] - a_half_id[:, 2:4, :]).abs().max().item()) > 1e-3
+    assert float((a_half[:, 6:8, :] - a_half_id[:, 6:8, :]).abs().max().item()) > 1e-3
     print("[ok] Test 7: 1x binaural L/R and temporal [0.5, 1.0] Q_aud routing passed")
 
 
@@ -972,6 +983,90 @@ def _test_multimodal_ref_routing() -> None:
     print("[ok] Test 8: Multimodal depth-gated ref_img & ref_audio_stream='audio_only' passed")
 
 
+def _test_intra_audio_cross_masking() -> None:
+    gen = torch.Generator(device="cpu").manual_seed(501)
+    ctx_base = torch.randn(1, 10, sc.POST_REFINER_DIM, generator=gen) * 0.25
+    ctx_alt = torch.randn(1, 6, sc.POST_REFINER_DIM, generator=gen) * 0.25 + 1.5
+
+    # 1. 1-block exact seed perturbation isolation: perturbing Right audio rows leaves Left invariant!
+    dm1_a = _TinyH3Model(n_blocks=1, n_aud=8, n_vid=8, seed=91)
+    dm1_b = _TinyH3Model(n_blocks=1, n_aud=8, n_vid=8, seed=91)
+    dm1_b._aud_seed.data[4:8].add_(10.0)
+    _, a1_r_a = qr.attach_query_router(
+        _ToyPatcher(dm1_a), audio_conditioning=_make_cond(ctx_alt), audio_channel="right"
+    ).run(ctx_base)
+    _, a1_r_b = qr.attach_query_router(
+        _ToyPatcher(dm1_b), audio_conditioning=_make_cond(ctx_alt), audio_channel="right"
+    ).run(ctx_base)
+    assert float((a1_r_a[:, :4, :] - a1_r_b[:, :4, :]).abs().max().item()) < 1e-5
+    assert float((a1_r_a[:, 4:, :] - a1_r_b[:, 4:, :]).abs().max().item()) > 1e-1
+
+    # Perturbing temporal 2nd-half rows ([2:4] & [6:8]) leaves 1st-half rows ([0:2] & [4:6]) invariant!
+    dm1_c = _TinyH3Model(n_blocks=1, n_aud=8, n_vid=8, seed=91)
+    dm1_c._aud_seed.data[2:4].add_(10.0)
+    dm1_c._aud_seed.data[6:8].add_(10.0)
+    _, a1_t_a = qr.attach_query_router(
+        _ToyPatcher(dm1_a),
+        audio_conditioning=_make_cond(ctx_alt),
+        audio_channel="both",
+        audio_time_start=0.5,
+        audio_time_end=1.0,
+    ).run(ctx_base)
+    _, a1_t_c = qr.attach_query_router(
+        _ToyPatcher(dm1_c),
+        audio_conditioning=_make_cond(ctx_alt),
+        audio_channel="both",
+        audio_time_start=0.5,
+        audio_time_end=1.0,
+    ).run(ctx_base)
+    assert float((a1_t_a[:, 0:2, :] - a1_t_c[:, 0:2, :]).abs().max().item()) < 1e-5
+    assert float((a1_t_a[:, 4:6, :] - a1_t_c[:, 4:6, :]).abs().max().item()) < 1e-5
+    assert float((a1_t_a[:, 2:4, :] - a1_t_c[:, 2:4, :]).abs().max().item()) > 1e-1
+    assert float((a1_t_a[:, 6:8, :] - a1_t_c[:, 6:8, :]).abs().max().item()) > 1e-1
+
+    # 2. Multi-block (4 blocks) separation: target shift dominates non-target across all 4 blocks (> 5x)
+    dm4 = _TinyH3Model(n_blocks=4, n_aud=8, n_vid=8, seed=92)
+    p4 = _ToyPatcher(dm4)
+    _, a4_r_base = qr.attach_query_router(
+        p4.clone(), audio_conditioning=_make_cond(ctx_base), audio_channel="right"
+    ).run(ctx_base)
+    _, a4_r_alt = qr.attach_query_router(
+        p4.clone(), audio_conditioning=_make_cond(ctx_alt), audio_channel="right"
+    ).run(ctx_base)
+    left_shift = float((a4_r_alt[:, :4, :] - a4_r_base[:, :4, :]).abs().mean().item())
+    right_shift = float((a4_r_alt[:, 4:, :] - a4_r_base[:, 4:, :]).abs().mean().item())
+    assert right_shift > 5.0 * left_shift, f"expected Right >> Left across 4 blocks ({right_shift} vs {left_shift})"
+
+    _, a4_t_base = qr.attach_query_router(
+        p4.clone(),
+        audio_conditioning=_make_cond(ctx_base),
+        audio_channel="both",
+        audio_time_start=0.5,
+        audio_time_end=1.0,
+    ).run(ctx_base)
+    _, a4_t_alt = qr.attach_query_router(
+        p4.clone(),
+        audio_conditioning=_make_cond(ctx_alt),
+        audio_channel="both",
+        audio_time_start=0.5,
+        audio_time_end=1.0,
+    ).run(ctx_base)
+    h1_shift = float(
+        torch.cat([a4_t_alt[:, 0:2, :] - a4_t_base[:, 0:2, :], a4_t_alt[:, 4:6, :] - a4_t_base[:, 4:6, :]], dim=1)
+        .abs()
+        .mean()
+        .item()
+    )
+    h2_shift = float(
+        torch.cat([a4_t_alt[:, 2:4, :] - a4_t_base[:, 2:4, :], a4_t_alt[:, 6:8, :] - a4_t_base[:, 6:8, :]], dim=1)
+        .abs()
+        .mean()
+        .item()
+    )
+    assert h2_shift > 5.0 * h1_shift, f"expected H2 >> H1 across 4 blocks ({h2_shift} vs {h1_shift})"
+    print("[ok] Test 9: Intra-audio block-diagonal cross-masking (1-block exact + 4-block >5x separation) passed")
+
+
 def main() -> int:
     _test_parity_against_audio_only_steer()
     _test_arbitrary_length_dual_prompt()
@@ -981,6 +1076,7 @@ def main() -> int:
     _test_aud_to_vid_gain()
     _test_binaural_and_temporal_audio_routing()
     _test_multimodal_ref_routing()
+    _test_intra_audio_cross_masking()
     print("check_query_router: ALL TESTS PASSED")
     return 0
 

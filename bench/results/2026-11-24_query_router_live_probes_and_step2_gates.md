@@ -85,3 +85,24 @@ Tested on `stairwell` (`192f`, `1344x768`, seed `730451892`): main conditioning 
 | `uwvid_dryaud_a2v_000_all` | `0.0` | `99.0` | `16.641` / `48.188` | `14.478` | `14.378` | `-22.96` | `-32.47` |
 
 - **What this shows:** Two-prompt text routing alone (`gain=1.0`) kept submerged caustics/bubbles (`16.076` MAE vs `uwvid_unrouted`) while dropping heavy water rumble and moving `14.211 dB` away from `uwvid_unrouted`. Lowering `aud_to_vid_gain` gave brightest HF tilt at `0.25` (`-20.79 dB` vs `-24.14 dB` at `1.0`), left lip-sync intact even at `0.0` across all `50` blocks (because `Q_vid -> K_aud` remains unmasked so video follows audio timing), and yielded modest spectral separation beyond two-prompt routing (`14.478–14.965 dB` vs dry base).
+
+### C4. `ref_audio_stream="audio_only"` Live GPU A/B (`5677149d`) — Motion Lowered, Audio Corrupted
+
+Tested on Pika H3 Flex `ref2va` (`workflows/h3_image_ref_plus_text_to_video_pika_api.json` adapted to `$H3_INPUT_DIR/old_man.jpg` + `$H3_INPUT_DIR/h3_trio_groove_20261123.wav` at `141f`, `1344x768`, seed `730451892`):
+
+| Arm (`ref_audio_stream`) | Wall (s) | Motion Energy MAE | Sound RMS (dBFS) | Pic / Spec MAE Between Arms | Observed Picture & Audio Behavior |
+| :--- | :---: | :---: | :---: | :---: | :--- |
+| `ref2va_oldman_groove_ref_aud_both` (`both`) | `111.0` | `0.311` | `-24.50` | `8.434` / `28.488 dB` | Calm portrait + crisp, warm bass-and-drum groove matching `<Audio 1>` |
+| `ref2va_oldman_groove_ref_aud_only` (`audio_only`) | `102.1` | `0.219` | `-19.83` | — | Visually slightly stiller, **but** audio breaks into distorted metallic buzz |
+
+- **Root cause (`steering/hooks.py`):** In-place `v_bh[:, :, ra:rb, :].zero_()` removes `V[ref_audio]` from the entire main pass — including `ref_audio`'s own self-attention (`Q_ref_aud -> K_ref_aud`) across all `50` blocks, corrupting `K_ref_aud` / `V_ref_aud` before `Q_aud` reads them via `in_aud_unswapped`. Just like `ref_img_gain`, clean reference isolation requires per-query `K`-logit masking instead of mutating `v_bh` in place.
+
+---
+
+## Part D — Comparison Reels & Intra-Audio Cross-Masking Fix (`2026-11-24`)
+
+- **Labeled `1x` Comparison Reels (`$H3_OUTPUT_DIR/Video/query_router_reels_2026-11-24/`):**
+  - `reel_1x_dubbing_stairwell_s730451892.mp4` (`32.0s`, `1344x768`, `24 fps`, stereo AAC): Base English -> Spanish dub -> Japanese dub -> Bilingual `(S1)` Spanish / `(S2)` English.
+  - `reel_1x_soundtracks_and_visuals_stairwell_s730451892.mp4` (`56.0s`, `1344x768`, `24 fps`, stereo AAC): Base -> Thunderstorm -> AM Radio -> Sitcom Laugh Track -> Hydrophone+Sonar -> Blueprint Ink + Dry Speech -> Underwater Caustics + Dry Speech.
+- **Intra-audio block-diagonal cross-masking (`steering/hooks.py`):** Implemented automatic complement-span cross-masking inside `Q_aud` side-SDPA whenever `audio_channel != "both"` or `(audio_time_start, audio_time_end) != (0.0, 1.0)` (zero overhead/change when routing full audio), verified offline by [`bench/check_query_router.py`](../check_query_router.py) `Test 9` (`< 1e-5` 1-block invariance and `> 5x` 4-block separation), ready for tomorrow's live `:8188` restart test.
+
