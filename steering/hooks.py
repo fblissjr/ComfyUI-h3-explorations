@@ -200,10 +200,35 @@ def _adapt_text_mod_segments(
     mod_txt_main: Sequence[tuple[int, int, Any]],
     l_txt_main: int,
     l_txt_shadow: int,
+    *,
+    shadow_tags: torch.Tensor | None = None,
 ) -> list[tuple[int, int, Any]]:
-    if l_txt_shadow == l_txt_main or not mod_txt_main:
+    if not mod_txt_main:
+        return []
+    int_row = next((int(seg[2]) for seg in mod_txt_main if not torch.is_tensor(seg[2])), None)
+    if (
+        isinstance(shadow_tags, torch.Tensor)
+        and int(shadow_tags.numel()) == int(l_txt_shadow)
+        and int(l_txt_shadow) > 0
+        and int_row is not None
+    ):
+        row_base = (int_row // 3) * 3
+        tags_list = shadow_tags.detach().view(-1).tolist()
+        runs: list[tuple[int, int, Any]] = []
+        run_start = 0
+        for i in range(1, int(l_txt_shadow) + 1):
+            if i == int(l_txt_shadow) or int(tags_list[i]) != int(tags_list[run_start]):
+                runs.append((run_start, i, row_base + int(tags_list[run_start])))
+                run_start = i
+        return runs
+    if l_txt_shadow == l_txt_main:
         return list(mod_txt_main)
-    row = mod_txt_main[0][2]
+    # Untagged unequal-length text shadow must default to the text AdaLN row (tag 1),
+    # never `mod_txt_main[0][2]` which is often a vision pad row (tag 0) on fl2va/ref2va.
+    row = next(
+        (seg[2] for seg in mod_txt_main if not torch.is_tensor(seg[2]) and (int(seg[2]) % 3) == 1),
+        mod_txt_main[-1][2],
+    )
     if torch.is_tensor(row) and row.ndim >= 1:
         if row.shape[0] >= l_txt_shadow:
             row_s = row[:l_txt_shadow]
@@ -550,6 +575,9 @@ class H3SteerRuntime:
         ref_img_gain: float = 1.0,
         ref_img_blocks: frozenset[int] = frozenset(),
         ref_audio_only: bool = False,
+        shadow_a_tags: torch.Tensor | None = None,
+        shadow_b_tags: torch.Tensor | None = None,
+        aud_outside_uses_shadow_a: bool = False,
     ) -> None:
         self.dm = dm
         self.workspace = workspace
@@ -574,6 +602,14 @@ class H3SteerRuntime:
         self.ref_img_gain = float(ref_img_gain)
         self.ref_img_blocks = ref_img_blocks
         self.ref_audio_only = bool(ref_audio_only)
+        self.shadow_a_tags = shadow_a_tags
+        self.shadow_b_tags = shadow_b_tags
+        self.aud_outside_uses_shadow_a = bool(aud_outside_uses_shadow_a)
+        self._max_aud_outside_block = (
+            max(aud_unswapped_blocks)
+            if (self.aud_outside_uses_shadow_a and aud_unswapped_blocks)
+            else -1
+        )
         self.active = True
         self._bufs: _WorkspaceBuffers | None = None
         self._cur: dict[str, Any] | None = None
@@ -606,14 +642,19 @@ class H3SteerRuntime:
         l_txt_a = self.l_txt_a
         l_txt_b = l_txt if self.fork_b_at_block is not None else (self.l_txt_b if self.l_txt_b is not None else l_txt)
         raw_au_spans = [(int(sa), int(sb)) for (sa, sb, kind) in layout.segments if kind == "audio" and sb > sa]
-        au_spans = _slice_audio_spans(
-            raw_au_spans,
-            audio_channel=self.audio_channel,
-            audio_time_start=self.audio_time_start,
-            audio_time_end=self.audio_time_end,
-        )
+        in_aud = bool(raw_au_spans) and (block_index in self.aud_split_blocks)
+        if in_aud:
+            au_spans = _slice_audio_spans(
+                raw_au_spans,
+                audio_channel=self.audio_channel,
+                audio_time_start=self.audio_time_start,
+                audio_time_end=self.audio_time_end,
+            )
+            au_comp_spans = _complement_spans(raw_au_spans, au_spans)
+        else:
+            au_spans = raw_au_spans
+            au_comp_spans = []
         total_aud = sum(b - a for a, b in au_spans)
-        au_comp_spans = _complement_spans(raw_au_spans, au_spans)
         total_aud_comp = sum(b - a for a, b in au_comp_spans)
         vid_spans = [(int(sa), int(sb)) for (sa, sb, kind) in layout.segments if kind == "video" and sb > sa]
         ref_img_spans = [(int(sa), int(sb)) for (sa, sb, kind) in layout.segments if kind == "ref_img" and sb > sa]
@@ -664,21 +705,21 @@ class H3SteerRuntime:
             bufs.h_shadow_b.copy_(x_full[tx_a:tx_b])
 
         in_aud = bool(au_spans) and (block_index in self.aud_split_blocks)
-        in_ref_img_damp = bool(ref_img_spans) and (self.ref_img_gain < 1.0 - 1e-6) and (block_index in self.ref_img_blocks)
-        in_ref_aud_iso = bool(ref_audio_spans) and self.ref_audio_only
-        in_aud_unswapped = bool(au_spans) and (not in_aud) and (
-            (block_index in self.aud_unswapped_blocks) or in_ref_aud_iso
-        )
+        in_ref_img_damp = False
+        in_ref_aud_iso = False
+        in_aud_unswapped = bool(au_spans) and (not in_aud) and (block_index in self.aud_unswapped_blocks)
         is_last = block_index >= (self.n_blocks - 1)
 
         need_a_kv = (
             in_swap
             or (in_aud and not self.aud_uses_shadow_b)
+            or (self.aud_outside_uses_shadow_a and in_aud_unswapped)
             or (
                 not is_last
                 and (
                     bool(self.swap_blocks)
                     or (bool(self.aud_split_blocks) and not self.aud_uses_shadow_b)
+                    or (self.aud_outside_uses_shadow_a and block_index < self._max_aud_outside_block)
                 )
             )
         )
@@ -733,8 +774,12 @@ class H3SteerRuntime:
         from comfy.ldm.minimax.model import _mod_scale_shift
 
         mod_txt = _slice_mod_segments(args["mod_segments"], tx_a, tx_b)
-        mod_txt_a = _adapt_text_mod_segments(mod_txt, l_txt, l_txt_a)
-        mod_txt_b = _adapt_text_mod_segments(mod_txt, l_txt, l_txt_b) if self.dual_shadow else mod_txt
+        mod_txt_a = _adapt_text_mod_segments(mod_txt, l_txt, l_txt_a, shadow_tags=self.shadow_a_tags)
+        mod_txt_b = (
+            _adapt_text_mod_segments(mod_txt, l_txt, l_txt_b, shadow_tags=self.shadow_b_tags)
+            if self.dual_shadow
+            else mod_txt
+        )
         rope_txt = _slice_rope(args.get("rope_freqs"), tx_a, tx_b)
         rope_a = rope_txt if l_txt_a == l_txt else self._rope_a
         rope_b = rope_txt if l_txt_b == l_txt else self._rope_b
@@ -868,10 +913,11 @@ class H3SteerRuntime:
             cur["has_aud_comp_splice"] = True
             del comp_bias, attn_comp
 
-        if in_aud_unswapped:
+        if in_aud_unswapped and not self.aud_outside_uses_shadow_a:
             q_aud_u = _extract_q_spans(au_spans)
+            gain_u = 1.0 if self.aud_split_blocks else self.aud_to_vid_gain
             aud_bias_u = _build_aud_attn_bias(
-                k_len_main, vid_spans, au_comp_spans, 0, tx_b, self.aud_to_vid_gain, k_bh.device, k_dtype
+                k_len_main, vid_spans, au_comp_spans, 0, tx_b, gain_u, k_bh.device, k_dtype
             )
             attn_aud_u = F.scaled_dot_product_attention(
                 q_aud_u, k_bh, v_bh, attn_mask=aud_bias_u, dropout_p=0.0, is_causal=False
@@ -896,7 +942,11 @@ class H3SteerRuntime:
             k_slice.copy_(bufs.k_txt_saved.to(dtype=k_dtype))
             v_slice.copy_(bufs.v_txt_saved.to(dtype=v_dtype))
 
-        need_q_a = cur["need_finish_a"] or (in_aud and not self.aud_uses_shadow_b)
+        need_q_a = (
+            cur["need_finish_a"]
+            or (in_aud and not self.aud_uses_shadow_b)
+            or (in_aud_unswapped and self.aud_outside_uses_shadow_a)
+        )
         need_q_b = cur["need_finish_b"] or (in_aud and self.aud_uses_shadow_b)
 
         if self.dual_shadow and cur["need_b_kv"] and need_q_b:
@@ -959,13 +1009,32 @@ class H3SteerRuntime:
                     del q_comb_b, attn_b
             else:
                 if cur["need_finish_b"]:
+                    txt_vid_bias_b = (
+                        _build_aud_attn_bias(
+                            k_len_main + txt_delta_b,
+                            vid_spans,
+                            (),
+                            txt_delta_b,
+                            tx_b,
+                            self.aud_to_vid_gain,
+                            k_bh.device,
+                            k_dtype,
+                        )
+                        if take_aud_b and (self.aud_to_vid_gain < 1.0 - 1e-6) and bool(vid_spans)
+                        else None
+                    )
                     attn_tb = F.scaled_dot_product_attention(
-                        bufs.q_b.to(dtype=k_dtype), k_src_b, v_src_b, dropout_p=0.0, is_causal=False
+                        bufs.q_b.to(dtype=k_dtype),
+                        k_src_b,
+                        v_src_b,
+                        attn_mask=txt_vid_bias_b,
+                        dropout_p=0.0,
+                        is_causal=False,
                     )
                     cur["shadow_b_attn_2d"] = (
                         attn_tb[0].transpose(0, 1).reshape(l_txt_b, inner).to(dtype=bufs.h_shadow_a.dtype)
                     )
-                    del attn_tb
+                    del attn_tb, txt_vid_bias_b
                 if take_aud_b:
                     q_aud_b = _extract_q_spans(au_spans)
                     attn_ab = F.scaled_dot_product_attention(
@@ -983,7 +1052,10 @@ class H3SteerRuntime:
 
         run_shadow_a_sdpa = False
         if cur["need_a_kv"] and need_q_a:
-            take_aud_a = in_aud and not self.aud_uses_shadow_b
+            take_aud_a = (in_aud and not self.aud_uses_shadow_b) or (
+                in_aud_unswapped and self.aud_outside_uses_shadow_a
+            )
+            aud_gain_a = self.aud_to_vid_gain if in_aud else 1.0
             txt_delta_a = l_txt_a - l_txt
             aud_bias_a = (
                 _build_aud_attn_bias(
@@ -992,7 +1064,7 @@ class H3SteerRuntime:
                     au_comp_spans,
                     txt_delta_a,
                     tx_b,
-                    self.aud_to_vid_gain,
+                    aud_gain_a,
                     k_bh.device,
                     k_dtype,
                 )
@@ -1042,13 +1114,38 @@ class H3SteerRuntime:
                     del q_comb_a, attn_a
                 else:
                     if cur["need_finish_a"]:
+                        txt_vid_bias_a = (
+                            _build_aud_attn_bias(
+                                k_len_main + txt_delta_a,
+                                vid_spans,
+                                (),
+                                txt_delta_a,
+                                tx_b,
+                                self.aud_to_vid_gain,
+                                k_bh.device,
+                                k_dtype,
+                            )
+                            if (
+                                take_aud_a
+                                and in_aud
+                                and (not in_swap)
+                                and (self.aud_to_vid_gain < 1.0 - 1e-6)
+                                and bool(vid_spans)
+                            )
+                            else None
+                        )
                         attn_ta = F.scaled_dot_product_attention(
-                            bufs.q_a.to(dtype=k_dtype), k_src_a, v_src_a, dropout_p=0.0, is_causal=False
+                            bufs.q_a.to(dtype=k_dtype),
+                            k_src_a,
+                            v_src_a,
+                            attn_mask=txt_vid_bias_a,
+                            dropout_p=0.0,
+                            is_causal=False,
                         )
                         cur["shadow_a_attn_2d"] = (
                             attn_ta[0].transpose(0, 1).reshape(l_txt_a, inner).to(dtype=bufs.h_shadow_a.dtype)
                         )
-                        del attn_ta
+                        del attn_ta, txt_vid_bias_a
                     if take_aud_a:
                         q_aud_a = _extract_q_spans(au_spans)
                         attn_aa = F.scaled_dot_product_attention(
@@ -1067,16 +1164,7 @@ class H3SteerRuntime:
             k_slice.copy_(bufs.k_a.to(dtype=k_dtype))
             v_slice.copy_(bufs.v_a.to(dtype=v_dtype))
 
-        # Multimodal ref gating runs AFTER Q_aud side SDPA reads intact V so audio stays unaffected.
-        if in_ref_img_damp:
-            gain_f = float(self.ref_img_gain)
-            for ra, rb in ref_img_spans:
-                v_bh[:, :, ra:rb, :].mul_(gain_f)
-            self.stats["ref_img_damps"] += 1
-        if in_ref_aud_iso:
-            for ra, rb in ref_audio_spans:
-                v_bh[:, :, ra:rb, :].zero_()
-            self.stats["ref_audio_isolations"] += 1
+        # Multimodal ref_img / ref_audio in-place V mutations disarmed (safe no-op).
 
         if in_swap:
             self.stats["kv_swaps"] += 1

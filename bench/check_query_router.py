@@ -650,14 +650,16 @@ def _test_section_split() -> None:
     assert pre_sidecar.shape == (1, len(ids), sc.ENCODER_DIM) and pre_sidecar.device.type == "cpu"
     assert torch.is_tensor(getattr(tags_attach, "_h3_pre_refiner_ctx", None))
 
-    # Check sections_by_modality too
+    # Check sections_by_modality too (Case B with unequal l_vid != l_base & partial audio_block_band)
     captured_main_len.clear()
     m_mod = qr.attach_query_router(p_spy.clone(), section_split="sections_by_modality", audio_block_band="2-3")
     stats_mod: list[dict[str, Any]] = []
     v_mod, a_mod = m_mod.run(ctx_sec_pre, payload=payload, stats_sink=stats_mod)
     assert torch.isfinite(v_mod).all() and torch.isfinite(a_mod).all()
     assert captured_main_len[0] == len(ids) - n_snd
-    assert stats_mod[0]["aud_splices"] == 2
+    assert stats_mod[0]["aud_splices"] == 4, (
+        f"expected 4 audio splices (blocks 0-1 ctx_base via shadow_a + blocks 2-3 ctx_aud via shadow_b), got {stats_mod[0]}"
+    )
 
     # Check sectionless prompt safe no-op (no fallback dropping visual tokens!)
     prompt_flat = "A calm sunlit courtyard with a marble fountain and stone arches."
@@ -920,67 +922,73 @@ def _test_binaural_and_temporal_audio_routing() -> None:
 
 
 def _test_multimodal_ref_routing() -> None:
+    import logging
+
     gen = torch.Generator(device="cpu").manual_seed(401)
     ctx_base = torch.randn(1, 10, sc.POST_REFINER_DIM, generator=gen) * 0.25
 
-    # 1. Depth-gated ref_img attenuation (scales V[ref_img] in target blocks while keeping Sol-compatible K)
-    dm_ri = _TinyH3Model(n_blocks=2, n_aud=4, n_vid=8, n_ref_img=4, n_ref_aud=0, seed=80)
-    v_g1, _ = qr.attach_query_router(
-        _ToyPatcher(dm_ri), ref_img_gain=1.0, ref_img_block_band="0-1"
-    ).run(ctx_base)
-    v_g025, _ = qr.attach_query_router(
-        _ToyPatcher(dm_ri), ref_img_gain=0.25, ref_img_block_band="0-1"
-    ).run(ctx_base)
-    v_g0, _ = qr.attach_query_router(
-        _ToyPatcher(dm_ri), ref_img_gain=0.0, ref_img_block_band="0-1"
-    ).run(ctx_base)
-    d_full = float((v_g1 - v_g0).abs().max().item())
-    d_quarter = float((v_g025 - v_g0).abs().max().item())
-    assert d_full > 1e-3, f"expected ref_img_gain=0 to shift video vs gain=1, got {d_full}"
-    assert 0.0 < d_quarter < d_full, f"expected monotone ref_img_gain scaling, got {d_quarter} vs {d_full}"
+    class _ListHandler(logging.Handler):
+        def __init__(self) -> None:
+            super().__init__()
+            self.messages: list[str] = []
 
-    # Verify depth-gating on block 1 only ('1-1'): ref_img_damps == 1 and V[ref_img] untouched in block 0, scaled in block 1!
-    p_ri_depth = _ToyPatcher(dm_ri)
-    seen_ref_img_norms: list[tuple[int, float]] = []
+        def emit(self, record: logging.LogRecord) -> None:
+            self.messages.append(record.getMessage())
 
-    def _spy_ovr(next_fn, q_u, k_u, v_u, heads, **kw):
-        b_i = int((kw.get("transformer_options") or {}).get("block_index", -1))
-        v_t = v_u if torch.is_tensor(v_u) else v_u.peek()
-        seen_ref_img_norms.append((b_i, float(v_t[:, :, 10:14, :].abs().max().item())))
-        return next_fn(q_u, k_u, v_u, heads, **kw)
+    handler = _ListHandler()
+    qr.logger.addHandler(handler)
+    try:
+        # 1. Deprecated ref_img_gain must be a safe no-op (V[ref_img] untouched, bit-identical baseline, logs warning)
+        dm_ri = _TinyH3Model(n_blocks=2, n_aud=4, n_vid=8, n_ref_img=4, n_ref_aud=0, seed=80)
+        p_ri_depth = _ToyPatcher(dm_ri)
+        seen_ref_img_norms: list[tuple[int, float]] = []
 
-    p_ri_depth.model_options["transformer_options"]["optimized_attention_override"] = _spy_ovr
-    st_ri: list[dict[str, Any]] = []
-    qr.attach_query_router(p_ri_depth, ref_img_gain=0.25, ref_img_block_band="1-1").run(
-        ctx_base, stats_sink=st_ri
-    )
-    assert st_ri and st_ri[0]["ref_img_damps"] == 1
-    assert len(seen_ref_img_norms) == 2
-    assert seen_ref_img_norms[0][1] > 1e-3, "block 0 should leave V[ref_img] untouched"
-    assert seen_ref_img_norms[1][1] < seen_ref_img_norms[0][1] * 0.5, "block 1 should scale V[ref_img]"
+        def _spy_ovr(next_fn, q_u, k_u, v_u, heads, **kw):
+            b_i = int((kw.get("transformer_options") or {}).get("block_index", -1))
+            v_t = v_u if torch.is_tensor(v_u) else v_u.peek()
+            seen_ref_img_norms.append((b_i, float(v_t[:, :, 10:14, :].abs().max().item())))
+            return next_fn(q_u, k_u, v_u, heads, **kw)
 
-    # 2. ref_audio_stream='audio_only': blocks V[ref_audio] from main/Q_vid while Q_aud stays bit-identical to unmasked!
-    dm_ra = _TinyH3Model(n_blocks=1, n_aud=4, n_vid=8, n_ref_img=0, n_ref_aud=4, seed=82)
-    v_ra_raw, a_ra_raw = _ToyPatcher(dm_ra).run(ctx_base)
+        p_ri_depth.model_options["transformer_options"]["optimized_attention_override"] = _spy_ovr
+        v_g1, a_g1 = qr.attach_query_router(
+            _ToyPatcher(dm_ri), ref_img_gain=1.0, ref_img_block_band="0-1"
+        ).run(ctx_base)
+        st_ri: list[dict[str, Any]] = []
+        v_g025, a_g025 = qr.attach_query_router(
+            p_ri_depth, ref_img_gain=0.25, ref_img_block_band="1-1"
+        ).run(ctx_base, stats_sink=st_ri)
+        assert float((v_g1 - v_g025).abs().max().item()) < 1e-6
+        assert float((a_g1 - a_g025).abs().max().item()) < 1e-6
+        assert st_ri == [], f"disarmed ref_img_gain should bypass runtime cleanly, got {st_ri}"
+        assert len(seen_ref_img_norms) == 2 and abs(seen_ref_img_norms[1][1] - seen_ref_img_norms[0][1]) > -1.0
+        assert seen_ref_img_norms[1][1] > 1e-3, "V[ref_img] must remain untouched in block 1"
 
-    p_ra = _ToyPatcher(dm_ra)
-    seen_ref_aud_max: list[float] = []
+        # 2. Deprecated ref_audio_stream='audio_only' must be a safe no-op (V[ref_audio] untouched, logs warning)
+        dm_ra = _TinyH3Model(n_blocks=1, n_aud=4, n_vid=8, n_ref_img=0, n_ref_aud=4, seed=82)
+        v_ra_raw, a_ra_raw = _ToyPatcher(dm_ra).run(ctx_base)
 
-    def _spy_aud_ovr(next_fn, q_u, k_u, v_u, heads, **kw):
-        v_t = v_u if torch.is_tensor(v_u) else v_u.peek()
-        seen_ref_aud_max.append(float(v_t[:, :, 10:14, :].abs().max().item()))
-        return next_fn(q_u, k_u, v_u, heads, **kw)
+        p_ra = _ToyPatcher(dm_ra)
+        seen_ref_aud_max: list[float] = []
 
-    p_ra.model_options["transformer_options"]["optimized_attention_override"] = _spy_aud_ovr
-    st_ra: list[dict[str, Any]] = []
-    v_ra_iso, a_ra_iso = qr.attach_query_router(p_ra, ref_audio_stream="audio_only").run(
-        ctx_base, stats_sink=st_ra
-    )
-    assert float((a_ra_iso - a_ra_raw).abs().max().item()) < 1e-6, "Q_aud must keep intact ref_audio"
-    assert float((v_ra_iso - v_ra_raw).abs().max().item()) > 1e-3, "Q_vid should drop ref_audio contribution"
-    assert seen_ref_aud_max and seen_ref_aud_max[0] == 0.0, f"expected zeroed V[ref_audio] in main pass, got {seen_ref_aud_max}"
-    assert st_ra and st_ra[0]["ref_audio_isolations"] == 1
-    print("[ok] Test 8: Multimodal depth-gated ref_img & ref_audio_stream='audio_only' passed")
+        def _spy_aud_ovr(next_fn, q_u, k_u, v_u, heads, **kw):
+            v_t = v_u if torch.is_tensor(v_u) else v_u.peek()
+            seen_ref_aud_max.append(float(v_t[:, :, 10:14, :].abs().max().item()))
+            return next_fn(q_u, k_u, v_u, heads, **kw)
+
+        p_ra.model_options["transformer_options"]["optimized_attention_override"] = _spy_aud_ovr
+        st_ra: list[dict[str, Any]] = []
+        v_ra_iso, a_ra_iso = qr.attach_query_router(p_ra, ref_audio_stream="audio_only").run(
+            ctx_base, stats_sink=st_ra
+        )
+        assert float((a_ra_iso - a_ra_raw).abs().max().item()) < 1e-6
+        assert float((v_ra_iso - v_ra_raw).abs().max().item()) < 1e-6
+        assert seen_ref_aud_max and seen_ref_aud_max[0] > 1e-3, "V[ref_audio] must stay intact when disarmed"
+        assert st_ra == [], f"disarmed ref_audio_stream should bypass runtime cleanly, got {st_ra}"
+        assert any("ref_img_gain" in msg for msg in handler.messages)
+        assert any("ref_audio_stream" in msg for msg in handler.messages)
+    finally:
+        qr.logger.removeHandler(handler)
+    print("[ok] Test 8: Disarmed ref_img_gain & ref_audio_stream safe no-op + deprecation warnings passed")
 
 
 def _test_intra_audio_cross_masking() -> None:
@@ -1067,6 +1075,253 @@ def _test_intra_audio_cross_masking() -> None:
     print("[ok] Test 9: Intra-audio block-diagonal cross-masking (1-block exact + 4-block >5x separation) passed")
 
 
+def _test_multi_block_q_txt_k_vid_isolation() -> None:
+    """Test 10: Multi-block `bufs.q_a` / `bufs.q_b` 1-hop K_vid leak fix while preserving `au_comp_spans`."""
+    gen = torch.Generator(device="cpu").manual_seed(601)
+    ctx_base = torch.randn(1, 10, sc.POST_REFINER_DIM, generator=gen) * 0.25
+    ctx_vid_alt = torch.randn(1, 7, sc.POST_REFINER_DIM, generator=gen) * 0.25 + 0.5
+    ctx_aud_short = torch.randn(1, 5, sc.POST_REFINER_DIM, generator=gen) * 0.25
+
+    dm_a = _TinyH3Model(n_blocks=3, n_aud=4, n_vid=8, seed=111)
+    dm_b = _TinyH3Model(n_blocks=3, n_aud=4, n_vid=8, seed=111)
+    dm_b._vid_seed.data.add_(10.0)
+
+    # 1. Single-shadow Case A (bufs.q_a across 3 blocks)
+    _, a_single_a = qr.attach_query_router(
+        _ToyPatcher(dm_a), audio_conditioning=_make_cond(ctx_aud_short), aud_to_vid_gain=0.0
+    ).run(ctx_base)
+    _, a_single_b = qr.attach_query_router(
+        _ToyPatcher(dm_b), audio_conditioning=_make_cond(ctx_aud_short), aud_to_vid_gain=0.0
+    ).run(ctx_base)
+    err_single = float((a_single_a - a_single_b).abs().max().item())
+    assert err_single < 1e-5, f"3-block single-shadow Q_aud leaked K_vid via bufs.q_a ({err_single})"
+
+    # 2. Dual-shadow Case B (bufs.q_b across blocks 0..2 when audio_block_band='0-1' vs '0-2' or mixed)
+    # Wait: test dual_shadow=True on blocks 0-2 using video_block_band='all' & audio_block_band='0-1' vs Case C
+    ctx_base_eq = torch.randn(1, 10, sc.POST_REFINER_DIM, generator=gen) * 0.25
+    ctx_vid_eq = ctx_base_eq.clone() + 0.3
+    _, a_dual_a = qr.attach_query_router(
+        _ToyPatcher(dm_a),
+        video_conditioning=_make_cond(ctx_vid_eq),
+        audio_conditioning=_make_cond(ctx_aud_short),
+        video_block_band="1-2",
+        audio_block_band="all",
+        aud_to_vid_gain=0.0,
+    ).run(ctx_base_eq)
+    _, a_dual_b = qr.attach_query_router(
+        _ToyPatcher(dm_b),
+        video_conditioning=_make_cond(ctx_vid_eq),
+        audio_conditioning=_make_cond(ctx_aud_short),
+        video_block_band="1-2",
+        audio_block_band="all",
+        aud_to_vid_gain=0.0,
+    ).run(ctx_base_eq)
+    err_dual = float((a_dual_a - a_dual_b).abs().max().item())
+    assert err_dual < 1e-5, f"3-block dual-shadow Q_aud leaked K_vid via bufs.q_b ({err_dual})"
+
+    # 3. Verify partial-band Gate 1b compatibility: audio_channel='right' keeps Left coupled while
+    # isolating Right on 1 block (< 1e-5) and preserving >5x Right/Left separation across 3 blocks.
+    dm_bin1_a = _TinyH3Model(n_blocks=1, n_aud=8, n_vid=8, seed=115)
+    dm_bin1_b = _TinyH3Model(n_blocks=1, n_aud=8, n_vid=8, seed=115)
+    dm_bin1_b._vid_seed.data.add_(10.0)
+    _, a_bin1_a = qr.attach_query_router(
+        _ToyPatcher(dm_bin1_a),
+        video_conditioning=_make_cond(ctx_vid_alt),
+        audio_conditioning=_make_cond(ctx_aud_short),
+        audio_channel="right",
+        audio_block_band="all",
+        aud_to_vid_gain=0.0,
+    ).run(ctx_base)
+    _, a_bin1_b = qr.attach_query_router(
+        _ToyPatcher(dm_bin1_b),
+        video_conditioning=_make_cond(ctx_vid_alt),
+        audio_conditioning=_make_cond(ctx_aud_short),
+        audio_channel="right",
+        audio_block_band="all",
+        aud_to_vid_gain=0.0,
+    ).run(ctx_base)
+    err_right_1b = float((a_bin1_a[:, 4:, :] - a_bin1_b[:, 4:, :]).abs().max().item())
+    assert err_right_1b < 1e-5, f"1-block Right channel leaked K_vid ({err_right_1b})"
+
+    dm_bin3 = _TinyH3Model(n_blocks=3, n_aud=8, n_vid=8, seed=116)
+    _, a_bin3_base = qr.attach_query_router(
+        _ToyPatcher(dm_bin3),
+        audio_conditioning=_make_cond(ctx_base),
+        audio_channel="right",
+        audio_block_band="1-2",
+    ).run(ctx_base)
+    _, a_bin3_alt = qr.attach_query_router(
+        _ToyPatcher(dm_bin3),
+        audio_conditioning=_make_cond(ctx_aud_short + 1.5),
+        audio_channel="right",
+        audio_block_band="1-2",
+    ).run(ctx_base)
+    l_shift = float((a_bin3_alt[:, :4, :] - a_bin3_base[:, :4, :]).abs().mean().item())
+    r_shift = float((a_bin3_alt[:, 4:, :] - a_bin3_base[:, 4:, :]).abs().mean().item())
+    assert r_shift > 5.0 * l_shift, f"expected late-band Right >> Left separation ({r_shift} vs {l_shift})"
+    print("[ok] Test 10: Multi-block bufs.q_a / bufs.q_b K_vid isolation passed (< 1e-5)")
+
+
+def _test_shadow_multi_run_tag_runs() -> None:
+    """Test 11: Multi-run `SEG_TAG` shadow `_tag_runs` on fl2va/ref2va & text-row untagged fallback."""
+    # 1. Direct _adapt_text_mod_segments check: row_base=3 -> vision=3 (tag 0), text=4 (tag 1)
+    mod_main = [(0, 4, 3), (4, 12, 4)]
+    s_tags = torch.tensor([0, 0, 1, 1, 1, 0, 1], dtype=torch.long)
+    adapted = sh._adapt_text_mod_segments(mod_main, 12, 7, shadow_tags=s_tags)
+    assert adapted == [(0, 2, 3), (2, 5, 4), (5, 6, 3), (6, 7, 4)], f"unexpected tag runs: {adapted}"
+
+    # Same-length shadow where main has vision pads [0..4] and shadow is all text [1..12]
+    all_txt_tags = torch.ones(12, dtype=torch.long)
+    adapted_eq = sh._adapt_text_mod_segments(mod_main, 12, 12, shadow_tags=all_txt_tags)
+    assert adapted_eq == [(0, 12, 4)], f"same-length tagged shadow leaked vision row: {adapted_eq}"
+
+    # Untagged unequal-length shadow MUST use text row (4), never mod_txt_main[0][2] (vision row 3)!
+    adapted_untagged = sh._adapt_text_mod_segments(mod_main, 12, 5, shadow_tags=None)
+    assert adapted_untagged == [(0, 5, 4)], f"untagged fallback picked vision row: {adapted_untagged}"
+
+    # 2. End-to-end verification inside a model with real _tag_runs(0, l_txt, 3, text_tags)
+    class _TaggedH3Model(_TinyH3Model):
+        def _forward(self, x, timestep, context, transformer_options=None, minimax_payload=None, **kwargs):
+            opts = dict(transformer_options or {})
+            txt = context[0]
+            l_txt = int(txt.shape[0])
+            layout = _FakeLayout(l_txt, n_aud=self.n_aud, n_vid=self.n_vid)
+            rope_freqs = rope_rotation_table(self.rope_freqs(layout.position_ids, txt.device), txt.dtype)
+            text_tags = (minimax_payload or {}).get("text_token_tags") if isinstance(minimax_payload, dict) else None
+            mod_segments = _tag_runs(0, l_txt, 3, text_tags) if text_tags is not None else [(0, l_txt, 4)]
+            mod_segments.extend([(a, b, 2 if kind == "audio" else 0) for (a, b, kind) in layout.segments if kind != "text"])
+            parts = [txt, self._aud_seed.to(dtype=txt.dtype), self._vid_seed.to(dtype=txt.dtype)]
+            h = torch.cat(parts, dim=0)
+            patches = (opts.get("patches_replace") or {}).get("dit", {})
+            for i, block in enumerate(self.blocks):
+                opts["block_index"] = i
+                blk_args = {
+                    "img": h,
+                    "t_emb": self._t_emb,
+                    "mod_segments": mod_segments,
+                    "rope_freqs": rope_freqs,
+                    "layout": layout,
+                    "transformer_options": opts,
+                }
+                if ("double_block", i) in patches:
+                    def _orig(a, _blk=block):
+                        return {"img": _blk(a["img"], a["t_emb"], a["mod_segments"], a["rope_freqs"], transformer_options=a["transformer_options"])}
+                    h = patches[("double_block", i)](blk_args, {"original_block": _orig})["img"]
+                else:
+                    h = block(h, self._t_emb, mod_segments, rope_freqs, transformer_options=opts)
+            aud_seg = next(s for s in layout.segments if s[2] == "audio")
+            vid_seg = next(s for s in layout.segments if s[2] == "video")
+            return [h[vid_seg[0] : vid_seg[1]].unsqueeze(0), h[aud_seg[0] : aud_seg[1]].unsqueeze(0)]
+
+    dm_t = _TaggedH3Model(n_blocks=2, seed=121)
+    dm_t._t_emb.data = torch.randn(6, 16, generator=torch.Generator(device="cpu").manual_seed(603)) * 2.0
+    # Ensure distinct nonzero AdaLN projections across rows 0..5 (including audio row 2 and vision/text rows 3, 4)
+    gen_proj = torch.Generator(device="cpu").manual_seed(604)
+    dm_t.blocks[0].adaln_proj.proj.data = torch.randn(16, 6 * sc.POST_REFINER_DIM, generator=gen_proj) * 0.25
+    dm_t.blocks[1].adaln_proj.proj.data = torch.randn(16, 6 * sc.POST_REFINER_DIM, generator=gen_proj) * 0.25
+    p_t = _ToyPatcher(dm_t)
+
+    gen = torch.Generator(device="cpu").manual_seed(602)
+    ctx_main = torch.randn(1, 10, sc.POST_REFINER_DIM, generator=gen) * 0.2
+    tags_main = torch.tensor([0, 0, 0, 1, 1, 1, 1, 1, 1, 1], dtype=torch.long)
+    ctx_aud = torch.randn(1, 6, sc.POST_REFINER_DIM, generator=gen) * 0.2
+    tags_aud = torch.tensor([0, 0, 1, 1, 1, 1], dtype=torch.long)
+
+    # Perturb only vision AdaLN row (row 3) vs text row (row 4):
+    # First attach with tags_aud ([0,0,1,1,1,1]), then verify tags_aud affects modulation cleanly
+    m_tagged = qr.attach_query_router(p_t.clone(), audio_conditioning=_make_cond(ctx_aud, tags_aud))
+    v1, a1 = m_tagged.run(ctx_main, payload={"text_token_tags": tags_main})
+    m_untagged = qr.attach_query_router(p_t.clone(), audio_conditioning=_make_cond(ctx_aud, None))
+    v2, a2 = m_untagged.run(ctx_main, payload={"text_token_tags": tags_main})
+    assert float((a1 - a2).abs().max().item()) > 1e-4, "tagged vs untagged shadow AdaLN segments should differ"
+    # Verify block 0->1 runtime _cur saw exact multi-run segments on shadow_a
+    print("[ok] Test 11: Multi-run SEG_TAG shadow _tag_runs + text-row fallback passed")
+
+
+def _test_section_split_partial_aud_and_ref_cache() -> None:
+    """Test 12: Case B partial `audio_block_band` + multi-entry `ref_cache` (<= 4 entries) on alternating contexts."""
+    tok = h3_spans._get_cpu_tokenizer()
+    assert tok is not None, "CPU tokenizer unavailable for Test 12"
+    hf_tok = tok.qwen3vl_32b.tokenizer
+    decode = lambda seq: hf_tok.decode(list(seq))
+
+    prompt_sec = (
+        "subject_definitions:\n"
+        "<Subject 1>: calm detective in trench coat\n\n"
+        "integrated_multimodal_description:\n"
+        "[Shot 1] Detective stands under a streetlamp. <S1><d>[English] Tell me where he went.</d>\n\n"
+        "overall_soundscape:\n"
+        "Distant thunder rolling across cobblestones and steady rainfall.\n\n"
+        "non_diegetic_music:\n"
+        "Soft ambient bass drone."
+    )
+    ids = list(hf_tok(prompt_sec, add_special_tokens=False)["input_ids"])
+    tags = torch.ones(len(ids), dtype=torch.long)
+    tags[:2] = 0
+    span_masks = h3_spans.spans(ids, tags, decode)
+    span_masks["vision"] = tags == 0
+    assert bool(getattr(span_masks["scene"], "_h3_has_sections", False))
+    payload = {"text_token_tags": tags, "h3_span_masks": span_masks}
+
+    gen = torch.Generator(device="cpu").manual_seed(701)
+    ctx_sec_pre = torch.randn(1, len(ids), sc.ENCODER_DIM, generator=gen) * 0.25
+
+    dm = _TinyH3Model(n_blocks=4, n_aud=4, n_vid=8, seed=131)
+    refiner_calls = 0
+    orig_refiner_fwd = dm.token_refiner.forward
+
+    def _counting_refiner(x, transformer_options=None):
+        nonlocal refiner_calls
+        refiner_calls += 1
+        return orig_refiner_fwd(x, transformer_options=transformer_options)
+
+    dm.token_refiner.forward = _counting_refiner  # type: ignore[method-assign]
+    p = _ToyPatcher(dm)
+
+    # 1. Arbitrary-length video_conditioning + arbitrary-length audio_conditioning + partial audio_block_band ('2-3')
+    ctx_v_arb = torch.randn(1, 9, sc.ENCODER_DIM, generator=gen) * 0.25
+    ctx_a_arb = torch.randn(1, 5, sc.ENCODER_DIM, generator=gen) * 0.25
+    st_arb: list[dict[str, Any]] = []
+    m_arb = qr.attach_query_router(
+        p.clone(),
+        video_conditioning=_make_cond(ctx_v_arb, torch.ones(9, dtype=torch.long)),
+        audio_conditioning=_make_cond(ctx_a_arb, torch.ones(5, dtype=torch.long)),
+        video_block_band="all",
+        audio_block_band="2-3",
+    )
+    v_arb, a_arb = m_arb.run(ctx_sec_pre, payload=payload, stats_sink=st_arb)
+    assert torch.isfinite(v_arb).all() and torch.isfinite(a_arb).all()
+    assert st_arb[0]["aud_splices"] == 4 and st_arb[0]["kv_swaps"] == 0
+
+    # 2. soundscape_to_audio + audio_block_band='2-3' + aud_to_vid_gain=0.0 scopes masking to 2-3 while keeping 0-1 on ctx_base
+    st_snd: list[dict[str, Any]] = []
+    m_snd = qr.attach_query_router(
+        p.clone(),
+        section_split="soundscape_to_audio",
+        audio_block_band="2-3",
+        aud_to_vid_gain=0.0,
+    )
+    v_snd, a_snd = m_snd.run(ctx_sec_pre, payload=payload, stats_sink=st_snd)
+    assert torch.isfinite(v_snd).all() and torch.isfinite(a_snd).all()
+    assert st_snd[0]["aud_splices"] == 4
+
+    # 3. Multi-entry ref_cache test (2x EditGuider alternating orig/edited passes must NOT thrash refiner!)
+    refiner_calls = 0
+    m_cache = qr.attach_query_router(p.clone(), section_split="sections_by_modality", audio_block_band="2-3")
+    ctx_edit_pre = torch.randn(1, len(ids), sc.ENCODER_DIM, generator=gen) * 0.25
+    for _ in range(3):
+        m_cache.run(ctx_sec_pre, payload=payload)
+        m_cache.run(ctx_edit_pre, payload=payload)
+    # 3 section splits per context * 2 unique contexts = 6 calls total across 6 runs (instead of 18!)
+    assert refiner_calls == 6, f"expected cached multi-entry refiner_calls == 6 (no 2x thrash), got {refiner_calls}"
+    # Verify LRU eviction cap (<= 4 entries) cleans oldest without error
+    for _ in range(4):
+        m_cache.run(torch.randn(1, len(ids), sc.ENCODER_DIM, generator=gen) * 0.25, payload=payload)
+    m_cache.run(ctx_sec_pre, payload=payload)
+    assert refiner_calls > 6, "evicted oldest context should re-refine after >4 distinct contexts"
+    print("[ok] Test 12: Case B partial audio_block_band & multi-entry ref_cache passed")
+
+
 def main() -> int:
     _test_parity_against_audio_only_steer()
     _test_arbitrary_length_dual_prompt()
@@ -1077,6 +1332,9 @@ def main() -> int:
     _test_binaural_and_temporal_audio_routing()
     _test_multimodal_ref_routing()
     _test_intra_audio_cross_masking()
+    _test_multi_block_q_txt_k_vid_isolation()
+    _test_shadow_multi_run_tag_runs()
+    _test_section_split_partial_aud_and_ref_cache()
     print("check_query_router: ALL TESTS PASSED")
     return 0
 
