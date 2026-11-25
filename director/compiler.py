@@ -2651,11 +2651,18 @@ def compile_audio_redub(
     }
     graph["93"] = {"class_type": "VAEEncode", "inputs": {"pixels": ["92", 0], "vae": ["3", 0]}}
 
+    isolate_visuals = bool(cfg.get("isolate_visuals"))
+    a2v_raw = cfg.get("aud_to_vid_gain")
+    if a2v_raw is not None and str(a2v_raw).strip() != "":
+        aud_to_vid_gain = max(0.0, min(1.0, float(a2v_raw)))
+    else:
+        aud_to_vid_gain = 0.0 if isolate_visuals else 1.0
+
     denoise_raw = cfg.get("denoise")
     redub_mode = str(cfg.get("redub_mode") or "").strip().lower()
     if denoise_raw is not None and str(denoise_raw).strip() != "":
         denoise = max(0.05, min(1.0, float(denoise_raw)))
-    elif redub_mode == "polish":
+    elif redub_mode == "polish" and not isolate_visuals:
         denoise = 0.5
     else:
         denoise = 1.0
@@ -2808,10 +2815,34 @@ def compile_audio_redub(
     sol_inputs.setdefault("token_routing", "off")
     sol_inputs["model"] = ["81", 0]
     graph["82"] = {"class_type": "MiniMaxH3Sol", "inputs": sol_inputs}
-    graph["88"] = {
-        "class_type": "MiniMaxH3FrozenVideoCache",
-        "inputs": {"model": ["82", 0], "precision": "int4", "refresh": False, "refresh_every": 2, "verify": False, "halo": 0},
-    }
+    if isolate_visuals:
+        # Uncached AudioRefineMask + QueryRouter(a2v=0.0): skips FrozenVideoCache (incompatible with QueryRouter)
+        # and wires audio_conditioning=['26', 0] explicitly so shadow_a enters mode_id=2 (blocks 1-hop K_vid leak).
+        graph.pop("88", None)
+        graph["89"] = {
+            "class_type": "MiniMaxH3QueryRouter",
+            "inputs": {
+                "model": ["82", 0],
+                "section_split": "off",
+                "video_block_band": "all",
+                "audio_block_band": "all",
+                "start_percent": 0.0,
+                "end_percent": 1.0,
+                "audio_conditioning": ["26", 0],
+                "aud_to_vid_gain": aud_to_vid_gain,
+                "audio_channel": "both",
+                "audio_time_start": 0.0,
+                "audio_time_end": 1.0,
+            },
+        }
+        redub_model_ref: list[Any] = ["89", 0]
+    else:
+        graph.pop("89", None)
+        graph["88"] = {
+            "class_type": "MiniMaxH3FrozenVideoCache",
+            "inputs": {"model": ["82", 0], "precision": "int4", "refresh": False, "refresh_every": 2, "verify": False, "halo": 0},
+        }
+        redub_model_ref = ["88", 0]
     steps = max(1, min(30, int(cfg.get("steps", 6))))
     custom_sigmas = str(cfg.get("sigmas") or "").strip()
     if use_distill and denoise >= 0.999 and (steps == 6 or custom_sigmas):
@@ -2828,12 +2859,12 @@ def compile_audio_redub(
         graph.pop("60", None)
         graph["84"] = {
             "class_type": "BasicScheduler",
-            "inputs": {"model": ["88", 0], "scheduler": "simple", "steps": steps, "denoise": denoise},
+            "inputs": {"model": redub_model_ref, "scheduler": "simple", "steps": steps, "denoise": denoise},
         }
         sigmas_ref = ["84", 0]
         schedule_kind = "BasicScheduler"
     graph["85"] = {"class_type": "KSamplerSelect", "inputs": {"sampler_name": "lcm" if use_distill else "euler"}}
-    graph["86"] = {"class_type": "BasicGuider", "inputs": {"model": ["88", 0], "conditioning": ["26", 0]}}
+    graph["86"] = {"class_type": "BasicGuider", "inputs": {"model": redub_model_ref, "conditioning": ["26", 0]}}
     graph["87"] = {
         "class_type": "SamplerCustomAdvanced",
         "inputs": {
@@ -2877,10 +2908,14 @@ def compile_audio_redub(
         "audio_mask": round(audio_mask, 4),
         "steps": steps,
         "use_distill": use_distill,
+        "isolate_visuals": isolate_visuals,
+        "aud_to_vid_gain": round(aud_to_vid_gain, 4),
         "has_audio_refine": True,
         "nodes_summary": {
             "has_sound_cues": has_cues,
             "has_audio_refine": True,
+            "isolate_visuals": isolate_visuals,
+            "aud_to_vid_gain": round(aud_to_vid_gain, 4),
             "redub_mode": resolved_redub_mode,
             "schedule": schedule_kind,
             "use_distill": use_distill,

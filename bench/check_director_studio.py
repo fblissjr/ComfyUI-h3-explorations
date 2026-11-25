@@ -724,6 +724,28 @@ def check_compiler_contracts() -> str:
     assert res_rd4["graph"]["94"]["class_type"] == "MiniMaxH3EncodeTrack"
     assert res_rd4["nodes_summary"]["audio_source"] == "MiniMaxH3EncodeTrack"
 
+    res_rd5 = compiler_mod.compile_audio_redub(
+        {
+            "video_ref": "h3_spatial_director/shot1.mp4",
+            "length": 141,
+            "audio_prompt": "Dry close-mic studio dialogue in a quiet concrete stairwell.",
+            "isolate_visuals": True,
+        },
+        object_info=MOCK_OBJECT_INFO_WITH_KJ,
+    )
+    g_rd5 = res_rd5["graph"]
+    assert res_rd5["isolate_visuals"] is True and res_rd5["redub_mode"] == "fresh"
+    assert res_rd5["use_distill"] is True and abs(float(res_rd5["aud_to_vid_gain"])) < 1e-6
+    assert "88" not in g_rd5, "isolate_visuals must skip MiniMaxH3FrozenVideoCache"
+    assert g_rd5["89"]["class_type"] == "MiniMaxH3QueryRouter"
+    assert g_rd5["89"]["inputs"]["model"] == ["82", 0]
+    assert g_rd5["89"]["inputs"]["audio_conditioning"] == ["26", 0]
+    assert abs(float(g_rd5["89"]["inputs"]["aud_to_vid_gain"])) < 1e-6
+    assert g_rd5["86"]["inputs"]["model"] == ["89", 0]
+    assert g_rd5["83"]["class_type"] == "MiniMaxH3AudioRefineMask"
+    assert abs(float(g_rd5["83"]["inputs"]["audio_mask"]) - 1.0) < 1e-6
+    assert g_rd5["60"]["class_type"] == "ManualSigmas" and "84" not in g_rd5
+
     res_cs1 = compiler_mod.compile_continue_shot(
         {
             "video_ref": "h3_spatial_director/shot1.mp4",
