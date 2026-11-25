@@ -19,7 +19,7 @@ In a single-stream joint audio-video DiT like MiniMax H3, every token sits in on
 
 ### With Router vs. Plain Prompting Only (Matched Seed & Base Prompt)
 
-The key point is **what did not change in the prompts** ([exact line-by-line diffs](query_routing_recipes.md#2-prompt-diff-discipline-why-the-plain-controls-are-clean-abs)), and **where cross-modal priors actually collide**:
+The key point is **what did not change in the prompts** ([exact prompt diffs](query_routing_recipes.md#the-golden-rule-clean-prompt-diffs)), and **where cross-modal priors actually collide**:
 
 - **Sight-to-Sound Firewall (`aud_to_vid_gain=0.0`, post-`9e5db27c`) Across Four Domains:** Closing direct `Q_aud -> K_vid` plus the 1-hop `K_vid -> shadow_text -> Q_aud` relay breaks visual-physics and close-up physiology dominance while keeping native lip-sync (`Q_vid -> K_aud` open):
   - **Shell-Shock World-Mute (`shellshock`):** Drops roaring warehouse flames by **`-32.66 dB`** (`-55.75` vs `-23.09` dBFS at `g=1.0`, **`55x` less `> 2 kHz` crackle**) into eerie anechoic stillness/soft breathing while keeping flames, sparks, and the `"DANGER"` sign blazing.

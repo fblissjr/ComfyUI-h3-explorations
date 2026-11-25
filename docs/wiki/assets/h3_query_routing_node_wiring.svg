@@ -1,0 +1,113 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 450" width="100%" height="100%" role="img" aria-label="ComfyUI Node Wiring for 1x Cross-Modal Query Routing">
+  <defs>
+    <filter id="qrShadow3" x="-3%" y="-3%" width="106%" height="110%">
+      <feDropShadow dx="0" dy="3" stdDeviation="5" flood-color="#0f172a" flood-opacity="0.06"/>
+    </filter>
+    <marker id="arrSlate3" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 1 1.5 L 8.5 5 L 1 8.5 z" fill="#475569"/>
+    </marker>
+    <marker id="arrPurple3" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 1 1.5 L 8.5 5 L 1 8.5 z" fill="#7c3aed"/>
+    </marker>
+    <marker id="arrTeal3" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 1 1.5 L 8.5 5 L 1 8.5 z" fill="#0d9488"/>
+    </marker>
+  </defs>
+
+  <style>
+    .canvas { fill: #faf9f5; stroke: #e5e3dc; stroke-width: 1.5; }
+    .card { fill: #ffffff; stroke: #e5e7eb; stroke-width: 1.2; filter: url(#qrShadow3); }
+    .heading { font-family: Georgia, "Newsreader", "Charter", serif; font-size: 19.5px; font-weight: 700; fill: #18181b; }
+    .subhead { font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 12px; fill: #52525b; }
+    .node-title { font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 12px; font-weight: 700; }
+    .body { font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 10.8px; fill: #334155; }
+    .badge { font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 10px; font-weight: 700; }
+  </style>
+
+  <rect x="4" y="4" width="972" height="442" rx="16" class="canvas"/>
+  <text x="28" y="36" class="heading">How to Wire MiniMaxH3QueryRouter in ComfyUI</text>
+  <text x="28" y="55" class="subhead">Works cleanly on T2V, First/Last Frame (fl2va), Reference Video (ref2va), and Video-Frozen Audio Re-Dub.</text>
+
+  <!-- TOP FLOW: STANDARD GENERATION -->
+  <rect x="24" y="70" width="932" height="172" rx="12" class="card"/>
+  <rect x="42" y="84" width="234" height="20" rx="10" fill="#4f46e5"/>
+  <text x="159" y="98" text-anchor="middle" fill="#ffffff" class="badge">SETUP A: T2V / FL2VA / SPLIT-CACHED REF2VA</text>
+  <text x="290" y="98" class="body">Use Prompt A for Camera (or base refs) and wire Prompt B strictly into audio_conditioning.</text>
+
+  <!-- Clean top bypass path (above all cards) -->
+  <path d="M 140 132 L 140 116 L 865 116 L 865 130" fill="none" stroke="#4f46e5" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#arrSlate3)"/>
+  <text x="502" y="112" text-anchor="middle" class="badge" fill="#4338ca">Camera conditioning passes straight to Sampler (Video Queries Q_vid)</text>
+
+  <!-- Prompt A -->
+  <rect x="42" y="134" width="196" height="40" rx="8" fill="#eef2ff" stroke="#818cf8" stroke-width="1.3"/>
+  <text x="140" y="151" text-anchor="middle" class="node-title" fill="#3730a3">Prompt A — Camera</text>
+  <text x="140" y="166" text-anchor="middle" class="body">MiniMaxH3Conditioning</text>
+
+  <!-- Prompt B -->
+  <rect x="42" y="186" width="196" height="40" rx="8" fill="#f5f3ff" stroke="#a78bfa" stroke-width="1.3"/>
+  <text x="140" y="203" text-anchor="middle" class="node-title" fill="#5b21b6">Prompt B — Microphone</text>
+  <text x="140" y="218" text-anchor="middle" class="body">MiniMaxH3Conditioning</text>
+
+  <!-- Model -->
+  <rect x="296" y="134" width="160" height="40" rx="8" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.3"/>
+  <text x="376" y="152" text-anchor="middle" class="node-title" fill="#1e293b">Loaded H3 Model</text>
+  <text x="376" y="167" text-anchor="middle" class="body">Pika H3 Flex / Base H3</text>
+
+  <!-- Router -->
+  <rect x="514" y="134" width="222" height="92" rx="8" fill="#eef2ff" stroke="#4f46e5" stroke-width="1.6"/>
+  <text x="625" y="155" text-anchor="middle" class="node-title" fill="#3730a3">MiniMaxH3QueryRouter</text>
+  <text x="625" y="172" text-anchor="middle" class="body">• audio_conditioning ← Prompt B</text>
+  <text x="625" y="188" text-anchor="middle" class="body">• video_conditioning (optional)</text>
+  <text x="625" y="204" text-anchor="middle" class="body">• aud_to_vid_gain = 1.0 or 0.0</text>
+
+  <!-- Sampler -->
+  <rect x="794" y="134" width="142" height="92" rx="8" fill="#ecfdf5" stroke="#10b981" stroke-width="1.4"/>
+  <text x="865" y="162" text-anchor="middle" class="node-title" fill="#065f46">1x Sampler</text>
+  <text x="865" y="181" text-anchor="middle" class="body">Camera ← Prompt A</text>
+  <text x="865" y="198" text-anchor="middle" class="body">Audio ← Prompt B</text>
+
+  <!-- Straight connectors Top -->
+  <line x1="456" y1="154" x2="508" y2="154" stroke="#475569" stroke-width="1.6" marker-end="url(#arrSlate3)"/>
+  <line x1="238" y1="206" x2="508" y2="206" stroke="#7c3aed" stroke-width="1.8" marker-end="url(#arrPurple3)"/>
+  <line x1="736" y1="180" x2="788" y2="180" stroke="#475569" stroke-width="1.8" marker-end="url(#arrSlate3)"/>
+
+  <!-- BOTTOM FLOW: FROZEN VIDEO REDUB -->
+  <rect x="24" y="256" width="932" height="176" rx="12" class="card"/>
+  <rect x="42" y="268" width="276" height="20" rx="10" fill="#0d9488"/>
+  <text x="180" y="282" text-anchor="middle" fill="#ffffff" class="badge">SETUP B: PIXEL-LOCKED DRY AUDIO RE-DUB</text>
+  <text x="332" y="282" class="body">Hold source video frames 100% locked while replacing acoustics/dialogue cleanly.</text>
+
+  <!-- Clean top bypass path for Source Video mask (above Router box) -->
+  <path d="M 148 310 L 148 296 L 835 296 L 835 308" fill="none" stroke="#0d9488" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#arrTeal3)"/>
+  <text x="498" y="293" text-anchor="middle" class="badge" fill="#0f766e">Masked video latent passes to Sampler (video_mask = 0)</text>
+
+  <!-- Source Video -->
+  <rect x="42" y="312" width="216" height="52" rx="8" fill="#f0fdfa" stroke="#14b8a6" stroke-width="1.4"/>
+  <text x="150" y="331" text-anchor="middle" class="node-title" fill="#115e59">Source Video (24.0 fps)</text>
+  <text x="150" y="346" text-anchor="middle" class="body">AudioRefineMask (v=0, a=1)</text>
+  <text x="150" y="359" text-anchor="middle" class="badge" fill="#dc2626">NO FrozenVideoCache</text>
+
+  <!-- Clean Dry Prompt -->
+  <rect x="42" y="374" width="216" height="40" rx="8" fill="#f5f3ff" stroke="#a78bfa" stroke-width="1.4"/>
+  <text x="150" y="391" text-anchor="middle" class="node-title" fill="#5b21b6">Clean Dry Audio Prompt</text>
+  <text x="150" y="406" text-anchor="middle" class="body">Zero conflicting visual words</text>
+
+  <!-- Query Router Firewall -->
+  <rect x="334" y="312" width="330" height="102" rx="8" fill="#fff7ed" stroke="#f97316" stroke-width="1.6"/>
+  <text x="499" y="334" text-anchor="middle" class="node-title" fill="#c2410c">MiniMaxH3QueryRouter (Firewall Mode)</text>
+  <text x="499" y="354" text-anchor="middle" class="body">• audio_conditioning ← MUST wire Clean Prompt!</text>
+  <text x="499" y="371" text-anchor="middle" class="body">• aud_to_vid_gain = 0.0 (closes direct + 1-hop leak)</text>
+  <text x="499" y="394" text-anchor="middle" class="badge" fill="#0f766e">Cuts frozen underwater hiss 5.8x + runs 26s faster</text>
+
+  <!-- Output Sampler -->
+  <rect x="734" y="312" width="202" height="102" rx="8" fill="#ecfdf5" stroke="#10b981" stroke-width="1.4"/>
+  <text x="835" y="343" text-anchor="middle" class="node-title" fill="#065f46">1x Re-Dub Output</text>
+  <text x="835" y="363" text-anchor="middle" class="body">Exact locked source video</text>
+  <text x="835" y="379" text-anchor="middle" class="body">+ crisp clean dry audio</text>
+  <text x="835" y="399" text-anchor="middle" class="badge" fill="#065f46">Also 1-click in Studio Re-Dub</text>
+
+  <!-- Clean bottom bypass path for Clean Dry Prompt -> Sampler (below Router box) -->
+  <line x1="258" y1="390" x2="328" y2="362" stroke="#7c3aed" stroke-width="1.8" marker-end="url(#arrPurple3)"/>
+  <path d="M 150 414 L 150 424 L 835 424 L 835 416" fill="none" stroke="#7c3aed" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#arrPurple3)"/>
+  <line x1="664" y1="363" x2="728" y2="363" stroke="#475569" stroke-width="1.8" marker-end="url(#arrSlate3)"/>
+</svg>
