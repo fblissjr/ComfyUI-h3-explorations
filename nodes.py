@@ -34,7 +34,6 @@ from .control_vector_nodes import (
     MiniMaxH3WordVector,
 )
 from .core_sparse_capture import MiniMaxH3CoreSparseCapture
-from .denoise_mask_probe import MiniMaxH3DenoiseMaskProbe
 from .edit_guidance import MiniMaxH3EditGuider, MiniMaxH3PromptEdit
 from .exact_blocks import MiniMaxH3ExactBlocks
 from .frozen_video_cache import MiniMaxH3FrozenVideoCache
@@ -48,7 +47,6 @@ from .h3_image_nodes import (
 from .h3_prompt_expander import MiniMaxH3PromptExpander
 from .lora_branch import MiniMaxH3LoRABranch
 from .masked_prompt import MiniMaxH3MaskedPrompt
-from .overlay_loader import MiniMaxH3OverlayLoader
 from .ph3_image_nodes import (
     MiniMaxH3PH3ImageConditioning,
     MiniMaxH3PH3ImagePromptUpsampler,
@@ -114,7 +112,7 @@ class H3ExplorationsExtension(ComfyExtension):
             # --- Encoders, Loaders, LoRAs, Attention & Precision ---
             MiniMaxH3EncoderLoader,  # Guarded Qwen3-VL loader (marker check + key audit)
             MiniMaxH3LoRABranch,  # Unmerged int8-safe compute-dtype LoRA branch
-            MiniMaxH3OverlayLoader,  # Sparse .h3overlay research checkpoint patcher
+            # MiniMaxH3OverlayLoader retired 2026-11-25 to archive/overlay_loader.py.
             MiniMaxH3VAEPrecision,  # Separate fp32 VAE encode / fp16-bf16 decode precision
             MiniMaxH3SageAttention,  # Direct NHD SageAttention + rotated QK + int64 indexing
             MiniMaxH3Sol,  # comfy-kitchen Sol sparse attention with conditioning sinks
@@ -190,7 +188,7 @@ class H3ExplorationsExtension(ComfyExtension):
 
             # --- Provenance & Observability ---
             MiniMaxH3ProvenanceStamp,  # Resolve/stamp sigmas, Sol closure, HEAD & grid telemetry
-            MiniMaxH3DenoiseMaskProbe,  # Live per-step denoise_mask diagnostic logger
+            # MiniMaxH3DenoiseMaskProbe retired 2026-11-25 to archive/denoise_mask_probe.py.
             MiniMaxH3StepX0Observer,  # Save per-step x0 latent predictions
             MiniMaxH3CoreSparseCapture,  # Capture core BlockSparseAttention Q/K/V tensors
         ]

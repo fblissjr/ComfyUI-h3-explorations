@@ -269,15 +269,6 @@
       "model"
     ]
   },
-  "MiniMaxH3DenoiseMaskProbe": {
-    "inputs": [
-      "model"
-    ],
-    "node_id": "MiniMaxH3DenoiseMaskProbe",
-    "outputs": [
-      "model"
-    ]
-  },
   "MiniMaxH3DirectorHUD": {
     "inputs": [
       "images",
@@ -663,21 +654,6 @@
       "source",
       "mask",
       "preview"
-    ]
-  },
-  "MiniMaxH3OverlayLoader": {
-    "inputs": [
-      "overlay_name",
-      "blocks",
-      "gates",
-      "refiner",
-      "adaln",
-      "io_layers",
-      "gate_scale"
-    ],
-    "node_id": "MiniMaxH3OverlayLoader",
-    "outputs": [
-      "model"
     ]
   },
   "MiniMaxH3PH3ImageConditioning": {

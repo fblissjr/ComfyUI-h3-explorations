@@ -139,7 +139,7 @@ Full per-check history, 2026-08-23 amendments, and `"claims block"` notes are sh
 | `check_pipeline_telemetry.py` | that the pipeline telemetry... ([detail](checks/index_02.md)) | the ComfyUI... | yes |
 | `check_step_x0_observer.py` | that MiniMaxH3StepX0Observer... ([detail](checks/index_02.md)) | the ComfyUI... | yes |
 | `check_core_sparse_capture.py` | that MiniMaxH3CoreSparseCapture... ([detail](checks/index_02.md)) | the ComfyUI... | yes |
-| `check_denoise_mask_probe.py` | that MiniMaxH3DenoiseMaskProbe... ([detail](checks/index_02.md)) | the ComfyUI... | yes |
+| `archive/bench/check_denoise_mask_probe.py` | ARCHIVED 2026-11-25 (`MiniMaxH3DenoiseMaskProbe` retired to `archive/denoise_mask_probe.py`): that MiniMaxH3DenoiseMaskProbe... ([detail](checks/index_02.md)) | the ComfyUI... | yes |
 | `check_vae_precision_quantized.py` | that MiniMaxH3VAEPrecision refuses... ([detail](checks/index_02.md)) | the ComfyUI... | yes |
 | `check_vsa_core_patch.py` | that this ComfyUI's VSA support is... ([detail](checks/index_02.md)) | - | no |
 | `check_lora_alpha.py` | that every *_LORA in h3_config.py... ([detail](checks/index_02.md)) | - | yes |
@@ -598,5 +598,14 @@ WHY: check retired 2026-11-13 to archive/bench/check_sol_chunked.py
 
 PATH: check_sol_chunked.py
 WHY: same file, linked by relative filename in historical docs
+
+PATH: overlay_loader.py
+WHY: MiniMaxH3OverlayLoader retired 2026-11-25 to archive/overlay_loader.py
+
+PATH: denoise_mask_probe.py
+WHY: MiniMaxH3DenoiseMaskProbe retired 2026-11-25 to archive/denoise_mask_probe.py
+
+PATH: bench/check_denoise_mask_probe.py
+WHY: check retired 2026-11-25 to archive/bench/check_denoise_mask_probe.py
 
 ```
