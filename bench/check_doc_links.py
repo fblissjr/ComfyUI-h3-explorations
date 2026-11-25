@@ -281,8 +281,10 @@ def _advisory_absent(rel_path: str) -> bool:
     """Return True when a missing target lives in an optional/untracked tree."""
     if rel_path.startswith(("coderef/", "data/")):
         return True
-    if rel_path.startswith("app/"):
+    if rel_path == "app" or rel_path.startswith("app/"):
         return not (REPO / "app").is_dir()
+    if rel_path == "internal" or rel_path.startswith("internal/"):
+        return not (REPO / "internal").is_dir()
     return False
 
 
