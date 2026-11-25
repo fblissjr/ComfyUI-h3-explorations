@@ -36,7 +36,7 @@ import numpy as np
 import torch
 from safetensors import safe_open
 
-HERE = Path(__file__).resolve().parent
+HERE = Path(__file__).resolve().parents[1]
 
 
 def shifted(u, s):

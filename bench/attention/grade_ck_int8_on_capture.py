@@ -1,6 +1,7 @@
 """Kitchen's own int8_attention (the --use-ck-attention path) on the block-49 capture: plain vs the weights fold."""
 import sys, json, torch
-sys.path.insert(0, "bench")
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from grade_channel_balance import factor_from_weights
 from analyze_sol_error import load_capture, dense_reference, rel_l2_against
 import comfy_kitchen as ck

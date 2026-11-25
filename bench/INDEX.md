@@ -9,13 +9,13 @@ this file is only a way to find a script by what it says it does.
 | group | scripts |
 |---|---|
 | [`check_*`](#check) | 181 |
-| [`measure_*`](#measure) | 35 |
-| [`analyze_*`](#analyze) | 16 |
-| [`grade_*`](#grade) | 16 |
-| [`compare_*`](#compare) | 12 |
+| [`measure_*`](#measure) | 33 |
+| [`analyze_*`](#analyze) | 13 |
+| [`grade_*`](#grade) | 10 |
+| [`compare_*`](#compare) | 10 |
 | [`build_*`](#build) | 12 |
-| [`probe_*`](#probe) | 17 |
-| [the rest](#the-rest) | 201 |
+| [`probe_*`](#probe) | 15 |
+| [the rest](#the-rest) | 193 |
 
 ## check
 
@@ -223,7 +223,6 @@ this file is only a way to find a script by what it says it does.
 | [`measure_encoder_prefix_reuse.py`](measure_encoder_prefix_reuse.py) | Can the encoder's work on a reference be kept across prompt edits, exactly? |
 | [`measure_encoder_quant_dit.py`](measure_encoder_quant_dit.py) | Does the DiT's prediction move when the encoder is int8_convrot instead of bf16? |
 | [`measure_h3_image_weights.py`](measure_h3_image_weights.py) | What the MiniMax-H3-Image weights are: where they sit beside fl2va and ref2va, and what a ComfyUI int8 file keeps of them. |
-| [`measure_int8_weight_error.py`](measure_int8_weight_error.py) | How much of each linear's weight the shipped int8 convrot file loses, block by block. |
 | [`measure_keyframe_encode_determinism.py`](measure_keyframe_encode_determinism.py) | Is ComfyUI's H3 keyframe VAE encode byte-deterministic on this card? |
 | [`measure_marker_epsilon.py`](measure_marker_epsilon.py) | Does the DiT's prediction change when the seven H3 marker rows change? |
 | [`measure_merge_noise.py`](measure_merge_noise.py) | How much of a merged LoRA survives, and how much noise rides along with it. |
@@ -237,7 +236,6 @@ this file is only a way to find a script by what it says it does.
 | [`measure_qwen_bounds_bite.py`](measure_qwen_bounds_bite.py) | Where does ComfyUI's Qwen pixel ceiling actually shrink an H3 input? |
 | [`measure_reference_split.py`](measure_reference_split.py) | The two-node reference path against core's one pass, on the real encoder. |
 | [`measure_sam31_dms_and_fixes.py`](measure_sam31_dms_and_fixes.py) | GPU benchmark suite for SAM 3.1 Decoupled Multiplex Memory Selection (`SAM3-DMS`) and perception fixes. |
-| [`measure_sol_container_protocol.py`](measure_sol_container_protocol.py) | What the Sol override's container entry changes, on captured q/k/v. |
 | [`measure_sol_exact_variants.py`](measure_sol_exact_variants.py) | Measure the INSTALLED Sol kernel's exact branch, so two builds can be compared. |
 | [`measure_step_yaw.py`](measure_step_yaw.py) | At which sampling step a render's facing is decided: the turn metric on each step's clean prediction. |
 | [`measure_subject_motion.py`](measure_subject_motion.py) | Does a render's subject move as the source's does: every body joint over a shot, frame by frame, render against source. |
@@ -247,16 +245,13 @@ this file is only a way to find a script by what it says it does.
 
 | script | what it says it does |
 |---|---|
-| [`analyze_adaln_chunks_original.py`](analyze_adaln_chunks_original.py) | Where FL2VA and Ref2VA differ in the per-block modulation, by modality, in the release's own weights. |
 | [`analyze_adaln_pruning.py`](analyze_adaln_pruning.py) | What the Comfy-Org "pruned" H3 checkpoints lose, measured per block and per checkpoint, against the unpruned int8_convrot files. |
-| [`analyze_attention_mass.py`](analyze_attention_mass.py) | Where a captured block's video queries put their attention, by key segment. |
 | [`analyze_audio_hum.py`](analyze_audio_hum.py) | Measure the narrowband hum in rendered clips, per arm. |
 | [`analyze_audio_spectral_tilt.py`](analyze_audio_spectral_tilt.py) | Spectral centroid over clip TIME, for any set of rendered H3 audio tracks. |
 | [`analyze_checkpoint_delta.py`](analyze_checkpoint_delta.py) | What is inside the fl2va / ref2va checkpoints, measured, not inferred. |
 | [`analyze_head_magnitudes.py`](analyze_head_magnitudes.py) | Why block 49: per-head Q/K/V magnitudes on captured activations, joined to per-head error. |
 | [`analyze_k_by_segment.py`](analyze_k_by_segment.py) | K's INT8 stress by sequence segment, on the captured t2v and ref2va cells. |
 | [`analyze_quant_delta.py`](analyze_quant_delta.py) | What separates the two shipped quantizations of the same H3 DiT: the `fp8_scaled` file against the `int8_convrot` file, and -- when the bf16 release is on disk -- each of them against the weights they were made from. |
-| [`analyze_quant_hotspots.py`](analyze_quant_hotspots.py) | Where INT8 weight error concentrates: by block, and by module kind. |
 | [`analyze_routing.py`](analyze_routing.py) | How many blocks does Sol's router keep exact? |
 | [`analyze_settle_vs_delta.py`](analyze_settle_vs_delta.py) | Does a latent frame settle later in sampling when the picture changes more there? CPU only. |
 | [`analyze_sol_block_grouping.py`](analyze_sol_block_grouping.py) | Sol-Attn groups tokens 64 at a time. Which side of that grouping costs the accuracy: the queries, the keys, the rule, or nothing that a reused decision could not pay for? Float reference on captures, CPU only. |
@@ -270,17 +265,11 @@ this file is only a way to find a script by what it says it does.
 |---|---|
 | [`grade_arm_audio_spectrum.py`](grade_arm_audio_spectrum.py) | Does one render arm's audio differ in timbre from another's, or is that the seed? |
 | [`grade_channel_balance.py`](grade_channel_balance.py) | Does per-channel q/k balancing lower Sol's INT8 term on a captured cell? |
-| [`grade_ck_int8_on_capture.py`](grade_ck_int8_on_capture.py) | Kitchen's own int8_attention (the --use-ck-attention path) on the block-49 capture: plain vs the weights fold. |
-| [`grade_dense_kernels_on_captures.py`](grade_dense_kernels_on_captures.py) | The three dense-step kernels on every captured cell: error against fp32 attention, per block and step. |
 | [`grade_h3_marker_tokens.py`](grade_h3_marker_tokens.py) | Does routing `<d>` to its real token id change what the encoder produces? |
 | [`grade_prompt_text.py`](grade_prompt_text.py) | Grade a candidate prompt TEXT, for a chosen mode, without building a graph. |
 | [`grade_pruning_sensitivity.py`](grade_pruning_sensitivity.py) | Grade `docs/wiki/ops/open_experiments.md` #22: does the AdaLN pruning move the output? |
 | [`grade_sage_on_capture.py`](grade_sage_on_capture.py) | Grade each sage kernel mode against a REAL captured activation, not randn. |
 | [`grade_sol_impl_on_capture.py`](grade_sol_impl_on_capture.py) | Grade our Sol node's implementation against ComfyUI core's, on the SAME captured inputs. |
-| [`grade_sol_quantizer_on_capture.py`](grade_sol_quantizer_on_capture.py) | Sol's four quantizers on captured cells, every head: error against fp32 dense. |
-| [`grade_sol_record.py`](grade_sol_record.py) | Grade a live Sol route record structurally, per render and per forward. |
-| [`grade_sol_route_on_capture.py`](grade_sol_route_on_capture.py) | Grade Sol's ROUTE, not its output: how far the INT8 kernel's routed-block count per query block sits from the fp32 route, plain vs qk_balance vs rotate. |
-| [`grade_sol_token_aug_x_options.py`](grade_sol_token_aug_x_options.py) | Token routing (token_aug=64) on top of plain / balanced / rotated / both, on a capture: total error vs fp32 dense attention. |
 | [`grade_soundtrack_reuse.py`](grade_soundtrack_reuse.py) | How closely does a `fully_copy` render reproduce its reference soundtrack? |
 | [`grade_vae_encoder_precision.py`](grade_vae_encoder_precision.py) | What does promoting the H3 video VAE's encoder to fp32 actually change? |
 | [`grade_video_block_presentation.py`](grade_video_block_presentation.py) | Is ComfyUI's per-pair vision call equivalent to the vendor's one-clip call? |
@@ -289,7 +278,6 @@ this file is only a way to find a script by what it says it does.
 
 | script | what it says it does |
 |---|---|
-| [`compare_adaln_modulation.py`](compare_adaln_modulation.py) | Does a distilled checkpoint change H3's timestep conditioning, and where in t? |
 | [`compare_audio_pairs.py`](compare_audio_pairs.py) | Audio of render arms side by side: level, dynamics and spectrum per clip. |
 | [`compare_clip_pixels.py`](compare_clip_pixels.py) | Are two rendered clips the same render? Decoded pixels and samples, never bytes. |
 | [`compare_dit_checkpoints.py`](compare_dit_checkpoints.py) | Compare two H3 DiT safetensors files without downloading them. |
@@ -297,7 +285,6 @@ this file is only a way to find a script by what it says it does.
 | [`compare_lora_files.py`](compare_lora_files.py) | Compare H3 LoRA safetensors across naming conventions, by bytes. |
 | [`compare_sam3d_body_core_against_meta.py`](compare_sam3d_body_core_against_meta.py) | ComfyUI core's SAM 3D Body predict against Meta's own inference code, on the same image, boxes and camera. |
 | [`compare_sam3d_body_releases.py`](compare_sam3d_body_releases.py) | SAM 3D Body's two releases on one frame: core's predict and render through the DINOv3 file and the ViT-H file. |
-| [`compare_sol_records.py`](compare_sol_records.py) | Compare two renders' Sol counts, call for call: the cache-state control. |
 | [`compare_token_aug_wheels.py`](compare_token_aug_wheels.py) | Does the `token_aug` nondeterminism belong to upstream's kernel or to ours? |
 | [`compare_vae_decoders.py`](compare_vae_decoders.py) | Decode one saved latent with several video VAE files: time, peak VRAM, pixels. |
 | [`compare_vhs_loaders.py`](compare_vhs_loaders.py) | Do VHS's two upload loaders hand the reference path the same frames? Measured, not read. |
@@ -331,8 +318,6 @@ this file is only a way to find a script by what it says it does.
 | [`probe_dinov3_copy_freeze.py`](probe_dinov3_copy_freeze.py) | M1 (`docs/wiki/next_steps.md`): CPU-safe DINOv3 `<Picture 1>` copy & temporal pose-freeze triage probe. |
 | [`probe_encoder_rope_kitchen.py`](probe_encoder_rope_kitchen.py) | Did core's move of the text encoder's RoPE onto comfy-kitchen change its numbers? |
 | [`probe_h3_image_vae_tiles.py`](probe_h3_image_vae_tiles.py) | How the MiniMax-H3-Image VAE's 256 px decode tiles shape its pictures, measured on real pictures with no DiT. |
-| [`probe_int8_lora_requant.py`](probe_int8_lora_requant.py) | How much of a LoRA survives being baked into the int8 convrot checkpoint. |
-| [`probe_kitchen_sol_build_parity.py`](probe_kitchen_sol_build_parity.py) | Hash `sol_attn` and `sol_attn_chunked` outputs over a grid of options, so two comfy-kitchen builds can be diffed line by line. |
 | [`probe_kitchen_swiglu_and_token_overflow.py`](probe_kitchen_swiglu_and_token_overflow.py) | Two properties of the installed comfy-kitchen build on this card: fused SwiGLU against the unfused chain, and whether token routing repeats. |
 | [`probe_oracle_gate_scaling.py`](probe_oracle_gate_scaling.py) | What the calibration gate would find at production length, and why chunking will not get it there. |
 | [`probe_ref_rows_16604.py`](probe_ref_rows_16604.py) | Does Comfy-Org/ComfyUI issue 16604 reproduce on this checkout's PackedLayout? |
@@ -356,7 +341,6 @@ this file is only a way to find a script by what it says it does.
 | [`audit_ref_audio_crop.py`](audit_ref_audio_crop.py) | What the generic VAE crop does to a reference waveform on the H3 audio path. |
 | [`audit_shipped_reference_bounds.py`](audit_shipped_reference_bounds.py) | Does any shipped graph hand Qwen a reference image it will shrink? |
 | [`bench_e2e_h3.py`](bench_e2e_h3.py) | End-to-end A/B: a real MiniMax H3 render with the sage node in and out. |
-| [`bench_kitchen_int8_linear.py`](bench_kitchen_int8_linear.py) | comfy-kitchen's `int8_linear` on H3's real block-0 layers: time per call, and a bitwise digest. |
 | [`bench_minimax_attn.py`](bench_minimax_attn.py) | A/B the patched MiniMax H3 attention forward against the stock one. |
 | [`blind_batch.py`](blind_batch.py) | Turn a run_graph_arms JSONL into a blinded batch of clips with a sealed key. |
 | [`blind_batch_add_audio.py`](blind_batch_add_audio.py) | Replace a blind batch's silent singles with their muxed `-audio.mp4` sources, in place. |
@@ -391,7 +375,6 @@ this file is only a way to find a script by what it says it does.
 | [`day_pieces.py`](day_pieces.py) | A folder for a day's end: every piece that stands in a delivery table, in frame order, each with the graph it was queued with, its text, what that graph names and whether each is there now, and the line that queues it again. |
 | [`decode_draft_keepers.py`](decode_draft_keepers.py) | Give draft renders their real decode, from the latents the drafts saved. |
 | [`delivery_table.py`](delivery_table.py) | The delivery table, generated from the render ledger by one stated rule: which render stands on each shot, and why. |
-| [`derive_attention_share.py`](derive_attention_share.py) | What fraction of an H3 sampler is attention, bounded from an A/B we already ran. |
 | [`diff_clip_graphs.py`](diff_clip_graphs.py) | What actually differs between two rendered clips? Read from the graphs they were rendered from. |
 | [`diff_prompt_corpus.py`](diff_prompt_corpus.py) | Report every prompt FEATURE where the vendor is unanimous and we diverge. |
 | [`distill_signatures.py`](distill_signatures.py) | Which measured properties separate the distills consistently across scenes? |
@@ -432,7 +415,6 @@ this file is only a way to find a script by what it says it does.
 | [`map_attention_mass_on_capture.py`](map_attention_mass_on_capture.py) | Where does exact attention mass go, per head? Segment masses, per-latent-frame mass and the heaviest keys, on a capture. |
 | [`map_cube_schedule.py`](map_cube_schedule.py) | Map sglang's cube-sparse keep-ratio schedule onto the sigma grid our graphs sample. |
 | [`map_partition_delta.py`](map_partition_delta.py) | What differs between the release's FL2VA and Ref2VA weights, tensor by tensor. |
-| [`map_sol_error_on_capture.py`](map_sol_error_on_capture.py) | Where in the clip does Sol-Attn's error sit? Per-token error on a capture, by latent frame and in a named region. |
 | [`masked_code_map.py`](masked_code_map.py) | Generate and check the masked-lane AST jump index and stage-symbol drift map. |
 | [`masked_job.py`](masked_job.py) | Build the graphs of a masked job from its job file, and queue them. |
 | [`masked_render_against_source.py`](masked_render_against_source.py) | Measure a masked render against the clip it was made from: flicker at the seam, and when a late region takes effect. |
@@ -497,7 +479,6 @@ this file is only a way to find a script by what it says it does.
 | [`sam3_dataset_phrases.py`](sam3_dataset_phrases.py) | What Meta's four SAM 3 datasets say about what a valid prompt is and how specific to be: counts from the annotation files. |
 | [`sam3_precision_arms.py`](sam3_precision_arms.py) | Compare SAM 3.1 at float16, bfloat16 and float32 through core's own nodes, on the same frames, with controls. |
 | [`sam_memory_selection.py`](sam_memory_selection.py) | Runtime Meta memory-selection patch and 4-arm scene measurement tool for SAM 3 / SAM 3.1. |
-| [`scan_original_block49.py`](scan_original_block49.py) | Is block 49's oddity in the original MiniMax weights, before any conversion? |
 | [`score_output_distance.py`](score_output_distance.py) | Score renders by their saved latents' distance from a reference render at the same seed. |
 | [`score_session.py`](score_session.py) | Join an exported blind scoring file with the sealed key into a verdict. |
 | [`score_shot_ablation.py`](score_shot_ablation.py) | Score the two-shot ablation arms on both candidate axes: delta and spatial detail. |
@@ -511,8 +492,6 @@ this file is only a way to find a script by what it says it does.
 | [`sidecar.py`](sidecar.py) | A sidecar beside every video we make: `<video file name>.json`, holding as much as is known of how the video was made. |
 | [`simulate_track_b_lite.py`](simulate_track_b_lite.py) | Priority 3d: Track B-Lite Eager FP16-PV Simulation. |
 | [`smoke_h3.py`](smoke_h3.py) | Confirm the H3 chain composes and runs, after any node-pack update. |
-| [`sol_duckdb_analyzer.py`](sol_duckdb_analyzer.py) | DuckDB ingest and static dashboard for Sol probe and observer captures. |
-| [`sol_observe_report.py`](sol_observe_report.py) | Read a Sol route record and say what it holds, per render, step and block. |
 | [`stack_delivery.py`](stack_delivery.py) | A delivery clip stacked for the owner's eye: the original, what each render on the frame was given, the clip. |
 | [`stack_eval_clips.py`](stack_eval_clips.py) | Side-by-side and top-to-bottom video stacking utility for paired evaluation. |
 | [`stack_labeled_clips.py`](stack_labeled_clips.py) | Stack N clips vertically with a caption on each, for side-by-side viewing. |
@@ -530,7 +509,6 @@ this file is only a way to find a script by what it says it does.
 | [`tally_judge_verdicts.py`](tally_judge_verdicts.py) | How often does the judge call a pair "same" or "can't tell", and does the slot order pull? |
 | [`telemetry_report.py`](telemetry_report.py) | Read a pipeline telemetry record into per-node phases. |
 | [`time_dense_blocks.py`](time_dense_blocks.py) | What does a dense block actually COST, in seconds, on this box? |
-| [`time_sol_options_on_capture.py`](time_sol_options_on_capture.py) | Time comfy_kitchen.sol_attn on a capture: plain vs qk_balance vs rotate, CUDA events, warm. |
 | [`timeline_page.py`](timeline_page.py) | Build the whole-video NLE timeline data file (`--out-json`) and interactive page (`--out-html`) from the rebuild's records. |
 | [`two_shot_load.py`](two_shot_load.py) | Two neighbouring shots as ONE load in ONE window, made from the two shots' own ordinary loads. Not a default. |
 | [`upstream_watch.py`](upstream_watch.py) | List what each watched upstream landed since its last read, and its open PRs and issues. |
@@ -538,7 +516,6 @@ this file is only a way to find a script by what it says it does.
 | [`verify_pole_a_erasure.py`](verify_pole_a_erasure.py) | Reproducible CPU mathematical verification for Clamped Pole-A Subspace Erasure. |
 | [`verify_token_aug_repro_shapes.py`](verify_token_aug_repro_shapes.py) | Which shapes reproduce the `token_aug` nondeterminism IN A FRESH PROCESS? |
 | [`verify_vsa_render.py`](verify_vsa_render.py) | Verify a VSA render actually ran VSA, by its decoded pixels. |
-| [`visualize_token_routing.py`](visualize_token_routing.py) | Simulate, measure, and visually export Sol-Attn with Token Routing (ON vs OFF). |
 | [`voice_spans.py`](voice_spans.py) | Where a voice is on a clip's track, by video frame, on this machine only. |
 | [`what_h3_got.py`](what_h3_got.py) | What H3 was handed for one load, read from the graph that was queued: every file, its digest, what the graph does to it. |
 | [`who_is_who_across_shots.py`](who_is_who_across_shots.py) | Who is who across shots: one row a shot of what each tracker called, whose word it is, and the question where it is nobody's. |
@@ -623,6 +600,34 @@ Arm manifests and the like; a manifest's line is its own `what`.
 | [`sol_redesign_test2_capture_arms.json`](arms/sol_redesign_test2_capture_arms.json) | Sol redesign test 2, the capture session (docs/wiki/archive/2026-09-27_sol_node_redesign.md): the shipped PDD8 t2v and ref2va graphs on current code, captured at the Sol blocks the balance gate opens on and at the dense tail, at two steps ... |
 | [`start_percent_panel_arms.json`](arms/start_percent_panel_arms.json) | Sol start_percent on the t2v pick (h3_text_to_video_pdd8_flashgen_finish), 0.2 as shipped against 0.0, on five 345-frame bank scenes chosen to differ (crowd and music, fast swordplay, nature with voiceover, dialogue close-ups, 2D cartoon). ... |
 | [`subway_v2_arms.json`](arms/subway_v2_arms.json) | The rewritten t2va_subway_chase (18bd00ca: two people, one path down, every action with an agent) on the undistilled base and the three distills as each is best built today, at the seed of the earlier subway renders. base = ... |
+
+### attention
+
+| file | what it says |
+|---|---|
+| [`analyze_adaln_chunks_original.py`](attention/analyze_adaln_chunks_original.py) | Where FL2VA and Ref2VA differ in the per-block modulation, by modality, in the release's own weights. |
+| [`analyze_attention_mass.py`](attention/analyze_attention_mass.py) | Where a captured block's video queries put their attention, by key segment. |
+| [`analyze_quant_hotspots.py`](attention/analyze_quant_hotspots.py) | Where INT8 weight error concentrates: by block, and by module kind. |
+| [`bench_kitchen_int8_linear.py`](attention/bench_kitchen_int8_linear.py) | comfy-kitchen's `int8_linear` on H3's real block-0 layers: time per call, and a bitwise digest. |
+| [`compare_adaln_modulation.py`](attention/compare_adaln_modulation.py) | Does a distilled checkpoint change H3's timestep conditioning, and where in t? |
+| [`compare_sol_records.py`](attention/compare_sol_records.py) | Compare two renders' Sol counts, call for call: the cache-state control. |
+| [`derive_attention_share.py`](attention/derive_attention_share.py) | What fraction of an H3 sampler is attention, bounded from an A/B we already ran. |
+| [`grade_ck_int8_on_capture.py`](attention/grade_ck_int8_on_capture.py) | Kitchen's own int8_attention (the --use-ck-attention path) on the block-49 capture: plain vs the weights fold. |
+| [`grade_dense_kernels_on_captures.py`](attention/grade_dense_kernels_on_captures.py) | The three dense-step kernels on every captured cell: error against fp32 attention, per block and step. |
+| [`grade_sol_quantizer_on_capture.py`](attention/grade_sol_quantizer_on_capture.py) | Sol's four quantizers on captured cells, every head: error against fp32 dense. |
+| [`grade_sol_record.py`](attention/grade_sol_record.py) | Grade a live Sol route record structurally, per render and per forward. |
+| [`grade_sol_route_on_capture.py`](attention/grade_sol_route_on_capture.py) | Grade Sol's ROUTE, not its output: how far the INT8 kernel's routed-block count per query block sits from the fp32 route, plain vs qk_balance vs rotate. |
+| [`grade_sol_token_aug_x_options.py`](attention/grade_sol_token_aug_x_options.py) | Token routing (token_aug=64) on top of plain / balanced / rotated / both, on a capture: total error vs fp32 dense attention. |
+| [`map_sol_error_on_capture.py`](attention/map_sol_error_on_capture.py) | Where in the clip does Sol-Attn's error sit? Per-token error on a capture, by latent frame and in a named region. |
+| [`measure_int8_weight_error.py`](attention/measure_int8_weight_error.py) | How much of each linear's weight the shipped int8 convrot file loses, block by block. |
+| [`measure_sol_container_protocol.py`](attention/measure_sol_container_protocol.py) | What the Sol override's container entry changes, on captured q/k/v. |
+| [`probe_int8_lora_requant.py`](attention/probe_int8_lora_requant.py) | How much of a LoRA survives being baked into the int8 convrot checkpoint. |
+| [`probe_kitchen_sol_build_parity.py`](attention/probe_kitchen_sol_build_parity.py) | Hash `sol_attn` and `sol_attn_chunked` outputs over a grid of options, so two comfy-kitchen builds can be diffed line by line. |
+| [`scan_original_block49.py`](attention/scan_original_block49.py) | Is block 49's oddity in the original MiniMax weights, before any conversion? |
+| [`sol_duckdb_analyzer.py`](attention/sol_duckdb_analyzer.py) | DuckDB ingest and static dashboard for Sol probe and observer captures. |
+| [`sol_observe_report.py`](attention/sol_observe_report.py) | Read a Sol route record and say what it holds, per render, step and block. |
+| [`time_sol_options_on_capture.py`](attention/time_sol_options_on_capture.py) | Time comfy_kitchen.sol_attn on a capture: plain vs qk_balance vs rotate, CUDA events, warm. |
+| [`visualize_token_routing.py`](attention/visualize_token_routing.py) | Simulate, measure, and visually export Sol-Attn with Token Routing (ON vs OFF). |
 
 ### briefs
 

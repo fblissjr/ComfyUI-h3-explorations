@@ -33,7 +33,7 @@ from pathlib import Path
 import torch
 from safetensors import safe_open
 
-REPO = Path(__file__).resolve().parent.parent
+REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO.parents[1]))
 
 from comfy_kitchen.tensor import TensorWiseINT8Layout as Int8  # noqa: E402

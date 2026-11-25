@@ -59,7 +59,7 @@ import json
 import statistics
 from pathlib import Path
 
-_REPO = Path(__file__).resolve().parent.parent
+_REPO = Path(__file__).resolve().parents[2]
 DEFAULT_SOURCE = _REPO / "data/results/2026-09-03_ladder_outputs.json"
 
 # The three arms the derivation needs, in the order the algebra uses them.

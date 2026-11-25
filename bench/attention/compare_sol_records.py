@@ -26,6 +26,7 @@ from pathlib import Path
 
 _HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(_HERE))
+sys.path.insert(0, str(_HERE.parent))
 
 from _live_sol import sol_observe as _load_observer  # noqa: E402
 from sol_observe_report import _load  # noqa: E402

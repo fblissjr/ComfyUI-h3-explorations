@@ -50,7 +50,7 @@ from pathlib import Path
 
 import torch
 
-HERE = Path(__file__).resolve().parent
+HERE = Path(__file__).resolve().parents[1]
 REPO = HERE.parent
 sys.path.insert(0, str(HERE))
 from analyze_sol_error import dense_reference, load_capture, load_cuda_kernel  # noqa: E402

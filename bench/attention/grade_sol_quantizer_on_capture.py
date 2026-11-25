@@ -36,7 +36,7 @@ from pathlib import Path
 import torch
 import torch.nn.functional as F
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from analyze_sol_error import eager_sol_reference  # noqa: E402
 
 import comfy_kitchen

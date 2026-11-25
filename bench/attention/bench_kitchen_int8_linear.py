@@ -45,7 +45,7 @@ from pathlib import Path
 
 import torch
 
-HERE = Path(__file__).resolve().parent
+HERE = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(HERE.parent / "workflows"))
 import h3_config as C  # noqa: E402
 

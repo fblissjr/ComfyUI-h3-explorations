@@ -2,7 +2,8 @@
 The eager reference ignores token_aug, so the comparable referent is dense attention (total_l2), and the routed-only eager
 gives the block-route sparsity term for scale."""
 import sys, json, re
-sys.path.insert(0, "bench")
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from analyze_sol_error import load_capture, dense_reference, eager_sol_reference, rel_l2_against, load_cuda_kernel
 import torch
 cap = sys.argv[1]; m = re.search(r"_b(\d+)_s(\d+)", cap); block, step = int(m.group(1)), int(m.group(2))

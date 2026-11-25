@@ -41,7 +41,7 @@ from pathlib import Path
 
 import torch
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from analyze_sol_error import dense_reference, load_capture, rel_l2_against  # noqa: E402
 
 

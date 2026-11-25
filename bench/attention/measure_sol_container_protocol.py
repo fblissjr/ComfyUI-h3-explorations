@@ -29,7 +29,7 @@ from pathlib import Path
 
 import torch
 
-REPO = Path(__file__).resolve().parent.parent
+REPO = Path(__file__).resolve().parents[2]
 
 
 def load(name, path, package_dir=None):
