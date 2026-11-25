@@ -294,15 +294,6 @@ DECLARED: dict[tuple[str, str], tuple] = {
         ("HOUSE", "h3_config.SEGMENTER, the SAM 3.1 checkpoint core's SAM3 nodes "
                   "track the masked subject with; the only checkpoint-loader "
                   "this pack's graphs carry", h3_config.SEGMENTER),
-    ("MiniMaxH3ReferenceConditioning", "video_policy"):
-        ("ARM", "'release' on the probe graphs -- h3_probe_release_video_policy "
-                "and the refview probes -- against the node default 'comfy' "
-                "everywhere else. docs/wiki/core/h3_references.md: 'release' handles "
-                "the vendor's own video sizing locally AND enables the coupled "
-                "Qwen stage, while 'comfy' is what core does and pre-applies "
-                "nothing, which is why generated graphs leave it. The probes "
-                "are the arms that vary it. (The third value, 'encoder', left "
-                "with the AWQ lane on 2026-09-13.)"),
     # LoraLoaderModelOnly.strength_model's row moved to MiniMaxH3LoRABranch
     # in 0.154.0; that row (`blocks` '34-49' on the FlashGen late-blocks
     # graphs) went with the FlashGen lane on 2026-11-04, when the last graph
