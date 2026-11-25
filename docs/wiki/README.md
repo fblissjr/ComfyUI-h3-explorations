@@ -61,7 +61,7 @@ On identical base scenes and seeds (`192` frames at `1344x768`, seed `730451892`
 | Track | What Works Best | Canonical Entry Points |
 | :--- | :--- | :--- |
 | **`2x` Spatial Portals & World Directing** | Regional `[F, H, W]` moving masks, interactive portal drawing, `audio_only`/`video_only` `EditGuider`, & SAM 3.1 auto-retargeting | [`edit_guidance.md`](edit_guidance.md) · [`spatial_director_guide.md`](spatial_director_guide.md) |
-| **`1x` Orthogonal Control Vectors & Pocket Console** | Continuous `Look`/`Motion`/`Audio`/`Hold` sliders (`MiniMaxH3Steer` + `add_norm_matched_erasure` on `noir` & `V_r` scene locks) + mobile/desktop studio UI | [`h3_steering_and_architecture.md`](h3_steering_and_architecture.md) · [`steering.md`](steering.md) · [`../../app/README.md`](../../app/README.md) |
+| **`1x` Orthogonal Control Vectors & H3 Studio 2.0** | Continuous `Look`/`Motion`/`Audio`/`Hold` sliders (`MiniMaxH3Steer` + `add_norm_matched_erasure` on `noir` & `V_r` scene locks) + mobile/desktop studio UI | [`h3_steering_and_architecture.md`](h3_steering_and_architecture.md) · [`steering.md`](steering.md) · [`../../app/README.md`](../../app/README.md) |
 | **Audio Freeze & Multi-Window Loops** | `NestedTensor(video=1, audio=0)` audio lock, real song/speech locking (`MiniMaxH3FreezeAudio`), & chained `on_both_clocks` (`39 + 51m`) song windows | [`core/h3_audio_freeze.md`](core/h3_audio_freeze.md) |
 | **High-Res Single-Frame Images** | `MiniMax-H3-Image` (`16 MP -> 4 MP`, 16-still split cache, `heylook` expander) & `P-H3-Image` (`4–8 MP`, lazy `Qwen3.5-9B` upsampler) | [`image/h3_image.md`](image/h3_image.md) · [`image/p_h3_image.md`](image/p_h3_image.md) |
 | **Masked V2V & Perception Stack** | Dual-clock window contracts, SAM 3.1 / Sapiens2 / SAM 3D Body nodes (`'fun'` campaign parked) | [`masked_v2v/AGENTS.md`](masked_v2v/AGENTS.md) · [`core/h3_frame_rules.md`](core/h3_frame_rules.md) |
@@ -71,5 +71,5 @@ On identical base scenes and seeds (`192` frames at `1344x768`, seed `730451892`
 ## 3. Navigation
 
 - **Full wiki router & subsystem index:** [`index.md`](index.md)
-- **Session rules, H3 clocks, & 68-node pack map:** [`../../AGENTS.md`](../../AGENTS.md)
+- **Session rules & H3 clocks:** [`../../AGENTS.md`](../../AGENTS.md) · **67-node pack registry:** [`../../nodes.py`](../../nodes.py)
 - **Repository overview & quick install/usage:** [`../../README.md`](../../README.md)

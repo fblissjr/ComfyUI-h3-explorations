@@ -1,6 +1,6 @@
 # Cross-Modal Query Routing: Test Concepts, 10-Scene Matrix, & Lab Prompts
 
-> **Sharded from [`../query_routing.md`](../query_routing.md) on `2026-11-25`** so the active [`query_routing.md`](../query_routing.md) hub fits inside a single `read_file` call (`<= 45,000 B`). For the verified Phase 2 findings, Asymmetric Cross-Modal Prior Conflict Law, and shipped state, see [`../query_routing.md`](../query_routing.md) and [`bench/results/2026-11-25_query_router_phase2_sowhat.md`](../../../bench/results/2026-11-25_query_router_phase2_sowhat.md).
+> **Sharded from [`../query_routing.md`](../query_routing.md) on `2026-11-25`** so the active [`query_routing.md`](../query_routing.md) hub fits inside a single `read_file` call (`<= 45,000 B`). For the verified Phase 2 findings, Asymmetric Cross-Modal Prior Conflict Law, Step 1 bidirectional / `a2v=0.0` sweep, and shipped state, see [`../query_routing.md`](../query_routing.md), [`bench/results/2026-11-25_query_router_phase2_sowhat.md`](../../../bench/results/2026-11-25_query_router_phase2_sowhat.md), and [`bench/results/2026-11-25_query_router_step1_bidirectional.md`](../../../bench/results/2026-11-25_query_router_step1_bidirectional.md).
 
 ## 7. Fresh From-Scratch Concepts ("Unmistakable in 1 Second", Non-Destructive)
 
