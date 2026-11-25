@@ -1,8 +1,8 @@
 # Cross-Modal Query Routing Recipes & Exact Prompt Diffs (`1x`)
 
-Exact node wiring, prompt diffs, and seeds to reproduce the shipped workflow and comparison reels in `$H3_OUTPUT_DIR/Video/query_router_reels_2026-11-24/`.
+Exact node wiring, prompt diffs, and seeds to reproduce the shipped workflows (`T2V`, `fl2va`, `ref2va`), the `2026-11-24` comparison reels in `$H3_OUTPUT_DIR/Video/query_router_reels_2026-11-24/`, and the `2026-11-25` Phase 2 showcase renders.
 
-**Companion pages:** [`README.md`](README.md) · [`query_routing.md`](query_routing.md) · [`workflows/h3_text_to_video_pika_query_router_api.json`](../../workflows/h3_text_to_video_pika_query_router_api.json) · [`workflows/h3_first_last_frame_to_video_pika_query_router_api.json`](../../workflows/h3_first_last_frame_to_video_pika_query_router_api.json) · [`workflows/h3_image_ref_plus_text_to_video_pika_query_router_api.json`](../../workflows/h3_image_ref_plus_text_to_video_pika_query_router_api.json) · [`docs/wiki/system_prompts/h3_query_router/`](system_prompts/h3_query_router/README.md) (`h3-query-router-dub`, `h3-query-router-soundscape`) · [`bench/results/2026-11-24_query_router_live_probes_and_step2_gates.md`](../../bench/results/2026-11-24_query_router_live_probes_and_step2_gates.md)
+**Companion pages:** [`README.md`](README.md) · [`query_routing.md`](query_routing.md) · [`workflows/h3_text_to_video_pika_query_router_api.json`](../../workflows/h3_text_to_video_pika_query_router_api.json) · [`workflows/h3_first_last_frame_to_video_pika_query_router_api.json`](../../workflows/h3_first_last_frame_to_video_pika_query_router_api.json) · [`workflows/h3_image_ref_plus_text_to_video_pika_query_router_api.json`](../../workflows/h3_image_ref_plus_text_to_video_pika_query_router_api.json) · [`docs/wiki/system_prompts/h3_query_router/`](system_prompts/h3_query_router/README.md) (`h3-query-router-dub`, `h3-query-router-soundscape`) · [`bench/results/2026-11-25_query_router_phase2_sowhat.md`](../../bench/results/2026-11-25_query_router_phase2_sowhat.md) · [`bench/results/2026-11-24_query_router_live_probes_and_step2_gates.md`](../../bench/results/2026-11-24_query_router_live_probes_and_step2_gates.md)
 
 ---
 
@@ -132,26 +132,45 @@ For every dubbing and soundscape comparison in `$H3_OUTPUT_DIR/Video/query_route
 +overall_soundscape: A violent thunderstorm hammers the building, heavy rain drumming on a metal roof, rolling thunder close overhead, and wind howling up the stairwell.
 ```
 
-### Recipe 6 — Underwater Visuals + Dry Stairwell Speech (`reel_plain_vs_1x_router` clips `12–13`)
+### Recipe 6 — Underwater Visuals + Dry Stairwell Speech (`aud_to_vid_gain=0.0`, post-`9e5db27c`)
 
-- **Router wiring (inverted roles):** Node `"5"` (default + `Q_vid`) gets the underwater visual rewrite prompt; Node `"146"` (`audio_conditioning`) gets the **unchanged dry base stairwell prompt**; set `aud_to_vid_gain = 0.25` (gives brightest `2–8` kHz vs `100–500` Hz tilt without breaking lip-sync).
-- **What the fair plain control proved:** Even when a plain prompt kept the underwater visual shots and wrote the **exact dry concrete `overall_soundscape:`**, plain prompting still pulled the dialogue underwater (`-23.60` dB HF tilt, only `5.87` dB away from underwater hydrophone sound), whereas `1x` routing recovered drier speech (`-20.79` dB HF tilt, `14.85` dB away from plain UW+Dry).
+- **Router wiring (inverted roles):** Node `"5"` (default + `Q_vid`) gets the underwater visual rewrite prompt; Node `"146"` (`audio_conditioning`) gets the **unchanged dry base stairwell prompt** (zero underwater/bubble words in `prompt_aud`!); set **`aud_to_vid_gain = 0.0`**.
+- **What `9e5db27c` unlocked (`p2b_uwvid_dryaud_a2v_000_post9e5`):** With plain UW+Dry (`-32.02` dBFS) and even routed `aud_to_vid_gain=1.0` (`-32.28` dBFS), `Q_aud` still read the underwater bubbles in `K_vid` and muffled the voices. After `9e5db27c` closed the 1-hop `K_vid -> shadow_text -> Q_aud` leak, `aud_to_vid_gain=0.0` jumped to **`-22.85` dBFS (`+9.43` dB over `g=1.0`, `+9.63` dB over pre-fix `g=0.0`)** — delivering crystal-clear close-mic dry stairwell dialogue over 100% submerged turquoise caustics and rising bubbles.
+- **Strict clean-text rule:** Only drop `aud_to_vid_gain` to `0.0` when `prompt_aud` is completely stripped of the conflicting visual-action prose. If `prompt_aud` still mentions the visual explosion/action (as in `p2_cooking_router_zen_g0`), keep the default `aud_to_vid_gain = 1.0`.
 
 ```diff
 --- plain fair control ("stairwell_plain_uwvid_dryaud") == node "5" + overall_soundscape unchanged
-+++ video stream reads UW prompt ("5"); audio_conditioning ("146") reads Base English dry prompt
-@@ What plain prompting failed to separate @@
++++ video stream reads UW prompt ("5"); audio_conditioning ("146") reads Base English dry prompt (aud_to_vid_gain=0.0)
+@@ What plain prompting and g=1.0 failed to separate @@
  integrated_multimodal_description: [Shot 1] ... deeply submerged underwater inside a flooded concrete stairwell; crisp bright turquoise sunlight caustics ... steady streams of rising silver air bubbles ...
 -overall_soundscape: Close handheld room tone in a hard concrete stairwell with a long reflective tail on every consonant and a faint electrical hum from the caged bulb overhead.
-+(In plain prompting, the underwater image text overrode the dry overall_soundscape text and muffled the speech; 1x routing gives Q_aud the dry base prompt cleanly.)
++(In plain prompting and g=1.0, K_vid underwater physics dragged speech to -32.02 / -32.28 dBFS; post-9e5db27c g=0.0 with a clean dry prompt_aud restores -22.85 dBFS dry close-mic speech.)
 ```
+
+### Recipe 7 — `1x` Binaural Reality-vs-Story Split (`t2va_radio_drama`, `audio_channel="right"`, `late_30_49`)
+
+- **Router wiring:** Use [`workflows/h3_text_to_video_pika_query_router_api.json`](../../workflows/h3_text_to_video_pika_query_router_api.json) (`192f`, seed `730451892`); Node `"5"` = verbatim [`prompt_bank/t2va_radio_drama.txt`](../../prompt_bank/t2va_radio_drama.txt); Node `"146"` (`audio_conditioning`) = same prompt with `overall_soundscape:` and `non_diegetic_music:` swapped to storm-lashed Gothic mansion stairwell + rain + horror strings; set **`audio_channel = "right"`**, **`audio_block_band = "late_30_49"`**, **`aud_to_vid_gain = 1.0`**.
+- **Why `late_30_49` is mandatory:** Keeping `blocks.0..29` open locks all 3 speakers' speech phase and lip-sync across Left and Right, while cross-masking `blocks.30..49` separates the two ears (`lr_corr = 0.1167`, `L = -13.68` / `R = -14.35` dBFS, `pic_mae = 16.01`, **zero echo**). Left ear stays in the bone-dry 1948 padded broadcast booth while Right ear enters the haunted storm stairwell. *(Verified `2/2` with `stairwell_binaural_right_storm_late30`: `pic_mae = 7.93`, `lr_corr = 0.1122`.)*
+
+### Recipe 8 — Soundscape-to-Architecture Lock (`t2va_cooking_show_meltdown`, Chaos Visuals + Zen Audio)
+
+- **Router wiring:** Node `"5"` = verbatim [`prompt_bank/t2va_cooking_show_meltdown.txt`](../../prompt_bank/t2va_cooking_show_meltdown.txt); Node `"146"` (`audio_conditioning`) = calm whispered dialogue + `"tranquil Zen tea pavilion"` `overall_soundscape:` + hushed solo cello `non_diegetic_music:`; keep **`aud_to_vid_gain = 1.0`**, **`audio_block_band = "all"`**.
+- **What plain prompting did wrong:** `"Zen tea pavilion"` inside `overall_soundscape:` tore sunlit French garden windows with green trees and a pink blossom vase straight into the windowless brick TV studio (`47.99` MAE). `1x` routing (`g=1.0`) kept the brick studio, stainless hood, copper pots, and neon sign 100% locked while syncing serene solo cello and meditative whisper to the purple beetroot blender explosion (`-16.89` dBFS, `HF>2k = 0.0247`).
+
+### Recipe 9 — Ensemble `ref2va` Cast & Ticket Lock (`ref2va_scene_kitchen` w/ `woman_blonde.jpg`)
+
+- **Router wiring:** Use [`workflows/h3_image_ref_plus_text_to_video_pika_query_router_api.json`](../../workflows/h3_image_ref_plus_text_to_video_pika_query_router_api.json) (shared `MiniMaxH3EncodeReferences` `"132"` -> dual `MiniMaxH3PromptOnReferences` `"5"` / `"146"` -> `MiniMaxH3QueryRouter` `"145"`). Load `$H3_INPUT_DIR/woman_blonde.jpg` as `<Picture 1>`, use `ref2va_scene_kitchen` adapted to female `<Subject 1>` on `"5"`, and translate strictly the 6 `<d>` dialogue/lyric lines to `[Japanese]` on `"146"` (via `h3-query-router-dub`).
+- **What plain prompting did wrong:** Plain `[Japanese]` kept `<Subject 1>` blonde because `<Picture 1>` pinned her, **while recasting every unpinned co-star in the kitchen to East Asian cooks**, swapping the plated Western dishes, and erasing `"FIRE"` on the thermal tickets (`40.03` MAE). `1x` routing locked `<Subject 1>`, the Black pan-tossing cook, the curly-haired flat-top cook `(S2)`, Western plates, and `"FIRE"` thermal tickets across all 4 shots (`28.55` MAE) while speaking/singing synced Japanese with `<|cutoff|>`.
 
 ---
 
-## 4. Reference Recipes (Subtle by Ear or Neutral vs. Plain Prompting)
+## 4. Reference Recipes & Honest Neutral Boundaries (Plain Prompting Already Works)
 
-These appear in `reel_1x_soundtracks_and_visuals_stairwell_s730451892.mp4` and earlier notes; they are documented honestly here for completeness:
+These cases were tested with matched plain controls (`2026-11-24` and `2026-11-25`) and are documented honestly so nobody wastes router complexity where plain prompting already wins:
 
+- **Period-piece `JA -> EN` reverse dub (`t2va_samurai_bamboo_duel`) & heavily anchored `EN -> ES` (`t2va_delta_blues_porch`):** Plain prompting already kept both Japanese samurai actors + `"関ヶ原街道"` vertical kanji (`28.40` vs `25.23` MAE) and the Deep South porch + resonator guitar + `"CLARKSVILLE 5 MILES"` sign (`35.27` vs `31.95` MAE).
+- **Tight single-headshot `ref2va` (`t2i_29`), sealed-mouth voiceover, & full-prompt `ref2va` motion-transfer restyle:** When `<Picture 1>` fills the frame or the visual prose already nails the target style/closed lips, plain prompting matches `1x` routing directly.
+- **Temporal audio switching (`audio_time_start=0.5`, `late_30_49`):** Beats plain prompting on visual lock (`21.93` vs `41.70`) and H2 horror HF (`5.8x`) on `t2va_radio_drama`, but produces a 1-phrase repeat if `t=0.5` lands flush on spoken dialogue (`"put out the lamp"` / `"Who else knows?"`). Place `audio_time_start` only on silence/music transitions.
 - **Blueprint Ink Visual (`video_conditioning`):** Replace node `"5"`/`"147"` with crisp white-on-Prussian-blue architectural drafting descriptions (`BLUEPRINT_LONGER_PROMPT`), keeping node `"5"` dry English on `Q_aud`. Plain prompting with that same prompt already holds dry acoustics (`65.45` plain vs `65.27` routed MAE; `19.44` vs `17.50` dB spec) because ink linework does not fight concrete acoustics.
 - **Hydrophone + Sonar & 1930s AM Radio:** Swap `overall_soundscape:` on `"146"` only. Although Hydrophone+Sonar stopped Shot 2's plain-prompt lamp bleed (`24.00` vs `9.59` MAE), both audio effects are subtle on blind watch/listen without priming, so they are omitted from `reel_plain_vs_1x_router_stairwell_s730451892.mp4`.
 - **Zero-rewrite single-prompt leak guard (`section_split="soundscape_to_audio"`):** Set `section_split="soundscape_to_audio"` on `"145"` with nothing wired to `"146"` or `"147"` to hide `overall_soundscape:` / `non_diegetic_music:` from `Q_vid` on fresh renders (`stairwell_router_split_base`, `tortoise_router_split_*`). Caveat: if `overall_soundscape:` describes a visible cue omitted from `integrated_multimodal_description` (like `tortoise`'s lit traffic light), hiding it drops that cue (`tortoise` traffic light goes unlit).
