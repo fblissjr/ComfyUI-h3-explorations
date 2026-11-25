@@ -1,8 +1,8 @@
 # Cross-Modal Query Routing Recipes & Exact Prompt Diffs (`1x`)
 
-Exact node wiring, prompt diffs, and seeds to reproduce the shipped workflows (`T2V`, `fl2va`, `ref2va`), the `2026-11-24` comparison reels in `$H3_OUTPUT_DIR/Video/query_router_reels_2026-11-24/`, and the `2026-11-25` Phase 2 showcase renders.
+Exact node wiring, prompt diffs, and seeds to reproduce the shipped workflows (`T2V`, `fl2va`, `ref2va`), the `2026-11-24` comparison reels in `$H3_OUTPUT_DIR/Video/query_router_reels_2026-11-24/`, and the `2026-11-25` Phase 2 & Step 1 showcase renders.
 
-**Companion pages:** [`README.md`](README.md) · [`query_routing.md`](query_routing.md) · [`workflows/h3_text_to_video_pika_query_router_api.json`](../../workflows/h3_text_to_video_pika_query_router_api.json) · [`workflows/h3_first_last_frame_to_video_pika_query_router_api.json`](../../workflows/h3_first_last_frame_to_video_pika_query_router_api.json) · [`workflows/h3_image_ref_plus_text_to_video_pika_query_router_api.json`](../../workflows/h3_image_ref_plus_text_to_video_pika_query_router_api.json) · [`docs/wiki/system_prompts/h3_query_router/`](system_prompts/h3_query_router/README.md) (`h3-query-router-dub`, `h3-query-router-soundscape`) · [`bench/results/2026-11-25_query_router_phase2_sowhat.md`](../../bench/results/2026-11-25_query_router_phase2_sowhat.md) · [`bench/results/2026-11-24_query_router_live_probes_and_step2_gates.md`](../../bench/results/2026-11-24_query_router_live_probes_and_step2_gates.md)
+**Companion pages:** [`README.md`](README.md) · [`query_routing.md`](query_routing.md) · [`workflows/h3_text_to_video_pika_query_router_api.json`](../../workflows/h3_text_to_video_pika_query_router_api.json) · [`workflows/h3_first_last_frame_to_video_pika_query_router_api.json`](../../workflows/h3_first_last_frame_to_video_pika_query_router_api.json) · [`workflows/h3_image_ref_plus_text_to_video_pika_query_router_api.json`](../../workflows/h3_image_ref_plus_text_to_video_pika_query_router_api.json) · [`docs/wiki/system_prompts/h3_query_router/`](system_prompts/h3_query_router/README.md) (`h3-query-router-dub`, `h3-query-router-soundscape`) · [`bench/results/2026-11-25_query_router_step1_bidirectional.md`](../../bench/results/2026-11-25_query_router_step1_bidirectional.md) · [`bench/results/2026-11-25_query_router_phase2_sowhat.md`](../../bench/results/2026-11-25_query_router_phase2_sowhat.md) · [`bench/results/2026-11-24_query_router_live_probes_and_step2_gates.md`](../../bench/results/2026-11-24_query_router_live_probes_and_step2_gates.md)
 
 ---
 
@@ -162,11 +162,28 @@ For every dubbing and soundscape comparison in `$H3_OUTPUT_DIR/Video/query_route
 - **Router wiring:** Use [`workflows/h3_image_ref_plus_text_to_video_pika_query_router_api.json`](../../workflows/h3_image_ref_plus_text_to_video_pika_query_router_api.json) (shared `MiniMaxH3EncodeReferences` `"132"` -> dual `MiniMaxH3PromptOnReferences` `"5"` / `"146"` -> `MiniMaxH3QueryRouter` `"145"`). Load `$H3_INPUT_DIR/woman_blonde.jpg` as `<Picture 1>`, use `ref2va_scene_kitchen` adapted to female `<Subject 1>` on `"5"`, and translate strictly the 6 `<d>` dialogue/lyric lines to `[Japanese]` on `"146"` (via `h3-query-router-dub`).
 - **What plain prompting did wrong:** Plain `[Japanese]` kept `<Subject 1>` blonde because `<Picture 1>` pinned her, **while recasting every unpinned co-star in the kitchen to East Asian cooks**, swapping the plated Western dishes, and erasing `"FIRE"` on the thermal tickets (`40.03` MAE). `1x` routing locked `<Subject 1>`, the Black pan-tossing cook, the curly-haired flat-top cook `(S2)`, Western plates, and `"FIRE"` thermal tickets across all 4 shots (`28.55` MAE) while speaking/singing synced Japanese with `<|cutoff|>`.
 
+### Recipe 10 — Shell-Shock World-Mute (`s1_shellshock_router_g000`, `aud_to_vid_gain=0.0`)
+
+- **Router wiring:** Node `"5"` (`Q_vid`) = blazing warehouse inferno (`FIRE_CHAOS_VIS`: flames, flying sparks, soot-stained silent survivor, `"DANGER"` sign); Node `"146"` (`audio_conditioning`) = completely clean quiet padded-room stillness (`SHELLSHOCK_AUD_CLEAN`: zero fire/flame/smoke/danger/warehouse words anywhere, only soft rhythmic heartbeat + gentle close-mic breathing); set **`aud_to_vid_gain = 0.0`**, **`audio_block_band = "all"`**.
+- **What plain prompting and `g=1.0` did wrong:** Plain prompting leaked fire roar, hallucinated a whispered voice reading *"Danger"* aloud at `00:01`, and broke the sign (`-25.27` dBFS); routed `g=1.0` locked visuals but open `K_vid` pumped roaring flames & crackles straight back (`-23.09` dBFS, `HF>2k = 0.0498`). Setting `aud_to_vid_gain=0.0` dropped audio to **`-55.75` dBFS (`-32.66` dB quieter, `55x` less crackle)** while keeping every flame, spark, and `"DANGER"` sign blazing.
+
+### Recipe 11 — Wrong-Voice Close-Up Casting (`s1_biker_wrongvoice_router_g000`, `aud_to_vid_gain=0.0`)
+
+- **Router wiring:** Node `"5"` (`Q_vid`) = 3-shot massive 6'5" scarred bearded outlaw biker in a roadhouse bar (`"NO CREDIT"`) delivering gruff `<d>` dialogue lines; Node `"146"` (`audio_conditioning`) = frail 90-year-old grandmother parlor script delivering the **exact same `<d>` lines** in a squeaky elderly falsetto soprano; set **`aud_to_vid_gain = 0.0`**.
+- **Why `g=0.0` is essential:** Plain prompting (`168.70 Hz`) and `router g=1.0` (`187.37 Hz`) stayed clearly adult male because open `Q_aud -> K_vid` read the giant bearded face filling the frame. Sweeping `aud_to_vid_gain` released pitch monotonically (`168.70 -> 187.37 -> 216.94 [g=0.15] -> 260.21 Hz [g=0.0]`, **`+7.5 st`**) while open `Q_vid -> K_aud` kept every syllable lip-synced across all 3 shots.
+
+### Recipe 12 — Pixel-Locked Dry Audio Redub (`AudioRefineMask` + `aud_to_vid_gain=0.0`, `7a7693d0`)
+
+- **Router wiring:** Encode the source `.mp4` at `24.0 fps` into `MiniMaxH3AudioRefineMask(video_mask=0.0, audio_mask=1.0)` **without** `MiniMaxH3FrozenVideoCache` (or call `director/compiler.py::compile_audio_redub(..., isolate_visuals=True)`), and attach `MiniMaxH3QueryRouter(aud_to_vid_gain=0.0)` with **`audio_conditioning` explicitly wired to the same clean dry conditioning node (`["5", 0]` / `["26", 0]`)** so `shadow_a` enters `mode_id=2` and blocks the 1-hop `K_vid -> text -> Q_aud` relay.
+- **Measured gain (`s1_audiorefine_uwvid_g000` vs `g100`):** Exact pixel lock (`pic_mae = 2.337` H.264 floor on both), **`5.8x` lower water hiss** (`HF>2k 0.1458 -> 0.0250`), **`+39%` voiced speech** (`0.1859 -> 0.2588`), and `26.0 s` faster (`98.05 s` vs `124.08 s`).
+
 ---
 
 ## 4. Reference Recipes & Honest Neutral Boundaries (Plain Prompting Already Works)
 
 These cases were tested with matched plain controls (`2026-11-24` and `2026-11-25`) and are documented honestly so nobody wastes router complexity where plain prompting already wins:
+
+- **Pure music-genre clashes (`s1_victorian_trap_*`) & explicit voice-quality descriptors (`s1_android_*`):** Plain H3 already held 100% period-authentic 1885 Victorian drawing-room visuals (including `"LONDON 1885"` carved into the marble mantel) under booming 808 trap (`-14.25` vs `-14.42` dBFS, zero neon bleed), and already rendered clean natural human voices on chrome androids (`147.55` vs `149.50 Hz`). Plain H3 leaks visuals mainly on **location-bearing** soundscapes (`Zen tea pavilion`, `1970s TV studio`, `cathedral`), not pure music genres.
 
 - **Period-piece `JA -> EN` reverse dub (`t2va_samurai_bamboo_duel`) & heavily anchored `EN -> ES` (`t2va_delta_blues_porch`):** Plain prompting already kept both Japanese samurai actors + `"関ヶ原街道"` vertical kanji (`28.40` vs `25.23` MAE) and the Deep South porch + resonator guitar + `"CLARKSVILLE 5 MILES"` sign (`35.27` vs `31.95` MAE).
 - **Tight single-headshot `ref2va` (`t2i_29`), sealed-mouth voiceover, & full-prompt `ref2va` motion-transfer restyle:** When `<Picture 1>` fills the frame or the visual prose already nails the target style/closed lips, plain prompting matches `1x` routing directly.
