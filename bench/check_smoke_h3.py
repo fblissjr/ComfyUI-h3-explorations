@@ -44,7 +44,7 @@ def needles_in_their_code() -> str:
     for file, literal in sm.DECLINED_SOURCES:
         assert literal in (REPO / file).read_text(encoding="utf-8"), f"Sol's decline line: {file} no longer holds {literal!r}"
     gone = "chaining onto an existing attention override"
-    assert not any(gone in (REPO / f).read_text(encoding="utf-8") for f in ("sol_attn_h3.py", "attention.py", "nodes.py")), \
+    assert not any(gone in (REPO / f).read_text(encoding="utf-8") for f in ("sol_attn_h3.py", "attention.py", "nodes.py", "sage_attention.py")), \
         "the old order line is printed again: the smoke could read it"
     return "; ".join(said) + "; Sol's decline from its two literals"
 

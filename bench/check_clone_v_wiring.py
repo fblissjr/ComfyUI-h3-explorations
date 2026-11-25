@@ -67,7 +67,7 @@ needs("a CUDA device (sage resolves the device arch at import); run it "
 bootstrap(cpu=False, front=False)   # the ComfyUI root, which used to come from PYTHONPATH
 
 attn_mod = importlib.import_module(f"{_REPO.name}.attention")
-node_mod = importlib.import_module(f"{_REPO.name}.nodes")
+node_mod = importlib.import_module(f"{_REPO.name}.sage_attention")
 
 MODES = attn_mod.MODES
 build_kernel = attn_mod.build_kernel

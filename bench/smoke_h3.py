@@ -128,7 +128,7 @@ from reference_order import VIDEO_SOURCE_CLASSES  # noqa: E402
 # and is read from it (`graph_order`); the chaining itself is held by
 # bench/check_sol_node_equivalence.py (a call Sol declines runs on `previous`).
 WANT = [
-    ("sage engaged", "MiniMax H3 self-attention on sage", "sage", ("nodes.py", '"[h3] MiniMax H3 self-attention on sage')),
+    ("sage engaged", "MiniMax H3 self-attention on sage", "sage", ("sage_attention.py", '"[h3] MiniMax H3 self-attention on sage')),
     ("sparse ran  ", "] sparse (", "sol", ("sol_attn_h3.py", 'f"sparse {tuple(qs.shape)}')),
 ]
 # Sol's own line when it declines a call for its length, and the two literals that print it: at a length under its

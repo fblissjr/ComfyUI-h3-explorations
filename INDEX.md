@@ -113,7 +113,7 @@ with none is a helper the others import.
 | [`keyframe_canvas.py`](keyframe_canvas.py) |  | Resolve an H3 canvas from a keyframe, the way the reference pipeline does. |
 | [`lora_branch.py`](lora_branch.py) | `MiniMaxH3LoRABranch` | Apply an H3 LoRA as a separate low-rank branch, so none of it is lost to the int8 grid. |
 | [`marker_arms.py`](marker_arms.py) |  | Bench-only marker-corpus arms: bind one to a CLIP, and read back what bound. |
-| [`nodes.py`](nodes.py) | `MiniMaxH3SageAttention` | MiniMax H3 SageAttention node. |
+| [`nodes.py`](nodes.py) |  | ComfyUI node registry for ComfyUI-h3-explorations (`H3ExplorationsExtension`). |
 | [`overlay_loader.py`](overlay_loader.py) | `MiniMaxH3OverlayLoader` | Load a research checkpoint as an overlay on the released one, a piece at a time. |
 | [`part_coverage.py`](part_coverage.py) |  | How much of a tracked subject a part mask covers, frame by frame, and which frames to doubt. |
 | [`ph3_image_nodes.py`](ph3_image_nodes.py) | `MiniMaxH3PH3ImageConditioning`, `MiniMaxH3PH3ImagePromptUpsampler` | MiniMax H3 p-h3-image conditioning and prompt upsampler nodes (`MiniMaxH3PH3ImageConditioning`, `MiniMaxH3PH3ImagePromptUpsampler`). |
@@ -123,6 +123,7 @@ with none is a helper the others import.
 | [`prompt_lists.py`](prompt_lists.py) | `MiniMaxH3PromptList`, `MiniMaxH3FillPromptLists` | Prompt lists: fill `__name__` placeholders, one value per use, no repeat before a list is used up. |
 | [`provenance.py`](provenance.py) | `MiniMaxH3ProvenanceStamp` | Bench-only: stamp what a render's settings actually RESOLVED to. |
 | [`resolution.py`](resolution.py) | `MiniMaxH3Resolution` | Pick a MiniMax H3 resolution by shape, and see what it costs before you render. |
+| [`sage_attention.py`](sage_attention.py) | `MiniMaxH3SageAttention` | MiniMax H3 SageAttention node. |
 | [`sam31_corrections.py`](sam31_corrections.py) | `MiniMaxH3SAM31Corrections` | Corrections for ComfyUI's departures from Meta's SAM 3.1 code, attached as ComfyUI object patches. |
 | [`sam3d_body_vith.py`](sam3d_body_vith.py) | `MiniMaxH3SAM3DBodyViTHLoader` | SAM 3D Body's ViT-H release behind core's heads, predictor and renderers. |
 | [`sapiens2_parts.py`](sapiens2_parts.py) | `MiniMaxH3Sapiens2Loader`, `MiniMaxH3SubjectParts` | Body parts and a soft matte on one tracked person, from Sapiens2. |

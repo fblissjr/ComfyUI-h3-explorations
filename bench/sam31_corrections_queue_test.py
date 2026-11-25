@@ -85,12 +85,12 @@ def cmd_build(a):
     (copy / "sam31_probe_node.py").write_text((REPO / "bench" / "sam31_probe_node.py").read_text())   # the working tree's: it may not be committed yet
     nodes = (copy / "nodes.py").read_text()
     imports = "from .sam31_corrections import MiniMaxH3SAM31Corrections\n"
-    listed = "                MiniMaxH3SAM31Corrections,\n"   # an entry in the node list, wherever it now sits
+    listed = "            MiniMaxH3SAM31Corrections,"   # an entry in the node list, wherever it now sits
     if nodes.count(imports) != 1 or nodes.count(listed) != 1:
         raise SystemExit("nodes.py no longer has the two lines this edit hangs on (the Corrections node's import, and its "
                          "entry in the node list); read it and update `cmd_build`")
     nodes = nodes.replace(imports, imports + "from .sam31_probe_node import H3TestSAM31FirstLayer             # SCRATCH COPY ONLY\n")
-    nodes = nodes.replace(listed, listed + "                H3TestSAM31FirstLayer,   # SCRATCH COPY ONLY\n")
+    nodes = nodes.replace(listed, "            H3TestSAM31FirstLayer,   # SCRATCH COPY ONLY\n" + listed)
     (copy / "nodes.py").write_text(nodes)
     print(f"built {base}\n  this pack copied at {head}, with the probe registered in the copy only\n"
           f"  start it:  {COMFY / 'start.sh'} --port <port> --base-directory {base}")
