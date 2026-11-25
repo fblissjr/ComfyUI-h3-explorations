@@ -11,11 +11,11 @@ this file is only a way to find a script by what it says it does.
 | [`check_*`](#check) | 181 |
 | [`measure_*`](#measure) | 38 |
 | [`analyze_*`](#analyze) | 17 |
-| [`grade_*`](#grade) | 19 |
-| [`compare_*`](#compare) | 15 |
+| [`grade_*`](#grade) | 16 |
+| [`compare_*`](#compare) | 14 |
 | [`build_*`](#build) | 12 |
-| [`probe_*`](#probe) | 20 |
-| [the rest](#the-rest) | 210 |
+| [`probe_*`](#probe) | 18 |
+| [the rest](#the-rest) | 208 |
 
 ## check
 
@@ -275,9 +275,7 @@ this file is only a way to find a script by what it says it does.
 | [`grade_arm_audio_spectrum.py`](grade_arm_audio_spectrum.py) | Does one render arm's audio differ in timbre from another's, or is that the seed? |
 | [`grade_channel_balance.py`](grade_channel_balance.py) | Does per-channel q/k balancing lower Sol's INT8 term on a captured cell? |
 | [`grade_ck_int8_on_capture.py`](grade_ck_int8_on_capture.py) | Kitchen's own int8_attention (the --use-ck-attention path) on the block-49 capture: plain vs the weights fold. |
-| [`grade_dense_kernels_bias.py`](grade_dense_kernels_bias.py) | Bias vs noise: per kernel, the norm of the MEAN error vector over rows against the norm of the mean output, per head. |
 | [`grade_dense_kernels_on_captures.py`](grade_dense_kernels_on_captures.py) | The three dense-step kernels on every captured cell: error against fp32 attention, per block and step. |
-| [`grade_dense_kernels_per_row.py`](grade_dense_kernels_per_row.py) | Per-row error of the dense-step kernels on a capture, split by segment and by attention breadth. |
 | [`grade_h3_marker_tokens.py`](grade_h3_marker_tokens.py) | Does routing `<d>` to its real token id change what the encoder produces? |
 | [`grade_prompt_text.py`](grade_prompt_text.py) | Grade a candidate prompt TEXT, for a chosen mode, without building a graph. |
 | [`grade_pruning_sensitivity.py`](grade_pruning_sensitivity.py) | Grade `docs/wiki/ops/open_experiments.md` #22: does the AdaLN pruning move the output? |
@@ -288,7 +286,6 @@ this file is only a way to find a script by what it says it does.
 | [`grade_sol_route_on_capture.py`](grade_sol_route_on_capture.py) | Grade Sol's ROUTE, not its output: how far the INT8 kernel's routed-block count per query block sits from the fp32 route, plain vs qk_balance vs rotate. |
 | [`grade_sol_token_aug_x_options.py`](grade_sol_token_aug_x_options.py) | Token routing (token_aug=64) on top of plain / balanced / rotated / both, on a capture: total error vs fp32 dense attention. |
 | [`grade_soundtrack_reuse.py`](grade_soundtrack_reuse.py) | How closely does a `fully_copy` render reproduce its reference soundtrack? |
-| [`grade_subtitle_timing.py`](grade_subtitle_timing.py) | Measure burned-in subtitle spans and vocal-burst structure in a rendered clip. |
 | [`grade_vae_encoder_precision.py`](grade_vae_encoder_precision.py) | What does promoting the H3 video VAE's encoder to fp32 actually change? |
 | [`grade_video_block_presentation.py`](grade_video_block_presentation.py) | Is ComfyUI's per-pair vision call equivalent to the vendor's one-clip call? |
 
@@ -305,7 +302,6 @@ this file is only a way to find a script by what it says it does.
 | [`compare_lora_files.py`](compare_lora_files.py) | Compare H3 LoRA safetensors across naming conventions, by bytes. |
 | [`compare_sam3d_body_core_against_meta.py`](compare_sam3d_body_core_against_meta.py) | ComfyUI core's SAM 3D Body predict against Meta's own inference code, on the same image, boxes and camera. |
 | [`compare_sam3d_body_releases.py`](compare_sam3d_body_releases.py) | SAM 3D Body's two releases on one frame: core's predict and render through the DINOv3 file and the ViT-H file. |
-| [`compare_sol_probe_records.py`](compare_sol_probe_records.py) | Set two Sol probe records side by side, block by block. |
 | [`compare_sol_records.py`](compare_sol_records.py) | Compare two renders' Sol counts, call for call: the cache-state control. |
 | [`compare_token_aug_wheels.py`](compare_token_aug_wheels.py) | Does the `token_aug` nondeterminism belong to upstream's kernel or to ours? |
 | [`compare_vae_decoders.py`](compare_vae_decoders.py) | Decode one saved latent with several video VAE files: time, peak VRAM, pixels. |
@@ -334,14 +330,12 @@ this file is only a way to find a script by what it says it does.
 | script | what it says it does |
 |---|---|
 | [`probe_anchor_transfer.py`](probe_anchor_transfer.py) | Live 1-clip Pika probes for block-scoped AudioAttentionGain and perturbed Frame-0 anchor transfer. |
-| [`probe_audio_marker_effect.py`](probe_audio_marker_effect.py) | Does an audio reference degrade what the H3 encoder produces? |
 | [`probe_block_propagation.py`](probe_block_propagation.py) | Does Sol's error at ONE block reach the output? Measured, one block at a time. |
 | [`probe_bucket2_seam_and_gain.py`](probe_bucket2_seam_and_gain.py) | Live `:8188` Bucket 2 probe: AudioAttentionGain guard/scoping & Song seam_taper A/B. |
 | [`probe_bucket3_section_anchor.py`](probe_bucket3_section_anchor.py) | Bucket 3 probe: Timeline-scoped Frame-0 `section_anchor` + `anchor_end_percent=0.33` release. |
 | [`probe_bucket4_lse_balance.py`](probe_bucket4_lse_balance.py) | Bucket 4 probe: Mass-conserving `return_lse=True` subset balance + `section_anchor` `0.33` release. |
 | [`probe_dinov3_copy_freeze.py`](probe_dinov3_copy_freeze.py) | M1 (`docs/wiki/next_steps.md`): CPU-safe DINOv3 `<Picture 1>` copy & temporal pose-freeze triage probe. |
 | [`probe_encoder_rope_kitchen.py`](probe_encoder_rope_kitchen.py) | Did core's move of the text encoder's RoPE onto comfy-kitchen change its numbers? |
-| [`probe_grade_row_selection.py`](probe_grade_row_selection.py) | Does the video-and-audio row selector in `grade_dense_kernels_on_captures.py` select and grade the right rows? |
 | [`probe_h3_image_vae_tiles.py`](probe_h3_image_vae_tiles.py) | How the MiniMax-H3-Image VAE's 256 px decode tiles shape its pictures, measured on real pictures with no DiT. |
 | [`probe_int8_lora_requant.py`](probe_int8_lora_requant.py) | How much of a LoRA survives being baked into the int8 convrot checkpoint. |
 | [`probe_kitchen_sol_build_parity.py`](probe_kitchen_sol_build_parity.py) | Hash `sol_attn` and `sol_attn_chunked` outputs over a grid of options, so two comfy-kitchen builds can be diffed line by line. |
@@ -385,7 +379,6 @@ this file is only a way to find a script by what it says it does.
 | [`clip_signals.py`](clip_signals.py) | Signals of a clip's own sound, a row a source frame, for whoever sets a window's first and last frame: phrases, a beat grid, the sound's offset to the picture. |
 | [`compile_marker_corpus.py`](compile_marker_corpus.py) | CLOSED RECORD since 2026-09-18. This compiler stamps every shot after the first with a cut time, and its compiled corpus is pinned by hash (August 2026 marker grading). Kept byte for byte because dated records were produced by it; do not ... |
 | [`contact_sheets.py`](contact_sheets.py) | Contact sheets of an input video's own frames, made once and kept: one folder a video, one file a frame range. |
-| [`control_blk_cnt_public_api.py`](control_blk_cnt_public_api.py) | One positive and one negative control on `blk_cnt`, through the PUBLIC API. |
 | [`control_time_warp.py`](control_time_warp.py) | Can `bench/analyze_time_warp.py` see a warp at all? A control for its "not a time warp" claim. |
 | [`control_vector_lexicon.py`](control_vector_lexicon.py) | Label each built control vector two ways and print them side by side: by J-Lens, and by a word table made from cached rows. |
 | [`control_vector_pooling.py`](control_vector_pooling.py) | Compare ways of pooling a pair's rows into a direction, from the row cache, with no encoding. |
@@ -466,7 +459,6 @@ this file is only a way to find a script by what it says it does.
 | [`piece_gaps.py`](piece_gaps.py) | The frames no generated piece covers, sorted and loud; then the frames a piece covers and leaves as the original; then a subject in a shot with no piece of their own. |
 | [`pose_along_shot.py`](pose_along_shot.py) | Run the pose model on every frame of a shot and keep its points: what the eye marks and the reader are made from. |
 | [`preflight_graph.py`](preflight_graph.py) | Grade a graph's prompt and price its sequence, BEFORE you press Queue. |
-| [`prepare_encoder_ab_compare.py`](prepare_encoder_ab_compare.py) | Stage two generated clips and build the requested side-by-side API graph. |
 | [`prepare_hf_first_frame_encoder_arms.py`](prepare_hf_first_frame_encoder_arms.py) | Prepare controlled I2VA/FL2VA encoder arms from the shipped HF workflow. |
 | [`price_head_arms.py`](price_head_arms.py) | Is per-head granularity worth anything, priced against just moving the global tau? |
 | [`price_reference_settings.py`](price_reference_settings.py) | Price a list of reference stills under a list of append-node settings. |
