@@ -2,7 +2,7 @@
 """Score the Sol dense_blocks panel: each arm's saved latents against the
 all-dense arm at the same scene and seed, with each arm's sampler time.
 
-Written 2026-10-02 for `bench/sol_dense_blocks_panel_arms.json` (the design and
+Written 2026-10-02 for `bench/arms/sol_dense_blocks_panel_arms.json` (the design and
 the reason are in its `what` and `why`). Arm labels are `dbp_<scene>__<arm>`;
 the arm named `dense` (`dense_blocks=0-49`) is the reference, because it is what
 Sol approximates on this graph: every block on the kitchen INT8 fallback.

@@ -22,7 +22,7 @@ Two columns per still. The video model's copy (`size_policy`, `dit_short_edge`,
 The text encoder's copy (`qwen_view`, `qwen_short_edge`) becomes vision tokens
 in the text segment ahead of the prompt. Under `shared` they are one copy.
 
-The settings swept are the arms of `bench/refview2_arms.json`, plus `match`,
+The settings swept are the arms of `bench/arms/refview2_arms.json`, plus `match`,
 so the record and the ablation read against each other.
 """
 
@@ -55,7 +55,7 @@ loader = importlib.import_module(f"{REPO.name}.h3_encoder_loader")
 sys.path.insert(0, str(REPO / "bench"))
 from h3_producer_provenance import producer_provenance  # noqa: E402
 
-#: The arms of `bench/refview2_arms.json`, plus `match`, in one table. The
+#: The arms of `bench/arms/refview2_arms.json`, plus `match`, in one table. The
 #: node defaults (vendor parity) are the first row.
 SETTINGS = {
     "parity":      dict(size_policy="max", short_edge=2048, allow_upscale=True,  qwen_short_edge=0),

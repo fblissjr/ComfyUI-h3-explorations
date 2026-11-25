@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Run the marker arms (bench/marker_arms.json) end to end, up to the point that
+# Run the marker arms (bench/arms/marker_arms.json) end to end, up to the point that
 # needs a person: render with run_graph_arms.py, blind with blind_batch.py, then
 # print the two steps that are the owner's -- scoring in score.html and joining
 # the export with the sealed key through score_session.py.
@@ -48,7 +48,7 @@ case "$queue" in
 esac
 
 # 2. Render: the arms alternating, seed + run index per run, one discarded warmup first.
-run "$PY" bench/run_graph_arms.py --manifest bench/marker_arms.json \
+run "$PY" bench/run_graph_arms.py --manifest bench/arms/marker_arms.json \
     --runs "$RUNS" --seed "$SEED" --warmup st_prose --out "$OUT"
 
 # 3. Blind: neutral clips, a sealed key under internal/blind_keys/, score.html

@@ -189,7 +189,7 @@ FLOOR_STEMS = {
         ("sage", "the scored ceiling arm of the sage chain, kept as it rendered"),
     # Sol over ComfyUI's own attention.
     "h3_probe_t2v_sol_nosage":
-        ("stock", "the just-Sol arm of 2026-09-04 (bench/sol_nosage_arms.json): "
+        ("stock", "the just-Sol arm of 2026-09-04 (bench/arms/sol_nosage_arms.json): "
                   "Sol over stock attention, which is not the kitchen chain"),
     "h3_candidate_t2v_sol_only":
         ("stock", "the just-Sol candidate blinded as sol_nosage_2026-09-04: "

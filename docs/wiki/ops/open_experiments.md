@@ -1824,7 +1824,7 @@ line; the sister engine writes the guides' spellings, `<cutoff>` after a space,
 and splits the words across the cut with the tag in both parts. Neither side
 has rendered either, and neither side's gate can see the difference.
 
-**The arms**, all in [`bench/marker_arms.json`](../../../bench/marker_arms.json),
+**The arms**, all in [`bench/arms/marker_arms.json`](../../../bench/arms/marker_arms.json),
 eight patches of one shipped t2va graph, prompt and length only, base texts
 from `prompt_bank/`: three split-line forms (ours in prose; the sister form;
 tag-only with the words unsplit, and split words with no tag, which together

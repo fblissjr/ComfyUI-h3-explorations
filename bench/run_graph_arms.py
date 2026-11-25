@@ -170,7 +170,7 @@ def main() -> int:
                     help="a JSON arm set: {\"arms\": {LABEL: repo-relative "
                          "graph path}, \"patches\": [LABEL:NODE.FIELD=VALUE, "
                          "...]} -- appended after any --arm/--set given here. "
-                         "`bench/refview2_arms.json` is one")
+                         "`bench/arms/refview2_arms.json` is one")
     ap.add_argument("--set", action="append", default=[], dest="patches",
                     metavar="LABEL:NODE.FIELD=VALUE",
                     help="widget patch for one arm; NODE is an id or a "
