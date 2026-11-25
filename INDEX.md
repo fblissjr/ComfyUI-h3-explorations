@@ -160,23 +160,23 @@ with none is a helper the others import.
 |---|---|---|
 | `.claude/` | 1 | [below](#claude) |
 | `.gemini/` | 8 | [below](#gemini) |
-| `archive/` | 31 | (none) |
+| `archive/` | 29 | [below](#archive) |
 | `assets/` | 1 | [below](#assets) |
-| `bench/` | 910 | [`bench/INDEX.md`](bench/INDEX.md) and [`bench/results/INDEX.md`](bench/results/INDEX.md) for the records |
+| `bench/` | 909 | [`bench/INDEX.md`](bench/INDEX.md) and [`bench/results/INDEX.md`](bench/results/INDEX.md) for the records |
 | `changelog.d/` | | [`changelog.d/README.md`](changelog.d/README.md), one file per changelog entry; not listed and not counted |
-| `contact_sheets/` | 2 | [below](#contact_sheets) |
-| `data/` | 2 | [below](#data) |
+| `contact_sheets/` | 1 | [below](#contact_sheets) |
+| `data/` | 1 | [below](#data) |
 | `director/` | 23 | [below](#director) |
-| `docs/` | 380 | [`docs/wiki/index.md`](docs/wiki/index.md), the hand-written router |
-| `prompt_bank/` | 250 | [`docs/wiki/prompting/prompt_bank.md`](docs/wiki/prompting/prompt_bank.md), the prompt catalogue |
+| `docs/` | 377 | [`docs/wiki/index.md`](docs/wiki/index.md), the hand-written router |
+| `prompt_bank/` | 248 | [`docs/wiki/prompting/prompt_bank.md`](docs/wiki/prompting/prompt_bank.md), the prompt catalogue |
 | `sparse_tables/` | 1 | [below](#sparse_tables) |
-| `standalone/` | 6 | [below](#standalone) |
+| `standalone/` | 4 | [below](#standalone) |
 | `steering/` | 12 | [below](#steering) |
-| `vendor/` | 11 | [below](#vendor) |
-| `vendor_config/` | 10 | [below](#vendor_config) |
-| `vendor_guides/` | 21 | [below](#vendor_guides) |
+| `vendor/` | 9 | [below](#vendor) |
+| `vendor_config/` | 8 | [below](#vendor_config) |
+| `vendor_guides/` | 19 | [below](#vendor_guides) |
 | `web/` | 3 | [below](#web) |
-| `workflows/` | 147 | [`workflows/INDEX.md`](workflows/INDEX.md) |
+| `workflows/` | 145 | [`workflows/INDEX.md`](workflows/INDEX.md) |
 
 ## .claude/
 
@@ -197,6 +197,40 @@ with none is a helper the others import.
 | [`skills/video-understanding/references/video_static_and_slicing.md`](.gemini/skills/video-understanding/references/video_static_and_slicing.md) | Path 2A: Static Video Processing, Frame-Span Slicing, and File Input Methods |
 | [`skills/video-understanding/scripts/gemini_media.py`](.gemini/skills/video-understanding/scripts/gemini_media.py) | Deterministic CLI helper for `.gemini/skills/video-understanding/`. |
 
+## archive/
+
+| file | what it says |
+|---|---|
+| [`bench/bench_image_edit_refs.py`](archive/bench/bench_image_edit_refs.py) | What a single-frame edit can hold: reference count, sizing, and canvas. |
+| [`bench/check_single_frame.py`](archive/bench/check_single_frame.py) | Check the single-frame shim changes `length=1` and provably nothing else. |
+| [`bench/check_sol_chunked.py`](archive/bench/check_sol_chunked.py) | ARCHIVED 2026-11-13: Retired check for archived `MiniMaxH3SolChunked`. Grade the chunked-producer forward before it is given a render. |
+| [`bench/sam3_parity_ladder.py`](archive/bench/sam3_parity_ladder.py) | Its question (is core's SAM 3.1 the model Meta released) was answered on 2026-10-07 (`bench/results/2026-10-07_sam3_core_against_meta.md`); the copy it compared against was removed 2026-10-17 (r17_05); upstream is in `coderef/sam3`. |
+| [`frozen_cache_masked/README.md`](archive/frozen_cache_masked/README.md) | The frozen-row cache's masked-window use, retired 2026-10-06, restored 2026-10-07 |
+| [`frozen_cache_masked/check_frozen_video_cache.py`](archive/frozen_cache_masked/check_frozen_video_cache.py) | `MiniMaxH3FrozenVideoCache` on a tiny H3 model: which path each call takes, and what it computes. |
+| [`frozen_cache_masked/dense_options_fix_2026-10-07.diff`](archive/frozen_cache_masked/dense_options_fix_2026-10-07.diff) | 477a478,501 |
+| [`frozen_cache_masked/frozen_video_cache.py`](archive/frozen_cache_masked/frozen_video_cache.py) | Cache the frozen rows of an H3 sampling run, so its steps run on the live rows only. |
+| [`frozen_cache_masked/h3_probe_v2v_masked_song_ref2va_motion_cache_api.json`](archive/frozen_cache_masked/h3_probe_v2v_masked_song_ref2va_motion_cache_api.json) | 20 nodes; checkpoint `minimax_h3_ref2va_pruned_int8_convrot.safetensors`; pack nodes AppendRefImage, AudioFreezeSong, EncoderLoader, FrozenVideoCache, MaskedPrompt, MaskedSource, Resolution, SigmaShift, Sol, SubjectTrack |
+| [`single_frame.py`](archive/single_frame.py) | TEMPORARY. Lifts ComfyUI's 5-frame floor on the stock H3 nodes, in memory. |
+| [`sol_chunked_h3.py`](archive/sol_chunked_h3.py) | ARCHIVED 2026-11-13: Retired `MiniMaxH3SolChunked` (no shipped graph ever wired it; lacked `quantizer`/`rotate`, `token_routing`, `tau_table`, and `rows`). Sol-Attn's chunked producer as H3's attention forward: Q, K, V never built. |
+| [`workflows/image/h3_image_composite.json`](archive/workflows/image/h3_image_composite.json) | ComfyUI editor graph, 26 nodes |
+| [`workflows/image/h3_image_composite_api.json`](archive/workflows/image/h3_image_composite_api.json) | 21 nodes; checkpoint `minimax_h3_ref2va_pruned_int8_convrot.safetensors`; pack nodes AWQEncoderLoader, AppendRefImage, Preflight, ReferenceConditioning, Resolution, SageAttention, SigmaShift |
+| [`workflows/image/h3_image_edit.json`](archive/workflows/image/h3_image_edit.json) | ComfyUI editor graph, 24 nodes |
+| [`workflows/image/h3_image_edit_api.json`](archive/workflows/image/h3_image_edit_api.json) | 19 nodes; checkpoint `minimax_h3_ref2va_pruned_int8_convrot.safetensors`; pack nodes AWQEncoderLoader, AppendRefImage, Preflight, ReferenceConditioning, Resolution, SageAttention, SigmaShift |
+| [`workflows/image/h3_image_multiperson.json`](archive/workflows/image/h3_image_multiperson.json) | ComfyUI editor graph, 28 nodes |
+| [`workflows/image/h3_image_multiperson_api.json`](archive/workflows/image/h3_image_multiperson_api.json) | 23 nodes; checkpoint `minimax_h3_ref2va_pruned_int8_convrot.safetensors`; pack nodes AWQEncoderLoader, AppendRefImage, Preflight, ReferenceConditioning, Resolution, SageAttention, SigmaShift |
+| [`workflows/image/h3_image_probe_format_av.json`](archive/workflows/image/h3_image_probe_format_av.json) | ComfyUI editor graph, 26 nodes |
+| [`workflows/image/h3_image_probe_format_av_api.json`](archive/workflows/image/h3_image_probe_format_av_api.json) | 21 nodes; checkpoint `minimax_h3_ref2va_pruned_int8_convrot.safetensors`; pack nodes AWQEncoderLoader, AppendRefImage, Preflight, ReferenceConditioning, Resolution, SageAttention, SigmaShift |
+| [`workflows/image/h3_image_probe_format_flat.json`](archive/workflows/image/h3_image_probe_format_flat.json) | ComfyUI editor graph, 26 nodes |
+| [`workflows/image/h3_image_probe_format_flat_api.json`](archive/workflows/image/h3_image_probe_format_flat_api.json) | 21 nodes; checkpoint `minimax_h3_ref2va_pruned_int8_convrot.safetensors`; pack nodes AWQEncoderLoader, AppendRefImage, Preflight, ReferenceConditioning, Resolution, SageAttention, SigmaShift |
+| [`workflows/image/h3_image_recolor.json`](archive/workflows/image/h3_image_recolor.json) | ComfyUI editor graph, 24 nodes |
+| [`workflows/image/h3_image_recolor_api.json`](archive/workflows/image/h3_image_recolor_api.json) | 19 nodes; checkpoint `minimax_h3_ref2va_pruned_int8_convrot.safetensors`; pack nodes AWQEncoderLoader, AppendRefImage, Preflight, ReferenceConditioning, Resolution, SageAttention, SigmaShift |
+| [`workflows/image/h3_image_sheet.json`](archive/workflows/image/h3_image_sheet.json) | ComfyUI editor graph, 24 nodes |
+| [`workflows/image/h3_image_sheet_api.json`](archive/workflows/image/h3_image_sheet_api.json) | 19 nodes; checkpoint `minimax_h3_ref2va_pruned_int8_convrot.safetensors`; pack nodes AWQEncoderLoader, AppendRefImage, Preflight, ReferenceConditioning, Resolution, SageAttention, SigmaShift |
+| [`workflows/image/h3_image_style.json`](archive/workflows/image/h3_image_style.json) | ComfyUI editor graph, 26 nodes |
+| [`workflows/image/h3_image_style_api.json`](archive/workflows/image/h3_image_style_api.json) | 21 nodes; checkpoint `minimax_h3_ref2va_pruned_int8_convrot.safetensors`; pack nodes AWQEncoderLoader, AppendRefImage, Preflight, ReferenceConditioning, Resolution, SageAttention, SigmaShift |
+| [`workflows/image/h3_image_swap.json`](archive/workflows/image/h3_image_swap.json) | ComfyUI editor graph, 28 nodes |
+| [`workflows/image/h3_image_swap_api.json`](archive/workflows/image/h3_image_swap_api.json) | 23 nodes; checkpoint `minimax_h3_ref2va_pruned_int8_convrot.safetensors`; pack nodes AWQEncoderLoader, AppendRefImage, Preflight, ReferenceConditioning, Resolution, SageAttention, SigmaShift |
+
 ## assets/
 
 | file | what it says |
@@ -208,14 +242,12 @@ with none is a helper the others import.
 | file | what it says |
 |---|---|
 | [`AGENTS.md`](contact_sheets/AGENTS.md) | contact_sheets: what is on a frame of an input video, already made |
-| [`CLAUDE.md`](contact_sheets/CLAUDE.md) | @AGENTS.md |
 
 ## data/
 
 | file | what it says |
 |---|---|
 | [`AGENTS.md`](data/AGENTS.md) | data/: the masked video-to-video lane and the projects in it |
-| [`CLAUDE.md`](data/CLAUDE.md) | @AGENTS.md |
 
 ## director/
 
@@ -255,8 +287,6 @@ with none is a helper the others import.
 
 | file | what it says |
 |---|---|
-| [`AGENTS.md`](standalone/AGENTS.md) | standalone/: packages released on their own |
-| [`CLAUDE.md`](standalone/CLAUDE.md) | @AGENTS.md |
 | [`h3_quant/README.md`](standalone/h3_quant/README.md) | ComfyUI-H3-Quant |
 | [`h3_quant/__init__.py`](standalone/h3_quant/__init__.py) | ComfyUI custom node: MiniMax H3 channel balance for INT8 attention. Off by default. |
 | [`h3_quant/channel_balance.py`](standalone/h3_quant/channel_balance.py) | Rebalance q/k channels before INT8 attention on the blocks whose K-norm is lopsided. |
@@ -283,8 +313,6 @@ with none is a helper the others import.
 
 | file | what it says |
 |---|---|
-| [`AGENTS.md`](vendor/AGENTS.md) | vendor/: third-party files the pack carries |
-| [`CLAUDE.md`](vendor/CLAUDE.md) | @AGENTS.md |
 | [`README.md`](vendor/README.md) | vendor/: third-party code and text under their own licences |
 | [`meta_moge2/LICENSE`](vendor/meta_moge2/LICENSE) | FAIR Noncommercial Research License |
 | [`meta_moge2/README.md`](vendor/meta_moge2/README.md) | vendor/meta_moge2: HyDen MoGe-2 metric-point loader and geometry |
@@ -299,8 +327,6 @@ with none is a helper the others import.
 
 | file | what it says |
 |---|---|
-| [`AGENTS.md`](vendor_config/AGENTS.md) | vendor_config/: the release's own config files, verbatim |
-| [`CLAUDE.md`](vendor_config/CLAUDE.md) | @AGENTS.md |
 | [`fl2va_model_index.json`](vendor_config/fl2va_model_index.json) | (JSON, an object; it carries no description) |
 | [`fl2va_transformer_config.json`](vendor_config/fl2va_transformer_config.json) | (JSON, an object; it carries no description) |
 | [`preprocessor_config.json`](vendor_config/preprocessor_config.json) | (JSON, an object; it carries no description) |
@@ -314,8 +340,6 @@ with none is a helper the others import.
 
 | file | what it says |
 |---|---|
-| [`AGENTS.md`](vendor_guides/AGENTS.md) | vendor_guides/: MiniMax's prompt-writing guides, verbatim |
-| [`CLAUDE.md`](vendor_guides/CLAUDE.md) | @AGENTS.md |
 | [`README.md`](vendor_guides/README.md) | The vendor's two prompt-writing guides, verbatim |
 | [`base_en.md`](vendor_guides/base_en.md) | Video Prompt Writing Guide (T2VA / I2VA / FL2VA / L2VA) |
 | [`h3_image/LICENSE`](vendor_guides/h3_image/LICENSE) | MiniMax-H3-Image COMMUNITY LICENSE AGREEMENT |

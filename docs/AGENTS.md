@@ -7,4 +7,4 @@ Loaded when a session opens a file here; root [`../AGENTS.md`](../AGENTS.md) sti
 - **[`wiki/projects/`](wiki/projects/index.md)** holds structured multi-format project atlases (`index.md`, `ledger.json`, `report.html`) built for both human reading and machine/agent querying.
 - **[`wiki/research/`](wiki/research/INDEX.md)** holds dated studies, campaign logs, and postmortems (what was observed on a date, not current rules).
 - **[`wiki/archive/`](wiki/archive/INDEX.md)** holds frozen/superseded notes left unmodified for provenance.
-- **[`wiki/ops/checks.md`](wiki/ops/checks.md)** defines the check standard and inventory; [`wiki/working_with_the_owner.md`](wiki/working_with_the_owner.md) governs style and path privacy (plain American English, repo-relative paths and `$H3_*` env vars only; never owner/mount paths or quotes of passing remarks).
+- **[`wiki/ops/checks.md`](wiki/ops/checks.md)** defines the check standard and inventory; root [`../AGENTS.md`](../AGENTS.md) governs collaboration style (plain American English, repo-relative paths and `$H3_*` env vars only; never literal host/mount paths or personal names).

@@ -215,7 +215,7 @@ def iter_corpus(argv):
             continue
         if rel.parts[0] == ".gemini" and rel.parts[1:2] != ("skills",):
             continue
-        if rel.parts[0] == "data" and rel.parts not in (("data", "AGENTS.md"), ("data", "CLAUDE.md")):
+        if rel.parts[0] == "data" and rel.parts != ("data", "AGENTS.md"):
             continue
         if rel.parts[0] == CHANGELOG_FRAGMENTS and rel.name != "README.md":
             continue

@@ -1,6 +1,6 @@
 # H3 LLM Wiki (`docs/wiki/`)
 
-Master router for `ComfyUI-h3-explorations`. Root [`../../AGENTS.md`](../../AGENTS.md) holds the operative rules, pre-render H3 invariants, and the 68-node pack replacement map. Where any wiki page disagrees with the code on disk, the code wins — fix the page and record the correction in [`decisions.md`](decisions.md).
+Master router for `ComfyUI-h3-explorations`. Root [`../../AGENTS.md`](../../AGENTS.md) holds the operative rules, peer collaboration norms, and H3 clock/frame/mask cheat sheet; [`../../nodes.py`](../../nodes.py) holds the grouped pack node list. Where any wiki page disagrees with the code on disk, the code wins — fix the page and record the correction in [`decisions.md`](decisions.md).
 
 ---
 
@@ -9,7 +9,7 @@ Master router for `ComfyUI-h3-explorations`. Root [`../../AGENTS.md`](../../AGEN
 | Page | Role |
 | :--- | :--- |
 | [`README.md`](README.md) | **Top Research Efforts & What Works Right Now**: Plain-language highlight reel of proven wins vs. plain prompting, honest limits, and quick links across active tracks |
-| [`../../AGENTS.md`](../../AGENTS.md) | Mandatory session rules, H3 clock/frame/mask invariants, 68-node map |
+| [`../../AGENTS.md`](../../AGENTS.md) | Mandatory session rules, peer collaboration norms, and H3 clock/frame/mask cheat sheet |
 | [`query_routing.md`](query_routing.md) | **Cross-Modal Query Routing (`2026-11-24`, Active Priority)**: Single-pass `1x` `Q_vid` / `Q_aud` / depth routing thesis, shipped state, Step 2 gates, and 10-scene matrix ([`query_routing_recipes.md`](query_routing_recipes.md)) |
 | [`h3_steering_and_architecture.md`](h3_steering_and_architecture.md) | **Canonical Master Guide (`2026-11-22`)**: One consolidated plain-English + technical guide covering Subspace Erasure math (`PCRR`, Stage 1 `ROS`/smooth knee), H3's 50-block AV brain (`blocks.20..29`, Stage 2 `1x Q_aud`), Zero-Rewrite HUD Portals, 4-tool choice, 5 falsification proofs, `4`-bus bank design, and honest boundaries (with 4 embedded SVGs) |
 | [`projects/2026-11-13_repo_audit_and_atlas/index.md`](projects/2026-11-13_repo_audit_and_atlas/index.md) | **Repo Atlas (`2026-11-13`)**: 8-track status, Top 14 unfinished/forgotten ideas, code-vs-prose ledger, Nov 10–12 renders, offline HTML + `ledger.json` |
@@ -22,7 +22,6 @@ Master router for `ComfyUI-h3-explorations`. Root [`../../AGENTS.md`](../../AGEN
 | [`stages.md`](stages.md) | Stage-by-stage code -> owner -> guard map across conditioning, sampling, attention, and decode |
 | [`known_before_a_render.md`](known_before_a_render.md) | Facts resolved in code/weights without spending card time |
 | [`runbook.md`](runbook.md) | Quick operational checklists before launching a render or server session |
-| [`working_with_the_owner.md`](working_with_the_owner.md) | Collaboration, evidence standards, and plain-English writing rules |
 | [`../../README.md`](../../README.md) & [`../README.md`](../README.md) | Repository overview & `docs/` LLM-wiki directory map |
 
 ---

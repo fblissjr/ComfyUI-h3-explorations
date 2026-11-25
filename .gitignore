@@ -7,11 +7,10 @@ internal/
 app/
 /director/studio.sh
 # data/ is untracked (the owner backs it up daily), each project's data/<video>/AGENTS.md included; only the lane's
-# rules for any video, data/AGENTS.md and its one-line CLAUDE.md, are tracked, so builders' worktrees have them (2026-10-17).
+# rules for any video, data/AGENTS.md, is tracked, so builders' worktrees have it (2026-10-17).
 /data/*
 data/spatial_director_app/
 !/data/AGENTS.md
-!/data/CLAUDE.md
 # Database files never go in git, wherever they sit (the owner, 2026-11-10). The lane's records are planned for
 # data/<video>/lane.sqlite, which /data/* already leaves out; these catch a copy or a scratch database anywhere else.
 *.sqlite
@@ -63,8 +62,6 @@ bench/results/**/*.npz
 # lands there knows what it is looking at.
 contact_sheets/*
 !contact_sheets/AGENTS.md
-# 2026-10-17: and the one-line CLAUDE.md that imports it, so Claude sessions load it too.
-!contact_sheets/CLAUDE.md
 Video/
 
 # This machine's locations (absolute paths); h3.env.example is the tracked list of keys (2026-11-14).

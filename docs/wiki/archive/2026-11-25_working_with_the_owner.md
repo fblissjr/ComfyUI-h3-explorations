@@ -1,5 +1,8 @@
 # Working with the owner
 
+> [!NOTE]
+> **Archived `2026-11-25`:** This `'fun'`-era page has been retired. Timeless peer collaboration norms now live in [`../../../AGENTS.md`](../../../AGENTS.md) ("Peer Collaboration Norms"). Keep this copy read-only for historical citations.
+
 last updated: 2026-11-14 (added repo-wide no-media-in-data/ rule and stakes-scaled prompt-reading rule; moved here on 2026-10-17 from the Claude sessions' private memory at the owner's word, so the Gemini and
 Claude sessions read the same preferences)
 
@@ -53,7 +56,7 @@ this page is corrected. Each line carries the date it was asked for; the reasons
 
 ## Judging
 
-- **Prompt reading scales with the stakes** (2026-11-14, refining 2026-10-15): a prompt that is read is read whole, as queued, never from a preview or paraphrase. How often to read before rendering depends on the stakes. A render that didn't work is debugged by reading its queued prompt in full first ([`bench/what_h3_got.py`](../../bench/what_h3_got.py)).
+- **Prompt reading scales with the stakes** (2026-11-14, refining 2026-10-15): a prompt that is read is read whole, as queued, never from a preview or paraphrase. How often to read before rendering depends on the stakes. A render that didn't work is debugged by reading its queued prompt in full first ([`bench/what_h3_got.py`](../../../bench/what_h3_got.py)).
 - **Their eye on playback accepts a piece.** A reading of stills lists what to look at, with frames, in neutral words,
   and stops: no hold on a reading of likeness, eyes or mouth (a reader's verdict on a review clip goes only in its
   card, below). A total gap, or something

@@ -13,6 +13,7 @@
 | [`config_drift.md`](config_drift.md) | Why `h3_config.py` drifts, and what would actually stop it | [`../ops/evidence.md`](../ops/evidence.md), [`../ops/checks.md`](../ops/checks.md) |
 | [`check_postmortems.md`](check_postmortems.md) | Check postmortems: what each defect taught | [`../ops/checks.md`](../ops/checks.md), [`../ops/checks/standard_and_gaps.md`](../ops/checks/standard_and_gaps.md) |
 | [`sustainability.md`](sustainability.md) | Keeping this repo worth working in | [`../../AGENTS.md`](../../AGENTS.md), [`../projects/index.md`](../projects/index.md) |
+| [`2026-11-25_working_with_the_owner.md`](2026-11-25_working_with_the_owner.md) | Early `'fun'`-era owner collaboration preferences (archived `2026-11-25`) | [`../../../AGENTS.md`](../../../AGENTS.md) |
 
 ## Historical Handovers, Queues & Plans
 

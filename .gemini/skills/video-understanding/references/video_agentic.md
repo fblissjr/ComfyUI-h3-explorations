@@ -8,7 +8,7 @@ Companion reference to [`../SKILL.md`](../SKILL.md).
 - **When Path 2B IS permitted**:
   1. Navigating a `>100 MB` or `>5–10 min` **single-canvas** master cut (`*_joined_*_from_laid.mp4`) that `read_file` cannot load (`100 MB` ceiling), or
   2. Mixing `"processing": "agentic"` on a long single-canvas master cut with `"processing": {"type": "static", "fps": 24}` on a candidate shot render in a single cross-video continuity query (`--compare-shot`).
-- **Owner media rule ([`docs/wiki/working_with_the_owner.md`](../../../../docs/wiki/working_with_the_owner.md))**: Always ask the owner and name the file before uploading project media via `gemini-api`.
+- **Local media upload rule ([`AGENTS.md`](../../../../AGENTS.md))**: Always ask first and name the file before uploading project media via `gemini-api`.
 
 ---
 

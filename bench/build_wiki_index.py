@@ -48,7 +48,6 @@ ACTIVE_ROUTERS = (
     "docs/wiki/handover.md",
     "docs/wiki/next_steps.md",
     "docs/wiki/decisions.md",
-    "docs/wiki/working_with_the_owner.md",
     "docs/wiki/masked_v2v.md",
     "docs/wiki/ops/comfy_notes.md",
     "docs/wiki/ops/checks.md",

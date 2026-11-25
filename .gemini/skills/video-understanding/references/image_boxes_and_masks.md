@@ -8,7 +8,7 @@ Companion reference to [`../SKILL.md`](../SKILL.md).
 - **When Path 3A IS permitted**:
   1. `agy` cannot produce schema-calibrated `0..1000` `box_2d` / polygon `mask` JSON natively from chat text, and
   2. You need off-card `0..1000` `box_2d` / `mask` grounding while the GPU (`:8188`) is busy—for example, to disambiguate which of multiple SAM 3.1 person detections on a frame matches a cast reference still (`<Picture 1>`), or to localize hair/crown pixels missed by SAM 3.1 / Sapiens-2B (`HAIR_IN_HOLE_CANNOT_SEE`).
-- **Owner media rule ([`docs/wiki/working_with_the_owner.md`](../../../../docs/wiki/working_with_the_owner.md))**: Always ask the owner and name the file before uploading project media via `gemini-api`.
+- **Local media upload rule ([`AGENTS.md`](../../../../AGENTS.md))**: Always ask first and name the file before uploading project media via `gemini-api`.
 
 ---
 

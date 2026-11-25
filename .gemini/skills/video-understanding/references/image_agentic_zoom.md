@@ -9,7 +9,7 @@ Companion reference to [`../SKILL.md`](../SKILL.md).
   2. If a tile is small or you need RGB/luma shifts (`B-R`, luma delta inside `parts_held`), run a local `$PY` script (`PIL`, `cv2`, `numpy`) to crop the exact tile to `/tmp/crop.png` or compute the numbers locally, then call `read_file` on `/tmp/crop.png`.
 - **When Path 3B (`gemini_media.py zoom`) IS permitted**:
   - Only when you specifically need an external model in `gemini-api` to run autonomous remote sandboxed `code_execution` (`tools: [{"type": "code_execution"}]` + `"resolution": "ultra_high"`) or when referencing the Gemini 3 / Gemini 4 per-item `media_resolution` token table below for `gemini-api` calls.
-- **Owner media rule ([`docs/wiki/working_with_the_owner.md`](../../../../docs/wiki/working_with_the_owner.md))**: Always ask the owner and name the file before uploading project media via `gemini-api`.
+- **Local media upload rule ([`AGENTS.md`](../../../../AGENTS.md))**: Always ask first and name the file before uploading project media via `gemini-api`.
 
 ---
 

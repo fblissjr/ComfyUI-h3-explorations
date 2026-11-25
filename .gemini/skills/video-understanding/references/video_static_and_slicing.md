@@ -8,7 +8,7 @@ Companion reference to [`../SKILL.md`](../SKILL.md).
 - **When Path 2A IS permitted**:
   1. Slicing a `[first..last]` shot span (`start_offset` / `end_offset` at `fps: 24`) out of a `>100 MB` master cut (`*_joined_*_from_laid.mp4`) that exceeds `read_file`'s `100 MB` cap, or
   2. Inspecting an already-uploaded remote `files/<id>` at `fps: 24` when local `.1fps.mp4` generation via `OneASecond` is not available.
-- **Owner media rule ([`docs/wiki/working_with_the_owner.md`](../../../../docs/wiki/working_with_the_owner.md))**: Always ask the owner and name the file before uploading project media via `gemini-api`.
+- **Local media upload rule ([`AGENTS.md`](../../../../AGENTS.md))**: Always ask first and name the file before uploading project media via `gemini-api`.
 
 ---
 

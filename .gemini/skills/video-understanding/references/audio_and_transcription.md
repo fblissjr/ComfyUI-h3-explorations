@@ -10,7 +10,7 @@ Companion reference to [`../SKILL.md`](../SKILL.md).
 - **When Path 4 (`gemini_media.py transcribe-spans` or `gemini-api transcribe`) IS permitted**:
   1. The video exceeds `read_file`'s `100 MB` ceiling, or
   2. You specifically need structured multi-speaker JSON (`speaker`, `start_frame`, `end_frame`, `text`) with `24 fps` visual speaker attribution (`--visual-speakers`) across a multi-person shot to fill [`bench/voice_spans.py`](../../../../bench/voice_spans.py)'s `cannot_see` gap (`L27–30`: *"which on-screen subject is singing or speaking, or whether a subject's mouth is visibly open while silent"*).
-- **Owner media rule ([`docs/wiki/working_with_the_owner.md`](../../../../docs/wiki/working_with_the_owner.md))**: Always ask the owner and name the file before uploading project media via `gemini-api`.
+- **Local media upload rule ([`AGENTS.md`](../../../../AGENTS.md))**: Always ask first and name the file before uploading project media via `gemini-api`.
 
 ---
 

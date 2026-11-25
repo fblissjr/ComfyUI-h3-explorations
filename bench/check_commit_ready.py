@@ -104,6 +104,9 @@ def check_commit_ready(paths: list[str], repo: Path = REPO) -> list[str]:
 
     # 1. git check-ignore on each path (and verify path exists on disk or in git)
     for rel in rels:
+        disk_path = repo / rel
+        if not disk_path.exists() and (rel in tracked_set or rel in head_set):
+            continue
         ig = subprocess.run(
             ["git", "check-ignore", "-v", "--", rel],
             cwd=str(repo),
@@ -114,7 +117,6 @@ def check_commit_ready(paths: list[str], repo: Path = REPO) -> list[str]:
             detail = ig.stdout.strip().splitlines()[0] if ig.stdout.strip() else rel
             problems.append(f"{rel} is gitignored ({detail})")
             continue
-        disk_path = repo / rel
         if not disk_path.exists() and rel not in tracked_set and rel not in head_set:
             problems.append(f"{rel} does not exist on disk and is not tracked in git")
 
