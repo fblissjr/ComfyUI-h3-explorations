@@ -102,7 +102,37 @@ Tested on Pika H3 Flex `ref2va` (`workflows/h3_image_ref_plus_text_to_video_pika
 ## Part D — Comparison Reels & Intra-Audio Cross-Masking Fix (`2026-11-24`)
 
 - **Labeled `1x` Comparison Reels (`$H3_OUTPUT_DIR/Video/query_router_reels_2026-11-24/`):**
+  - `reel_plain_vs_1x_router_stairwell_s730451892.mp4` (`104.0s`, `1344x768`, `24 fps`, stereo AAC): Headline **With vs. Without Router** reel pairing same-seed plain-prompt controls back-to-back against `1x` Query Router across Japanese dub, Spanish dub, Bilingual `(S1)` ES / `(S2)` EN, Sitcom Laugh Track, Thunderstorm, and Underwater Video + Dry Speech (`a2v=0.25`).
   - `reel_1x_dubbing_stairwell_s730451892.mp4` (`32.0s`, `1344x768`, `24 fps`, stereo AAC): Base English -> Spanish dub -> Japanese dub -> Bilingual `(S1)` Spanish / `(S2)` English.
   - `reel_1x_soundtracks_and_visuals_stairwell_s730451892.mp4` (`56.0s`, `1344x768`, `24 fps`, stereo AAC): Base -> Thunderstorm -> AM Radio -> Sitcom Laugh Track -> Hydrophone+Sonar -> Blueprint Ink + Dry Speech -> Underwater Caustics + Dry Speech.
 - **Intra-audio block-diagonal cross-masking (`steering/hooks.py`):** Implemented automatic complement-span cross-masking inside `Q_aud` side-SDPA whenever `audio_channel != "both"` or `(audio_time_start, audio_time_end) != (0.0, 1.0)` (zero overhead/change when routing full audio), verified offline by [`bench/check_query_router.py`](../check_query_router.py) `Test 9` (`< 1e-5` 1-block invariance and `> 5x` 4-block separation), ready for tomorrow's live `:8188` restart test.
+
+---
+
+## Part E — Same-Seed Plain-Prompt (No Router) Controls vs. `1x` Router & `old_man.jpg` Orb Analysis (`2026-11-24`)
+
+### E1. Matched-Seed Plain-Prompt Controls (`stairwell`, `192f`, `1344x768`, seed `730451892`, NO Router)
+
+To verify whether plain prompting alone changes identities or scenes vs. `1x` routing, `7` new unrouted controls (`$H3_OUTPUT_DIR/Video/query_router_plain_controls_2026-11-24/`) were rendered on `:8188` with the **exact same text strings** used in `audio_conditioning` / `video_conditioning` (zero visual/ethnicity/wardrobe edits in `dub_*` or `sitcom_laugh` / `hydrophone_sonar` / `thunderstorm`), alongside the existing `stairwell_storm_written_plain` and `uwvid_unrouted` controls. All clips were directly watched and listened to (`read_file`, `$0` spend).
+
+| Concept Pair (`s730451892`) | Plain Pic MAE vs Base | Routed Pic MAE vs Base | Plain vs Routed MAE | Plain Spec MAE vs Base (dB) | Routed Spec MAE vs Base (dB) | Observed Plain-Prompt Behavior vs. `1x` Router |
+| :--- | :---: | :---: | :---: | :---: | :---: | :--- |
+| `dub_ja` (`stairwell_plain_ja` vs `stairwell_dub_ja`) | `26.790` | `11.959` | `25.877` | `16.650` | `16.115` | **Clear win:** plain prompt recasts both actors into Japanese actors, adds cream sweater, changes conduit, and replaces Shot 3 brick window with hills (`26.77/31.03` Shots 2–3 vs `8.15/17.44` routed) |
+| `dub_es` (`stairwell_plain_es` vs `stairwell_router_dub_en_vid_es_aud`) | `28.167` | `9.841` | `27.235` | `11.039` | `11.428` | **Clear win:** plain prompt recasts both actors' faces and shifts Shot 1 framing (`33.75` vs `8.72` Shot 1 MAE) |
+| `dub_bilingual` (`S1=ES/S2=EN`) | `25.412` | `11.797` | `22.471` | `12.223` | `11.991` | **Clear win:** translating only `(S1)`'s `4` lines still drifts both actors' faces (`30.89` vs `18.44` Shot 3) |
+| `sitcom_laugh` (`overall_soundscape:` only) | `35.664` | `9.948` | `34.654` | `16.074` | `9.472` | **Clear win:** plain `overall_soundscape` gives woman retro 1970s flipped hair, adds Shot 2 wall lamp, and flattens TV lighting |
+| `thunderstorm` (`overall_soundscape:` only) | `21.763` | `9.905` | `20.620` | `11.148` | `12.059` | **Clear win (`3/3` seeds):** plain prompt moves Shot 2 wall lamp & darkens Shot 3 window |
+| `uwvid_dryaud` *(UW video + dry stairwell soundscape)* | `47.097` *(vs `47.558` UW)* | `48.544` *(`a2v=0.25`)* | `21.728` | `20.382` *(`-23.60` HF tilt)* | `14.965` *(`-20.79` HF tilt)* | **Clear win:** plain prompt still muffles/bubbles speech (`5.865` dB from `uwvid_unrouted` despite dry `overall_soundscape:`); router restores drier speech (`14.848` dB shift vs plain UW+Dry) |
+| `hydrophone_sonar` (`overall_soundscape:` only) | `23.997` | `9.593` | `23.666` | `15.989` | `15.429` | Fixes Shot 2 lamp bleed (`19.68` vs `6.26`), **but** audio difference is too subtle by ear on casual viewing |
+| `blueprint_ink` (`BLUEPRINT_LONGER_PROMPT`) | `65.451` | `65.274` | `18.530` | `19.439` | `17.500` | **Neutral:** plain prompt + dry soundscape already yields matching ink visuals & dry speech without router |
+
+### E2. `old_man.jpg` + `h3_trio_groove_20261123.wav` Background Orbs & No-Router Calm Check
+
+Per [`steering/query_router.py`](../../steering/query_router.py#L599-L607), `ref_audio_stream="both"` with no alternate prompt inputs returns `model` completely unmodified, so `ref2va_oldman_groove_ref_aud_both_s730451892` **is** the plain no-router `<Picture 1>` + `<Audio 1>` run (both glowing orbs are already present in `$H3_INPUT_DIR/old_man.jpg`):
+
+| ROI (`141f`, `1344x768`) | `both` *(no router)* Motion MAE | `audio_only` Motion MAE | `both` Luma Range / Centroid Shift | Audio-Reactive Correlation (`±6f`, `500` perm) | Finding |
+| :--- | :---: | :---: | :---: | :---: | :--- |
+| `face_head` (`[444..887, 46..576]`) | `0.6143` | `0.4856` | `2.545` / `3.71 x 2.17` px | — | **Already calm without router** (slow blinks & gentle breathing only) |
+| `left_orb` (`[188..430, 346..522]`) | `0.9402` | `0.4754` | `2.525` / `6.12 x 5.66` px | `perm_p = 0.09..1.00`, `|r| <= 0.1911` | Smooth drift only; not beat-locked |
+| `right_orb` (`[900..1102, 131..369]`) | `1.7918` | `0.5925` | `5.491` / `16.6 x 4.91` px | `luma`/`motion` `perm_p = 0.07..0.98`; `2/30` tests `p=0.044–0.050` (`|r| <= 0.264`) | Smooth ambient float; weak/chance correlation (`ref_audio_stream="audio_only"` solved a non-problem while corrupting audio) |
 

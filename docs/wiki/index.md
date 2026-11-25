@@ -8,8 +8,9 @@ Master router for `ComfyUI-h3-explorations`. Root [`../../AGENTS.md`](../../AGEN
 
 | Page | Role |
 | :--- | :--- |
+| [`README.md`](README.md) | **Top Research Efforts & What Works Right Now**: Plain-language highlight reel of proven wins vs. plain prompting, honest limits, and quick links across active tracks |
 | [`../../AGENTS.md`](../../AGENTS.md) | Mandatory session rules, H3 clock/frame/mask invariants, 68-node map |
-| [`query_routing.md`](query_routing.md) | **Cross-Modal Query Routing (`2026-11-24`, Active Priority)**: Single-pass `1x` `Q_vid` / `Q_aud` / depth routing thesis, shipped state, planned `MiniMaxH3QueryRouter` design, 14 unmistakable non-destructive concepts, and 10-scene generalization matrix |
+| [`query_routing.md`](query_routing.md) | **Cross-Modal Query Routing (`2026-11-24`, Active Priority)**: Single-pass `1x` `Q_vid` / `Q_aud` / depth routing thesis, shipped state, Step 2 gates, and 10-scene matrix ([`query_routing_recipes.md`](query_routing_recipes.md)) |
 | [`h3_steering_and_architecture.md`](h3_steering_and_architecture.md) | **Canonical Master Guide (`2026-11-22`)**: One consolidated plain-English + technical guide covering Subspace Erasure math (`PCRR`, Stage 1 `ROS`/smooth knee), H3's 50-block AV brain (`blocks.20..29`, Stage 2 `1x Q_aud`), Zero-Rewrite HUD Portals, 4-tool choice, 5 falsification proofs, `4`-bus bank design, and honest boundaries (with 4 embedded SVGs) |
 | [`projects/2026-11-13_repo_audit_and_atlas/index.md`](projects/2026-11-13_repo_audit_and_atlas/index.md) | **Repo Atlas (`2026-11-13`)**: 8-track status, Top 14 unfinished/forgotten ideas, code-vs-prose ledger, Nov 10â€“12 renders, offline HTML + `ledger.json` |
 | [`research/2026-11-14_cross_pillar_api_workflows_and_sam31_decoupling.md`](research/2026-11-14_cross_pillar_api_workflows_and_sam31_decoupling.md) | **Cross-Pillar API Unlocks & SAM 3.1 Decoupling (`2026-11-14`)**: Two-phase `:8188` perception+generation recipes, Phase 1 + `EditGuider` + `SoundCues` + `SpriteTrajectory` compound workflows, and clean extraction off `MiniMaxH3AudioFreezeSong` |
@@ -61,7 +62,8 @@ Start at **[`query_routing.md`](query_routing.md)** (Cross-Modal Query Routing â
 
 | Page | Topic |
 | :--- | :--- |
-| [`query_routing.md`](query_routing.md) | **Cross-Modal Query Routing (Active Priority)**: Single-pass `1x` `Q_vid` / `Q_aud` / block-depth routing thesis, shipped state, planned `MiniMaxH3QueryRouter` design, 14 unmistakable non-destructive concepts, and 10-scene generalization matrix |
+| [`query_routing.md`](query_routing.md) | **Cross-Modal Query Routing (Active Priority)**: Single-pass `1x` `Q_vid` / `Q_aud` / block-depth routing thesis, shipped state, `MiniMaxH3QueryRouter`, Step 2 gates, and 10-scene generalization matrix |
+| [`query_routing_recipes.md`](query_routing_recipes.md) | **Query Routing Recipes & Exact Prompt Diffs**: Reproducible setup for [`workflows/h3_text_to_video_pika_query_router_api.json`](../../workflows/h3_text_to_video_pika_query_router_api.json), comparison reels, and verified same-seed plain-vs-routed prompt diffs |
 | [`h3_steering_and_architecture.md`](h3_steering_and_architecture.md) | **Canonical Master Guide**: Plain-English + visual overview (`assets/h3_multivector_erasure_explainer.svg`), PCRR + Stage 1/2 formulas, 50-block AV brain, Zero-Rewrite HUD Portals, 4-tool choice, 5 falsification proofs, `4`-bus bank design, and Track 2 horizon |
 | [`steering.md`](steering.md) | Unified steering hub: `MiniMaxH3PromptExpander` (`1x`) vs. orthogonal Control Vectors (`MiniMaxH3Steer`) vs. `2x` `MiniMaxH3AutoEditPrompt` + `MiniMaxH3EditGuider` vs. word readout, shipped workflows, empirical rules |
 | [`edit_guidance.md`](edit_guidance.md) | `MiniMaxH3PromptExpander` (`1x` authoring) vs. `MiniMaxH3AutoEditPrompt` + `MiniMaxH3EditGuider` (`2x` surgical edits), `MiniMaxH3PromptEdit`, `MiniMaxH3SpatialDirector`, `MiniMaxH3DirectorHUD`, Spatial Director Studio (`director/`): `combined`, SAM 3.1 `/api/segment`, `streams`, `audio_scale`, `.mask` `[F, H, W]` + 40 Hz audio gating, `edit_pass`, `/api/redub` |
