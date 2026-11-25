@@ -87,6 +87,9 @@ PRESET_CATALOG: tuple[PresetSpec, ...] = (
     PresetSpec("h3-director-reticle-suggest", "director", "docs/wiki/system_prompts/h3_director/reticle_suggest_system_prompt.md", "Director reticle+ROI grounded action suggestion prompt"),
     PresetSpec("h3-director-scene-suggest", "director", "docs/wiki/system_prompts/h3_director/scene_suggest_system_prompt.md", "Director scene-grounded action suggestion prompt"),
     PresetSpec("h3-director-shot-continue", "director", "docs/wiki/system_prompts/h3_director/shot_continuation_system_prompt.md", "Director closed-loop tail-frame shot continuation prompt"),
+    # Cross-modal Query Router zero-visual-edit diff prompts
+    PresetSpec("h3-query-router-dub", "query_router", "docs/wiki/system_prompts/h3_query_router/dub_dialogue_system_prompt.md", "Query Router strict dialogue-only dub/code-switch rewrite"),
+    PresetSpec("h3-query-router-soundscape", "query_router", "docs/wiki/system_prompts/h3_query_router/swap_soundscape_system_prompt.md", "Query Router strict soundscape/music-only rewrite"),
 )
 
 
@@ -316,7 +319,7 @@ def main(argv: list[str] | None = None) -> int:
     mode_grp.add_argument("--dry-run", action="store_true", help="plan only without writing (default)")
     mode_grp.add_argument("--apply", action="store_true", help="POST/PUT changed presets to heylook")
     ap.add_argument("--diff", action="store_true", help="print unified diffs for create/update actions")
-    ap.add_argument("--only", action="append", default=[], help="filter by preset name or group (video|image|steering|auto_edit_2x|director)")
+    ap.add_argument("--only", action="append", default=[], help="filter by preset name or group (video|image|steering|auto_edit_2x|director|query_router)")
     ap.add_argument("--prefix", default=None, help="override target preset name prefix (defaults to H3_HEYLOOK_PRESET_PREFIX or none; e.g. h3app_)")
     ap.add_argument("--reset-params", action="store_true", help="clear remote sampler params instead of preserving them")
     ap.add_argument("--list", action="store_true", help="list the tracked preset catalog offline and exit")

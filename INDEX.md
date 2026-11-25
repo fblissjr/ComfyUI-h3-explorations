@@ -167,7 +167,7 @@ with none is a helper the others import.
 | `contact_sheets/` | 2 | [below](#contact_sheets) |
 | `data/` | 2 | [below](#data) |
 | `director/` | 23 | [below](#director) |
-| `docs/` | 377 | [`docs/wiki/index.md`](docs/wiki/index.md), the hand-written router |
+| `docs/` | 380 | [`docs/wiki/index.md`](docs/wiki/index.md), the hand-written router |
 | `prompt_bank/` | 250 | [`docs/wiki/prompting/prompt_bank.md`](docs/wiki/prompting/prompt_bank.md), the prompt catalogue |
 | `sparse_tables/` | 1 | [below](#sparse_tables) |
 | `standalone/` | 6 | [below](#standalone) |
@@ -176,7 +176,7 @@ with none is a helper the others import.
 | `vendor_config/` | 10 | [below](#vendor_config) |
 | `vendor_guides/` | 21 | [below](#vendor_guides) |
 | `web/` | 3 | [below](#web) |
-| `workflows/` | 145 | [`workflows/INDEX.md`](workflows/INDEX.md) |
+| `workflows/` | 147 | [`workflows/INDEX.md`](workflows/INDEX.md) |
 
 ## .claude/
 

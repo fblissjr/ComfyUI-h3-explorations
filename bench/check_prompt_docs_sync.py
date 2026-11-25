@@ -444,6 +444,34 @@ H3_DIRECTOR_SUITE_SPECS = (
     ("shot_continuation_system_prompt.md", ("subject_definitions:", "detailed_description:", "integrated_multimodal_description:", "overall_soundscape:", "non_diegetic_music:", "(S1)", "<d>[Language]")),
 )
 
+H3_QUERY_ROUTER_SUITE_DIR = SYSTEM_PROMPTS_DIR / "h3_query_router"
+H3_QUERY_ROUTER_SUITE_SPECS = (
+    (
+        "dub_dialogue_system_prompt.md",
+        (
+            "ZERO-VISUAL-EDIT",
+            "<d>[Language]",
+            "overall_soundscape:",
+            "non_diegetic_music:",
+            "<|lyrics_start|>",
+            "<|caption_start|>",
+            "<|cutoff|>",
+            "100% verbatim",
+        ),
+    ),
+    (
+        "swap_soundscape_system_prompt.md",
+        (
+            "ZERO-VISUAL-EDIT",
+            "overall_soundscape:",
+            "non_diegetic_music:",
+            "detailed_description:",
+            "integrated_multimodal_description:",
+            "100% verbatim",
+        ),
+    ),
+)
+
 
 def h3_director_system_prompts() -> int:
     """Verify the standalone zero-lore `docs/wiki/system_prompts/h3_director/` suite."""
@@ -490,6 +518,55 @@ def h3_director_system_prompts() -> int:
         else:
             print(
                 f"  ok    h3_director/{name} carries all {len(pins)} rule pin(s) and zero lore/fences"
+            )
+    return bad
+
+
+def h3_query_router_system_prompts() -> int:
+    """Verify the standalone zero-lore `docs/wiki/system_prompts/h3_query_router/` suite."""
+    bad = 0
+    if not (H3_QUERY_ROUTER_SUITE_DIR / "README.md").exists():
+        print("  FAIL  docs/wiki/system_prompts/h3_query_router/README.md is missing")
+        return 1
+
+    expected_names = {"README.md", *(name for name, _ in H3_QUERY_ROUTER_SUITE_SPECS)}
+    actual_names = {p.name for p in H3_QUERY_ROUTER_SUITE_DIR.glob("*.md")}
+    unexpected = sorted(actual_names - expected_names)
+    if unexpected:
+        bad += 1
+        print(
+            "  FAIL  unexpected .md file(s) in docs/wiki/system_prompts/h3_query_router/ without check coverage: "
+            + ", ".join(unexpected)
+        )
+
+    cjk_re = re.compile(r"[\u3400-\u9fff\uf900-\ufaff]")
+    for name, pins in H3_QUERY_ROUTER_SUITE_SPECS:
+        path = H3_QUERY_ROUTER_SUITE_DIR / name
+        if not path.exists():
+            bad += 1
+            print(f"  FAIL  missing docs/wiki/system_prompts/h3_query_router/{name}")
+            continue
+        raw = path.read_text(encoding="utf-8")
+        low = flat(raw).lower()
+        leaks = [tok for tok in H3_VIDEO_FORBIDDEN_SUBSTRINGS if tok in low]
+        if cjk_re.search(raw):
+            leaks.append("<CJK characters>")
+        miss = [pin for pin in pins if flat(pin).lower() not in low]
+        if leaks or miss:
+            bad += 1
+            if leaks:
+                print(
+                    f"  FAIL  h3_query_router/{name} contains forbidden lore/fences/tags: "
+                    + ", ".join(repr(x) for x in leaks)
+                )
+            if miss:
+                print(
+                    f"  FAIL  h3_query_router/{name} missing pinned rule(s): "
+                    + ", ".join(repr(x) for x in miss)
+                )
+        else:
+            print(
+                f"  ok    h3_query_router/{name} carries all {len(pins)} rule pin(s) and zero lore/fences"
             )
     return bad
 
@@ -995,6 +1072,7 @@ def main() -> int:
     fails += h3_image_system_prompts()
     fails += h3_video_system_prompts()
     fails += h3_director_system_prompts()
+    fails += h3_query_router_system_prompts()
     fails += heylook_runtime_suite_prompts(guide)
     fails += general_image_edit_system_prompt(general_image_edit_system)
     fails += parser_agrees_with_hand_reading()

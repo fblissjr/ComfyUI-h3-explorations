@@ -1857,6 +1857,9 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
         g["27"] = {"class_type": "MiniMaxH3Resolution",
                    "inputs": {"shape": RESOLUTION_SAME_AS_PICTURE,
                               "length": length, "picture": ["15", 0]}}
+    elif canvas_mode == "explicit":
+        g["27"] = {"class_type": "MiniMaxH3Resolution",
+                   "inputs": _resolution_widgets(cv["width"], cv["height"], length)}
 
     # The video VAE's ENCODE half, optionally promoted. Only the conditioning
     # node is rebound: it is the consumer that encodes references, keyframes and
@@ -2078,7 +2081,7 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
         # omitted from new API workflows.
         inputs = {"clip": ["2", 0], "vae": vae_enc, "prompt": prompt}
         if task == "i2v":
-            if spatial_director_on:
+            if spatial_director_on or canvas_mode == "explicit":
                 inputs |= {"width": ["27", 0], "height": ["27", 1],
                            "length": ["27", 2], "canvas": "explicit"}
             else:
@@ -3110,6 +3113,7 @@ def _split_h3_video_references(g: dict) -> None:
         raise SystemExit(
             f"_split_h3_video_references needs MiniMaxH3ReferenceConditioning at node 5, got {cond['class_type']!r}"
         )
+    shared_refs = cond["inputs"].get("references")
     g["132"] = {
         "class_type": "MiniMaxH3EncodeReferences",
         "inputs": {k: v for k, v in cond["inputs"].items() if k != "prompt"},
@@ -3118,6 +3122,17 @@ def _split_h3_video_references(g: dict) -> None:
         "class_type": "MiniMaxH3PromptOnReferences",
         "inputs": {"encoded_references": ["132", 0], "prompt": cond["inputs"]["prompt"]},
     }
+    for sec_id in ("146", "147"):
+        sec = g.get(sec_id)
+        if (
+            isinstance(sec, dict)
+            and sec.get("class_type") == "MiniMaxH3ReferenceConditioning"
+            and sec.get("inputs", {}).get("references") == shared_refs
+        ):
+            g[sec_id] = {
+                "class_type": "MiniMaxH3PromptOnReferences",
+                "inputs": {"encoded_references": ["132", 0], "prompt": sec["inputs"]["prompt"]},
+            }
     for node in g.values():
         for key, val in node["inputs"].items():
             if val == ["5", 1]:
@@ -6418,6 +6433,50 @@ def main():
               ),
               out_prefix="Video/h3_t2v_pika_query_router"),
          "two-speaker stairwell (`t2va_stairwell_dialogue`) -> 192f 1x two-prompt MiniMaxH3QueryRouter on Pika H3 Flex 6-step LCM (video reads dry concrete stairwell while audio_conditioning reads thunderstorm soundscape in one pass)"),
+        ("h3_first_last_frame_to_video_pika_query_router.json", "fl2v-pika-query-router", "i2v",
+         None,
+         dict(width=1344, height=768, length=192, last_frame=True,
+              canvas_mode="explicit",
+              lora=(PIKA_FL2VA_SVD995_LORA, PIKA_STRENGTH), lora_branch=True,
+              steps=PIKA_STEPS, sampler_name=PIKA_SAMPLER,
+              manual_sigmas=PIKA_MANUAL_SIGMAS,
+              query_router=dict(
+                  section_split="off",
+                  video_block_band="all",
+                  audio_block_band="all",
+                  audio_prompt=fl2v_prompt(192).replace(
+                      "Quiet room tone with a low ambient hum continues throughout, joined by soft physical sounds from the subject's movement and a single settling sound as the motion comes to rest.",
+                      "A violent thunderstorm hammers the roof outside, heavy rain drumming against the windows and rolling thunder echoing through the room.",
+                      1,
+                  ),
+              ),
+              out_prefix="Video/h3_fl2v_pika_query_router"),
+         "first frame + last frame + MiniMaxH3Resolution (1344x768, 192f) -> 1x two-prompt MiniMaxH3QueryRouter on Pika H3 Flex 6-step LCM (dual MiniMaxH3Conditioning, audio_conditioning swaps soundscape without visual bleed)"),
+        ("h3_image_ref_plus_text_to_video_pika_query_router.json", "r2v-pika-query-router", "r2v",
+         _ref_prompt(images=("character",), scene="kitchen"),
+         dict(ref_images=SCENE_REF_IMAGES["kitchen"], ref_image_count=1,
+              split_references=True,
+              width=1344, height=768, length=192,
+              lora=(PIKA_REF2VA_SVD995_LORA, PIKA_STRENGTH), lora_branch=True,
+              ref_size_policy=PIKA_REF_SIZE_POLICY,
+              steps=PIKA_STEPS, sampler_name=PIKA_SAMPLER,
+              manual_sigmas=PIKA_MANUAL_SIGMAS,
+              query_router=dict(
+                  section_split="off",
+                  video_block_band="all",
+                  audio_block_band="all",
+                  audio_prompt=(
+                      _ref_prompt(images=("character",), scene="kitchen")
+                      .replace("<d>[English] Two on twelve, fire it now.</d>", "<d>[Spanish] Dos en la doce, marcha ya.</d>", 1)
+                      .replace("<d>[English] Two on twelve, heard.</d>", "<d>[Spanish] Dos en la doce, oído.</d>", 1)
+                      .replace("<d>[English] Keep it moving, keep it hot.</d>", "<d>[Spanish] Que siga el ritmo, que siga caliente.</d>", 1)
+                      .replace("<d>[English] Where is my second plate.</d>", "<d>[Spanish] ¿Dónde está mi segundo plato?</d>", 1)
+                      .replace("<d>[English] Behind you, behind you.</d>", "<d>[Spanish] Detrás de ti, detrás de ti.</d>", 1)
+                      .replace("<d>[English] And tell them the special is</d><|cutoff|>", "<d>[Spanish] Y diles que el especial es</d><|cutoff|>", 1)
+                  ),
+              ),
+              out_prefix="Video/h3_r2v_pika_query_router"),
+         "portrait reference + text -> 192f 1344x768 1x two-prompt MiniMaxH3QueryRouter on Pika H3 Flex 6-step LCM (shared MiniMaxH3EncodeReferences '132' -> dual MiniMaxH3PromptOnReferences '5'/'146' for zero-visual-drift Spanish dubbing)"),
         ("h3_text_to_video_pika_1d_vs_erasure_ab.json", "t2v-pika-1d-vs-erasure-ab", "t2v",
          _bank_prompt("t2va_sitcom_kitchen"),
          dict(width=1152, height=768, length=141,
@@ -7043,14 +7102,26 @@ def main():
         # moves this with it instead of leaving it quietly wrong.
         import inspect as _inspect
         _p = _inspect.signature(build_api).parameters
+
+        def _dump_entry(task, prompt, extra):
+            main_p = resolve_default_prompt(
+                task, prompt,
+                length=graph_length(extra),
+                last_frame=extra.get("last_frame", _p["last_frame"].default),
+                first_frame=extra.get("first_frame", _p["first_frame"].default),
+            )
+            qr = extra.get("query_router")
+            if isinstance(qr, dict) and ("audio_prompt" in qr or "video_prompt" in qr):
+                out_list = [main_p]
+                if "audio_prompt" in qr:
+                    out_list.append(qr["audio_prompt"])
+                if "video_prompt" in qr:
+                    out_list.append(qr["video_prompt"])
+                return out_list
+            return main_p
+
         print(json.dumps({
-            fname.removesuffix(".json") + "_api.json":
-                resolve_default_prompt(
-                    task, prompt,
-                    length=graph_length(extra),
-                    last_frame=extra.get("last_frame", _p["last_frame"].default),
-                    first_frame=extra.get("first_frame",
-                                          _p["first_frame"].default))
+            fname.removesuffix(".json") + "_api.json": _dump_entry(task, prompt, extra)
             for fname, _label, task, prompt, extra, _note in GRAPHS}))
         return 0
 

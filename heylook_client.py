@@ -93,6 +93,8 @@ CANONICAL_PRESET_SLUGS: dict[str, str] = {
     "director_reticle_suggest": "h3-director-reticle-suggest",
     "director_scene_suggest": "h3-director-scene-suggest",
     "director_shot_continue": "h3-director-shot-continue",
+    "query_router_dub": "h3-query-router-dub",
+    "query_router_soundscape": "h3-query-router-soundscape",
 }
 
 

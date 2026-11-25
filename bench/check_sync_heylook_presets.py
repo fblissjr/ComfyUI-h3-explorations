@@ -48,7 +48,7 @@ def _mock_client(remote_presets: list[dict], ops: list[tuple[str, str, dict | No
 
 def check_catalog_and_fenced_blocks() -> str:
     specs = shp.filter_catalog(None, repo=REPO)
-    assert len(specs) == 21, len(specs)
+    assert len(specs) == 23, len(specs)
     texts: dict[str, str] = {}
     for spec in specs:
         txt = shp.read_spec_text(spec, repo=REPO)
@@ -58,11 +58,15 @@ def check_catalog_and_fenced_blocks() -> str:
     assert "Expand the user's request" in texts["h3-ph3-t2i"]
     assert texts["h3-ph3-edit"].startswith("Write a single-paragraph image-editing prompt")
     assert "scene_caption:" in texts["h3-director-reticle-suggest"]
+    assert "<d>[Language]" in texts["h3-query-router-dub"]
+    assert "overall_soundscape:" in texts["h3-query-router-soundscape"]
     assert shp.format_target_name("h3-video-ref2va", "h3app_") == "h3app_video_ref2va"
     assert shp.format_target_name("h3-ph3-edit", "h3app_") == "h3app_ph3_edit"
     assert shp.format_target_name("h3-control-vector", "h3app_") == "h3app_control_vector"
     assert shp.format_target_name("h3-director-reticle-suggest", "h3app_") == "h3app_director_reticle_suggest"
-    return "21 catalog prompts (including 2 P-H3 blocks + 3 h3_director prompts) load & format names"
+    assert shp.format_target_name("h3-query-router-dub", "h3app_") == "h3app_query_router_dub"
+    assert shp.format_target_name("h3-query-router-soundscape", "h3app_") == "h3app_query_router_soundscape"
+    return "23 catalog prompts (including 2 P-H3 blocks + 3 h3_director + 2 h3_query_router prompts) load & format names"
 
 
 def check_exact_matching_and_param_preservation() -> str:
@@ -130,7 +134,7 @@ def check_prefix_and_idempotency() -> str:
     client = _mock_client(remote, ops)
 
     specs = shp.filter_catalog(None, repo=REPO)
-    assert len(specs) == 21
+    assert len(specs) == 23
     a1 = shp.execute_sync(
         "http://127.0.0.1:8080",
         specs,
@@ -139,7 +143,7 @@ def check_prefix_and_idempotency() -> str:
         client=client,
         repo=REPO,
     )
-    assert len(a1) == 21 and all(a.action == "create" for a in a1), [(a.target_name, a.action) for a in a1]
+    assert len(a1) == 23 and all(a.action == "create" for a in a1), [(a.target_name, a.action) for a in a1]
     assert all(a.target_name.startswith("h3app_") for a in a1)
     remote_names = {r["name"] for r in remote}
     assert "h3app_local_overlay" not in remote_names
@@ -156,7 +160,7 @@ def check_prefix_and_idempotency() -> str:
         client=client,
         repo=REPO,
     )
-    assert len(a2) == 21 and all(a.action == "unchanged" for a in a2), [(a.target_name, a.action) for a in a2]
+    assert len(a2) == 23 and all(a.action == "unchanged" for a in a2), [(a.target_name, a.action) for a in a2]
     assert ops == [("GET", "/v1/presets", None)], ops
 
     # Removed --overlays flag and 'overlay' filter selector must fail fast
@@ -172,7 +176,7 @@ def check_prefix_and_idempotency() -> str:
     except ValueError:
         pass
 
-    return "21 h3app_* canonical presets create cleanly with 0 sentinel comments, re-sync with 0 diffs, and reject removed --overlays/overlay"
+    return "23 h3app_* canonical presets create cleanly with 0 sentinel comments, re-sync with 0 diffs, and reject removed --overlays/overlay"
 
 
 def check_access_gate_auth_forwarding() -> str:

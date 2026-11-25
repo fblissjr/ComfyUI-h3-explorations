@@ -2,7 +2,7 @@
 """Holistic zero-lore, exemplar-diversity, vendor-vocabulary, prefix, & HeylookProvenance check suite.
 
 Verifies:
-1. Zero internal codebase/model lore or unexplained internal mode slugs across all 21
+1. Zero internal codebase/model lore or unexplained internal mode slugs across all 23
    `PRESET_CATALOG` runtime prompts, `fresh_prompt_system_prompt.md`, AND rendered Python
    user-turn / repair-turn envelopes (`auto_edit_prompt`, `h3_prompt_expander`,
    `h3_image_nodes`, `director/server.py`, `bench/control_vector/llm_pairs.py`).
@@ -119,7 +119,7 @@ def check_zero_lore_prompts_and_envelopes() -> str:
 
     # 1. Runtime system prompts (`PRESET_CATALOG` + `fresh_prompt_system_prompt.md`)
     specs = list(shp.PRESET_CATALOG)
-    assert len(specs) == 21, f"expected 21 presets in PRESET_CATALOG, got {len(specs)}"
+    assert len(specs) == 23, f"expected 23 presets in PRESET_CATALOG, got {len(specs)}"
     rel_paths = {s.rel_path for s in specs}
     assert "docs/wiki/system_prompts/h3_masked_edit_and_steering_system_prompt.md" not in rel_paths, (
         "developer manual h3_masked_edit_and_steering_system_prompt.md must not sit in PRESET_CATALOG"

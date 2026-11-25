@@ -2,7 +2,7 @@
 
 Exact node wiring, prompt diffs, and seeds to reproduce the shipped workflow and comparison reels in `$H3_OUTPUT_DIR/Video/query_router_reels_2026-11-24/`.
 
-**Companion pages:** [`README.md`](README.md) · [`query_routing.md`](query_routing.md) · [`workflows/h3_text_to_video_pika_query_router_api.json`](../../workflows/h3_text_to_video_pika_query_router_api.json) · [`bench/results/2026-11-24_query_router_live_probes_and_step2_gates.md`](../../bench/results/2026-11-24_query_router_live_probes_and_step2_gates.md)
+**Companion pages:** [`README.md`](README.md) · [`query_routing.md`](query_routing.md) · [`workflows/h3_text_to_video_pika_query_router_api.json`](../../workflows/h3_text_to_video_pika_query_router_api.json) · [`workflows/h3_first_last_frame_to_video_pika_query_router_api.json`](../../workflows/h3_first_last_frame_to_video_pika_query_router_api.json) · [`workflows/h3_image_ref_plus_text_to_video_pika_query_router_api.json`](../../workflows/h3_image_ref_plus_text_to_video_pika_query_router_api.json) · [`docs/wiki/system_prompts/h3_query_router/`](system_prompts/h3_query_router/README.md) (`h3-query-router-dub`, `h3-query-router-soundscape`) · [`bench/results/2026-11-24_query_router_live_probes_and_step2_gates.md`](../../bench/results/2026-11-24_query_router_live_probes_and_step2_gates.md)
 
 ---
 
