@@ -6,7 +6,7 @@
 
 0a. **Cross-Modal Query Routing (Wrapped `2026-11-25` — Community Show-and-Tell / Recipes Ready)**:
    - Phases 1–2 (`50bdcb55`), Step 1 Bidirectional + `biker` `a2v=0.0` sweep (`7126f0a5`), `director/compiler.py::compile_audio_redub(isolate_visuals=True)` (`7a7693d0`), H3 Studio 2.0 UI/API (`app/` `97e07e7`), and the `86.0 s` Showcase Reel (`$H3_OUTPUT_DIR/Video/query_router_showcase_2026-11-25/reel_h3_query_router_showcase_2026-11-25.mp4`) are complete.
-   - **Deliberate cuts (do not re-pitch):** Skip Binaural UI toggle in Studio 2.0 (keep ComfyUI recipe only), skip 3-world portal (`2x + 1x`), and stay solo-tinkerer / Banodoco show-and-tell focused rather than pursuing a conference-style Paper v6 (`n=3` multi-seed/OCR/Whisper grind).
+   - **Deliberate cuts (do not re-pitch):** Skip Binaural UI toggle in Studio 2.0 (keep ComfyUI recipe only), skip 3-world portal (`2x + 1x`), and stay solo-tinkerer / practical show-and-tell focused rather than pursuing a conference-style Paper v6 (`n=3` multi-seed/OCR/Whisper grind).
    - **Recipes & test matrix:** [`query_routing_recipes.md`](query_routing_recipes.md) and [`steering/query_routing_test_matrix.md`](steering/query_routing_test_matrix.md).
 
 0b. **Stage 2 — Visual Music-Video Toybox (Path 1 Strangler Fig, Active Next Priority)**:
