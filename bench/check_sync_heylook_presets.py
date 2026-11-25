@@ -100,10 +100,30 @@ def check_exact_matching_and_param_preservation() -> str:
     specs = shp.filter_catalog(["h3-image-t2i", "h3-image-edit", "h3-image-t2i-ar"], repo=REPO)
     edit_spec = next(s for s in specs if s.name == "h3-image-edit")
 
-    acts = shp.execute_sync("http://127.0.0.1:8080", specs, apply=False, client=client, repo=REPO)
+    # Default (overwrite=False): insert missing presets only; skip existing without PUT!
+    acts_default = shp.execute_sync("http://127.0.0.1:8080", specs, apply=False, client=client, repo=REPO)
+    assert all(m == "GET" for m, _, _ in ops), ops
+    by_def = {a.target_name: a for a in acts_default}
+    assert by_def["h3-image-t2i"].action == "create"
+    assert by_def["h3-image-edit"].action == "skip_existing"
+    assert by_def["h3-image-t2i-ar"].action == "skip_existing"
+
+    ops.clear()
+    acts_insert = shp.execute_sync("http://127.0.0.1:8080", specs, apply=True, client=client, repo=REPO)
+    by_ins = {a.target_name: a for a in acts_insert}
+    assert by_ins["h3-image-t2i"].action == "create"
+    assert by_ins["h3-image-edit"].action == "skip_existing"
+    assert by_ins["h3-image-t2i-ar"].action == "skip_existing"
+    assert [m for m, _, _ in ops] == ["GET", "POST"], ops
+    assert "Outdated body text that must be replaced." in remote[1]["system_prompt"]
+    assert "Old text." in remote[2]["system_prompt"]
+
+    # Re-plan with overwrite=True: strips sentinels, replaces body text, preserves remote params
+    ops.clear()
+    acts = shp.execute_sync("http://127.0.0.1:8080", specs, apply=False, overwrite=True, client=client, repo=REPO)
     assert all(m == "GET" for m, _, _ in ops), ops
     by_name = {a.target_name: a for a in acts}
-    assert by_name["h3-image-t2i"].action == "create"
+    assert by_name["h3-image-t2i"].action == "unchanged"
     assert remote[0]["system_prompt"] == "EXISTING P-H3 PROMPT (must stay untouched)"
     assert by_name["h3-image-edit"].action == "update"
     assert by_name["h3-image-edit"].new_system_prompt == shp.read_spec_text(edit_spec, repo=REPO)
@@ -114,11 +134,12 @@ def check_exact_matching_and_param_preservation() -> str:
     assert "Old text." not in by_name["h3-image-t2i-ar"].new_system_prompt
 
     acts_reset = shp.execute_sync(
-        "http://127.0.0.1:8080", specs, apply=False, reset_params=True, client=client, repo=REPO
+        "http://127.0.0.1:8080", specs, apply=False, overwrite=True, reset_params=True, client=client, repo=REPO
     )
     by_name_reset = {a.target_name: a for a in acts_reset}
     assert by_name_reset["h3-image-edit"].new_params == {}
-    return "exact name avoids h3_image_t2i collision, strips legacy sentinels, & preserves/resets params cleanly"
+    assert shp.main(["--list", "--overwrite"]) == 0
+    return "insert-only default skips existing, --overwrite updates & preserves/resets params, & avoids h3_image_t2i collision"
 
 
 def check_prefix_and_idempotency() -> str:
@@ -272,15 +293,17 @@ def check_access_gate_auth_forwarding() -> str:
             assert "401" in str(exc) and secret not in str(exc), exc
         assert not any(m in ("POST", "PUT") for m, _p, _k in seen), seen
 
-        # 2. Programmatic api_key arg still works when env/file are unset
+        # 2. Programmatic api_key arg works with default overwrite=False (GET + POST only, zero PUT)
         seen.clear()
         actions_arg = ps.execute_sync(base, specs, apply=True, api_key=secret)
         assert len(actions_arg) == 2 and all(k == secret for _m, _p, k in seen), (actions_arg, seen)
+        assert [m for m, _p, _k in seen] == ["GET", "POST"], seen
+        assert [a.action for a in actions_arg] == ["skip_existing", "create"], [a.action for a in actions_arg]
 
-        # 3. HEYLOOK_API_KEY forwards x-api-key on GET, PUT, and POST
+        # 3. HEYLOOK_API_KEY + overwrite=True forwards x-api-key on GET, PUT, and POST
         seen.clear()
         os.environ["HEYLOOK_API_KEY"] = secret
-        actions = ps.execute_sync(base, specs, apply=True)
+        actions = ps.execute_sync(base, specs, apply=True, overwrite=True)
         assert len(actions) == 2 and all(k == secret for _m, _p, k in seen), (actions, seen)
         assert any(m == "PUT" for m, _p, _k in seen) and any(m == "POST" for m, _p, _k in seen), seen
     finally:

@@ -551,7 +551,7 @@ this file is only a way to find a script by what it says it does.
 | [`sweep_loads.py`](sweep_loads.py) | The same loads again with one thing changed: copies of masked job files, a record of the sweep, the commands in order. |
 | [`sweep_routing_density.py`](sweep_routing_density.py) | Per-head routed density across the capture grid: where the routing structure is. |
 | [`sweep_sol_block_size_on_capture.py`](sweep_sol_block_size_on_capture.py) | Is 64 tokens per block the limit? Float reference, on captures. |
-| [`sync_heylook_presets.py`](sync_heylook_presets.py) | Sync tracked `docs/wiki/system_prompts/` presets to `heylook` without clobbering remote sampler params. |
+| [`sync_heylook_presets.py`](sync_heylook_presets.py) | Sync tracked `docs/wiki/system_prompts/` presets to `heylook` (insert-only by default; `--overwrite` updates existing). |
 | [`tally_judge_verdicts.py`](tally_judge_verdicts.py) | How often does the judge call a pair "same" or "can't tell", and does the slot order pull? |
 | [`telemetry_report.py`](telemetry_report.py) | Read a pipeline telemetry record into per-node phases. |
 | [`time_dense_blocks.py`](time_dense_blocks.py) | What does a dense block actually COST, in seconds, on this box? |

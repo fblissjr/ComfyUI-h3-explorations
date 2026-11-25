@@ -1,16 +1,18 @@
 #!/usr/bin/env python3
-"""Sync tracked `docs/wiki/system_prompts/` presets to `heylook` without clobbering remote sampler params.
+"""Sync tracked `docs/wiki/system_prompts/` presets to `heylook` (insert-only by default; `--overwrite` updates existing).
 
 Usage:
     <comfy-venv-python> bench/sync_heylook_presets.py --list
     <comfy-venv-python> bench/sync_heylook_presets.py --dry-run [--diff] [--prefix h3app_]
-    <comfy-venv-python> bench/sync_heylook_presets.py --apply [--prefix h3app_] [--only h3-video-ref2va,h3-image-edit] [--reset-params]
+    <comfy-venv-python> bench/sync_heylook_presets.py --apply [--overwrite] [--prefix h3app_] [--only h3-video-ref2va,h3-image-edit] [--reset-params]
 
-Sync guarantees on every update (`PUT /v1/presets/{id}`):
-1. Each canonical prompt under `docs/wiki/system_prompts/` is written verbatim (stripping
-   any legacy `H3_LOCAL_PREAMBLE` / `H3_LOCAL_ADDENDUM` HTML sentinels).
-2. Remote sampler `params` are preserved verbatim (sanitized to `VALID_PRESET_PARAM_KEYS`
-   with `None` removed) unless `--reset-params` is explicitly passed.
+Sync guarantees:
+1. By default (`overwrite=False`), `--apply` only creates missing remote presets (`POST`) and skips
+   existing remote presets (`skip_existing`) even if their prompt or params differ remotely.
+2. Updating existing remote presets (`PUT /v1/presets/{id}`) happens only when `--overwrite`
+   (`overwrite=True`) is explicitly passed: each canonical prompt under `docs/wiki/system_prompts/`
+   is written verbatim, while remote sampler `params` are preserved verbatim (sanitized to
+   `VALID_PRESET_PARAM_KEYS` with `None` removed) unless `--reset-params` is also passed.
 """
 
 from __future__ import annotations
@@ -97,7 +99,7 @@ PRESET_CATALOG: tuple[PresetSpec, ...] = (
 class SyncAction:
     spec: PresetSpec
     target_name: str
-    action: str  # "create" | "update" | "unchanged"
+    action: str  # "create" | "update" | "skip_existing" | "unchanged"
     remote_id: str | None
     old_system_prompt: str
     new_system_prompt: str
@@ -185,10 +187,11 @@ def plan_sync(
     remote_presets: list[dict[str, Any]],
     *,
     reset_params: bool = False,
+    overwrite: bool = False,
     prefix: str | None = None,
     repo: Path = REPO,
 ) -> list[SyncAction]:
-    """Compute idempotent create/update/unchanged sync actions without mutating the server."""
+    """Compute idempotent create/update/skip_existing/unchanged sync actions without mutating the server."""
     eff_prefix = str(prefix if prefix is not None else _hc.resolve_heylook_preset_prefix()).strip()
     actions: list[SyncAction] = []
 
@@ -208,7 +211,7 @@ def plan_sync(
         elif old_sys.replace("\r\n", "\n").replace("\r", "\n").strip() == new_sys and old_params == new_params:
             action = "unchanged"
         else:
-            action = "update"
+            action = "update" if overwrite else "skip_existing"
 
         diff_lines = list(
             difflib.unified_diff(
@@ -256,12 +259,13 @@ def execute_sync(
     *,
     apply: bool = False,
     reset_params: bool = False,
+    overwrite: bool = False,
     prefix: str | None = None,
     client: httpx.Client | None = None,
     api_key: str | None = None,
     repo: Path = REPO,
 ) -> list[SyncAction]:
-    """Fetch `/v1/presets`, plan changes, and optionally apply `POST` / `PUT` updates."""
+    """Fetch `/v1/presets`, plan changes, and optionally insert (`POST`) or overwrite (`PUT` with `overwrite=True`)."""
     base = _hc.normalize_heylook_base_url(base_url)
 
     def _run(c: httpx.Client) -> list[SyncAction]:
@@ -270,6 +274,7 @@ def execute_sync(
             specs,
             remote_presets,
             reset_params=reset_params,
+            overwrite=overwrite,
             prefix=prefix,
             repo=repo,
         )
@@ -292,7 +297,7 @@ def execute_sync(
                 created = r.json()
                 if isinstance(created, dict) and created.get("id"):
                     act.remote_id = str(created["id"])
-            elif act.action == "update":
+            elif act.action == "update" and overwrite:
                 if not act.remote_id:
                     raise RuntimeError(f"cannot PUT preset {act.target_name!r}: missing remote id")
                 quoted_id = quote(act.remote_id, safe="")
@@ -317,8 +322,9 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--base-url", default="", help="heylook server URL (defaults to H3_HEYLOOK_URL / h3.env)")
     mode_grp = ap.add_mutually_exclusive_group()
     mode_grp.add_argument("--dry-run", action="store_true", help="plan only without writing (default)")
-    mode_grp.add_argument("--apply", action="store_true", help="POST/PUT changed presets to heylook")
-    ap.add_argument("--diff", action="store_true", help="print unified diffs for create/update actions")
+    mode_grp.add_argument("--apply", action="store_true", help="POST missing presets (and PUT updates only with --overwrite)")
+    ap.add_argument("--overwrite", action="store_true", help="allow PUT updates to overwrite existing remote presets (default: insert missing presets only)")
+    ap.add_argument("--diff", action="store_true", help="print unified diffs for create/update/skip_existing actions")
     ap.add_argument("--only", action="append", default=[], help="filter by preset name or group (video|image|steering|auto_edit_2x|director|query_router)")
     ap.add_argument("--prefix", default=None, help="override target preset name prefix (defaults to H3_HEYLOOK_PRESET_PREFIX or none; e.g. h3app_)")
     ap.add_argument("--reset-params", action="store_true", help="clear remote sampler params instead of preserving them")
@@ -339,23 +345,26 @@ def main(argv: list[str] | None = None) -> int:
         specs,
         apply=bool(args.apply),
         reset_params=bool(args.reset_params),
+        overwrite=bool(args.overwrite),
         prefix=args.prefix,
     )
 
-    counts = {"create": 0, "update": 0, "unchanged": 0}
+    counts = {"create": 0, "update": 0, "skip_existing": 0, "unchanged": 0}
     mode_label = "APPLIED" if args.apply else "DRY-RUN"
     for act in actions:
         counts[act.action] = counts.get(act.action, 0) + 1
         flags = [f"params={len(act.new_params)}"] if act.new_params else []
         flag_str = f" ({', '.join(flags)})" if flags else ""
-        print(f"  {act.action:<9} {act.target_name:<28} <- {act.spec.rel_path}{flag_str}")
+        print(f"  {act.action:<13} {act.target_name:<28} <- {act.spec.rel_path}{flag_str}")
         if args.diff and act.diff_text:
             print(act.diff_text)
 
     print(
         f"\n[{mode_label}] create={counts['create']} update={counts['update']} "
-        f"unchanged={counts['unchanged']} total={len(actions)}"
+        f"skip_existing={counts['skip_existing']} unchanged={counts['unchanged']} total={len(actions)}"
     )
+    if counts["skip_existing"] > 0:
+        print("  (pass --overwrite to update existing remote presets)")
     return 0
 
 
