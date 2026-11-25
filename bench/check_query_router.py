@@ -1322,6 +1322,94 @@ def _test_section_split_partial_aud_and_ref_cache() -> None:
     print("[ok] Test 12: Case B partial audio_block_band & multi-entry ref_cache passed")
 
 
+def _test_steer_runtime_collision_guard() -> None:
+    """Test 13: Fail-fast guard against nested 1x `_h3_steer_runtime` clobbering while allowing plain Steer + Router."""
+    from comfy.patcher_extension import WrappersMP
+
+    dm = _TinyH3Model(n_blocks=4, seed=141)
+    base = _ToyPatcher(dm)
+    gen = torch.Generator(device="cpu").manual_seed(801)
+    L = 10
+    ctx_base = torch.randn(1, L, sc.POST_REFINER_DIM, generator=gen) * 0.25
+    ctx_alt = torch.randn(1, 6, sc.POST_REFINER_DIM, generator=gen) * 0.25 + 0.5
+    tags = torch.ones(L, dtype=torch.long)
+    tags[:2] = 0
+    span_masks = {"vision": tags == 0, "scene": tags == 1}
+    tags._h3_span_masks = span_masks
+    payload = {"text_token_tags": tags, "h3_span_masks": span_masks}
+    vec = torch.randn(sc.POST_REFINER_DIM, generator=gen)
+    vec = vec / torch.linalg.vector_norm(vec)
+
+    def _expect_collision(patcher: _ToyPatcher, want_substr: str, label: str) -> None:
+        try:
+            patcher.run(ctx_base, payload=payload)
+        except ValueError as exc:
+            assert want_substr in str(exc), f"{label}: unexpected ValueError message: {exc}"
+            return
+        raise AssertionError(f"{label}: expected ValueError containing {want_substr!r}, none raised")
+
+    # 1. Plain Steer (streams='both', block_band='all') + QueryRouter stacks cleanly in BOTH orders!
+    m_plain_a = base.clone()
+    _attach_steer_spec(
+        m_plain_a,
+        sn._AppliedVectorSpec(
+            vector_name="plain_vec",
+            vector=vec,
+            strength=0.8,
+            mode="add_norm_matched",
+            scale_mode="norm_matched",
+            mask="non_vision",
+            start_percent=0.0,
+            end_percent=1.0,
+            metadata={},
+            advisories=(),
+            video_scale=1.0,
+            audio_scale=1.0,
+            block_band="all",
+            split_backend="auto_1x_kv",
+        ),
+    )
+    m_plain_a = qr.attach_query_router(m_plain_a, audio_conditioning=_make_cond(ctx_alt))
+    v_pa, a_pa = m_plain_a.run(ctx_base, payload=payload)
+    assert torch.isfinite(v_pa).all() and torch.isfinite(a_pa).all()
+
+    m_plain_b = m_plain_a.clone()
+    w_pb = m_plain_b.wrappers[WrappersMP.DIFFUSION_MODEL]
+    w_pb["z_h3_control_vectors"] = w_pb.pop(sn.WRAPPER_KEY)
+    v_pb, a_pb = m_plain_b.run(ctx_base, payload=payload)
+    assert torch.isfinite(v_pb).all() and torch.isfinite(a_pb).all()
+
+    # 2. Hook-mode Steer (audio_scale=0.0, auto_1x_kv) + QueryRouter fails fast in BOTH orders!
+    m_hook_outer = base.clone()
+    _attach_steer_spec(
+        m_hook_outer,
+        sn._AppliedVectorSpec(
+            vector_name="hook_vec",
+            vector=vec,
+            strength=1.0,
+            mode="add_norm_matched",
+            scale_mode="norm_matched",
+            mask="non_vision",
+            start_percent=0.0,
+            end_percent=1.0,
+            metadata={},
+            advisories=(),
+            video_scale=1.0,
+            audio_scale=0.0,
+            block_band="all",
+            split_backend="auto_1x_kv",
+        ),
+    )
+    m_hook_outer = qr.attach_query_router(m_hook_outer, audio_conditioning=_make_cond(ctx_alt))
+    _expect_collision(m_hook_outer, "MiniMaxH3QueryRouter cannot stack", "Steer(outer) -> QueryRouter(inner)")
+
+    m_hook_inner = m_hook_outer.clone()
+    w_hi = m_hook_inner.wrappers[WrappersMP.DIFFUSION_MODEL]
+    w_hi["z_h3_control_vectors"] = w_hi.pop(sn.WRAPPER_KEY)
+    _expect_collision(m_hook_inner, "MiniMaxH3Steer 1x hook mode", "QueryRouter(outer) -> Steer(inner)")
+    print("[ok] Test 13: 1x _h3_steer_runtime collision guard (both orders + plain Steer allowed) passed")
+
+
 def main() -> int:
     _test_parity_against_audio_only_steer()
     _test_arbitrary_length_dual_prompt()
@@ -1335,6 +1423,7 @@ def main() -> int:
     _test_multi_block_q_txt_k_vid_isolation()
     _test_shadow_multi_run_tag_runs()
     _test_section_split_partial_aud_and_ref_cache()
+    _test_steer_runtime_collision_guard()
     print("check_query_router: ALL TESTS PASSED")
     return 0
 

@@ -1631,6 +1631,12 @@ def _make_control_vector_wrapper(
             aud_uses_shadow_b: bool,
             aud_unswapped_blocks: frozenset[int] = frozenset(),
         ) -> Any:
+            if isinstance(transformer_options, dict) and transformer_options.get("_h3_steer_runtime") is not None:
+                raise ValueError(
+                    "MiniMaxH3Steer 1x hook mode (streams!='both' or block_band!='all') cannot stack with another "
+                    "active 1x H3SteerRuntime (e.g. MiniMaxH3QueryRouter); use streams='both' & block_band='all', "
+                    "or split_backend='legacy_2x', or disable one of the two 1x attention hooks."
+                )
             with _steer_hooks.pause_malloc_graph_ctx():
                 rt = _steer_hooks.H3SteerRuntime(
                     dm=dm_exec,

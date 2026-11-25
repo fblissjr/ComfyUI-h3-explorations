@@ -375,6 +375,13 @@ def _make_query_router_wrapper(
             shadow_b_tags: torch.Tensor | None = None,
             invoke_call_kwargs: dict[str, Any] = call_kwargs,
         ) -> Any:
+            if isinstance(transformer_options, dict) and transformer_options.get("_h3_steer_runtime") is not None:
+                raise ValueError(
+                    "MiniMaxH3QueryRouter cannot stack with another active 1x H3SteerRuntime "
+                    "(e.g. hook-mode MiniMaxH3Steer with streams!='both' or block_band!='all'); "
+                    "use MiniMaxH3Steer with streams='both' & block_band='all', or split_backend='legacy_2x', "
+                    "or disable one of the two 1x attention hooks."
+                )
             with _steer_hooks.pause_malloc_graph_ctx():
                 rt = _steer_hooks.H3SteerRuntime(
                     dm=dm,
