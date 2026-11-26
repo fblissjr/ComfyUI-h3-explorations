@@ -487,24 +487,31 @@ DECLARED: dict[tuple[str, str], tuple] = {
         ("ARM", "1.6 (h3_config.SOUND_GUIDE_EDIT_GUIDANCE['scale']) on "
                 "h3_text_to_video_pika_sound_guide and h3_image_ref_dpad_sound_pika "
                 "so the cond_audio keyframe differential locks exact jump/yank timestamps, "
+                "1.65 on h3_text_to_video_pika_audio_freeze_spatial_portal for circular "
+                "reality-portal replacement over frozen audio, "
                 "2.0 (h3_config.SPATIAL_PORTAL_EDIT_GUIDANCE['scale']) on the Reality Portal "
                 "arms, and 2.2 on h3_spatial_portal_pika_erasure against the node default 1.5 "
-                "on the prompt-edit graphs (2026-11-12)."),
+                "on the prompt-edit graphs (2026-11-12, 2026-11-26)."),
+    ("MiniMaxH3EditGuider", "first_step"):
+        ("ARM", "1 on h3_text_to_video_pika_audio_freeze_spatial_portal so Step 0 establishes "
+                "shared frozen-audio choreography before 2-pass spatial portal guidance on "
+                "steps 1..3, against the node default 0 (2026-11-26)."),
     ("MiniMaxH3EditGuider", "last_step"):
         ("ARM", "3 (h3_config.SOUND_GUIDE_EDIT_GUIDANCE['last_step']) on "
-                "h3_text_to_video_pika_sound_guide and h3_image_ref_dpad_sound_pika, "
+                "h3_text_to_video_pika_sound_guide, h3_image_ref_dpad_sound_pika, and "
+                "h3_text_to_video_pika_audio_freeze_spatial_portal, "
                 "matching audio_end_percent = 0.60 on 6-step Pika LCM (steps 0..3 run "
                 "2-pass guidance; steps 4..5 run 1-pass [original] for 10 total DiT calls "
-                "instead of 12), against the node default 1000 on the prompt-edit graphs (2026-11-12)."),
+                "instead of 12, or 9 calls when first_step=1), against the node default 1000 "
+                "on the prompt-edit graphs (2026-11-12, 2026-11-26)."),
     ("MiniMaxH3EditGuider", "streams"):
         ("ARM", "'video_only' (h3_config.SOUND_GUIDE_EDIT_GUIDANCE['streams']) on "
-                "h3_text_to_video_pika_sound_guide and h3_image_ref_dpad_sound_pika "
-                "(and h3_world_targets_genie_pika), plus 'independent' on "
-                "h3_spatial_portal_pika and h3_spatial_portal_pika_erasure, against the node default 'both': 'video_only' "
-                "extrapolates the cond_audio timing delta into x_video while pinning "
-                "x_audio strictly to the unguided [original] prediction, eliminating "
-                "synthetic .wav bleed and -94 dBFS inter-island silence while H3 "
-                "synthesizes native foley via x_video -> x_audio (2026-11-12, "
+                "h3_text_to_video_pika_sound_guide, h3_image_ref_dpad_sound_pika, "
+                "h3_world_targets_genie_pika, and h3_text_to_video_pika_audio_freeze_spatial_portal, "
+                "plus 'independent' on h3_spatial_portal_pika and h3_spatial_portal_pika_erasure, "
+                "against the node default 'both': 'video_only' extrapolates the timing/portal delta "
+                "into x_video while pinning x_audio strictly to [original] (preserving frozen "
+                "audio or native foley without synthetic .wav bleed) (2026-11-12, 2026-11-26, "
                 "docs/wiki/edit_guidance.md); 'independent' pairs with audio_scale=1.0 "
                 "to keep edited audio clean without CFG > 0 dBFS clipping when "
                 "visual scale=1.5..2.0."),
@@ -515,9 +522,9 @@ DECLARED: dict[tuple[str, str], tuple] = {
                 "synchronized with 3f SoundCues and Genie D-Pad sprites (2026-11-15)."),
     ("MiniMaxH3SpatialDirector", "events_json"):
         ("ARM", "3-keyframe 'vertical_split' Noir Split-World Wipe (x = 0.68 -> 0.50 -> 0.30) on "
-                "h3_spatial_portal_pika_erasure so 32%..70% of the canvas crosses H3's 3D "
-                "self-attention spatial continuity threshold under zero-rewrite steering, "
-                "against DEFAULT_DIRECTOR_EVENTS_JSON (2026-11-21)."),
+                "h3_spatial_portal_pika_erasure and custom L->R circular Reality Lens sweep "
+                "(x = 0.22 -> 0.50 -> 0.78) on h3_text_to_video_pika_audio_freeze_spatial_portal "
+                "against DEFAULT_DIRECTOR_EVENTS_JSON (2026-11-21, 2026-11-26)."),
     ("MiniMaxH3Steer", "mode"):
         ("ARM", "'add_norm_matched' on the baseline 1D branch (node 170) of "
                 "h3_text_to_video_pika_1d_vs_erasure_ab so one click compares legacy 1D "
@@ -580,7 +587,8 @@ DECLARED: dict[tuple[str, str], tuple] = {
                 "shipped auto-edit guidance graphs against the node default 'none' (2026-11-19)."),
     ("MiniMaxH3SpatialQueryRouter", "isolation"):
         ("ARM", "Per-arm block-band isolation schedule: 'all_0_49' on "
-                "h3_text_to_video_pika_multishot_spatial_cut for zero-bleed 1-frame hard cuts, "
+                "h3_text_to_video_pika_multishot_spatial_cut and "
+                "h3_text_to_video_pika_audio_freeze_beat_cut for zero-bleed 1-frame hard cuts, "
                 "and 'mid_20_34' on h3_r2v_midas_walk_spatial_wake_pika so winter/spring geometry "
                 "stays grounded while trailing blooms emerge, against default 'early_0_24' (2026-11-26)."),
     ("MiniMaxH3SpatialQueryRouter", "audio_zone"):
@@ -594,7 +602,9 @@ DECLARED: dict[tuple[str, str], tuple] = {
                 "unsteered live action + audio on the right, against default False (2026-11-26)."),
     ("MiniMaxH3SpatialQueryRouter", "x_start"):
         ("ARM", "0.0 on mask-driven full-canvas spatial workflows "
-                "(h3_text_to_video_pika_multishot_spatial_cut and h3_r2v_midas_walk_spatial_wake_pika) "
+                "(h3_text_to_video_pika_multishot_spatial_cut, "
+                "h3_text_to_video_pika_audio_freeze_beat_cut, and "
+                "h3_r2v_midas_walk_spatial_wake_pika) "
                 "where connected MASK overrides box bounds, against default 0.5 (2026-11-26)."),
     ("MiniMaxH3SpatialDirector", "invert_mask"):
         ("ARM", "True on h3_r2v_midas_walk_spatial_wake_pika so left-of-wipe pixels (the "
@@ -608,13 +618,16 @@ DECLARED: dict[tuple[str, str], tuple] = {
                 "against node default 0.31 (2026-11-26)."),
     ("SolidMask", "width"):
         ("ARM", "1344 canvas width matching the render resolution on "
-                "h3_text_to_video_pika_multishot_spatial_cut against SolidMask default 512 (2026-11-26)."),
+                "h3_text_to_video_pika_multishot_spatial_cut and "
+                "h3_text_to_video_pika_audio_freeze_beat_cut against SolidMask default 512 (2026-11-26)."),
     ("SolidMask", "height"):
         ("ARM", "768 canvas height matching the render resolution on "
-                "h3_text_to_video_pika_multishot_spatial_cut against SolidMask default 512 (2026-11-26)."),
+                "h3_text_to_video_pika_multishot_spatial_cut and "
+                "h3_text_to_video_pika_audio_freeze_beat_cut against SolidMask default 512 (2026-11-26)."),
     ("RepeatImageBatch", "amount"):
-        ("ARM", "Procedural Shot 1 (85 frames) and Shot 2 (107 frames) temporal step-mask counts "
-                "on h3_text_to_video_pika_multishot_spatial_cut against RepeatImageBatch default 1 (2026-11-26)."),
+        ("ARM", "Procedural Shot 1 and Shot 2 temporal step-mask frame counts (85/107 on "
+                "h3_text_to_video_pika_multishot_spatial_cut, 85/56 on "
+                "h3_text_to_video_pika_audio_freeze_beat_cut) against RepeatImageBatch default 1 (2026-11-26)."),
 }
 
 #: **There is deliberately no exception table here.** One was written on

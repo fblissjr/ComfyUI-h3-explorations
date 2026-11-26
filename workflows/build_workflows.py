@@ -340,6 +340,21 @@ SPATIAL_BINAURAL_FERRY_PROMPT = (
     "wake water, cold harbor wind, creaking wet steel cables, and a distant foghorn moaning across dark water.\n\n"
     "non_diegetic_music: N/A"
 )
+MV_VIOLIN_FREEZE_BASE_PROMPT = (
+    "integrated_multimodal_description:\n"
+    "Live-action, warm 35mm film grain, medium tracking shot along a sunlit rustic European cobblestone alley at golden hour, "
+    "warm limestone walls, terraced café shutters, and ivy balconies framing a focused street violinist wearing a dark olive wool coat "
+    "playing an aged honey-spruce violin vigorously in crisp synchronized rhythm with a driving instrumental groove, his bow arm "
+    "drawing swift rhythmic strokes across the strings while warm dust motes glint in slanted sunlight. He keeps his lips closed.\n\n"
+    "overall_soundscape:\nDriving percussive acoustic groove with crisp bowed violin rhythm.\n\nnon_diegetic_music:\nN/A"
+)
+MV_VIOLIN_BEATDROP_PROMPT = (
+    "integrated_multimodal_description:\n"
+    "Midnight rain-drenched cyberpunk neon rooftop concert overlooking towering holographic skyscrapers, wet reflective black concrete floor splashed "
+    "with pulsing crimson, cyan, and violet rim-lighting and sparkling rain mist around an electric neon street violinist wearing a sleek black iridescent jacket "
+    "playing an illuminated crystal violin aggressively on the downbeat, glowing laser beams sweeping behind him.\n\n"
+    "overall_soundscape:\nMassive reverberant stadium electronic rock drop with crisp violin lead.\n\nnon_diegetic_music:\nN/A"
+)
 MIDAS_WALK_WINTER_REF2V_PROMPT = (
     "subject_definitions:\n"
     "<Subject 1> is the tortoise carrying a single lit white birthday candle on its domed shell from <Picture 1>, "
@@ -6558,6 +6573,59 @@ def main():
               ),
               out_prefix="Video/h3_r2v_midas_walk_spatial_wake_pika"),
          "1x Midas Walk kinematic wake (`<Picture 1>` tortoise + MiniMaxH3AppendSpriteTrajectory `<Video 1>` released at `end_percent=0.33` + `3f` SoundCues + `MiniMaxH3SpatialDirector` sweeping winter-to-spring wake mask into `MiniMaxH3SpatialQueryRouter(isolation='mid_20_34', audio_zone='follow_mask')`) on Pika H3 Flex 6-step LCM"),
+        ("h3_text_to_video_pika_audio_freeze_beat_cut.json", "t2v-pika-audio-freeze-beat-cut", "t2v",
+         MV_VIOLIN_FREEZE_BASE_PROMPT,
+         dict(width=1344, height=768, length=141,
+              lora=(PIKA_FL2VA_SVD995_LORA, PIKA_STRENGTH), lora_branch=True,
+              steps=PIKA_STEPS, sampler_name=PIKA_SAMPLER,
+              manual_sigmas=PIKA_MANUAL_SIGMAS,
+              freeze_audio=True,
+              freeze_track="h3_trio_groove_20261123.wav",
+              spatial_query_router=dict(
+                  region_prompt=MV_VIOLIN_BEATDROP_PROMPT,
+                  x_start=0.00,
+                  x_end=1.00,
+                  y_start=0.00,
+                  y_end=1.00,
+                  invert=False,
+                  isolation="all_0_49",
+                  audio_zone="base",
+                  split_mask=dict(split_frame=85, total_frames=141, width=1344, height=768),
+              ),
+              out_prefix="Video/h3_t2v_pika_audio_freeze_beat_cut"),
+         "1x beat-drop music-video smash cut at causal f85 (3.54 s downbeat) over a frozen audio track (`MiniMaxH3FreezeAudio` + lossless mux) via `MiniMaxH3SpatialQueryRouter(isolation='all_0_49', audio_zone='base')` + procedural 85/56 temporal step mask on Pika H3 Flex 6-step LCM"),
+        ("h3_text_to_video_pika_audio_freeze_spatial_portal.json", "t2v-pika-audio-freeze-spatial-portal", "t2v",
+         MV_VIOLIN_FREEZE_BASE_PROMPT,
+         dict(width=1344, height=768, length=141,
+              lora=(PIKA_FL2VA_SVD995_LORA, PIKA_STRENGTH), lora_branch=True,
+              steps=PIKA_STEPS, sampler_name=PIKA_SAMPLER,
+              manual_sigmas=PIKA_MANUAL_SIGMAS,
+              freeze_audio=True,
+              freeze_track="h3_trio_groove_20261123.wav",
+              spatial_director=dict(
+                  events_json=json.dumps({
+                      "portal": [
+                          {"frame": 0, "x": 0.22, "y": 0.50, "rx": 0.26, "ry": 0.35,
+                           "shape": "circle", "label": "REALITY LENS"},
+                          {"frame": 70, "x": 0.50, "y": 0.50, "rx": 0.28, "ry": 0.36,
+                           "shape": "circle", "label": "REALITY LENS"},
+                          {"frame": 140, "x": 0.78, "y": 0.50, "rx": 0.26, "ry": 0.35,
+                           "shape": "circle", "label": "REALITY LENS"},
+                      ],
+                      "targets": [],
+                  }, indent=2),
+              ),
+              edit_guidance=dict(
+                  edits=_edit_guidance_text("t2va_music_video_violin_portal"),
+                  scale=1.65,
+                  first_step=1,
+                  last_step=3,
+                  streams="video_only",
+                  audio_scale=1.0,
+                  spatial_mask=True,
+              ),
+              out_prefix="Video/h3_t2v_pika_audio_freeze_spatial_portal"),
+         "smooth circular L->R Reality Portal over a frozen audio track (`MiniMaxH3FreezeAudio` + lossless mux + `MiniMaxH3SpatialDirector(portal_path)`) via `MiniMaxH3EditGuider(streams='video_only', first_step=1, last_step=3, scale=1.65)` on Pika H3 Flex 6-step LCM"),
         ("h3_first_last_frame_to_video_pika_query_router.json", "fl2v-pika-query-router", "i2v",
          None,
          dict(width=1344, height=768, length=192, last_frame=True,

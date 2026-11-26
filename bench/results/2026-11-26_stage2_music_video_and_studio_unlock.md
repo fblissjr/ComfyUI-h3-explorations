@@ -1,0 +1,58 @@
+# Stage 2 Music-Video Gate, Studio 2.0 Unlock & Cross-Session Sprint (2026-11-26)
+
+Cross-session sprint executed across main repo (`dbbfbf10`, `9c6ac2a0`) and H3 Studio (`app/` commit `05a058e`). Zero local mount or home paths are recorded; all media sit under `$H3_INPUT_DIR` / `$H3_OUTPUT_DIR/Video/stage2_music_video_2026-11-26/`.
+
+## 1. Track Summary
+
+| Track | Scope & Status | Primary Artifacts |
+| :--- | :--- | :--- |
+| **Track 0 (`bench/check_imports.py`)** | Fixed sibling import resolution (`path.parent` prepended to `roots`) so nested `bench/attention/*.py` modules never collide with root `attention.py`; verified (`606` files scanned, `0` missing imports, `2/2` nested regression cases ok). | [`bench/check_imports.py`](../check_imports.py) |
+| **Track 1 (Stage 2 Music-Video GPU Gate + Shipped Workflows)** | Verified `8/8` Pika H3 Flex 6-step `1344x768`, `141f` frozen-audio music-video renders (`seed = 730451892`) over `$H3_INPUT_DIR/h3_trio_groove_20261123.wav`; shipped two curated workflows (`t2v-pika-audio-freeze-beat-cut`, `t2v-pika-audio-freeze-spatial-portal`). | [`h3_text_to_video_pika_audio_freeze_beat_cut_api.json`](../../workflows/h3_text_to_video_pika_audio_freeze_beat_cut_api.json) · [`h3_text_to_video_pika_audio_freeze_spatial_portal_api.json`](../../workflows/h3_text_to_video_pika_audio_freeze_spatial_portal_api.json) |
+| **Track 2 (`SelfMaskRouter` AV Gate, peer `9c6ac2a0`)** | Co-audited `17` Track 2 / 2b artifacts (`a0/a1` `4 MP` still + `b0..b4`, `c0..c2` `141f` AV runs, [`steering/live_policy.py`](../../steering/live_policy.py) shipped in `3e76b4a3`; see [`2026-11-26_h3_4sensor_calibration.md`](2026-11-26_h3_4sensor_calibration.md) §6); settled `~9–18%` contiguous token threshold (`1.17x` `a1` `2.334x` emerald geode bread, `c1` cobalt walk, `c2` silver chrome `00:00–02` -> `< 6.8%` revert `00:03–05`) & `Q_vid @ K_aud` speaker tracking. | [`steering/live_policy.py`](../../steering/live_policy.py) · [`bench/check_live_policy.py`](../check_live_policy.py) · [`2026-11-26_h3_4sensor_calibration.md`](2026-11-26_h3_4sensor_calibration.md) |
+| **Track 3 (`app/` H3 Studio 2.0, commit `05a058e`)** | Unlocked `1x World Split` (`MiniMaxH3SpatialQueryRouter`) on Image compose (`MiniMax-H3-Image` & `P-H3-Image`, pinning `audio_zone="base"`) and added `POST /api/upload_audio` + `_wire_freeze_audio` (`LoadAudio` + `MiniMaxH3FreezeAudio`) on Video compose (`162 passed, 1 skipped` pytest; `app/test_app.py` Tier 1 passed). | [`app/graph_builder.py`](../../app/graph_builder.py) · [`app/server.py`](../../app/server.py) · [`app/web/src/components/SplitStudioSheet.tsx`](../../app/web/src/components/SplitStudioSheet.tsx) · [`app/web/src/components/OverridesDialog.tsx`](../../app/web/src/components/OverridesDialog.tsx) |
+
+---
+
+## 2. Stage 2 Music-Video GPU Gate (`$H3_OUTPUT_DIR/Video/stage2_music_video_2026-11-26/`)
+
+All `8` renders used `1344x768`, `141` frames (`5.875 s` at `24.0 fps`), `6`-step Pika H3 Flex (`MiniMaxH3Sol`, `seed = 730451892`), and [`MiniMaxH3FreezeAudio`](../../audio_freeze.py) (`audio_mask = 0.0`, `level = "clip_guard"`) over `$H3_INPUT_DIR/h3_trio_groove_20261123.wav` (`32 kHz` stereo, `7.000 s`; beat hits at `f036, f049, f061, f073, f085, f098`), muxing lossless `[freeze, 1]` directly into `VHS_VideoCombine`.
+
+### 2.1 Group 1: Moving Circular Portal & Beat-Drop Smash Cut (`start_seconds = 0.0`)
+
+| Arm & Output Clip (`-audio.mp4`) | Routing / Guider Config | Elapsed (s) | Audio RMS / Ref Corr | Measured Visual Delta & Observable Quality |
+| :--- | :--- | :---: | :---: | :--- |
+| `mv1_violin_freeze_base` | `1x` frozen-audio violinist alley baseline | `76.05` | `-24.58 dBFS` / `0.999905` | Smooth frame-to-frame motion (`f83->84 = 8.58`, `f84->85 = 8.54`, `f85->86 = 8.71` RGB MAE). Crisp sunlit cobble alley violin play locked to the groove. |
+| `mv1_beat_drop_cut_all049` **(1c winner)** | `1x SpatialQR(isolation="all_0_49", audio_zone="base")` + `85/56` `SolidMask` step mask at `f85` (`3.54 s` downbeat & exact `17*5` causal VAE start) | `74.14` | `-24.58 dBFS` / `0.999905` | **Razor-sharp 1-frame beat-drop smash cut at `f85`:** `pre_cut_f83_to_f84_mae = 2.95`, **`cut_f84_to_f85_mae = 70.25`**, `post_cut_f85_to_f86_mae = 6.61` (`delta_vs_base f15 = [43.11, 47.31]`, `f125 = [78.47, 91.69]`). Cuts cleanly from sunlit street violinist to midnight neon rooftop concert + laser sweep. |
+| `mv1_portal_2x_edit_vidonly` **(portal winner)** | `MiniMaxH3SpatialDirector(portal_path, x=0.22 -> 0.50 -> 0.78)` + `2x MiniMaxH3EditGuider(streams="video_only", first_step=1, last_step=3, scale=1.65)` | `104.06` | `-24.58 dBFS` / `0.999905` | Smooth circular L->R stained-glass cyberpunk portal (`delta_vs_base f15 L/R = [22.99, 18.37]` -> `f125 L/R = [12.33, 27.52]`) with zero `32x32` rectangular patch edges and unperturbed frozen audio. |
+| `mv1_portal_1x_sqr_mid2049` | Same moving `SpatialDirector` portal + `1x SpatialQR(isolation="mid_20_49", audio_zone="base")` | `72.07` | `-24.58 dBFS` / `0.999905` | Portal translates L->R (`f15 = [39.33, 37.39]` -> `f125 = [25.13, 56.84]`, fixing static `g3c` center freeze), **but** `32x32` hard spatial token binning stamps visible rectangular edges onto curved circular masks. |
+
+### 2.2 Group 2: Fresh-Scene `SAM 3.1` Subject-vs-Bg Split (`start_seconds = 1.0`)
+
+`MiniMaxH3SubjectTrack` tracked the solo travertine courtyard dancer over cached `mv2_dancer_freeze_base`, followed by `GrowMask(16)` + `ImageBlur(6, sigma=0.45)`.
+
+| Arm & Output Clip (`-audio.mp4`) | Routing / Guider Config | Elapsed (s) | Audio RMS / Ref Corr | Center vs Outer MAE (`vs base`) & Observable Quality |
+| :--- | :--- | :---: | :---: | :--- |
+| `mv2_dancer_freeze_base` | `1x` sunlit travertine atrium dancer + SAM 3.1 preview | `90.06` | `-24.59 dBFS` / `0.999936` | Smooth beat-locked popping/waving/sliding choreography (`f83->84 = 4.80`, `f84->85 = 5.22`, `f85->86 = 4.70`). |
+| `mv2_sam3_bg_cyber_1x` | `1x SpatialQR(invert=True, isolation="early_0_24", audio_zone="base")` | `110.09` | `-24.59 dBFS` / `0.999936` | `center = 53.95`, `outer_edges = 62.47`. Keeps beat-locked dancing while adding wet reflective atrium floor, ground mist, & arcade cabinets; sunlit upper travertine arches stay warm and dancer face/hair drifts (curly bearded -> straight clean-shaven). |
+| `mv2_sam3_subj_gold_1x_shield` | `1x SpatialQR(invert=False, isolation="mid_20_34_shield", audio_zone="base")` | `74.05` | `-24.59 dBFS` / `0.999936` | `center = 36.70`, `outer_edges = 32.14`. Preserves choreography & sunlit courtyard and turns face/hands metallic gold at `00:00-01` & `00:04-05`, **but** flickers back to flesh tones at `00:02-03`. |
+| `mv2_sam3_subj_gold_2x_vidonly` | `2x EditGuider(streams="video_only", first_step=1, last_step=3, scale=1.60)` | `100.06` | `-24.59 dBFS` / `0.999936` | `center = 34.41`, **`outer_edges = 12.51` (`2.57x` tighter surround lock vs `1x_shield`'s `32.14`)**. Achieves full mirror-polished 24k gold suit, **but** stiffens hip-hop dance posture into an upright standing statue, briefly clips the top of the head at `00:02-03`, and flashes glossy dark patches. |
+
+### 2.3 Architectural Takeaway & Shipped Workflows
+
+- **Beat-Drop Hard Cuts (`1x` zero overhead):** Use [`MiniMaxH3SpatialQueryRouter`](../../steering/spatial_query_router.py)`(isolation="all_0_49", audio_zone="base")` on procedural `SolidMask` cuts snapped to exact `17*n + 0` causal starts (e.g., `f85` = `3.54 s`). Shipped as [`workflows/h3_text_to_video_pika_audio_freeze_beat_cut_api.json`](../../workflows/h3_text_to_video_pika_audio_freeze_beat_cut_api.json).
+- **Smooth Moving Circular Portals (`2x video_only`):** Use [`MiniMaxH3SpatialDirector`](../../spatial_director.py) + [`MiniMaxH3EditGuider`](../../edit_guidance.py)`(streams="video_only", first_step=1, last_step=3, scale=1.65)` over [`MiniMaxH3FreezeAudio`](../../audio_freeze.py) so curved circular edges feather smoothly without `32x32` patch grid aliasing or audio drift. Shipped as [`workflows/h3_text_to_video_pika_audio_freeze_spatial_portal_api.json`](../../workflows/h3_text_to_video_pika_audio_freeze_spatial_portal_api.json).
+- **Subject-Mask Swap Tradeoff:** Neither `1x` nor `2x` solved dynamic subject-only gold skinning cleanly in one pass without tradeoff (`1x` preserves choreography cleanly on bg/clothing swaps with temporal skin flicker under `mid_20_34_shield`; `2x` enforces full-body gold material & `12.51` outer-edge lock at the cost of stiffening fast dance pose).
+
+---
+
+## 3. Track 2 Cross-Session Co-Audit: `SelfMaskRouter` Live `4 MP` & `24 fps` AV Gate (`$H3_OUTPUT_DIR/Video/track2_self_mask_av_2026-11-26/`)
+
+Peer `9c6ac2a0` ran [`steering/live_policy.py`](../../steering/live_policy.py) (`3e76b4a3`: `replay_step0` `1.17x` + cross-time `cross_time_scale_floor`) live across two batches (`track2_self_mask_av_report.json` and `track2b_replay_followup_report.json`, recorded in full in [`bench/results/2026-11-26_h3_4sensor_calibration.md`](2026-11-26_h3_4sensor_calibration.md) §6), and both sessions inspected every decoded PNG/MP4 natively via `read_file`:
+
+| Arm & Output | Config & Mask Source | Elapsed (s) | Observable Visual & Sensor Result |
+| :--- | :--- | :---: | :--- |
+| `a1_bread_replay_step0_mid2034_shield.png` (`4 MP`) | `text_phrase="bread"`, `replay_step0=True`, `mid_20_34_shield` | `5.01` *(vs `18.53` base)* | **10/10 hit:** Both whole loaves in the wicker basket turn into luminous emerald quartz crystal geodes (`in_mask_mae_rgb = 69.80`, `out_mask_mae_rgb = 29.902`, `2.334x`), casting green glow onto inner basket weaves while cheese board, veggies, cutlery, and jars stay locked with zero `all_0_49` square seams. |
+| `c1_walk_text_phrase_woman` (`141f`, `1344x768`) | `text_phrase="woman"`, `replay_step0=False`, `mid_20_34_shield` | `59.08` *(vs `49.98` base)* | **Tracking + full-clip upper-body swap:** `B35+B40` tracked the woman's L->R walk cleanly (`centroid_x = 0.209 -> 0.375 -> 0.541`, `hard_cov = 10.0%–16.1%`, `bbox = [0.071, 0.500, 0.595, 0.750]`). Visually transforms her head and upper coat into glowing cobalt-blue marble/chrome while preserving her burgundy skirt, stride, footstep audio, and courtyard; mask strip shows diffuse `10-16%` wall-arch bleed (`in_mae = 13.893`, `out_mae = 19.108`). |
+| `c2_walk_woman_coat_replay_e024` (`141f`, `1344x768`) | `text_phrase="woman, crimson, coat"`, `replay_step0=True`, `early_0_24_shield`, `threshold_z=1.80` | `75.51` *(vs `49.98` base)* | **Causal coverage-threshold proof (`in_mae = 18.548`, `out_mae = 26.077`):** Head, neck, and arms become mirror-polished silver chrome on `00:00–00:02` (`f0..f60`, `hard_cov = 8.7%–11.4%`), then snap cleanly back to a human woman on `00:03–00:05` (`f72..f132`) as sunlit brightness drops `hard_cov` to `3.7%–6.8%` — pinpointing the `~9–18%` contiguous token threshold vs `< 5–8%` global self-attention washout. |
+| `b1` / `b2` (`mid_20_34_shield`, `replay=False`) & `b3` / `b4` (`early_0_24_shield`, `replay=True`, `threshold_z=1.55`) (`141f`, `1344x768`) | `Q_vid @ K_aud` (`right_speaker` & `active_speaker`) | `59.19` / `59.69` & `87.49` / `75.74` *(vs `65.49` base)* | **Sensor localization passed; sparse `< 8.5%` faces stay photoreal:** `b1/b4` `right_speaker` locked right head (`peak_xy = [0.6786, 0.3125]`, `centroid_x = 0.6487 / 0.656`) and `b2/b3` `active_speaker` tracked dialogue turns (`0.439..0.502` woman vs `0.618..0.631` man). Adding `replay_step0=True` + `early_0_24_shield` raised masked delta (`in_mae` `20.96 -> 31.46` / `19.84 -> 34.88`, `1.662x` / `1.506x`), but scattered `7.4%–8.3%` face masks stay below the `1x` photoreal skin-override threshold (`2x EditGuider` owns `< 9%` face re-skinning). |
+

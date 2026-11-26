@@ -96,6 +96,8 @@ def tracked_python_files(repo: Path = REPO) -> list[Path]:
 def check_file_imports(path: Path, repo: Path = REPO) -> list[str]:
     """Parse `path`'s AST (skipping `try`/`except` bodies) and return a list of missing imports."""
     roots = [repo, repo / "bench", repo / "workflows", repo / "standalone"]
+    if path.parent not in roots:
+        roots = [path.parent, *roots]
     rel = path.relative_to(repo) if path.is_relative_to(repo) else path
     tree = ast.parse(path.read_text(), filename=str(rel))
     bad: list[str] = []
@@ -176,11 +178,12 @@ def tracked_root_and_bench_imports_exist() -> str:
 def catches_missing_repo_folder_and_module_imports() -> str:
     with tempfile.TemporaryDirectory() as tmp:
         fake = Path(tmp)
-        for d in (fake / "bench" / "_lib", fake / "workflows", fake / "standalone", fake / "archive"):
+        for d in (fake / "bench" / "_lib", fake / "bench" / "sub", fake / "workflows", fake / "standalone", fake / "archive"):
             d.mkdir(parents=True, exist_ok=True)
         (fake / "bench" / "_lib" / "__init__.py").write_text("REPO = None\n")
         (fake / "existing_root.py").write_text("X = 1\n")
         (fake / "bench" / "existing_bench.py").write_text("Y = 2\n")
+        (fake / "bench" / "sub" / "sub_helper.py").write_text("H = 4\n")
         (fake / "workflows" / "h3_config.py").write_text("Z = 3\n")
 
         subprocess.run(["git", "init", "-q"], cwd=str(fake), check=True)
@@ -205,12 +208,15 @@ def catches_missing_repo_folder_and_module_imports() -> str:
             "from workflows import h3_config\n"
             "import _h3pack.existing_root as er\n"
         )
+        good_sub = fake / "bench" / "sub" / "good_sub.py"
+        good_sub.write_text("import sub_helper\nimport existing_root\n")
         archived = fake / "archive" / "old_sam3.py"
         archived.write_text("import meta_sam3\n")
 
         subprocess.run(
             ["git", "add", "existing_root.py", "good_node.py", "bench/existing_bench.py", "bench/good_tool.py",
-             "bench/_lib/__init__.py", "workflows/h3_config.py", "archive/old_sam3.py"],
+             "bench/sub/sub_helper.py", "bench/sub/good_sub.py", "bench/_lib/__init__.py", "workflows/h3_config.py",
+             "archive/old_sam3.py"],
             cwd=str(fake),
             check=True,
         )
@@ -241,6 +247,11 @@ def catches_missing_repo_folder_and_module_imports() -> str:
             "import _h3pack.no_such_node",
         ):
             assert any(needle in e for e in errs), f"expected {needle!r} in {errs}"
+
+        bad_sub = fake / "bench" / "sub" / "bad_sub.py"
+        bad_sub.write_text("import no_such_sub_helper\n")
+        sub_errs = check_file_imports(bad_sub, repo=fake)
+        assert len(sub_errs) == 1 and "no_such_sub_helper" in sub_errs[0], f"expected bad_sub failure, got {sub_errs}"
 
     return "catches missing repo folders/modules, relative imports, namespace imports, and _h3pack targets; skips try/except and archive/"
 
