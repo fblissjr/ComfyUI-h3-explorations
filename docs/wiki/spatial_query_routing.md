@@ -112,6 +112,6 @@ Load the shipped standalone workflow **[`workflows/h3_text_to_video_pika_spatial
 ## Further Reading & Verification
 
 - **Standalone API Workflow:** [`workflows/h3_text_to_video_pika_spatial_query_router_api.json`](../../workflows/h3_text_to_video_pika_spatial_query_router_api.json)
-- **Measured GPU gates:** [`bench/results/2026-11-25_spatial_query_router.md`](../../bench/results/2026-11-25_spatial_query_router.md) (`4` clips) · [`bench/results/2026-11-26_bucket3_spatial_qr_and_sam3.md`](../../bench/results/2026-11-26_bucket3_spatial_qr_and_sam3.md) (`8` clips: `SAM 3.1` splits, `192f binaural_split`, moving lens, `early_0_32`, `Steer` stack)
+- **Measured GPU gates:** [`bench/results/2026-11-25_spatial_query_router.md`](../../bench/results/2026-11-25_spatial_query_router.md) (`4` clips) · [`bench/results/2026-11-26_bucket3_spatial_qr_and_sam3.md`](../../bench/results/2026-11-26_bucket3_spatial_qr_and_sam3.md) (`8` Bucket 3 + `5` `"mid_20_34"` clips: `SAM 3.1` bg/subj splits, `192f binaural_split`, moving lens, `early_0_32`, `Steer` stack, `"mid_20_34"` Body-Scanner)
 - **Implementation & CPU test suite:** [`steering/spatial_query_router.py`](../../steering/spatial_query_router.py) · [`bench/check_spatial_query_router.py`](../../bench/check_spatial_query_router.py)
 - **Related pages:** [`query_routing.md`](query_routing.md) (`1x` Camera ↔ Mic Split) · [`spatial_director_guide.md`](spatial_director_guide.md) (`2x` Moving Portals) · [`README.md`](README.md) (Top Research Highlights)

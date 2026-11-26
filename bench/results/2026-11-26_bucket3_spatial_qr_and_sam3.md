@@ -35,3 +35,21 @@ Standalone `8`-clip matched-seed GPU evaluation (`1344×768`, 6-step Pika H3 Fle
 3. **`audio_zone="binaural_split"` genuinely decorrelates stereo streams (`lr_corr 0.9964 → 0.0152`, `4.1×` L-R spectral divergence):** Blocks `< 30` keep dialogue/action physically grounded in one unified shared room perspective (`3×` sharper than `plain_control`), while `late_30_49` L/R split puts typewriter+male dialogue on Left and rain+wok+female vendor on Right. (Tighter isolation like `early_0_32` / `all_0_49` is recommended when strict B&W grayscale on Left must not warm up under seamless `25..49`.)
 4. **Static splits & SAM tracks > moving synthetic portals at `1×`:** In `g3c_192f_sqr_portal_sweep`, sliding a circular `MiniMaxH3SpatialDirector` mask across `192` frames during unconstrained `t2va` parked neon facades down the central horizon corridor across all frames rather than cleanly wiping left-to-right. Keep `2× EditGuider + SpatialDirector(lock_take)` for moving geometric portals over an existing take.
 5. **Context-mode `MiniMaxH3Steer` composes safely on GPU:** `MiniMaxH3Steer(streams="both", block_band="all") -> MiniMaxH3SpatialQueryRouter` executed cleanly in `42.6 s` at `90f` with full 16mm look transfer and `0.93 / 0.48` `17f` smoothness.
+
+---
+
+## 3. `"mid_20_34"` Live Body-Scanner & `SAM 3.1` Chrome Falsification (`5` Clips, Restarted `:8188` on `92523185`)
+
+- **Rendered clips:** `$H3_OUTPUT_DIR/Video/mid2034_gate_2026-11-26/` (all `5/5` `*-audio.mp4` clips watched & listened to natively via `read_file` plus measured locally).
+- **Test 1 — Body-Scanner (`90f`, `x ∈ [0.36, 0.64]`):** Dim concrete corridor walker (`Base Prompt`) vs. translucent cyan X-ray skeleton + orange clockwork torso (`Region Prompt`).
+- **Test 2 — `1× SAM 3.1` Subject Chrome Re-Test (`141f`, cached dancer + `sam3.1_multiplex_fp32.safetensors`, `mask = ImageBlur(6, 0.45)`):** Compares `mid_20_34` with full Wave 1 `Prompt 310` vs. a concise chrome-only prompt stripping all white-brick studio words.
+
+| Arm | Frames | `Exec` (s) | Beam / Center Metric | Outer Metric | `17f` Pop (`max L / R`) | Honest Verdict |
+| :--- | :-: | :-: | :---: | :---: | :-: | :--- |
+| `mid_scanner_base_A` (`none`) | `90` | `54.3`* | `B-R -3.36` / `MAE 0.0` | `B-R -2.08` / `MAE 0.0` | `1.08 / 1.08` | Clean corridor man walking steady L→R across the hall. |
+| `mid_scanner_early_0_24` (`early_0_24`) | `90` | `46.5` | `B-R +25.96` / `MAE 39.8` | `B-R -1.56` / `MAE 38.4` | `0.65 / 0.60` | **Frozen-booth split:** Blocks `0..24` crystallized a stationary glowing cyan glass X-ray display tank in the center while the real flesh man walked behind it. |
+| `mid_scanner_mid_20_34` (`mid_20_34`) | `90` | **`38.9`** | `B-R +6.75` / `MAE 30.2` | `B-R +4.83` / `MAE 28.0` | `2.35 / 2.76` | **Clean shared anatomy (`-7.6 s` vs `early_0_24`):** Warmup blocks `0..19` fused one unbroken L→R walker (zero frozen booth), and `iso 20..34` turned that single walking figure into a translucent cyan X-ray skeleton + orange torso. *(Note: seamless `35..49` + 3D temporal identity carried the X-ray look across his entire walk rather than strictly inside `[0.36, 0.64]`.)* |
+| `mid_sam3_subj_chrome_mid_20_34` (`Wave 1 Prompt 310`) | `141` | `152.5`* | `center MAE 35.258` | `outer MAE 22.979` | `1.42 / 1.86` | **No chrome swap (clean human dancer):** Slight arm pose variation only; cream jacket & skin stayed human. |
+| `mid_sam3_subj_chrome_mid_focused` (chrome-only prompt) | `141` | `74.9` | `center MAE 30.307` | `outer MAE 25.290` | `1.34 / 1.20` | **Still no chrome swap:** Stripping studio words from `region_conditioning` still kept the dancer flesh-and-jacket human — proving `~10%` small-mask subject re-skinning on `1× SpatialQueryRouter` is defeated by `~90%` surrounding sunlit studio context in `35..49` without `2× EditGuider`'s contrast-amplifying velocity delta (`scale=1.55, last_step=3`). |
+
+*\* Cold-cache first run in its length group.*
