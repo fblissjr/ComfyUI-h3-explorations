@@ -1,0 +1,5 @@
+integrated_multimodal_description: [Shot 1] Live-action, cinematic, crisp 35mm wide static shot looking straight down a wide rain-soaked midnight cyberpunk neon street lined with dark wet chrome buildings, towering glowing magenta and electric-cyan holographic signs, and steaming street vents under a pitch-black stormy night sky with heavy pouring rain. Glossy black wet asphalt puddles reflect vivid hot-pink and turquoise neon streaks as people in dark raincoats carrying glowing translucent umbrellas walk along both sidewalks through falling rain. The camera holds a static shot on a locked tripod.
+
+overall_soundscape: Heavy nocturnal rain drumming steadily on wet asphalt, water splashing underfoot, and low electric neon transformer hum.
+
+non_diegetic_music: N/A

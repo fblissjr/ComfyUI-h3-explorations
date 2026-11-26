@@ -132,7 +132,8 @@ from h3_config import (  # noqa: E402
     DIRECTOR_HUD_NODE, DIRECTOR_HUD_DEFAULTS,
     SPATIAL_PORTAL_REF_IMAGES, SPATIAL_PORTAL_EDIT_GUIDANCE, WORLD_TARGETS_EDIT_GUIDANCE,
     CONTROL_VECTOR_NODE, CONTROL_VECTOR_DEFAULTS, CONTROL_VECTOR_OPTIONAL_DEFAULTS, LAYER_NORM_MATCH_NODE,
-    STEER_NODE, STEER_DEFAULTS, QUERY_ROUTER_NODE, RELEASE_REFERENCES_NODE, RELEASE_REFERENCES_DEFAULTS,
+    STEER_NODE, STEER_DEFAULTS, QUERY_ROUTER_NODE, SPATIAL_QUERY_ROUTER_NODE,
+    RELEASE_REFERENCES_NODE, RELEASE_REFERENCES_DEFAULTS,
     WORD_VECTOR_NODE, WORD_VECTOR_DEFAULTS, LOAD_CONTROL_VECTOR_NODE,
     EDIT_GUIDANCE_STREAMS, EDIT_GUIDANCE_DEFAULTS,
     refine_scheduler_ids,
@@ -1684,6 +1685,7 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
               # overrides, or a list/tuple of such specs.
               control_vector: tuple[str, float] | dict | list | None = None,
               query_router: dict | None = None,
+              spatial_query_router: dict | None = None,
               # Steer with an edited copy of the prompt (`edit_guidance.py`): a dict of
               # `edits` (the lines `MiniMaxH3PromptEdit` takes), `scale` and `first_step`.
               # Adds the edit node (130), a second prompt on the same encoder, references
@@ -2358,6 +2360,28 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
                 qr_in[opt_key] = query_router[opt_key]
         g["145"] = {"class_type": QUERY_ROUTER_NODE, "inputs": qr_in}
         model_src = ["145", 0]
+
+    if spatial_query_router is not None:
+        # Spatial 1x visual routing (MiniMaxH3SpatialQueryRouter at node 149, with
+        # cloned region prompt conditioning at node 148).
+        r_prompt = spatial_query_router["region_prompt"]
+        r_in = dict(g["5"]["inputs"], prompt=r_prompt)
+        g["148"] = {"class_type": g["5"]["class_type"], "inputs": r_in}
+        sqr_in: dict[str, Any] = {
+            "model": model_src,
+            "region_conditioning": ["148", 0],
+            "x_start": float(spatial_query_router.get("x_start", 0.5)),
+            "x_end": float(spatial_query_router.get("x_end", 1.0)),
+            "y_start": float(spatial_query_router.get("y_start", 0.0)),
+            "y_end": float(spatial_query_router.get("y_end", 1.0)),
+            "invert": bool(spatial_query_router.get("invert", False)),
+            "isolation": str(spatial_query_router.get("isolation", "early_0_24")),
+            "audio_zone": str(spatial_query_router.get("audio_zone", "base")),
+            "start_percent": float(spatial_query_router.get("start_percent", 0.0)),
+            "end_percent": float(spatial_query_router.get("end_percent", 1.0)),
+        }
+        g["149"] = {"class_type": SPATIAL_QUERY_ROUTER_NODE, "inputs": sqr_in}
+        model_src = ["149", 0]
 
     if cache is not None:
         # Step caching, after the attention nodes: the cache is a
@@ -6293,6 +6317,24 @@ def main():
               ),
               out_prefix="Video/h3_t2v_pika_query_router"),
          "two-speaker stairwell (`t2va_stairwell_dialogue`) -> 192f 1x two-prompt MiniMaxH3QueryRouter on Pika H3 Flex 6-step LCM (video reads dry concrete stairwell while audio_conditioning reads thunderstorm soundscape in one pass)"),
+        ("h3_text_to_video_pika_spatial_query_router.json", "t2v-pika-spatial-query-router", "t2v",
+         _bank_prompt("t2va_spatial_summer_street"),
+         dict(width=1344, height=768, length=141,
+              lora=(PIKA_FL2VA_SVD995_LORA, PIKA_STRENGTH), lora_branch=True,
+              steps=PIKA_STEPS, sampler_name=PIKA_SAMPLER,
+              manual_sigmas=PIKA_MANUAL_SIGMAS,
+              spatial_query_router=dict(
+                  region_prompt=_bank_prompt("t2va_spatial_cyberpunk_rain"),
+                  x_start=0.50,
+                  x_end=1.00,
+                  y_start=0.00,
+                  y_end=1.00,
+                  invert=False,
+                  isolation="early_0_24",
+                  audio_zone="base",
+              ),
+              out_prefix="Video/h3_t2v_pika_spatial_query_router"),
+         "sunlit summer street (`t2va_spatial_summer_street`) + midnight cyberpunk rain (`t2va_spatial_cyberpunk_rain`) -> 141f 1x MiniMaxH3SpatialQueryRouter on Pika H3 Flex 6-step LCM (left half summer, right half neon rain, symmetric early_0_24 isolation + seamless 25..49 blend, 100% stock RoPE; change x/y to 0.28..0.72 / 0.18..0.85 for a center dimension portal box)"),
         ("h3_first_last_frame_to_video_pika_query_router.json", "fl2v-pika-query-router", "i2v",
          None,
          dict(width=1344, height=768, length=192, last_frame=True,

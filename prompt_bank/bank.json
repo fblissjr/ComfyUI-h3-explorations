@@ -1357,6 +1357,22 @@
       "donor": null,
       "brief": "First-frame <Picture 1> anchor contrasted inside a moving 2D+time Reality Portal (`MiniMaxH3SpatialDirector portal_path` wired to `MiniMaxH3Resolution` `same as the picture` + `MiniMaxH3EditGuider.mask` at `first_step=0`) with a midnight bioluminescent frost cavern.",
       "tests": "Spatially-masked i2v Pika H3 Flex velocity editing (`h3_i2v_spatial_portal_pika_api.json`, 2026-11-16): derives Picture 1 trained canvas via `MiniMaxH3Resolution` and transforms only the swept portal region with zero Step-0 leak outside the mask and dual HUD/clean exports."
+    },
+    {
+      "id": "t2va_spatial_summer_street",
+      "mode": "t2va",
+      "frames": 141,
+      "donor": null,
+      "brief": "Locked-off wide 35mm sunlit European cobblestone street with limestone facades, olive trees, and warm summer cafe diners — Base World A for 1x MiniMaxH3SpatialQueryRouter split-screen and portal-box workflows.",
+      "tests": "1x Spatial Visual Query Routing (`MiniMaxH3SpatialQueryRouter`, 2026-11-25): aligns street horizon and perspective cleanly with `t2va_spatial_cyberpunk_rain` across Left/Right splits (`0.5..1.0`) and center portal boxes (`0.28..0.72, 0.18..0.85`) using `isolation='early_0_24'` and 100% stock RoPE."
+    },
+    {
+      "id": "t2va_spatial_cyberpunk_rain",
+      "mode": "t2va",
+      "frames": 141,
+      "donor": null,
+      "brief": "Locked-off wide 35mm rain-soaked midnight cyberpunk neon street with magenta/cyan holograms, steaming vents, wet asphalt reflections, and translucent umbrellas — Region World B paired with `t2va_spatial_summer_street` for 1x MiniMaxH3SpatialQueryRouter.",
+      "tests": "1x Spatial Visual Query Routing (`MiniMaxH3SpatialQueryRouter`, 2026-11-25): paired second visual prompt with matching street perspective so dry sunlit cobblestones morph seamlessly into wet neon-reflecting asphalt across any box or mask in one 1x pass."
     }
   ]
 }

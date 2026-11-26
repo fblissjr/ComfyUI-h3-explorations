@@ -1,0 +1,145 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 540" width="100%" height="100%" role="img" aria-label="How 1x Spatial Visual Query Routing Works Across 50 DiT Blocks">
+  <defs>
+    <filter id="sqrShadow" x="-3%" y="-3%" width="106%" height="110%">
+      <feDropShadow dx="0" dy="3" stdDeviation="5" flood-color="#0f172a" flood-opacity="0.06"/>
+    </filter>
+    <marker id="arrAmber" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 1 1.5 L 8.5 5 L 1 8.5 z" fill="#d97706"/>
+    </marker>
+    <marker id="arrCyan" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 1 1.5 L 8.5 5 L 1 8.5 z" fill="#0284c7"/>
+    </marker>
+    <marker id="arrViolet" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 1 1.5 L 8.5 5 L 1 8.5 z" fill="#7c3aed"/>
+    </marker>
+    <marker id="arrSlate" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 1 1.5 L 8.5 5 L 1 8.5 z" fill="#475569"/>
+    </marker>
+  </defs>
+
+  <style>
+    .canvas { fill: #faf9f5; stroke: #e5e3dc; stroke-width: 1.5; }
+    .card { fill: #ffffff; stroke: #e5e7eb; stroke-width: 1.2; filter: url(#sqrShadow); }
+    .heading { font-family: Georgia, "Newsreader", "Charter", serif; font-size: 20px; font-weight: 700; fill: #18181b; }
+    .subhead { font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 12.5px; fill: #52525b; }
+    .band-title { font-family: Georgia, "Newsreader", "Charter", serif; font-size: 15px; font-weight: 700; fill: #1e293b; }
+    .title-sm { font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 12.5px; font-weight: 700; }
+    .body { font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 11px; fill: #334155; }
+    .muted { font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 10.5px; fill: #64748b; }
+    .badge { font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 10px; font-weight: 700; }
+    .mono { font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; font-size: 10.5px; font-weight: 600; }
+  </style>
+
+  <!-- Outer Canvas -->
+  <rect x="4" y="4" width="972" height="532" rx="16" class="canvas"/>
+
+  <!-- Header -->
+  <text x="28" y="36" class="heading">1x Spatial Visual Query Routing: Two Worlds, One Seamless Video Shot</text>
+  <text x="28" y="56" class="subhead">100% stock 3D RoPE (zero shimmer) · Two-phase attention inside one pass (+4.2s on 90f 1344x768 via comfy_kitchen.int8_attention)</text>
+
+  <!-- STEP 1: INPUTS & REGION MAP -->
+  <rect x="24" y="74" width="286" height="356" rx="12" class="card"/>
+  <rect x="40" y="90" width="66" height="22" rx="11" fill="#fef3c7" stroke="#fcd34d"/>
+  <text x="73" y="105" text-anchor="middle" fill="#92400e" class="badge">STEP 1</text>
+  <text x="116" y="105" class="band-title">Two Prompts &amp; Zone</text>
+
+  <!-- Prompt A -->
+  <rect x="40" y="124" width="254" height="62" rx="8" fill="#fffbeb" stroke="#f59e0b" stroke-width="1.3"/>
+  <text x="52" y="143" class="title-sm" fill="#92400e">Base Prompt (World A)</text>
+  <text x="52" y="160" class="body">Sunlit European cobblestone street,</text>
+  <text x="52" y="175" class="body">olive trees, clear blue sky</text>
+
+  <!-- Prompt B -->
+  <rect x="40" y="198" width="254" height="62" rx="8" fill="#f5f3ff" stroke="#8b5cf6" stroke-width="1.3"/>
+  <text x="52" y="217" class="title-sm" fill="#5b21b6">Region Prompt (World B)</text>
+  <text x="52" y="234" class="body">Midnight cyberpunk neon rain, magenta</text>
+  <text x="52" y="249" class="body">holograms, wet asphalt &amp; umbrellas</text>
+
+  <!-- Region Box Preview -->
+  <text x="40" y="282" class="title-sm" fill="#1e293b">Any Box or MASK (24x42 Patch Grid)</text>
+  <!-- Split screen mini -->
+  <rect x="40" y="292" width="118" height="72" rx="6" fill="#fef3c7" stroke="#d97706" stroke-width="1.3"/>
+  <rect x="99" y="292" width="59" height="72" rx="0" fill="#ede9fe" stroke="#7c3aed" stroke-width="1.3"/>
+  <text x="70" y="325" text-anchor="middle" class="badge" fill="#92400e">World A</text>
+  <text x="128" y="325" text-anchor="middle" class="badge" fill="#5b21b6">World B</text>
+  <text x="99" y="378" text-anchor="middle" class="mono" fill="#475569">x: 0.50..1.00</text>
+
+  <!-- Portal box mini -->
+  <rect x="176" y="292" width="118" height="72" rx="6" fill="#fef3c7" stroke="#d97706" stroke-width="1.3"/>
+  <rect x="209" y="305" width="52" height="48" rx="4" fill="#ede9fe" stroke="#7c3aed" stroke-width="1.6"/>
+  <text x="235" y="333" text-anchor="middle" class="badge" fill="#5b21b6">Portal B</text>
+  <text x="235" y="378" text-anchor="middle" class="mono" fill="#475569">x: .28-.72  y: .18-.85</text>
+
+  <text x="40" y="408" class="muted">Or connect any 2D / [F,H,W] MASK input</text>
+  <text x="40" y="422" class="muted">(overrides box; flip via invert=True)</text>
+
+  <!-- Arrow 1 -> 2 -->
+  <line x1="310" y1="252" x2="334" y2="252" stroke="#475569" stroke-width="2" marker-end="url(#arrSlate)"/>
+
+  <!-- STEP 2: BLOCKS 0..24 ISOLATED -->
+  <rect x="340" y="74" width="302" height="356" rx="12" class="card"/>
+  <rect x="356" y="90" width="102" height="22" rx="11" fill="#e0f2fe" stroke="#7dd3fc"/>
+  <text x="407" y="105" text-anchor="middle" fill="#0369a1" class="badge">BLOCKS 0–24</text>
+  <text x="468" y="105" class="band-title">Build Two Worlds</text>
+
+  <text x="356" y="132" class="body">Symmetric K/V isolation (zero dense mask):</text>
+  <text x="356" y="148" class="muted">Each world builds its own weather, palette &amp;</text>
+  <text x="356" y="162" class="muted">architecture without bleeding into the other.</text>
+
+  <!-- Island A -->
+  <rect x="356" y="178" width="270" height="84" rx="8" fill="#fffbeb" stroke="#f59e0b" stroke-width="1.4"/>
+  <text x="368" y="198" class="title-sm" fill="#92400e">Island A · Base Tokens</text>
+  <text x="368" y="216" class="mono" fill="#78350f">Q: [Txt A, Vid A]</text>
+  <text x="368" y="233" class="mono" fill="#78350f">K,V: [Txt A, Vid A, Audio/Refs]</text>
+  <text x="368" y="250" class="muted">Half-length comfy_kitchen.int8_attention</text>
+
+  <!-- Wall divider -->
+  <line x1="366" y1="276" x2="616" y2="276" stroke="#dc2626" stroke-width="1.6" stroke-dasharray="5,4"/>
+  <rect x="424" y="266" width="134" height="20" rx="10" fill="#fef2f2" stroke="#fca5a5"/>
+  <text x="491" y="280" text-anchor="middle" class="badge" fill="#b91c1c">NO CROSS-WORLD BLEED</text>
+
+  <!-- Island B -->
+  <rect x="356" y="294" width="270" height="84" rx="8" fill="#f5f3ff" stroke="#8b5cf6" stroke-width="1.4"/>
+  <text x="368" y="314" class="title-sm" fill="#5b21b6">Island B · Region Tokens</text>
+  <text x="368" y="332" class="mono" fill="#4c1d95">Q: [Txt B, Vid B]</text>
+  <text x="368" y="349" class="mono" fill="#4c1d95">K,V: [Txt B, Vid B, Audio/Refs]</text>
+  <text x="368" y="366" class="muted">Half-length comfy_kitchen.int8_attention</text>
+
+  <text x="356" y="402" class="muted">Blocks 1-hop Vid A -&gt; Txt B -&gt; Vid B leak</text>
+  <text x="356" y="418" class="muted">while using 0.5x attention FLOPs!</text>
+
+  <!-- Arrow 2 -> 3 -->
+  <line x1="642" y1="252" x2="666" y2="252" stroke="#475569" stroke-width="2" marker-end="url(#arrSlate)"/>
+
+  <!-- STEP 3: BLOCKS 25..49 SEAMLESS BLEND -->
+  <rect x="672" y="74" width="284" height="356" rx="12" class="card"/>
+  <rect x="688" y="90" width="106" height="22" rx="11" fill="#d1fae5" stroke="#6ee7b7"/>
+  <text x="741" y="105" text-anchor="middle" fill="#065f46" class="badge">BLOCKS 25–49</text>
+  <text x="802" y="105" class="band-title">Seamless Merge</text>
+
+  <text x="688" y="132" class="body">Reopen shared K_vid_all across frame:</text>
+  <text x="688" y="148" class="muted">Text prompts stay split, while both worlds</text>
+  <text x="688" y="162" class="muted">can now see each other's lighting &amp; motion.</text>
+
+  <!-- Shared Attention Box -->
+  <rect x="688" y="178" width="252" height="96" rx="8" fill="#ecfdf5" stroke="#10b981" stroke-width="1.4"/>
+  <text x="700" y="198" class="title-sm" fill="#065f46">Shared Video Canvas</text>
+  <text x="700" y="216" class="mono" fill="#047857">Main (Sol): Vid A -&gt; [Txt A, Vid All]</text>
+  <text x="700" y="234" class="mono" fill="#5b21b6">Splice:     Vid B -&gt; [Txt B, Vid All]</text>
+  <text x="700" y="252" class="muted">1 coalesced index_copy_ per block</text>
+
+  <!-- Outcome Bullets -->
+  <rect x="688" y="290" width="252" height="122" rx="8" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.2"/>
+  <text x="700" y="310" class="title-sm" fill="#1e293b">Result in One Single Pass</text>
+  <text x="700" y="330" class="body">- Dry cobblestones morph into wet neon</text>
+  <text x="700" y="346" class="body">- Zero rectangular border or hard cut</text>
+  <text x="700" y="362" class="body">- People walk right across the portal</text>
+  <text x="700" y="378" class="body">- 100% stock RoPE = zero 17f VAE pop</text>
+  <text x="700" y="396" class="mono" fill="#0284c7">42.1s vs 37.9s stock (+4.2s / 1.11x)</text>
+
+  <!-- Footer Banner -->
+  <rect x="24" y="446" width="932" height="74" rx="12" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.2"/>
+  <text x="42" y="470" class="title-sm" fill="#1e293b">Golden Prompt Tip for Clean Portals &amp; Splits:</text>
+  <text x="42" y="489" class="body">Keep the camera lens, framing, and horizon sentence identical between Base Prompt and Region Prompt (for example, both "wide static 35mm shot looking</text>
+  <text x="42" y="505" class="body">down a wide street"), and diverge only the world, weather, era, lighting, and wardrobe — H3 aligns perspective and ground planes automatically.</text>
+</svg>

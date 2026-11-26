@@ -8,7 +8,7 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 181 |
+| [`check_*`](#check) | 182 |
 | [`measure_*`](#measure) | 33 |
 | [`analyze_*`](#analyze) | 13 |
 | [`grade_*`](#grade) | 10 |
@@ -176,6 +176,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_solattn_correctness.py`](check_solattn_correctness.py) | Check Sol-Attn's CUDA kernel against the algorithm's own eager reference. |
 | [`check_sound_and_sprite_nodes.py`](check_sound_and_sprite_nodes.py) | Unit and graph checks for `MiniMaxH3SoundCues` and `MiniMaxH3AppendSpriteTrajectory`. |
 | [`check_spatial_director.py`](check_spatial_director.py) | Offline checks for MiniMaxH3SpatialDirector, MiniMaxH3DirectorHUD, and workflows. |
+| [`check_spatial_query_router.py`](check_spatial_query_router.py) | Offline CPU verification for `MiniMaxH3SpatialQueryRouter` (`steering/spatial_query_router.py`). |
 | [`check_speaker_id_control.py`](check_speaker_id_control.py) | Red control for `bench/preflight_graph.py::speaker_id_rules`. |
 | [`check_stack_delivery.py`](check_stack_delivery.py) | The stacked delivery clip (`bench/stack_delivery.py`) on a clip and pieces whose every frame is known by construction. |
 | [`check_stack_rows.py`](check_stack_rows.py) | `bench/stack_rows.py` on made videos: every row on the source frame it says, laid where its picture came from. |
@@ -719,7 +720,7 @@ Arm manifests and the like; a manifest's line is its own `what`.
 
 ### results
 
-264 tracked files: [`results/INDEX.md`](results/INDEX.md).
+265 tracked files: [`results/INDEX.md`](results/INDEX.md).
 
 ### rubrics
 

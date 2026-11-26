@@ -56,7 +56,18 @@ On identical base scenes and seeds (`192` frames at `1344x768`, seed `730451892`
 
 ---
 
-## 2. Other Proven Capabilities in This Repository
+## 2. `1x` Spatial Visual Query Routing (`MiniMaxH3SpatialQueryRouter`) — Two Worlds, One Shot
+
+Put two completely different visual worlds inside **one** seamless video shot (left/right split-screen, sky/ground split, floating center portal box, or any 2D/`[F, H, W]` `MASK`) in a **single `1x` render (`+4.2 s` overhead)** with **100% stock 3D RoPE** (zero causal Video VAE shimmer, zero hard paste seams).
+
+- **How it works ([`spatial_query_routing.md`](spatial_query_routing.md)):** During early structure blocks (`0..24`), [`MiniMaxH3SpatialQueryRouter`](../../steering/spatial_query_router.py) splits video tokens into two isolated `comfy_kitchen.int8_attention` islands (Base World A vs. Region World B, zero dense `attn_mask`) so each side builds its own opposite lighting, weather, and architecture without 1-hop text bleed. On late blocks (`25..49`), it reopens shared `K_vid_all` so dry cobblestones morph seamlessly into wet neon-reflecting asphalt and pedestrians walk cleanly across the portal boundary.
+- **Verified proof (`seed = 730451892`, `90f 1344×768`, 6-step Pika Kitchen+Sol):** Sunlit European cobblestone street (`t2va_spatial_summer_street`) vs. midnight cyberpunk neon rain (`t2va_spatial_cyberpunk_rain`) — Left/Right split (`43.1 s`, `+38.3` L−R luma contrast) and free-form Center Portal Box `x∈[0.28,0.72], y∈[0.18,0.85]` (`42.1 s` vs `37.9 s` stock baseline, zero rectangular border, `f16→17` pop `2.43/2.25`).
+- **Guide, visual proofs & recipes:** [`spatial_query_routing.md`](spatial_query_routing.md) · [`assets/h3_spatial_query_routing_proofs.jpg`](assets/h3_spatial_query_routing_proofs.jpg)
+- **Standalone workflow & benchmark:** [`workflows/h3_text_to_video_pika_spatial_query_router_api.json`](../../workflows/h3_text_to_video_pika_spatial_query_router_api.json) · [`bench/results/2026-11-25_spatial_query_router.md`](../../bench/results/2026-11-25_spatial_query_router.md)
+
+---
+
+## 3. Other Proven Capabilities in This Repository
 
 | Track | What Works Best | Canonical Entry Points |
 | :--- | :--- | :--- |
@@ -68,8 +79,8 @@ On identical base scenes and seeds (`192` frames at `1344x768`, seed `730451892`
 
 ---
 
-## 3. Navigation
+## 4. Navigation
 
 - **Full wiki router & subsystem index:** [`index.md`](index.md)
-- **Session rules & H3 clocks:** [`../../AGENTS.md`](../../AGENTS.md) · **67-node pack registry:** [`../../nodes.py`](../../nodes.py)
+- **Session rules & H3 clocks:** [`../../AGENTS.md`](../../AGENTS.md) · **68-node pack registry:** [`../../nodes.py`](../../nodes.py)
 - **Repository overview & quick install/usage:** [`../../README.md`](../../README.md)

@@ -1007,6 +1007,26 @@
       "director_plan"
     ]
   },
+  "MiniMaxH3SpatialQueryRouter": {
+    "inputs": [
+      "model",
+      "region_conditioning",
+      "x_start",
+      "x_end",
+      "y_start",
+      "y_end",
+      "invert",
+      "isolation",
+      "audio_zone",
+      "start_percent",
+      "end_percent",
+      "mask"
+    ],
+    "node_id": "MiniMaxH3SpatialQueryRouter",
+    "outputs": [
+      "Output"
+    ]
+  },
   "MiniMaxH3Steer": {
     "inputs": [
       "model",

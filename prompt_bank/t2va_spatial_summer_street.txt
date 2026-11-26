@@ -1,0 +1,5 @@
+integrated_multimodal_description: [Shot 1] Live-action, cinematic, crisp 35mm wide static shot looking straight down a wide sunlit European cobblestone street lined with warm cream limestone facades, bright cafe awnings, and lush green olive trees under a clear bright blue summer afternoon sky. Golden afternoon sunlight casts sharp warm shadows across dry beige cobblestones as pedestrians in light summer clothes stroll casually along both sidewalks past outdoor tables. The camera holds a static shot on a locked tripod.
+
+overall_soundscape: Warm dry summer street ambiance, soft footsteps on dry cobblestones, distant gentle chatter, and birds chirping in bright open air.
+
+non_diegetic_music: N/A

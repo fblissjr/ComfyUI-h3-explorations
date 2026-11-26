@@ -160,21 +160,21 @@ with none is a helper the others import.
 | `.gemini/` | 8 | [below](#gemini) |
 | `archive/` | 78 | (none) |
 | `assets/` | 1 | [below](#assets) |
-| `bench/` | 866 | [`bench/INDEX.md`](bench/INDEX.md) and [`bench/results/INDEX.md`](bench/results/INDEX.md) for the records |
+| `bench/` | 868 | [`bench/INDEX.md`](bench/INDEX.md) and [`bench/results/INDEX.md`](bench/results/INDEX.md) for the records |
 | `changelog.d/` | | [`changelog.d/README.md`](changelog.d/README.md), one file per changelog entry; not listed and not counted |
 | `contact_sheets/` | 1 | [below](#contact_sheets) |
 | `data/` | 1 | [below](#data) |
 | `director/` | 23 | [below](#director) |
-| `docs/` | 389 | [`docs/wiki/index.md`](docs/wiki/index.md), the hand-written router |
-| `prompt_bank/` | 248 | [`docs/wiki/prompting/prompt_bank.md`](docs/wiki/prompting/prompt_bank.md), the prompt catalogue |
+| `docs/` | 392 | [`docs/wiki/index.md`](docs/wiki/index.md), the hand-written router |
+| `prompt_bank/` | 250 | [`docs/wiki/prompting/prompt_bank.md`](docs/wiki/prompting/prompt_bank.md), the prompt catalogue |
 | `sparse_tables/` | 1 | [below](#sparse_tables) |
 | `standalone/` | 4 | [below](#standalone) |
-| `steering/` | 12 | [below](#steering) |
+| `steering/` | 13 | [below](#steering) |
 | `vendor/` | 9 | [below](#vendor) |
 | `vendor_config/` | 8 | [below](#vendor_config) |
 | `vendor_guides/` | 19 | [below](#vendor_guides) |
 | `web/` | 3 | [below](#web) |
-| `workflows/` | 130 | [`workflows/INDEX.md`](workflows/INDEX.md) |
+| `workflows/` | 131 | [`workflows/INDEX.md`](workflows/INDEX.md) |
 
 ## .claude/
 
@@ -271,6 +271,7 @@ with none is a helper the others import.
 | [`nodes.py`](steering/nodes.py) | Primary ComfyUI steering nodes (`MiniMaxH3Steer`, `MiniMaxH3ReleaseReferences`, `MiniMaxH3WordVector`, `MiniMaxH3MakeMediaControlVector`) and runtime model wrapper. |
 | [`query_router.py`](steering/query_router.py) | Standalone `1x` Cross-Modal Query Router (`MiniMaxH3QueryRouter`, Step 1 / v1). |
 | [`runtime.py`](steering/runtime.py) | Point C post-refiner prelude math: `h_bar` centering, `peer_ros=True` orthogonalization, clamped `[0, 1]` union SVD, smooth `95.5 -> 98.5` RMS knee, and `s = 0` exact identity. |
+| [`spatial_query_router.py`](steering/spatial_query_router.py) | Standalone `1x` Spatial Visual Query Router (`MiniMaxH3SpatialQueryRouter`). |
 | [`xray.py`](steering/xray.py) | Compact Jacobian Lens (`X-Ray` / `J-Lens`) and `Model2Vec` lexicon readout & synthesis on CPU. |
 
 ## vendor/
