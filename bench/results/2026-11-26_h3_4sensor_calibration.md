@@ -82,3 +82,26 @@ At `B40`, `bulb` (`[68, 193]`) hits `box_mass = 0.847` (`3.56x` enrichment, `pea
 On `ferry_binaural`:
 - **`B00` (`normA = 29.1K`, `normB = 30.4K`) & `B10` (`55.8K` / `57.9K`):** `J-Lens(mean(h_shadow_b) - mean(h_txt_a))` decodes the exact semantic difference between the concrete stairwell (`A`) and foggy night ferry (`B`): `B-A+ = ['rain', 'mist', 'glowing', 'snow', 'smoke']`.
 - **`B20..B48` (`normA` grows `97.6K -> 115K -> 306K -> 629K` on `S0`, up to `725K` on `S1`):** Because `J_wiener_fl2va` (`steering/xray.py`) was fitted on Block-0 post-refiner space, projecting `20x`-amplified deep-block residual vectors onto Block-0 `J_wiener` saturates onto generic lighting/adverb axes (`['bright', 'soft', 'light', 'likely', 'effectively']`). **Action:** Keep `J-Lens` at `B00..B10` only; drive Beat 3B self-steering exclusively from Sensors 1 (`B35 + B40`), 2 (`B25` / `B40`), 3 (`audio_x0`), and `ModelPreviewOverrideKJ` (`kj_wrapper.frames[-1]`).
+
+---
+
+## 5. Live Silicon Proof of `steering/live_policy.py::attach_self_mask_router` (`1.0x`, `4 MP`)
+
+End-to-end single-pass `1.0x` GPU calibration (`Step 0` `B35 + B40` harvest -> `Steps 1..5` `SpatialVisualQRRuntime`, zero coordinates, zero `SAM 3.1`, zero pre-exported mask PNG) on `MiniMax-H3-Image` `4 MP` (`revised_prompt.t2i.txt`, `seed = 42`, `~4.2–4.4 s` warm per still; outputs under `$H3_OUTPUT_DIR/Video/beat3_self_mask_poc_2026-11-26/`, all stills and mask overlays inspected natively via `read_file`):
+
+| Arm | `target_phrase` | Mask Params (`z / dil / floor`) | `Isolation` | Warm Time | `hard_cov` / `zero_frac` | `in_bbox` / `out_bbox` MAE | Honest Visual Verdict |
+| :--- | :--- | :--- | :--- | :-: | :-: | :-: | :--- |
+| `cheeses_blue_ice` | `"cheeses"` | `1.10 / 1 / 0.05` | `early_0_24_shield` | `4.34 s` | `0.265 / 0.433` | `30.15 / 21.00` (`1.44x`) | **10/10 single-pass win:** All three cheeses on the right wooden board turned into translucent frosted glacier-blue ice blocks with rising cold vapor mist; zero seam artifacts; bread/vegetables/grapes/oil held matched. |
+| `cheeses_blue_ice_tight` | `"cheeses"` | `1.65 / 0 / 0.12` | `early_0_24_shield` | `4.18 s` | `0.123 / 0.811` | `26.99 / 14.99` (`1.80x`) | **Cleaner surround lock (`-6.0` outer MAE, `81.1%` exact-zero bg):** Eliminated halved-bread mask spill while freezing core wedges & brie with cold vapor mist and zero patch seams. |
+| `olive_oil_neon_flask` | `"olive oil"` | `1.15 / 1 / 0.05` | `early_0_24_shield` | `4.34 s` | `0.207 / 0.439` | `24.08 / 19.73` (`1.22x`) | **10/10 neon alchemy flask:** Upper-right jar became a glowing electric-blue plasma flask sparkling with cyan stars while the rest of the feast held photographic; wider mask hit the adjacent honey jar cleanly. |
+| `olive_oil_neon_tight` | `"olive oil"` | `1.65 / 0 / 0.12` | `early_0_24_shield` | `4.35 s` | `0.116 / 0.836` | `19.06 / 16.57` (`1.15x`) | **Laser-focused on the olive-oil bottle neck (`83.6%` exact-zero bg):** Zero bleed to black olives or honey jar; subtle starry cyan plasma glow strictly inside the olive-oil bottle glass. |
+| `bread_emerald_crystal` / `mid2034_shield` | `"bread"` | `1.05 / 1 / 0.05` | `early_0_24_shield` / `mid_20_34_shield` | `4.41 s` | `0.279 / 0.457` | `33.73 / 20.61` (`1.64x`) | **Honest `1.0x` centerpiece boundary:** Because `bread` (3 mentions, center `~28%`) locks brown-crust geometry on Step `0` (and `region_prompt` kept the word `"loaf"`), starting on Step `1` only grew small emerald gems beneath the brown loaves. |
+| `bread_emerald_tight_all049` | `"bread"` | `1.65 / 0 / 0.12` | `all_0_49` | `14.38 s`* | `0.138 / 0.795` | `47.98 / 16.92` (`2.84x`) | **Hard limit proven:** Turning off seamless `25..49` forced full emerald quartz geodes (`2.84x` MAE), **but** produced hard `32x32` patch-grid edges around the organic attention silhouette. |
+
+*\* Cold-cache first arm in its process; subsequent arms ran `4.18–4.41 s`.*
+
+**Three calibrated rules locked into [`steering/live_policy.py`](../../steering/live_policy.py):**
+1. **Calibrated defaults (`threshold_z = 1.35`, `softness = 0.25`, `dilation_passes = 0`, `sparse_floor = 0.10`, `isolation = "early_0_24_shield"`):** Balances tight surround exclusion (`~70–84%` exact-zero background) with full object coverage and zero `32x32` patch-grid edges.
+2. **Never pair `all_0_49` with organic irregular attention masks:** Reserve `all_0_49` strictly for `1`-frame temporal cuts or clean geometric splits; always use `early_0_24_shield` or `mid_20_34_shield` on irregular object silhouettes.
+3. **`1.0x` single-pass vs `1.17x` Step-0 replay boundary:** Single-pass `1.0x` `attach_self_mask_router` (Step `0` harvest -> Steps `1..5`) transforms accent/secondary props cleanly in `~4.2–4.4 s` (avoid repeating the source noun in `region_conditioning`). For total material replacement of a dominant multi-mention centerpiece (`bread -> sapphire crystal`), replaying Step `0` with the harvested mask (`1.17x`, as demonstrated in `b3_h3_image_step0_self_mask_bread_crystal_00001_.png`, `4.30x` MAE) cleanly overrides Step-0 geometry without `all_0_49` edges. `MiniMaxH3SelfMaskRouter` stays an unregistered library class in `steering/live_policy.py` (leaving `nodes.py` & `bench/node_id_manifest.json` untouched) until a live ComfyUI restart window.
+

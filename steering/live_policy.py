@@ -234,13 +234,13 @@ def _temporal_smooth_thw(x_thw: torch.Tensor) -> torch.Tensor:
 def synthesize_4d_attention_mask(
     raw_scores_thw: torch.Tensor,
     *,
-    threshold_z: float = 1.15,
-    softness: float = 0.35,
-    dilation_passes: int = 1,
+    threshold_z: float = 1.35,
+    softness: float = 0.25,
+    dilation_passes: int = 0,
     spatial_blur: bool = True,
     temporal_smooth: bool = True,
     invert: bool = False,
-    sparse_floor: float = 0.05,
+    sparse_floor: float = 0.10,
 ) -> tuple[torch.Tensor, dict[str, Any]]:
     """Convert raw fused `B35 + B40` attention logits `[T, H, W]` into a clean sparse `[0..1]` mask.
 
@@ -287,7 +287,9 @@ def synthesize_4d_attention_mask(
         prob = (1.0 - prob).clamp(0.0, 1.0)
 
     # Compute normalized overlay geometry for Studio `h3_self_steer` pills & bounding boxes.
+    # Use pre-saturation `z` for `peak_xy` so clamped 1.0 plateaus never bias argmax top-left.
     mean_hw = prob.mean(dim=0)
+    peak_src = (-z if invert else z).mean(dim=0)
     ys = (torch.arange(ph, dtype=torch.float32) + 0.5) / float(ph)
     xs = (torch.arange(pw, dtype=torch.float32) + 0.5) / float(pw)
     gy, gx = torch.meshgrid(ys, xs, indexing="ij")
@@ -298,7 +300,7 @@ def synthesize_4d_attention_mask(
     else:
         cx, cy = 0.5, 0.5
 
-    peak_flat = int(mean_hw.reshape(-1).argmax().item())
+    peak_flat = int(peak_src.reshape(-1).argmax().item())
     py, px = divmod(peak_flat, pw)
     peak_xy = [round((px + 0.5) / float(pw), 4), round((py + 0.5) / float(ph), 4)]
 
@@ -796,9 +798,9 @@ def attach_self_mask_router(
     base_prompt: str = "",
     token_pieces: Sequence[str] | None = None,
     noun_indices: Sequence[int] | None = None,
-    threshold_z: float = 1.15,
-    softness: float = 0.35,
-    dilation_passes: int = 1,
+    threshold_z: float = 1.35,
+    softness: float = 0.25,
+    dilation_passes: int = 0,
     isolation: str = "early_0_24_shield",
     audio_zone: str = "base",
     invert: bool = False,
@@ -1143,15 +1145,15 @@ class MiniMaxH3SelfMaskRouter(io.ComfyNode):
                 ),
                 io.Float.Input(
                     "threshold_z",
-                    default=1.15,
+                    default=1.35,
                     min=0.20,
                     max=3.00,
                     step=0.05,
-                    tooltip="Spatial z-score threshold above frame median (higher = tighter mask around target peak).",
+                    tooltip="Spatial z-score threshold above frame median (higher = tighter mask around target peak; 1.35 calibrated on 4 MP H3-Image).",
                 ),
                 io.Float.Input(
                     "softness",
-                    default=0.35,
+                    default=0.25,
                     min=0.05,
                     max=2.00,
                     step=0.05,
@@ -1159,11 +1161,11 @@ class MiniMaxH3SelfMaskRouter(io.ComfyNode):
                 ),
                 io.Int.Input(
                     "dilation_passes",
-                    default=1,
+                    default=0,
                     min=0,
                     max=4,
                     step=1,
-                    tooltip="3x3 patch-space max-pool dilation passes before feathering (1 covers thin props cleanly).",
+                    tooltip="3x3 patch-space max-pool dilation passes before feathering (0 hugs tight silhouettes; 1 widens thin props).",
                 ),
                 io.Combo.Input(
                     "isolation",
@@ -1221,9 +1223,9 @@ class MiniMaxH3SelfMaskRouter(io.ComfyNode):
         region_conditioning: Any,
         mask_source: str = "text_phrase",
         target_phrase: str = "",
-        threshold_z: float = 1.15,
-        softness: float = 0.35,
-        dilation_passes: int = 1,
+        threshold_z: float = 1.35,
+        softness: float = 0.25,
+        dilation_passes: int = 0,
         isolation: str = "early_0_24_shield",
         audio_zone: str = "base",
         invert: bool = False,
