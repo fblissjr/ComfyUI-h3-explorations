@@ -29,7 +29,6 @@ from . import hooks as _steer_hooks
 from .query_router import (
     _extract_cond_tags,
     _extract_cond_tensor,
-    _is_h3_image_model,
 )
 
 logger = logging.getLogger("ComfyUI-h3-explorations.spatial_query_router")
@@ -42,8 +41,11 @@ ISOLATION_MODES: tuple[str, ...] = (
     "early_0_32",
     "all_0_49",
     "mid_20_34",
+    "mid_20_49",
+    "early_0_24_shield",
+    "mid_20_34_shield",
 )
-AUDIO_ZONES: tuple[str, ...] = ("base", "region", "binaural_split")
+AUDIO_ZONES: tuple[str, ...] = ("base", "region", "binaural_split", "follow_mask")
 _REF_CACHE_MAX = 4
 _CK_MIN_Q = 512
 _SOFT_EPS = 1e-4
@@ -57,14 +59,16 @@ def parse_isolation_blocks(isolation: str, n_blocks: int = 50) -> frozenset[int]
         return frozenset()
     if mode == "early_0_16":
         return frozenset(range(0, min(17, n_b)))
-    if mode == "early_0_24":
+    if mode in ("early_0_24", "early_0_24_shield"):
         return frozenset(range(0, min(25, n_b)))
     if mode == "early_0_32":
         return frozenset(range(0, min(33, n_b)))
     if mode == "all_0_49":
         return frozenset(range(0, n_b))
-    if mode == "mid_20_34":
+    if mode in ("mid_20_34", "mid_20_34_shield"):
         return frozenset(range(20, min(35, n_b))) if n_b > 20 else frozenset()
+    if mode == "mid_20_49":
+        return frozenset(range(20, n_b)) if n_b > 20 else frozenset()
     raise ValueError(f"isolation must be one of {ISOLATION_MODES}, got {isolation!r}")
 
 
@@ -160,20 +164,35 @@ def _build_spatial_partition(
     tx_a, tx_b = tx_spans[0]
     va, vb = vid_spans[0]
 
+    _t_len, latent_t, lat_h, lat_w, _a_t = layout.signature
+    latent_t_i = max(int(latent_t), 1)
+    n_vid = vb - va
+    frame_patches = max(n_vid // latent_t_i, 1)
+
+    vh = pos[va:vb, 1]
+    vw = pos[va:vb, 2]
+    h_min = float(vh.min().item())
+    w_min = float(vw.min().item())
+    h_span = max(float((vh.max() - vh.min()).item()), 1e-6)
+    w_span = max(float((vw.max() - vw.min()).item()), 1e-6)
+    x_lo, x_hi = (x_start, x_end) if x_start <= x_end else (x_end, x_start)
+    y_lo, y_hi = (y_start, y_end) if y_start <= y_end else (y_end, y_start)
+
     vid_all = torch.arange(va, vb, dtype=torch.long)
+    eff_weights_2d: torch.Tensor | None = None
     if mask is not None:
-        _t_len, latent_t, lat_h, lat_w, _a_t = layout.signature
         patch_h = int(lat_h) // 2
         patch_w = int(lat_w) // 2
         expected = int(latent_t) * patch_h * patch_w
-        if expected != (vb - va):
+        if expected != n_vid:
             raise ValueError(
-                f"MiniMaxH3SpatialQueryRouter layout patch count mismatch ({expected} != {vb - va})"
+                f"MiniMaxH3SpatialQueryRouter layout patch count mismatch ({expected} != {n_vid})"
             )
         weights = _downsample_mask_to_patches(
             mask, latent_t=int(latent_t), patch_h=patch_h, patch_w=patch_w
         )
         eff_weights = (1.0 - weights).clamp(0.0, 1.0) if invert else weights
+        eff_weights_2d = eff_weights.view(latent_t_i, frame_patches)
         mask_region = ~(weights >= 0.5) if invert else (weights >= 0.5)
         has_soft = bool(((eff_weights > _SOFT_EPS) & (eff_weights < 1.0 - _SOFT_EPS)).any().item())
         if has_soft:
@@ -183,23 +202,30 @@ def _build_spatial_partition(
         else:
             idx_region_soft = vid_all[mask_region]
             w_region_soft = None
+        frame_weights_mean = eff_weights_2d.mean(dim=1)
     else:
-        vh = pos[va:vb, 1]
-        vw = pos[va:vb, 2]
-        h_span = max(float((vh.max() - vh.min()).item()), 1e-6)
-        w_span = max(float((vw.max() - vw.min()).item()), 1e-6)
-        h_u = (vh - vh.min()) / h_span
-        w_u = (vw - vw.min()) / w_span
-        x_lo, x_hi = (x_start, x_end) if x_start <= x_end else (x_end, x_start)
-        y_lo, y_hi = (y_start, y_end) if y_start <= y_end else (y_end, y_start)
+        h_u = (vh - h_min) / h_span
+        w_u = (vw - w_min) / w_span
         mask_region = (w_u >= x_lo) & (w_u <= x_hi) & (h_u >= y_lo) & (h_u <= y_hi)
         if invert:
             mask_region = ~mask_region
         idx_region_soft = vid_all[mask_region]
         w_region_soft = None
+        frame_weights_mean = (
+            mask_region.float().view(latent_t_i, frame_patches).mean(dim=1)
+            if (latent_t_i * frame_patches == n_vid)
+            else mask_region.float().mean().unsqueeze(0)
+        )
 
     idx_region = vid_all[mask_region]
     idx_base = vid_all[~mask_region]
+
+    vid_t_steps = (
+        pos[va : vb : frame_patches, 0]
+        if (latent_t_i * frame_patches == n_vid and frame_patches > 0)
+        else pos[va:va+1, 0]
+    )
+    frame_hw_grid = pos[va : va + min(frame_patches, n_vid), 1:3]
 
     aud_segs = [(int(a), int(b)) for (a, b, k) in segs if k == "audio" and b > a]
     aud_parts = [torch.arange(a, b, dtype=torch.long) for (a, b) in aud_segs]
@@ -207,20 +233,75 @@ def _build_spatial_partition(
 
     aud_l_parts: list[torch.Tensor] = []
     aud_r_parts: list[torch.Tensor] = []
+    w_aud_parts: list[torch.Tensor] = []
     for sa, sb in aud_segs:
         span_len = sb - sa
         if span_len >= 2 and (span_len % 2) == 0:
             mid = sa + span_len // 2
             aud_l_parts.append(torch.arange(sa, mid, dtype=torch.long))
             aud_r_parts.append(torch.arange(mid, sb, dtype=torch.long))
+            # Channel-major packing: [L_0..L_{T-1}, R_0..R_{T-1}] share identical temporal ticks
+            aud_t_half = pos[sa:mid, 0]
+            k_aud = (aud_t_half.unsqueeze(1) - vid_t_steps.unsqueeze(0)).abs().argmin(dim=1)
+            w_half = frame_weights_mean[k_aud]
+            w_aud_parts.extend([w_half, w_half])
+        else:
+            aud_t_all = pos[sa:sb, 0]
+            k_aud = (aud_t_all.unsqueeze(1) - vid_t_steps.unsqueeze(0)).abs().argmin(dim=1)
+            w_aud_parts.append(frame_weights_mean[k_aud])
     idx_aud_l = torch.cat(aud_l_parts, dim=0) if aud_l_parts else torch.empty(0, dtype=torch.long)
     idx_aud_r = torch.cat(aud_r_parts, dim=0) if aud_r_parts else torch.empty(0, dtype=torch.long)
+    w_aud = (
+        torch.cat(w_aud_parts, dim=0).clamp(0.0, 1.0).to(dtype=torch.float32)
+        if w_aud_parts
+        else torch.empty(0, dtype=torch.float32)
+    )
 
-    # All non-text, non-target-video tokens (cond, cond_audio, ref_img, ref_audio, audio) stay shared in isolated KV.
+    # Partition keyframe/first-frame/last-frame `cond` segments by their resolved timestamp & region:
+    # `cond` patches outside the region remain available to `idx_base_kv` and `idx_nt_region`;
+    # portal-interior `cond` patches are excluded from both `idx_region_kv` and `idx_nt_region`.
+    mask_region_2d = (
+        mask_region.view(latent_t_i, frame_patches)
+        if (mask is not None and (latent_t_i * frame_patches == n_vid))
+        else None
+    )
+    cond_base_parts: list[torch.Tensor] = []
+    for ca, cb, kind in segs:
+        if kind != "cond" or cb <= ca:
+            continue
+        c_idx = torch.arange(ca, cb, dtype=torch.long)
+        c_len = cb - ca
+        if mask_region_2d is not None:
+            if (c_len % frame_patches) == 0:
+                c_reg_parts: list[torch.Tensor] = []
+                for c_off in range(ca, cb, frame_patches):
+                    t_c = float(pos[c_off, 0].item())
+                    k_lat = int((vid_t_steps - t_c).abs().argmin().item())
+                    c_reg_parts.append(mask_region_2d[k_lat])
+                c_in_reg = torch.cat(c_reg_parts, dim=0)
+            else:
+                k_lat = (pos[ca:cb, 0:1] - vid_t_steps.unsqueeze(0)).abs().argmin(dim=1)
+                p_idx = ((pos[ca:cb, 1:3].unsqueeze(1) - frame_hw_grid.unsqueeze(0)) ** 2).sum(dim=-1).argmin(dim=1)
+                c_in_reg = mask_region_2d[k_lat, p_idx]
+        else:
+            ch_u = (pos[ca:cb, 1] - h_min) / h_span
+            cw_u = (pos[ca:cb, 2] - w_min) / w_span
+            c_in_reg = (cw_u >= x_lo) & (cw_u <= x_hi) & (ch_u >= y_lo) & (ch_u <= y_hi)
+            if invert:
+                c_in_reg = ~c_in_reg
+        outside = c_idx[~c_in_reg]
+        if outside.numel() > 0:
+            cond_base_parts.append(outside)
+    idx_cond_base = torch.cat(cond_base_parts, dim=0) if cond_base_parts else torch.empty(0, dtype=torch.long)
+
+    # Non-text, non-video, non-cond tokens (cond_audio, ref_img, ref_audio, audio) stay shared in isolated KV.
     other_parts = [
-        torch.arange(a, b, dtype=torch.long) for (a, b, k) in segs if k not in ("text", "video") and b > a
+        torch.arange(a, b, dtype=torch.long)
+        for (a, b, k) in segs
+        if k not in ("text", "video", "cond") and b > a
     ]
     idx_other = torch.cat(other_parts, dim=0) if other_parts else torch.empty(0, dtype=torch.long)
+    idx_nt_region = torch.cat([idx_other, idx_cond_base, vid_all], dim=0)
 
     non_txt_parts = [torch.arange(a, b, dtype=torch.long) for (a, b, k) in segs if k != "text" and b > a]
     idx_non_txt = torch.cat(non_txt_parts, dim=0) if non_txt_parts else torch.empty(0, dtype=torch.long)
@@ -240,12 +321,24 @@ def _build_spatial_partition(
         "idx_aud": idx_aud,
         "idx_aud_l": idx_aud_l,
         "idx_aud_r": idx_aud_r,
+        "w_aud": w_aud,
         "binaural_region_on_left": binaural_region_on_left,
+        "idx_cond_base": idx_cond_base,
         "idx_other": idx_other,
+        "idx_nt_region": idx_nt_region,
         "idx_non_txt": idx_non_txt,
         "tx_a": tx_a,
         "tx_b": tx_b,
     }
+
+
+def _positions_in_index_vec(s_tot: int, target_idx: torch.Tensor, container_idx: torch.Tensor) -> torch.Tensor:
+    """Return positions within `container_idx` whose values appear in `target_idx`."""
+    if target_idx.numel() == 0 or container_idx.numel() == 0:
+        return torch.empty(0, dtype=torch.long)
+    marker = torch.zeros(s_tot, dtype=torch.bool)
+    marker[target_idx] = True
+    return marker[container_idx].nonzero(as_tuple=False).flatten()
 
 
 def build_spatial_indices(
@@ -299,6 +392,7 @@ class SpatialVisualQRRuntime:
         mask: torch.Tensor | None,
         isolate_blocks: frozenset[int],
         audio_zone: str,
+        shield_region: bool = False,
         binaural_start_block: int | None = None,
     ) -> None:
         self.dm = dm
@@ -317,6 +411,7 @@ class SpatialVisualQRRuntime:
             else frozenset()
         )
         self.audio_zone = audio_zone
+        self.shield_region = bool(shield_region)
         self.n_blocks = len(dm.blocks)
         self.binaural_start_block = (
             (30 if self.n_blocks >= 40 else (self.n_blocks // 2))
@@ -334,11 +429,25 @@ class SpatialVisualQRRuntime:
         self.idx_aud: torch.Tensor | None = None
         self.idx_aud_l: torch.Tensor | None = None
         self.idx_aud_r: torch.Tensor | None = None
+        self.w_aud: torch.Tensor | None = None
+        self.idx_aud_fm_base: torch.Tensor | None = None
+        self.idx_aud_fm_reg: torch.Tensor | None = None
+        self.idx_aud_fm_pure_base: torch.Tensor | None = None
+        self.idx_aud_fm_pure_reg: torch.Tensor | None = None
         self.nt_aud_l_pos: torch.Tensor | None = None
         self.nt_aud_r_pos: torch.Tensor | None = None
+        self.nt_base_vid_pos: torch.Tensor | None = None
+        self.nt_fm_base_aud_pos: torch.Tensor | None = None
+        self.nt_fm_pure_base_aud_pos: torch.Tensor | None = None
+        self.reg_kv_aud_l_pos: torch.Tensor | None = None
+        self.reg_kv_aud_r_pos: torch.Tensor | None = None
+        self.reg_kv_base_vid_pos: torch.Tensor | None = None
+        self.reg_kv_fm_base_aud_pos: torch.Tensor | None = None
+        self.reg_kv_fm_pure_base_aud_pos: torch.Tensor | None = None
         self.binaural_region_on_left = False
         self.idx_base_kv: torch.Tensor | None = None
         self.idx_region_kv: torch.Tensor | None = None
+        self.idx_region_soft_kv: torch.Tensor | None = None
         self.idx_nt_all: torch.Tensor | None = None
         self.tx_a = 0
         self.tx_b = 0
@@ -378,25 +487,47 @@ class SpatialVisualQRRuntime:
             self.idx_aud = part["idx_aud"].to(device=device)
             self.idx_aud_l = part["idx_aud_l"].to(device=device)
             self.idx_aud_r = part["idx_aud_r"].to(device=device)
+            w_aud_cpu = part["w_aud"]
+            self.w_aud = w_aud_cpu.to(device=device)
+            fm_reg_sel = w_aud_cpu >= 0.5
+            aud_fm_base_cpu = part["idx_aud"][~fm_reg_sel]
+            aud_fm_reg_cpu = part["idx_aud"][fm_reg_sel]
+            aud_fm_pure_base_cpu = part["idx_aud"][w_aud_cpu <= _SOFT_EPS]
+            aud_fm_pure_reg_cpu = part["idx_aud"][w_aud_cpu >= (1.0 - _SOFT_EPS)]
+            self.idx_aud_fm_base = aud_fm_base_cpu.to(device=device)
+            self.idx_aud_fm_reg = aud_fm_reg_cpu.to(device=device)
+            self.idx_aud_fm_pure_base = aud_fm_pure_base_cpu.to(device=device)
+            self.idx_aud_fm_pure_reg = aud_fm_pure_reg_cpu.to(device=device)
             self.binaural_region_on_left = bool(part["binaural_region_on_left"])
-            self.idx_nt_all = part["idx_non_txt"].to(device=device)
+            nt_reg_cpu = part["idx_nt_region"]
+            self.idx_nt_all = nt_reg_cpu.to(device=device)
             idx_other_dev = part["idx_other"].to(device=device)
-            self.idx_base_kv = torch.cat([idx_other_dev, self.idx_base], dim=0)
+            idx_cond_base_dev = part["idx_cond_base"].to(device=device)
+            self.idx_base_kv = torch.cat([idx_other_dev, idx_cond_base_dev, self.idx_base], dim=0)
             self.idx_region_kv = torch.cat([idx_other_dev, self.idx_region], dim=0)
+            reg_soft_kv_cpu = torch.cat([part["idx_other"], part["idx_region_soft"]], dim=0)
+            self.idx_region_soft_kv = reg_soft_kv_cpu.to(device=device)
 
             s_tot = int(layout.position_ids.shape[0])
             if part["idx_aud_l"].numel() > 0 and part["idx_aud_r"].numel() > 0:
-                is_l = torch.zeros(s_tot, dtype=torch.bool)
-                is_l[part["idx_aud_l"]] = True
-                self.nt_aud_l_pos = is_l[part["idx_non_txt"]].nonzero(as_tuple=False).flatten().to(device=device)
-                is_r = torch.zeros(s_tot, dtype=torch.bool)
-                is_r[part["idx_aud_r"]] = True
-                self.nt_aud_r_pos = is_r[part["idx_non_txt"]].nonzero(as_tuple=False).flatten().to(device=device)
+                self.nt_aud_l_pos = _positions_in_index_vec(s_tot, part["idx_aud_l"], nt_reg_cpu).to(device=device)
+                self.nt_aud_r_pos = _positions_in_index_vec(s_tot, part["idx_aud_r"], nt_reg_cpu).to(device=device)
+                self.reg_kv_aud_l_pos = _positions_in_index_vec(s_tot, part["idx_aud_l"], reg_soft_kv_cpu).to(device=device)
+                self.reg_kv_aud_r_pos = _positions_in_index_vec(s_tot, part["idx_aud_r"], reg_soft_kv_cpu).to(device=device)
             else:
                 self.nt_aud_l_pos = torch.empty(0, dtype=torch.long, device=device)
                 self.nt_aud_r_pos = torch.empty(0, dtype=torch.long, device=device)
+                self.reg_kv_aud_l_pos = torch.empty(0, dtype=torch.long, device=device)
+                self.reg_kv_aud_r_pos = torch.empty(0, dtype=torch.long, device=device)
 
-            if self.idx_region_soft.numel() == 0 and self.audio_zone == "base":
+            self.nt_base_vid_pos = _positions_in_index_vec(s_tot, part["idx_base"], nt_reg_cpu).to(device=device)
+            self.reg_kv_base_vid_pos = _positions_in_index_vec(s_tot, part["idx_base"], reg_soft_kv_cpu).to(device=device)
+            self.nt_fm_base_aud_pos = _positions_in_index_vec(s_tot, aud_fm_base_cpu, nt_reg_cpu).to(device=device)
+            self.reg_kv_fm_base_aud_pos = _positions_in_index_vec(s_tot, aud_fm_base_cpu, reg_soft_kv_cpu).to(device=device)
+            self.nt_fm_pure_base_aud_pos = _positions_in_index_vec(s_tot, aud_fm_pure_base_cpu, nt_reg_cpu).to(device=device)
+            self.reg_kv_fm_pure_base_aud_pos = _positions_in_index_vec(s_tot, aud_fm_pure_base_cpu, reg_soft_kv_cpu).to(device=device)
+
+            if self.idx_region_soft.numel() == 0 and self.audio_zone in ("base", "follow_mask"):
                 self.active = False
                 self._cur = None
                 return
@@ -462,11 +593,25 @@ class SpatialVisualQRRuntime:
         self.idx_aud = None
         self.idx_aud_l = None
         self.idx_aud_r = None
+        self.w_aud = None
+        self.idx_aud_fm_base = None
+        self.idx_aud_fm_reg = None
+        self.idx_aud_fm_pure_base = None
+        self.idx_aud_fm_pure_reg = None
         self.nt_aud_l_pos = None
         self.nt_aud_r_pos = None
+        self.nt_base_vid_pos = None
+        self.nt_fm_base_aud_pos = None
+        self.nt_fm_pure_base_aud_pos = None
+        self.reg_kv_aud_l_pos = None
+        self.reg_kv_aud_r_pos = None
+        self.reg_kv_base_vid_pos = None
+        self.reg_kv_fm_base_aud_pos = None
+        self.reg_kv_fm_pure_base_aud_pos = None
         self.binaural_region_on_left = False
         self.idx_base_kv = None
         self.idx_region_kv = None
+        self.idx_region_soft_kv = None
         self.idx_nt_all = None
 
     def _binaural_audio_outputs(
@@ -478,19 +623,28 @@ class SpatialVisualQRRuntime:
         v_b_world: torch.Tensor,
         l_txt_b: int,
         scale: float | None,
+        *,
+        shielded: bool = False,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         assert self.idx_aud_l is not None and self.idx_aud_r is not None
-        assert self.nt_aud_l_pos is not None and self.nt_aud_r_pos is not None
+        assert self.idx_base is not None and self.idx_region is not None
+        b_aud_l = self.reg_kv_aud_l_pos if shielded else self.nt_aud_l_pos
+        b_aud_r = self.reg_kv_aud_r_pos if shielded else self.nt_aud_r_pos
+        b_base_vid = self.reg_kv_base_vid_pos if shielded else self.nt_base_vid_pos
+        assert b_aud_l is not None and b_aud_r is not None
         if self.binaural_region_on_left:
             idx_aud_base, idx_aud_reg = self.idx_aud_r, self.idx_aud_l
-            nt_masked_base = self.nt_aud_r_pos
+            b_masked_base = b_aud_r
         else:
             idx_aud_base, idx_aud_reg = self.idx_aud_l, self.idx_aud_r
-            nt_masked_base = self.nt_aud_l_pos
+            b_masked_base = b_aud_l
 
+        has_both_vid = (self.idx_base.numel() > 0) and (self.idx_region.numel() > 0)
         s_total = int(k_p.shape[2])
         bias_base = torch.zeros((1, 1, 1, s_total), device=k_p.device, dtype=k_p.dtype)
         bias_base[:, :, :, idx_aud_reg] = float("-inf")
+        if has_both_vid:
+            bias_base[:, :, :, self.idx_region] = float("-inf")
         q_aud_base = q_p.index_select(2, idx_aud_base).to(dtype=k_p.dtype)
         out_aud_base = F.scaled_dot_product_attention(
             q_aud_base, k_p, v_p, attn_mask=bias_base, dropout_p=0.0, is_causal=False, scale=scale
@@ -499,13 +653,126 @@ class SpatialVisualQRRuntime:
 
         s_b_len = int(k_b_world.shape[2])
         bias_reg = torch.zeros((1, 1, 1, s_b_len), device=k_b_world.device, dtype=k_b_world.dtype)
-        bias_reg[:, :, :, nt_masked_base + l_txt_b] = float("-inf")
+        if b_masked_base.numel() > 0:
+            bias_reg[:, :, :, b_masked_base + l_txt_b] = float("-inf")
+        if has_both_vid and b_base_vid is not None and b_base_vid.numel() > 0:
+            bias_reg[:, :, :, b_base_vid + l_txt_b] = float("-inf")
         q_aud_reg = q_p.index_select(2, idx_aud_reg).to(dtype=k_b_world.dtype)
         out_aud_reg = F.scaled_dot_product_attention(
             q_aud_reg, k_b_world, v_b_world, attn_mask=bias_reg, dropout_p=0.0, is_causal=False, scale=scale
         )
         del bias_reg, q_aud_reg
         return idx_aud_base, out_aud_base, idx_aud_reg, out_aud_reg
+
+    def _follow_mask_audio_outputs(
+        self,
+        q_p: torch.Tensor,
+        k_p: torch.Tensor,
+        v_p: torch.Tensor,
+        k_b_world: torch.Tensor,
+        v_b_world: torch.Tensor,
+        l_txt_b: int,
+        block_index: int,
+        heads: int,
+        head_dim: int,
+        scale: float | None,
+        *,
+        shielded: bool = False,
+    ) -> torch.Tensor:
+        assert self.idx_aud is not None and self.w_aud is not None
+        assert self.idx_aud_fm_base is not None and self.idx_aud_fm_reg is not None
+        assert self.idx_aud_fm_pure_base is not None and self.idx_aud_fm_pure_reg is not None
+        assert self.idx_base is not None and self.idx_region is not None
+
+        idx_aud = self.idx_aud
+        w_aud = self.w_aud
+        n_aud = int(idx_aud.numel())
+        s_total = int(k_p.shape[2])
+        s_b_len = int(k_b_world.shape[2])
+        has_both_vid = (self.idx_base.numel() > 0) and (self.idx_region.numel() > 0)
+        b_base_vid = self.reg_kv_base_vid_pos if shielded else self.nt_base_vid_pos
+        b_fm_base_aud = self.reg_kv_fm_base_aud_pos if shielded else self.nt_fm_base_aud_pos
+        b_fm_pure_base_aud = (
+            self.reg_kv_fm_pure_base_aud_pos if shielded else self.nt_fm_pure_base_aud_pos
+        )
+
+        def _attn_base(q_sub: torch.Tensor, opposite_mask_aud: torch.Tensor) -> torch.Tensor:
+            q_b = q_sub.to(dtype=k_p.dtype)
+            has_reg_aud = opposite_mask_aud.numel() > 0
+            if not has_reg_aud and not has_both_vid:
+                return _fast_attn(q_b, k_p, v_p, scale=scale)
+            bias_b = torch.zeros((1, 1, 1, s_total), device=k_p.device, dtype=k_p.dtype)
+            if has_reg_aud:
+                bias_b[:, :, :, opposite_mask_aud] = float("-inf")
+            if has_both_vid:
+                bias_b[:, :, :, self.idx_region] = float("-inf")
+            return F.scaled_dot_product_attention(
+                q_b, k_p, v_p, attn_mask=bias_b, dropout_p=0.0, is_causal=False, scale=scale
+            )
+
+        def _attn_reg(q_sub: torch.Tensor, opposite_mask_aud_pos: torch.Tensor | None) -> torch.Tensor:
+            q_r = q_sub.to(dtype=k_b_world.dtype)
+            mask_base_aud = opposite_mask_aud_pos is not None and opposite_mask_aud_pos.numel() > 0
+            mask_base_vid = has_both_vid and b_base_vid is not None and b_base_vid.numel() > 0
+            if not mask_base_aud and not mask_base_vid:
+                return _fast_attn(q_r, k_b_world, v_b_world, scale=scale)
+            bias_r = torch.zeros((1, 1, 1, s_b_len), device=k_b_world.device, dtype=k_b_world.dtype)
+            if mask_base_aud:
+                bias_r[:, :, :, opposite_mask_aud_pos + l_txt_b] = float("-inf")
+            if mask_base_vid:
+                bias_r[:, :, :, b_base_vid + l_txt_b] = float("-inf")
+            return F.scaled_dot_product_attention(
+                q_r, k_b_world, v_b_world, attn_mask=bias_r, dropout_p=0.0, is_causal=False, scale=scale
+            )
+
+        out_aud = torch.empty((1, heads, n_aud, head_dim), device=q_p.device, dtype=k_p.dtype)
+        is_reg_hard = w_aud >= 0.5
+        if block_index < self.binaural_start_block:
+            pos_b = (~is_reg_hard).nonzero(as_tuple=False).flatten()
+            pos_r = is_reg_hard.nonzero(as_tuple=False).flatten()
+            if pos_b.numel() > 0:
+                out_aud.index_copy_(
+                    2, pos_b, _attn_base(q_p.index_select(2, idx_aud[pos_b]), self.idx_aud_fm_reg)
+                )
+            if pos_r.numel() > 0:
+                out_aud.index_copy_(
+                    2,
+                    pos_r,
+                    _attn_reg(q_p.index_select(2, idx_aud[pos_r]), b_fm_base_aud).to(dtype=out_aud.dtype),
+                )
+            return out_aud
+
+        is_pure_base = w_aud <= _SOFT_EPS
+        is_pure_reg = w_aud >= (1.0 - _SOFT_EPS)
+        is_trans = (~is_pure_base) & (~is_pure_reg)
+        if not bool(is_trans.any().item()):
+            pos_b = (~is_reg_hard).nonzero(as_tuple=False).flatten()
+            pos_r = is_reg_hard.nonzero(as_tuple=False).flatten()
+            if pos_b.numel() > 0:
+                out_aud.index_copy_(
+                    2, pos_b, _attn_base(q_p.index_select(2, idx_aud[pos_b]), self.idx_aud_fm_reg)
+                )
+            if pos_r.numel() > 0:
+                out_aud.index_copy_(
+                    2,
+                    pos_r,
+                    _attn_reg(q_p.index_select(2, idx_aud[pos_r]), b_fm_base_aud).to(dtype=out_aud.dtype),
+                )
+            return out_aud
+
+        # Late crossfade: mask ONLY pure opposite-world audio so transitional 0 < w < 1 tokens retain self-attention.
+        need_base = ~is_pure_reg
+        need_reg = ~is_pure_base
+        out_b_buf = _attn_base(q_p.index_select(2, idx_aud[need_base]), self.idx_aud_fm_pure_reg)
+        out_r_buf = _attn_reg(q_p.index_select(2, idx_aud[need_reg]), b_fm_pure_base_aud)
+        b_full = torch.zeros_like(out_aud, dtype=torch.float32)
+        r_full = torch.zeros_like(out_aud, dtype=torch.float32)
+        b_full.index_copy_(2, need_base.nonzero(as_tuple=False).flatten(), out_b_buf.float())
+        r_full.index_copy_(2, need_reg.nonzero(as_tuple=False).flatten(), out_r_buf.float())
+        w_view = w_aud.view(1, 1, n_aud, 1).float()
+        blended = (1.0 - w_view) * b_full + w_view * r_full
+        out_aud.copy_(blended.to(dtype=out_aud.dtype))
+        return out_aud
 
     def run_attention_override(
         self,
@@ -625,11 +892,20 @@ class SpatialVisualQRRuntime:
                 other_mask[self.idx_region] = False
                 if self.idx_aud.numel() > 0:
                     other_mask[self.idx_aud] = False
-                    if binaural_active:
+                    if self.audio_zone == "follow_mask":
+                        k_b_world = torch.cat([k_txt_b, k_p.index_select(2, self.idx_nt_all)], dim=2)
+                        v_b_world = torch.cat([v_txt_b, v_p.index_select(2, self.idx_nt_all)], dim=2)
+                        out_aud = self._follow_mask_audio_outputs(
+                            q_p, k_p, v_p, k_b_world, v_b_world, l_txt_b,
+                            cur["block_index"], heads, head_dim, scale, shielded=False,
+                        )
+                        _write_iso(self.idx_aud, out_aud)
+                        del k_b_world, v_b_world, out_aud
+                    elif binaural_active:
                         k_b_world = torch.cat([k_txt_b, k_p.index_select(2, self.idx_nt_all)], dim=2)
                         v_b_world = torch.cat([v_txt_b, v_p.index_select(2, self.idx_nt_all)], dim=2)
                         idx_ab, out_ab, idx_ar, out_ar = self._binaural_audio_outputs(
-                            q_p, k_p, v_p, k_b_world, v_b_world, l_txt_b, scale
+                            q_p, k_p, v_p, k_b_world, v_b_world, l_txt_b, scale, shielded=False
                         )
                         _write_iso(idx_ab, out_ab)
                         _write_iso(idx_ar, out_ar)
@@ -698,6 +974,10 @@ class SpatialVisualQRRuntime:
         # Seamless blend phase:
         # 1) Pause `malloc_graph` to compute the region/audio splice + shadow-B text update from peeked Q/K/V.
         reg_idx = self.idx_region_soft
+        use_shield = self.shield_region and (self.idx_region_soft_kv is not None) and (self.idx_region_soft_kv.numel() > 0)
+        b_world_nt_idx = self.idx_region_soft_kv if use_shield else self.idx_nt_all
+        assert b_world_nt_idx is not None
+        follow_mask_active = (self.audio_zone == "follow_mask") and (self.idx_aud.numel() > 0)
         with _steer_hooks.pause_malloc_graph_ctx(), torch.no_grad():
             k_dtype, v_dtype = k_p.dtype, v_p.dtype
             q_txt_b = cur["q_txt_b"].to(dtype=k_dtype)
@@ -715,8 +995,8 @@ class SpatialVisualQRRuntime:
             if route_aud_region:
                 q_parts.append(q_p.index_select(2, self.idx_aud))
 
-            k_b_world = torch.cat([k_txt_b, k_p.index_select(2, self.idx_nt_all)], dim=2)
-            v_b_world = torch.cat([v_txt_b, v_p.index_select(2, self.idx_nt_all)], dim=2)
+            k_b_world = torch.cat([k_txt_b, k_p.index_select(2, b_world_nt_idx)], dim=2)
+            v_b_world = torch.cat([v_txt_b, v_p.index_select(2, b_world_nt_idx)], dim=2)
 
             out_vid_b = None
             out_aud_b = None
@@ -738,11 +1018,20 @@ class SpatialVisualQRRuntime:
                 out_aud_b = out_b_all[:, :, off : off + n_aud, :].clone() if route_aud_region else None
                 del out_b_all
 
-            bin_res = (
-                self._binaural_audio_outputs(q_p, k_p, v_p, k_b_world, v_b_world, l_txt_b, scale)
-                if binaural_active
-                else None
-            )
+            if follow_mask_active:
+                fm_res = self._follow_mask_audio_outputs(
+                    q_p, k_p, v_p, k_b_world, v_b_world, l_txt_b,
+                    cur["block_index"], heads, head_dim, scale, shielded=use_shield,
+                )
+                bin_res = None
+            elif binaural_active:
+                fm_res = None
+                bin_res = self._binaural_audio_outputs(
+                    q_p, k_p, v_p, k_b_world, v_b_world, l_txt_b, scale, shielded=use_shield
+                )
+            else:
+                fm_res = None
+                bin_res = None
             del k_b_world, v_b_world, q_parts, q_txt_b, k_txt_b, v_txt_b
 
         # 2) Back in ACTIVE `malloc_graph`: drop peek refs and let Sol/Kitchen consume Q/K/V and allocate `out_main`.
@@ -779,7 +1068,10 @@ class SpatialVisualQRRuntime:
                     out_main.index_copy_(1, reg_idx, blended.to(dtype=out_main.dtype))
                     del cur_main, src_2d, blended
 
-            if bin_res is not None:
+            if fm_res is not None:
+                _splice(self.idx_aud, fm_res)
+                del fm_res
+            elif bin_res is not None:
                 _splice(bin_res[0], bin_res[1])
                 _splice(bin_res[2], bin_res[3])
                 del bin_res
@@ -984,8 +1276,6 @@ def attach_spatial_query_router(
     dm = getattr(getattr(m, "model", None), "diffusion_model", None)
     if not _steer_hooks.is_hookable_dit(dm):
         raise ValueError("MiniMaxH3SpatialQueryRouter requires a MiniMax H3 model with hookable DiT blocks")
-    if _is_h3_image_model(dm):
-        raise ValueError("MiniMaxH3SpatialQueryRouter targets joint audio-video MiniMax H3 models")
 
     from comfy.patcher_extension import CallbacksMP, WrappersMP
 
@@ -1029,6 +1319,7 @@ def attach_spatial_query_router(
         )
 
     iso_set = parse_isolation_blocks(iso_mode, len(dm.blocks))
+    shield_region = iso_mode.endswith("_shield")
     for b_idx in range(len(dm.blocks)):
         existing = dit_replaces.get(("double_block", b_idx))
         m.set_model_patch_replace(_SpatialBlockPatch(b_idx, existing), "dit", "double_block", b_idx)
@@ -1074,6 +1365,7 @@ def attach_spatial_query_router(
                 mask=mask,
                 isolate_blocks=iso_set,
                 audio_zone=aud_z,
+                shield_region=shield_region,
             )
             to_next = dict(transformer_options or {})
             to_next["_h3_spatial_qr_rt"] = rt
@@ -1109,7 +1401,8 @@ class MiniMaxH3SpatialQueryRouter(io.ComfyNode):
             category="MiniMax H3/Steering",
             description=(
                 "Route a second visual prompt to any normalized box (left/right, top/bottom, portal) or "
-                "optional 2D/video MASK in one 1x pass with 100% stock RoPE and zero VAE shimmer."
+                "optional 2D/video MASK in one 1x pass with 100% stock RoPE and zero VAE shimmer "
+                "(supports joint AV H3 video models and single-frame MiniMax-H3-Image)."
             ),
             inputs=[
                 io.Model.Input("model"),
@@ -1159,9 +1452,11 @@ class MiniMaxH3SpatialQueryRouter(io.ComfyNode):
                     options=list(ISOLATION_MODES),
                     default="early_0_24",
                     tooltip=(
-                        "Symmetric K/V isolation band before seamless blending ('early_0_24' isolates blocks 0..24 "
-                        "and blends seamlessly on 25..49; 'seamless_off' blends across all 50 blocks; 'mid_20_34' "
-                        "runs shared warmup on 0..19, isolated material swap on 20..34, then seamless blend on 35..49)."
+                        "Symmetric K/V isolation band before seamless blending ('early_0_24' isolates 0..24 "
+                        "then blends 25..49; 'mid_20_34' runs shared warmup 0..19, iso 20..34, blend 35..49; "
+                        "'mid_20_49' keeps warmup 0..19 then isolates 20..49 for strict scanner beams; "
+                        "'*_shield' keeps k_b_world shielded to idx_region_soft on seamless blocks so small "
+                        "masks resist bright-surround washout)."
                     ),
                 ),
                 io.Combo.Input(
@@ -1170,9 +1465,9 @@ class MiniMaxH3SpatialQueryRouter(io.ComfyNode):
                     default="base",
                     tooltip=(
                         "Which world prompt stereo audio queries read: 'base' (main prompt), 'region' "
-                        "(region_conditioning), or 'binaural_split' (shared on blocks 0..29 for phase-locked "
-                        "lip-sync, then late_30_49 L/R split routing Left ear to left visual world & Right ear "
-                        "to right visual world; ties to L=base, R=region)."
+                        "(region_conditioning), 'binaural_split' (shared 0..29, late_30_49 visually firewalled "
+                        "L/R split matching L/R visual worlds), or 'follow_mask' (temporal audio switching & "
+                        "late_30_49 crossfade following per-frame mask coverage)."
                     ),
                 ),
                 io.Float.Input(

@@ -264,9 +264,14 @@ def main() -> int:
     assert idx_base.numel() > 0 and idx_reg.numel() > 0
     assert set(idx_base.tolist()).isdisjoint(set(idx_reg.tolist()))
     assert idx_aud.numel() == 30
-    # idx_other must include ref_img (16), cond (24), AND audio (30) -> 70 non-text, non-video tokens
-    assert idx_other.numel() == 16 + 24 + 30
-    assert idx_nt.numel() == idx_other.numel() + n_vid
+    # idx_other excludes `cond` (per-segment-t partitioned): ref_img (16) + audio (30) = 46;
+    # left-half x=[0..0.5) `cond` (12 of 24) routes strictly to base, 0 `cond` tokens in region_kv.
+    part_box = sqr._build_spatial_partition(
+        layout, x_start=0.5, x_end=1.0, y_start=0.0, y_end=1.0, invert=False
+    )
+    assert idx_other.numel() == 16 + 30
+    assert part_box["idx_cond_base"].numel() == 12
+    assert idx_nt.numel() == 16 + 24 + 30 + n_vid
 
     # Invert produces exact complement
     inv_base, inv_reg, *_ = sqr.build_spatial_indices(
@@ -510,6 +515,13 @@ def main() -> int:
     k_s = torch.randn(1, 4, s_total, 8)
     v_s = torch.randn(1, 4, s_total, 8)
     dm_s = _TinyDM(hidden=32, heads=4, n_blocks=4)
+    layout_soft = PackedLayout(text_len=10, latent_t=7, latent_h=8, latent_w=12, audio_t=15)
+    s_soft_tot = int(layout_soft.position_ids.shape[0])
+    img_soft = torch.randn(s_soft_tot, 32)
+    mod_soft = [(0, s_soft_tot, 0)]
+    q_s = torch.randn(1, 4, s_soft_tot, 8)
+    k_s = torch.randn(1, 4, s_soft_tot, 8)
+    v_s = torch.randn(1, 4, s_soft_tot, 8)
 
     def _run_seamless(mask_t: torch.Tensor, *, inv: bool = False) -> torch.Tensor:
         rt_s = sqr.SpatialVisualQRRuntime(
@@ -526,10 +538,10 @@ def main() -> int:
             audio_zone="base",
         )
         rt_s.prepare_block(
-            0, {"img": img, "layout": layout, "t_emb": t_emb, "mod_segments": mod_segments, "rope_freqs": None}
+            0, {"img": img_soft, "layout": layout_soft, "t_emb": t_emb, "mod_segments": mod_soft, "rope_freqs": None}
         )
         def _pass_s():
-            return torch.nn.functional.scaled_dot_product_attention(q_s, k_s, v_s).transpose(1, 2).reshape(1, s_total, 32)
+            return torch.nn.functional.scaled_dot_product_attention(q_s, k_s, v_s).transpose(1, 2).reshape(1, s_soft_tot, 32)
         return rt_s.run_attention_override(q_s, k_s, v_s, _pass_s, skip_output_reshape=False)
 
     out_w0 = _run_seamless(m_bin_w0)
@@ -539,13 +551,17 @@ def main() -> int:
     m_strip = torch.zeros(32, 48)
     m_strip[:, 12:24] = 1.0
     strip_idx = sqr.build_spatial_indices(
-        layout, x_start=0.0, x_end=1.0, y_start=0.0, y_end=1.0, invert=False, mask=m_strip
+        layout_soft, x_start=0.0, x_end=1.0, y_start=0.0, y_end=1.0, invert=False, mask=m_strip
     )[1]
     expected_strip = 0.75 * out_w0[:, strip_idx, :] + 0.25 * out_w1[:, strip_idx, :]
     err_soft = float((out_soft[:, strip_idx, :] - expected_strip).abs().max().item())
     assert err_soft < 1e-5, f"Soft [0..1] blend mismatch ({err_soft})"
     out_soft_inv = _run_seamless(m_soft, inv=True)
     assert torch.isfinite(out_soft_inv).all()
+    # Restore `q_s`/`k_s`/`v_s` at `s_total` (`layout` with refs+kfs) for Tests 6 & 8 below
+    q_s = torch.randn(1, 4, s_total, 8)
+    k_s = torch.randn(1, 4, s_total, 8)
+    v_s = torch.randn(1, 4, s_total, 8)
     m_sub_half = torch.full((32, 48), 0.25)
     p_sub_half = sqr.attach_spatial_query_router(
         _make_mini_patcher(_TinyDM(hidden=32, heads=4, n_blocks=2)),
@@ -675,15 +691,21 @@ def main() -> int:
         "Sage object_patches",
     )
 
-    # 7d. MiniMaxH3ImageModel
+    # 7d. MiniMaxH3ImageModel (`latent_t=1, audio_t=0`) MUST attach and run cleanly across audio_zone modes
     dm_img = _TinyDM(hidden=32, heads=4, n_blocks=2)
     del dm_img.audio_patch_proj
     p_img = _make_mini_patcher(dm_img)
-    _expect_val_err(
-        lambda: sqr.attach_spatial_query_router(p_img, region_conditioning=cond_reg),
-        "joint audio-video",
-        "H3 Image model",
-    )
+    layout_img = PackedLayout(text_len=10, latent_t=1, latent_h=8, latent_w=12, audio_t=0)
+    ctx_img = torch.randn(1, 10, 32)
+    img_t1 = torch.randn(int(layout_img.position_ids.shape[0]), 32)
+    mod_img = [(0, int(layout_img.position_ids.shape[0]), 0)]
+    for az_img in sqr.AUDIO_ZONES:
+        p_img_routed = sqr.attach_spatial_query_router(
+            p_img, region_conditioning=cond_reg, isolation="early_0_24", audio_zone=az_img
+        )
+        out_img = p_img_routed.run(ctx_img, layout_img, img_t1, t_emb, mod_img)
+        assert out_img[0].shape == (1, int(layout_img.position_ids.shape[0]), 32)
+        assert torch.isfinite(out_img[0]).all()
 
     # 7e. Double MiniMaxH3SpatialQueryRouter
     p_double = sqr.attach_spatial_query_router(base_p.clone(), region_conditioning=cond_reg)
@@ -880,7 +902,146 @@ def main() -> int:
     assert rope_sub.untyped_storage().data_ptr() != rope_in.untyped_storage().data_ptr(), (
         "Fallback shadow text RoPE must clone rather than alias active malloc_graph rope_freqs"
     )
-    print("[ok] 7. All attachment, symmetric stacking, reverse-order & malloc_graph RoPE guards verified")
+    print("[ok] 7. All attachment, H3-Image, symmetric stacking, reverse-order & malloc_graph RoPE guards verified")
+
+    # 8. Spatial QR v2-slim: mid_20_49, 1-way *_shield (+ binaural_split), per-segment-t cond exclusion, follow_mask, Steer tags pause
+    assert "mid_20_49" in sqr.ISOLATION_MODES
+    assert "early_0_24_shield" in sqr.ISOLATION_MODES
+    assert "mid_20_34_shield" in sqr.ISOLATION_MODES
+    assert "follow_mask" in sqr.AUDIO_ZONES
+    assert sqr.parse_isolation_blocks("mid_20_49", 50) == frozenset(range(20, 50))
+    assert sqr.parse_isolation_blocks("mid_20_49", 25) == frozenset(range(20, 25))
+    assert sqr.parse_isolation_blocks("mid_20_49", 20) == frozenset()
+    assert sqr.parse_isolation_blocks("early_0_24_shield", 50) == frozenset(range(0, 25))
+    assert sqr.parse_isolation_blocks("mid_20_34_shield", 50) == frozenset(range(20, 35))
+
+    # 8a. 1-way *_shield shields q_vid_b from idx_base on seamless blocks, lets surround see region, and stacks with binaural_split
+    dm_sh = _TinyDM(hidden=32, heads=4, n_blocks=4)
+    rt_unshielded = sqr.SpatialVisualQRRuntime(
+        dm=dm_sh, shadow_b_init=shadow_b_diff_len, shadow_b_tags=None,
+        x_start=0.75, x_end=1.0, y_start=0.0, y_end=1.0, invert=False, mask=None,
+        isolate_blocks=frozenset(), audio_zone="binaural_split", shield_region=False, binaural_start_block=0,
+    )
+    rt_shielded = sqr.SpatialVisualQRRuntime(
+        dm=dm_sh, shadow_b_init=shadow_b_diff_len, shadow_b_tags=None,
+        x_start=0.75, x_end=1.0, y_start=0.0, y_end=1.0, invert=False, mask=None,
+        isolate_blocks=frozenset(), audio_zone="binaural_split", shield_region=True, binaural_start_block=0,
+    )
+    v_base_pert = v_s.clone()
+    rt_unshielded.prepare_block(0, {"img": img, "layout": layout, "t_emb": t_emb, "mod_segments": mod_segments, "rope_freqs": None})
+    rt_shielded.prepare_block(0, {"img": img, "layout": layout, "t_emb": t_emb, "mod_segments": mod_segments, "rope_freqs": None})
+    v_base_pert[:, :, rt_shielded.idx_base, :].add_(30.0)
+    def _sdpa_main(v_use):
+        return torch.nn.functional.scaled_dot_product_attention(q_s, k_s, v_use).transpose(1, 2).reshape(1, s_total, 32)
+    out_sh_0 = rt_shielded.run_attention_override(q_s, k_s, v_s, lambda: _sdpa_main(v_s), skip_output_reshape=False)
+    rt_shielded2 = sqr.SpatialVisualQRRuntime(
+        dm=dm_sh, shadow_b_init=shadow_b_diff_len, shadow_b_tags=None,
+        x_start=0.75, x_end=1.0, y_start=0.0, y_end=1.0, invert=False, mask=None,
+        isolate_blocks=frozenset(), audio_zone="binaural_split", shield_region=True, binaural_start_block=0,
+    )
+    rt_shielded2.prepare_block(0, {"img": img, "layout": layout, "t_emb": t_emb, "mod_segments": mod_segments, "rope_freqs": None})
+    out_sh_p = rt_shielded2.run_attention_override(q_s, k_s, v_base_pert, lambda: _sdpa_main(v_base_pert), skip_output_reshape=False)
+    err_sh_reg = float((out_sh_0[:, rt_shielded.idx_region, :] - out_sh_p[:, rt_shielded.idx_region, :]).abs().max().item())
+    assert err_sh_reg < 1e-5, f"1-way *_shield leaked idx_base V perturbation into idx_region ({err_sh_reg})"
+    assert torch.isfinite(out_sh_p).all()
+
+    # 8b. Visual firewall in binaural_split (Right ear must ignore Right/base visual perturbation when firewalled)
+    v_aud_fw_pert = v_s.clone()
+    v_aud_fw_pert[:, :, rt_unshielded.idx_region, :].add_(40.0)
+    out_fw_0 = rt_unshielded.run_attention_override(q_s, k_s, v_s, lambda: _sdpa_main(v_s), skip_output_reshape=False)
+    rt_unshielded2 = sqr.SpatialVisualQRRuntime(
+        dm=dm_sh, shadow_b_init=shadow_b_diff_len, shadow_b_tags=None,
+        x_start=0.75, x_end=1.0, y_start=0.0, y_end=1.0, invert=False, mask=None,
+        isolate_blocks=frozenset(), audio_zone="binaural_split", shield_region=False, binaural_start_block=0,
+    )
+    rt_unshielded2.prepare_block(0, {"img": img, "layout": layout, "t_emb": t_emb, "mod_segments": mod_segments, "rope_freqs": None})
+    out_fw_p = rt_unshielded2.run_attention_override(q_s, k_s, v_aud_fw_pert, lambda: _sdpa_main(v_aud_fw_pert), skip_output_reshape=False)
+    err_ear_l_vis = float((out_fw_0[:, aud_seg[0]:aud_mid, :] - out_fw_p[:, aud_seg[0]:aud_mid, :]).abs().max().item())
+    assert err_ear_l_vis < 1e-5, f"binaural_split Left ear leaked Right visual perturbation ({err_ear_l_vis})"
+
+    # 8c. Per-segment-t `cond` exclusion (static f0=1 mirror AND timed f0=0 -> f5=1 room-rip)
+    cond_a, cond_b = next((a, b) for (a, b, k) in layout.segments if k == "cond")
+    cond_set = set(range(cond_a, cond_b))
+    m_static_mirror = torch.zeros(32, 48)
+    m_static_mirror[:, 8:32] = 1.0  # center half (cols 1..3 = 12 of 24 patches)
+    part_mir = sqr._build_spatial_partition(layout, x_start=0.0, x_end=1.0, y_start=0.0, y_end=1.0, invert=False, mask=m_static_mirror)
+    assert part_mir["idx_cond_base"].numel() == 12
+    assert cond_set.isdisjoint(set(part_mir["idx_other"].tolist())), "cond must never enter idx_region_kv"
+    m_room_rip = torch.zeros(22, 32, 48)
+    m_room_rip[5:, :, :] = 1.0  # Frame 0 closed (0), later frames ripped open (1)
+    part_rip = sqr._build_spatial_partition(layout, x_start=0.0, x_end=1.0, y_start=0.0, y_end=1.0, invert=False, mask=m_room_rip)
+    assert part_rip["idx_cond_base"].numel() == 24, "Closed Frame 0 cond must stay available to idx_base_kv"
+    # Even at exact 0.5 tie with invert=True, cond & video agree bit-for-bit and non-shielded idx_nt_region excludes portal cond
+    m_tie = torch.full((32, 48), 0.5)
+    part_tie = sqr._build_spatial_partition(layout, x_start=0.0, x_end=1.0, y_start=0.0, y_end=1.0, invert=True, mask=m_tie)
+    assert part_tie["idx_cond_base"].numel() == 24
+    cond_portal_mir = cond_set - set(part_mir["idx_cond_base"].tolist())
+    assert len(cond_portal_mir) == 12
+    assert cond_portal_mir.isdisjoint(set(part_mir["idx_nt_region"].tolist())), "non-shielded seamless idx_nt_region must exclude portal cond"
+    assert set(part_mir["idx_cond_base"].tolist()).issubset(set(part_mir["idx_nt_region"].tolist()))
+
+    # 8d. follow_mask channel-major alignment, <30 binary threshold, >=30 crossfade, and non-starving w=0.50 self-attention
+    m_fm = torch.zeros(22, 32, 48)
+    m_fm[5:9, :, :] = 0.50   # transitional partial frame weights around latent step 1..2
+    m_fm[9:, :, :] = 1.0
+    part_fm = sqr._build_spatial_partition(layout, x_start=0.0, x_end=1.0, y_start=0.0, y_end=1.0, invert=False, mask=m_fm)
+    w_aud = part_fm["w_aud"]
+    assert w_aud.numel() == 30 and torch.equal(w_aud[:15], w_aud[15:]), "w_aud must pack L and R channel-major"
+    assert float(w_aud[0].item()) == 0.0 and float(w_aud[14].item()) == 1.0
+
+    rt_fm = sqr.SpatialVisualQRRuntime(
+        dm=dm_sh, shadow_b_init=shadow_b_diff_len, shadow_b_tags=None,
+        x_start=0.0, x_end=1.0, y_start=0.0, y_end=1.0, invert=False, mask=m_fm,
+        isolate_blocks=frozenset({0}), audio_zone="follow_mask", binaural_start_block=1,
+    )
+    for bi in (0, 1):
+        rt_fm.prepare_block(bi, {"img": img, "layout": layout, "t_emb": t_emb, "mod_segments": mod_segments, "rope_freqs": None})
+        out_fm = rt_fm.run_attention_override(q_s, k_s, v_s, lambda: _sdpa_main(v_s), skip_output_reshape=False)
+        assert out_fm.shape == (1, s_total, 32) and torch.isfinite(out_fm).all()
+        rt_fm.finish_block(bi)
+    rt_fm.clear()
+
+    # Static 50/50 split (w_aud == 0.50 everywhere) at >= binaural_start_block MUST keep audio self-attention active
+    v_aud_50_pert = v_s.clone()
+    v_aud_50_pert[:, :, aud_seg[0] : aud_seg[1], :].add_(25.0)
+    rt_fm50_a = sqr.SpatialVisualQRRuntime(
+        dm=dm_sh, shadow_b_init=shadow_b_diff_len, shadow_b_tags=None,
+        x_start=0.5, x_end=1.0, y_start=0.0, y_end=1.0, invert=False, mask=None,
+        isolate_blocks=frozenset(), audio_zone="follow_mask", binaural_start_block=0,
+    )
+    rt_fm50_b = sqr.SpatialVisualQRRuntime(
+        dm=dm_sh, shadow_b_init=shadow_b_diff_len, shadow_b_tags=None,
+        x_start=0.5, x_end=1.0, y_start=0.0, y_end=1.0, invert=False, mask=None,
+        isolate_blocks=frozenset(), audio_zone="follow_mask", binaural_start_block=0,
+    )
+    rt_fm50_a.prepare_block(0, {"img": img, "layout": layout, "t_emb": t_emb, "mod_segments": mod_segments, "rope_freqs": None})
+    rt_fm50_b.prepare_block(0, {"img": img, "layout": layout, "t_emb": t_emb, "mod_segments": mod_segments, "rope_freqs": None})
+    out_fm50_a = rt_fm50_a.run_attention_override(q_s, k_s, v_s, lambda: _sdpa_main(v_s), skip_output_reshape=False)
+    out_fm50_b = rt_fm50_b.run_attention_override(q_s, k_s, v_aud_50_pert, lambda: _sdpa_main(v_aud_50_pert), skip_output_reshape=False)
+    err_fm50 = float((out_fm50_a[:, aud_seg[0]:aud_seg[1], :] - out_fm50_b[:, aud_seg[0]:aud_seg[1], :]).abs().max().item())
+    assert err_fm50 > 1e-1, f"follow_mask at w_aud=0.50 starved audio self-attention ({err_fm50})"
+
+    # 8e. MiniMaxH3Steer(end_percent=0.50) wraps tags + has_vision inside pause_malloc_graph_ctx()
+    spec_half = sn._AppliedVectorSpec(
+        vector_name="half_vec", vector=vec_ctx, strength=0.5, mode="add", scale_mode="raw",
+        mask="non_vision", start_percent=0.0, end_percent=0.50, metadata={}, advisories=(),
+        video_scale=1.0, audio_scale=1.0, block_band="all", split_backend="auto_1x_kv",
+    )
+    p_half = _attach_test_steer(base_pr, spec_half)
+    orig_pause_2 = sn._steer_hooks.pause_malloc_graph_ctx
+    pause_hits = {"n": 0}
+    @contextlib.contextmanager
+    def _cnt_pause():
+        pause_hits["n"] += 1
+        with orig_pause_2():
+            yield
+    sn._steer_hooks.pause_malloc_graph_ctx = _cnt_pause
+    try:
+        out_half = p_half.run(ctx_pr, layout, img_pr, t_emb, mod_segments, payload=pay_10)
+        assert torch.isfinite(out_half[0]).all() and pause_hits["n"] >= 1
+    finally:
+        sn._steer_hooks.pause_malloc_graph_ctx = orig_pause_2
+    print("[ok] 8. mid_20_49, 1-way *_shield, binaural visual firewall, cond exclusion, follow_mask & Steer pause verified")
     print("ALL MiniMaxH3SpatialQueryRouter CPU checks passed!")
     return 0
 

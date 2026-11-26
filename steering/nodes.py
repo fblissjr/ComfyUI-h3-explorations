@@ -1056,19 +1056,20 @@ def _make_control_vector_wrapper(
 
         tags_raw = payload.get("text_token_tags")
         B, L, _D = context.shape
-        if tags_raw is not None:
-            tags = torch.as_tensor(tags_raw, device=context.device, dtype=torch.long)
-            if tags.ndim == 1:
-                tags = tags.unsqueeze(0).expand(B, -1)
-        else:
-            if any(sp.mask != "all_rows" for sp in active_specs):
-                raise ValueError(
-                    "minimax_payload is missing 'text_token_tags'; cannot apply "
-                    "non_vision mask without token tags"
-                )
-            tags = torch.ones((B, L), device=context.device, dtype=torch.long)
+        with _steer_hooks.pause_malloc_graph_ctx():
+            if tags_raw is not None:
+                tags = torch.as_tensor(tags_raw, device=context.device, dtype=torch.long)
+                if tags.ndim == 1:
+                    tags = tags.unsqueeze(0).expand(B, -1)
+            else:
+                if any(sp.mask != "all_rows" for sp in active_specs):
+                    raise ValueError(
+                        "minimax_payload is missing 'text_token_tags'; cannot apply "
+                        "non_vision mask without token tags"
+                    )
+                tags = torch.ones((B, L), device=context.device, dtype=torch.long)
 
-        has_vision = bool((tags == 0).any().item())
+            has_vision = bool((tags == 0).any().item())
         render_prefix_kind = "references_or_keyframes" if has_vision else "none"
         kwarg_span_masks = kwargs.get("h3_span_masks")
         span_masks_top = kwarg_span_masks
