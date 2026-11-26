@@ -102,7 +102,7 @@ Load the shipped standalone workflow **[`workflows/h3_text_to_video_pika_spatial
 | **`x_start` / `x_end`** | `0.50` / `1.00` | Normalized horizontal bounds `[0.0, 1.0]` of the region (`0.50..1.00` = right half) |
 | **`y_start` / `y_end`** | `0.00` / `1.00` | Normalized vertical bounds `[0.0, 1.0]` of the region (`0.18..0.85` for center portal) |
 | **`invert`** | `False` | `False`: inside box/mask gets World B; `True`: outside gets World B |
-| **`isolation`** | `early_0_24` | Symmetric K/V isolation band: `early_0_24` (recommended), `seamless_off` (softer fade), `early_0_16`, `early_0_32`, or `all_0_49` (hardest separation) |
+| **`isolation`** | `early_0_24` | Symmetric K/V isolation band: `early_0_24` (recommended), `seamless_off` (softer fade), `early_0_16`, `early_0_32`, `all_0_49` (hardest separation), or `mid_20_34` (shared-anatomy body-scanner swaps: warmup `0..19` -> iso `20..34` -> seamless `35..49`) |
 | **`audio_zone`** | `base` | `base`: stereo audio reads main prompt; `region`: stereo audio reads `region_conditioning`; `binaural_split`: shared `0..29`, `late_30_49` L/R split matching L/R visual worlds |
 | **`start_percent` / `end_percent`** | `0.0` / `1.0` | Denoising step window where spatial routing is active |
 | **`mask`** | *optional* | Any 2D `[H, W]` or video `[F, H, W]` `MASK` (frame count `1` or matching `F`; isolates `>= 0.5` on `iso` blocks and feathers smoothly `[0..1]` on `25..49`); overrides `x/y` box when connected |

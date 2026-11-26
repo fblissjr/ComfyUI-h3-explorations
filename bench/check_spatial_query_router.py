@@ -414,12 +414,66 @@ def main() -> int:
     assert out_f.shape == (1, s_total, 32) and torch.isfinite(out_f).all()
     print("[ok] 3. Runtime iso/seamless/audio_zone/mismatched-len/container/empty/full checks verified")
 
-    # 4. Isolation presets, validation guards, & mask frame-count refusal
+    # 4. Isolation presets, validation guards, mid_20_34 warmup->iso->blend, & mask frame-count refusal
+    assert "mid_20_34" in sqr.ISOLATION_MODES
     assert len(sqr.parse_isolation_blocks("seamless_off", 50)) == 0
     assert len(sqr.parse_isolation_blocks("early_0_16", 50)) == 17
     assert len(sqr.parse_isolation_blocks("early_0_24", 50)) == 25
     assert len(sqr.parse_isolation_blocks("early_0_32", 50)) == 33
     assert len(sqr.parse_isolation_blocks("all_0_49", 50)) == 50
+    assert sqr.parse_isolation_blocks("mid_20_34", 50) == frozenset(range(20, 35))
+    assert sqr.parse_isolation_blocks("mid_20_34", 20) == frozenset()
+
+    sqr._steer_hooks.pause_malloc_graph_ctx = _tracked_pause_ctx
+    try:
+        rt_mid = sqr.SpatialVisualQRRuntime(
+            dm=dm,
+            shadow_b_init=shadow_b_diff_len,
+            shadow_b_tags=None,
+            x_start=0.5,
+            x_end=1.0,
+            y_start=0.0,
+            y_end=1.0,
+            invert=False,
+            mask=None,
+            isolate_blocks=frozenset({1, 2}),
+            audio_zone="base",
+        )
+        assert rt_mid.warmup_blocks == frozenset({0})
+        rt_mid.prepare_block(
+            0, {"img": img, "layout": layout, "t_emb": t_emb, "mod_segments": mod_segments, "rope_freqs": None}
+        )
+        assert rt_mid._cur is not None and rt_mid._cur["warmup"] is True and rt_mid._cur["iso"] is False
+        assert rt_mid.idx_region is not None and rt_mid.idx_region.numel() > 0
+        h_before = rt_mid.h_shadow_b.clone()
+
+        q_w0, k_w0, v_w0 = torch.randn(1, 4, s_total, 8), torch.randn(1, 4, s_total, 8), torch.randn(1, 4, s_total, 8)
+        qc_w0 = _DummyContainer(q_w0, pause_state=pause_state)
+        kc_w0 = _DummyContainer(k_w0, pause_state=pause_state)
+        vc_w0 = _DummyContainer(v_w0, pause_state=pause_state)
+        expected_w0 = torch.nn.functional.scaled_dot_product_attention(q_w0, k_w0, v_w0).transpose(1, 2).reshape(1, s_total, 32)
+
+        def _pass_w0():
+            assert pause_state["depth"] == 0, "warmup pass_through_fn must run outside pause_malloc_graph_ctx()"
+            q_u, k_u, v_u = qc_w0.take(), kc_w0.take(), vc_w0.take()
+            return torch.nn.functional.scaled_dot_product_attention(q_u, k_u, v_u).transpose(1, 2).reshape(1, s_total, 32)
+
+        out_w0 = rt_mid.run_attention_override(qc_w0, kc_w0, vc_w0, _pass_w0, skip_output_reshape=False)
+        assert pause_state["depth"] == 0
+        assert qc_w0.takes == 1 and kc_w0.takes == 1 and vc_w0.takes == 1
+        assert float((out_w0 - expected_w0).abs().max().item()) == 0.0, "warmup block must be bit-identical pass_through"
+        rt_mid.finish_block(0)
+        assert float((rt_mid.h_shadow_b - h_before).abs().max().item()) > 1e-4, "warmup block must advance h_shadow_b"
+
+        rt_mid.prepare_block(
+            1, {"img": img, "layout": layout, "t_emb": t_emb, "mod_segments": mod_segments, "rope_freqs": None}
+        )
+        assert rt_mid._cur is not None and rt_mid._cur["iso"] is True and rt_mid._cur["warmup"] is False
+        out_b1 = rt_mid.run_attention_override(q_w0, k_w0, v_w0, lambda: expected_w0.clone(), skip_output_reshape=False)
+        assert float((out_b1[:, rt_mid.idx_region, :] - expected_w0[:, rt_mid.idx_region, :]).abs().max().item()) > 1e-4
+        rt_mid.clear()
+    finally:
+        sqr._steer_hooks.pause_malloc_graph_ctx = orig_pause_ctx
     try:
         sqr.parse_isolation_blocks("bogus", 50)
         raise AssertionError("Expected ValueError for invalid isolation")

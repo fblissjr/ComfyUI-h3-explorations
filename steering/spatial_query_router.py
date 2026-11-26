@@ -41,6 +41,7 @@ ISOLATION_MODES: tuple[str, ...] = (
     "early_0_16",
     "early_0_32",
     "all_0_49",
+    "mid_20_34",
 )
 AUDIO_ZONES: tuple[str, ...] = ("base", "region", "binaural_split")
 _REF_CACHE_MAX = 4
@@ -62,6 +63,8 @@ def parse_isolation_blocks(isolation: str, n_blocks: int = 50) -> frozenset[int]
         return frozenset(range(0, min(33, n_b)))
     if mode == "all_0_49":
         return frozenset(range(0, n_b))
+    if mode == "mid_20_34":
+        return frozenset(range(20, min(35, n_b))) if n_b > 20 else frozenset()
     raise ValueError(f"isolation must be one of {ISOLATION_MODES}, got {isolation!r}")
 
 
@@ -308,6 +311,11 @@ class SpatialVisualQRRuntime:
         self.invert = bool(invert)
         self.mask = mask
         self.isolate_blocks = isolate_blocks
+        self.warmup_blocks = (
+            frozenset(range(0, min(isolate_blocks)))
+            if (isolate_blocks and min(isolate_blocks) > 0)
+            else frozenset()
+        )
         self.audio_zone = audio_zone
         self.n_blocks = len(dm.blocks)
         self.binaural_start_block = (
@@ -432,6 +440,7 @@ class SpatialVisualQRRuntime:
             "scale_mlp": scale_mlp,
             "gate_mlp": gate_mlp,
             "shadow_b_attn_2d": None,
+            "warmup": block_index in self.warmup_blocks,
             "iso": (
                 (block_index in self.isolate_blocks)
                 and (self.idx_base.numel() > 0)
@@ -666,6 +675,25 @@ class SpatialVisualQRRuntime:
             if not torch.is_tensor(v_in):
                 v_in.take()
             return out_ret
+
+        if cur.get("warmup", False):
+            with _steer_hooks.pause_malloc_graph_ctx(), torch.no_grad():
+                k_dtype, v_dtype = k_p.dtype, v_p.dtype
+                q_txt_b = cur["q_txt_b"].to(dtype=k_dtype)
+                k_txt_b = cur["k_txt_b"].to(dtype=k_dtype)
+                v_txt_b = cur["v_txt_b"].to(dtype=v_dtype)
+                cur["q_txt_b"] = cur["k_txt_b"] = cur["v_txt_b"] = None
+                if need_finish_b:
+                    k_b_world = torch.cat([k_txt_b, k_p.index_select(2, self.idx_nt_all)], dim=2)
+                    v_b_world = torch.cat([v_txt_b, v_p.index_select(2, self.idx_nt_all)], dim=2)
+                    out_txt_b = _fast_attn(q_txt_b, k_b_world, v_b_world, scale=scale)
+                    cur["shadow_b_attn_2d"] = (
+                        out_txt_b[0].transpose(0, 1).reshape(l_txt_b, inner).to(dtype=self.h_shadow_b.dtype)
+                    )
+                    del k_b_world, v_b_world, out_txt_b
+                del q_txt_b, k_txt_b, v_txt_b
+            del q_p, k_p, v_p
+            return pass_through_fn()
 
         # Seamless blend phase:
         # 1) Pause `malloc_graph` to compute the region/audio splice + shadow-B text update from peeked Q/K/V.
@@ -1116,7 +1144,8 @@ class MiniMaxH3SpatialQueryRouter(io.ComfyNode):
                     default="early_0_24",
                     tooltip=(
                         "Symmetric K/V isolation band before seamless blending ('early_0_24' isolates blocks 0..24 "
-                        "and blends seamlessly on 25..49; 'seamless_off' blends across all 50 blocks)."
+                        "and blends seamlessly on 25..49; 'seamless_off' blends across all 50 blocks; 'mid_20_34' "
+                        "runs shared warmup on 0..19, isolated material swap on 20..34, then seamless blend on 35..49)."
                     ),
                 ),
                 io.Combo.Input(
