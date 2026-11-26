@@ -971,6 +971,7 @@ def main() -> int:
     m_room_rip[5:, :, :] = 1.0  # Frame 0 closed (0), later frames ripped open (1)
     part_rip = sqr._build_spatial_partition(layout, x_start=0.0, x_end=1.0, y_start=0.0, y_end=1.0, invert=False, mask=m_room_rip)
     assert part_rip["idx_cond_base"].numel() == 24, "Closed Frame 0 cond must stay available to idx_base_kv"
+    assert cond_set.isdisjoint(set(part_rip["idx_nt_region"].tolist())), "Open portal frames must not see closed Frame-0 mirror cond on 25..49"
     # Even at exact 0.5 tie with invert=True, cond & video agree bit-for-bit and non-shielded idx_nt_region excludes portal cond
     m_tie = torch.full((32, 48), 0.5)
     part_tie = sqr._build_spatial_partition(layout, x_start=0.0, x_end=1.0, y_start=0.0, y_end=1.0, invert=True, mask=m_tie)

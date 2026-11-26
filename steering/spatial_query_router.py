@@ -266,33 +266,46 @@ def _build_spatial_partition(
         else None
     )
     cond_base_parts: list[torch.Tensor] = []
+    cond_never_reg_parts: list[torch.Tensor] = []
+    any_reg_frame = mask_region_2d.any(dim=0) if mask_region_2d is not None else None
     for ca, cb, kind in segs:
         if kind != "cond" or cb <= ca:
             continue
         c_idx = torch.arange(ca, cb, dtype=torch.long)
         c_len = cb - ca
-        if mask_region_2d is not None:
+        if mask_region_2d is not None and any_reg_frame is not None:
             if (c_len % frame_patches) == 0:
                 c_reg_parts: list[torch.Tensor] = []
+                c_any_parts: list[torch.Tensor] = []
                 for c_off in range(ca, cb, frame_patches):
                     t_c = float(pos[c_off, 0].item())
                     k_lat = int((vid_t_steps - t_c).abs().argmin().item())
                     c_reg_parts.append(mask_region_2d[k_lat])
+                    c_any_parts.append(any_reg_frame)
                 c_in_reg = torch.cat(c_reg_parts, dim=0)
+                c_ever_reg = torch.cat(c_any_parts, dim=0)
             else:
                 k_lat = (pos[ca:cb, 0:1] - vid_t_steps.unsqueeze(0)).abs().argmin(dim=1)
                 p_idx = ((pos[ca:cb, 1:3].unsqueeze(1) - frame_hw_grid.unsqueeze(0)) ** 2).sum(dim=-1).argmin(dim=1)
                 c_in_reg = mask_region_2d[k_lat, p_idx]
+                c_ever_reg = any_reg_frame[p_idx]
         else:
             ch_u = (pos[ca:cb, 1] - h_min) / h_span
             cw_u = (pos[ca:cb, 2] - w_min) / w_span
             c_in_reg = (cw_u >= x_lo) & (cw_u <= x_hi) & (ch_u >= y_lo) & (ch_u <= y_hi)
             if invert:
                 c_in_reg = ~c_in_reg
+            c_ever_reg = c_in_reg
         outside = c_idx[~c_in_reg]
         if outside.numel() > 0:
             cond_base_parts.append(outside)
+        never_reg = c_idx[~c_ever_reg]
+        if never_reg.numel() > 0:
+            cond_never_reg_parts.append(never_reg)
     idx_cond_base = torch.cat(cond_base_parts, dim=0) if cond_base_parts else torch.empty(0, dtype=torch.long)
+    idx_cond_never_reg = (
+        torch.cat(cond_never_reg_parts, dim=0) if cond_never_reg_parts else torch.empty(0, dtype=torch.long)
+    )
 
     # Non-text, non-video, non-cond tokens (cond_audio, ref_img, ref_audio, audio) stay shared in isolated KV.
     other_parts = [
@@ -301,7 +314,7 @@ def _build_spatial_partition(
         if k not in ("text", "video", "cond") and b > a
     ]
     idx_other = torch.cat(other_parts, dim=0) if other_parts else torch.empty(0, dtype=torch.long)
-    idx_nt_region = torch.cat([idx_other, idx_cond_base, vid_all], dim=0)
+    idx_nt_region = torch.cat([idx_other, idx_cond_never_reg, vid_all], dim=0)
 
     non_txt_parts = [torch.arange(a, b, dtype=torch.long) for (a, b, k) in segs if k != "text" and b > a]
     idx_non_txt = torch.cat(non_txt_parts, dim=0) if non_txt_parts else torch.empty(0, dtype=torch.long)
