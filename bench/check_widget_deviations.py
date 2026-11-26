@@ -578,6 +578,43 @@ DECLARED: dict[tuple[str, str], tuple] = {
     ("MiniMaxH3AutoEditPrompt", "concept"):
         ("ARM", "Selects the worked concept card ('cyberpunk_neon_rain') on the two "
                 "shipped auto-edit guidance graphs against the node default 'none' (2026-11-19)."),
+    ("MiniMaxH3SpatialQueryRouter", "isolation"):
+        ("ARM", "Per-arm block-band isolation schedule: 'all_0_49' on "
+                "h3_text_to_video_pika_multishot_spatial_cut for zero-bleed 1-frame hard cuts, "
+                "and 'mid_20_34' on h3_r2v_midas_walk_spatial_wake_pika so winter/spring geometry "
+                "stays grounded while trailing blooms emerge, against default 'early_0_24' (2026-11-26)."),
+    ("MiniMaxH3SpatialQueryRouter", "audio_zone"):
+        ("ARM", "Per-arm 40 Hz audio routing: 'follow_mask' on "
+                "h3_text_to_video_pika_multishot_spatial_cut and h3_r2v_midas_walk_spatial_wake_pika, "
+                "'binaural_split' on h3_text_to_video_pika_binaural_dialogue_split, and 'region' on "
+                "h3_text_to_video_pika_vector_lens_claymation, against default 'base' (2026-11-26)."),
+    ("MiniMaxH3SpatialQueryRouter", "invert"):
+        ("ARM", "True on h3_text_to_video_pika_vector_lens_claymation so base receives "
+                "MiniMaxH3Steer(claymation_stopmotion) on the left half while region preserves "
+                "unsteered live action + audio on the right, against default False (2026-11-26)."),
+    ("MiniMaxH3SpatialQueryRouter", "x_start"):
+        ("ARM", "0.0 on mask-driven full-canvas spatial workflows "
+                "(h3_text_to_video_pika_multishot_spatial_cut and h3_r2v_midas_walk_spatial_wake_pika) "
+                "where connected MASK overrides box bounds, against default 0.5 (2026-11-26)."),
+    ("MiniMaxH3SpatialDirector", "invert_mask"):
+        ("ARM", "True on h3_r2v_midas_walk_spatial_wake_pika so left-of-wipe pixels (the "
+                "tortoise's trailing wake) activate Region Spring Bloom (1.0) while ahead-of-wipe "
+                "pixels stay in Base Winter (0.0), against default False (2026-11-26)."),
+    ("MiniMaxH3AppendSpriteTrajectory", "keyframes"):
+        ("ARM", "Continuous 141f left-to-right walk ('0: x=0.14, y=0.74 -> 140: x=0.86, y=0.74') "
+                "on h3_r2v_midas_walk_spatial_wake_pika against the hop-backtrack node default (2026-11-26)."),
+    ("MiniMaxH3AppendSpriteTrajectory", "sprite_scale"):
+        ("ARM", "0.25 foreground tortoise framing scale on h3_r2v_midas_walk_spatial_wake_pika "
+                "against node default 0.31 (2026-11-26)."),
+    ("SolidMask", "width"):
+        ("ARM", "1344 canvas width matching the render resolution on "
+                "h3_text_to_video_pika_multishot_spatial_cut against SolidMask default 512 (2026-11-26)."),
+    ("SolidMask", "height"):
+        ("ARM", "768 canvas height matching the render resolution on "
+                "h3_text_to_video_pika_multishot_spatial_cut against SolidMask default 512 (2026-11-26)."),
+    ("RepeatImageBatch", "amount"):
+        ("ARM", "Procedural Shot 1 (85 frames) and Shot 2 (107 frames) temporal step-mask counts "
+                "on h3_text_to_video_pika_multishot_spatial_cut against RepeatImageBatch default 1 (2026-11-26)."),
 }
 
 #: **There is deliberately no exception table here.** One was written on

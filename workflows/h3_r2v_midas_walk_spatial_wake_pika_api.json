@@ -1,0 +1,389 @@
+{
+  "1": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "minimax_h3_ref2va_pruned_int8_convrot.safetensors",
+      "weight_dtype": "default"
+    }
+  },
+  "2": {
+    "class_type": "MiniMaxH3EncoderLoader",
+    "inputs": {
+      "encoder_name": "qwen3vl_32b_minimax_h3_bf16_pruned.safetensors",
+      "device": "default"
+    }
+  },
+  "3": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "minimax_h3_video_vae_int8_convrot.safetensors"
+    }
+  },
+  "4": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "minimax_h3_audio_vae_fp32.safetensors"
+    }
+  },
+  "6": {
+    "class_type": "RandomNoise",
+    "inputs": {
+      "noise_seed": 730451892
+    }
+  },
+  "7": {
+    "class_type": "KSamplerSelect",
+    "inputs": {
+      "sampler_name": "lcm"
+    }
+  },
+  "9": {
+    "class_type": "BasicGuider",
+    "inputs": {
+      "model": [
+        "149",
+        0
+      ],
+      "conditioning": [
+        "26",
+        0
+      ]
+    }
+  },
+  "10": {
+    "class_type": "SamplerCustomAdvanced",
+    "inputs": {
+      "noise": [
+        "6",
+        0
+      ],
+      "guider": [
+        "9",
+        0
+      ],
+      "sampler": [
+        "7",
+        0
+      ],
+      "sigmas": [
+        "60",
+        0
+      ],
+      "latent_image": [
+        "26",
+        1
+      ]
+    }
+  },
+  "11": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": [
+        "10",
+        0
+      ],
+      "vae": [
+        "3",
+        0
+      ]
+    }
+  },
+  "12": {
+    "class_type": "VAEDecodeAudio",
+    "inputs": {
+      "samples": [
+        "10",
+        0
+      ],
+      "vae": [
+        "4",
+        0
+      ]
+    }
+  },
+  "13": {
+    "class_type": "VHS_VideoCombine",
+    "inputs": {
+      "images": [
+        "11",
+        0
+      ],
+      "audio": [
+        "12",
+        0
+      ],
+      "frame_rate": 24.0,
+      "loop_count": 0,
+      "filename_prefix": "Video/h3_r2v_midas_walk_spatial_wake_pika",
+      "format": "video/h264-mp4",
+      "pix_fmt": "yuv420p",
+      "crf": 19,
+      "save_metadata": true,
+      "trim_to_audio": false,
+      "pingpong": false,
+      "save_output": true
+    }
+  },
+  "27": {
+    "class_type": "MiniMaxH3Resolution",
+    "inputs": {
+      "shape": "wide",
+      "shape.wide_resolution": "1344x768  7/4  1008 tok/frame  1.00x",
+      "length": 141
+    }
+  },
+  "5": {
+    "class_type": "MiniMaxH3PromptOnReferences",
+    "inputs": {
+      "encoded_references": [
+        "132",
+        0
+      ],
+      "prompt": "subject_definitions:\n<Subject 1> is the tortoise carrying a single lit white birthday candle on its domed shell from <Picture 1>, following the continuous left-to-right stride path across the courtyard floor from <Video 1>.\n<Video 1> provides only the steady left-to-right horizontal trajectory across the ground; its flat grey background is ignored.\n\nsummary:\n[reference generation] In one continuous static wide shot inside an antique limestone abbey cloister courtyard, <Subject 1> walks steadily from left to right across frost-covered frozen flagstones under pale overcast winter gloom.\n\nretention_analysis:\n<Subject 1> (appears in [Shot 1]): fully_preserved - patterned scuted shell, scaly legs, and upright lit white birthday candle.\n<Video 1> (motion source): attribute_transfer - left-to-right walk progression only.\n\ndetailed_description:\n[Shot 1] Live-action, static wide camera angle inside a silent snow-dusted monochrome stone cloister courtyard in deep winter freeze. Pale hoarfrost coats bare dormant rose brambles, dry grey flagstone arches, and dead winter moss in muted desaturated winter slate light. <Subject 1> strides steadily from left to right across the frosty cobblestones following the path from <Video 1>, its candle flame glowing softly against the cold air.\n\noverall_soundscape: Cold hushed winter wind sighs softly across frozen flagstones under delicate crunchy footsteps on frost.\n\nnon_diegetic_music: Sparse, cold frozen glass celesta notes."
+    }
+  },
+  "15": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "ref_signal/tortoise_pic1.png"
+    }
+  },
+  "50": {
+    "class_type": "MiniMaxH3AppendRefImage",
+    "inputs": {
+      "image": [
+        "15",
+        0
+      ],
+      "size_policy": "tiered",
+      "qwen_view": "separate",
+      "qwen_view.qwen_short_edge": 512
+    }
+  },
+  "51": {
+    "class_type": "MiniMaxH3AppendSpriteTrajectory",
+    "inputs": {
+      "image": [
+        "15",
+        0
+      ],
+      "length": [
+        "27",
+        2
+      ],
+      "keyframes": "0: x=0.14, y=0.74, face=right\n140: x=0.86, y=0.74, face=right",
+      "canvas_width": 384,
+      "canvas_height": 224,
+      "sprite_scale": 0.25,
+      "use_vae": true,
+      "references": [
+        "50",
+        0
+      ]
+    }
+  },
+  "18": {
+    "class_type": "MiniMaxH3LoRABranch",
+    "inputs": {
+      "model": [
+        "1",
+        0
+      ],
+      "lora_name": "h3/pika_h3_flex_ref2va_svd995_bf16.safetensors",
+      "strength": 1.0,
+      "modules": "all",
+      "blocks": "all",
+      "start_percent": 0.0,
+      "end_percent": 1.0
+    }
+  },
+  "19": {
+    "class_type": "MiniMaxH3SigmaShift",
+    "inputs": {
+      "model": [
+        "18",
+        0
+      ],
+      "shift_video": 12.0,
+      "shift_audio": 3.0
+    }
+  },
+  "58": {
+    "class_type": "ModelAttentionBackend",
+    "inputs": {
+      "model": [
+        "19",
+        0
+      ],
+      "attention": "comfy kitchen attention"
+    }
+  },
+  "21": {
+    "class_type": "MiniMaxH3Sol",
+    "inputs": {
+      "model": [
+        "58",
+        0
+      ],
+      "tau": 1.0,
+      "start_percent": 0.2,
+      "end_percent": 1.0,
+      "min_tokens": 12288,
+      "sink_conditioning": "exact_kv_and_all_rows",
+      "verbose": true,
+      "dense_blocks": "49",
+      "quantizer": "rotated",
+      "token_routing": "off",
+      "rows": "per segment",
+      "rows.text_rows": "exact",
+      "rows.reference_rows": "exact",
+      "rows.audio_rows": "exact",
+      "rows.video_reference_rows": "routed"
+    }
+  },
+  "135": {
+    "class_type": "MiniMaxH3ReleaseReferences",
+    "inputs": {
+      "model": [
+        "21",
+        0
+      ],
+      "end_percent": 0.33,
+      "clean_level": 0.999,
+      "audio_end_percent": 0.33,
+      "audio_clean_level": 1.0
+    }
+  },
+  "148": {
+    "class_type": "MiniMaxH3PromptOnReferences",
+    "inputs": {
+      "encoded_references": [
+        "132",
+        0
+      ],
+      "prompt": "subject_definitions:\n<Subject 1> is the tortoise carrying a single lit white birthday candle on its domed shell from <Picture 1>, following the continuous left-to-right stride path across the courtyard floor from <Video 1>.\n<Video 1> provides only the steady left-to-right horizontal trajectory across the ground; its flat grey background is ignored.\n\nsummary:\n[reference generation] In one continuous static wide shot inside the exact same antique limestone abbey cloister courtyard, <Subject 1> walks steadily from left to right as lush emerald spring wildflowers, golden sunbeams, climbing roses, and vivid green moss bloom across the stones.\n\nretention_analysis:\n<Subject 1> (appears in [Shot 1]): fully_preserved - patterned scuted shell, scaly legs, and upright lit white birthday candle.\n<Video 1> (motion source): attribute_transfer - left-to-right walk progression only.\n\ndetailed_description:\n[Shot 1] Live-action, static wide camera angle inside the exact same sunlit limestone abbey cloister courtyard bursting into vibrant golden spring bloom. Warm amber morning sunlight streams over moss-covered flagstones sprouted with golden buttercups, violet clover, lush ivy arches, and cascading pink wildflowers while pollen drifts through sunlit air. <Subject 1> strides steadily from left to right across the flower-strewn sunlit stones following the exact trajectory from <Video 1>.\n\noverall_soundscape: Cheerful spring songbirds chirp vibrantly around cascading courtyard fountain water, soft warm leaves rustle, and claws click against warm stone.\n\nnon_diegetic_music: Warm lyrical blooming harp arpeggios and gentle bright strings."
+    }
+  },
+  "149": {
+    "class_type": "MiniMaxH3SpatialQueryRouter",
+    "inputs": {
+      "model": [
+        "135",
+        0
+      ],
+      "region_conditioning": [
+        "148",
+        0
+      ],
+      "x_start": 0.0,
+      "x_end": 1.0,
+      "y_start": 0.0,
+      "y_end": 1.0,
+      "invert": false,
+      "isolation": "mid_20_34",
+      "audio_zone": "follow_mask",
+      "start_percent": 0.0,
+      "end_percent": 1.0,
+      "mask": [
+        "160",
+        0
+      ]
+    }
+  },
+  "26": {
+    "class_type": "MiniMaxH3Preflight",
+    "inputs": {
+      "conditioning": [
+        "70",
+        0
+      ],
+      "samples": [
+        "70",
+        1
+      ]
+    }
+  },
+  "60": {
+    "class_type": "ManualSigmas",
+    "inputs": {
+      "sigmas": "1.0, 0.972973, 0.923077, 0.8, 0.571429, 0.333333, 0.0"
+    }
+  },
+  "70": {
+    "class_type": "MiniMaxH3SoundCues",
+    "inputs": {
+      "positive": [
+        "5",
+        0
+      ],
+      "latent": [
+        "132",
+        1
+      ],
+      "audio_vae": [
+        "4",
+        0
+      ],
+      "cues": "0.5s: thud @0.8\n1.5s: thud @0.8\n2.5s: thud @0.8\n3.5s: thud @0.8\n4.5s: thud @0.8",
+      "snap_to_3f": true,
+      "floor_dbfs": -28.0,
+      "seed": 20261112
+    }
+  },
+  "160": {
+    "class_type": "MiniMaxH3SpatialDirector",
+    "inputs": {
+      "mode": "portal_path",
+      "width": [
+        "27",
+        0
+      ],
+      "height": [
+        "27",
+        1
+      ],
+      "length": [
+        "27",
+        2
+      ],
+      "feather": 0.08,
+      "invert_mask": true,
+      "events_json": "{\"portal\": [{\"frame\": 0, \"x\": 0.04, \"y\": 0.5, \"rx\": 0.1, \"ry\": 1.0, \"shape\": \"vertical_split\", \"label\": \"SPRING WAKE\"}, {\"frame\": 140, \"x\": 0.92, \"y\": 0.5, \"rx\": 0.1, \"ry\": 1.0, \"shape\": \"vertical_split\", \"label\": \"SPRING WAKE\"}]}"
+    }
+  },
+  "132": {
+    "class_type": "MiniMaxH3EncodeReferences",
+    "inputs": {
+      "clip": [
+        "2",
+        0
+      ],
+      "vae": [
+        "3",
+        0
+      ],
+      "audio_vae": [
+        "4",
+        0
+      ],
+      "references": [
+        "51",
+        0
+      ],
+      "width": [
+        "27",
+        0
+      ],
+      "height": [
+        "27",
+        1
+      ],
+      "length": [
+        "27",
+        2
+      ],
+      "video_policy": "comfy",
+      "image_policy": "comfy"
+    }
+  }
+}

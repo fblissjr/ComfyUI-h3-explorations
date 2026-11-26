@@ -315,6 +315,67 @@ SPATIAL_PORTAL_T2V_PROMPT = _bank_prompt("t2va_spatial_reality_portal")
 SPATIAL_PORTAL_REF2V_PROMPT = _bank_prompt("ref2va_spatial_reality_portal")
 SPATIAL_PORTAL_I2V_PROMPT = _bank_prompt("i2va_spatial_reality_portal")
 WORLD_TARGETS_REF2V_PROMPT = _bank_prompt("ref2va_genie_world_targets")
+
+_BINAURAL_SHARED_DIALOGUE_TURNS = (
+    "The woman, with a low measured voice (S1), says clearly: <d>[English] You said tomorrow.</d> "
+    "The man, with a low gravelly baritone (S2), answers at once: <d>[English] It moved.</d> "
+    "She presses: <d>[English] To when?</d> "
+    "He replies: <d>[English] Tonight.</d>"
+)
+SPATIAL_BINAURAL_STAIRWELL_PROMPT = (
+    "integrated_multimodal_description: [Shot 1] Live-action, cinematic, handheld on 35mm, a medium two-shot frames "
+    "a woman with dark shoulder-length hair in a charcoal wool coat facing a man with a close-cropped beard in a "
+    f"navy jacket on a poured concrete stairwell landing, lit hard from a caged bulb overhead. {_BINAURAL_SHARED_DIALOGUE_TURNS} "
+    "The camera shakes slightly with the operator's breathing.\n\n"
+    "overall_soundscape: Close dry handheld room tone inside a poured-concrete stairwell with subtle acoustic decay "
+    "and a faint 60 Hz electrical hum from the caged bulb overhead.\n\n"
+    "non_diegetic_music: N/A"
+)
+SPATIAL_BINAURAL_FERRY_PROMPT = (
+    "integrated_multimodal_description: [Shot 1] Live-action, cinematic, handheld on 35mm, a medium two-shot frames "
+    "a woman with dark shoulder-length hair in a charcoal cashmere coat facing a man with a close-cropped beard in "
+    "a navy trench coat at the wet stern rail of a night commuter ferry, deck lamps throwing hazy halos through heavy "
+    f"harbor fog. {_BINAURAL_SHARED_DIALOGUE_TURNS} Wind flutters their heavy coat lapels.\n\n"
+    "overall_soundscape: Deep marine diesel engine rumble vibrates through steel deck plating beneath rushing ferry "
+    "wake water, cold harbor wind, creaking wet steel cables, and a distant foghorn moaning across dark water.\n\n"
+    "non_diegetic_music: N/A"
+)
+MIDAS_WALK_WINTER_REF2V_PROMPT = (
+    "subject_definitions:\n"
+    "<Subject 1> is the tortoise carrying a single lit white birthday candle on its domed shell from <Picture 1>, "
+    "following the continuous left-to-right stride path across the courtyard floor from <Video 1>.\n"
+    "<Video 1> provides only the steady left-to-right horizontal trajectory across the ground; its flat grey background is ignored.\n\n"
+    "summary:\n"
+    "[reference generation] In one continuous static wide shot inside an antique limestone abbey cloister courtyard, "
+    "<Subject 1> walks steadily from left to right across frost-covered frozen flagstones under pale overcast winter gloom.\n\n"
+    "retention_analysis:\n"
+    "<Subject 1> (appears in [Shot 1]): fully_preserved - patterned scuted shell, scaly legs, and upright lit white birthday candle.\n"
+    "<Video 1> (motion source): attribute_transfer - left-to-right walk progression only.\n\n"
+    "detailed_description:\n"
+    "[Shot 1] Live-action, static wide camera angle inside a silent snow-dusted monochrome stone cloister courtyard in deep winter freeze. "
+    "Pale hoarfrost coats bare dormant rose brambles, dry grey flagstone arches, and dead winter moss in muted desaturated winter slate light. "
+    "<Subject 1> strides steadily from left to right across the frosty cobblestones following the path from <Video 1>, its candle flame glowing softly against the cold air.\n\n"
+    "overall_soundscape: Cold hushed winter wind sighs softly across frozen flagstones under delicate crunchy footsteps on frost.\n\n"
+    "non_diegetic_music: Sparse, cold frozen glass celesta notes."
+)
+MIDAS_WALK_SPRING_REF2V_PROMPT = (
+    "subject_definitions:\n"
+    "<Subject 1> is the tortoise carrying a single lit white birthday candle on its domed shell from <Picture 1>, "
+    "following the continuous left-to-right stride path across the courtyard floor from <Video 1>.\n"
+    "<Video 1> provides only the steady left-to-right horizontal trajectory across the ground; its flat grey background is ignored.\n\n"
+    "summary:\n"
+    "[reference generation] In one continuous static wide shot inside the exact same antique limestone abbey cloister courtyard, "
+    "<Subject 1> walks steadily from left to right as lush emerald spring wildflowers, golden sunbeams, climbing roses, and vivid green moss bloom across the stones.\n\n"
+    "retention_analysis:\n"
+    "<Subject 1> (appears in [Shot 1]): fully_preserved - patterned scuted shell, scaly legs, and upright lit white birthday candle.\n"
+    "<Video 1> (motion source): attribute_transfer - left-to-right walk progression only.\n\n"
+    "detailed_description:\n"
+    "[Shot 1] Live-action, static wide camera angle inside the exact same sunlit limestone abbey cloister courtyard bursting into vibrant golden spring bloom. "
+    "Warm amber morning sunlight streams over moss-covered flagstones sprouted with golden buttercups, violet clover, lush ivy arches, and cascading pink wildflowers while pollen drifts through sunlit air. "
+    "<Subject 1> strides steadily from left to right across the flower-strewn sunlit stones following the exact trajectory from <Video 1>.\n\n"
+    "overall_soundscape: Cheerful spring songbirds chirp vibrantly around cascading courtyard fountain water, soft warm leaves rustle, and claws click against warm stone.\n\n"
+    "non_diegetic_music: Warm lyrical blooming harp arpeggios and gentle bright strings."
+)
 # The bench pair's scene (see the bench block near the end of main).
 BENCH_T2V_PROMPT = _bank_prompt("t2va_frontier_standoff")
 
@@ -2363,13 +2424,19 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
 
     if spatial_query_router is not None:
         # Spatial 1x visual routing (MiniMaxH3SpatialQueryRouter at node 149, with
-        # cloned region prompt conditioning at node 148).
-        r_prompt = spatial_query_router["region_prompt"]
-        r_in = dict(g["5"]["inputs"], prompt=r_prompt)
-        g["148"] = {"class_type": g["5"]["class_type"], "inputs": r_in}
+        # optional cloned region prompt conditioning at node 148, procedural
+        # split_mask at nodes 190..197, or wired SpatialDirector mask at 160).
+        same_prompt = bool(spatial_query_router.get("same_prompt", False))
+        if same_prompt:
+            region_cond_src = ["5", 0]
+        else:
+            r_prompt = spatial_query_router["region_prompt"]
+            r_in = dict(g["5"]["inputs"], prompt=r_prompt)
+            g["148"] = {"class_type": g["5"]["class_type"], "inputs": r_in}
+            region_cond_src = ["148", 0]
         sqr_in: dict[str, Any] = {
             "model": model_src,
-            "region_conditioning": ["148", 0],
+            "region_conditioning": region_cond_src,
             "x_start": float(spatial_query_router.get("x_start", 0.5)),
             "x_end": float(spatial_query_router.get("x_end", 1.0)),
             "y_start": float(spatial_query_router.get("y_start", 0.0)),
@@ -2380,6 +2447,27 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
             "start_percent": float(spatial_query_router.get("start_percent", 0.0)),
             "end_percent": float(spatial_query_router.get("end_percent", 1.0)),
         }
+        split_mask = spatial_query_router.get("split_mask")
+        if split_mask is not None:
+            sm_w = int(split_mask.get("width", cv["width"]))
+            sm_h = int(split_mask.get("height", cv["height"]))
+            sm_split = int(split_mask["split_frame"])
+            sm_total = int(split_mask.get("total_frames", length))
+            if not 0 < sm_split < sm_total:
+                raise SystemExit(f"spatial_query_router split_mask split_frame={sm_split} invalid for total_frames={sm_total}")
+            g["190"] = {"class_type": "SolidMask", "inputs": {"value": 0.0, "width": sm_w, "height": sm_h}}
+            g["191"] = {"class_type": "MaskToImage", "inputs": {"mask": ["190", 0]}}
+            g["192"] = {"class_type": "RepeatImageBatch", "inputs": {"image": ["191", 0], "amount": sm_split}}
+            g["193"] = {"class_type": "SolidMask", "inputs": {"value": 1.0, "width": sm_w, "height": sm_h}}
+            g["194"] = {"class_type": "MaskToImage", "inputs": {"mask": ["193", 0]}}
+            g["195"] = {"class_type": "RepeatImageBatch", "inputs": {"image": ["194", 0], "amount": sm_total - sm_split}}
+            g["196"] = {"class_type": "ImageBatch", "inputs": {"image1": ["192", 0], "image2": ["195", 0]}}
+            g["197"] = {"class_type": "ImageToMask", "inputs": {"image": ["196", 0], "channel": "red"}}
+            sqr_in["mask"] = ["197", 0]
+        elif spatial_query_router.get("mask_from_director"):
+            if not spatial_director_on:
+                raise SystemExit("spatial_query_router mask_from_director=True requires spatial_director=True or dict")
+            sqr_in["mask"] = ["160", 0]
         g["149"] = {"class_type": SPATIAL_QUERY_ROUTER_NODE, "inputs": sqr_in}
         model_src = ["149", 0]
 
@@ -3146,7 +3234,7 @@ def _split_h3_video_references(g: dict) -> None:
         "class_type": "MiniMaxH3PromptOnReferences",
         "inputs": {"encoded_references": ["132", 0], "prompt": cond["inputs"]["prompt"]},
     }
-    for sec_id in ("146", "147"):
+    for sec_id in ("146", "147", "148"):
         sec = g.get(sec_id)
         if (
             isinstance(sec, dict)
@@ -3771,6 +3859,15 @@ H3_IMAGE_T2I_SHAPE = "4:3"
 #: default graph can be laid beside the picture on the model card.
 H3_IMAGE_T2I_SEED = 42
 H3_IMAGE_EDIT_SEED = 1234
+H3_IMAGE_CYBER_CLOCKMAKER_PROMPT = (
+    "A medium three-quarter portrait of a cybernetic clockmaker seated at a brushed chrome-and-obsidian "
+    "workbench inside a rain-streaked midnight neon repair bay. He has glowing cyan optic implants behind "
+    "wire-rimmed spectacles and wears a dark synthetic apron over a charcoal tech jacket. His articulated "
+    "titanium fingers hold a holographic brass balance wheel and fine tweezers above an open neon-lit "
+    "chronometer movement surrounded by micro-lasers and glowing fiber optics. Vivid electric-cyan and magenta "
+    "neon reflections stream across the polished gears and chrome bench, shot on an 85mm prime lens at f/2.8 "
+    "with shallow depth of field."
+)
 
 
 def build_h3_image_api(
@@ -3792,6 +3889,7 @@ def build_h3_image_api(
     single_frame: bool = True,
     control_vector: dict | Sequence[dict] | None = None,
     edit_guidance: dict | None = None,
+    spatial_query_router: dict | None = None,
 ) -> dict:
     """Build an API-format workflow for MiniMax-H3-Image: text to image, or an edit of one or more pictures.
 
@@ -3955,6 +4053,27 @@ def build_h3_image_api(
         model_src = ["58", 0]
     if control_vector is not None:
         model_src = _wire_control_vectors(g, model_src, control_vector)
+    if spatial_query_router is not None:
+        r_prompt = spatial_query_router["region_prompt"]
+        r_in = dict(g["5"]["inputs"], prompt=r_prompt)
+        g["148"] = {"class_type": g["5"]["class_type"], "inputs": r_in}
+        g["149"] = {
+            "class_type": SPATIAL_QUERY_ROUTER_NODE,
+            "inputs": {
+                "model": model_src,
+                "region_conditioning": ["148", 0],
+                "x_start": float(spatial_query_router.get("x_start", 0.5)),
+                "x_end": float(spatial_query_router.get("x_end", 1.0)),
+                "y_start": float(spatial_query_router.get("y_start", 0.0)),
+                "y_end": float(spatial_query_router.get("y_end", 1.0)),
+                "invert": bool(spatial_query_router.get("invert", False)),
+                "isolation": str(spatial_query_router.get("isolation", "early_0_24")),
+                "audio_zone": str(spatial_query_router.get("audio_zone", "base")),
+                "start_percent": float(spatial_query_router.get("start_percent", 0.0)),
+                "end_percent": float(spatial_query_router.get("end_percent", 1.0)),
+            },
+        }
+        model_src = ["149", 0]
     g["9"]["inputs"]["model"] = model_src
     if edit_guidance is not None:
         _wire_edit_guidance(g, resolved_prompt, edit_guidance)
@@ -6335,6 +6454,110 @@ def main():
               ),
               out_prefix="Video/h3_t2v_pika_spatial_query_router"),
          "sunlit summer street (`t2va_spatial_summer_street`) + midnight cyberpunk rain (`t2va_spatial_cyberpunk_rain`) -> 141f 1x MiniMaxH3SpatialQueryRouter on Pika H3 Flex 6-step LCM (left half summer, right half neon rain, symmetric early_0_24 isolation + seamless 25..49 blend, 100% stock RoPE; change x/y to 0.28..0.72 / 0.18..0.85 for a center dimension portal box)"),
+        ("h3_text_to_video_pika_multishot_spatial_cut.json", "t2v-pika-multishot-spatial-cut", "t2v",
+         _bank_prompt("t2va_silent_film"),
+         dict(width=1344, height=768, length=192,
+              lora=(PIKA_FL2VA_SVD995_LORA, PIKA_STRENGTH), lora_branch=True,
+              steps=PIKA_STEPS, sampler_name=PIKA_SAMPLER,
+              manual_sigmas=PIKA_MANUAL_SIGMAS,
+              spatial_query_router=dict(
+                  region_prompt=_bank_prompt("t2va_arena_rock_video"),
+                  x_start=0.00,
+                  x_end=1.00,
+                  y_start=0.00,
+                  y_end=1.00,
+                  invert=False,
+                  isolation="all_0_49",
+                  audio_zone="follow_mask",
+                  split_mask=dict(split_frame=85, total_frames=192, width=1344, height=768),
+              ),
+              out_prefix="Video/h3_t2v_pika_multishot_spatial_cut"),
+         "1x temporal multi-shot AV hard cut at f85 (`t2va_silent_film` B&W solo upright piano -> `t2va_arena_rock_video` neon concert + belted vocals) via MiniMaxH3SpatialQueryRouter(isolation='all_0_49', audio_zone='follow_mask') + procedural temporal step mask on Pika H3 Flex 6-step LCM"),
+        ("h3_text_to_video_pika_binaural_dialogue_split.json", "t2v-pika-binaural-dialogue-split", "t2v",
+         SPATIAL_BINAURAL_STAIRWELL_PROMPT,
+         dict(width=1344, height=768, length=192,
+              lora=(PIKA_FL2VA_SVD995_LORA, PIKA_STRENGTH), lora_branch=True,
+              steps=PIKA_STEPS, sampler_name=PIKA_SAMPLER,
+              manual_sigmas=PIKA_MANUAL_SIGMAS,
+              spatial_query_router=dict(
+                  region_prompt=SPATIAL_BINAURAL_FERRY_PROMPT,
+                  x_start=0.50,
+                  x_end=1.00,
+                  y_start=0.00,
+                  y_end=1.00,
+                  invert=False,
+                  isolation="early_0_24",
+                  audio_zone="binaural_split",
+              ),
+              out_prefix="Video/h3_t2v_pika_binaural_dialogue_split"),
+         "1x binaural stereo split-world dialogue (`stairwell` Left | `night ferry deck` Right) with matched 4-turn `<d>` script + MiniMaxH3SpatialQueryRouter(isolation='early_0_24', audio_zone='binaural_split') separating Left/Right visual worlds and binaural ears (`late_30_49`) in one pass on Pika H3 Flex 6-step LCM"),
+        ("h3_text_to_video_pika_vector_lens_claymation.json", "t2v-pika-vector-lens-claymation", "t2v",
+         _bank_prompt("t2va_cooking_show_meltdown"),
+         dict(width=1344, height=768, length=141,
+              lora=(PIKA_FL2VA_SVD995_LORA, PIKA_STRENGTH), lora_branch=True,
+              steps=PIKA_STEPS, sampler_name=PIKA_SAMPLER,
+              manual_sigmas=PIKA_MANUAL_SIGMAS,
+              control_vector=dict(
+                  vector="claymation_stopmotion",
+                  strength=1.50,
+                  target="scene_only",
+              ),
+              spatial_query_router=dict(
+                  same_prompt=True,
+                  x_start=0.50,
+                  x_end=1.00,
+                  y_start=0.00,
+                  y_end=1.00,
+                  invert=True,
+                  isolation="early_0_24",
+                  audio_zone="region",
+              ),
+              out_prefix="Video/h3_t2v_pika_vector_lens_claymation"),
+         "1.1x single-prompt Subspace-Erasure Vector Reality Lens (`t2va_cooking_show_meltdown`): Left half steered by MiniMaxH3Steer(claymation_stopmotion +1.50) while Right half + audio (`invert=True, audio_zone='region'`) read unsteered live-action conditioning in one pass on Pika H3 Flex 6-step LCM"),
+        ("h3_r2v_midas_walk_spatial_wake_pika.json", "r2v-pika-midas-walk-wake", "r2v",
+         MIDAS_WALK_WINTER_REF2V_PROMPT,
+         dict(width=1344, height=768, length=141,
+              ref_images=DPAD_SOUND_REF_IMAGES, ref_image_count=1,
+              split_references=True,
+              sprite_trajectory=dict(
+                  keyframes="0: x=0.14, y=0.74, face=right\n140: x=0.86, y=0.74, face=right",
+                  canvas_width=384,
+                  canvas_height=224,
+                  sprite_scale=0.25,
+                  use_vae=True,
+              ),
+              sound_cues="0.5s: thud @0.8\n1.5s: thud @0.8\n2.5s: thud @0.8\n3.5s: thud @0.8\n4.5s: thud @0.8",
+              lora=(PIKA_REF2VA_SVD995_LORA, PIKA_STRENGTH), lora_branch=True,
+              ref_size_policy=PIKA_REF_SIZE_POLICY,
+              steps=PIKA_STEPS, sampler_name=PIKA_SAMPLER,
+              manual_sigmas=PIKA_MANUAL_SIGMAS,
+              release_references=dict(end_percent=0.33, audio_end_percent=0.33),
+              spatial_director=dict(
+                  mode="portal_path",
+                  feather=0.08,
+                  invert_mask=True,
+                  events_json=json.dumps({
+                      "portal": [
+                          {"frame": 0, "x": 0.04, "y": 0.5, "rx": 0.1, "ry": 1.0,
+                           "shape": "vertical_split", "label": "SPRING WAKE"},
+                          {"frame": 140, "x": 0.92, "y": 0.5, "rx": 0.1, "ry": 1.0,
+                           "shape": "vertical_split", "label": "SPRING WAKE"},
+                      ],
+                  }),
+              ),
+              spatial_query_router=dict(
+                  region_prompt=MIDAS_WALK_SPRING_REF2V_PROMPT,
+                  x_start=0.00,
+                  x_end=1.00,
+                  y_start=0.00,
+                  y_end=1.00,
+                  invert=False,
+                  isolation="mid_20_34",
+                  audio_zone="follow_mask",
+                  mask_from_director=True,
+              ),
+              out_prefix="Video/h3_r2v_midas_walk_spatial_wake_pika"),
+         "1x Midas Walk kinematic wake (`<Picture 1>` tortoise + MiniMaxH3AppendSpriteTrajectory `<Video 1>` released at `end_percent=0.33` + `3f` SoundCues + `MiniMaxH3SpatialDirector` sweeping winter-to-spring wake mask into `MiniMaxH3SpatialQueryRouter(isolation='mid_20_34', audio_zone='follow_mask')`) on Pika H3 Flex 6-step LCM"),
         ("h3_first_last_frame_to_video_pika_query_router.json", "fl2v-pika-query-router", "i2v",
          None,
          dict(width=1344, height=768, length=192, last_frame=True,
@@ -6887,6 +7110,21 @@ def main():
               ),
               out_prefix="Image/h3_image_edit_control_vector"),
          "picture + text -> edited image at the picture's shape on MiniMax-H3-Image with native h3_image MiniMaxH3Steer (film_16mm_1974 at +1.15, add_norm_matched_erasure, target=scene_only) and MiniMaxH3ReleaseReferences(end_percent=0.5, clean_level=0.999)"),
+        ("h3_image_t2i_spatial_query_router.json", "h3-image-t2i-spatial-query-router", "h3img_t2i",
+         PH3_IMAGE_T2I_PROMPT,
+         dict(single_frame=True,
+              spatial_query_router=dict(
+                  region_prompt=H3_IMAGE_CYBER_CLOCKMAKER_PROMPT,
+                  x_start=0.50,
+                  x_end=1.00,
+                  y_start=0.00,
+                  y_end=1.00,
+                  invert=False,
+                  isolation="early_0_24",
+                  audio_zone="base",
+              ),
+              out_prefix="Image/h3_image_t2i_spatial_query_router"),
+         "text -> 16 MP (4 MP delivered) seamless split-world image on MiniMax-H3-Image with MiniMaxH3SpatialQueryRouter(isolation='early_0_24': vintage brass clockmaker Left | cybernetic neon clockmaker Right)"),
         # The bf16 arms (the release written whole by `bench/convert_h3_image_dit.py`, with INT8
         # attention and with core's exact attention, for both cases) were rendered on 2026-11-11
         # and their four probe graphs removed the same day with the file, at the owner's word:
@@ -7020,6 +7258,9 @@ def main():
                 if "video_prompt" in qr:
                     out_list.append(qr["video_prompt"])
                 return out_list
+            sqr = extra.get("spatial_query_router")
+            if isinstance(sqr, dict) and "region_prompt" in sqr and not sqr.get("same_prompt"):
+                return [main_p, sqr["region_prompt"]]
             return main_p
 
         print(json.dumps({

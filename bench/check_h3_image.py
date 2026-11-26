@@ -917,7 +917,8 @@ def graphs() -> None:
         core = [n["inputs"] for n in g.values() if n["class_type"] == "MiniMaxH3ImageConditioning"]
         encode = [n["inputs"] for n in g.values() if n["class_type"] == "MiniMaxH3EncodeImageReferences"]
         prompts = [n["inputs"] for n in g.values() if n["class_type"] == "MiniMaxH3PromptOnImageReferences"]
-        ok &= (len(core), len(encode), len(prompts)) in ((1, 0, 0), (0, 1, 1))
+        allowed_conds = ((2, 0, 0), (0, 1, 2)) if "MiniMaxH3SpatialQueryRouter" in kinds else ((1, 0, 0), (0, 1, 1))
+        ok &= (len(core), len(encode), len(prompts)) in allowed_conds
         if not ok:
             report(False, f"the shipped graph {path.name}", "neither core's conditioning node alone nor this pack's pair")
             continue

@@ -1,0 +1,201 @@
+{
+  "1": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "minimax_h3_image_pruned_int8_convrot.safetensors",
+      "weight_dtype": "default"
+    }
+  },
+  "2": {
+    "class_type": "MiniMaxH3EncoderLoader",
+    "inputs": {
+      "encoder_name": "qwen3vl_32b_minimax_h3_bf16_pruned.safetensors",
+      "device": "default"
+    }
+  },
+  "3": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "p-h3-image_vae_int8_convrot.safetensors"
+    }
+  },
+  "4": {
+    "class_type": "MiniMaxH3ImageSize",
+    "inputs": {
+      "megapixels": 4.0,
+      "shape": "4:3",
+      "generate_megapixels": 16.0
+    }
+  },
+  "6": {
+    "class_type": "RandomNoise",
+    "inputs": {
+      "noise_seed": 42
+    }
+  },
+  "7": {
+    "class_type": "KSamplerSelect",
+    "inputs": {
+      "sampler_name": "euler"
+    }
+  },
+  "9": {
+    "class_type": "BasicGuider",
+    "inputs": {
+      "model": [
+        "149",
+        0
+      ],
+      "conditioning": [
+        "5",
+        0
+      ]
+    }
+  },
+  "10": {
+    "class_type": "SamplerCustomAdvanced",
+    "inputs": {
+      "noise": [
+        "6",
+        0
+      ],
+      "guider": [
+        "9",
+        0
+      ],
+      "sampler": [
+        "7",
+        0
+      ],
+      "sigmas": [
+        "60",
+        0
+      ],
+      "latent_image": [
+        "5",
+        1
+      ]
+    }
+  },
+  "11": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": [
+        "10",
+        0
+      ],
+      "vae": [
+        "3",
+        0
+      ]
+    }
+  },
+  "12": {
+    "class_type": "MiniMaxH3ImageDownscale",
+    "inputs": {
+      "images": [
+        "11",
+        0
+      ],
+      "target_width": [
+        "4",
+        2
+      ],
+      "target_height": [
+        "4",
+        3
+      ]
+    }
+  },
+  "13": {
+    "class_type": "PreviewImage",
+    "inputs": {
+      "images": [
+        "12",
+        0
+      ]
+    }
+  },
+  "60": {
+    "class_type": "ManualSigmas",
+    "inputs": {
+      "sigmas": "1.0, 0.9675236940383911, 0.8875485062599182, 0.75, 0.5327739119529724, 0.23200887441635132, 0.0"
+    }
+  },
+  "5": {
+    "class_type": "MiniMaxH3ImageConditioning",
+    "inputs": {
+      "clip": [
+        "2",
+        0
+      ],
+      "vae": [
+        "3",
+        0
+      ],
+      "prompt": "A medium three-quarter portrait of an elderly clockmaker seated at a worn walnut workbench inside a sunlit brass-and-oak workshop. He has silver stubble, deep-set hazel eyes behind round wire-rimmed spectacles, and wears a faded indigo linen apron over a rolled-sleeve cream cotton shirt. His weathered fingers hold a brass balance wheel and fine tweezers above an open pocket watch movement surrounded by miniature jeweler's screwdrivers, coiled mainsprings, and a glass bell jar. Warm late-afternoon directional sunlight streams through a paned workshop window on the left, casting crisp specular highlights across the polished gears and soft warm fill across the wood grain, shot on an 85mm prime lens at f/2.8 with shallow depth of field.",
+      "width": [
+        "4",
+        0
+      ],
+      "height": [
+        "4",
+        1
+      ]
+    }
+  },
+  "58": {
+    "class_type": "ModelAttentionBackend",
+    "inputs": {
+      "model": [
+        "1",
+        0
+      ],
+      "attention": "comfy kitchen attention"
+    }
+  },
+  "148": {
+    "class_type": "MiniMaxH3ImageConditioning",
+    "inputs": {
+      "clip": [
+        "2",
+        0
+      ],
+      "vae": [
+        "3",
+        0
+      ],
+      "prompt": "A medium three-quarter portrait of a cybernetic clockmaker seated at a brushed chrome-and-obsidian workbench inside a rain-streaked midnight neon repair bay. He has glowing cyan optic implants behind wire-rimmed spectacles and wears a dark synthetic apron over a charcoal tech jacket. His articulated titanium fingers hold a holographic brass balance wheel and fine tweezers above an open neon-lit chronometer movement surrounded by micro-lasers and glowing fiber optics. Vivid electric-cyan and magenta neon reflections stream across the polished gears and chrome bench, shot on an 85mm prime lens at f/2.8 with shallow depth of field.",
+      "width": [
+        "4",
+        0
+      ],
+      "height": [
+        "4",
+        1
+      ]
+    }
+  },
+  "149": {
+    "class_type": "MiniMaxH3SpatialQueryRouter",
+    "inputs": {
+      "model": [
+        "58",
+        0
+      ],
+      "region_conditioning": [
+        "148",
+        0
+      ],
+      "x_start": 0.5,
+      "x_end": 1.0,
+      "y_start": 0.0,
+      "y_end": 1.0,
+      "invert": false,
+      "isolation": "early_0_24",
+      "audio_zone": "base",
+      "start_percent": 0.0,
+      "end_percent": 1.0
+    }
+  }
+}
