@@ -269,6 +269,28 @@
       "model"
     ]
   },
+  "MiniMaxH3DepthBeatMask": {
+    "inputs": [
+      "mode",
+      "beat_timing",
+      "length",
+      "width",
+      "height",
+      "near_quantile",
+      "far_quantile",
+      "feather",
+      "cut_frame",
+      "pulse_decay_frames",
+      "invert",
+      "image",
+      "audio"
+    ],
+    "node_id": "MiniMaxH3DepthBeatMask",
+    "outputs": [
+      "mask",
+      "summary_json"
+    ]
+  },
   "MiniMaxH3DirectorHUD": {
     "inputs": [
       "images",

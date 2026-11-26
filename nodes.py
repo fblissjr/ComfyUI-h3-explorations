@@ -77,6 +77,7 @@ from .shot_table import MiniMaxH3SaveShotTable
 from .sol_attn_h3 import MiniMaxH3Sol
 from .sound_cues import MiniMaxH3SoundCues
 from .spatial_director import MiniMaxH3DirectorHUD, MiniMaxH3SpatialDirector
+from .depth_beat_mask import MiniMaxH3DepthBeatMask
 from .sprite_trajectory import MiniMaxH3AppendSpriteTrajectory
 from .step_x0_observer import MiniMaxH3StepX0Observer
 from .subject_boxes import MiniMaxH3SubjectBoxes
@@ -151,6 +152,7 @@ class H3ExplorationsExtension(ComfyExtension):
             MiniMaxH3SoundCues,  # Procedural 3-frame-snapped cond_audio islands
             MiniMaxH3AppendSpriteTrajectory,  # 2D kinematic D-pad sprite <Video N> trajectory
             MiniMaxH3SpatialDirector,  # Interactive portal/target/mask 2D+time world director
+            MiniMaxH3DepthBeatMask,  # Composable MoGe-2 depth + WAV beat [F,H,W] MASK producer
             MiniMaxH3DirectorHUD,  # Director / Split A/B diagnostic HUD overlay exporter
             MiniMaxH3QueryRouter,  # Single-pass 1x cross-modal Q_vid / Q_aud depth router
             MiniMaxH3SpatialQueryRouter,  # Single-pass 1x spatial box/mask visual world router

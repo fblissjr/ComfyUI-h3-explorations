@@ -8,7 +8,7 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 184 |
+| [`check_*`](#check) | 185 |
 | [`measure_*`](#measure) | 33 |
 | [`analyze_*`](#analyze) | 13 |
 | [`grade_*`](#grade) | 10 |
@@ -55,6 +55,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_data_results_lookup.py`](check_data_results_lookup.py) | That `bench/_lib/results.py` finds archived run data where the archive move put it, and nowhere else. |
 | [`check_day_pieces.py`](check_day_pieces.py) | `bench/day_pieces.py` makes the folder of a day's standing pieces, each with the graph it was queued with; each case is a way the folder could hand over the wrong graph, hide a missing input, copy a video, or drop a piece. |
 | [`check_delivery_table.py`](check_delivery_table.py) | The generated delivery table (`bench/delivery_table.py`) on a small made-up ledger: each step of its rule, with the render that must NOT stand beside the one that does. |
+| [`check_depth_beat_mask.py`](check_depth_beat_mask.py) | Offline CPU check for `MiniMaxH3DepthBeatMask` (`depth_beat_mask.py`). |
 | [`check_director_studio.py`](check_director_studio.py) | Two-tier contract, security, compiler, and live Chrome CDP checks for Spatial Director Studio (`director/`). |
 | [`check_distill_grid.py`](check_distill_grid.py) | Check every distilled graph samples ON the sigma grid its LoRA was distilled at. |
 | [`check_distill_settings.py`](check_distill_settings.py) | Check every distill is loaded at the shift and step count it was trained at. |
@@ -723,7 +724,7 @@ Arm manifests and the like; a manifest's line is its own `what`.
 
 ### results
 
-270 tracked files: [`results/INDEX.md`](results/INDEX.md).
+271 tracked files: [`results/INDEX.md`](results/INDEX.md).
 
 ### rubrics
 

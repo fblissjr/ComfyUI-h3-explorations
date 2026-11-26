@@ -4,7 +4,7 @@
 
 ![Closed-Loop Self-Steering Architecture](assets/h3_self_steering_closed_loop.svg)
 
-**Quick links:** [Implementation (`steering/live_policy.py`)](../../steering/live_policy.py) · [Offline Gate (`bench/check_live_policy.py`)](../../bench/check_live_policy.py) · [Curated Video Workflow (`tb1` Speaker → Android)](../../workflows/h3_text_to_video_pika_self_mask_speaker_edit_guider_api.json) · [Curated 4 MP Image Workflow (`bread` → Emerald Crystal)](../../workflows/image/h3_image_t2i_self_mask_router_api.json) · [Silicon Calibration Gate (`2026-11-26`)](../../bench/results/2026-11-26_h3_4sensor_calibration.md) · [Closed-Loop GPU Slot 3 & Studio 2.0 Report (`2026-11-26`)](../../bench/results/2026-11-26_full_unlock_scout_self_mask_and_thermostat.md)
+**Quick links:** [Implementation (`steering/live_policy.py`)](../../steering/live_policy.py) · [Offline Gate (`bench/check_live_policy.py`)](../../bench/check_live_policy.py) · [Curated Video Workflow (`tb1` Speaker → Android)](../../workflows/h3_text_to_video_pika_self_mask_speaker_edit_guider_api.json) · [Emergent Audio Transients (`tb3_v2`)](../../workflows/h3_text_to_video_pika_self_mask_audio_transients_api.json) · [Curated 4 MP Image Workflow (`bread` → Emerald Crystal)](../../workflows/image/h3_image_t2i_self_mask_router_api.json) · [Silicon Calibration Gate (`2026-11-26`)](../../bench/results/2026-11-26_h3_4sensor_calibration.md) · [Closed-Loop GPU Slot 3 & Studio 2.0 Report (`2026-11-26`)](../../bench/results/2026-11-26_full_unlock_scout_self_mask_and_thermostat.md) · [Batch A/B Rescues, `MoGe-2` Portal Tear, & Showcase Reel (`2026-11-26`)](../../bench/results/2026-11-26_closed_loop_rescues_portal_tear_and_reel.md)
 
 ---
 

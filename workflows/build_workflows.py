@@ -128,7 +128,7 @@ from h3_config import (  # noqa: E402
     SOUND_GUIDE_ISLANDS, SOUND_GUIDE_AUDIO_RELEASE_END, SOUND_GUIDE_EDIT_GUIDANCE,
     SOUND_CUES_NODE, SOUND_CUES_DEFAULTS, SPRITE_TRAJECTORY_NODE, SPRITE_TRAJECTORY_DEFAULTS,
     DPAD_SOUND_REF_IMAGES, DPAD_SOUND_CUES, DPAD_VIDEO_RELEASE_END,
-    SPATIAL_DIRECTOR_NODE, SPATIAL_DIRECTOR_DEFAULTS,
+    SPATIAL_DIRECTOR_NODE, DEPTH_BEAT_MASK_NODE, SPATIAL_DIRECTOR_DEFAULTS,
     DIRECTOR_HUD_NODE, DIRECTOR_HUD_DEFAULTS,
     SPATIAL_PORTAL_REF_IMAGES, SPATIAL_PORTAL_EDIT_GUIDANCE, WORLD_TARGETS_EDIT_GUIDANCE,
     CONTROL_VECTOR_NODE, CONTROL_VECTOR_DEFAULTS, CONTROL_VECTOR_OPTIONAL_DEFAULTS, LAYER_NORM_MATCH_NODE,
@@ -390,6 +390,85 @@ MIDAS_WALK_SPRING_REF2V_PROMPT = (
     "<Subject 1> strides steadily from left to right across the flower-strewn sunlit stones following the exact trajectory from <Video 1>.\n\n"
     "overall_soundscape: Cheerful spring songbirds chirp vibrantly around cascading courtyard fountain water, soft warm leaves rustle, and claws click against warm stone.\n\n"
     "non_diegetic_music: Warm lyrical blooming harp arpeggios and gentle bright strings."
+)
+AUDIO_TRANSIENTS_STUDY_BASE_PROMPT = (
+    "integrated_multimodal_description: [Shot 1] Live-action, warm 35mm medium shot inside a quiet candlelit "
+    "mahogany study at night as an archivist in tweed turns parchment pages beneath a brass desk lamp; at <1.8 seconds>, "
+    "a sudden deafening thunderclap explodes right outside the tall rain-lashed window.\n\n"
+    "overall_soundscape: Quiet turning parchment pages and soft steady rain, shattered at 1.8 seconds by an explosive "
+    "close-range thunderbolt crack and rumbling echo.\n\n"
+    "non_diegetic_music: N/A"
+)
+AUDIO_TRANSIENTS_STUDY_REGION_PROMPT = (
+    "integrated_multimodal_description: [Shot 1] Blinding electric-cyan plasma lightning storm flooding the entire "
+    "mahogany study in stark cobalt-white UV arc flashes, glowing ozone sparks, and razor-sharp violet window mullions "
+    "as parchment papers flutter in shockwave light.\n\n"
+    "overall_soundscape: Explosive close-range thunderbolt crack and crackling electric ozone.\n\n"
+    "non_diegetic_music: N/A"
+)
+PORTAL_TEAR_ROOM_BASE_I2V_PROMPT = (
+    "For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.\n\n"
+    "integrated_multimodal_description: [Shot 1] Live-action, cinematic, holding the exact framing, lighting, layout, and composition "
+    "established in <Picture 1>, a static medium-wide shot inside a sunlit mid-century study with a cognac leather armchair and oak coffee "
+    "table grounded in the foreground before a clean cream plaster back wall and closed oak doorway. Dust motes drift gently in calm afternoon "
+    "light while foreground furniture stays rock steady on a locked tripod.\n\n"
+    "overall_soundscape: Calm indoor study room tone with faint afternoon air currents and a sharp heavy structural thud at 0.5 seconds.\n\n"
+    "non_diegetic_music: N/A"
+)
+PORTAL_TEAR_ROOM_RIFT_I2V_PROMPT = (
+    "For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.\n\n"
+    "integrated_multimodal_description: [Shot 1] Live-action, cinematic, holding the exact camera framing and foreground oak coffee table "
+    "and cognac leather armchair from <Picture 1>, the distant cream plaster back wall violently ruptures into a roaring jagged dimensional portal "
+    "of swirling molten-orange volcanic lava, obsidian rock shards, and blazing electric-cyan plasma arcs whose intense radiant firelight and cyan "
+    "rim glow spill forward across the solid foreground furniture on a locked tripod.\n\n"
+    "overall_soundscape: Massive tectonic crack at 0.5 seconds erupting into a deep sub-bass dimensional rift roar, crackling plasma arcs, and swirling embers.\n\n"
+    "non_diegetic_music: Deep ominous low-end sub-bass drone."
+)
+_DUAL_REF_SPLIT_DIALOGUE = (
+    "On the left half, <Subject 1>, with a gravelly aged baritone (S1), speaks calmly across the walnut table: "
+    "<d>[English] The package crossed borders.</d> "
+    "On the right half, <Subject 2>, with a crisp bright contralto (S2), replies without blinking: "
+    "<d>[English] Then open the gate.</d>"
+)
+DUAL_REF_SPLIT_LEFT_PROMPT = (
+    "subject_definitions:\n"
+    "<Subject 1> is the weathered older man wearing a dark peaked uniform cap and frayed coat with a red talisman seal on his cheek from <Picture 1>, "
+    "seated clearly on the left half of the frame.\n"
+    "<Subject 2> is the young blonde woman with long wavy golden hair and dark knit sweater from <Picture 2>, seated across the table on the right half.\n\n"
+    "summary:\n"
+    "[reference generation] In one continuous static medium two-shot across a shared foreground walnut table, <Subject 1> sits on the left half "
+    "in a warm amber candlelit 1940s wood-paneled detective study while <Subject 2> sits on the right half.\n\n"
+    "retention_analysis:\n"
+    "<Subject 1> (appears in [Shot 1]): fully_preserved - dark peaked uniform cap, weathered face, talisman seal, and frayed collar from <Picture 1>.\n"
+    "<Subject 2> (appears in [Shot 1]): fully_preserved - wavy blonde hair, blue eyes, and dark knit sweater from <Picture 2>.\n\n"
+    "detailed_description:\n"
+    "[Shot 1] Live-action, cinematic 35mm medium two-shot on a locked tripod spanning two halves joined across one shared continuous dark walnut foreground table. "
+    "On the left half inside a warm amber tungsten and candlelit 1940s mahogany detective study with venetian blinds and rain droplets on warm brass lamps, "
+    "<Subject 1> from <Picture 1> sits angled rightward toward <Subject 2> from <Picture 2> on the right half. "
+    f"{_DUAL_REF_SPLIT_DIALOGUE} "
+    "Neither rises from the table as subtle natural breathing and warm candle flicker animate the left study.\n\n"
+    "overall_soundscape: Warm dry vintage walnut study tone, soft mantelpiece clock ticking, and muffled warm rain on glass.\n\n"
+    "non_diegetic_music: N/A"
+)
+DUAL_REF_SPLIT_RIGHT_PROMPT = (
+    "subject_definitions:\n"
+    "<Subject 1> is the weathered older man wearing a dark peaked uniform cap and frayed coat from <Picture 1>, seated on the left half.\n"
+    "<Subject 2> is the young blonde woman with long wavy golden hair, bright blue eyes, and dark charcoal knit sweater from <Picture 2>, "
+    "seated clearly on the right half of the frame.\n\n"
+    "summary:\n"
+    "[reference generation] In one continuous static medium two-shot across a shared foreground walnut table, <Subject 2> sits on the right half "
+    "inside a midnight neon cyberpunk Tokyo rain cafe beside glowing cyan and magenta holographic windows while <Subject 1> sits on the left half.\n\n"
+    "retention_analysis:\n"
+    "<Subject 1> (appears in [Shot 1]): fully_preserved - dark peaked uniform cap, weathered face, and frayed coat from <Picture 1>.\n"
+    "<Subject 2> (appears in [Shot 1]): fully_preserved - wavy blonde hair, freckles, blue eyes, and dark charcoal knit sweater from <Picture 2>.\n\n"
+    "detailed_description:\n"
+    "[Shot 1] Live-action, cinematic 35mm medium two-shot on a locked tripod spanning two halves joined across one shared continuous dark walnut foreground table. "
+    "On the right half inside a midnight neon-cyan and hot-magenta rain-streaked Tokyo cyberpunk window booth with glowing holographic rain reflections across dark glass, "
+    "<Subject 2> from <Picture 2> sits angled leftward toward <Subject 1> from <Picture 1> on the left half. "
+    f"{_DUAL_REF_SPLIT_DIALOGUE} "
+    "Neon reflections shimmer softly across the polished walnut edge as <Subject 2> listens calmly.\n\n"
+    "overall_soundscape: Wet midnight neon transformer hum, heavy sidewalk downpour against rain-streaked glass, and crisp urban static.\n\n"
+    "non_diegetic_music: N/A"
 )
 # The bench pair's scene (see the bench block near the end of main).
 BENCH_T2V_PROMPT = _bank_prompt("t2va_frontier_standoff")
@@ -2484,6 +2563,26 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
             if not spatial_director_on:
                 raise SystemExit("spatial_query_router mask_from_director=True requires spatial_director=True or dict")
             sqr_in["mask"] = ["160", 0]
+        elif spatial_query_router.get("depth_beat_mask"):
+            dbm = dict(spatial_query_router["depth_beat_mask"])
+            use_res_wires = not (task == "i2v" and not spatial_director_on and canvas_mode != "explicit")
+            dbm_in: dict[str, Any] = {
+                "mode": str(dbm.get("mode", "depth_band")),
+                "beat_timing": str(dbm.get("beat_timing", "auto_from_audio")),
+                "length": ["27", 2] if use_res_wires else length,
+                "width": ["27", 0] if use_res_wires else cv["width"],
+                "height": ["27", 1] if use_res_wires else cv["height"],
+                "near_quantile": float(dbm.get("near_quantile", 0.65)),
+                "far_quantile": float(dbm.get("far_quantile", 1.0)),
+                "feather": float(dbm.get("feather", 0.08)),
+                "cut_frame": int(dbm.get("cut_frame", 85)),
+                "pulse_decay_frames": int(dbm.get("pulse_decay_frames", 12)),
+                "invert": bool(dbm.get("invert", False)),
+            }
+            if task == "i2v" and first_frame:
+                dbm_in["image"] = ["15", 0]
+            g["198"] = {"class_type": DEPTH_BEAT_MASK_NODE, "inputs": dbm_in}
+            sqr_in["mask"] = ["198", 0]
         g["149"] = {"class_type": SPATIAL_QUERY_ROUTER_NODE, "inputs": sqr_in}
         model_src = ["149", 0]
 
@@ -6705,6 +6804,79 @@ def main():
               ),
               out_prefix="Video/h3_t2v_pika_self_mask_speaker_edit_guider"),
          "zero-coordinate speaker spotlight -> 2x EditGuider (`SelfMaskRouter(mask_source='right_speaker', dilation_passes=1)` harvests Step-0 Q_vid@K_aud speaker mask and hands it to `MiniMaxH3EditGuider(first_step=1, last_step=3, scale=1.95, streams='video_only')`, transforming the right speaker into a crystal android with locked lip-sync and photoreal left speaker)"),
+        ("h3_text_to_video_pika_self_mask_audio_transients.json", "t2v-pika-self-mask-audio-transients", "t2v",
+         AUDIO_TRANSIENTS_STUDY_BASE_PROMPT,
+         dict(width=1344, height=768, length=141,
+              lora=(PIKA_FL2VA_SVD995_LORA, PIKA_STRENGTH), lora_branch=True,
+              steps=PIKA_STEPS, sampler_name=PIKA_SAMPLER,
+              manual_sigmas=PIKA_MANUAL_SIGMAS,
+              self_mask_router=dict(
+                  mask_source="audio_transients",
+                  target_phrase="",
+                  threshold_z=1.35,
+                  softness=0.25,
+                  dilation_passes=0,
+                  isolation="all_0_49",
+                  audio_zone="base",
+                  invert=False,
+                  start_percent=0.0,
+                  end_percent=1.0,
+                  replay_step0=False,
+                  region_prompt=AUDIO_TRANSIENTS_STUDY_REGION_PROMPT,
+              ),
+              out_prefix="Video/h3_t2v_pika_self_mask_audio_transients"),
+         "zero-WAV emergent lightning trigger (`SelfMaskRouter(mask_source='audio_transients', isolation='all_0_49')` detects Step-0 `audio_x0` thunderclap peaks with 2-step smoothed exponential release `[1.0, 0.58, 0.28]` and triggers electric-cyan storm bursts in `all_0_49` on Pika H3 Flex 6-step LCM)"),
+        ("h3_i2v_pika_moge2_portal_tear.json", "i2v-pika-moge2-portal-tear", "i2v",
+         PORTAL_TEAR_ROOM_BASE_I2V_PROMPT,
+         dict(width=1344, height=768, length=141, last_frame=False,
+              canvas_mode="explicit",
+              lora=(PIKA_FL2VA_SVD995_LORA, PIKA_STRENGTH), lora_branch=True,
+              steps=PIKA_STEPS, sampler_name=PIKA_SAMPLER,
+              manual_sigmas=PIKA_MANUAL_SIGMAS,
+              sound_cues="0.5s: slam",
+              spatial_query_router=dict(
+                  region_prompt=PORTAL_TEAR_ROOM_RIFT_I2V_PROMPT,
+                  x_start=0.00,
+                  x_end=1.00,
+                  y_start=0.00,
+                  y_end=1.00,
+                  invert=False,
+                  isolation="early_0_24",
+                  audio_zone="follow_mask",
+                  depth_beat_mask=dict(
+                      mode="depth_band_on_beat",
+                      beat_timing="manual_frame",
+                      cut_frame=12,
+                      near_quantile=0.65,
+                      far_quantile=1.0,
+                      feather=0.08,
+                  ),
+              ),
+              out_prefix="Video/h3_i2v_pika_moge2_portal_tear"),
+         "Real-Room Portal Tear (`MiniMaxH3DepthBeatMask(mode='depth_band_on_beat', beat_timing='manual_frame', cut_frame=12, near_quantile=0.65)` locks Frame-0 foreground furniture at 0.0 pre-slam and opens the far back wall at 0.5s (`0.5s: slam` SoundCue) into a volcanic/cyan rift spilling light across blocks 25..49 in `MiniMaxH3SpatialQueryRouter(early_0_24, follow_mask)`)"),
+        ("h3_r2v_dual_ref_spatial_split_pika.json", "r2v-pika-dual-ref-spatial-split", "r2v",
+         DUAL_REF_SPLIT_LEFT_PROMPT,
+         dict(width=1344, height=768, length=141,
+              lora=(PIKA_REF2VA_SVD995_LORA, PIKA_STRENGTH), lora_branch=True,
+              ref_size_policy=PIKA_REF_SIZE_POLICY,
+              ref_images=("old_man.jpg", "woman_blonde.jpg"),
+              ref_image_count=2,
+              split_references=True,
+              release_references=dict(end_percent=0.50),
+              steps=PIKA_STEPS, sampler_name=PIKA_SAMPLER,
+              manual_sigmas=PIKA_MANUAL_SIGMAS,
+              spatial_query_router=dict(
+                  region_prompt=DUAL_REF_SPLIT_RIGHT_PROMPT,
+                  x_start=0.50,
+                  x_end=1.00,
+                  y_start=0.00,
+                  y_end=1.00,
+                  invert=False,
+                  isolation="early_0_24",
+                  audio_zone="binaural_split",
+              ),
+              out_prefix="Video/h3_r2v_dual_ref_spatial_split_pika"),
+         "2-Photo `<Picture 1> | <Picture 2>` 24 fps `ref2va` Spatial Split (`MiniMaxH3EncodeReferences` shared once across Left 1940s walnut detective study and Right midnight neon cyber-cafe with `<Subject 1>`/`<Subject 2>` seated across one continuous table + `MiniMaxH3SpatialQueryRouter(early_0_24, binaural_split)` and `end_percent=0.50` release on Pika H3 Flex 6-step LCM)"),
         ("h3_first_last_frame_to_video_pika_query_router.json", "fl2v-pika-query-router", "i2v",
          None,
          dict(width=1344, height=768, length=192, last_frame=True,

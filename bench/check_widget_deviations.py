@@ -459,10 +459,11 @@ DECLARED: dict[tuple[str, str], tuple] = {
                 "(2026-11-12, docs/wiki/research/2026-11-12_guide_sound_islands_and_kinematic_dpad.md)."),
     ("MiniMaxH3ReleaseReferences", "end_percent"):
         ("ARM", "0.33 on h3_first_last_frame_pika_control_vector and 0.50 on "
-                "h3_image_edit_control_vector, against the node default 1.0: "
+                "h3_image_edit_control_vector and h3_r2v_dual_ref_spatial_split_pika, "
+                "against the node default 1.0: "
                 "releases first/last-frame or <Picture N> VAE reference locks mid-denoise "
-                "so Pole-A erasure transfers palette/film stock while preserving framing and "
-                "early subject identity (2026-11-21)."),
+                "so style/world routing blends naturally while preserving framing and "
+                "early subject identity (2026-11-21, 2026-11-26)."),
     ("MiniMaxH3ReleaseReferences", "audio_end_percent"):
         ("ARM", "0.60 (h3_config.SOUND_GUIDE_AUDIO_RELEASE_END) on "
                 "h3_text_to_video_pika_sound_guide and h3_image_ref_dpad_sound_pika, and "
@@ -478,11 +479,12 @@ DECLARED: dict[tuple[str, str], tuple] = {
                 "end_percent = 1.0 across all 6 steps, unlocking articulated backward leg "
                 "strides on steps 2..5 instead of a static cutout glide (2026-11-12)."),
     ("MiniMaxH3SoundCues", "cues"):
-        ("ARM", "'54: hop' (h3_config.DPAD_SOUND_CUES) on h3_image_ref_dpad_sound_pika, and "
+        ("ARM", "'54: hop' (h3_config.DPAD_SOUND_CUES) on h3_image_ref_dpad_sound_pika, "
+                "'0.5s: slam' on h3_i2v_pika_moge2_portal_tear, and "
                 "'24: thud\\n72: click\\n114: slam' on 1x h3_text_to_video_pika_sound_cues_1x, "
-                "anchoring 3f-snapped foley cues on freight elevator / sprite beats, "
+                "anchoring 3f-snapped foley cues on freight elevator / sprite / portal beats, "
                 "against the node default 3-event beat sheet ('24: hop\\n54: snap\\n57: slam\\n96: hop') "
-                "(2026-11-12)."),
+                "(2026-11-12, 2026-11-26)."),
     ("MiniMaxH3EditGuider", "scale"):
         ("ARM", "1.6 (h3_config.SOUND_GUIDE_EDIT_GUIDANCE['scale']) on "
                 "h3_text_to_video_pika_sound_guide and h3_image_ref_dpad_sound_pika "
@@ -598,8 +600,10 @@ DECLARED: dict[tuple[str, str], tuple] = {
                 "stays grounded while trailing blooms emerge, against default 'early_0_24' (2026-11-26)."),
     ("MiniMaxH3SpatialQueryRouter", "audio_zone"):
         ("ARM", "Per-arm 40 Hz audio routing: 'follow_mask' on "
-                "h3_text_to_video_pika_multishot_spatial_cut and h3_r2v_midas_walk_spatial_wake_pika, "
-                "'binaural_split' on h3_text_to_video_pika_binaural_dialogue_split, and 'region' on "
+                "h3_text_to_video_pika_multishot_spatial_cut, h3_r2v_midas_walk_spatial_wake_pika, "
+                "and h3_i2v_pika_moge2_portal_tear, "
+                "'binaural_split' on h3_text_to_video_pika_binaural_dialogue_split and "
+                "h3_r2v_dual_ref_spatial_split_pika, and 'region' on "
                 "h3_text_to_video_pika_vector_lens_claymation, against default 'base' (2026-11-26)."),
     ("MiniMaxH3SpatialQueryRouter", "invert"):
         ("ARM", "True on h3_text_to_video_pika_vector_lens_claymation so base receives "
@@ -608,8 +612,9 @@ DECLARED: dict[tuple[str, str], tuple] = {
     ("MiniMaxH3SpatialQueryRouter", "x_start"):
         ("ARM", "0.0 on mask-driven full-canvas spatial workflows "
                 "(h3_text_to_video_pika_multishot_spatial_cut, "
-                "h3_text_to_video_pika_audio_freeze_beat_cut, and "
-                "h3_r2v_midas_walk_spatial_wake_pika) "
+                "h3_text_to_video_pika_audio_freeze_beat_cut, "
+                "h3_r2v_midas_walk_spatial_wake_pika, and "
+                "h3_i2v_pika_moge2_portal_tear) "
                 "where connected MASK overrides box bounds, against default 0.5 (2026-11-26)."),
     ("MiniMaxH3SpatialDirector", "invert_mask"):
         ("ARM", "True on h3_r2v_midas_walk_spatial_wake_pika so left-of-wipe pixels (the "
@@ -635,7 +640,7 @@ DECLARED: dict[tuple[str, str], tuple] = {
                 "h3_text_to_video_pika_audio_freeze_beat_cut) against RepeatImageBatch default 1 (2026-11-26)."),
     ("MiniMaxH3SelfMaskRouter", "mask_source"):
         ("ARM", "'right_speaker' on h3_text_to_video_pika_self_mask_speaker_edit_guider "
-                "to spotlight the right-channel speaker via Step-0 Q_vid @ K_aud[t]^T, "
+                "and 'audio_transients' on h3_text_to_video_pika_self_mask_audio_transients "
                 "against node default 'text_phrase' (2026-11-26)."),
     ("MiniMaxH3SelfMaskRouter", "target_phrase"):
         ("ARM", "'bread' on workflows/image/h3_image_t2i_self_mask_router for zero-coordinate "
@@ -647,9 +652,10 @@ DECLARED: dict[tuple[str, str], tuple] = {
         ("ARM", "1 on h3_text_to_video_pika_self_mask_speaker_edit_guider so the SelfMask -> "
                 "2x EditGuider mask includes head/collar silhouette margin, against node default 0 (2026-11-26)."),
     ("MiniMaxH3SelfMaskRouter", "isolation"):
-        ("ARM", "'mid_20_34_shield' on workflows/image/h3_image_t2i_self_mask_router so "
-                "centerpiece emerald crystal transformation grounds structure in blocks 0..19 "
-                "with zero square edges, against node default 'early_0_24_shield' (2026-11-26)."),
+        ("ARM", "'mid_20_34_shield' on workflows/image/h3_image_t2i_self_mask_router and "
+                "'all_0_49' on h3_text_to_video_pika_self_mask_audio_transients so "
+                "emerald crystal replacement and thunderclap lightning bursts stay surgical, "
+                "against node default 'early_0_24_shield' (2026-11-26)."),
     ("MiniMaxH3SelfMaskRouter", "base_prompt"):
         ("ARM", "Explicit H3-Image feast prompt on workflows/image/h3_image_t2i_self_mask_router "
                 "because MiniMaxH3ImageConditioning does not attach _h3_tail_text, against empty default (2026-11-26)."),
@@ -657,6 +663,16 @@ DECLARED: dict[tuple[str, str], tuple] = {
         ("ARM", "True (1.17x mode) on workflows/image/h3_image_t2i_self_mask_router so dominant "
                 "bread loaves crystallize completely into emerald quartz geodes on Step 0, "
                 "against node default False (2026-11-26)."),
+    ("MiniMaxH3DepthBeatMask", "mode"):
+        ("ARM", "'depth_band_on_beat' on h3_i2v_pika_moge2_portal_tear to mask the far wall depth "
+                "band starting at the 0.5s portal-tear beat, against node default 'depth_band' (2026-11-26)."),
+    ("MiniMaxH3DepthBeatMask", "beat_timing"):
+        ("ARM", "'manual_frame' on h3_i2v_pika_moge2_portal_tear so the portal opens cleanly at the "
+                "exact `cut_frame` matching `0.5s: slam` SoundCue without external WAV audio, "
+                "against node default 'auto_from_audio' (2026-11-26)."),
+    ("MiniMaxH3DepthBeatMask", "cut_frame"):
+        ("ARM", "12 (0.50 s at 24 fps) on h3_i2v_pika_moge2_portal_tear matching the `0.5s: slam` "
+                "SoundCue, against node default 85 (2026-11-26)."),
 }
 
 #: **There is deliberately no exception table here.** One was written on

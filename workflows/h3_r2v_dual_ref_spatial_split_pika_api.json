@@ -1,0 +1,341 @@
+{
+  "1": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "minimax_h3_ref2va_pruned_int8_convrot.safetensors",
+      "weight_dtype": "default"
+    }
+  },
+  "2": {
+    "class_type": "MiniMaxH3EncoderLoader",
+    "inputs": {
+      "encoder_name": "qwen3vl_32b_minimax_h3_bf16_pruned.safetensors",
+      "device": "default"
+    }
+  },
+  "3": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "minimax_h3_video_vae_int8_convrot.safetensors"
+    }
+  },
+  "4": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "minimax_h3_audio_vae_fp32.safetensors"
+    }
+  },
+  "6": {
+    "class_type": "RandomNoise",
+    "inputs": {
+      "noise_seed": 730451892
+    }
+  },
+  "7": {
+    "class_type": "KSamplerSelect",
+    "inputs": {
+      "sampler_name": "lcm"
+    }
+  },
+  "9": {
+    "class_type": "BasicGuider",
+    "inputs": {
+      "model": [
+        "149",
+        0
+      ],
+      "conditioning": [
+        "26",
+        0
+      ]
+    }
+  },
+  "10": {
+    "class_type": "SamplerCustomAdvanced",
+    "inputs": {
+      "noise": [
+        "6",
+        0
+      ],
+      "guider": [
+        "9",
+        0
+      ],
+      "sampler": [
+        "7",
+        0
+      ],
+      "sigmas": [
+        "60",
+        0
+      ],
+      "latent_image": [
+        "26",
+        1
+      ]
+    }
+  },
+  "11": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": [
+        "10",
+        0
+      ],
+      "vae": [
+        "3",
+        0
+      ]
+    }
+  },
+  "12": {
+    "class_type": "VAEDecodeAudio",
+    "inputs": {
+      "samples": [
+        "10",
+        0
+      ],
+      "vae": [
+        "4",
+        0
+      ]
+    }
+  },
+  "13": {
+    "class_type": "VHS_VideoCombine",
+    "inputs": {
+      "images": [
+        "11",
+        0
+      ],
+      "audio": [
+        "12",
+        0
+      ],
+      "frame_rate": 24.0,
+      "loop_count": 0,
+      "filename_prefix": "Video/h3_r2v_dual_ref_spatial_split_pika",
+      "format": "video/h264-mp4",
+      "pix_fmt": "yuv420p",
+      "crf": 19,
+      "save_metadata": true,
+      "trim_to_audio": false,
+      "pingpong": false,
+      "save_output": true
+    }
+  },
+  "27": {
+    "class_type": "MiniMaxH3Resolution",
+    "inputs": {
+      "shape": "wide",
+      "shape.wide_resolution": "1344x768  7/4  1008 tok/frame  1.00x",
+      "length": 141
+    }
+  },
+  "5": {
+    "class_type": "MiniMaxH3PromptOnReferences",
+    "inputs": {
+      "encoded_references": [
+        "132",
+        0
+      ],
+      "prompt": "subject_definitions:\n<Subject 1> is the weathered older man wearing a dark peaked uniform cap and frayed coat with a red talisman seal on his cheek from <Picture 1>, seated clearly on the left half of the frame.\n<Subject 2> is the young blonde woman with long wavy golden hair and dark knit sweater from <Picture 2>, seated across the table on the right half.\n\nsummary:\n[reference generation] In one continuous static medium two-shot across a shared foreground walnut table, <Subject 1> sits on the left half in a warm amber candlelit 1940s wood-paneled detective study while <Subject 2> sits on the right half.\n\nretention_analysis:\n<Subject 1> (appears in [Shot 1]): fully_preserved - dark peaked uniform cap, weathered face, talisman seal, and frayed collar from <Picture 1>.\n<Subject 2> (appears in [Shot 1]): fully_preserved - wavy blonde hair, blue eyes, and dark knit sweater from <Picture 2>.\n\ndetailed_description:\n[Shot 1] Live-action, cinematic 35mm medium two-shot on a locked tripod spanning two halves joined across one shared continuous dark walnut foreground table. On the left half inside a warm amber tungsten and candlelit 1940s mahogany detective study with venetian blinds and rain droplets on warm brass lamps, <Subject 1> from <Picture 1> sits angled rightward toward <Subject 2> from <Picture 2> on the right half. On the left half, <Subject 1>, with a gravelly aged baritone (S1), speaks calmly across the walnut table: <d>[English] The package crossed borders.</d> On the right half, <Subject 2>, with a crisp bright contralto (S2), replies without blinking: <d>[English] Then open the gate.</d> Neither rises from the table as subtle natural breathing and warm candle flicker animate the left study.\n\noverall_soundscape: Warm dry vintage walnut study tone, soft mantelpiece clock ticking, and muffled warm rain on glass.\n\nnon_diegetic_music: N/A"
+    }
+  },
+  "15": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "old_man.jpg"
+    }
+  },
+  "16": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "woman_blonde.jpg"
+    }
+  },
+  "50": {
+    "class_type": "MiniMaxH3AppendRefImage",
+    "inputs": {
+      "image": [
+        "15",
+        0
+      ],
+      "size_policy": "tiered",
+      "qwen_view": "separate",
+      "qwen_view.qwen_short_edge": 512
+    }
+  },
+  "51": {
+    "class_type": "MiniMaxH3AppendRefImage",
+    "inputs": {
+      "image": [
+        "16",
+        0
+      ],
+      "size_policy": "tiered",
+      "references": [
+        "50",
+        0
+      ],
+      "qwen_view": "separate",
+      "qwen_view.qwen_short_edge": 512
+    }
+  },
+  "18": {
+    "class_type": "MiniMaxH3LoRABranch",
+    "inputs": {
+      "model": [
+        "1",
+        0
+      ],
+      "lora_name": "h3/pika_h3_flex_ref2va_svd995_bf16.safetensors",
+      "strength": 1.0,
+      "modules": "all",
+      "blocks": "all",
+      "start_percent": 0.0,
+      "end_percent": 1.0
+    }
+  },
+  "19": {
+    "class_type": "MiniMaxH3SigmaShift",
+    "inputs": {
+      "model": [
+        "18",
+        0
+      ],
+      "shift_video": 12.0,
+      "shift_audio": 3.0
+    }
+  },
+  "58": {
+    "class_type": "ModelAttentionBackend",
+    "inputs": {
+      "model": [
+        "19",
+        0
+      ],
+      "attention": "comfy kitchen attention"
+    }
+  },
+  "21": {
+    "class_type": "MiniMaxH3Sol",
+    "inputs": {
+      "model": [
+        "58",
+        0
+      ],
+      "tau": 1.0,
+      "start_percent": 0.2,
+      "end_percent": 1.0,
+      "min_tokens": 12288,
+      "sink_conditioning": "exact_kv_and_all_rows",
+      "verbose": true,
+      "dense_blocks": "49",
+      "quantizer": "rotated",
+      "token_routing": "off",
+      "rows": "per segment",
+      "rows.text_rows": "exact",
+      "rows.reference_rows": "exact",
+      "rows.audio_rows": "exact",
+      "rows.video_reference_rows": "routed"
+    }
+  },
+  "135": {
+    "class_type": "MiniMaxH3ReleaseReferences",
+    "inputs": {
+      "model": [
+        "21",
+        0
+      ],
+      "end_percent": 0.5,
+      "clean_level": 0.999
+    }
+  },
+  "148": {
+    "class_type": "MiniMaxH3PromptOnReferences",
+    "inputs": {
+      "encoded_references": [
+        "132",
+        0
+      ],
+      "prompt": "subject_definitions:\n<Subject 1> is the weathered older man wearing a dark peaked uniform cap and frayed coat from <Picture 1>, seated on the left half.\n<Subject 2> is the young blonde woman with long wavy golden hair, bright blue eyes, and dark charcoal knit sweater from <Picture 2>, seated clearly on the right half of the frame.\n\nsummary:\n[reference generation] In one continuous static medium two-shot across a shared foreground walnut table, <Subject 2> sits on the right half inside a midnight neon cyberpunk Tokyo rain cafe beside glowing cyan and magenta holographic windows while <Subject 1> sits on the left half.\n\nretention_analysis:\n<Subject 1> (appears in [Shot 1]): fully_preserved - dark peaked uniform cap, weathered face, and frayed coat from <Picture 1>.\n<Subject 2> (appears in [Shot 1]): fully_preserved - wavy blonde hair, freckles, blue eyes, and dark charcoal knit sweater from <Picture 2>.\n\ndetailed_description:\n[Shot 1] Live-action, cinematic 35mm medium two-shot on a locked tripod spanning two halves joined across one shared continuous dark walnut foreground table. On the right half inside a midnight neon-cyan and hot-magenta rain-streaked Tokyo cyberpunk window booth with glowing holographic rain reflections across dark glass, <Subject 2> from <Picture 2> sits angled leftward toward <Subject 1> from <Picture 1> on the left half. On the left half, <Subject 1>, with a gravelly aged baritone (S1), speaks calmly across the walnut table: <d>[English] The package crossed borders.</d> On the right half, <Subject 2>, with a crisp bright contralto (S2), replies without blinking: <d>[English] Then open the gate.</d> Neon reflections shimmer softly across the polished walnut edge as <Subject 2> listens calmly.\n\noverall_soundscape: Wet midnight neon transformer hum, heavy sidewalk downpour against rain-streaked glass, and crisp urban static.\n\nnon_diegetic_music: N/A"
+    }
+  },
+  "149": {
+    "class_type": "MiniMaxH3SpatialQueryRouter",
+    "inputs": {
+      "model": [
+        "135",
+        0
+      ],
+      "region_conditioning": [
+        "148",
+        0
+      ],
+      "x_start": 0.5,
+      "x_end": 1.0,
+      "y_start": 0.0,
+      "y_end": 1.0,
+      "invert": false,
+      "isolation": "early_0_24",
+      "audio_zone": "binaural_split",
+      "start_percent": 0.0,
+      "end_percent": 1.0
+    }
+  },
+  "26": {
+    "class_type": "MiniMaxH3Preflight",
+    "inputs": {
+      "conditioning": [
+        "5",
+        0
+      ],
+      "samples": [
+        "132",
+        1
+      ]
+    }
+  },
+  "60": {
+    "class_type": "ManualSigmas",
+    "inputs": {
+      "sigmas": "1.0, 0.972973, 0.923077, 0.8, 0.571429, 0.333333, 0.0"
+    }
+  },
+  "132": {
+    "class_type": "MiniMaxH3EncodeReferences",
+    "inputs": {
+      "clip": [
+        "2",
+        0
+      ],
+      "vae": [
+        "3",
+        0
+      ],
+      "audio_vae": [
+        "4",
+        0
+      ],
+      "references": [
+        "51",
+        0
+      ],
+      "width": [
+        "27",
+        0
+      ],
+      "height": [
+        "27",
+        1
+      ],
+      "length": [
+        "27",
+        2
+      ],
+      "video_policy": "comfy",
+      "image_policy": "comfy"
+    }
+  }
+}
