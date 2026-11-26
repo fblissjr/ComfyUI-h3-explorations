@@ -17,6 +17,7 @@ Tests:
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import sys
 from pathlib import Path
 from typing import Any
@@ -48,8 +49,9 @@ def _load_pack_pkg() -> str:
 class _DummyContainer:
     """Minimal stand-in for ComfyUI `AttentionTensorContainer` tracking peek/take calls."""
 
-    def __init__(self, tensor: torch.Tensor) -> None:
+    def __init__(self, tensor: torch.Tensor, *, pause_state: dict[str, int] | None = None) -> None:
         self._t: torch.Tensor | None = tensor
+        self._pause_state = pause_state
         self.peeks = 0
         self.takes = 0
 
@@ -60,6 +62,11 @@ class _DummyContainer:
 
     def take(self) -> torch.Tensor:
         assert self._t is not None, "double take()"
+        if self._pause_state is not None:
+            assert self._pause_state["depth"] == 0, (
+                "AttentionTensorContainer.take() called while malloc_graph was paused "
+                "(triggers cuMemFreeAsync CUDA_ERROR_INVALID_VALUE under comfy_aimdo)"
+            )
         self.takes += 1
         t = self._t
         self._t = None
@@ -184,47 +191,72 @@ def main() -> int:
     mod_segments = [(0, s_total, 0)]
     shadow_b_diff_len = torch.randn(1, 14, 32)  # l_txt_b=14 != l_txt_a=10
 
-    for aud_zone in ("base", "region"):
-        rt = sqr.SpatialVisualQRRuntime(
-            dm=dm,
-            shadow_b_init=shadow_b_diff_len,
-            shadow_b_tags=None,
-            x_start=0.25,
-            x_end=0.75,
-            y_start=0.25,
-            y_end=0.75,
-            invert=False,
-            mask=None,
-            isolate_blocks=frozenset({0, 1}),
-            audio_zone=aud_zone,
-        )
-        for b_idx in range(4):
-            rt.prepare_block(
-                b_idx,
-                {"img": img, "layout": layout, "t_emb": t_emb, "mod_segments": mod_segments, "rope_freqs": None},
+    pause_state = {"depth": 0, "enters": 0}
+    orig_pause_ctx = sqr._steer_hooks.pause_malloc_graph_ctx
+
+    @contextlib.contextmanager
+    def _tracked_pause_ctx():
+        pause_state["depth"] += 1
+        pause_state["enters"] += 1
+        try:
+            yield
+        finally:
+            pause_state["depth"] -= 1
+
+    sqr._steer_hooks.pause_malloc_graph_ctx = _tracked_pause_ctx
+    try:
+        for aud_zone in ("base", "region"):
+            rt = sqr.SpatialVisualQRRuntime(
+                dm=dm,
+                shadow_b_init=shadow_b_diff_len,
+                shadow_b_tags=None,
+                x_start=0.25,
+                x_end=0.75,
+                y_start=0.25,
+                y_end=0.75,
+                invert=False,
+                mask=None,
+                isolate_blocks=frozenset({0, 1}),
+                audio_zone=aud_zone,
             )
-            q_t = torch.randn(1, 4, s_total, 8)
-            k_t = torch.randn(1, 4, s_total, 8)
-            v_t = torch.randn(1, 4, s_total, 8)
-            qc, kc, vc = _DummyContainer(q_t), _DummyContainer(k_t), _DummyContainer(v_t)
-            pass_called = {"n": 0}
+            for b_idx in range(4):
+                rt.prepare_block(
+                    b_idx,
+                    {"img": img, "layout": layout, "t_emb": t_emb, "mod_segments": mod_segments, "rope_freqs": None},
+                )
+                q_t = torch.randn(1, 4, s_total, 8)
+                k_t = torch.randn(1, 4, s_total, 8)
+                v_t = torch.randn(1, 4, s_total, 8)
+                qc, kc, vc = (
+                    _DummyContainer(q_t, pause_state=pause_state),
+                    _DummyContainer(k_t, pause_state=pause_state),
+                    _DummyContainer(v_t, pause_state=pause_state),
+                )
+                pass_called = {"n": 0}
 
-            def _pass():
-                pass_called["n"] += 1
-                q_u, k_u, v_u = qc.take(), kc.take(), vc.take()
-                out = torch.nn.functional.scaled_dot_product_attention(q_u, k_u, v_u)
-                return out.transpose(1, 2).reshape(1, s_total, 32)
+                def _pass():
+                    assert pause_state["depth"] == 0, "pass_through_fn must run outside pause_malloc_graph_ctx()"
+                    pass_called["n"] += 1
+                    q_u, k_u, v_u = qc.take(), kc.take(), vc.take()
+                    out = torch.nn.functional.scaled_dot_product_attention(q_u, k_u, v_u)
+                    return out.transpose(1, 2).reshape(1, s_total, 32)
 
-            out = rt.run_attention_override(qc, kc, vc, _pass, skip_output_reshape=False)
-            assert out.shape == (1, s_total, 32)
-            assert torch.isfinite(out).all()
-            if b_idx in (0, 1):
-                assert pass_called["n"] == 0, "iso block should bypass pass_through"
-                assert qc.takes == 1 and kc.takes == 1 and vc.takes == 1, "iso block must take() containers"
-            else:
-                assert pass_called["n"] == 1, "seamless block must call pass_through"
-                assert qc.takes == 1, "seamless block must let pass_through take() once"
-            rt.finish_block(b_idx)
+                out = rt.run_attention_override(qc, kc, vc, _pass, skip_output_reshape=False)
+                assert pause_state["depth"] == 0, "pause_malloc_graph_ctx leaked open after run_attention_override"
+                assert out.shape == (1, s_total, 32)
+                assert torch.isfinite(out).all()
+                if b_idx in (0, 1):
+                    assert pass_called["n"] == 0, "iso block should bypass pass_through"
+                    assert qc.takes == 1 and kc.takes == 1 and vc.takes == 1, "iso block must take() containers"
+                else:
+                    assert pass_called["n"] == 1, "seamless block must call pass_through"
+                    assert qc.takes == 1, "seamless block must let pass_through take() once"
+                rt.finish_block(b_idx)
+            rt.clear()
+            assert rt.h_shadow_b is None and rt.idx_base is None and rt._cur is None
+        assert pause_state["enters"] > 0
+    finally:
+        sqr._steer_hooks.pause_malloc_graph_ctx = orig_pause_ctx
 
     # Empty region -> clean no-op
     m_empty = torch.zeros(32, 48)

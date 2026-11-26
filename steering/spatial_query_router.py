@@ -320,6 +320,19 @@ class SpatialVisualQRRuntime:
             "done": False,
         }
 
+    def clear(self) -> None:
+        """Release all per-step CUDA tensors (call inside `pause_malloc_graph_ctx()`)."""
+        self.active = False
+        self._cur = None
+        self.h_shadow_b = None
+        self.rope_b = None
+        self.idx_base = None
+        self.idx_region = None
+        self.idx_aud = None
+        self.idx_base_kv = None
+        self.idx_region_kv = None
+        self.idx_nt_all = None
+
     def run_attention_override(
         self,
         q_in: Any,
@@ -330,6 +343,15 @@ class SpatialVisualQRRuntime:
         skip_output_reshape: bool,
         scale: float | None = None,
     ) -> torch.Tensor:
+        """Execute spatial attention routing while strictly respecting ComfyUI `malloc_graph` ownership.
+
+        CRITICAL (`comfy_aimdo` + `CUDAMallocAsyncAllocator`):
+        - `q_in`/`k_in`/`v_in` are allocated inside the active `malloc_graph`, so they MUST only be
+          `.take()`-ed/freed OUTSIDE `pause_malloc_graph_ctx()`.
+        - The returned tensor MUST be allocated OUTSIDE `pause_malloc_graph_ctx()` (either pre-allocated
+          as `out_ret` in `iso` mode or produced by `pass_through_fn()` in seamless mode), while all
+          internal split/concat/`_fast_attn` temporaries are allocated and freed INSIDE `pause_malloc_graph_ctx()`.
+        """
         cur = self._cur
         assert cur is not None and not cur["done"]
         assert self.idx_base is not None and self.idx_region is not None and self.idx_aud is not None
@@ -343,35 +365,147 @@ class SpatialVisualQRRuntime:
         need_finish_b = cur["block_index"] < (self.n_blocks - 1)
         route_aud_region = (self.audio_zone == "region") and (self.idx_aud.numel() > 0)
 
+        # Peek while `malloc_graph` is ACTIVE so containers keep strong refs throughout the paused region.
+        q_p = q_in if torch.is_tensor(q_in) else q_in.peek()
+        k_p = k_in if torch.is_tensor(k_in) else k_in.peek()
+        v_p = v_in if torch.is_tensor(v_in) else v_in.peek()
+
         if cur["iso"]:
-            # Bypass pass_through_fn -> take containers cleanly so buffers release immediately.
-            q_bh = q_in if torch.is_tensor(q_in) else q_in.take()
-            k_bh = k_in if torch.is_tensor(k_in) else k_in.take()
-            v_bh = v_in if torch.is_tensor(v_in) else v_in.take()
-            k_dtype, v_dtype = k_bh.dtype, v_bh.dtype
+            s_total = int(q_p.shape[2])
+            if skip_output_reshape:
+                out_ret = torch.empty((1, heads, s_total, head_dim), device=q_p.device, dtype=q_p.dtype)
+            else:
+                out_ret = torch.empty((1, s_total, inner), device=q_p.device, dtype=q_p.dtype)
+
+            with _steer_hooks.pause_malloc_graph_ctx(), torch.no_grad():
+                k_dtype, v_dtype = k_p.dtype, v_p.dtype
+                q_txt_b = cur["q_txt_b"].to(dtype=k_dtype)
+                k_txt_b = cur["k_txt_b"].to(dtype=k_dtype)
+                v_txt_b = cur["v_txt_b"].to(dtype=v_dtype)
+                cur["q_txt_b"] = cur["k_txt_b"] = cur["v_txt_b"] = None
+
+                q_txt_a = q_p[:, :, self.tx_a : self.tx_b, :]
+                k_txt_a = k_p[:, :, self.tx_a : self.tx_b, :]
+                v_txt_a = v_p[:, :, self.tx_a : self.tx_b, :]
+
+                q_vid_a = q_p.index_select(2, self.idx_base)
+                k_a_kv = torch.cat([k_txt_a, k_p.index_select(2, self.idx_base_kv)], dim=2)
+                v_a_kv = torch.cat([v_txt_a, v_p.index_select(2, self.idx_base_kv)], dim=2)
+                q_comb_a = torch.cat([q_txt_a, q_vid_a], dim=2)
+                out_a_all = _fast_attn(q_comb_a, k_a_kv, v_a_kv, scale=scale)
+                l_txt_a = self.tx_b - self.tx_a
+                out_txt_a = out_a_all[:, :, :l_txt_a, :]
+                out_vid_a = out_a_all[:, :, l_txt_a:, :]
+                del q_vid_a, k_a_kv, v_a_kv, q_comb_a, out_a_all
+
+                q_vid_b = q_p.index_select(2, self.idx_region)
+                k_b_kv = torch.cat([k_txt_b, k_p.index_select(2, self.idx_region_kv)], dim=2)
+                v_b_kv = torch.cat([v_txt_b, v_p.index_select(2, self.idx_region_kv)], dim=2)
+                q_comb_b = torch.cat([q_txt_b, q_vid_b], dim=2) if need_finish_b else q_vid_b
+                out_b_all = _fast_attn(q_comb_b, k_b_kv, v_b_kv, scale=scale)
+                if need_finish_b:
+                    cur["shadow_b_attn_2d"] = (
+                        out_b_all[:, :, :l_txt_b, :][0]
+                        .transpose(0, 1)
+                        .reshape(l_txt_b, inner)
+                        .to(dtype=self.h_shadow_b.dtype)
+                    )
+                    out_vid_b = out_b_all[:, :, l_txt_b:, :]
+                else:
+                    out_vid_b = out_b_all
+                del q_vid_b, k_b_kv, v_b_kv, q_comb_b, out_b_all
+
+                def _write_iso(idx: torch.Tensor, src_bh: torch.Tensor) -> None:
+                    if skip_output_reshape:
+                        out_ret.index_copy_(2, idx, src_bh.to(dtype=out_ret.dtype))
+                    else:
+                        src_2d = (
+                            src_bh[0].transpose(0, 1).reshape(1, int(idx.numel()), inner).to(dtype=out_ret.dtype)
+                        )
+                        out_ret.index_copy_(1, idx, src_2d)
+
+                if skip_output_reshape:
+                    out_ret[:, :, self.tx_a : self.tx_b, :].copy_(out_txt_a.to(dtype=out_ret.dtype))
+                else:
+                    out_ret[:, self.tx_a : self.tx_b, :].copy_(
+                        out_txt_a[0].transpose(0, 1).reshape(1, l_txt_a, inner).to(dtype=out_ret.dtype)
+                    )
+                _write_iso(self.idx_base, out_vid_a)
+                _write_iso(self.idx_region, out_vid_b)
+
+                other_mask = torch.ones(s_total, dtype=torch.bool, device=q_p.device)
+                other_mask[self.tx_a : self.tx_b] = False
+                other_mask[self.idx_base] = False
+                other_mask[self.idx_region] = False
+                if self.idx_aud.numel() > 0:
+                    other_mask[self.idx_aud] = False
+                    q_aud = q_p.index_select(2, self.idx_aud)
+                    if route_aud_region:
+                        k_aud_kv = torch.cat([k_txt_b, k_p.index_select(2, self.idx_nt_all)], dim=2)
+                        v_aud_kv = torch.cat([v_txt_b, v_p.index_select(2, self.idx_nt_all)], dim=2)
+                        out_aud = _fast_attn(q_aud, k_aud_kv, v_aud_kv, scale=scale)
+                        del k_aud_kv, v_aud_kv
+                    else:
+                        out_aud = _fast_attn(q_aud, k_p, v_p, scale=scale)
+                    _write_iso(self.idx_aud, out_aud)
+                    del q_aud, out_aud
+
+                idx_misc = other_mask.nonzero(as_tuple=False).flatten()
+                if idx_misc.numel() > 0:
+                    q_misc = q_p.index_select(2, idx_misc)
+                    out_misc = _fast_attn(q_misc, k_p, v_p, scale=scale)
+                    _write_iso(idx_misc, out_misc)
+                    del q_misc, out_misc
+                del (
+                    q_txt_a,
+                    k_txt_a,
+                    v_txt_a,
+                    q_txt_b,
+                    k_txt_b,
+                    v_txt_b,
+                    out_txt_a,
+                    out_vid_a,
+                    out_vid_b,
+                    other_mask,
+                    idx_misc,
+                )
+
+            # Back in ACTIVE `malloc_graph`: release `q_in`/`k_in`/`v_in` buffers in their owning allocator!
+            del q_p, k_p, v_p
+            if not torch.is_tensor(q_in):
+                q_in.take()
+            if not torch.is_tensor(k_in):
+                k_in.take()
+            if not torch.is_tensor(v_in):
+                v_in.take()
+            return out_ret
+
+        # Seamless blend phase:
+        # 1) Pause `malloc_graph` to compute the region/audio splice + shadow-B text update from peeked Q/K/V.
+        with _steer_hooks.pause_malloc_graph_ctx(), torch.no_grad():
+            k_dtype, v_dtype = k_p.dtype, v_p.dtype
             q_txt_b = cur["q_txt_b"].to(dtype=k_dtype)
             k_txt_b = cur["k_txt_b"].to(dtype=k_dtype)
             v_txt_b = cur["v_txt_b"].to(dtype=v_dtype)
+            cur["q_txt_b"] = cur["k_txt_b"] = cur["v_txt_b"] = None
 
-            q_txt_a = q_bh[:, :, self.tx_a : self.tx_b, :]
-            k_txt_a = k_bh[:, :, self.tx_a : self.tx_b, :]
-            v_txt_a = v_bh[:, :, self.tx_a : self.tx_b, :]
+            q_parts: list[torch.Tensor] = []
+            if need_finish_b:
+                q_parts.append(q_txt_b)
+            n_reg = int(self.idx_region.numel())
+            if n_reg > 0:
+                q_parts.append(q_p.index_select(2, self.idx_region))
+            n_aud = int(self.idx_aud.numel()) if route_aud_region else 0
+            if route_aud_region:
+                q_parts.append(q_p.index_select(2, self.idx_aud))
 
-            q_vid_a = q_bh.index_select(2, self.idx_base)
-            k_a_kv = torch.cat([k_txt_a, k_bh.index_select(2, self.idx_base_kv)], dim=2)
-            v_a_kv = torch.cat([v_txt_a, v_bh.index_select(2, self.idx_base_kv)], dim=2)
-            q_comb_a = torch.cat([q_txt_a, q_vid_a], dim=2)
-            out_a_all = _fast_attn(q_comb_a, k_a_kv, v_a_kv, scale=scale)
-            l_txt_a = self.tx_b - self.tx_a
-            out_txt_a = out_a_all[:, :, :l_txt_a, :]
-            out_vid_a = out_a_all[:, :, l_txt_a:, :]
-            del q_vid_a, k_a_kv, v_a_kv, q_comb_a, out_a_all
+            k_b_world = torch.cat([k_txt_b, k_p.index_select(2, self.idx_nt_all)], dim=2)
+            v_b_world = torch.cat([v_txt_b, v_p.index_select(2, self.idx_nt_all)], dim=2)
+            q_comb_b = q_parts[0] if len(q_parts) == 1 else torch.cat(q_parts, dim=2)
+            out_b_all = _fast_attn(q_comb_b, k_b_world, v_b_world, scale=scale)
+            del k_b_world, v_b_world, q_comb_b, q_parts, q_txt_b, k_txt_b, v_txt_b
 
-            q_vid_b = q_bh.index_select(2, self.idx_region)
-            k_b_kv = torch.cat([k_txt_b, k_bh.index_select(2, self.idx_region_kv)], dim=2)
-            v_b_kv = torch.cat([v_txt_b, v_bh.index_select(2, self.idx_region_kv)], dim=2)
-            q_comb_b = torch.cat([q_txt_b, q_vid_b], dim=2) if need_finish_b else q_vid_b
-            out_b_all = _fast_attn(q_comb_b, k_b_kv, v_b_kv, scale=scale)
+            off = 0
             if need_finish_b:
                 cur["shadow_b_attn_2d"] = (
                     out_b_all[:, :, :l_txt_b, :][0]
@@ -379,100 +513,34 @@ class SpatialVisualQRRuntime:
                     .reshape(l_txt_b, inner)
                     .to(dtype=self.h_shadow_b.dtype)
                 )
-                out_vid_b = out_b_all[:, :, l_txt_b:, :]
-            else:
-                out_vid_b = out_b_all
-            del q_vid_b, k_b_kv, v_b_kv, q_comb_b, out_b_all
+                off += l_txt_b
+            out_vid_b = out_b_all[:, :, off : off + n_reg, :].clone() if n_reg > 0 else None
+            off += n_reg
+            out_aud_b = out_b_all[:, :, off : off + n_aud, :].clone() if route_aud_region else None
+            del out_b_all
 
-            s_total = int(q_bh.shape[2])
-            out_bh = torch.empty((1, heads, s_total, head_dim), device=q_bh.device, dtype=out_vid_a.dtype)
-            out_bh[:, :, self.tx_a : self.tx_b, :].copy_(out_txt_a)
-            out_bh.index_copy_(2, self.idx_base, out_vid_a)
-            out_bh.index_copy_(2, self.idx_region, out_vid_b)
-
-            other_mask = torch.ones(s_total, dtype=torch.bool, device=q_bh.device)
-            other_mask[self.tx_a : self.tx_b] = False
-            other_mask[self.idx_base] = False
-            other_mask[self.idx_region] = False
-            if self.idx_aud.numel() > 0:
-                other_mask[self.idx_aud] = False
-                q_aud = q_bh.index_select(2, self.idx_aud)
-                if route_aud_region:
-                    k_aud_kv = torch.cat([k_txt_b, k_bh.index_select(2, self.idx_nt_all)], dim=2)
-                    v_aud_kv = torch.cat([v_txt_b, v_bh.index_select(2, self.idx_nt_all)], dim=2)
-                    out_aud = _fast_attn(q_aud, k_aud_kv, v_aud_kv, scale=scale)
-                    del k_aud_kv, v_aud_kv
-                else:
-                    out_aud = _fast_attn(q_aud, k_bh, v_bh, scale=scale)
-                out_bh.index_copy_(2, self.idx_aud, out_aud)
-                del q_aud, out_aud
-
-            idx_misc = other_mask.nonzero(as_tuple=False).flatten()
-            if idx_misc.numel() > 0:
-                q_misc = q_bh.index_select(2, idx_misc)
-                out_misc = _fast_attn(q_misc, k_bh, v_bh, scale=scale)
-                out_bh.index_copy_(2, idx_misc, out_misc)
-                del q_misc, out_misc
-            del out_txt_a, out_vid_a, out_vid_b, q_bh, k_bh, v_bh
-
-            if skip_output_reshape:
-                return out_bh
-            return out_bh.transpose(1, 2).reshape(1, s_total, inner)
-
-        # Seamless blend phase: peek before calling pass_through_fn so pass_through_fn still owns container take().
-        q_bh = q_in if torch.is_tensor(q_in) else q_in.peek()
-        k_bh = k_in if torch.is_tensor(k_in) else k_in.peek()
-        v_bh = v_in if torch.is_tensor(v_in) else v_in.peek()
-        k_dtype, v_dtype = k_bh.dtype, v_bh.dtype
-        q_txt_b = cur["q_txt_b"].to(dtype=k_dtype)
-        k_txt_b = cur["k_txt_b"].to(dtype=k_dtype)
-        v_txt_b = cur["v_txt_b"].to(dtype=v_dtype)
-
-        q_parts: list[torch.Tensor] = []
-        if need_finish_b:
-            q_parts.append(q_txt_b)
-        n_reg = int(self.idx_region.numel())
-        if n_reg > 0:
-            q_parts.append(q_bh.index_select(2, self.idx_region))
-        n_aud = int(self.idx_aud.numel()) if route_aud_region else 0
-        if route_aud_region:
-            q_parts.append(q_bh.index_select(2, self.idx_aud))
-
-        k_b_world = torch.cat([k_txt_b, k_bh.index_select(2, self.idx_nt_all)], dim=2)
-        v_b_world = torch.cat([v_txt_b, v_bh.index_select(2, self.idx_nt_all)], dim=2)
-        q_comb_b = q_parts[0] if len(q_parts) == 1 else torch.cat(q_parts, dim=2)
-        out_b_all = _fast_attn(q_comb_b, k_b_world, v_b_world, scale=scale)
-        del k_b_world, v_b_world, q_comb_b, q_parts, q_bh, k_bh, v_bh
-
-        off = 0
-        if need_finish_b:
-            cur["shadow_b_attn_2d"] = (
-                out_b_all[:, :, :l_txt_b, :][0]
-                .transpose(0, 1)
-                .reshape(l_txt_b, inner)
-                .to(dtype=self.h_shadow_b.dtype)
-            )
-            off += l_txt_b
-        out_vid_b = out_b_all[:, :, off : off + n_reg, :] if n_reg > 0 else None
-        off += n_reg
-        out_aud_b = out_b_all[:, :, off : off + n_aud, :] if route_aud_region else None
-        del out_b_all
-
+        # 2) Back in ACTIVE `malloc_graph`: drop peek refs and let Sol/Kitchen consume Q/K/V and allocate `out_main`.
+        del q_p, k_p, v_p
         out_main = pass_through_fn()
 
-        def _splice(idx: torch.Tensor, src_bh: torch.Tensor | None) -> None:
-            if src_bh is None or idx.numel() == 0:
-                return
-            if skip_output_reshape:
-                out_main.index_copy_(2, idx, src_bh.to(dtype=out_main.dtype))
-            else:
-                src_2d = src_bh[0].transpose(0, 1).reshape(1, int(idx.numel()), inner).to(dtype=out_main.dtype)
-                out_main.index_copy_(1, idx, src_2d)
+        # 3) Pause `malloc_graph` to splice pause-allocated buffers in-place into `out_main` and free them cleanly.
+        with _steer_hooks.pause_malloc_graph_ctx(), torch.no_grad():
+            def _splice(idx: torch.Tensor, src_bh: torch.Tensor | None) -> None:
+                if src_bh is None or idx.numel() == 0:
+                    return
+                if skip_output_reshape:
+                    out_main.index_copy_(2, idx, src_bh.to(dtype=out_main.dtype))
+                else:
+                    src_2d = (
+                        src_bh[0].transpose(0, 1).reshape(1, int(idx.numel()), inner).to(dtype=out_main.dtype)
+                    )
+                    out_main.index_copy_(1, idx, src_2d)
 
-        _splice(self.idx_region, out_vid_b)
-        if route_aud_region:
-            _splice(self.idx_aud, out_aud_b)
-        del out_vid_b, out_aud_b
+            _splice(self.idx_region, out_vid_b)
+            if route_aud_region:
+                _splice(self.idx_aud, out_aud_b)
+            del out_vid_b, out_aud_b
+
         return out_main
 
     def finish_block(self, block_index: int) -> None:
@@ -593,15 +661,14 @@ def _make_spatial_attn_override(previous: Any = None):
             return _pass()
         del q_p, k_p, v_p
 
-        with _steer_hooks.pause_malloc_graph_ctx(), torch.no_grad():
-            return rt.run_attention_override(
-                q,
-                k,
-                v,
-                _pass,
-                skip_output_reshape=bool(skip_output_reshape),
-                scale=kwargs.get("scale", None),
-            )
+        return rt.run_attention_override(
+            q,
+            k,
+            v,
+            _pass,
+            skip_output_reshape=bool(skip_output_reshape),
+            scale=kwargs.get("scale", None),
+        )
 
     if getattr(previous, "container_function", None) is not None:
         override.container_function = functools.partial(override, None)
@@ -716,7 +783,11 @@ def attach_spatial_query_router(
             to_next["optimized_attention_override"] = _make_spatial_attn_override(
                 to_next.get("optimized_attention_override")
             )
-        return executor(x, timestep, context, to_next, **kwargs)
+        try:
+            return executor(x, timestep, context, to_next, **kwargs)
+        finally:
+            with _steer_hooks.pause_malloc_graph_ctx():
+                rt.clear()
 
     wrappers = m.wrappers.setdefault(WrappersMP.DIFFUSION_MODEL, {})
     wrappers[SPATIAL_ROUTER_WRAPPER_KEY] = [_wrapper]
