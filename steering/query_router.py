@@ -321,10 +321,22 @@ def _make_query_router_wrapper(
             while len(cache_entries) > _REF_CACHE_MAX:
                 cache_entries.popitem(last=False)
 
+        live_policy = (
+            transformer_options.get("_h3_live_policy")
+            if isinstance(transformer_options, dict)
+            else None
+        )
+        pol_a2v = getattr(live_policy, "recommended_aud_to_vid_gain", None) if live_policy is not None else None
+        eff_a2v_gain = (
+            min(float(aud_to_vid_gain), max(0.0, min(1.0, float(pol_a2v))))
+            if pol_a2v is not None
+            else float(aud_to_vid_gain)
+        )
+
         if (
             ctx_vid is None
             and ctx_aud is None
-            and float(aud_to_vid_gain) >= (1.0 - _FULL_GAIN_EPS)
+            and eff_a2v_gain >= (1.0 - _FULL_GAIN_EPS)
         ):
             return executor(x, timestep, ctx_base, transformer_options, **call_kwargs)
 
@@ -402,7 +414,7 @@ def _make_query_router_wrapper(
                     fork_b_at_block=None,
                     aud_uses_shadow_b=aud_uses_shadow_b,
                     aud_unswapped_blocks=aud_unswapped_blocks,
-                    aud_to_vid_gain=float(aud_to_vid_gain),
+                    aud_to_vid_gain=eff_a2v_gain,
                     audio_channel=audio_channel,
                     audio_time_start=float(audio_time_start),
                     audio_time_end=float(audio_time_end),
@@ -426,7 +438,7 @@ def _make_query_router_wrapper(
         # Case A: Audio-only text route or standalone coupling gating
         if ctx_vid is None or len(vid_band) == 0:
             if ctx_aud is None or not has_audio_stream or len(aud_band) == 0:
-                if has_audio_stream and len(aud_band) > 0 and float(aud_to_vid_gain) < (1.0 - _FULL_GAIN_EPS):
+                if has_audio_stream and len(aud_band) > 0 and eff_a2v_gain < (1.0 - _FULL_GAIN_EPS):
                     return _invoke_rt(
                         mode_id=3 if aud_band != all_blocks else 2,
                         main_ctx=ctx_base,
@@ -479,7 +491,7 @@ def _make_query_router_wrapper(
                 )
             if ctx_aud is None:
                 has_aud_gate = (
-                    float(aud_to_vid_gain) < (1.0 - _FULL_GAIN_EPS)
+                    eff_a2v_gain < (1.0 - _FULL_GAIN_EPS)
                     or str(audio_channel or "both").strip() != "both"
                     or float(audio_time_start) > 1e-6
                     or float(audio_time_end) < 1.0 - 1e-6
@@ -702,8 +714,14 @@ def attach_query_router(
     video_cond_raw = _extract_cond_tensor(video_conditioning, name="video_conditioning") if video_conditioning is not None else None
     video_cond_tags = _extract_cond_tags(video_conditioning) if video_conditioning is not None else None
 
+    has_live_policy = getattr(model, "_h3_live_policy", None) is not None or (
+        isinstance(getattr(model, "model_options", None), dict)
+        and isinstance(model.model_options.get("transformer_options"), dict)
+        and model.model_options["transformer_options"].get("_h3_live_policy") is not None
+    )
     if (
-        sec_mode == "off"
+        not has_live_policy
+        and sec_mode == "off"
         and audio_cond_raw is None
         and video_cond_raw is None
         and a2v_gain >= (1.0 - 1e-6)

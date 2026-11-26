@@ -61,6 +61,7 @@ MASK_SOURCES: tuple[str, ...] = (
     "active_speaker",
     "left_speaker",
     "right_speaker",
+    "audio_transients",
 )
 FRAME_PER_TOKEN: tuple[int, ...] = (1, 4, 4, 4, 4)
 FRAME_RESCALE: float = 5.0 / 3.0
@@ -404,6 +405,9 @@ def evaluate_preview_frame(
     if lo_clip > 0.65:
         flags.append("shadow_crush")
         scale *= 0.85
+    elif mean_luma < 0.24 and "high_saturation" not in flags and "highlight_burn" not in flags:
+        flags.append("dim_understeer_risk")
+        scale *= 1.12
     if motion_mae is not None and motion_mae < freeze_mae_floor:
         flags.append("low_motion_freeze_risk")
 
@@ -484,6 +488,8 @@ def evaluate_audio_x0(
         flags.append("silent_dead_air")
     if binaural_expected and lr_corr > 0.85:
         flags.append("stereo_collapse_risk")
+    if rms_st > 3.2 and len(transients) >= 18:
+        flags.append("visual_hiss_bleed_risk")
 
     return {
         "audio_t": t_a,
@@ -496,6 +502,86 @@ def evaluate_audio_x0(
         "transients": transients,
         "flags": flags,
     }
+
+
+def synthesize_audio_transient_mask(
+    audio_x0: torch.Tensor,
+    *,
+    latent_t: int,
+    patch_h: int,
+    patch_w: int,
+    z_thresh: float = 2.2,
+    softness: float = 0.25,
+    invert: bool = False,
+    sparse_floor: float = 0.10,
+) -> tuple[torch.Tensor, dict[str, Any]]:
+    """Convert Step-0 `audio_x0` `40 Hz` onset flux (`flux_z >= z_thresh`) into a `[T, H, W]` burst mask."""
+    a = audio_x0.detach().float().cpu()
+    if a.ndim == 4:
+        a = a[0]
+    if a.ndim != 3:
+        raise ValueError(f"Expected 3D/4D audio_x0 [B?, C, 2, T], got {tuple(audio_x0.shape)}")
+    if int(a.shape[1]) == 2:
+        c_dim, t_a = int(a.shape[0]), int(a.shape[2])
+        left, right = a[:, 0, :], a[:, 1, :]
+    elif int(a.shape[0]) == 2:
+        c_dim, t_a = int(a.shape[1]), int(a.shape[2])
+        left, right = a[0, :, :], a[1, :, :]
+    else:
+        raise ValueError(f"Cannot locate stereo channel dim=2 in audio_x0 shape {tuple(a.shape)}")
+
+    e_l = torch.linalg.vector_norm(left, dim=0) / math.sqrt(float(max(1, c_dim)))
+    e_r = torch.linalg.vector_norm(right, dim=0) / math.sqrt(float(max(1, c_dim)))
+    e_st = 0.5 * (e_l + e_r)
+    flux = torch.zeros_like(e_st)
+    if t_a >= 2:
+        flux[1:] = torch.clamp(e_st[1:] - e_st[:-1], min=0.0)
+    f_std = float(flux.std(unbiased=False).item())
+    f_mean = float(flux.mean().item())
+    z_curve = (flux - f_mean) / max(f_std, 1e-6)
+
+    lt = max(1, int(latent_t))
+    ph = max(1, int(patch_h))
+    pw = max(1, int(patch_w))
+    windows = video_latent_audio_windows(lt, t_a)
+    peak_z = torch.zeros(lt, dtype=torch.float32)
+    for k_t, (a0, a1) in enumerate(windows):
+        if a1 > a0:
+            peak_z[k_t] = z_curve[a0:a1].max()
+
+    soft = max(float(softness), 1e-3)
+    zt = float(z_thresh)
+    w_t = torch.sigmoid((peak_z - zt) / soft)
+    fl = max(0.0, min(0.45, float(sparse_floor)))
+    if fl > 0.0:
+        w_t = ((w_t - fl) / max(1.0 - 2.0 * fl, 1e-4)).clamp(0.0, 1.0)
+    else:
+        w_t = w_t.clamp(0.0, 1.0)
+    if invert:
+        w_t = (1.0 - w_t).clamp(0.0, 1.0)
+
+    prob = w_t.view(lt, 1, 1).expand(lt, ph, pw).contiguous()
+    frame_hard = (prob >= 0.5).float().mean(dim=(1, 2))
+    frame_hard_vals = [round(float(v), 4) for v in frame_hard.tolist()]
+    active_steps = [int(i) for i, v in enumerate(frame_hard_vals) if v >= 0.5]
+    has_any = len(active_steps) > 0
+    stats = {
+        "shape_thw": [lt, ph, pw],
+        "coverage_mean": round(float(prob.mean().item()), 4),
+        "hard_coverage_mean": round(float((prob >= 0.5).float().mean().item()), 4),
+        "frame_hard_coverage_min": min(frame_hard_vals),
+        "frame_hard_coverage_max": max(frame_hard_vals),
+        "silent_frames_count": int((frame_hard < 0.005).sum().item()),
+        "sparse_zero_frac": round(float((prob == 0.0).float().mean().item()), 4),
+        "peak_xy": [0.5, 0.5],
+        "centroid_xy": [0.5, 0.5],
+        "bbox_xyxy": [0.0, 0.0, 1.0, 1.0] if has_any else [0.0, 0.0, 0.0, 0.0],
+        "active_latent_steps": active_steps,
+        "z_thresh": round(zt, 3),
+    }
+    if lt > 1:
+        stats["frame_hard_coverage"] = frame_hard_vals
+    return prob, stats
 
 
 # ------------------------------------------------------------------ Shared H3LivePolicy bus
@@ -511,6 +597,8 @@ class H3LivePolicy:
     audio_zone: str = "base"
     replay_step0: bool = False
     strength_scale: float = 1.0
+    recommended_video_end_percent: float | None = None
+    recommended_aud_to_vid_gain: float | None = None
     emit_ws_events: bool = True
     prompt_id: str | None = None
 
@@ -522,7 +610,20 @@ class H3LivePolicy:
     preview_history: list[dict[str, Any]] = field(default_factory=list)
     _prev_preview_rgb: np.ndarray | None = field(default=None, repr=False)
 
-    def update_from_preview(self, rgb_hwc: np.ndarray, *, step: int) -> dict[str, Any]:
+    def reset_for_new_run(self) -> None:
+        self.harvested_mask_frames = None
+        self.strength_scale = 1.0
+        self.recommended_video_end_percent = None
+        self.recommended_aud_to_vid_gain = None
+        self._prev_preview_rgb = None
+
+    def update_from_preview(
+        self,
+        rgb_hwc: np.ndarray,
+        *,
+        step: int,
+        frames_batch: Sequence[np.ndarray] | None = None,
+    ) -> dict[str, Any]:
         metrics = evaluate_preview_frame(rgb_hwc, prev_rgb_hwc=self._prev_preview_rgb)
         metrics["step"] = int(step)
         self._prev_preview_rgb = np.asarray(rgb_hwc, dtype=np.float32).copy()
@@ -530,6 +631,30 @@ class H3LivePolicy:
             0.5 * self.strength_scale + 0.5 * float(metrics["recommended_strength_scale"]), 4
         )
         metrics["applied_strength_scale"] = self.strength_scale
+
+        intra_motion_mae: float | None = None
+        if frames_batch is not None and len(frames_batch) >= 2:
+            diffs: list[float] = []
+            prev_f = None
+            for frm in frames_batch:
+                arr_f = np.asarray(frm, dtype=np.float32)[..., :3]
+                if float(arr_f.max()) <= 1.5:
+                    arr_f = arr_f * 255.0
+                if prev_f is not None and prev_f.shape == arr_f.shape:
+                    diffs.append(float(np.abs(arr_f - prev_f).mean()))
+                prev_f = arr_f
+            if diffs:
+                intra_motion_mae = round(float(sum(diffs) / len(diffs)), 4)
+        metrics["intra_step_motion_mae"] = intra_motion_mae
+
+        eff_motion = intra_motion_mae if intra_motion_mae is not None else metrics.get("motion_mae")
+        if int(step) >= 1 and eff_motion is not None:
+            if float(eff_motion) < 1.8:
+                self.recommended_video_end_percent = 0.33
+            elif float(eff_motion) > 18.0:
+                self.recommended_video_end_percent = 0.50
+        metrics["recommended_video_end_percent"] = self.recommended_video_end_percent
+
         self.preview_history.append(metrics)
         self.emit_event({"kind": "preview_thermostat", **metrics})
         return metrics
@@ -542,6 +667,10 @@ class H3LivePolicy:
         metrics["step"] = int(step)
         if sigma is not None:
             metrics["sigma"] = round(float(sigma), 6)
+        flags = metrics.get("flags") or ()
+        if int(step) >= 1 and ("stereo_collapse_risk" in flags or "visual_hiss_bleed_risk" in flags):
+            self.recommended_aud_to_vid_gain = 0.0
+        metrics["recommended_aud_to_vid_gain"] = self.recommended_aud_to_vid_gain
         self.audio_x0_history.append(metrics)
         self.emit_event({"kind": "audio_x0_thermostat", **metrics})
         return metrics
@@ -574,6 +703,8 @@ class H3LivePolicy:
             "audio_zone": self.audio_zone,
             "replay_step0": self.replay_step0,
             "strength_scale": self.strength_scale,
+            "recommended_video_end_percent": self.recommended_video_end_percent,
+            "recommended_aud_to_vid_gain": self.recommended_aud_to_vid_gain,
             "mask_stats": dict(self.mask_stats),
             "step_history": list(self.step_history),
             "audio_x0_history": list(self.audio_x0_history),
@@ -629,6 +760,8 @@ class _Step0HarvestState:
         self.audio_t = max(0, int(at))
 
     def probe_block(self, block_index: int, q_p: torch.Tensor, k_p: torch.Tensor, scale: float | None) -> None:
+        if self.mask_source == "audio_transients":
+            return
         if block_index not in self.harvest_blocks:
             return
         va, vb = self.va, self.vb
@@ -811,7 +944,7 @@ def _resolve_harvest_blocks(n_blocks: int, harvest_blocks: Sequence[int] | None)
 def attach_self_mask_router(
     model: Any,
     *,
-    region_conditioning: Any,
+    region_conditioning: Any = None,
     mask_source: str = "text_phrase",
     target_phrase: str = "",
     clip: Any = None,
@@ -832,12 +965,18 @@ def attach_self_mask_router(
     enable_audio_x0_thermostat: bool = True,
     emit_ws_events: bool = True,
 ) -> tuple[Any, H3LivePolicy]:
-    """Clone `model` and attach zero-coordinate Self-Masked Routing (`Step 0 harvest -> SpatialQR`).
+    """Clone `model` and attach zero-coordinate Self-Masked Routing + live `H3LivePolicy` bus.
 
-    With `replay_step0=False` (default `1.0x`), Step 0 harvests `B35 + B40` unmutated and Steps `1..5`
-    route `region_conditioning` onto the harvested mask. With `replay_step0=True` (`1.17x` mode for
-    dominant centerpieces whose geometry locks on Step 0), the throwaway Step-0 harvest output is
-    dropped and Step 0 is immediately replayed routed through `SpatialVisualQRRuntime` in one call.
+    - When `region_conditioning` is wired and not inside an `EditGuider` pass (`h3_edit_pass`
+      not in `("original", "edited")`), Phase 1 harvests a 4D mask on Step 0 (`B35 + B40`, or
+      Step-0 `audio_x0` onset bursts for `mask_source="audio_transients"`) and Phase 2 routes
+      `region_conditioning` via `SpatialVisualQRRuntime` (`1.0x` default, or `1.17x` when
+      `replay_step0=True`).
+    - When `region_conditioning is None` or inside `MiniMaxH3EditGuider`, Phase-2 `SpatialQR` is
+      skipped while `m._h3_live_policy` (`transformer_options["_h3_live_policy"]`) supplies
+      `harvested_mask_frames` to `EditGuider._effective_raw_mask()` and drives the closed-loop
+      Visual/Acoustic/Anti-Copy-Freeze thermostats across `steering/nodes.py` and
+      `steering/query_router.py`.
 
     Returns `(cloned_model, policy)` so callers & tests can inspect the live harvested mask,
     bounding box, `audio_x0` telemetry, and thermostat state cleanly.
@@ -859,8 +998,12 @@ def attach_self_mask_router(
     if not (math.isfinite(s_pct) and math.isfinite(e_pct)) or s_pct < 0.0 or e_pct > 1.0:
         raise ValueError(f"start_percent/end_percent must lie in [0.0, 1.0], got [{s_pct}, {e_pct}]")
 
-    raw_b = _extract_cond_tensor(region_conditioning, name="region_conditioning")
-    tags_b = _extract_cond_tags(region_conditioning)
+    raw_b = (
+        None
+        if region_conditioning is None
+        else _extract_cond_tensor(region_conditioning, name="region_conditioning")
+    )
+    tags_b = None if region_conditioning is None else _extract_cond_tags(region_conditioning)
 
     m = model.clone()
     dm = getattr(getattr(m, "model", None), "diffusion_model", None)
@@ -929,14 +1072,18 @@ def attach_self_mask_router(
         replay_step0=bool(replay_step0),
         emit_ws_events=bool(emit_ws_events),
     )
+    # Expose on BOTH the ModelPatcher attribute and `transformer_options` (preserved across `.clone()`).
+    m._h3_live_policy = policy
+    t_opts[LIVE_POLICY_KEY] = policy
 
     ref_cache: OrderedDict[tuple[Any, ...], torch.Tensor] = OrderedDict()
-    step_state: dict[str, Any] = {"step_count": 0, "fresh_run": True}
+    step_state: dict[str, Any] = {"step_count": 0, "fresh_run": True, "last_layout": None}
 
     def _on_cleanup(*_args, **_kwargs) -> None:
         ref_cache.clear()
         step_state["step_count"] = 0
         step_state["fresh_run"] = True
+        step_state["last_layout"] = None
 
     m.add_callback_with_key(CallbacksMP.ON_CLEANUP, f"{SELF_MASK_WRAPPER_KEY}_cleanup", _on_cleanup)
 
@@ -991,9 +1138,14 @@ def attach_self_mask_router(
 
         if step_state["fresh_run"]:
             step_state["fresh_run"] = False
-            policy.harvested_mask_frames = None
+            policy.reset_for_new_run()
 
-        # Phase 1 (Step 0, or before a mask has been harvested): unmutated pass harvesting B35 + B40!
+        payload = kwargs.get("minimax_payload") or {}
+        edit_pass = payload.get("h3_edit_pass") if isinstance(payload, Mapping) else None
+        can_route_phase2 = (raw_b is not None) and (edit_pass not in ("original", "edited"))
+
+        # Phase 1 (Step 0, or before a mask has been harvested): unmutated pass harvesting B35 + B40
+        # (or capturing PackedLayout dims for post-CFG `audio_transients` burst synthesis).
         replayed_step0 = False
         if policy.harvested_mask_frames is None:
             with _steer_hooks.pause_malloc_graph_ctx(), torch.no_grad():
@@ -1006,65 +1158,79 @@ def attach_self_mask_router(
                 to_next = dict(transformer_options or {})
                 to_next[LIVE_POLICY_KEY] = policy
                 to_next["_h3_self_mask_harvest"] = harvest
-                to_next["optimized_attention_override"] = _make_harvest_attn_override(
-                    to_next.get("optimized_attention_override")
-                )
+                if src != "audio_transients":
+                    to_next["optimized_attention_override"] = _make_harvest_attn_override(
+                        to_next.get("optimized_attention_override")
+                    )
             try:
                 out = executor(x, timestep, context, to_next, **kwargs)
             finally:
                 with _steer_hooks.pause_malloc_graph_ctx(), torch.no_grad():
-                    fused = harvest.fused_map()
-                    if fused is not None:
-                        m_thw, m_stats = synthesize_4d_attention_mask(
-                            fused,
-                            threshold_z=float(threshold_z),
-                            softness=float(softness),
-                            dilation_passes=int(dilation_passes),
-                            invert=bool(invert),
-                            cross_time_scale_floor=float(cross_time_scale_floor),
-                        )
-                        policy.harvested_mask_thw = m_thw
-                        policy.harvested_mask_frames = expand_latent_mask_to_frames(m_thw)
-                        policy.mask_stats = m_stats
-                        policy.step_history.append(
-                            {
-                                "step": cur_step,
-                                "phase": "harvest",
-                                "blocks": sorted(h_blocks),
-                                "noun_indices": idxs,
-                                **m_stats,
-                            }
-                        )
-                        policy.emit_event(
-                            {
-                                "kind": "self_mask_locked",
-                                "step": cur_step,
-                                "mask_source": src,
-                                "target_phrase": policy.target_phrase,
-                                **m_stats,
-                            }
-                        )
-                        logger.info(
-                            "[h3] SelfMaskRouter locked Step-%d mask (source=%s, phrase=%r, cov=%.1f%%, bbox=%s)",
-                            cur_step,
-                            src,
-                            policy.target_phrase,
-                            100.0 * float(m_stats["hard_coverage_mean"]),
-                            m_stats["bbox_xyxy"],
-                        )
-                    else:
-                        logger.warning(
-                            "[h3] SelfMaskRouter harvested 0 attention maps on Step %d (blocks=%s); "
-                            "subsequent steps will pass through unchanged.",
-                            cur_step,
-                            sorted(h_blocks),
-                        )
-            if not (replay_step0 and policy.harvested_mask_frames is not None):
+                    step_state["last_layout"] = (
+                        int(harvest.latent_t),
+                        int(harvest.patch_h),
+                        int(harvest.patch_w),
+                        int(harvest.audio_t),
+                    )
+                    if src != "audio_transients":
+                        fused = harvest.fused_map()
+                        if fused is not None:
+                            m_thw, m_stats = synthesize_4d_attention_mask(
+                                fused,
+                                threshold_z=float(threshold_z),
+                                softness=float(softness),
+                                dilation_passes=int(dilation_passes),
+                                invert=bool(invert),
+                                cross_time_scale_floor=float(cross_time_scale_floor),
+                            )
+                            policy.harvested_mask_thw = m_thw
+                            policy.harvested_mask_frames = expand_latent_mask_to_frames(m_thw)
+                            policy.mask_stats = m_stats
+                            policy.step_history.append(
+                                {
+                                    "step": cur_step,
+                                    "phase": "harvest",
+                                    "blocks": sorted(h_blocks),
+                                    "noun_indices": idxs,
+                                    **m_stats,
+                                }
+                            )
+                            policy.emit_event(
+                                {
+                                    "kind": "self_mask_locked",
+                                    "step": cur_step,
+                                    "mask_source": src,
+                                    "target_phrase": policy.target_phrase,
+                                    **m_stats,
+                                }
+                            )
+                            logger.info(
+                                "[h3] SelfMaskRouter locked Step-%d mask (source=%s, phrase=%r, cov=%.1f%%, bbox=%s)",
+                                cur_step,
+                                src,
+                                policy.target_phrase,
+                                100.0 * float(m_stats["hard_coverage_mean"]),
+                                m_stats["bbox_xyxy"],
+                            )
+                        else:
+                            logger.warning(
+                                "[h3] SelfMaskRouter harvested 0 attention maps on Step %d (blocks=%s); "
+                                "subsequent steps will pass through unchanged.",
+                                cur_step,
+                                sorted(h_blocks),
+                            )
+            if not (replay_step0 and can_route_phase2 and policy.harvested_mask_frames is not None):
                 return out
             # `1.17x` mode: discard throwaway Step-0 harvest output and immediately replay Step 0
             # routed through Phase 2 (`SpatialVisualQRRuntime`) on the newly locked mask.
             del out
             replayed_step0 = True
+
+        # Skip Phase-2 SpatialQR when operating in Sensor/Policy-only or `MiniMaxH3EditGuider` mode.
+        if not can_route_phase2:
+            to_pass = dict(transformer_options or {})
+            to_pass[LIVE_POLICY_KEY] = policy
+            return executor(x, timestep, context, to_pass, **kwargs)
 
         # Phase 2 (Steps 1..5, or replayed Step 0): route `region_conditioning` strictly onto the harvested mask!
         with _steer_hooks.pause_malloc_graph_ctx(), torch.no_grad():
@@ -1119,7 +1285,74 @@ def attach_self_mask_router(
     wrappers = m.wrappers.setdefault(WrappersMP.DIFFUSION_MODEL, {})
     wrappers[SELF_MASK_WRAPPER_KEY] = [_wrapper]
 
-    if enable_audio_x0_thermostat and hasattr(m, "set_model_sampler_post_cfg_function"):
+    # Bridge `ModelPreviewOverrideKJ` (`kj_wrapper.frames[-1]`, 0.0 ms extra decode) -> `policy.update_from_preview`
+    # regardless of whether KJ was wired upstream or downstream of `MiniMaxH3SelfMaskRouter`.
+    if hasattr(m, "add_wrapper_with_key"):
+        def _preview_bridge_outer(
+            executor,
+            noise,
+            latent_image,
+            sampler,
+            sigmas,
+            denoise_mask=None,
+            callback=None,
+            disable_pbar=False,
+            seed=None,
+            **outer_kwargs,
+        ):
+            guider_obj = getattr(executor, "class_obj", None)
+            mp = getattr(guider_obj, "model_patcher", None) or m
+            kj_list: list[Any] = []
+            if mp is not None and hasattr(mp, "get_wrappers"):
+                try:
+                    kj_list.extend(mp.get_wrappers(WrappersMP.OUTER_SAMPLE, "kj_preview_override") or ())
+                except Exception:
+                    pass
+            seen = [len(getattr(kj, "frames", ()) or ()) for kj in kj_list]
+
+            def _drain_kj_frames(step_i: int) -> None:
+                for idx_k, kj in enumerate(kj_list):
+                    frms = getattr(kj, "frames", None)
+                    if not isinstance(frms, list):
+                        continue
+                    cur_n = len(frms)
+                    if cur_n > seen[idx_k]:
+                        new_slice = frms[seen[idx_k] : cur_n]
+                        seen[idx_k] = cur_n
+                        last_f = new_slice[-1]
+                        try:
+                            rgb_arr = np.asarray(last_f, dtype=np.float32)
+                            if rgb_arr.ndim == 3 and rgb_arr.shape[2] >= 3:
+                                policy.update_from_preview(rgb_arr, step=int(step_i))
+                        except Exception as exc:
+                            logger.debug("[h3] preview thermostat bridge skipped step %s: %s", step_i, exc)
+
+            def _bridge_cb(step_i, x0, x_cur, total_steps_):
+                _drain_kj_frames(step_i)
+                if callback is not None:
+                    callback(step_i, x0, x_cur, total_steps_)
+                _drain_kj_frames(step_i)
+
+            return executor(
+                noise,
+                latent_image,
+                sampler,
+                sigmas,
+                denoise_mask,
+                _bridge_cb,
+                disable_pbar,
+                seed,
+                **outer_kwargs,
+            )
+
+        m.add_wrapper_with_key(
+            WrappersMP.OUTER_SAMPLE,
+            f"{SELF_MASK_WRAPPER_KEY}_preview_bridge",
+            _preview_bridge_outer,
+        )
+
+    need_post_cfg = bool(enable_audio_x0_thermostat) or (src == "audio_transients")
+    if need_post_cfg and hasattr(m, "set_model_sampler_post_cfg_function"):
         def _post_cfg(args: Mapping[str, Any]):
             denoised = args.get("denoised")
             mdl = args.get("model")
@@ -1138,7 +1371,47 @@ def attach_self_mask_router(
                                 if sig is not None
                                 else None
                             )
-                            policy.update_from_audio_x0(streams[1], step=cur_s, sigma=sig_f)
+                            if enable_audio_x0_thermostat:
+                                policy.update_from_audio_x0(streams[1], step=cur_s, sigma=sig_f)
+                            if src == "audio_transients" and policy.harvested_mask_frames is None:
+                                ll = step_state.get("last_layout")
+                                if ll is not None and ll[0] >= 1 and ll[1] >= 1 and ll[2] >= 1:
+                                    lt, ph, pw = int(ll[0]), int(ll[1]), int(ll[2])
+                                else:
+                                    v_sh = shapes[0]
+                                    lt = max(1, int(v_sh[2]))
+                                    ph = max(1, int(v_sh[3]) // 2)
+                                    pw = max(1, int(v_sh[4]) // 2)
+                                m_thw, m_stats = synthesize_audio_transient_mask(
+                                    streams[1],
+                                    latent_t=lt,
+                                    patch_h=ph,
+                                    patch_w=pw,
+                                    z_thresh=max(2.2, float(threshold_z)),
+                                    softness=float(softness),
+                                    invert=bool(invert),
+                                )
+                                policy.harvested_mask_thw = m_thw
+                                policy.harvested_mask_frames = expand_latent_mask_to_frames(m_thw)
+                                policy.mask_stats = m_stats
+                                policy.step_history.append(
+                                    {
+                                        "step": cur_s,
+                                        "phase": "harvest",
+                                        "blocks": [],
+                                        "noun_indices": [],
+                                        **m_stats,
+                                    }
+                                )
+                                policy.emit_event(
+                                    {
+                                        "kind": "self_mask_locked",
+                                        "step": cur_s,
+                                        "mask_source": src,
+                                        "target_phrase": policy.target_phrase,
+                                        **m_stats,
+                                    }
+                                )
             return denoised
 
         m.set_model_sampler_post_cfg_function(_post_cfg)
@@ -1147,7 +1420,7 @@ def attach_self_mask_router(
 
 
 class MiniMaxH3SelfMaskRouter(io.ComfyNode):
-    """Zero-coordinate, zero-SAM3 `1x` Self-Masked Router (Step-0 `B35+B40` harvest -> Steps `1..5` SpatialQR)."""
+    """Zero-coordinate, zero-SAM3 `1x` Self-Masked Router (Step-0 `B35+B40` harvest -> Steps `1..5` SpatialQR / EditGuider)."""
 
     @classmethod
     def define_schema(cls) -> io.Schema:
@@ -1156,15 +1429,19 @@ class MiniMaxH3SelfMaskRouter(io.ComfyNode):
             display_name="MiniMax H3 Self-Mask Router",
             category="MiniMax H3/Steering",
             description=(
-                "Harvest a zero-coordinate 4D object or active-speaker mask from H3's own Step-0 "
-                "B35+B40 attention and route region_conditioning strictly onto that target on Steps 1..5 "
-                "in one 1x pass (supports MiniMax-H3-Image and joint AV MiniMax-H3)."
+                "Harvest a zero-coordinate 4D object, active-speaker, or audio-transient mask from H3's "
+                "Step-0 B35+B40 attention (or audio_x0 onsets) and route region_conditioning onto that target "
+                "(or feed the harvested mask and H3LivePolicy thermostats into MiniMaxH3EditGuider / Steer / QueryRouter)."
             ),
             inputs=[
                 io.Model.Input("model"),
                 io.Conditioning.Input(
                     "region_conditioning",
-                    tooltip="Second prompt CONDITIONING routed exclusively onto the self-masked target on Steps 1..5.",
+                    optional=True,
+                    tooltip=(
+                        "Optional second prompt CONDITIONING routed onto the self-masked target in 1x SpatialQR mode. "
+                        "Leave unwired to harvest masks & run H3LivePolicy thermostats for MiniMaxH3EditGuider / Steer / QueryRouter."
+                    ),
                 ),
                 io.Combo.Input(
                     "mask_source",
@@ -1173,7 +1450,7 @@ class MiniMaxH3SelfMaskRouter(io.ComfyNode):
                     tooltip=(
                         "'text_phrase': localize target_phrase via Q_vid @ K_txt[phrase]^T (B35+B40); "
                         "'active_speaker'/'left_speaker'/'right_speaker': zero-training speaker spotlight "
-                        "via Q_vid @ K_aud[t]^T (B35+B40)."
+                        "via Q_vid @ K_aud[t]^T (B35+B40); 'audio_transients': Step-0 audio_x0 onset burst mask (flux_z >= 2.2)."
                     ),
                 ),
                 io.String.Input(
@@ -1267,7 +1544,7 @@ class MiniMaxH3SelfMaskRouter(io.ComfyNode):
     def execute(
         cls,
         model: Any,
-        region_conditioning: Any,
+        region_conditioning: Any = None,
         mask_source: str = "text_phrase",
         target_phrase: str = "",
         threshold_z: float = 1.35,

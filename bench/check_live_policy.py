@@ -206,6 +206,18 @@ class _MiniPatcher:
     def set_model_sampler_post_cfg_function(self, fn) -> None:
         self._post_cfg_fns.append(fn)
 
+    def add_wrapper_with_key(self, wrapper_type, key: str, fn) -> None:
+        self.wrappers.setdefault(wrapper_type, {}).setdefault(key, []).append(fn)
+
+    def get_wrappers(self, wrapper_type, key: str | None = None):
+        bucket = self.wrappers.get(wrapper_type, {})
+        if key is not None:
+            return list(bucket.get(key, ()))
+        out = []
+        for vals in bucket.values():
+            out.extend(vals)
+        return out
+
     def trigger_cleanup(self) -> None:
         for fns in self.callbacks.get(CallbacksMP.ON_CLEANUP, {}).values():
             for fn in fns:
@@ -575,7 +587,190 @@ def main() -> int:
     input_ids = [inp.id for inp in schema.inputs]
     assert input_ids[:4] == ["model", "region_conditioning", "mask_source", "target_phrase"]
     assert input_ids[-1] == "replay_step0" and len(input_ids) == 15
+    assert getattr(schema.inputs[1], "optional", False) is True, "region_conditioning must be optional=True"
     print(f"[ok] 7. All refusal guards & MiniMaxH3SelfMaskRouter schema ({len(input_ids)} inputs) verified")
+
+    # 8. `audio_transients` Step-0 burst mask + optional `region_conditioning=None` + `SelfMask -> 2x EditGuider` bridge
+    torch.manual_seed(21)
+    aud_burst = torch.randn((1, 32, 2, 25)) * 0.6
+    aud_burst[:, :, :, 14] *= 7.5  # strong transient at a_idx=14 -> latent step 2 (windows: [0,2), [1,9), [8,16), [15,22))
+    m_tr, st_tr = lp.synthesize_audio_transient_mask(aud_burst, latent_t=4, patch_h=4, patch_w=6, z_thresh=2.2)
+    assert m_tr.shape == (4, 4, 6)
+    assert float(m_tr[2].mean().item()) > 0.85 and float(m_tr[0].mean().item()) == 0.0 and float(m_tr[3].mean().item()) == 0.0, st_tr
+    assert st_tr["active_latent_steps"] == [2]
+
+    # Sensor-only attach (`region_conditioning=None`) + `audio_transients` + `m._h3_live_policy` + clone propagation
+    p_tr, pol_tr = lp.attach_self_mask_router(
+        base_p,
+        region_conditioning=None,
+        mask_source="audio_transients",
+        harvest_blocks=(2, 3),
+        emit_ws_events=False,
+    )
+    assert getattr(p_tr, "_h3_live_policy", None) is pol_tr
+    assert p_tr.clone().model_options["transformer_options"]["_h3_live_policy"] is pol_tr
+    aud_burst10 = torch.randn((1, 32, 2, 10)) * 0.5
+    aud_burst10[:, :, :, 6] *= 8.0  # transient inside latent step 1 window [1, 9)
+    packed_burst10 = comfy.utils.pack_latents([torch.randn(1, 24, 2, 8, 12), aud_burst10])[0]
+    out_tr0, _ = p_tr.run_step(ctx, layout_av, img, t_emb, mod_segs, sigma=1.0, denoised=packed_burst10)
+    assert float((out_tr0 - out0_ref).abs().max().item()) == 0.0
+    assert pol_tr.harvested_mask_frames is not None and pol_tr.harvested_mask_frames.shape == (5, 4, 6)
+    assert float(pol_tr.harvested_mask_frames[1:].mean().item()) > 0.80
+    assert float(pol_tr.harvested_mask_frames[0].mean().item()) == 0.0
+    # Step 1 skips Phase-2 SpatialQR cleanly when region_conditioning is None
+    out_tr1, _ = p_tr.run_step(ctx, layout_av, img, t_emb, mod_segs, sigma=0.8)
+    assert float((out_tr1 - out1_ref).abs().max().item()) == 0.0
+
+    # `EditGuider._effective_raw_mask()` falls back to `model_patcher._h3_live_policy.harvested_mask_frames`
+    import edit_guidance as eg
+
+    eg_guider = eg.EditGuider.__new__(eg.EditGuider)
+    eg_guider.model_patcher = p_tr
+    eg_guider.set_edit(scale=1.6, first_step=1, align_positions=True, last_step=3, streams="video_only", mask=None)
+    eff_m = eg_guider._effective_raw_mask()
+    assert eff_m is not None and eff_m.shape == (5, 4, 6)
+    v_m_eg, a_m_eg = eg_guider._prepare_masks_for_step((1, 24, 2, 8, 12), (1, 32, 2, 10), torch.device("cpu"), torch.float32)
+    assert v_m_eg is not None and v_m_eg.shape == (1, 1, 2, 8, 12)
+    assert float(v_m_eg[0, 0, 1].mean().item()) > 0.80 and float(v_m_eg[0, 0, 0].mean().item()) == 0.0
+    assert a_m_eg is not None
+    # Explicit `h3_edit_pass` skips Phase-2 SpatialQR even when `region_conditioning` is wired!
+    p_ed, pol_ed = lp.attach_self_mask_router(
+        base_p,
+        region_conditioning=reg_cond,
+        mask_source="text_phrase",
+        target_phrase="bread",
+        token_pieces=tok_pieces,
+        threshold_z=0.8,
+        replay_step0=True,
+        harvest_blocks=(2, 3),
+        emit_ws_events=False,
+    )
+    dm_w = p_ed.wrappers[WrappersMP.DIFFUSION_MODEL][lp.SELF_MASK_WRAPPER_KEY][0]
+    to_ed = dict(p_ed.model_options["transformer_options"])
+    to_ed["sigmas"] = torch.tensor([1.0])
+    to_ed["sample_sigmas"] = torch.tensor([1.0, 0.8, 0.0])
+    out_ed0 = dm_w(
+        lambda x_, t_, c_, to_, **kw_: base_dm._forward(x_, t_, c_, to_, **kw_),
+        [torch.zeros(1), torch.zeros(1)], torch.tensor([1000.0]), ctx, to_ed,
+        img=img, layout=layout_av, t_emb=t_emb, mod_segments=mod_segs,
+        minimax_payload={"h3_edit_pass": "original"},
+    )
+    assert float((out_ed0 - out0_ref).abs().max().item()) == 0.0, "EditGuider Step-0 original must harvest without replay!"
+    assert pol_ed.harvested_mask_frames is not None
+    out_ed1 = dm_w(
+        lambda x_, t_, c_, to_, **kw_: base_dm._forward(x_, t_, c_, to_, **kw_),
+        [torch.zeros(1), torch.zeros(1)], torch.tensor([800.0]), ctx, to_ed,
+        img=img, layout=layout_av, t_emb=t_emb, mod_segments=mod_segs,
+        minimax_payload={"h3_edit_pass": "edited"},
+    )
+    assert float((out_ed1 - out1_ref).abs().max().item()) == 0.0, "EditGuider Step-1 edited must skip Phase-2 SpatialQR!"
+    print("[ok] 8. audio_transients, optional region_conditioning=None & SelfMask -> 2x EditGuider bridge verified")
+
+    # 9. Closed-loop H3LivePolicy actuators: KJ preview bridge + Steer/ReleaseRefs + QueryRouter a2v=0.0 clamp
+    dim_frame = np.full((32, 32, 3), 40, dtype=np.uint8)  # mean_luma ~ 0.157 -> dim_understeer_risk (+1.12x)
+    ev_dim = lp.evaluate_preview_frame(dim_frame)
+    assert "dim_understeer_risk" in ev_dim["flags"] and ev_dim["recommended_strength_scale"] > 1.05
+
+    class _MockKJWrapper:
+        def __init__(self):
+            self.frames = []
+
+    kj_mock = _MockKJWrapper()
+    p_tr.add_wrapper_with_key(WrappersMP.OUTER_SAMPLE, "kj_preview_override", kj_mock)
+    bridge_fn = p_tr.get_wrappers(WrappersMP.OUTER_SAMPLE, f"{lp.SELF_MASK_WRAPPER_KEY}_preview_bridge")[0]
+
+    class _MockOuterExec:
+        def __init__(self, mp):
+            self.class_obj = types.SimpleNamespace(model_patcher=mp)
+
+        def __call__(self, noise, lat_i, sampler, sigmas, denoise_mask, cb, disable_pbar, seed, **kw):
+            # Step 0: dim frame; Step 1: identical static dim frame -> freeze risk -> recommended_video_end_percent = 0.33!
+            kj_mock.frames.append(dim_frame)
+            cb(0, None, None, 6)
+            kj_mock.frames.append(dim_frame)
+            cb(1, None, None, 6)
+            return lat_i
+
+    pol_tr.reset_for_new_run()
+    bridge_fn(_MockOuterExec(p_tr), None, None, None, None, None, None, True, 42)
+    assert len(pol_tr.preview_history) == 2
+    assert pol_tr.strength_scale > 1.05, f"Dim preview should boost strength_scale, got {pol_tr.strength_scale}"
+    assert pol_tr.recommended_video_end_percent == 0.33, (
+        f"Static Step-1 preview should trigger 0.33 anti-copy-freeze governor, got {pol_tr.recommended_video_end_percent}"
+    )
+
+    # Verify `steering/query_router.py` respects `policy.recommended_aud_to_vid_gain = 0.0`!
+    from steering import query_router as qr_mod
+
+    pol_hiss = lp.H3LivePolicy(audio_zone="binaural_split", emit_ws_events=False)
+    pol_hiss.update_from_audio_x0(aud_mono, step=1, sigma=0.97)
+    assert pol_hiss.recommended_aud_to_vid_gain == 0.0, pol_hiss.to_report()
+    p_for_qr = base_p.clone()
+    p_for_qr._h3_live_policy = pol_hiss
+    p_for_qr.model_options["transformer_options"][lp.LIVE_POLICY_KEY] = pol_hiss
+    p_qr = qr_mod.attach_query_router(p_for_qr, section_split="off", aud_to_vid_gain=1.0)
+    captured_stats: list[dict] = []
+    qr_w = p_qr.wrappers[WrappersMP.DIFFUSION_MODEL][qr_mod.ROUTER_WRAPPER_KEY][0]
+    to_qr = dict(p_qr.model_options["transformer_options"])
+    to_qr["sigmas"] = torch.tensor([0.8])
+    to_qr["sample_sigmas"] = torch.tensor([1.0, 0.8, 0.0])
+    to_qr["_h3_steer_stats_sink"] = captured_stats
+    qr_w(
+        lambda x_, t_, c_, to_, **kw_: base_dm._forward(x_, t_, c_, to_, **kw_),
+        [torch.zeros(1), torch.zeros(1)], torch.tensor([800.0]), ctx, to_qr,
+        img=img, layout=layout_av, t_emb=t_emb, mod_segments=mod_segs,
+        minimax_payload={},
+    )
+    assert len(captured_stats) == 1, "QueryRouter must activate H3SteerRuntime when policy clamps a2v=0.0!"
+
+    # Verify `steering/nodes.py` respects `policy.strength_scale` & `policy.recommended_video_end_percent`!
+    from steering import nodes as sn_mod
+
+    dummy_vec = torch.zeros(5376, dtype=torch.float32)
+    dummy_vec[0] = 1.0
+    spec_s = sn_mod._AppliedVectorSpec(
+        vector_name="test_vec",
+        vector=dummy_vec,
+        strength=1.0,
+        mode="add",
+        mask="all_rows",
+        start_percent=0.0,
+        end_percent=1.0,
+        metadata={},
+        advisories=(),
+        scale_mode="raw",
+    )
+    cv_w = sn_mod._make_control_vector_wrapper((spec_s,), is_h3_image=False)
+    seen_ctxs: list[torch.Tensor] = []
+    seen_payloads: list[dict] = []
+
+    def _cap_exec(x_, t_, c_, to_, **kw_):
+        seen_ctxs.append(c_.detach().clone())
+        seen_payloads.append(dict(kw_.get("minimax_payload") or {}))
+        return torch.zeros(1)
+
+    ctx_5376 = torch.ones((1, 4, 5376), dtype=torch.float32)
+    to_s1 = {"sigmas": torch.tensor([0.8]), "sample_sigmas": torch.tensor([1.0, 0.8, 0.6, 0.4, 0.2, 0.0])}
+    cv_w(_cap_exec, [torch.zeros(1), torch.zeros(1)], torch.tensor([800.0]), ctx_5376, to_s1, minimax_payload={})
+    pol_boost = lp.H3LivePolicy(strength_scale=1.12, emit_ws_events=False)
+    to_s2 = {**to_s1, lp.LIVE_POLICY_KEY: pol_boost}
+    cv_w(_cap_exec, [torch.zeros(1), torch.zeros(1)], torch.tensor([800.0]), ctx_5376, to_s2, minimax_payload={})
+    delta_base = float((seen_ctxs[0][0, 0, 0] - 1.0).item())
+    delta_pol = float((seen_ctxs[1][0, 0, 0] - 1.0).item())
+    assert abs(delta_pol - delta_base * 1.12) < 1e-4, f"Expected 1.12x scaled steer: base={delta_base}, pol={delta_pol}"
+
+    # Anti-Copy-Freeze Governor (`recommended_video_end_percent = 0.33`) drops `<Video N>` refs at Step 2 (`2/6 >= 0.33`)!
+    pol_rel = lp.H3LivePolicy(recommended_video_end_percent=0.33, emit_ws_events=False)
+    to_s3 = {"sigmas": torch.tensor([0.6]), "sample_sigmas": torch.tensor([1.0, 0.8, 0.6, 0.4, 0.2, 0.0]), lp.LIVE_POLICY_KEY: pol_rel}
+    vid_ref_payload = {
+        "refs": [{"kind": "video", "latent": torch.zeros((1, 24, 2, 8, 12)), "latent_t": 2, "latent_h": 8, "latent_w": 12, "ref_audio_t": 0}],
+        "cond_video_latents": [torch.zeros((1, 24, 2, 8, 12))],
+    }
+    cv_w(_cap_exec, [torch.zeros((1, 24, 2, 8, 12)), torch.zeros((1, 32, 2, 10))], torch.tensor([600.0]), ctx_5376, to_s3, minimax_payload=vid_ref_payload)
+    assert seen_payloads[-1].get("cond_video_latents") == [], (
+        f"Expected recommended_video_end_percent=0.33 to drop <Video N> refs at Step 2, got {seen_payloads[-1]}"
+    )
+    print("[ok] 9. Closed-loop H3LivePolicy actuators (KJ preview bridge, Steer scale, 0.33 governor, QueryRouter a2v=0.0) verified")
 
     print("ALL H3 LivePolicy & SelfMaskRouter CPU checks passed!")
     return 0

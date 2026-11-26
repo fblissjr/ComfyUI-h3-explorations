@@ -290,6 +290,7 @@ class EditGuider(comfy.samplers.CFGGuider):
     _mask: torch.Tensor | None = None
     _temporal_curve: str = "whole_clip"
     _mask_cache: dict[tuple[Any, ...], tuple[torch.Tensor | None, torch.Tensor | None]] | None = None
+    _harvest_norm_cache: tuple[int, torch.Tensor] | None = None
 
     def set_conds(self, original, edited):
         self.inner_set_conds({"positive": edited, "negative": original})
@@ -351,7 +352,36 @@ class EditGuider(comfy.samplers.CFGGuider):
         self._mask = None if mask is None else _normalize_edit_mask(mask)
         self._temporal_curve = str(temporal_curve)
         self._mask_cache = {}
+        self._harvest_norm_cache = None
         self._prepared = False
+
+    def _live_policy_obj(self) -> Any:
+        mp = getattr(self, "model_patcher", None)
+        if mp is None:
+            return None
+        pol = getattr(mp, "_h3_live_policy", None)
+        if pol is not None:
+            return pol
+        to = getattr(mp, "model_options", {}).get("transformer_options")
+        return to.get("_h3_live_policy") if isinstance(to, Mapping) else None
+
+    def _effective_raw_mask(self) -> torch.Tensor | None:
+        raw = getattr(self, "_mask", None)
+        if raw is not None:
+            return raw
+        pol = self._live_policy_obj()
+        harvested = getattr(pol, "harvested_mask_frames", None) if pol is not None else None
+        if harvested is None or not torch.is_tensor(harvested):
+            return None
+        cached = getattr(self, "_harvest_norm_cache", None)
+        h_id = id(harvested)
+        if cached is not None and cached[0] == h_id:
+            return cached[1]
+        if harvested.numel() == 0 or not bool(torch.isfinite(harvested).all()) or not bool((harvested > 0.0).any()):
+            return None
+        norm = _normalize_edit_mask(harvested)
+        self._harvest_norm_cache = (h_id, norm)
+        return norm
 
     def _has_active_temporal_curve(self, x, is_nested: bool, latent_shapes) -> bool:
         curve = getattr(self, "_temporal_curve", "whole_clip")
@@ -375,13 +405,13 @@ class EditGuider(comfy.samplers.CFGGuider):
         device: torch.device,
         dtype: torch.dtype,
     ) -> tuple[torch.Tensor | None, torch.Tensor | None]:
-        raw = getattr(self, "_mask", None)
+        raw = self._effective_raw_mask()
         t_curve_name = getattr(self, "_temporal_curve", "whole_clip")
         if raw is None and t_curve_name == "whole_clip":
             return (None, None)
         v_key = tuple(int(d) for d in video_shape)
         a_key = None if audio_shape is None else tuple(int(d) for d in audio_shape)
-        cache_key = (v_key, a_key, t_curve_name, device, dtype)
+        cache_key = (v_key, a_key, t_curve_name, None if raw is None else id(raw), device, dtype)
         cache = getattr(self, "_mask_cache", None)
         if cache is not None and cache_key in cache:
             return cache[cache_key]
@@ -533,14 +563,17 @@ class EditGuider(comfy.samplers.CFGGuider):
         has_audio = is_nested or (packed_split is not None)
         if not has_audio:
             eff_a = eff_v
-        has_mask = (getattr(self, "_mask", None) is not None) or self._has_active_temporal_curve(
+        has_mask = (self._effective_raw_mask() is not None) or self._has_active_temporal_curve(
             x, is_nested, latent_shapes
         )
+        has_pending_live_mask = (not has_mask) and (self._live_policy_obj() is not None)
         if eff_v == 0.0 and eff_a == 0.0:
             return comfy.samplers.calc_cond_batch(self.inner_model, [original], x, timestep, model_options)[0]
-        if eff_v == 1.0 and eff_a == 1.0 and not has_mask:
+        if eff_v == 1.0 and eff_a == 1.0 and not has_mask and not has_pending_live_mask:
             return comfy.samplers.calc_cond_batch(self.inner_model, [edited], x, timestep, model_options)[0]
         out = comfy.samplers.calc_cond_batch(self.inner_model, [original, edited], x, timestep, model_options)
+        if has_pending_live_mask:
+            has_mask = self._effective_raw_mask() is not None
         if (eff_v != eff_a or has_mask) and getattr(out[0], "is_nested", False) and len(out[0].unbind()) == 2:
             v0, a0 = out[0].unbind()
             v1, a1 = out[1].unbind()

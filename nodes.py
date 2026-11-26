@@ -83,6 +83,7 @@ from .subject_boxes import MiniMaxH3SubjectBoxes
 from .subject_track import MiniMaxH3SubjectTrack
 from .vae_precision import MiniMaxH3VAEPrecision
 from .video_mask import MiniMaxH3MaskedSource
+from steering.live_policy import MiniMaxH3SelfMaskRouter
 from steering.query_router import MiniMaxH3QueryRouter
 from steering.spatial_query_router import MiniMaxH3SpatialQueryRouter
 
@@ -153,6 +154,7 @@ class H3ExplorationsExtension(ComfyExtension):
             MiniMaxH3DirectorHUD,  # Director / Split A/B diagnostic HUD overlay exporter
             MiniMaxH3QueryRouter,  # Single-pass 1x cross-modal Q_vid / Q_aud depth router
             MiniMaxH3SpatialQueryRouter,  # Single-pass 1x spatial box/mask visual world router
+            MiniMaxH3SelfMaskRouter,  # Zero-coordinate Step-0 self-masked router & H3LivePolicy bus
             MiniMaxH3Steer,  # Post-refiner subspace erasure / 4-bus steering dial
             MiniMaxH3WordVector,  # J-Lens lexical contrastive vector synthesizer
             MiniMaxH3MakeMediaControlVector,  # Contrastive steering vector from media pairs

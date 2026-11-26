@@ -721,7 +721,17 @@ def _make_control_vector_wrapper(
         min_aud_aug = min((sp.audio_cond_aug for sp in ref_specs), default=1.0)
         min_vid_ref_end = min((sp.video_ref_end_percent for sp in ref_specs), default=1.0)
         min_guide_end = min((sp.guide_cond_end_percent for sp in ref_specs), default=1.0)
-        eff_vid_end = min(min_ref_end, min_vid_ref_end)
+        live_policy = (
+            transformer_options.get("_h3_live_policy")
+            if isinstance(transformer_options, dict)
+            else None
+        )
+        pol_vid_end = getattr(live_policy, "recommended_video_end_percent", None) if live_policy is not None else None
+        eff_vid_end = (
+            min(min_ref_end, max(0.05, min(1.0, float(pol_vid_end))))
+            if pol_vid_end is not None
+            else min(min_ref_end, min_vid_ref_end)
+        )
         eff_guide_end = min(min_ref_end, min_guide_end)
 
         is_av_x = isinstance(x, (list, tuple)) and len(x) >= 2
@@ -1218,6 +1228,11 @@ def _make_control_vector_wrapper(
             s_val = float(sp.strength) * _spec_stream_scale(sp, stream_attr)
             if _effective_entry_mode(sp) == "hold":
                 return max(0.0, min(2.0, s_val))
+            if live_policy is not None:
+                raw_ps = getattr(live_policy, "strength_scale", 1.0)
+                if raw_ps is not None:
+                    pol_scale = max(0.50, min(1.25, float(raw_ps)))
+                    s_val *= pol_scale
             return s_val
 
         def _build_steered_context(

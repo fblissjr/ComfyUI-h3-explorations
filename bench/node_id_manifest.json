@@ -946,6 +946,29 @@
       "text"
     ]
   },
+  "MiniMaxH3SelfMaskRouter": {
+    "inputs": [
+      "model",
+      "region_conditioning",
+      "mask_source",
+      "target_phrase",
+      "threshold_z",
+      "softness",
+      "dilation_passes",
+      "isolation",
+      "audio_zone",
+      "invert",
+      "start_percent",
+      "end_percent",
+      "clip",
+      "base_prompt",
+      "replay_step0"
+    ],
+    "node_id": "MiniMaxH3SelfMaskRouter",
+    "outputs": [
+      "Output"
+    ]
+  },
   "MiniMaxH3Sol": {
     "inputs": [
       "model",
