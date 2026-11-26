@@ -84,10 +84,10 @@ Load the shipped standalone workflow **[`workflows/h3_text_to_video_pika_spatial
 
 | Goal | Best Tool | Speed | Why |
 | :--- | :--- | :-: | :--- |
-| **Generate a brand-new split-screen, sky split, animated `[F, H, W]` wipe, or portal scene from scratch** | **`MiniMaxH3SpatialQueryRouter`** (`1×`) | **~`1.1×`** (`+4 s` at `90f`) | Builds both worlds natively in one pass with seamless reflections, soft `[0..1]` feather blending, & `binaural_split` audio |
+| **Generate a brand-new split-screen, sky split, `SAM 3.1` background swap, or static portal from scratch** | **`MiniMaxH3SpatialQueryRouter`** (`1×`) | **~`1.1–1.35×`** | Builds both worlds natively at Step 0 with soft `[0..1]` feather blending & `binaural_split` audio (`lr_corr 0.0152`, `4.1×` L/R spectral split) |
 | **Split Camera vs. Microphone** (dubbing, wrong voice, Genre Roulette, Shell-Shock Mute) | **[`MiniMaxH3QueryRouter`](query_routing.md)** (`1×`) | **`1.0×`** | Routes `Q_vid` vs. `Q_aud` with the `aud_to_vid_gain = 0.0` Sight-to-Sound Firewall |
-| **Edit an *existing* video take** (take-locked Step-0 anchor) | **[`MiniMaxH3EditGuider`](edit_guidance.md) + [`MiniMaxH3SpatialDirector`](spatial_director_guide.md)** (`2×`) | `2.0×` | Anchors an exact existing take on Step 0 and applies `[F, H, W]` velocity deltas |
-| **Continuous style/mood dials** (`noir`, `claymation`, `reverb`) | **[`MiniMaxH3Steer`](steering.md)** (`1×`) | **`1.0×`** | Smooth orthogonal sliders with zero prompt rewrites (context-mode `streams="both", block_band="all"` stacks directly with `MiniMaxH3SpatialQueryRouter`) |
+| **Edit an *existing* video take**, **re-skin a small tracked subject**, or animate a **moving circular portal** (`lock_take`) | **[`MiniMaxH3EditGuider`](edit_guidance.md) + [`MiniMaxH3SpatialDirector`](spatial_director_guide.md)** (`2×`, `last_step=3`) | `2.0×` | Anchors Step 0 and applies contrast-amplified `[F, H, W]` velocity deltas (`last_step=3` on 6-step Pika avoids overcook; moving `1×` `t2va` portals park in the horizon) |
+| **Continuous style/mood dials** (`noir`, `claymation`, `reverb`) | **[`MiniMaxH3Steer`](steering.md)** (`1×`) | **`1.0×`** | Smooth orthogonal sliders with zero prompt rewrites (context-mode `streams="both", block_band="all"` verified at `42.6 s` stacked with `MiniMaxH3SpatialQueryRouter`) |
 
 *(Requirements & limits: `MiniMaxH3SpatialQueryRouter` works on `t2va`, `fl2va`, and `ref2va` video models — preserving `cond` keyframes and `ref_img` / `ref_audio` tokens across both isolated islands — and stacks cleanly with context-mode `MiniMaxH3Steer(streams="both", block_band="all")`. Use **`ModelAttentionBackend("comfy kitchen attention")`** with optional `MiniMaxH3Sol`; it refuses `MiniMaxH3SageAttention` — even under `MiniMaxH3Sol` because Step 0 bypasses `optimized_attention_override` — and refuses stacking on the same active step with `MiniMaxH3QueryRouter`, hook-mode `MiniMaxH3Steer`, `MiniMaxH3FrozenVideoCache`, `BlockSparseAttention`, or a second `MiniMaxH3SpatialQueryRouter`.)*
 
@@ -112,6 +112,6 @@ Load the shipped standalone workflow **[`workflows/h3_text_to_video_pika_spatial
 ## Further Reading & Verification
 
 - **Standalone API Workflow:** [`workflows/h3_text_to_video_pika_spatial_query_router_api.json`](../../workflows/h3_text_to_video_pika_spatial_query_router_api.json)
-- **Measured 4-clip GPU gate:** [`bench/results/2026-11-25_spatial_query_router.md`](../../bench/results/2026-11-25_spatial_query_router.md) (`$H3_OUTPUT_DIR/Video/spatial_qr_lab_2026-11-25/`)
+- **Measured GPU gates:** [`bench/results/2026-11-25_spatial_query_router.md`](../../bench/results/2026-11-25_spatial_query_router.md) (`4` clips) · [`bench/results/2026-11-26_bucket3_spatial_qr_and_sam3.md`](../../bench/results/2026-11-26_bucket3_spatial_qr_and_sam3.md) (`8` clips: `SAM 3.1` splits, `192f binaural_split`, moving lens, `early_0_32`, `Steer` stack)
 - **Implementation & CPU test suite:** [`steering/spatial_query_router.py`](../../steering/spatial_query_router.py) · [`bench/check_spatial_query_router.py`](../../bench/check_spatial_query_router.py)
 - **Related pages:** [`query_routing.md`](query_routing.md) (`1x` Camera ↔ Mic Split) · [`spatial_director_guide.md`](spatial_director_guide.md) (`2x` Moving Portals) · [`README.md`](README.md) (Top Research Highlights)
