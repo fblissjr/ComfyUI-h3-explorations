@@ -517,12 +517,20 @@ _STEP0_CRITIC_SYSTEM_PROMPT = (
     "You inspect a Step-0 diffusion preview frame for glaring framing or rendering defects that should be "
     "projected out of the text conditioning on remaining steps. Return ONLY a single compact JSON object "
     "with keys: has_border_seam (bool), has_color_bleed (bool), has_watermark_text (bool), "
-    "scrub_words (array of 0-4 single lowercase English artifact nouns such as border, frame, letterbox, "
-    "seam, watermark, text, logo, subtitle, neon, oversaturated), reason (short string <= 12 words). "
+    "scrub_words (array of 0-4 single lowercase English artifact nouns such as border, frame, bars, "
+    "widescreen, seam, watermark, text, logo, subtitle, neon, saturated, clipped), reason (short string <= 12 words). "
     "Be conservative: only flag clear visible defects (black letterbox bars, hard split-screen seam, "
     "picture-frame borders, giant text/watermark overlays, or extreme neon color wash). "
     "If the preview looks normal, set all booleans false and scrub_words to []."
 )
+
+_CRITIC_VOCAB_SYNONYMS: dict[str, tuple[str, ...]] = {
+    "letterbox": ("border", "frame", "bars", "widescreen"),
+    "letterboxing": ("border", "frame", "bars", "widescreen"),
+    "pillarbox": ("border", "frame", "bars"),
+    "oversaturated": ("neon", "saturated", "clipped", "glow"),
+    "oversaturation": ("neon", "saturated", "clipped", "glow"),
+}
 
 _STEP0_CRITIC_USER_PROMPT = (
     "Inspect this Step-0 video/image preview frame. Flag any obvious border/letterbox/split-seam, "
@@ -563,11 +571,11 @@ def _parse_step0_critic_json(raw_text: str) -> dict[str, Any]:
                 break
     if not words:
         if has_border:
-            words.extend(["border", "frame", "letterbox"])
+            words.extend(["border", "frame", "bars", "widescreen"])
         if has_text:
             words.extend(["watermark", "text", "logo"])
         if has_bleed:
-            words.extend(["neon", "oversaturated"])
+            words.extend(["neon", "saturated", "clipped"])
         words = list(dict.fromkeys(words))[:6]
 
     return {
@@ -656,7 +664,16 @@ def synthesize_policy_scrub_unit_vec(
     family: str = "fl2va",
 ) -> torch.Tensor | None:
     """Synthesize a unit-norm `5376`-d post-refiner direction in `< 3 ms` CPU via `steering.xray`."""
-    clean = [str(w).strip().lower() for w in words if str(w).strip()]
+    expanded: list[str] = []
+    for w in words:
+        tok = str(w).strip().lower()
+        if not tok:
+            continue
+        if tok in _CRITIC_VOCAB_SYNONYMS:
+            expanded.extend(_CRITIC_VOCAB_SYNONYMS[tok])
+        else:
+            expanded.append(tok)
+    clean = list(dict.fromkeys(expanded))
     if not clean:
         return None
     try:
