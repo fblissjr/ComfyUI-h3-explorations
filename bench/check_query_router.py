@@ -1096,6 +1096,21 @@ def _test_multi_block_q_txt_k_vid_isolation() -> None:
     err_single = float((a_single_a - a_single_b).abs().max().item())
     assert err_single < 1e-5, f"3-block single-shadow Q_aud leaked K_vid via bufs.q_a ({err_single})"
 
+    # 1b. Single-prompt `aud_to_vid_gain=0.0` (audio_conditioning=None, section_split='off') across 4 blocks!
+    dm4_a = _TinyH3Model(n_blocks=4, n_aud=4, n_vid=8, seed=112)
+    dm4_b = _TinyH3Model(n_blocks=4, n_aud=4, n_vid=8, seed=112)
+    dm4_b._vid_seed.data.add_(10.0)
+    st_sp: list[dict[str, Any]] = []
+    _, a_sp_a = qr.attach_query_router(
+        _ToyPatcher(dm4_a), audio_conditioning=None, section_split="off", aud_to_vid_gain=0.0
+    ).run(ctx_base, stats_sink=st_sp)
+    _, a_sp_b = qr.attach_query_router(
+        _ToyPatcher(dm4_b), audio_conditioning=None, section_split="off", aud_to_vid_gain=0.0
+    ).run(ctx_base)
+    err_sp = float((a_sp_a - a_sp_b).abs().max().item())
+    assert err_sp < 1e-5, f"4-block single-prompt aud_to_vid_gain=0.0 leaked K_vid via 1-hop text ({err_sp})"
+    assert st_sp and st_sp[0]["aud_splices"] == 4, f"expected mode_id=2 aud_splices==4, got {st_sp}"
+
     # 2. Dual-shadow Case B (bufs.q_b across blocks 0..2 when audio_block_band='0-1' vs '0-2' or mixed)
     # Wait: test dual_shadow=True on blocks 0-2 using video_block_band='all' & audio_block_band='0-1' vs Case C
     ctx_base_eq = torch.randn(1, 10, sc.POST_REFINER_DIM, generator=gen) * 0.25

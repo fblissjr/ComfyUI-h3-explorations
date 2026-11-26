@@ -1637,6 +1637,12 @@ def _make_control_vector_wrapper(
                     "active 1x H3SteerRuntime (e.g. MiniMaxH3QueryRouter); use streams='both' & block_band='all', "
                     "or split_backend='legacy_2x', or disable one of the two 1x attention hooks."
                 )
+            if isinstance(transformer_options, dict) and transformer_options.get("_h3_spatial_qr_rt") is not None:
+                raise ValueError(
+                    "MiniMaxH3Steer 1x hook mode (streams!='both' or block_band!='all') cannot share the same "
+                    "sampler step with MiniMaxH3SpatialQueryRouter; use streams='both' & block_band='all', or "
+                    "separate their start/end_percent windows."
+                )
             with _steer_hooks.pause_malloc_graph_ctx():
                 rt = _steer_hooks.H3SteerRuntime(
                     dm=dm_exec,

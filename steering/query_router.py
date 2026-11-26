@@ -382,6 +382,12 @@ def _make_query_router_wrapper(
                     "use MiniMaxH3Steer with streams='both' & block_band='all', or split_backend='legacy_2x', "
                     "or disable one of the two 1x attention hooks."
                 )
+            if isinstance(transformer_options, dict) and transformer_options.get("_h3_spatial_qr_rt") is not None:
+                raise ValueError(
+                    "MiniMaxH3QueryRouter cannot share the same sampler step with an active "
+                    "MiniMaxH3SpatialQueryRouter; separate their start/end_percent windows or use "
+                    "MiniMaxH3SpatialQueryRouter's audio_zone ('base', 'region', 'binaural_split')."
+                )
             with _steer_hooks.pause_malloc_graph_ctx():
                 rt = _steer_hooks.H3SteerRuntime(
                     dm=dm,
@@ -420,17 +426,16 @@ def _make_query_router_wrapper(
         # Case A: Audio-only text route or standalone coupling gating
         if ctx_vid is None or len(vid_band) == 0:
             if ctx_aud is None or not has_audio_stream or len(aud_band) == 0:
-                if float(aud_to_vid_gain) < (1.0 - _FULL_GAIN_EPS):
+                if has_audio_stream and len(aud_band) > 0 and float(aud_to_vid_gain) < (1.0 - _FULL_GAIN_EPS):
                     return _invoke_rt(
-                        mode_id=1,
+                        mode_id=3 if aud_band != all_blocks else 2,
                         main_ctx=ctx_base,
                         shadow_a_init=ctx_base,
                         shadow_b_init=None,
                         swap_blocks=frozenset(),
-                        aud_split_blocks=frozenset(),
+                        aud_split_blocks=aud_band,
                         dual_shadow=False,
                         aud_uses_shadow_b=False,
-                        aud_unswapped_blocks=aud_band if has_audio_stream else frozenset(),
                         shadow_a_tags=base_tags,
                     )
                 return executor(x, timestep, ctx_base, transformer_options, **call_kwargs)
@@ -830,7 +835,10 @@ class MiniMaxH3QueryRouter(io.ComfyNode):
                     optional=True,
                     tooltip=(
                         "Cross-modal coupling weight [0.0, 1.0] for audio queries attending to video keys inside "
-                        "audio_block_band (`log(gain)` bias; 1.0 = unmasked, 0.0 = blind to video)."
+                        "audio_block_band (`log(gain)` bias; 1.0 = unmasked, 0.0 = blind to video and blocks the "
+                        "1-hop K_vid->text->Q_aud relay). On a single prompt with section_split='off', visual words "
+                        "still inside the prompt text remain readable by audio unless section_split='sections_by_modality' "
+                        "or clean audio_conditioning is wired."
                     ),
                 ),
                 io.Combo.Input(

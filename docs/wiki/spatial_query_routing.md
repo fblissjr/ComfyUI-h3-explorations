@@ -70,12 +70,13 @@ Load the shipped standalone workflow **[`workflows/h3_text_to_video_pika_spatial
   - `x_start = 0.00`, `x_end = 1.00`, `y_start = 0.00`, `y_end = 0.45`
   - `isolation = "early_0_24"` *(or `"early_0_16"` for softer horizon lighting bleed onto the ground)*
 
-### Recipe 4 — Custom Shape or `SAM 3.1` Subject Mask
-- **Use for:** Non-rectangular portals (circles, arches, doorway outlines) or routing a completely different prompt strictly inside a tracked subject/background mask.
-- **Settings:** Connect any ComfyUI `MASK` (`[H, W]` static or `[F, H, W]` video mask) to `MiniMaxH3SpatialQueryRouter.mask`. When connected, `mask` automatically overrides `(x_start..y_end)` and downsamples cleanly onto H3's `32×32` patch grid (respecting `invert`).
+### Recipe 4 — Custom Shape, Feathered `[0..1]` Mask, Animated Wipe (`SpatialDirector`), or `SAM 3.1` Subject Mask
+- **Use for:** Non-rectangular portals (circles, arches, doorway outlines), feathered reality halos, animated `[F, H, W]` moving wipes/expanding portals from `MiniMaxH3SpatialDirector.mask`, or routing a completely different prompt strictly inside a tracked `SAM 3.1` subject/background mask.
+- **Settings:** Connect any ComfyUI `MASK` (`[H, W]` static or `[F, H, W]` video mask matching the render frame count `F`) to `MiniMaxH3SpatialQueryRouter.mask`. When connected, `mask` overrides `(x_start..y_end)` and downsamples onto H3's `32×32` causal patch grid (hard-isolating at `>= 0.5` on `early_0_24` blocks and blending smoothly with continuous `[0..1]` weights on blocks `25..49`, respecting `invert`).
 
-### Recipe 5 — Swap the Soundtrack to World B
+### Recipe 5 — Swap or Split the Soundtrack (`region` / `binaural_split`)
 - Set **`audio_zone = "region"`** so stereo audio queries attend to **Region Prompt (World B)** instead of Base Prompt (World A) at zero extra text-encoding cost (e.g., hear midnight cyberpunk pouring rain while looking at the half-sunny / half-neon street!).
+- Set **`audio_zone = "binaural_split"`** for a **`1×` 3D Binaural Split-World**: blocks `0..29` keep both ears shared for phase-locked lip-sync, and blocks `30..49` split Left/Right ears to match Left/Right visual worlds (e.g. sunny cafe on Left ear, midnight neon thunderstorm on Right ear; symmetric boxes tie to `L = base`, `R = region`).
 
 ---
 
@@ -83,12 +84,12 @@ Load the shipped standalone workflow **[`workflows/h3_text_to_video_pika_spatial
 
 | Goal | Best Tool | Speed | Why |
 | :--- | :--- | :-: | :--- |
-| **Generate a brand-new split-screen, sky split, or portal scene from scratch** | **`MiniMaxH3SpatialQueryRouter`** (`1×`) | **~`1.1×`** (`+4 s`) | Builds both worlds natively in one pass with seamless reflections & lighting merge |
+| **Generate a brand-new split-screen, sky split, animated `[F, H, W]` wipe, or portal scene from scratch** | **`MiniMaxH3SpatialQueryRouter`** (`1×`) | **~`1.1×`** (`+4 s` at `90f`) | Builds both worlds natively in one pass with seamless reflections, soft `[0..1]` feather blending, & `binaural_split` audio |
 | **Split Camera vs. Microphone** (dubbing, wrong voice, Genre Roulette, Shell-Shock Mute) | **[`MiniMaxH3QueryRouter`](query_routing.md)** (`1×`) | **`1.0×`** | Routes `Q_vid` vs. `Q_aud` with the `aud_to_vid_gain = 0.0` Sight-to-Sound Firewall |
-| **Edit an *existing* video take** or animate a **moving swept portal** (`lock_take`) | **[`MiniMaxH3EditGuider`](edit_guidance.md) + [`MiniMaxH3SpatialDirector`](spatial_director_guide.md)** (`2×`) | `2.0×` | Anchors an exact existing take on Step 0 and applies `[F, H, W]` velocity deltas |
-| **Continuous style/mood dials** (`noir`, `claymation`, `reverb`) | **[`MiniMaxH3Steer`](steering.md)** (`1×`) | **`1.0×`** | Smooth orthogonal sliders with zero prompt rewrites |
+| **Edit an *existing* video take** (take-locked Step-0 anchor) | **[`MiniMaxH3EditGuider`](edit_guidance.md) + [`MiniMaxH3SpatialDirector`](spatial_director_guide.md)** (`2×`) | `2.0×` | Anchors an exact existing take on Step 0 and applies `[F, H, W]` velocity deltas |
+| **Continuous style/mood dials** (`noir`, `claymation`, `reverb`) | **[`MiniMaxH3Steer`](steering.md)** (`1×`) | **`1.0×`** | Smooth orthogonal sliders with zero prompt rewrites (context-mode `streams="both", block_band="all"` stacks directly with `MiniMaxH3SpatialQueryRouter`) |
 
-*(Note: `MiniMaxH3SpatialQueryRouter` works on `t2va`, `fl2va`, and `ref2va` video models — preserving `cond` keyframes and `ref_img` / `ref_audio` tokens across both isolated islands — and refuses stacking on the same active sampler step with `MiniMaxH3QueryRouter` or `MiniMaxH3FrozenVideoCache`.)*
+*(Requirements & limits: `MiniMaxH3SpatialQueryRouter` works on `t2va`, `fl2va`, and `ref2va` video models — preserving `cond` keyframes and `ref_img` / `ref_audio` tokens across both isolated islands — and stacks cleanly with context-mode `MiniMaxH3Steer(streams="both", block_band="all")`. Use **`ModelAttentionBackend("comfy kitchen attention")`** with optional `MiniMaxH3Sol`; it refuses `MiniMaxH3SageAttention` — even under `MiniMaxH3Sol` because Step 0 bypasses `optimized_attention_override` — and refuses stacking on the same active step with `MiniMaxH3QueryRouter`, hook-mode `MiniMaxH3Steer`, `MiniMaxH3FrozenVideoCache`, `BlockSparseAttention`, or a second `MiniMaxH3SpatialQueryRouter`.)*
 
 ---
 
@@ -96,15 +97,15 @@ Load the shipped standalone workflow **[`workflows/h3_text_to_video_pika_spatial
 
 | Input | Default | What It Controls |
 | :--- | :---: | :--- |
-| **`model`** | *required* | Base H3 model (`ModelAttentionBackend("comfy kitchen attention")` + `MiniMaxH3Sol` recommended) |
+| **`model`** | *required* | Base H3 model (`ModelAttentionBackend("comfy kitchen attention")` + `MiniMaxH3Sol` recommended; no `MiniMaxH3SageAttention`) |
 | **`region_conditioning`** | *required* | Second prompt (`CONDITIONING`, any token length) read inside the routed region |
 | **`x_start` / `x_end`** | `0.50` / `1.00` | Normalized horizontal bounds `[0.0, 1.0]` of the region (`0.50..1.00` = right half) |
 | **`y_start` / `y_end`** | `0.00` / `1.00` | Normalized vertical bounds `[0.0, 1.0]` of the region (`0.18..0.85` for center portal) |
 | **`invert`** | `False` | `False`: inside box/mask gets World B; `True`: outside gets World B |
 | **`isolation`** | `early_0_24` | Symmetric K/V isolation band: `early_0_24` (recommended), `seamless_off` (softer fade), `early_0_16`, `early_0_32`, or `all_0_49` (hardest separation) |
-| **`audio_zone`** | `base` | `base`: stereo audio reads main prompt; `region`: stereo audio reads `region_conditioning` |
+| **`audio_zone`** | `base` | `base`: stereo audio reads main prompt; `region`: stereo audio reads `region_conditioning`; `binaural_split`: shared `0..29`, `late_30_49` L/R split matching L/R visual worlds |
 | **`start_percent` / `end_percent`** | `0.0` / `1.0` | Denoising step window where spatial routing is active |
-| **`mask`** | *optional* | Any 2D `[H, W]` or video `[F, H, W]` `MASK` (`>= 0.5` = region); overrides `x/y` box when connected |
+| **`mask`** | *optional* | Any 2D `[H, W]` or video `[F, H, W]` `MASK` (frame count `1` or matching `F`; isolates `>= 0.5` on `iso` blocks and feathers smoothly `[0..1]` on `25..49`); overrides `x/y` box when connected |
 
 ---
 
