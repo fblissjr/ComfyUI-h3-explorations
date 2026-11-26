@@ -16,6 +16,7 @@ replaces `docs/wiki/ops/evidence.md`, which says what the records established.
 
 | date | lane | record | verdict |
 |---|---|---|---|
+| 2026-11-26 | h3 | [4-Sensor H3 Silicon Calibration Gate (`2026-11-26`)](2026-11-26_h3_4sensor_calibration.md) |  |
 | 2026-11-26 | bucket3 | [Bucket 3 GPU Showcases: `1×` `SAM 3.1` Splits, `192f` `binaural_split`, & `90f` Probes (`2026-11-26`)](2026-11-26_bucket3_spatial_qr_and_sam3.md) |  |
 | 2026-11-25 | spatial | [1× Spatial Visual Query Routing Gate (`2026-11-25`)](2026-11-25_spatial_query_router.md) |  |
 | 2026-11-25 | rope | [Core-Free 3D RoPE Time/Space Warper Falsification (`2026-11-25`)](2026-11-25_rope_warp_falsification.md) |  |

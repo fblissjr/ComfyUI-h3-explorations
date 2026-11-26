@@ -86,6 +86,10 @@ LITERAL_ZERO = {
         "zero start_percent is step 0 of the sampling schedule. The `< 0.0` "
         "guard only validates the `[0.0, 1.0]` bound and raises ValueError on "
         "negative values; zero is handled on the same code path."),
+    ("steering/live_policy.py", "start_percent"): (
+        "zero start_percent is step 0 of the sampling schedule. The `< 0.0` "
+        "guard only validates the `[0.0, 1.0]` bound and raises ValueError on "
+        "negative values; zero is handled on the same code path."),
     ("steering/nodes.py", "hold_alpha"): (
         "zero hold_alpha is zero projection removal (`r' = r - 0 * (r . u_hat) * u_hat = r`). "
         "The `> 0.0` guard skips loading the J-Lens bundle and computing `apply_soft_holds` "

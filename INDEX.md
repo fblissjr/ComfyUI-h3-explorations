@@ -160,7 +160,7 @@ with none is a helper the others import.
 | `.gemini/` | 8 | [below](#gemini) |
 | `archive/` | 78 | (none) |
 | `assets/` | 1 | [below](#assets) |
-| `bench/` | 871 | [`bench/INDEX.md`](bench/INDEX.md) and [`bench/results/INDEX.md`](bench/results/INDEX.md) for the records |
+| `bench/` | 873 | [`bench/INDEX.md`](bench/INDEX.md) and [`bench/results/INDEX.md`](bench/results/INDEX.md) for the records |
 | `changelog.d/` | | [`changelog.d/README.md`](changelog.d/README.md), one file per changelog entry; not listed and not counted |
 | `contact_sheets/` | 1 | [below](#contact_sheets) |
 | `data/` | 1 | [below](#data) |
@@ -169,7 +169,7 @@ with none is a helper the others import.
 | `prompt_bank/` | 250 | [`docs/wiki/prompting/prompt_bank.md`](docs/wiki/prompting/prompt_bank.md), the prompt catalogue |
 | `sparse_tables/` | 1 | [below](#sparse_tables) |
 | `standalone/` | 4 | [below](#standalone) |
-| `steering/` | 13 | [below](#steering) |
+| `steering/` | 14 | [below](#steering) |
 | `vendor/` | 9 | [below](#vendor) |
 | `vendor_config/` | 8 | [below](#vendor_config) |
 | `vendor_guides/` | 19 | [below](#vendor_guides) |
@@ -267,6 +267,7 @@ with none is a helper the others import.
 | [`extract.py`](steering/extract.py) | CPU `< 50 ms` contrastive extraction, Pole-A erasure SVD, statistical quality metrics, and `.safetensors` I/O (`unit_mean=False` default). |
 | [`hooks.py`](steering/hooks.py) | Compiler-safe attention-hook runtime (`auto_1x_kv` stream split, `block_band`, and seam helpers). |
 | [`legacy_nodes.py`](steering/legacy_nodes.py) | Thin Option-B compatibility wrappers for legacy & companion ComfyUI nodes (`MiniMaxH3ApplyControlVectors`, `MiniMaxH3MakeControlVector`, `MiniMaxH3LoadControlVector`, `MiniMaxH3LayerNormMatch`) preserving zero `node_id_manifest.json` diff ... |
+| [`live_policy.py`](steering/live_policy.py) | Beat 3B Closed-Loop Self-Steering (`H3LivePolicy`) & Zero-Coordinate Self-Masked Routing (`MiniMaxH3SelfMaskRouter`). |
 | [`mixer.py`](steering/mixer.py) | Unified Sound-Mixer runtime compiler (`MixerCompiler`) for H3 control vectors. |
 | [`nodes.py`](steering/nodes.py) | Primary ComfyUI steering nodes (`MiniMaxH3Steer`, `MiniMaxH3ReleaseReferences`, `MiniMaxH3WordVector`, `MiniMaxH3MakeMediaControlVector`) and runtime model wrapper. |
 | [`query_router.py`](steering/query_router.py) | Standalone `1x` Cross-Modal Query Router (`MiniMaxH3QueryRouter`, Step 1 / v1). |

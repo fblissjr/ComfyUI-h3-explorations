@@ -8,7 +8,7 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 183 |
+| [`check_*`](#check) | 184 |
 | [`measure_*`](#measure) | 33 |
 | [`analyze_*`](#analyze) | 13 |
 | [`grade_*`](#grade) | 10 |
@@ -92,6 +92,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_lane_db.py`](check_lane_db.py) | `bench/lane_db/` (the lane's record in SQLite) on a small made-up project: the schema's rules, the importer's refusals, and that what goes in comes back. |
 | [`check_length_ceiling.py`](check_length_ceiling.py) | The longest length anything renders or plans is `h3_rules.MAX_LENGTH`, and shipped graphs obey H3 frame & clock rules. |
 | [`check_literal_widgets.py`](check_literal_widgets.py) | A numeric widget must mean the quantity it names, not a mode. |
+| [`check_live_policy.py`](check_live_policy.py) | Offline CPU verification gate for Beat 3B `steering/live_policy.py` (`H3LivePolicy` & `MiniMaxH3SelfMaskRouter`). |
 | [`check_load_chain.py`](check_load_chain.py) | The load chain (`bench/load_chain.py`) on a made job: what each step reads, runs and refuses, with no server. |
 | [`check_load_text.py`](check_load_text.py) | The generated text of a load (`bench/load_text.py`) against the owner's text and the kept loads' own texts, and what it refuses. |
 | [`check_loader_fit.py`](check_loader_fit.py) | `bench/_lib/frames.py::FIT` against what the graphs' video loader does to a source that is not the canvas's shape. |
@@ -722,7 +723,7 @@ Arm manifests and the like; a manifest's line is its own `what`.
 
 ### results
 
-266 tracked files: [`results/INDEX.md`](results/INDEX.md).
+267 tracked files: [`results/INDEX.md`](results/INDEX.md).
 
 ### rubrics
 
