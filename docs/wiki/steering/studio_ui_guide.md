@@ -1,28 +1,48 @@
-# Control Vector & Mobile Steering UI (`app/` `/` + `/lab`)
+# H3 Studio 2.0 (`app/` `/` + `/lab`) & Spatial Director (`director/`)
 
-Last updated: 2026-11-25 (**H3 Studio 2.0** [`app/`](../../../app/README.md) React SPA `/` **Compose / Gallery / Settings (`1x` Query Router Twist Bar, `Re-Dub Isolate Visuals`, 4-Bus Steering Deck + `2x` Remix)** & **`/lab`** 3-tab Vector Lab (`Library`, `Sculpt`, `Pairs`). The former standalone `bench/control_vectors.py ui` / `:8196` Control Vector Studio was retired 2026-11-22; all browser workflows now live inside `app/` `/` + `/lab`, while headless/batch workflows remain in `bench/control_vectors.py` CLI.)
+Last updated: `2026-11-26` (**H3 Studio 2.0** [`app/`](../../../app/README.md), `app/.git` `61b69aa`: React SPA `/` **Compose / Gallery / Settings** + **`/lab`** 3-tab Vector Lab (`Library`, `Sculpt`, `Pairs`). The former standalone `bench/control_vectors.py ui` / `:8196` Control Vector Studio was retired `2026-11-22`; all browser workflows live inside `app/` `/` + `/lab`, while headless/batch workflows stay in `bench/control_vectors.py` CLI and timeline directing stays in [`director/`](../../../director/AGENTS.md).)
 
----
-
-## 0. H3 Studio 2.0 (`app/`, `/` + `/lab`) — Primary iPhone & Desktop Studio Surface
-
-For everyday creation and mobile tweaking on iOS 27.x Safari WebKit (`app/` [`VISION.md`](../../../app/VISION.md), [`DESIGN.md`](../../../app/DESIGN.md)), **H3 Studio 2.0** ([`app/server.py`](../../../app/server.py), [`app/cv_lab.py`](../../../app/cv_lab.py), full architecture in [`../../../app/README.md`](../../../app/README.md)) hosts both creation and vector authoring in one Tailscale/localhost server (`app/studio.sh` preserves exported `h3.env` / `--heylook-url` overrides; [`director/`](../../../director/AGENTS.md) stays separate for interactive Spatial World Director timelines):
-
-- **Main Studio (`/`):**
-  - **`1x` Cross-Modal Query Router & Groove Re-Dub (`2026-11-25`, `app/.git` `5141838..97e07e7`):** Collapsible Video Compose card (`QueryRouterCard.tsx`) wiring `MiniMaxH3QueryRouter` (`enabled`, `audio_prompt`, `video_prompt`, `section_split`, `aud_to_vid_gain`), `8` offline `0 ms` **Instant Audio Twists** + `Surprise Me` Genre Roulette + action-stripped `Shell-Shock Mute` (`a2v = 0.0`), and **Heylook Smart Twists** (`POST /api/query_router/rewrite`: `Dub Language`, `Wrong Voice` calibrated to `a2v = 0.0`, `Custom Sound`); Take Inspector adds `1x Dub / Swap Audio` plus a collapsible **Re-Dub Audio** drawer (`Polish` vs `Fresh` and **`Isolate Visuals (a2v=0.0)`** skipping `FrozenVideoCache` via `compile_audio_redub(isolate_visuals=True)`).
-  - **1-tap Create (`1x` Expand) vs. Remix (`2x` Auto-Edit):** Switches between `1x` fresh expansion (`MiniMaxH3PromptExpander` / `MiniMaxH3ImagePromptExpander` + `data/edit_concepts/*.toml`, `@extend:prepend|append` overlays via `app/heylook_bridge.py`, and split-cached `1x` `r2v` in `app/graph_builder.py`) and `2x` surgical rewrites (`MiniMaxH3AutoEditPrompt` + `EditGuider`) with `Lock take`, `Audio only`, and `ref_end_percent` auto-release wiring.
-  - **4-Bus Mixing Console & Fader Finder:** Color-coded bus strips (`Look` — including optional `de_llm_slop` utility — `Motion`, `Audio`, `Hold`) with `M`/`S`/`Route` pills, shared Stage 2 `block_band` console toggle (`All blocks` vs `Blocks 20–49 (Subtle / Face-Safe)`, hidden on `h3_image` / `P-H3-Image`), `-1.50 .. +2.00` `0.00`-detent rail, Monolithic Collision Guard, `.strip-regime-hint` strength hints, `< 3 ms` dual `max(cos_v1, cos_mu)` CPU semantic Vibe Search (`POST /api/lab/vibe_search`), `<dialog id="fader-finder-dialog" closedby="any">`, collapsed `<details id="guide-vector-drawer">` + lifted `#guide-ref-release-section` (`Picture hold end` / `Picture share`), `#guide-vector-words-block` `hold_words` protection, primary **`Hold vector`**, up to `5` stacked `extra_vectors` chips, and CPU Subspace X-Ray (`POST /api/xray_vector`).
-  - **Responsive Desktop 3-column Studio Desk (`>= 64rem`), Take Player Groove Bar & Attention Annotation:** Simultaneous prompt/canvas, mixer console, and monitor/X-Ray panes on wide viewports, inline `Ride Faders` / `Remix 2x` / `Save Take` + audio toggle on playback, and `int8_convrot` rotated-safe attention badge (`app/recipes.py`).
-- **Integrated Vector Lab (`/lab`, 3 tabs):**
-  - **Library & Vibe Search:** Browse `<comfy>/models/control_vectors/bank/`, query `< 3 ms` semantic Vibe Search (`?mint_query=` deep linking), inspect rank-8/rank-16 erasure payloads, run `< 15 ms` CPU Subspace X-Ray, or send any vector to `/` with **Use** (`/?use_vector=`).
-  - **Sculpt:** Rank-16 union `add_norm_matched_erasure` / `hold` composition saved directly into `bank/`.
-  - **Pairs:** Generate or validate Gates A–D pair TOMLs (`heylook --from-concept` / `--repair` via asynchronous `/api/lab/jobs/{job_id}` polling for `POST /api/lab/pairs/generate`, or pasted LLM Markdown) and launch isolated single-job GPU builds (`from-toml`, `from-prompt` with `--bank-scenes` / `--force-low-pair-erasure`, `make-media` with `pooling`) with automatic `refreshOptions()` sync back into `/`. *(Standalone `words` / 1D Word Lab UI and routes were removed from `app/` in `app/.git` `70ac442`; CLI `from-words` and `MiniMaxH3WordVector` remain supported in ComfyUI and `bench/control_vectors.py`.)*
+![H3 Studio 2.0 and Spatial World Director Architecture](../assets/h3_studio_2_architecture.svg)
 
 ---
 
-## 1. Shared Pair-Build & CLI Execution Layer
+## 1. H3 Studio 2.0 Main Surface (`app/`, `/`)
 
-All `/lab` GPU builds (`from-toml`, `from-prompt`, `make-media`), `bench/control_vectors.py` CLI subcommands, and ComfyUI's `MiniMaxH3MakeControlVector` node invoke the **single** [`steering/encode.py::encode_pair_set`](../../../control_vector_nodes.py) + [`steering/extract.py::pool_pair_set`](../../../control_vectors.py) + [`steering/extract.py::pairs_record`](../../../control_vectors.py) pipeline, ensuring bitwise-identical tensors across CLI, `/lab`, and ComfyUI.
+Built phone-first for iOS 27.x Safari WebKit (`402×874`) and expanding cleanly to a 3-column Desktop Studio Desk (`>= 64rem`), [`app/server.py`](../../../app/server.py) + [`app/graph_builder.py`](../../../app/graph_builder.py) expose every verified `1×` and `2×` H3 capability on one Tailscale-safe server (`app/studio.sh` preserves exported `h3.env` / `--heylook-url` overrides):
 
-- **Two execution lanes inside `app/cv_lab.py`:** CPU endpoints (`library`, `vibe_search`, `xray`, `sculpt`, `pairs/lint`) run immediately on CPU (`< 15 ms`), `POST /api/lab/pairs/generate` runs asynchronously on remote `heylook` without locking ComfyUI GPU, and `POST /api/lab/build` serializes GPU subprocesses against an idle `:8188` queue + `/free`.
-- **Offline verification:** Run `pytest app/tests/ -q` (and `--isolated-browser` for `402x874 @3x` headless Chrome CDP) or `bench/check_image_studio.py` + `bench/check_steering_parity.py`.
+- **`1×` Cross-Modal Query Router & Pixel-Locked Re-Dub (`QueryRouterCard.tsx`):**
+  - Wires `MiniMaxH3QueryRouter` (`enabled`, `audio_prompt`, `video_prompt`, `section_split`, `aud_to_vid_gain`).
+  - `8` offline `0 ms` **Instant Audio Twists** + `Surprise Me` Genre Roulette + action-stripped **Shell-Shock Mute** (`a2v = 0.0`).
+  - **Heylook Smart Twists** (`POST /api/query_router/rewrite`: `Dub Language`, `Wrong Voice` calibrated to `a2v = 0.0`, `Custom Sound`).
+  - Take Inspector adds `1× Dub / Swap Audio` and a collapsible **Re-Dub Audio** drawer (`Polish` vs `Fresh` and **`Isolate Visuals (a2v=0.0)`** skipping `FrozenVideoCache` via `director/compiler.py::compile_audio_redub(isolate_visuals=True)`).
+- **`1×` World Split, `17*m` Beat Cuts, L→R Wipes, & Type-a-Noun Self-Mask (`SpatialSplitCard.tsx`, `61b69aa`):**
+  - Available on **both** Video and `4 MP` Image compose with a 1-tap **Send Split to Video** handoff carrying prompt pairs + split config directly into Video.
+  - Four `shape_mode` selectors wired in `app/graph_builder.py::_wire_spatial_router`:
+    1. **`box`** — Left/Right, Sky/Ground, or floating portal rectangle (`MiniMaxH3SpatialQueryRouter`, all `v2-slim` isolation modes including `*_shield` & `mid_20_49`).
+    2. **`beat_cut`** — Hard `1×` smash cut snapped to H3's `17 * m` standalone causal VAE clip boundaries (auto-populated from uploaded WAV beats).
+    3. **`wipe_lr`** — Smooth Left-to-Right traveling vertical split via `MiniMaxH3SpatialDirector(portal_path, invert_mask=True)`.
+    4. **`self_mask`** — Type-a-Noun zero-mask targeting (`MiniMaxH3SelfMaskRouter` with `target_phrase` and `replay_step0` `1.17×` toggle).
+- **Zero-Wasted-Step Video `Scout 4×` & Live Closed-Loop Telemetry (`61b69aa`):**
+  - **Scout `4×`:** Queues 4 fast 2-step drafts (`ManualSigmas = "1.0, 0.972973, 0.0"`, zero `/api/interrupt` races), stamps `SCOUT 2-STEP` badges, and gives a 1-tap **Render Full 6-Step** action on the winning seed.
+  - **Live Previews & Policy Pills (`app/contract/ws_events.json`):** Streams `ModelPreviewOverrideKJ` (`taeh3`/`taeh3_image`) intermediate step previews and live `h3_self_steer` WS events (`self_mask_locked`, `preview_thermostat`, `audio_x0_thermostat`) directly into active run badges and take metadata.
+- **Freeze Audio Upload & Causal Beat Analyzer (`POST /api/upload_audio`, `05a058e` + `61b69aa`):**
+  - Uploads & normalizes any `.wav` (`analyze_wav_beats()` in `app/media.py`), returns `beats_s`, `17 * m`-snapped `causal_cut_frames`, and `recommended_cut_frame`, wires `MiniMaxH3FreezeAudio` (`_wire_freeze_audio`), muxes lossless audio, and pins `EditGuider.streams = "video_only"` automatically when frozen.
+- **4-Bus Mixing Console, `1×` Expand vs `2×` Remix & Vibe Search:**
+  - Color-coded `Look` / `Motion` / `Audio` / `Hold` bus strips (`M`/`S`/`Route`, up to `5` stacked `extra_vectors`), Stage 2 `Blocks 20–49 (Face-Safe)` console toggle, `< 3 ms` dual `max(cos_v1, cos_mu)` CPU Vibe Search (`POST /api/lab/vibe_search`), `< 15 ms` CPU Subspace X-Ray (`POST /api/xray_vector`), 1-tap **Create (`1×` Expand)** vs **Remix (`2×` Auto-Edit)** with `@extend` overlays and split-cached `1×` `r2v`, and `int8_convrot` attention annotation.
+
+---
+
+## 2. Integrated Vector Lab (`app/`, `/lab`) & Shared Execution Layer
+
+- **Three streamlined tabs (`app/cv_lab.py`):**
+  1. **Library & Vibe Search:** Browse `<comfy>/models/control_vectors/bank/` (`50` active stems), run `< 3 ms` Vibe Search (`?mint_query=`), inspect rank-8/rank-16 erasure payloads with `< 15 ms` CPU J-Lens X-Ray, or send any stem to `/` (`/?use_vector=`).
+  2. **Sculpt:** Compose rank-16 union `add_norm_matched_erasure` / `hold` vectors directly on CPU and save to `bank/`.
+  3. **Pairs:** Author or lint Gates A–D `.toml` packs asynchronously via `heylook` (`POST /api/lab/pairs/generate` + job polling) and run serialized GPU builds (`from-toml`, `from-prompt`, `make-media`) against an idle `:8188` queue + `/free`.
+- **Single-source parity:** All `/lab` GPU builds, `bench/control_vectors.py` CLI subcommands, and ComfyUI's `MiniMaxH3MakeControlVector` node invoke the exact same [`steering/encode.py::encode_pair_set`](../../../control_vector_nodes.py) + [`steering/extract.py::pool_pair_set`](../../../control_vectors.py) pipeline, guaranteeing bitwise-identical tensors.
+- **Offline & browser verification:** Run `cd app/web && bunx tsc -b && bun test src && bun run build`, `app/test_app.py` (Tier 1), `pytest app/tests/ -q --isolated-browser` (`402×874 @3x` headless Chrome CDP, `164 passed, 1 skipped` at `61b69aa`), and `bench/check_no_owner_paths.py app`.
+
+---
+
+## 3. Spatial World Director (`director/`)
+
+Kept separate from `app/` for deep timeline directing ([`director/AGENTS.md`](../../../director/AGENTS.md), [`spatial_director_guide.md`](../spatial_director_guide.md)): interactive canvas painting for moving `2×` `EditGuider` portals & point targets, live GPU `SAM 3.1` `/api/segment`, `3`-lane `17f`/`3f` sequencer, chained multi-sprite 2D D-Pad trajectories (`MiniMaxH3AppendSpriteTrajectory`), stereo `MiniMaxH3SoundCues`, and video-frozen `POST /api/redub`.

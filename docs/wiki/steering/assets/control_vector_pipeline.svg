@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 380" width="100%" height="100%" role="img" aria-label="Visual explainer of how 10 prompt pairs extract a clean control vector and steer video generation">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 940 392" width="100%" height="100%" role="img" aria-label="How 10 prompt pairs extract a Pole-A Subspace Erasure control vector across fl2va, ref2va, and h3_image">
   <defs>
     <filter id="cardShadow" x="-4%" y="-4%" width="108%" height="112%">
       <feDropShadow dx="0" dy="3" stdDeviation="5" flood-color="#0f172a" flood-opacity="0.05"/>
@@ -9,168 +9,100 @@
     <marker id="arrowTeal" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
       <path d="M 1 1.5 L 8.5 5 L 1 8.5 z" fill="#0d9488"/>
     </marker>
-    <marker id="arrowAmber" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-      <path d="M 1 1.5 L 8.5 5 L 1 8.5 z" fill="#d97706"/>
-    </marker>
   </defs>
 
   <style>
-    .canvas { fill: #faf9f5; stroke: #e5e3dc; stroke-width: 1.5; rx: 16px; }
-    .card { fill: #ffffff; stroke: #e5e7eb; stroke-width: 1.2; rx: 12px; filter: url(#cardShadow); }
-    .heading { font-family: Georgia, "Newsreader", "Charter", serif; font-size: 19px; font-weight: 600; fill: #18181b; }
-    .subhead { font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 12.5px; fill: #64748b; }
-    .step-num { font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 11px; font-weight: 700; fill: #0d9488; letter-spacing: 0.8px; }
-    .card-title { font-family: Georgia, "Newsreader", "Charter", serif; font-size: 15px; font-weight: 600; fill: #1e293b; }
-    .label { font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 12px; font-weight: 500; fill: #334155; }
-    .caption { font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 11px; fill: #64748b; }
-    .pill-txt { font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 11px; font-weight: 600; }
-
-    /* Subtle editorial animations */
-    .cancel-subj {
-      animation: subjFade 4.5s ease-in-out infinite;
-    }
-    .keep-axis {
-      animation: axisPulse 4.5s ease-in-out infinite;
-    }
-    .fan-line {
-      animation: fanConverge 4.5s ease-in-out infinite;
-    }
-    .flow-connector {
-      stroke-dasharray: 5 5;
-      animation: flowDots 1.8s linear infinite;
-    }
-    .steer-glow {
-      animation: warmShift 4.5s ease-in-out infinite;
-    }
-
-    @keyframes subjFade {
-      0%, 20% { opacity: 0.9; }
-      50%, 80% { opacity: 0.25; }
-      100% { opacity: 0.9; }
-    }
-    @keyframes axisPulse {
-      0%, 20% { transform: scale(1); }
-      50%, 80% { transform: scale(1.03); }
-      100% { transform: scale(1); }
-    }
-    @keyframes fanConverge {
-      0%, 20% { opacity: 0.75; }
-      55%, 85% { opacity: 0.18; }
-      100% { opacity: 0.75; }
-    }
-    @keyframes flowDots {
-      from { stroke-dashoffset: 20; }
-      to { stroke-dashoffset: 0; }
-    }
-    @keyframes warmShift {
-      0%, 25% { fill: #f1f5f9; stroke: #cbd5e1; }
-      55%, 85% { fill: #fffbeb; stroke: #f59e0b; }
-      100% { fill: #f1f5f9; stroke: #cbd5e1; }
-    }
-    @media (prefers-reduced-motion: reduce) {
-      .cancel-subj, .keep-axis, .fan-line, .flow-connector, .steer-glow { animation: none; }
-    }
+    .canvas { fill: #faf9f5; stroke: #e5e3dc; stroke-width: 1.5; }
+    .card { fill: #ffffff; stroke: #e5e7eb; stroke-width: 1.2; filter: url(#cardShadow); }
+    .heading { font-family: Georgia, "Newsreader", "Charter", serif; font-size: 19px; font-weight: 700; fill: #18181b; }
+    .subhead { font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 12px; fill: #52525b; }
+    .step-num { font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 10.5px; font-weight: 700; fill: #0d9488; letter-spacing: 0.6px; }
+    .card-title { font-family: Georgia, "Newsreader", "Charter", serif; font-size: 14.5px; font-weight: 700; fill: #1e293b; }
+    .label { font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 11.5px; font-weight: 600; fill: #334155; }
+    .caption { font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 10.6px; fill: #475569; }
+    .pill-txt { font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 10px; font-weight: 700; }
+    .mono { font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; font-size: 10px; font-weight: 600; }
   </style>
 
   <!-- Warm Paper Background -->
-  <rect x="4" y="4" width="912" height="372" class="canvas"/>
+  <rect x="4" y="4" width="932" height="384" rx="16" class="canvas"/>
 
-  <!-- Editorial Header -->
-  <text x="32" y="38" class="heading">How a Control Vector Works</text>
-  <text x="32" y="58" class="subhead">Subjects cancel out across 10 contrasting scenes, isolating one pure visual or audio direction.</text>
+  <!-- Header -->
+  <text x="30" y="36" class="heading">How a Pole-A Subspace Erasure Control Vector Works</text>
+  <text x="30" y="55" class="subhead">10 contrasting scene pairs extract both a clean target push (μ̂_d) and a rank-8 baseline eraser (V_r) in a 193 KB file.</text>
 
-  <!-- ===================================================================== -->
-  <!-- CARD 1: 10 CONTRASTING PAIRS                                          -->
-  <!-- ===================================================================== -->
-  <rect x="28" y="78" width="268" height="272" class="card"/>
-  <text x="48" y="104" class="step-num">STEP 1 · EXTRACT ONCE</text>
-  <text x="48" y="124" class="card-title">10 Contrasting Scene Pairs</text>
+  <!-- CARD 1: 10 CONTRASTING PAIRS -->
+  <rect x="26" y="74" width="274" height="292" rx="12" class="card"/>
+  <text x="44" y="100" class="step-num">STEP 1 · EXTRACT ONCE</text>
+  <text x="44" y="120" class="card-title">10 Contrasting Scene Pairs</text>
 
-  <!-- Scene Pair Row 1 -->
-  <rect x="46" y="142" width="232" height="44" rx="8" fill="#f8fafc" stroke="#e2e8f0"/>
-  <text x="58" y="160" class="caption cancel-subj">Scene 1: Watchmaker</text>
-  <rect x="58" y="166" width="76" height="15" rx="4" fill="#eff6ff"/>
-  <text x="65" y="177" class="pill-txt" fill="#2563eb" font-size="9.5">− Mild Air</text>
-  <text x="142" y="177" class="caption">→</text>
-  <rect x="158" y="166" width="108" height="15" rx="4" fill="#fff7ed"/>
-  <text x="165" y="177" class="pill-txt" fill="#d97706" font-size="9.5">+ Heatwave</text>
+  <rect x="44" y="136" width="238" height="44" rx="8" fill="#f8fafc" stroke="#e2e8f0"/>
+  <text x="56" y="153" class="caption">Scene 1: Watchmaker (Gates A–D)</text>
+  <rect x="56" y="160" width="84" height="15" rx="4" fill="#eff6ff"/>
+  <text x="64" y="171" class="pill-txt" fill="#2563eb">Pole A: Mild</text>
+  <text x="148" y="171" class="caption">→</text>
+  <rect x="164" y="160" width="106" height="15" rx="4" fill="#fff7ed"/>
+  <text x="172" y="171" class="pill-txt" fill="#d97706">Pole B: Heatwave</text>
 
-  <!-- Scene Pair Row 2 -->
-  <rect x="46" y="196" width="232" height="44" rx="8" fill="#f8fafc" stroke="#e2e8f0"/>
-  <text x="58" y="214" class="caption cancel-subj">Scene 2: Coastal Pier</text>
-  <rect x="58" y="220" width="76" height="15" rx="4" fill="#eff6ff"/>
-  <text x="65" y="231" class="pill-txt" fill="#2563eb" font-size="9.5">− Mild Air</text>
-  <text x="142" y="231" class="caption">→</text>
-  <rect x="158" y="220" width="108" height="15" rx="4" fill="#fff7ed"/>
-  <text x="165" y="231" class="pill-txt" fill="#d97706" font-size="9.5">+ Heatwave</text>
+  <rect x="44" y="190" width="238" height="44" rx="8" fill="#f8fafc" stroke="#e2e8f0"/>
+  <text x="56" y="207" class="caption">Scene 2: Coastal Pier (rotated A)</text>
+  <rect x="56" y="214" width="84" height="15" rx="4" fill="#eff6ff"/>
+  <text x="64" y="225" class="pill-txt" fill="#2563eb">Pole A: Cool</text>
+  <text x="148" y="225" class="caption">→</text>
+  <rect x="164" y="214" width="106" height="15" rx="4" fill="#fff7ed"/>
+  <text x="172" y="225" class="pill-txt" fill="#d97706">Pole B: Heatwave</text>
 
-  <!-- Scene Pair Row 3 -->
-  <rect x="46" y="250" width="232" height="44" rx="8" fill="#f8fafc" stroke="#e2e8f0"/>
-  <text x="58" y="268" class="caption cancel-subj">Scene 3..10: Subway, Café...</text>
-  <rect x="58" y="274" width="76" height="15" rx="4" fill="#eff6ff"/>
-  <text x="65" y="285" class="pill-txt" fill="#2563eb" font-size="9.5">− Mild Air</text>
-  <text x="142" y="285" class="caption">→</text>
-  <rect x="158" y="274" width="108" height="15" rx="4" fill="#fff7ed"/>
-  <text x="165" y="285" class="pill-txt" fill="#d97706" font-size="9.5">+ Heatwave</text>
+  <rect x="44" y="244" width="238" height="44" rx="8" fill="#f8fafc" stroke="#e2e8f0"/>
+  <text x="56" y="261" class="caption">Scene 3..10: Subway, Café, Porch...</text>
+  <text x="56" y="278" class="mono" fill="#0f766e">pooling = diff_span (med_fd ≥ 10)</text>
 
-  <text x="48" y="324" class="caption">Different subjects fade out;</text>
-  <text x="48" y="338" class="caption" fill="#0d9488" font-weight="600">only the shared B − A shift remains.</text>
+  <text x="44" y="316" class="caption">Subjects cancel across diverse prefixes;</text>
+  <text x="44" y="332" class="caption">only the causal Pole A → B contrast</text>
+  <text x="44" y="348" class="caption" fill="#0f766e" font-weight="700">survives post-TokenRefiner (5376-D).</text>
 
   <!-- Connector 1 -> 2 -->
-  <line x1="296" y1="214" x2="324" y2="214" stroke="#0d9488" stroke-width="2" class="flow-connector" marker-end="url(#arrowTeal)"/>
+  <line x1="302" y1="220" x2="328" y2="220" stroke="#0d9488" stroke-width="2" marker-end="url(#arrowTeal)"/>
 
-  <!-- ===================================================================== -->
-  <!-- CARD 2: ISOLATE THE CONCEPT DIRECTION                                 -->
-  <!-- ===================================================================== -->
-  <rect x="328" y="78" width="264" height="272" class="card"/>
-  <text x="348" y="104" class="step-num">STEP 2 · AVERAGE &amp; SAVE</text>
-  <text x="348" y="124" class="card-title">One Pure Direction (v)</text>
+  <!-- CARD 2: POLE-A SUBSPACE ERASURE PAYLOAD -->
+  <rect x="334" y="74" width="272" height="292" rx="12" class="card"/>
+  <text x="352" y="100" class="step-num">STEP 2 · SOLVE &amp; SAVE (193 KB)</text>
+  <text x="352" y="120" class="card-title">Push μ̂_d + Rank-8 Eraser V_r</text>
 
-  <!-- Visual Vector Convergence Canvas -->
-  <rect x="348" y="142" width="224" height="142" rx="10" fill="#f8fafc" stroke="#e2e8f0"/>
+  <rect x="352" y="136" width="236" height="66" rx="8" fill="#f0fdfa" stroke="#5eead4"/>
+  <text x="364" y="155" class="label" fill="#0f766e">1. Target Direction (erasure.mu_d)</text>
+  <text x="364" y="172" class="caption">ColBERT row-softmax (τ=0.15) match</text>
+  <text x="364" y="188" class="mono" fill="#115e59">Adds crisp Pole-B look/physics</text>
 
-  <!-- Faint individual pair vectors fanning out (subject noise) -->
-  <line x1="376" y1="246" x2="495" y2="162" stroke="#cbd5e1" stroke-width="1.5" stroke-dasharray="3 3" class="fan-line" marker-end="url(#arrowSlate)"/>
-  <line x1="376" y1="246" x2="520" y2="174" stroke="#cbd5e1" stroke-width="1.5" stroke-dasharray="3 3" class="fan-line" marker-end="url(#arrowSlate)"/>
-  <line x1="376" y1="246" x2="532" y2="225" stroke="#cbd5e1" stroke-width="1.5" stroke-dasharray="3 3" class="fan-line" marker-end="url(#arrowSlate)"/>
-  <line x1="376" y1="246" x2="508" y2="244" stroke="#cbd5e1" stroke-width="1.5" stroke-dasharray="3 3" class="fan-line" marker-end="url(#arrowSlate)"/>
-  <text x="452" y="264" class="caption" font-size="10">Individual pairs</text>
+  <rect x="352" y="212" width="236" height="66" rx="8" fill="#eef2ff" stroke="#a5b4fc"/>
+  <text x="364" y="231" class="label" fill="#3730a3">2. Pole-A Subspace (erasure.vr)</text>
+  <text x="364" y="248" class="caption">Rank-8 SVD (rank-16 sculpted union)</text>
+  <text x="364" y="264" class="mono" fill="#4338ca">Erases opposing prompt cues first</text>
 
-  <!-- Bold Mean Control Vector v -->
-  <line x1="376" y1="246" x2="534" y2="188" stroke="#0d9488" stroke-width="3.5" marker-end="url(#arrowTeal)"/>
-  <circle cx="376" cy="246" r="4" fill="#0f172a"/>
-  <rect x="424" y="154" width="118" height="22" rx="6" fill="#f0fdfa" stroke="#5eead4"/>
-  <text x="434" y="169" class="pill-txt" fill="#0f766e">Control Vector v</text>
-
-  <!-- Saved Badge -->
-  <rect x="348" y="296" width="224" height="38" rx="8" fill="#f0fdfa" stroke="#99f6e4"/>
-  <text x="360" y="313" class="label" fill="#115e59" font-weight="600" font-size="11.5">Saves fl2va + ref2va (.safetensors)</text>
-  <text x="360" y="327" class="caption" fill="#0f766e" font-size="10.5">Covers Video + Image (T2I &amp; Edit)</text>
+  <rect x="352" y="290" width="236" height="60" rx="8" fill="#f8fafc" stroke="#cbd5e1"/>
+  <text x="364" y="308" class="label" fill="#1e293b">50 Active Bank Stems (.safetensors)</text>
+  <text x="364" y="324" class="mono" fill="#0f766e">fl2va · ref2va · h3_image</text>
+  <text x="364" y="340" class="caption">&lt;15 ms CPU J-Lens X-Ray audit</text>
 
   <!-- Connector 2 -> 3 -->
-  <line x1="592" y1="214" x2="620" y2="214" stroke="#0d9488" stroke-width="2" class="flow-connector" marker-end="url(#arrowTeal)"/>
+  <line x1="608" y1="220" x2="634" y2="220" stroke="#0d9488" stroke-width="2" marker-end="url(#arrowTeal)"/>
 
-  <!-- ===================================================================== -->
-  <!-- CARD 3: STEER ANY NEW PROMPT AT RENDER TIME                           -->
-  <!-- ===================================================================== -->
-  <rect x="624" y="78" width="268" height="272" class="card"/>
-  <text x="644" y="104" class="step-num">STEP 3 · STEER AT RENDER TIME</text>
-  <text x="644" y="124" class="card-title">Apply to Any New Scene</text>
+  <!-- CARD 3: STEER ANY NEW SCENE AT 1x -->
+  <rect x="640" y="74" width="274" height="292" rx="12" class="card"/>
+  <text x="658" y="100" class="step-num">STEP 3 · STEER AT 1× SPEED</text>
+  <text x="658" y="120" class="card-title">Apply &amp; Stack Safely</text>
 
-  <!-- New Unsteered Prompt Box -->
-  <rect x="644" y="142" width="228" height="48" rx="8" fill="#f8fafc" stroke="#e2e8f0"/>
-  <text x="656" y="160" class="label" font-weight="600">Your Scene Prompt</text>
-  <text x="656" y="177" class="caption">Unchanged text &amp; token length L</text>
+  <rect x="658" y="136" width="238" height="48" rx="8" fill="#f8fafc" stroke="#e2e8f0"/>
+  <text x="670" y="155" class="label">Your Untouched Scene Prompt</text>
+  <text x="670" y="172" class="caption">Same text length L · zero rewrites</text>
 
-  <!-- Plus Sign + Vector Injection Pill -->
-  <line x1="758" y1="190" x2="758" y2="246" stroke="#64748b" stroke-width="1.8" marker-end="url(#arrowSlate)"/>
-  <rect x="672" y="204" width="172" height="28" rx="14" fill="#f0fdfa" stroke="#0d9488" stroke-width="1.5"/>
-  <text x="692" y="222" class="pill-txt" fill="#0f766e">+ strength × Vector v</text>
+  <rect x="658" y="196" width="238" height="58" rx="8" fill="#fffbeb" stroke="#fcd34d"/>
+  <text x="670" y="214" class="mono" fill="#92400e">add_norm_matched_erasure</text>
+  <text x="670" y="230" class="caption">H' = H − P_Vr(H−h̄) + s·μ̂_d (67.5 RMS)</text>
+  <text x="670" y="245" class="caption">Stage 1: peer_ros + 95.5→98.5 knee</text>
 
-  <!-- Steered Output Scene -->
-  <rect x="644" y="252" width="228" height="82" rx="10" class="steer-glow" stroke-width="1.5"/>
-  <text x="660" y="274" class="label" font-weight="600" fill="#1e293b">Steered Video, Audio, or Image</text>
-  <text x="660" y="293" class="caption">Same framing, pose &amp; lip-sync,</text>
-  <text x="660" y="308" class="caption">now rendered in a <tspan class="pill-txt" fill="#b45309">Heatwave</tspan></text>
-  <text x="660" y="324" class="caption" font-size="10.5">(Flip strength to −1.0 for the opposite)</text>
+  <rect x="658" y="266" width="238" height="84" rx="8" fill="#ecfdf5" stroke="#6ee7b7"/>
+  <text x="670" y="285" class="label" fill="#065f46">Steered Video, Audio, or 4 MP Still</text>
+  <text x="670" y="302" class="caption">• Stage 2: blocks.20..49 &amp; 1× Q_aud</text>
+  <text x="670" y="318" class="caption">• 4-Bus Mixer (Look/Motion/Audio/Hold)</text>
+  <text x="670" y="334" class="caption">• Live taeh3 thermostat (tb2: +0.01s)</text>
 </svg>

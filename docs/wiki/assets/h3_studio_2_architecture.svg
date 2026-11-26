@@ -1,0 +1,109 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 510" width="100%" height="100%" role="img" aria-label="H3 Studio 2.0 and Spatial Director Architecture">
+  <defs>
+    <filter id="stShadow" x="-3%" y="-3%" width="106%" height="110%">
+      <feDropShadow dx="0" dy="3" stdDeviation="5" flood-color="#0f172a" flood-opacity="0.06"/>
+    </filter>
+  </defs>
+
+  <style>
+    .canvas { fill: #faf9f5; stroke: #e5e3dc; stroke-width: 1.5; }
+    .card { fill: #ffffff; stroke: #e5e7eb; stroke-width: 1.2; filter: url(#stShadow); }
+    .heading { font-family: Georgia, "Newsreader", "Charter", serif; font-size: 20px; font-weight: 700; fill: #18181b; }
+    .subhead { font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 12.2px; fill: #52525b; }
+    .band { font-family: Georgia, "Newsreader", "Charter", serif; font-size: 15px; font-weight: 700; fill: #1e293b; }
+    .title { font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 12px; font-weight: 700; }
+    .body { font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 10.6px; fill: #334155; }
+    .muted { font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 10px; fill: #64748b; }
+    .badge { font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 9.8px; font-weight: 700; }
+    .mono { font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; font-size: 10px; font-weight: 600; }
+  </style>
+
+  <!-- Outer Canvas -->
+  <rect x="4" y="4" width="972" height="502" rx="16" class="canvas"/>
+
+  <!-- Header -->
+  <text x="28" y="36" class="heading">H3 Studio 2.0 (app/) &amp; Spatial World Director (director/)</text>
+  <text x="28" y="55" class="subhead">One phone-first iOS 27.x Safari + 3-column Desktop server (/ &amp; /lab) over Tailscale, plus the dedicated timeline director stage.</text>
+
+  <!-- ================================================================== -->
+  <!-- BAND 1: H3 STUDIO 2.0 MAIN SURFACE (/)                             -->
+  <!-- ================================================================== -->
+  <rect x="24" y="72" width="932" height="248" rx="12" class="card"/>
+  <rect x="40" y="86" width="160" height="22" rx="11" fill="#4f46e5"/>
+  <text x="120" y="101" text-anchor="middle" fill="#ffffff" class="badge">H3 STUDIO 2.0 · PAGE /</text>
+  <text x="214" y="102" class="band">Compose, Split Worlds, Scout 4× &amp; Mix — Mobile + Desktop Desk</text>
+
+  <!-- Subcard 1: Query Router & Re-Dub -->
+  <rect x="40" y="120" width="214" height="184" rx="10" fill="#eef2ff" stroke="#a5b4fc" stroke-width="1.3"/>
+  <text x="52" y="140" class="title" fill="#312e81">1× Sight ↔ Sound &amp; Re-Dub</text>
+  <text x="52" y="158" class="body">• 8 offline Instant Audio Twists</text>
+  <text x="52" y="174" class="body">• Genre Roulette &amp; Shell-Shock</text>
+  <text x="60" y="188" class="muted">World-Mute (a2v = 0.0)</text>
+  <text x="52" y="206" class="body">• Heylook Smart Twists (Dub,</text>
+  <text x="60" y="220" class="muted">Wrong Voice, Custom Sound)</text>
+  <text x="52" y="238" class="body">• Take Re-Dub Drawer:</text>
+  <text x="60" y="252" class="muted">Isolate Visuals (a2v = 0.0)</text>
+  <text x="52" y="286" class="mono" fill="#4338ca">QueryRouterCard.tsx</text>
+
+  <!-- Subcard 2: World Split & Self-Mask -->
+  <rect x="268" y="120" width="214" height="184" rx="10" fill="#f5f3ff" stroke="#c4b5fd" stroke-width="1.3"/>
+  <text x="280" y="140" class="title" fill="#5b21b6">1× World Split &amp; Self-Mask</text>
+  <text x="280" y="158" class="body">• Box Split (Video + 4 MP Still)</text>
+  <text x="280" y="174" class="body">• 17*m Beat-Drop Hard Cuts</text>
+  <text x="288" y="188" class="muted">WAV beat snap via upload</text>
+  <text x="280" y="206" class="body">• L→R Traveling Wipe</text>
+  <text x="280" y="222" class="body">• Type-a-Noun SelfMaskRouter</text>
+  <text x="288" y="236" class="muted">with replay_step0 toggle</text>
+  <text x="280" y="254" class="body">• 1-tap Send Split to Video</text>
+  <text x="280" y="286" class="mono" fill="#6d28d9">SpatialRouterCard.tsx</text>
+
+  <!-- Subcard 3: Scout 4x + Live Telemetry -->
+  <rect x="496" y="120" width="214" height="184" rx="10" fill="#f0fdfa" stroke="#5eead4" stroke-width="1.3"/>
+  <text x="508" y="140" class="title" fill="#115e59">Scout 4× &amp; Live Telemetry</text>
+  <text x="508" y="158" class="body">• Scout 4× (2-step cached):</text>
+  <text x="516" y="173" class="mono" fill="#0f766e">1.0, 0.972973, 0.0</text>
+  <text x="508" y="192" class="body">• 1-tap Render Full 6-Step</text>
+  <text x="516" y="206" class="muted">on the winning seed</text>
+  <text x="508" y="224" class="body">• Live taeh3 step previews</text>
+  <text x="508" y="240" class="body">• Live h3_self_steer WS pills:</text>
+  <text x="516" y="254" class="muted">mask lock + thermostat state</text>
+  <text x="508" y="286" class="mono" fill="#0f766e">App.tsx · ws_events.json</text>
+
+  <!-- Subcard 4: 4-Bus Mixer & Freeze Audio -->
+  <rect x="724" y="120" width="216" height="184" rx="10" fill="#fffbeb" stroke="#fcd34d" stroke-width="1.3"/>
+  <text x="736" y="140" class="title" fill="#92400e">4-Bus Mixer &amp; Freeze Audio</text>
+  <text x="736" y="158" class="body">• Look / Motion / Audio / Hold</text>
+  <text x="744" y="172" class="muted">up to 5 stacked chips</text>
+  <text x="736" y="190" class="body">• Stage 2 Blocks 20–49 toggle</text>
+  <text x="736" y="206" class="body">• &lt;3 ms CPU Vibe Search</text>
+  <text x="736" y="222" class="body">• 1× Expand vs 2× Remix</text>
+  <text x="736" y="238" class="body">• Freeze Audio WAV upload +</text>
+  <text x="744" y="252" class="muted">beat-drop timestamp picker</text>
+  <text x="736" y="286" class="mono" fill="#b45309">graph_builder.py · 61b69aa</text>
+
+  <!-- ================================================================== -->
+  <!-- BAND 2: /lab VECTOR STUDIO  +  director/ TIMELINE STAGE            -->
+  <!-- ================================================================== -->
+
+  <!-- Left: /lab -->
+  <rect x="24" y="336" width="456" height="154" rx="12" class="card"/>
+  <rect x="40" y="350" width="166" height="22" rx="11" fill="#0d9488"/>
+  <text x="123" y="365" text-anchor="middle" fill="#ffffff" class="badge">H3 STUDIO 2.0 · PAGE /lab</text>
+  <text x="218" y="366" class="band">Integrated Vector Lab</text>
+  <text x="40" y="392" class="body">• <tspan font-weight="700" fill="#0f766e">Library &amp; X-Ray:</tspan> Browse 50 active bank stems, &lt;3 ms Vibe Search, &lt;15 ms J-Lens X-Ray.</text>
+  <text x="40" y="411" class="body">• <tspan font-weight="700" fill="#0f766e">Sculpt:</tspan> Compose rank-16 union Pole-A erasure vectors &amp; holds directly on CPU.</text>
+  <text x="40" y="430" class="body">• <tspan font-weight="700" fill="#0f766e">Pairs:</tspan> Async heylook Gates A–D authoring + GPU builds bitwise-identical to CLI.</text>
+  <rect x="40" y="446" width="424" height="28" rx="6" fill="#f0fdfa" stroke="#99f6e4"/>
+  <text x="252" y="464" text-anchor="middle" class="mono" font-size="9.4" fill="#115e59">app/cv_lab.py · steering/{encode,extract}.py (replaces :8196)</text>
+
+  <!-- Right: director/ -->
+  <rect x="498" y="336" width="458" height="154" rx="12" class="card"/>
+  <rect x="514" y="350" width="170" height="22" rx="11" fill="#b45309"/>
+  <text x="599" y="365" text-anchor="middle" fill="#ffffff" class="badge">SPATIAL DIRECTOR · director/</text>
+  <text x="696" y="366" class="band">Interactive Timeline Stage</text>
+  <text x="514" y="392" class="body">• <tspan font-weight="700" fill="#92400e">Portals &amp; Targets:</tspan> Paint moving 2× EditGuider circles, wipes, &amp; click targets.</text>
+  <text x="514" y="411" class="body">• <tspan font-weight="700" fill="#92400e">SAM 3.1 &amp; 2D D-Pad:</tspan> Live /api/segment masks + chained multi-sprite paths &amp; hops.</text>
+  <text x="514" y="430" class="body">• <tspan font-weight="700" fill="#92400e">3-Lane Sequencer:</tspan> 17f causal cuts, 3f stereo SoundCues, &amp; video-frozen Re-Dub.</text>
+  <rect x="514" y="446" width="426" height="28" rx="6" fill="#fffbeb" stroke="#fde68a"/>
+  <text x="727" y="464" text-anchor="middle" class="mono" fill="#92400e">director/compiler.py · director/server.py · MiniMaxH3SpatialDirector</text>
+</svg>

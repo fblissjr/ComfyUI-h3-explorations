@@ -1,17 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 540" width="100%" height="100%" role="img" aria-label="How 1x Spatial Visual Query Routing Works Across 50 DiT Blocks">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 572" width="100%" height="100%" role="img" aria-label="How 1x Spatial Visual Query Routing v2-slim Works Across 50 DiT Blocks">
   <defs>
     <filter id="sqrShadow" x="-3%" y="-3%" width="106%" height="110%">
       <feDropShadow dx="0" dy="3" stdDeviation="5" flood-color="#0f172a" flood-opacity="0.06"/>
     </filter>
-    <marker id="arrAmber" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-      <path d="M 1 1.5 L 8.5 5 L 1 8.5 z" fill="#d97706"/>
-    </marker>
-    <marker id="arrCyan" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-      <path d="M 1 1.5 L 8.5 5 L 1 8.5 z" fill="#0284c7"/>
-    </marker>
-    <marker id="arrViolet" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-      <path d="M 1 1.5 L 8.5 5 L 1 8.5 z" fill="#7c3aed"/>
-    </marker>
     <marker id="arrSlate" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
       <path d="M 1 1.5 L 8.5 5 L 1 8.5 z" fill="#475569"/>
     </marker>
@@ -21,125 +12,135 @@
     .canvas { fill: #faf9f5; stroke: #e5e3dc; stroke-width: 1.5; }
     .card { fill: #ffffff; stroke: #e5e7eb; stroke-width: 1.2; filter: url(#sqrShadow); }
     .heading { font-family: Georgia, "Newsreader", "Charter", serif; font-size: 20px; font-weight: 700; fill: #18181b; }
-    .subhead { font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 12.5px; fill: #52525b; }
-    .band-title { font-family: Georgia, "Newsreader", "Charter", serif; font-size: 15px; font-weight: 700; fill: #1e293b; }
-    .title-sm { font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 12.5px; font-weight: 700; }
-    .body { font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 11px; fill: #334155; }
-    .muted { font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 10.5px; fill: #64748b; }
-    .badge { font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 10px; font-weight: 700; }
-    .mono { font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; font-size: 10.5px; font-weight: 600; }
+    .subhead { font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 12px; fill: #52525b; }
+    .band-title { font-family: Georgia, "Newsreader", "Charter", serif; font-size: 14.5px; font-weight: 700; fill: #1e293b; }
+    .title-sm { font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 12px; font-weight: 700; }
+    .body { font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 10.6px; fill: #334155; }
+    .muted { font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 10px; fill: #64748b; }
+    .badge { font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 9.8px; font-weight: 700; }
+    .mono { font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; font-size: 10px; font-weight: 600; }
   </style>
 
   <!-- Outer Canvas -->
-  <rect x="4" y="4" width="972" height="532" rx="16" class="canvas"/>
+  <rect x="4" y="4" width="972" height="564" rx="16" class="canvas"/>
 
   <!-- Header -->
-  <text x="28" y="36" class="heading">1x Spatial Visual Query Routing: Two Worlds, One Seamless Video Shot</text>
-  <text x="28" y="56" class="subhead">100% stock 3D RoPE (zero shimmer) · Two-phase attention inside one pass (+4.2s on 90f 1344x768 via comfy_kitchen.int8_attention)</text>
+  <text x="28" y="36" class="heading">1× Spatial Visual Query Routing (v2-slim): Video &amp; 4 MP Stills</text>
+  <text x="28" y="55" class="subhead">100% stock 3D RoPE · 9 isolation modes (incl. 1-way *_shield), 4 audio zones, 17*m hard cuts, L→R wipes, &amp; zero-mask SelfMaskRouter.</text>
 
-  <!-- STEP 1: INPUTS & REGION MAP -->
-  <rect x="24" y="74" width="286" height="356" rx="12" class="card"/>
-  <rect x="40" y="90" width="66" height="22" rx="11" fill="#fef3c7" stroke="#fcd34d"/>
-  <text x="73" y="105" text-anchor="middle" fill="#92400e" class="badge">STEP 1</text>
-  <text x="116" y="105" class="band-title">Two Prompts &amp; Zone</text>
+  <!-- STEP 1: INPUTS & REGION SOURCE -->
+  <rect x="24" y="72" width="286" height="390" rx="12" class="card"/>
+  <rect x="40" y="88" width="66" height="22" rx="11" fill="#fef3c7" stroke="#fcd34d"/>
+  <text x="73" y="103" text-anchor="middle" fill="#92400e" class="badge">STEP 1</text>
+  <text x="116" y="103" class="band-title">Two Prompts &amp; Region</text>
 
   <!-- Prompt A -->
-  <rect x="40" y="124" width="254" height="62" rx="8" fill="#fffbeb" stroke="#f59e0b" stroke-width="1.3"/>
-  <text x="52" y="143" class="title-sm" fill="#92400e">Base Prompt (World A)</text>
-  <text x="52" y="160" class="body">Sunlit European cobblestone street,</text>
-  <text x="52" y="175" class="body">olive trees, clear blue sky</text>
+  <rect x="40" y="122" width="254" height="56" rx="8" fill="#fffbeb" stroke="#f59e0b" stroke-width="1.3"/>
+  <text x="52" y="140" class="title-sm" fill="#92400e">Base Prompt (World A)</text>
+  <text x="52" y="156" class="body">Sunlit European street · vintage clockmaker</text>
+  <text x="52" y="170" class="muted">Outside mask (or frames before 17*m beat cut)</text>
 
   <!-- Prompt B -->
-  <rect x="40" y="198" width="254" height="62" rx="8" fill="#f5f3ff" stroke="#8b5cf6" stroke-width="1.3"/>
-  <text x="52" y="217" class="title-sm" fill="#5b21b6">Region Prompt (World B)</text>
-  <text x="52" y="234" class="body">Midnight cyberpunk neon rain, magenta</text>
-  <text x="52" y="249" class="body">holograms, wet asphalt &amp; umbrellas</text>
+  <rect x="40" y="188" width="254" height="56" rx="8" fill="#f5f3ff" stroke="#8b5cf6" stroke-width="1.3"/>
+  <text x="52" y="206" class="title-sm" fill="#5b21b6">Region Prompt (World B)</text>
+  <text x="52" y="222" class="body">Cyberpunk neon rain · sapphire crystal bread</text>
+  <text x="52" y="236" class="muted">Inside mask (video 24×42 or 4 MP still grid)</text>
 
-  <!-- Region Box Preview -->
-  <text x="40" y="282" class="title-sm" fill="#1e293b">Any Box or MASK (24x42 Patch Grid)</text>
-  <!-- Split screen mini -->
-  <rect x="40" y="292" width="118" height="72" rx="6" fill="#fef3c7" stroke="#d97706" stroke-width="1.3"/>
-  <rect x="99" y="292" width="59" height="72" rx="0" fill="#ede9fe" stroke="#7c3aed" stroke-width="1.3"/>
-  <text x="70" y="325" text-anchor="middle" class="badge" fill="#92400e">World A</text>
-  <text x="128" y="325" text-anchor="middle" class="badge" fill="#5b21b6">World B</text>
-  <text x="99" y="378" text-anchor="middle" class="mono" fill="#475569">x: 0.50..1.00</text>
+  <!-- Region Sources -->
+  <text x="40" y="266" class="title-sm" fill="#1e293b">4 Ways to Define the Region</text>
 
-  <!-- Portal box mini -->
-  <rect x="176" y="292" width="118" height="72" rx="6" fill="#fef3c7" stroke="#d97706" stroke-width="1.3"/>
-  <rect x="209" y="305" width="52" height="48" rx="4" fill="#ede9fe" stroke="#7c3aed" stroke-width="1.6"/>
-  <text x="235" y="333" text-anchor="middle" class="badge" fill="#5b21b6">Portal B</text>
-  <text x="235" y="378" text-anchor="middle" class="mono" fill="#475569">x: .28-.72  y: .18-.85</text>
+  <!-- Mini 1: L/R & Box -->
+  <rect x="40" y="276" width="120" height="62" rx="6" fill="#fef3c7" stroke="#d97706" stroke-width="1.2"/>
+  <rect x="100" y="276" width="60" height="62" fill="#ede9fe" stroke="#7c3aed" stroke-width="1.2"/>
+  <text x="70" y="308" text-anchor="middle" class="badge" fill="#92400e">A</text>
+  <text x="130" y="308" text-anchor="middle" class="badge" fill="#5b21b6">B</text>
+  <text x="100" y="352" text-anchor="middle" class="muted">Box / Split (Video+4 MP)</text>
 
-  <text x="40" y="408" class="muted">Or connect any 2D / [F,H,W] MASK input</text>
-  <text x="40" y="422" class="muted">(overrides box; flip via invert=True)</text>
+  <!-- Mini 2: Beat Cut & Wipe -->
+  <rect x="174" y="276" width="120" height="62" rx="6" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.2"/>
+  <rect x="174" y="276" width="62" height="62" rx="6" fill="#fef3c7" stroke="#d97706" stroke-width="1.2"/>
+  <line x1="236" y1="276" x2="236" y2="338" stroke="#dc2626" stroke-width="2" stroke-dasharray="3,2"/>
+  <text x="205" y="300" text-anchor="middle" class="badge" fill="#92400e">f0..84</text>
+  <text x="265" y="300" text-anchor="middle" class="badge" fill="#5b21b6">f85+</text>
+  <rect x="202" y="313" width="64" height="17" rx="4" fill="#ffffff" stroke="#fca5a5"/>
+  <text x="234" y="325" text-anchor="middle" class="mono" fill="#b91c1c">17*m cut</text>
+  <text x="234" y="352" text-anchor="middle" class="muted">Beat Cut / L→R Wipe</text>
+
+  <!-- Mini 3: SAM 3.1 + SelfMaskRouter -->
+  <rect x="40" y="366" width="254" height="80" rx="8" fill="#eef2ff" stroke="#a5b4fc"/>
+  <text x="52" y="385" class="title-sm" fill="#312e81">Custom [F,H,W] MASK or Auto Self-Mask</text>
+  <text x="52" y="402" class="body">• Wire SAM 3.1, MoGe-2 depth, or SpatialDirector</text>
+  <text x="52" y="418" class="body">• Or swap to <tspan class="mono" fill="#4338ca">MiniMaxH3SelfMaskRouter</tspan>:</text>
+  <text x="60" y="433" class="muted">harvests noun / speaker / audio_x0 at Step 0</text>
 
   <!-- Arrow 1 -> 2 -->
-  <line x1="310" y1="252" x2="334" y2="252" stroke="#475569" stroke-width="2" marker-end="url(#arrSlate)"/>
+  <line x1="310" y1="266" x2="334" y2="266" stroke="#475569" stroke-width="2" marker-end="url(#arrSlate)"/>
 
-  <!-- STEP 2: BLOCKS 0..24 ISOLATED -->
-  <rect x="340" y="74" width="302" height="356" rx="12" class="card"/>
-  <rect x="356" y="90" width="102" height="22" rx="11" fill="#e0f2fe" stroke="#7dd3fc"/>
-  <text x="407" y="105" text-anchor="middle" fill="#0369a1" class="badge">BLOCKS 0–24</text>
-  <text x="468" y="105" class="band-title">Build Two Worlds</text>
+  <!-- STEP 2: ISOLATION REGIMES -->
+  <rect x="340" y="72" width="302" height="390" rx="12" class="card"/>
+  <rect x="356" y="88" width="112" height="22" rx="11" fill="#e0f2fe" stroke="#7dd3fc"/>
+  <text x="412" y="103" text-anchor="middle" fill="#0369a1" class="badge">ISOLATION BANDS</text>
+  <text x="478" y="103" class="band-title">Build Two Worlds</text>
 
-  <text x="356" y="132" class="body">Symmetric K/V isolation (zero dense mask):</text>
-  <text x="356" y="148" class="muted">Each world builds its own weather, palette &amp;</text>
-  <text x="356" y="162" class="muted">architecture without bleeding into the other.</text>
+  <!-- Symmetric Isolation Card -->
+  <rect x="356" y="122" width="270" height="148" rx="8" fill="#fffbeb" stroke="#f59e0b" stroke-width="1.3"/>
+  <text x="368" y="140" class="title-sm" fill="#92400e">A. Symmetric 2-Island Split</text>
+  <text x="368" y="158" class="mono" font-size="9.3" fill="#78350f">A: Q[TxtA,VidA] → KV[TxtA,VidA,Refs]</text>
+  <text x="368" y="174" class="mono" font-size="9.3" fill="#5b21b6">B: Q[TxtB,VidB] → KV[TxtB,VidB,Refs]</text>
+  <line x1="368" y1="186" x2="614" y2="186" stroke="#fde68a" stroke-width="1"/>
+  <text x="368" y="203" class="body">• <tspan class="mono">early_0_24</tspan>: Splits 0..24, blends 25..49 (default)</text>
+  <text x="368" y="219" class="body">• <tspan class="mono">mid_20_34 / mid_20_49</tspan>: Shared 0..19 framing</text>
+  <text x="368" y="235" class="body">• <tspan class="mono">all_0_49</tspan>: Hard 1-frame 17*m scene cuts</text>
+  <text x="368" y="253" class="muted">Per-segment-t cond split keeps fl2va &amp; refs clean</text>
 
-  <!-- Island A -->
-  <rect x="356" y="178" width="270" height="84" rx="8" fill="#fffbeb" stroke="#f59e0b" stroke-width="1.4"/>
-  <text x="368" y="198" class="title-sm" fill="#92400e">Island A · Base Tokens</text>
-  <text x="368" y="216" class="mono" fill="#78350f">Q: [Txt A, Vid A]</text>
-  <text x="368" y="233" class="mono" fill="#78350f">K,V: [Txt A, Vid A, Audio/Refs]</text>
-  <text x="368" y="250" class="muted">Half-length comfy_kitchen.int8_attention</text>
-
-  <!-- Wall divider -->
-  <line x1="366" y1="276" x2="616" y2="276" stroke="#dc2626" stroke-width="1.6" stroke-dasharray="5,4"/>
-  <rect x="424" y="266" width="134" height="20" rx="10" fill="#fef2f2" stroke="#fca5a5"/>
-  <text x="491" y="280" text-anchor="middle" class="badge" fill="#b91c1c">NO CROSS-WORLD BLEED</text>
-
-  <!-- Island B -->
-  <rect x="356" y="294" width="270" height="84" rx="8" fill="#f5f3ff" stroke="#8b5cf6" stroke-width="1.4"/>
-  <text x="368" y="314" class="title-sm" fill="#5b21b6">Island B · Region Tokens</text>
-  <text x="368" y="332" class="mono" fill="#4c1d95">Q: [Txt B, Vid B]</text>
-  <text x="368" y="349" class="mono" fill="#4c1d95">K,V: [Txt B, Vid B, Audio/Refs]</text>
-  <text x="368" y="366" class="muted">Half-length comfy_kitchen.int8_attention</text>
-
-  <text x="356" y="402" class="muted">Blocks 1-hop Vid A -&gt; Txt B -&gt; Vid B leak</text>
-  <text x="356" y="418" class="muted">while using 0.5x attention FLOPs!</text>
+  <!-- 1-Way Shield Card -->
+  <rect x="356" y="282" width="270" height="164" rx="8" fill="#f5f3ff" stroke="#8b5cf6" stroke-width="1.4"/>
+  <rect x="368" y="292" width="144" height="18" rx="9" fill="#7c3aed"/>
+  <text x="440" y="304" text-anchor="middle" fill="#ffffff" class="badge">NEW · 1-WAY *_shield</text>
+  <text x="368" y="328" class="title-sm" fill="#4c1d95">Small ~10% Subject &amp; Object Protection</text>
+  <text x="368" y="346" class="body"><tspan class="mono" fill="#5b21b6">early_0_24_shield</tspan> / <tspan class="mono" fill="#5b21b6">mid_20_34_shield</tspan></text>
+  <text x="368" y="364" class="body">• <tspan font-weight="700">Region B</tspan> is shielded inside its own island</text>
+  <text x="376" y="378" class="muted">so background lighting never washes out tiny masks.</text>
+  <text x="368" y="395" class="body">• <tspan font-weight="700">Base A</tspan> reads full visual context cleanly.</text>
+  <text x="368" y="414" class="mono" fill="#0f766e">Verified: 10% chrome dancer (bg MAE 0.45)</text>
+  <text x="368" y="430" class="mono" fill="#0f766e">4 MP emerald crystal bread (4.30× in/out)</text>
 
   <!-- Arrow 2 -> 3 -->
-  <line x1="642" y1="252" x2="666" y2="252" stroke="#475569" stroke-width="2" marker-end="url(#arrSlate)"/>
+  <line x1="642" y1="266" x2="666" y2="266" stroke="#475569" stroke-width="2" marker-end="url(#arrSlate)"/>
 
-  <!-- STEP 3: BLOCKS 25..49 SEAMLESS BLEND -->
-  <rect x="672" y="74" width="284" height="356" rx="12" class="card"/>
-  <rect x="688" y="90" width="106" height="22" rx="11" fill="#d1fae5" stroke="#6ee7b7"/>
-  <text x="741" y="105" text-anchor="middle" fill="#065f46" class="badge">BLOCKS 25–49</text>
-  <text x="802" y="105" class="band-title">Seamless Merge</text>
+  <!-- STEP 3: SEAMLESS MERGE & AUDIO ZONES -->
+  <rect x="672" y="72" width="284" height="390" rx="12" class="card"/>
+  <rect x="688" y="88" width="114" height="22" rx="11" fill="#d1fae5" stroke="#6ee7b7"/>
+  <text x="745" y="103" text-anchor="middle" fill="#065f46" class="badge">MERGE &amp; AUDIO</text>
+  <text x="810" y="103" class="band-title">Blend &amp; Sound</text>
 
-  <text x="688" y="132" class="body">Reopen shared K_vid_all across frame:</text>
-  <text x="688" y="148" class="muted">Text prompts stay split, while both worlds</text>
-  <text x="688" y="162" class="muted">can now see each other's lighting &amp; motion.</text>
+  <!-- Shared Canvas -->
+  <rect x="688" y="122" width="252" height="100" rx="8" fill="#ecfdf5" stroke="#10b981" stroke-width="1.3"/>
+  <text x="700" y="140" class="title-sm" fill="#065f46">Non-Isolated Blocks (Shared K_vid_all)</text>
+  <text x="700" y="158" class="mono" fill="#047857">Vid A → [Txt A, Vid All]</text>
+  <text x="700" y="174" class="mono" fill="#5b21b6">Vid B → [Txt B, Vid All]</text>
+  <text x="700" y="192" class="body">Unifies shadows, wet reflections &amp; motion</text>
+  <text x="700" y="208" class="muted">1 coalesced index_copy_ · smooth [0..1] feather</text>
 
-  <!-- Shared Attention Box -->
-  <rect x="688" y="178" width="252" height="96" rx="8" fill="#ecfdf5" stroke="#10b981" stroke-width="1.4"/>
-  <text x="700" y="198" class="title-sm" fill="#065f46">Shared Video Canvas</text>
-  <text x="700" y="216" class="mono" fill="#047857">Main (Sol): Vid A -&gt; [Txt A, Vid All]</text>
-  <text x="700" y="234" class="mono" fill="#5b21b6">Splice:     Vid B -&gt; [Txt B, Vid All]</text>
-  <text x="700" y="252" class="muted">1 coalesced index_copy_ per block</text>
+  <!-- 4 Audio Zones -->
+  <rect x="688" y="234" width="252" height="118" rx="8" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.2"/>
+  <text x="700" y="252" class="title-sm" fill="#1e293b">Four 40 Hz Audio Routing Zones</text>
+  <text x="700" y="270" class="body">• <tspan class="mono">base</tspan> / <tspan class="mono">region</tspan>: Full stereo → A or B</text>
+  <text x="700" y="288" class="body">• <tspan class="mono">follow_mask</tspan>: Tracks mask(t) (+10.6 dB)</text>
+  <text x="700" y="306" class="body">• <tspan class="mono">binaural_split</tspan>: Shared 0..29 lip-sync,</text>
+  <text x="708" y="321" class="muted">visual-firewalled 30..49 L/R ears</text>
+  <text x="708" y="336" class="mono" font-size="9.5" fill="#4338ca">lr_corr = 0.141 · zero cross-ear leak</text>
 
-  <!-- Outcome Bullets -->
-  <rect x="688" y="290" width="252" height="122" rx="8" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.2"/>
-  <text x="700" y="310" class="title-sm" fill="#1e293b">Result in One Single Pass</text>
-  <text x="700" y="330" class="body">- Dry cobblestones morph into wet neon</text>
-  <text x="700" y="346" class="body">- Zero rectangular border or hard cut</text>
-  <text x="700" y="362" class="body">- People walk right across the portal</text>
-  <text x="700" y="378" class="body">- 100% stock RoPE = zero 17f VAE pop</text>
-  <text x="700" y="396" class="mono" fill="#0284c7">42.1s vs 37.9s stock (+4.2s / 1.11x)</text>
+  <!-- Speed & Proof Strip -->
+  <rect x="688" y="364" width="252" height="82" rx="8" fill="#fffbeb" stroke="#fde68a"/>
+  <text x="700" y="382" class="title-sm" fill="#92400e">Verified Silicon Speed &amp; Seams</text>
+  <text x="700" y="399" class="body">• 90f Portal: <tspan font-weight="700">42.1s</tspan> vs 37.9s (+4.2s)</text>
+  <text x="700" y="415" class="body">• 4 MP Still Split: <tspan font-weight="700">33.7s</tspan> (seam 4.45)</text>
+  <text x="700" y="431" class="body">• f85 Beat Cut: <tspan font-weight="700">MAE 70.3–88.6</tspan> (0 pop)</text>
 
   <!-- Footer Banner -->
-  <rect x="24" y="446" width="932" height="74" rx="12" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.2"/>
-  <text x="42" y="470" class="title-sm" fill="#1e293b">Golden Prompt Tip for Clean Portals &amp; Splits:</text>
-  <text x="42" y="489" class="body">Keep the camera lens, framing, and horizon sentence identical between Base Prompt and Region Prompt (for example, both "wide static 35mm shot looking</text>
-  <text x="42" y="505" class="body">down a wide street"), and diverge only the world, weather, era, lighting, and wardrobe — H3 aligns perspective and ground planes automatically.</text>
+  <rect x="24" y="476" width="932" height="76" rx="12" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.2"/>
+  <text x="42" y="499" class="title-sm" fill="#1e293b">Golden Prompt Rules for Clean Splits, Portals, &amp; 4 MP Dual-Ref Stills:</text>
+  <text x="42" y="518" class="body">1. Keep camera lens, framing, and horizon identical between Prompt A and Prompt B so geometry aligns across the boundary.</text>
+  <text x="42" y="535" class="body">2. For &lt;Picture 1&gt;|&lt;Picture 2&gt; stills, specify "on the left half" / "on the right half". For *_shield small subjects, keep invert = False.</text>
 </svg>

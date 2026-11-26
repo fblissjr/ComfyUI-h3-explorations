@@ -1,0 +1,166 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 568" width="100%" height="100%" role="img" aria-label="Closed-Loop Self-Steering Architecture: 4 Internal H3 Sensors Driving 4 Mid-Sample Actuators via H3LivePolicy">
+  <defs>
+    <filter id="slShadow" x="-3%" y="-3%" width="106%" height="110%">
+      <feDropShadow dx="0" dy="3" stdDeviation="5" flood-color="#0f172a" flood-opacity="0.06"/>
+    </filter>
+    <marker id="arrTealS" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 1 1.5 L 8.5 5 L 1 8.5 z" fill="#0d9488"/>
+    </marker>
+    <marker id="arrIndigoS" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 1 1.5 L 8.5 5 L 1 8.5 z" fill="#4f46e5"/>
+    </marker>
+    <marker id="arrAmberS" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 1 1.5 L 8.5 5 L 1 8.5 z" fill="#d97706"/>
+    </marker>
+    <marker id="arrVioletS" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 1 1.5 L 8.5 5 L 1 8.5 z" fill="#7c3aed"/>
+    </marker>
+  </defs>
+
+  <style>
+    .canvas { fill: #faf9f5; stroke: #e5e3dc; stroke-width: 1.5; }
+    .card { fill: #ffffff; stroke: #e5e7eb; stroke-width: 1.2; filter: url(#slShadow); }
+    .heading { font-family: Georgia, "Newsreader", "Charter", serif; font-size: 20px; font-weight: 700; fill: #18181b; }
+    .subhead { font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 12.2px; fill: #52525b; }
+    .col-hdr { font-family: Georgia, "Newsreader", "Charter", serif; font-size: 14.5px; font-weight: 700; fill: #1e293b; }
+    .title { font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 12px; font-weight: 700; }
+    .body { font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 10.6px; fill: #334155; }
+    .muted { font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 10px; fill: #64748b; }
+    .badge { font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 9.8px; font-weight: 700; }
+    .mono { font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; font-size: 10px; font-weight: 600; }
+  </style>
+
+  <!-- Outer Canvas -->
+  <rect x="4" y="4" width="972" height="560" rx="16" class="canvas"/>
+
+  <!-- Header -->
+  <text x="28" y="36" class="heading">Closed-Loop Self-Steering: H3 Watches Itself and Adapts Mid-Sample</text>
+  <text x="28" y="55" class="subhead">MiniMaxH3SelfMaskRouter + H3LivePolicy: four zero-training internal sensors drive four live actuators inside one generation.</text>
+
+  <!-- Column Headers -->
+  <text x="28" y="82" class="col-hdr">1. Four Internal Sensors (Steps 0–5)</text>
+  <text x="364" y="82" class="col-hdr">2. Shared Live Policy Bus</text>
+  <text x="676" y="82" class="col-hdr">3. Four Mid-Sample Actuators</text>
+
+  <!-- ================================================================== -->
+  <!-- LEFT COLUMN: 4 INTERNAL SENSORS (x=24..324)                        -->
+  <!-- ================================================================== -->
+
+  <!-- Sensor 1: Text Phrase -->
+  <rect x="24" y="94" width="300" height="84" rx="10" class="card"/>
+  <rect x="36" y="104" width="142" height="18" rx="9" fill="#eef2ff" stroke="#a5b4fc"/>
+  <text x="107" y="116" text-anchor="middle" fill="#3730a3" class="badge">SENSOR 1 · STEP-0 B35+B40</text>
+  <text x="36" y="138" class="title" fill="#1e293b">Type-a-Noun Attention Self-Mask</text>
+  <text x="36" y="153" class="body"><tspan class="mono" fill="#4338ca">Q_vid @ K_txt[noun]^T</tspan> locates any noun</text>
+  <text x="36" y="168" class="muted">11/11 peak-in-box · zero SAM, zero boxes (4 MP &amp; AV)</text>
+
+  <!-- Sensor 2: Audio-Spatial Speaker -->
+  <rect x="24" y="190" width="300" height="84" rx="10" class="card"/>
+  <rect x="36" y="200" width="150" height="18" rx="9" fill="#f5f3ff" stroke="#c4b5fd"/>
+  <text x="111" y="212" text-anchor="middle" fill="#5b21b6" class="badge">SENSOR 2 · STEP-0 B35+B40</text>
+  <text x="36" y="234" class="title" fill="#1e293b">Active-Speaker Audio Spotlight</text>
+  <text x="36" y="249" class="body"><tspan class="mono" fill="#6d28d9">Q_vid @ K_aud</tspan> (left / right / active speaker)</text>
+  <text x="36" y="264" class="muted">Tracks speaking face per frame (peak [0.68, 0.31])</text>
+
+  <!-- Sensor 3: Audio x0 Transients & Monitor -->
+  <rect x="24" y="286" width="300" height="84" rx="10" class="card"/>
+  <rect x="36" y="296" width="152" height="18" rx="9" fill="#fff7ed" stroke="#fdba74"/>
+  <text x="112" y="308" text-anchor="middle" fill="#c2410c" class="badge">SENSOR 3 · POST-CFG &lt;1 MS</text>
+  <text x="36" y="330" class="title" fill="#1e293b">Step 0–2 audio_x0 Onsets &amp; Guard</text>
+  <text x="36" y="345" class="body">Catches emergent bursts (<tspan class="mono" fill="#b45309">audio_transients</tspan>)</text>
+  <text x="36" y="360" class="muted">Flags thunderclaps (6 bursts) &amp; stereo collapse / hiss</text>
+
+  <!-- Sensor 4: taeh3 Preview Thermostat -->
+  <rect x="24" y="382" width="300" height="84" rx="10" class="card"/>
+  <rect x="36" y="392" width="152" height="18" rx="9" fill="#f0fdfa" stroke="#5eead4"/>
+  <text x="112" y="404" text-anchor="middle" fill="#0f766e" class="badge">SENSOR 4 · TAEH3 0.0 MS</text>
+  <text x="36" y="426" class="title" fill="#1e293b">Visual Preview Thermostat Bridge</text>
+  <text x="36" y="441" class="body">Reads <tspan class="mono" fill="#0f766e">ModelPreviewOverrideKJ.frames[-1]</tspan></text>
+  <text x="36" y="456" class="muted">Tracks luma, hi-clip burn &amp; motion MAE across Steps 0–5</text>
+
+  <!-- Arrows Left -> Center -->
+  <line x1="324" y1="136" x2="356" y2="176" stroke="#4f46e5" stroke-width="1.8" marker-end="url(#arrIndigoS)"/>
+  <line x1="324" y1="232" x2="356" y2="240" stroke="#7c3aed" stroke-width="1.8" marker-end="url(#arrVioletS)"/>
+  <line x1="324" y1="328" x2="356" y2="316" stroke="#d97706" stroke-width="1.8" marker-end="url(#arrAmberS)"/>
+  <line x1="324" y1="424" x2="356" y2="380" stroke="#0d9488" stroke-width="1.8" marker-end="url(#arrTealS)"/>
+
+  <!-- ================================================================== -->
+  <!-- CENTER HUB: H3LivePolicy (x=362..634)                              -->
+  <!-- ================================================================== -->
+  <rect x="362" y="94" width="272" height="372" rx="12" fill="#ffffff" stroke="#4f46e5" stroke-width="1.8" filter="url(#slShadow)"/>
+  <rect x="378" y="108" width="240" height="26" rx="13" fill="#4f46e5"/>
+  <text x="498" y="125" text-anchor="middle" fill="#ffffff" class="badge">H3LivePolicy (SURVIVES .clone())</text>
+  <text x="498" y="150" text-anchor="middle" class="mono" fill="#3730a3">transformer_options["_h3_live_policy"]</text>
+  <text x="498" y="164" text-anchor="middle" class="muted">Shared live reference across all downstream nodes</text>
+
+  <!-- Hub State Block 1 -->
+  <rect x="378" y="178" width="240" height="66" rx="8" fill="#eef2ff" stroke="#c7d2fe"/>
+  <text x="390" y="196" class="title" fill="#312e81">1. Harvested 4D Mask [T, H, W]</text>
+  <text x="390" y="212" class="mono" fill="#4338ca">policy.harvested_mask_frames</text>
+  <text x="390" y="229" class="muted">Soft z-score mask from B35+B40 or audio_x0</text>
+
+  <!-- Hub State Block 2 -->
+  <rect x="378" y="256" width="240" height="66" rx="8" fill="#f0fdfa" stroke="#99f6e4"/>
+  <text x="390" y="274" class="title" fill="#115e59">2. Visual Gain &amp; Freeze Guard</text>
+  <text x="390" y="290" class="mono" fill="#0f766e">strength_scale ∈ [0.50, 1.25]</text>
+  <text x="390" y="307" class="mono" fill="#0f766e">video_end_percent: 0.33 ↔ 0.50</text>
+
+  <!-- Hub State Block 3 -->
+  <rect x="378" y="334" width="240" height="58" rx="8" fill="#fff7ed" stroke="#fed7aa"/>
+  <text x="390" y="352" class="title" fill="#9a3412">3. Audio Firewall Override</text>
+  <text x="390" y="368" class="mono" fill="#c2410c">recommended_aud_to_vid_gain = 0.0</text>
+  <text x="390" y="383" class="muted">Clamps cross-modal leak mid-sample</text>
+
+  <!-- Studio WS Telemetry Strip -->
+  <rect x="378" y="404" width="240" height="48" rx="8" fill="#f8fafc" stroke="#94a3b8" stroke-dasharray="4,3"/>
+  <text x="498" y="422" text-anchor="middle" class="title" fill="#1e293b">Live WS: h3_self_steer</text>
+  <text x="498" y="439" text-anchor="middle" class="muted">Streams mask lock + thermostat pills to Studio</text>
+
+  <!-- Arrows Center -> Right -->
+  <line x1="634" y1="176" x2="666" y2="136" stroke="#4f46e5" stroke-width="1.8" marker-end="url(#arrIndigoS)"/>
+  <line x1="634" y1="240" x2="666" y2="232" stroke="#7c3aed" stroke-width="1.8" marker-end="url(#arrVioletS)"/>
+  <line x1="634" y1="316" x2="666" y2="328" stroke="#0d9488" stroke-width="1.8" marker-end="url(#arrTealS)"/>
+  <line x1="634" y1="380" x2="666" y2="424" stroke="#d97706" stroke-width="1.8" marker-end="url(#arrAmberS)"/>
+
+  <!-- ================================================================== -->
+  <!-- RIGHT COLUMN: 4 LIVE ACTUATORS (x=672..956)                        -->
+  <!-- ================================================================== -->
+
+  <!-- Actuator 1: 1x SpatialQR + replay_step0 -->
+  <rect x="672" y="94" width="284" height="84" rx="10" class="card"/>
+  <rect x="684" y="104" width="150" height="18" rx="9" fill="#4f46e5"/>
+  <text x="759" y="116" text-anchor="middle" fill="#ffffff" class="badge">ACTUATOR 1 · 1× ROUTING</text>
+  <text x="684" y="138" class="title" fill="#1e293b">SpatialQR + replay_step0 (1.17×)</text>
+  <text x="684" y="153" class="body">Routes World B strictly inside harvested mask</text>
+  <text x="684" y="168" class="muted">4 MP emerald bread (5.01s, 2.33×) · thunder bursts</text>
+
+  <!-- Actuator 2: 2x EditGuider Auto-Mask Bridge -->
+  <rect x="672" y="190" width="284" height="84" rx="10" class="card"/>
+  <rect x="684" y="200" width="154" height="18" rx="9" fill="#7c3aed"/>
+  <text x="761" y="212" text-anchor="middle" fill="#ffffff" class="badge">ACTUATOR 2 · 2× BRIDGE</text>
+  <text x="684" y="234" class="title" fill="#1e293b">MiniMaxH3EditGuider Auto-Mask</text>
+  <text x="684" y="249" class="body">Unwired <tspan class="mono" fill="#5b21b6">.mask</tspan> pulls policy harvest directly</text>
+  <text x="684" y="264" class="muted">tb1: right speaker → cyan android (1.782× MAE)</text>
+
+  <!-- Actuator 3: MiniMaxH3Steer Governor -->
+  <rect x="672" y="286" width="284" height="84" rx="10" class="card"/>
+  <rect x="684" y="296" width="152" height="18" rx="9" fill="#0d9488"/>
+  <text x="760" y="308" text-anchor="middle" fill="#ffffff" class="badge">ACTUATOR 3 · 1× DIALS</text>
+  <text x="684" y="330" class="title" fill="#1e293b">MiniMaxH3Steer Live Governor</text>
+  <text x="684" y="345" class="body">Auto-boosts dim scenes &amp; tapers hi-clip burn</text>
+  <text x="684" y="360" class="muted">tb2: +0.01s overhead · 1.06 → 1.118× noir boost</text>
+
+  <!-- Actuator 4: MiniMaxH3QueryRouter Clamp -->
+  <rect x="672" y="382" width="284" height="84" rx="10" class="card"/>
+  <rect x="684" y="392" width="160" height="18" rx="9" fill="#d97706"/>
+  <text x="764" y="404" text-anchor="middle" fill="#ffffff" class="badge">ACTUATOR 4 · FIREWALL</text>
+  <text x="684" y="426" class="title" fill="#1e293b">QueryRouter a2v = 0.0 Clamp</text>
+  <text x="684" y="441" class="body">Engages Sight→Sound firewall mid-sample</text>
+  <text x="684" y="456" class="muted">Triggers on audio_x0 collapse or hiss bleed</text>
+
+  <!-- Bottom Verified Silicon Summary Strip -->
+  <rect x="24" y="482" width="932" height="68" rx="12" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.2"/>
+  <text x="42" y="505" class="title" fill="#0f172a">Verified on Live Silicon (2026-11-26, commit eaa19c99 · 69 Registered Nodes · Zero Extra Training):</text>
+  <text x="42" y="524" class="body">• <tspan font-weight="700">tb1 (98.7s):</tspan> Zero-mask right_speaker → 2× EditGuider android (1.782× in/out)  • <tspan font-weight="700">tb2 (29.2s):</tspan> 6-step taeh3 thermostat (+0.01s, 1.118×)</text>
+  <text x="42" y="540" class="body">• <tspan font-weight="700">tb3 (36.2s, 0 WAV):</tspan> Step-0 audio_x0 caught 6 thunder bursts → cyan lightning (max_luma 0.400)  • <tspan font-weight="700">4 MP Still (5.0s):</tspan> replay_step0 emerald bread (2.334×)</text>
+</svg>

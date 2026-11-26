@@ -6,6 +6,8 @@ Want the left half of a street to be a **golden sunlit summer afternoon in Italy
 
 ![1x Spatial Visual Query Routing — Same-Seed Visual Proofs](assets/h3_spatial_query_routing_proofs.jpg)
 
+![Spatial Visual Query Routing v2-slim — 4 MP Stills, 1-Way *_shield & Kinematic Wakes](assets/h3_spatial_v2_showcases.jpg)
+
 **Quick links:** [Standalone Split-World Workflow (`h3_text_to_video_pika_spatial_query_router_api.json`)](../../workflows/h3_text_to_video_pika_spatial_query_router_api.json) · [Shipped Curated Workflows (`7` Spatial + `1` Freeze Portal)](#shipped-curated-workflows) · [Camera ↔ Mic Query Routing](query_routing.md) · [Stage 2 Music-Video & Track 2 Co-Audit (`2026-11-26`)](../../bench/results/2026-11-26_stage2_music_video_and_studio_unlock.md) · [`v2-slim` & Beat 1–3 Showcases (`2026-11-26`)](../../bench/results/2026-11-26_spatial_qr_v2_and_showcases.md) · [4-Sensor Silicon Gate (`2026-11-26`)](../../bench/results/2026-11-26_h3_4sensor_calibration.md) · [2× Moving Portals & Existing-Take Edits](spatial_director_guide.md)
 
 ---
