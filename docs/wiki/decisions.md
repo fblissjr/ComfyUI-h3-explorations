@@ -15,6 +15,15 @@ Older history lives elsewhere and is not copied here:
   decisions" and forward-plan sections.
 - `bench/results/`: the verdict records, each with its conditions.
 
+## 2026-11-26
+
+- **Bucket 1 + `mid_20_34` + Reverse-Order/`malloc_graph` Hardening & Bucket 3 / Beat 1 GPU Verdicts (`4cdf4e01`, `92523185`, `3191f95a`, `25e9f4e4`, `999fa587`, `b510ba6b`; [`../../bench/results/2026-11-26_bucket3_spatial_qr_and_sam3.md`](../../bench/results/2026-11-26_bucket3_spatial_qr_and_sam3.md)):**
+  - **Runtime & safety fixes landed:** Hardened `MiniMaxH3SpatialQueryRouter` with continuous `[0..1]` soft mask blending on `25..49`, `audio_zone="binaural_split"`, strict mask `[F, H, W]` frame checks, `FrozenVideoCache`/Sage `object_patches`/core `BlockSparseAttention` attach+runtime bypass guards (`999fa587`), symmetric `QueryRouter`/hook-mode `Steer` guards while keeping context-mode `Steer` stackable (`42.6 s` verified live at `90f`), single-prompt `MiniMaxH3QueryRouter(a2v < 1.0)` `mode_id=2` 1-hop isolation, `mid_20_34` warmup-isolate-blend (`92523185`), and `_build_shadow_text_rope` `.clone()`/`None` fix (`b510ba6b`, fixing equal-length `l_txt_b == l_txt` `cuMemFreeAsync` `SIGABRT`).
+  - **GPU takeaways (`17` renders total across Bucket 3, `mid_20_34`, and Beat 1):**
+    - **`1× SpatialQueryRouter` owns Step-0 `SAM 3.1` background swaps** (`g3b_sam3_bg_neon_sqr_1x`, `110.0 s`: full midnight neon relighting around locked dancer + frozen `-24.58 dBFS` groove), **multi-shot hard cuts under `all_0_49`** (`110.8 s`, `f84->85` `mae 75.7`, zero pre/post-cut stone facade bleed vs severe bleed in `early_0_24`), and **`binaural_split` stereo L/R decorrelation** (`lr_corr 0.0152 / -0.0013`, `9.05 dB` spectral divergence, though mix stays quiet `-35 dBFS` and `<d>` prose timing alone still overlaps `00:00–00:03`).
+    - **`mid_20_34` fixes frozen center booths** (`38.9 s`, `-7.6 s` vs `early_0_24`), uniting a walking corridor man into one cyan X-ray skeleton across his walk rather than spawning a static center box.
+    - **Retained boundaries / honest misses:** `2× EditGuider(last_step=3, scale=1.55)` still owns `~10%` small-mask subject re-skinning (all `1×` chrome attempts stayed human even with `mid_20_34` + stripped prompt) and sharp moving `SpatialDirector` circular portals (moving `1× t2va` lens parked in horizon). **`MiniMaxH3SigmaCurve` (Bucket 2) + Gate 3A stay parked.**
+
 ## 2026-11-25
 
 - **Query Router Step 1 bidirectional sweep (`13` clips), `compile_audio_redub(isolate_visuals=True)`, & Studio 2.0 1-Click Twists (`7a7693d0`, `app/.git` `b49de03`, [`bench/results/2026-11-25_query_router_step1_bidirectional.md`](../../bench/results/2026-11-25_query_router_step1_bidirectional.md)):**

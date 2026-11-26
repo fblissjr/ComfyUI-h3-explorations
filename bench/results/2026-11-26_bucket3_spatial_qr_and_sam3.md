@@ -53,3 +53,20 @@ Standalone `8`-clip matched-seed GPU evaluation (`1344×768`, 6-step Pika H3 Fle
 | `mid_sam3_subj_chrome_mid_focused` (chrome-only prompt) | `141` | `74.9` | `center MAE 30.307` | `outer MAE 25.290` | `1.34 / 1.20` | **Still no chrome swap:** Stripping studio words from `region_conditioning` still kept the dancer flesh-and-jacket human — proving `~10%` small-mask subject re-skinning on `1× SpatialQueryRouter` is defeated by `~90%` surrounding sunlit studio context in `35..49` without `2× EditGuider`'s contrast-amplifying velocity delta (`scale=1.55, last_step=3`). |
 
 *\* Cold-cache first run in its length group.*
+
+---
+
+## 4. Beat 1 Zero-Code Probes (`4` Clips, Live `:8188` on `b510ba6b`)
+
+- **Rendered clips:** `$H3_OUTPUT_DIR/Video/beat1_zero_code_2026-11-26/` (plus labeled boundary strip `temporal_cut_f83_f90_strip.jpg`; all `4/4` `*-audio.mp4` clips watched & listened to natively via `read_file` after `b510ba6b` fixed an equal-length `l_txt_b == l_txt` `malloc_graph` `rope_freqs` view `SIGABRT` exposed by `b1_90f_vector_lens_charcoal`).
+
+| Arm | Frames | `Exec` (s) | Visual / Cut Metric | Audio Metric | Honest Verdict |
+| :--- | :-: | :-: | :---: | :---: | :--- |
+| `b1_90f_vector_lens_charcoal` (`1.1×` Steer lens) | `90` | `65.4` | `sat_in 0.368` / `sat_out 0.433`; `luma 43.2 / 34.6` | `-54.71 dBFS` | **No charcoal transfer (honest miss):** Both center box (`idx_base`, steered `end_percent=0.50, strength=1.5`) and border rendered full-color sunlit cobblestones; stopping at Step 2 + `71%` bright border re-blend in `25..49` washed out the `add_norm_matched_erasure` look delta. |
+| `b1_192f_timed_d_binaural_split` (Timed `<d>`) | `192` | `124.6` | `sat L/R 0.153 / 0.328`; `luma 28.8 / 29.3` | **`lr_corr -0.0013`**, `9.04 dB` SpecDiv, `-35.8 dBFS` (`H1 -30.6/-29.6`, `H2 -39.5/-39.3`) | **Clean L/R stereo decorrelation, timed dialogue still overlapped:** `<d>` prose timing still placed both `S1` (detective) and `S2` (ramen chef) lines in `00:00–00:03` (`H1` louder on both channels, slight `00:01–00:02` overlap) with quiet `-35.8 dBFS` overall mix; confirmed cross-ear prose coordination alone does not enforce alternating turns. |
+| `b1_192f_temporal_multishot_all_0_49` (`f0..84` -> `f85..191`) | `192` | **`110.8`** | Shot 1 `luma 35.3` (`sat 0.377`); **`f84->85` `mae_prev 75.7` (`luma 34.8 -> 13.3`)**; `f86..91` `mae 0.6..1.6` | `-47.01 dBFS` | **Clean 1-frame hard multi-shot cut (`-9.7 s` vs `early_0_24`):** Shot 1 (`f0..84`) stayed 100% sunlit stone & olive trees (`f82..84` `mae 0.6..0.9`), cut instantaneously on `f85` to full midnight cyberpunk neon rain with cyberpunk cars & zero limestone facade carry-over or VAE fade (`f86..91` `luma 13.3..13.5`). |
+| `b1_192f_temporal_multishot_early_0_24` (`f0..84` -> `f85..191`) | `192` | `120.5` | `f82..84` pre-darkened `luma 28.1 -> 24.2`; `f85..90` slow ramp `19.3 -> 10.9` | `-51.15 dBFS` | **Severe cross-cut bleed:** Opening blocks `25..49` across time caused neon sky towers to bleed into `f72..84` **before** the cut and kept the European stone buildings + olive trees frozen across `f85..191` instead of switching scenes cleanly. |
+
+**Beat 1 -> Locked Beat 2 Handoff:**
+- **`1×` Temporal Multi-Shot (`all_0_49`) works out of the box** at `-9.7 s` lower wall time than `early_0_24`, with zero `token_overlap = 2` smudge at `f85..89`.
+- **Beat 2 scope locked cleanly (`dbbfbf10` on `steering/spatial_query_router.py` + `steering/nodes.py`):** (1) unlock `MiniMax-H3-Image` (`3 s` `4 MP` stills) & test stock `<Picture 1>` vs `<Picture 2>` first; (2) add `mid_20_49` (strictly isolated `20..49` after `0..19` anatomy warmup so `mid_*` doesn't leak back out across `35..49`); (3) drop portal-interior `cond` (`Frame 0` keyframes) from `idx_region_kv`; (4) firewall `binaural_split` against remaining quietness/cross-world text pull as needed; (5) wrap `steering/nodes.py:1057-1072` (`tags` tensorization) in `pause_malloc_graph_ctx()`. Meanwhile `9c6ac2a0` owns the read-only `Q_vid @ K_txt[noun]^T` / `audio_x0` / J-Lens probe.

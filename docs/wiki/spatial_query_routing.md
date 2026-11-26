@@ -70,9 +70,10 @@ Load the shipped standalone workflow **[`workflows/h3_text_to_video_pika_spatial
   - `x_start = 0.00`, `x_end = 1.00`, `y_start = 0.00`, `y_end = 0.45`
   - `isolation = "early_0_24"` *(or `"early_0_16"` for softer horizon lighting bleed onto the ground)*
 
-### Recipe 4 — Custom Shape, Feathered `[0..1]` Mask, Animated Wipe (`SpatialDirector`), or `SAM 3.1` Subject Mask
-- **Use for:** Non-rectangular portals (circles, arches, doorway outlines), feathered reality halos, animated `[F, H, W]` moving wipes/expanding portals from `MiniMaxH3SpatialDirector.mask`, or routing a completely different prompt strictly inside a tracked `SAM 3.1` subject/background mask.
-- **Settings:** Connect any ComfyUI `MASK` (`[H, W]` static or `[F, H, W]` video mask matching the render frame count `F`) to `MiniMaxH3SpatialQueryRouter.mask`. When connected, `mask` overrides `(x_start..y_end)` and downsamples onto H3's `32×32` causal patch grid (hard-isolating at `>= 0.5` on `early_0_24` blocks and blending smoothly with continuous `[0..1]` weights on blocks `25..49`, respecting `invert`).
+### Recipe 4 — Custom Shape, Feathered `[0..1]` Mask, `1×` Temporal Multi-Shot (`all_0_49`), or `SAM 3.1` Background Mask
+- **Use for:** Non-rectangular portals, feathered reality halos, **`1×` hard multi-shot scene cuts (`all_0_49`)**, or swapping the full background behind a tracked `SAM 3.1` subject mask at Step 0.
+- **Settings:** Connect any ComfyUI `MASK` (`[H, W]` static or `[F, H, W]` video mask matching the render frame count `F`) to `MiniMaxH3SpatialQueryRouter.mask`. When connected, `mask` overrides `(x_start..y_end)` and downsamples onto H3's `32×32` causal patch grid (hard-isolating at `>= 0.5` on `iso` blocks and blending smoothly with continuous `[0..1]` weights on non-`iso` blocks, respecting `invert`).
+- **Temporal Multi-Shot (`f0..84` -> `f85..191`):** Build a step mask (`0.0` on `f0..84` -> `1.0` on `f85..191` aligned on a `17f` VAE clip boundary) and **set `isolation = "all_0_49"`** for a true 1-frame hard cut (`110.8 s`, zero cross-cut bleed vs. heavy bleed under `early_0_24`). *(Reserve `2× EditGuider + SpatialDirector(lock_take)` for moving geometric portals or `~10%` small-mask subject re-skinning.)*
 
 ### Recipe 5 — Swap or Split the Soundtrack (`region` / `binaural_split`)
 - Set **`audio_zone = "region"`** so stereo audio queries attend to **Region Prompt (World B)** instead of Base Prompt (World A) at zero extra text-encoding cost (e.g., hear midnight cyberpunk pouring rain while looking at the half-sunny / half-neon street!).
