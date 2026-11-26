@@ -331,7 +331,30 @@ def main() -> int:
     assert expanded.shape == (18, 8, 12)
     recovered = sqr._downsample_mask_to_patches(expanded, latent_t=6, patch_h=8, patch_w=12)
     assert float((recovered - m_thw.reshape(-1)).abs().max().item()) < 1e-6, "Expanded mask must round-trip losslessly"
-    print("[ok] 1. synthesize_4d_attention_mask sparse-zero background & SpatialQR round-trip verified")
+
+    # 1b. Cross-time silent-pause scale floor (`T > 1` silences background noise; `T == 1` bit-identical)
+    torch.manual_seed(99)
+    raw_pause = torch.randn((8, 8, 12), dtype=torch.float32) * 0.12
+    raw_pause[0:3, 4:8, 6:12] += 8.0  # speaker active on frames 0..2, silent on frames 3..7
+    m_pause_on, st_pause = lp.synthesize_4d_attention_mask(
+        raw_pause, threshold_z=1.35, softness=0.25, dilation_passes=0,
+        spatial_blur=False, temporal_smooth=False, cross_time_scale_floor=0.55,
+    )
+    m_pause_off, _ = lp.synthesize_4d_attention_mask(
+        raw_pause, threshold_z=1.35, softness=0.25, dilation_passes=0,
+        spatial_blur=False, temporal_smooth=False, cross_time_scale_floor=0.0,
+    )
+    assert float(m_pause_on[0:3, 4:8, 6:12].min().item()) > 0.90, "Active frames must stay lit"
+    assert float(m_pause_on[3:8].max().item()) == 0.0, f"Silent frames must be exact 0.0, got {m_pause_on[3:8].max()}"
+    assert float(m_pause_off[3:8].max().item()) > 0.50, "Unfloored control should amplify silent-frame noise"
+    assert st_pause["silent_frames_count"] == 5 and st_pause["frame_hard_coverage_min"] == 0.0
+    assert st_pause["frame_hard_coverage_max"] > 0.20
+
+    raw_t1 = raw_pause[0:1]
+    m_t1_a, _ = lp.synthesize_4d_attention_mask(raw_t1, cross_time_scale_floor=0.55)
+    m_t1_b, _ = lp.synthesize_4d_attention_mask(raw_t1, cross_time_scale_floor=0.0)
+    assert float((m_t1_a - m_t1_b).abs().max().item()) == 0.0, "T==1 H3-Image must be bit-identical"
+    print("[ok] 1. synthesize_4d_attention_mask sparse-zero, silent-pause floor & SpatialQR round-trip verified")
 
     # 2. Visual & Acoustic Thermostats
     calm = np.full((64, 64, 3), 120, dtype=np.uint8)
@@ -410,6 +433,44 @@ def main() -> int:
     assert diff_br > diff_tl * 3.0 + 1e-4, f"Step-1 route did not focus on bottom-right! br={diff_br}, tl={diff_tl}"
     assert [h["phase"] for h in pol.step_history] == ["harvest", "routed"]
     print(f"[ok] 3. End-to-end text_phrase Step-0 harvest (0.0 diff) -> Step-1 routed (br={diff_br:.4f} >> tl={diff_tl:.4f}) verified")
+
+    # 3b. `replay_step0=True` (`1.17x` mode): Step 0 harvests & immediately replays routed on Step 0!
+    rep_p, pol_rep = lp.attach_self_mask_router(
+        base_p,
+        region_conditioning=reg_cond,
+        mask_source="text_phrase",
+        target_phrase="bread",
+        token_pieces=tok_pieces,
+        threshold_z=0.8,
+        softness=0.25,
+        dilation_passes=0,
+        isolation="mid_20_34_shield",
+        audio_zone="base",
+        replay_step0=True,
+        harvest_blocks=(2, 3),
+    )
+    out0_rep, _ = rep_p.run_step(ctx, layout_av, img, t_emb, mod_segs, sigma=1.0, denoised=packed_x0)
+    assert torch.isfinite(out0_rep).all()
+    diff_rep0 = (out0_rep[0, va:vb] - out0_ref[0, va:vb]).abs().mean(dim=-1).view(2, 4, 6)
+    diff_rep0_br = float(diff_rep0[:, 2:4, 3:6].mean().item())
+    diff_rep0_tl = float(diff_rep0[:, 0:2, 0:3].mean().item())
+    assert diff_rep0_br > diff_rep0_tl * 3.0 + 1e-4, (
+        f"replay_step0 did not route Step 0 onto target! br={diff_rep0_br}, tl={diff_rep0_tl}"
+    )
+    assert [h["phase"] for h in pol_rep.step_history] == ["harvest", "routed"]
+    assert pol_rep.step_history[1].get("replayed_step0") is True
+    assert len(pol_rep.audio_x0_history) == 1 and pol_rep.audio_x0_history[0]["step"] == 0
+    # Step 1 executes normal single-pass routed (no extra harvest)
+    out1_rep, _ = rep_p.run_step(ctx, layout_av, img, t_emb, mod_segs, sigma=0.8, denoised=packed_x0)
+    assert torch.isfinite(out1_rep).all()
+    assert [h["phase"] for h in pol_rep.step_history] == ["harvest", "routed", "routed"]
+    assert not pol_rep.step_history[2].get("replayed_step0")
+    # Cleanup resets cleanly so Run 2 harvests & replays Step 0 again
+    rep_p.trigger_cleanup()
+    rep_p.run_step(ctx, layout_av, img, t_emb, mod_segs, sigma=1.0)
+    assert [h["phase"] for h in pol_rep.step_history[-2:]] == ["harvest", "routed"]
+    assert pol_rep.step_history[-1].get("replayed_step0") is True
+    print(f"[ok] 3b. replay_step0=True (1.17x) Step-0 harvest+replay (br={diff_rep0_br:.4f} >> tl={diff_rep0_tl:.4f}) & cleanup verified")
 
     # 4. Speaker-spotlight mask sources (`left_speaker` vs `right_speaker` vs `active_speaker`)
     for spk_src, expect_x_lo, expect_x_hi in (
@@ -513,6 +574,7 @@ def main() -> int:
     assert schema.node_id == "MiniMaxH3SelfMaskRouter"
     input_ids = [inp.id for inp in schema.inputs]
     assert input_ids[:4] == ["model", "region_conditioning", "mask_source", "target_phrase"]
+    assert input_ids[-1] == "replay_step0" and len(input_ids) == 15
     print(f"[ok] 7. All refusal guards & MiniMaxH3SelfMaskRouter schema ({len(input_ids)} inputs) verified")
 
     print("ALL H3 LivePolicy & SelfMaskRouter CPU checks passed!")

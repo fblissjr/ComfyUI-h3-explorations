@@ -241,12 +241,18 @@ def synthesize_4d_attention_mask(
     temporal_smooth: bool = True,
     invert: bool = False,
     sparse_floor: float = 0.10,
+    cross_time_scale_floor: float = 0.55,
 ) -> tuple[torch.Tensor, dict[str, Any]]:
     """Convert raw fused `B35 + B40` attention logits `[T, H, W]` into a clean sparse `[0..1]` mask.
 
     Hard-zeroes background below `sparse_floor` (and re-normalizes `[sparse_floor, 1 - sparse_floor]`)
     so non-target background patches equal exact `0.0` and never leak into `SpatialVisualQRRuntime`'s
     `idx_region_soft` (`eff_weights > 1e-4`), keeping 1-way `*_shield` crisp and fast.
+
+    For temporal masks (`T > 1`, e.g. `24 fps` AV `active_speaker`/`left_speaker`/`right_speaker`),
+    `cross_time_scale_floor` floors each frame's dispersion scale at a fraction of the clip's peak
+    frame dispersion so silent/off-screen frames do not amplify low-variance background noise into
+    false hotspots (leaves `T == 1` `MiniMax-H3-Image` bit-identical).
     """
     s = raw_scores_thw.detach().to(device="cpu", dtype=torch.float32)
     if s.ndim == 2:
@@ -265,6 +271,9 @@ def synthesize_4d_attention_mask(
     mad = (flat - med).abs().median(dim=1, keepdim=True).values * 1.4826
     std = flat.std(dim=1, unbiased=False, keepdim=True)
     scale = torch.maximum(mad, std * 0.5).clamp(min=1e-5)
+    if t_len > 1:
+        ct_floor = max(0.0, float(cross_time_scale_floor))
+        scale = torch.maximum(scale, ct_floor * scale.max(dim=0, keepdim=True).values).clamp(min=1e-5)
     z = ((flat - med) / scale).reshape(t_len, ph, pw)
 
     n_dil = max(0, int(dilation_passes))
@@ -316,15 +325,24 @@ def synthesize_4d_attention_mask(
     else:
         bbox_xyxy = [0.0, 0.0, 0.0, 0.0]
 
+    frame_hard = (prob >= 0.5).float().mean(dim=(1, 2))
+    frame_hard_vals = [round(float(v), 4) for v in frame_hard.tolist()]
+    silent_frames = int((frame_hard < 0.005).sum().item())
+
     stats = {
         "shape_thw": [t_len, ph, pw],
         "coverage_mean": round(float(prob.mean().item()), 4),
         "hard_coverage_mean": round(float((prob >= 0.5).float().mean().item()), 4),
+        "frame_hard_coverage_min": min(frame_hard_vals),
+        "frame_hard_coverage_max": max(frame_hard_vals),
+        "silent_frames_count": silent_frames,
         "sparse_zero_frac": round(float((prob == 0.0).float().mean().item()), 4),
         "peak_xy": peak_xy,
         "centroid_xy": [round(cx, 4), round(cy, 4)],
         "bbox_xyxy": bbox_xyxy,
     }
+    if t_len > 1:
+        stats["frame_hard_coverage"] = frame_hard_vals
     return prob.contiguous(), stats
 
 
@@ -491,6 +509,7 @@ class H3LivePolicy:
     target_phrase: str = ""
     isolation: str = "early_0_24_shield"
     audio_zone: str = "base"
+    replay_step0: bool = False
     strength_scale: float = 1.0
     emit_ws_events: bool = True
     prompt_id: str | None = None
@@ -553,6 +572,7 @@ class H3LivePolicy:
             "target_phrase": self.target_phrase,
             "isolation": self.isolation,
             "audio_zone": self.audio_zone,
+            "replay_step0": self.replay_step0,
             "strength_scale": self.strength_scale,
             "mask_stats": dict(self.mask_stats),
             "step_history": list(self.step_history),
@@ -806,11 +826,18 @@ def attach_self_mask_router(
     invert: bool = False,
     start_percent: float = 0.0,
     end_percent: float = 1.0,
+    replay_step0: bool = False,
+    cross_time_scale_floor: float = 0.55,
     harvest_blocks: Sequence[int] | None = None,
     enable_audio_x0_thermostat: bool = True,
     emit_ws_events: bool = True,
 ) -> tuple[Any, H3LivePolicy]:
-    """Clone `model` and attach zero-coordinate `1x` Self-Masked Routing (`Step 0 harvest -> Steps 1..5 SpatialQR`).
+    """Clone `model` and attach zero-coordinate Self-Masked Routing (`Step 0 harvest -> SpatialQR`).
+
+    With `replay_step0=False` (default `1.0x`), Step 0 harvests `B35 + B40` unmutated and Steps `1..5`
+    route `region_conditioning` onto the harvested mask. With `replay_step0=True` (`1.17x` mode for
+    dominant centerpieces whose geometry locks on Step 0), the throwaway Step-0 harvest output is
+    dropped and Step 0 is immediately replayed routed through `SpatialVisualQRRuntime` in one call.
 
     Returns `(cloned_model, policy)` so callers & tests can inspect the live harvested mask,
     bounding box, `audio_x0` telemetry, and thermostat state cleanly.
@@ -899,6 +926,7 @@ def attach_self_mask_router(
         target_phrase=str(target_phrase or "").strip(),
         isolation=iso_mode,
         audio_zone=aud_z,
+        replay_step0=bool(replay_step0),
         emit_ws_events=bool(emit_ws_events),
     )
 
@@ -966,6 +994,7 @@ def attach_self_mask_router(
             policy.harvested_mask_frames = None
 
         # Phase 1 (Step 0, or before a mask has been harvested): unmutated pass harvesting B35 + B40!
+        replayed_step0 = False
         if policy.harvested_mask_frames is None:
             with _steer_hooks.pause_malloc_graph_ctx(), torch.no_grad():
                 idxs = _resolve_noun_idxs(context, kwargs)
@@ -992,6 +1021,7 @@ def attach_self_mask_router(
                             softness=float(softness),
                             dilation_passes=int(dilation_passes),
                             invert=bool(invert),
+                            cross_time_scale_floor=float(cross_time_scale_floor),
                         )
                         policy.harvested_mask_thw = m_thw
                         policy.harvested_mask_frames = expand_latent_mask_to_frames(m_thw)
@@ -1029,9 +1059,14 @@ def attach_self_mask_router(
                             cur_step,
                             sorted(h_blocks),
                         )
-            return out
+            if not (replay_step0 and policy.harvested_mask_frames is not None):
+                return out
+            # `1.17x` mode: discard throwaway Step-0 harvest output and immediately replay Step 0
+            # routed through Phase 2 (`SpatialVisualQRRuntime`) on the newly locked mask.
+            del out
+            replayed_step0 = True
 
-        # Phase 2 (Steps 1..5): route `region_conditioning` strictly onto the harvested mask via SpatialVisualQRRuntime!
+        # Phase 2 (Steps 1..5, or replayed Step 0): route `region_conditioning` strictly onto the harvested mask!
         with _steer_hooks.pause_malloc_graph_ctx(), torch.no_grad():
             cache_key = (id(raw_b), str(context.device), str(context.dtype))
             ctx_b = ref_cache.get(cache_key)
@@ -1072,7 +1107,10 @@ def attach_self_mask_router(
                     "MiniMaxH3SelfMaskRouter block hooks never ran (e.g. downstream core "
                     "BlockSparseAttention overwrote patches_replace['dit'][('double_block', i)])."
                 )
-            policy.step_history.append({"step": cur_step, "phase": "routed", "isolation": iso_mode})
+            rec_step: dict[str, Any] = {"step": cur_step, "phase": "routed", "isolation": iso_mode}
+            if replayed_step0:
+                rec_step["replayed_step0"] = True
+            policy.step_history.append(rec_step)
             return out
         finally:
             with _steer_hooks.pause_malloc_graph_ctx():
@@ -1212,6 +1250,15 @@ class MiniMaxH3SelfMaskRouter(io.ComfyNode):
                     optional=True,
                     tooltip="Base prompt text (optional if conditioning carries _h3_span_masks._h3_tail_text).",
                 ),
+                io.Boolean.Input(
+                    "replay_step0",
+                    default=False,
+                    tooltip=(
+                        "False (default 1.0x): keep Step-0 harvest output and route Steps 1..5. "
+                        "True (1.17x): drop throwaway Step-0 harvest and immediately replay Step 0 routed "
+                        "so dominant centerpieces adopt region_conditioning from the first step with soft shield seams."
+                    ),
+                ),
             ],
             outputs=[io.Model.Output()],
         )
@@ -1233,6 +1280,7 @@ class MiniMaxH3SelfMaskRouter(io.ComfyNode):
         end_percent: float = 1.0,
         clip: Any = None,
         base_prompt: str = "",
+        replay_step0: bool = False,
     ) -> io.NodeOutput:
         routed, _policy = attach_self_mask_router(
             model,
@@ -1249,5 +1297,6 @@ class MiniMaxH3SelfMaskRouter(io.ComfyNode):
             invert=invert,
             start_percent=start_percent,
             end_percent=end_percent,
+            replay_step0=replay_step0,
         )
         return io.NodeOutput(routed)
