@@ -361,14 +361,16 @@ def evaluate_preview_frame(
     rgb_hwc: np.ndarray,
     *,
     prev_rgb_hwc: np.ndarray | None = None,
-    sat_ceiling: float = 0.72,
-    clip_ceiling: float = 0.14,
+    sat_ceiling: float = 0.64,
+    clip_ceiling: float = 0.10,
     freeze_mae_floor: float = 1.5,
 ) -> dict[str, Any]:
     """Pure numpy Visual Thermostat for `ModelPreviewOverrideKJ` (`kj_wrapper.frames[-1]`, `0.0 ms` VAE).
 
     Returns luma, HSV saturation, highlight/shadow clip fractions, optional frame-to-frame
-    motion MAE, risk flags, and a smooth multiplicative `recommended_strength_scale` in `[0.55, 1.15]`.
+    motion MAE, risk flags, and a smooth multiplicative `recommended_strength_scale` in `[0.35, 1.15]`.
+    Thresholds (`sat_ceiling=0.64`, `clip_ceiling=0.10`) are empirically calibrated against live
+    `taeh3.safetensors` Step-0 previews on Pika H3 Flex (`2026-11-26`).
     """
     arr = np.asarray(rgb_hwc, dtype=np.float32)
     if arr.ndim != 3 or arr.shape[2] < 3:
