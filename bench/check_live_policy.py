@@ -891,6 +891,165 @@ def main() -> int:
     assert eg_th._effective_raw_mask() is None, "Unmasked EditGuider must stay unmasked under thermostat_only!"
     print("[ok] 10. Phase-matched video_x0 motion, prompt_id WS stamp, & thermostat_only universal coexistence verified")
 
+    # 11. Dynamic Step-1 Auto-Shield (`early_0_24 -> early_0_24_shield`) on washed-out small portals (both wire orders)
+    portal_box = (0.35, 0.65, 0.30, 0.70)  # 0.30 * 0.40 = 12% canvas (< 32%)
+    washed_img = np.full((64, 64, 3), 120, dtype=np.uint8)
+    washed_img[20:45, 22:42, :] = 124  # sep_score ~ 4.0 < 12.0 -> washed out!
+    crisp_img = np.full((64, 64, 3), 40, dtype=np.uint8)
+    crisp_img[20:45, 22:42, :] = [230, 120, 40]  # strong color/luma separation -> no-op!
+
+    sep_washed = lp.evaluate_region_separation(washed_img, region_box=portal_box)
+    assert sep_washed is not None and sep_washed["washed_out"] is True and sep_washed["small_region"] is True, sep_washed
+    sep_crisp = lp.evaluate_region_separation(crisp_img, region_box=portal_box)
+    assert sep_crisp is not None and sep_crisp["washed_out"] is False, sep_crisp
+    # Large 50% split-screen (`x_start=0.5..1.0`) must NOT trigger Auto-Shield even if colors look close!
+    sep_half = lp.evaluate_region_separation(washed_img, region_box=(0.5, 1.0, 0.0, 1.0))
+    assert sep_half is not None and sep_half["small_region"] is False and sep_half["washed_out"] is False, sep_half
+
+    # Wire order A: SpatialQR -> SelfMask(thermostat_only); Wire order B: SelfMask(thermostat_only) -> SpatialQR
+    # Use a realistic non-planted Q/K/V mock DiT (`custom_qkv=None`) with `seamless_off` on the 4-block DiT so
+    # blocks 0..3 exercise the exact seamless branch that blocks 25..49 run under `early_0_24` on 50-block H3.
+    base_p_rand = _MiniPatcher(_MockDM(n_blocks=4, custom_qkv=None))
+    p_sqr_portal = sqr.attach_spatial_query_router(
+        base_p_rand,
+        region_conditioning=reg_cond,
+        x_start=0.35,
+        x_end=0.65,
+        y_start=0.30,
+        y_end=0.70,
+        isolation="seamless_off",
+    )
+    p_order_a, pol_a = lp.attach_self_mask_router(
+        p_sqr_portal, region_conditioning=None, mask_source="thermostat_only", emit_ws_events=False
+    )
+    p_th_first, pol_b = lp.attach_self_mask_router(
+        base_p_rand, region_conditioning=None, mask_source="thermostat_only", emit_ws_events=False
+    )
+    p_order_b = sqr.attach_spatial_query_router(
+        p_th_first,
+        region_conditioning=reg_cond,
+        x_start=0.35,
+        x_end=0.65,
+        y_start=0.30,
+        y_end=0.70,
+        isolation="seamless_off",
+    )
+    for order_name, p_ord, pol_ord in (("SQR->Thermostat", p_order_a, pol_a), ("Thermostat->SQR", p_order_b, pol_b)):
+        # Step 0 unshielded
+        out_unsh, _ = p_ord.run_step(ctx, layout_av, img, t_emb, mod_segs, sigma=1.0)
+        assert pol_ord.active_region_box == portal_box, (order_name, pol_ord.active_region_box)
+        assert pol_ord.force_shield is False
+        # Step 0 preview never flips force_shield prematurely; Step 1 washed-out preview engages Auto-Shield!
+        pol_ord.update_from_preview(washed_img, step=0)
+        assert pol_ord.force_shield is False
+        m_s1 = pol_ord.update_from_preview(washed_img, step=1)
+        assert pol_ord.force_shield is True and "auto_shield_engaged" in m_s1["flags"], (order_name, m_s1)
+        # Step 2 now executes SpatialVisualQRRuntime with `shield_region=True`, producing distinct shielded output!
+        out_sh, _ = p_ord.run_step(ctx, layout_av, img, t_emb, mod_segs, sigma=0.6)
+        assert torch.isfinite(out_sh).all()
+        assert float((out_sh - out_unsh).abs().max().item()) > 1e-2, f"{order_name}: force_shield had negligible effect!"
+
+    # Crisp Step-1 portal must NOT engage Auto-Shield; already-shielded portal must NOT emit auto_shield_engaged.
+    pol_crisp = lp.H3LivePolicy(mask_source="thermostat_only", emit_ws_events=False)
+    pol_crisp.register_spatial_region(x_start=0.35, x_end=0.65, y_start=0.30, y_end=0.70, already_shielded=False)
+    pol_crisp.update_from_preview(crisp_img, step=1)
+    assert pol_crisp.force_shield is False
+    pol_already = lp.H3LivePolicy(mask_source="thermostat_only", emit_ws_events=False)
+    pol_already.register_spatial_region(x_start=0.35, x_end=0.65, y_start=0.30, y_end=0.70, already_shielded=True)
+    pol_already.update_from_preview(washed_img, step=1)
+    assert pol_already.force_shield is False
+    print("[ok] 11. Dynamic Step-1 Auto-Shield (`early_0_24 -> *_shield`, both wire orders, crisp/half/already-shielded no-ops) verified")
+
+    # 12. Remote `heylook` Step-0 Visual Critic JSON parser + `< 3 ms` CPU `WordVector(mode="project_out")` text scrub
+    raw_fenced = '```json\n{"has_border_seam": true, "has_color_bleed": false, "has_watermark_text": false, "scrub_words": ["Border", "frame", "letterbox"], "reason": "black border bars"}\n```'
+    parsed_c = lp._parse_step0_critic_json(raw_fenced)
+    assert parsed_c["ok"] is True and parsed_c["has_border_seam"] is True
+    assert parsed_c["scrub_words"] == ["border", "frame", "letterbox"], parsed_c
+
+    # Verify vision prefix rows (`tags == 0`) & sink row `0` stay bitwise identical while text rows drop by `1 - alpha`!
+    u_test = torch.zeros(5376, dtype=torch.float32)
+    u_test[7] = 1.0
+    pol_scrub = lp.H3LivePolicy(mask_source="thermostat_only", critic_scrub_alpha=0.85, emit_ws_events=False)
+    pol_scrub._scrub_unit_vec_override = u_test
+    pol_scrub.update_from_critic(parsed_c, step=0)
+    assert pol_scrub.project_out_words == ["border", "frame", "letterbox"]
+
+    ctx_mix = torch.zeros((1, 6, 5376), dtype=torch.float32)
+    ctx_mix[:, :, 7] = 10.0  # component along scrub direction
+    ctx_mix[:, :, 11] = 3.0  # orthogonal semantic component
+    tags_mix = torch.tensor([[1, 0, 0, 1, 1, 1]], dtype=torch.long)  # row 0 = sink, rows 1..2 = vision, rows 3..5 = text
+    ctx_out, did_sc = lp.apply_live_policy_text_scrub(ctx_mix, tags_mix, pol_scrub)
+    assert did_sc is True
+    assert torch.equal(ctx_out[:, 0, :], ctx_mix[:, 0, :]), "Sink row 0 must stay bitwise identical!"
+    assert torch.equal(ctx_out[:, 1:3, :], ctx_mix[:, 1:3, :]), "Vision rows (tags == 0) must stay bitwise identical!"
+    assert abs(float(ctx_out[0, 3, 7].item()) - 1.5) < 1e-4, f"Expected 10*(1-0.85)=1.5 on text row, got {ctx_out[0, 3, 7].item()}"
+    assert abs(float(ctx_out[0, 3, 11].item()) - 3.0) < 1e-5, "Orthogonal text channel must stay untouched!"
+
+    # End-to-end `_preview_bridge_outer` + `critic_fn` + Step-1 `SelfMaskRouter` scrub!
+    critic_calls: list[int] = []
+    p_cr, pol_cr = lp.attach_self_mask_router(
+        base_p,
+        region_conditioning=None,
+        mask_source="thermostat_only",
+        critic_scrub_alpha=0.80,
+        critic_fn=lambda rgb: (critic_calls.append(1) or parsed_c),
+        emit_ws_events=False,
+    )
+    pol_cr._scrub_unit_vec_override = u_test
+    kj_cr = _MockKJWrapper()
+    p_cr.add_wrapper_with_key(WrappersMP.OUTER_SAMPLE, "kj_preview_override", kj_cr)
+    bridge_cr = p_cr.get_wrappers(WrappersMP.OUTER_SAMPLE, f"{lp.SELF_MASK_WRAPPER_KEY}_preview_bridge")[0]
+
+    class _MockOuterCriticExec:
+        def __init__(self, mp, kj_obj):
+            self.class_obj = types.SimpleNamespace(model_patcher=mp)
+            self.kj_obj = kj_obj
+
+        def __call__(self, noise, lat_i, sampler, sigmas, denoise_mask, cb, disable_pbar, seed, **kw):
+            self.kj_obj.frames.append(dim_frame)
+            cb(0, None, None, 6)
+            self.kj_obj.frames.append(dim_frame)
+            cb(1, None, None, 6)
+            return lat_i
+
+    bridge_cr(_MockOuterCriticExec(p_cr, kj_cr), None, None, None, None, None, None, True, 7)
+    assert len(critic_calls) == 1, f"Critic must run strictly once on Step 0, ran {len(critic_calls)} times"
+    assert pol_cr.project_out_words == ["border", "frame", "letterbox"]
+
+    # Verify Step-1 `SelfMaskRouter._wrapper` scrubs `context` before passing to `executor`!
+    seen_cr_ctx: list[torch.Tensor] = []
+    dm_w_cr = p_cr.wrappers[WrappersMP.DIFFUSION_MODEL][lp.SELF_MASK_WRAPPER_KEY][0]
+    to_cr = dict(p_cr.model_options["transformer_options"])
+    to_cr["sigmas"] = torch.tensor([0.8])
+    to_cr["sample_sigmas"] = torch.tensor([1.0, 0.8, 0.0])
+    # Mark fresh_run already consumed (simulating Step 0 already completed before Step-0 preview fired critic)
+    dm_w_cr(
+        lambda x_, t_, c_, to_, **kw_: (seen_cr_ctx.append(c_.detach().clone()) or torch.zeros(1)),
+        [torch.zeros(1), torch.zeros(1)], torch.tensor([1000.0]), ctx_mix, to_cr,
+        minimax_payload={"text_token_tags": tags_mix},
+    )
+    pol_cr.update_from_critic(parsed_c, step=0)
+    dm_w_cr(
+        lambda x_, t_, c_, to_, **kw_: (seen_cr_ctx.append(c_.detach().clone()) or torch.zeros(1)),
+        [torch.zeros(1), torch.zeros(1)], torch.tensor([800.0]), ctx_mix, to_cr,
+        minimax_payload={"text_token_tags": tags_mix},
+    )
+    assert abs(float(seen_cr_ctx[-1][0, 3, 7].item()) - 2.0) < 1e-4, f"Expected 10*(1-0.80)=2.0, got {seen_cr_ctx[-1][0, 3, 7].item()}"
+    assert torch.equal(seen_cr_ctx[-1][:, 1:3, :], ctx_mix[:, 1:3, :]), "Vision rows must remain bitwise untouched!"
+
+    # Also verify real J-Lens CPU word synthesis latency if `j_lens_h3.safetensors` is installed on disk!
+    from steering import xray as _xray
+    if _xray.bundle_available():
+        import time as _time
+        _t0 = _time.perf_counter()
+        u_real = lp.synthesize_policy_scrub_unit_vec(["border", "frame", "letterbox"], family="fl2va")
+        _ms = (_time.perf_counter() - _t0) * 1000.0
+        assert u_real is not None and tuple(u_real.shape) == (5376,), None if u_real is None else u_real.shape
+        assert abs(float(torch.linalg.vector_norm(u_real).item()) - 1.0) < 1e-4
+        print(f"[ok] 12. Step-0 Visual Critic JSON parser + CPU WordVector project_out scrub verified (real J-Lens vec in {_ms:.1f} ms)")
+    else:
+        print("[ok] 12. Step-0 Visual Critic JSON parser + CPU WordVector project_out scrub verified (J-Lens bundle absent)")
+
     print("ALL H3 LivePolicy & SelfMaskRouter CPU checks passed!")
     return 0
 

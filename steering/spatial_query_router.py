@@ -1338,6 +1338,7 @@ def attach_spatial_query_router(
         m.set_model_patch_replace(_SpatialBlockPatch(b_idx, existing), "dit", "double_block", b_idx)
 
     ref_cache: OrderedDict[tuple[Any, ...], torch.Tensor] = OrderedDict()
+    mask_hw_cache: list[Any] = [None, False]  # [cached_np_or_none, initialized]
     m.add_callback_with_key(
         CallbacksMP.ON_CLEANUP,
         f"{SPATIAL_ROUTER_WRAPPER_KEY}_refcache",
@@ -1366,9 +1367,57 @@ def attach_spatial_query_router(
                 ref_cache[cache_key] = ctx_b
                 while len(ref_cache) > _REF_CACHE_MAX:
                     ref_cache.popitem(last=False)
+            live_policy = (
+                transformer_options.get("_h3_live_policy")
+                if isinstance(transformer_options, dict)
+                else None
+            )
+            ctx_b_use = ctx_b
+            eff_shield = bool(shield_region)
+            if live_policy is not None:
+                reg_fn = getattr(live_policy, "register_spatial_region", None)
+                if callable(reg_fn):
+                    if not mask_hw_cache[1]:
+                        mask_hw_cache[1] = True
+                        if mask is not None and torch.is_tensor(mask):
+                            m_cpu = mask.detach().to(device="cpu", dtype=torch.float32)
+                            if m_cpu.ndim == 4:
+                                m_cpu = m_cpu[:, 0] if int(m_cpu.shape[1]) == 1 else m_cpu[..., 0]
+                            if m_cpu.ndim == 3:
+                                m_cpu = m_cpu.mean(dim=0)
+                            if m_cpu.ndim == 2 and m_cpu.numel() > 0:
+                                if max(int(m_cpu.shape[0]), int(m_cpu.shape[1])) > 64:
+                                    sc = 64.0 / float(max(int(m_cpu.shape[0]), int(m_cpu.shape[1])))
+                                    m_cpu = F.interpolate(
+                                        m_cpu.unsqueeze(0).unsqueeze(0),
+                                        size=(max(2, int(round(int(m_cpu.shape[0]) * sc))), max(2, int(round(int(m_cpu.shape[1]) * sc)))),
+                                        mode="area",
+                                    )[0, 0]
+                                mask_hw_cache[0] = m_cpu.clamp(0.0, 1.0).numpy()
+                    reg_fn(
+                        x_start=float(x_start),
+                        x_end=float(x_end),
+                        y_start=float(y_start),
+                        y_end=float(y_end),
+                        invert=bool(invert),
+                        mask_hw=mask_hw_cache[0],
+                        already_shielded=bool(shield_region),
+                    )
+                if getattr(live_policy, "force_shield", False):
+                    eff_shield = True
+                if getattr(live_policy, "project_out_words", None):
+                    from .live_policy import apply_live_policy_text_scrub
+
+                    ctx_b_use, _ = apply_live_policy_text_scrub(
+                        ctx_b,
+                        tags_b,
+                        live_policy,
+                        dm=dm,
+                        transformer_options=transformer_options,
+                    )
             rt = SpatialVisualQRRuntime(
                 dm=dm,
-                shadow_b_init=ctx_b,
+                shadow_b_init=ctx_b_use,
                 shadow_b_tags=tags_b,
                 x_start=float(x_start),
                 x_end=float(x_end),
@@ -1378,7 +1427,7 @@ def attach_spatial_query_router(
                 mask=mask,
                 isolate_blocks=iso_set,
                 audio_zone=aud_z,
-                shield_region=shield_region,
+                shield_region=eff_shield,
             )
             to_next = dict(transformer_options or {})
             to_next["_h3_spatial_qr_rt"] = rt

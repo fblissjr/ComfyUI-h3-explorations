@@ -29,11 +29,16 @@ from __future__ import annotations
 
 from collections import OrderedDict
 from dataclasses import dataclass, field
+import base64
 import functools
+import io as _pyio
+import json
 import logging
 import math
+import os
 import re
-from typing import Any, Mapping, Sequence
+import time
+from typing import Any, Callable, Mapping, Sequence
 
 import numpy as np
 import torch
@@ -41,6 +46,7 @@ import torch.nn.functional as F
 from comfy_api.latest import io
 
 from . import hooks as _steer_hooks
+from .constants import POST_REFINER_DIM
 from .query_router import _extract_cond_tags, _extract_cond_tensor
 from .spatial_query_router import (
     AUDIO_ZONES,
@@ -424,6 +430,316 @@ def evaluate_preview_frame(
     }
 
 
+def evaluate_region_separation(
+    rgb_hwc: np.ndarray,
+    *,
+    region_box: tuple[float, float, float, float] | None = None,
+    region_mask_hw: np.ndarray | None = None,
+    invert: bool = False,
+    max_coverage: float = 0.32,
+    sep_threshold: float = 12.0,
+) -> dict[str, Any] | None:
+    """Measure inside-vs-outside RGB/luma contrast for Dynamic Step-1 Auto-Shield (`early_0_24 -> *_shield`).
+
+    Small portals / props (`<= 32%` canvas) routed without `*_shield` can wash out into the
+    surrounding background by Step 1 (`sep_score < 12.0`). Returns `None` when no region is registered.
+    """
+    if region_mask_hw is None and region_box is None:
+        return None
+    arr = np.asarray(rgb_hwc, dtype=np.float32)
+    if arr.ndim != 3 or arr.shape[2] < 3:
+        return None
+    rgb = arr[..., :3]
+    rgb255 = np.clip(rgb, 0.0, 255.0) if float(rgb.max()) > 1.5 else np.clip(rgb, 0.0, 1.0) * 255.0
+    h, w = int(rgb255.shape[0]), int(rgb255.shape[1])
+    if h < 2 or w < 2:
+        return None
+
+    if region_mask_hw is not None:
+        m_arr = np.asarray(region_mask_hw, dtype=np.float32)
+        if m_arr.ndim == 3:
+            m_arr = m_arr.mean(axis=0)
+        if m_arr.ndim != 2 or m_arr.size == 0:
+            return None
+        m_t = torch.from_numpy(m_arr).unsqueeze(0).unsqueeze(0)
+        m_rs = F.interpolate(m_t, size=(h, w), mode="bilinear", align_corners=False)[0, 0].numpy()
+        reg_mask = m_rs >= 0.5
+        if invert:
+            reg_mask = ~reg_mask
+    else:
+        assert region_box is not None
+        x0, x1, y0, y1 = (float(v) for v in region_box)
+        x_lo, x_hi = min(x0, x1), max(x0, x1)
+        y_lo, y_hi = min(y0, y1), max(y0, y1)
+        xs = (np.arange(w, dtype=np.float32) + 0.5) / float(w)
+        ys = (np.arange(h, dtype=np.float32) + 0.5) / float(h)
+        gx, gy = np.meshgrid(xs, ys)
+        reg_mask = (gx >= x_lo) & (gx <= x_hi) & (gy >= y_lo) & (gy <= y_hi)
+        if invert:
+            reg_mask = ~reg_mask
+
+    cov = float(reg_mask.mean())
+    if cov <= 0.005 or cov >= 0.995:
+        return {
+            "region_coverage": round(cov, 4),
+            "small_region": False,
+            "rgb_mae": 0.0,
+            "luma_diff": 0.0,
+            "std_diff": 0.0,
+            "sep_score": 0.0,
+            "washed_out": False,
+        }
+
+    bg_mask = ~reg_mask
+    luma255 = 0.2126 * rgb255[..., 0] + 0.7152 * rgb255[..., 1] + 0.0722 * rgb255[..., 2]
+    rgb_in = rgb255[reg_mask].mean(axis=0)
+    rgb_out = rgb255[bg_mask].mean(axis=0)
+    rgb_mae = float(np.abs(rgb_in - rgb_out).mean())
+    luma_diff = abs(float(luma255[reg_mask].mean()) - float(luma255[bg_mask].mean()))
+    std_diff = abs(float(luma255[reg_mask].std()) - float(luma255[bg_mask].std()))
+    sep_score = max(rgb_mae, luma_diff, std_diff)
+    small_region = cov <= float(max_coverage)
+    washed_out = bool(small_region and sep_score < float(sep_threshold))
+    return {
+        "region_coverage": round(cov, 4),
+        "small_region": small_region,
+        "rgb_mae": round(rgb_mae, 3),
+        "luma_diff": round(luma_diff, 3),
+        "std_diff": round(std_diff, 3),
+        "sep_score": round(sep_score, 3),
+        "washed_out": washed_out,
+    }
+
+
+_STEP0_CRITIC_SYSTEM_PROMPT = (
+    "You inspect a Step-0 diffusion preview frame for glaring framing or rendering defects that should be "
+    "projected out of the text conditioning on remaining steps. Return ONLY a single compact JSON object "
+    "with keys: has_border_seam (bool), has_color_bleed (bool), has_watermark_text (bool), "
+    "scrub_words (array of 0-4 single lowercase English artifact nouns such as border, frame, letterbox, "
+    "seam, watermark, text, logo, subtitle, neon, oversaturated), reason (short string <= 12 words). "
+    "Be conservative: only flag clear visible defects (black letterbox bars, hard split-screen seam, "
+    "picture-frame borders, giant text/watermark overlays, or extreme neon color wash). "
+    "If the preview looks normal, set all booleans false and scrub_words to []."
+)
+
+_STEP0_CRITIC_USER_PROMPT = (
+    "Inspect this Step-0 video/image preview frame. Flag any obvious border/letterbox/split-seam, "
+    "extreme unnatural color bleed, or unwanted text/watermark overlay, and return the JSON object."
+)
+
+
+def _parse_step0_critic_json(raw_text: str) -> dict[str, Any]:
+    """Extract and sanitize a Step-0 critic JSON payload from raw VLM output."""
+    text = str(raw_text or "").strip()
+    if "```" in text:
+        fenced = re.findall(r"```(?:json)?\s*([\s\S]*?)```", text, flags=re.IGNORECASE)
+        if fenced:
+            text = fenced[0].strip()
+    start = text.find("{")
+    end = text.rfind("}")
+    if start < 0 or end <= start:
+        raise ValueError(f"critic output did not contain a JSON object: {raw_text!r}")
+    parsed = json.loads(text[start : end + 1])
+    if not isinstance(parsed, dict):
+        raise ValueError("critic JSON root must be an object")
+
+    has_border = bool(parsed.get("has_border_seam", False))
+    has_bleed = bool(parsed.get("has_color_bleed", False))
+    has_text = bool(parsed.get("has_watermark_text", False))
+    raw_words = parsed.get("scrub_words")
+    words: list[str] = []
+    seen: set[str] = set()
+    if isinstance(raw_words, (list, tuple)):
+        for item in raw_words:
+            for tok in re.findall(r"[a-zA-Z]{2,24}", str(item or "").lower()):
+                if tok not in seen:
+                    seen.add(tok)
+                    words.append(tok)
+                if len(words) >= 6:
+                    break
+            if len(words) >= 6:
+                break
+    if not words:
+        if has_border:
+            words.extend(["border", "frame", "letterbox"])
+        if has_text:
+            words.extend(["watermark", "text", "logo"])
+        if has_bleed:
+            words.extend(["neon", "oversaturated"])
+        words = list(dict.fromkeys(words))[:6]
+
+    return {
+        "ok": True,
+        "has_border_seam": has_border,
+        "has_color_bleed": has_bleed,
+        "has_watermark_text": has_text,
+        "scrub_words": words,
+        "reason": str(parsed.get("reason") or ("artifact_detected" if words else "clean"))[:160],
+    }
+
+
+def run_heylook_step0_critic(
+    rgb_hwc: np.ndarray,
+    *,
+    base_url: str = "",
+    model: str = "",
+    timeout_s: float = 18.0,
+    api_key: str | None = None,
+    max_edge: int = 512,
+) -> dict[str, Any]:
+    """Run a zero-local-VRAM remote `heylook` VLM Step-0 artifact check (`thinking="off"`, graceful fallback)."""
+    t0 = time.perf_counter()
+    try:
+        from PIL import Image
+        import httpx
+        from .constants import import_repo_module
+
+        hc = import_repo_module("heylook_client")
+        arr = np.asarray(rgb_hwc, dtype=np.float32)
+        if arr.ndim != 3 or arr.shape[2] < 3:
+            raise ValueError(f"rgb_hwc must have shape [H, W, 3], got {arr.shape}")
+        rgb = arr[..., :3]
+        u8 = (
+            np.clip(np.rint(rgb), 0.0, 255.0).astype(np.uint8)
+            if float(rgb.max()) > 1.5
+            else np.clip(np.rint(rgb * 255.0), 0.0, 255.0).astype(np.uint8)
+        )
+        img = Image.fromarray(u8, mode="RGB")
+        img.thumbnail((max(128, int(max_edge)), max(128, int(max_edge))), Image.Resampling.LANCZOS)
+        buf = _pyio.BytesIO()
+        img.save(buf, format="JPEG", quality=85)
+        b64_img = base64.b64encode(buf.getvalue()).decode("ascii")
+
+        base = hc.resolve_heylook_base_url(base_url)
+        timeout = httpx.Timeout(connect=5.0, read=max(3.0, float(timeout_s)), write=10.0, pool=5.0)
+        with hc.make_heylook_client(base, timeout=timeout, api_key=api_key) as client:
+            model_row = hc.discover_heylook_model(
+                client,
+                base,
+                model,
+                need=frozenset({"chat", "vision"}),
+                api_key=api_key,
+            )
+            body = hc.build_heylook_request_body(
+                model_row=model_row,
+                system_prompt=_STEP0_CRITIC_SYSTEM_PROMPT,
+                user_prompt=_STEP0_CRITIC_USER_PROMPT,
+                prepared_images=[(b64_img, "image/jpeg")],
+                thinking="off",
+                sampler_mode="custom",
+                sampler_overrides={"max_tokens": 140, "temperature": 0.0},
+            )
+            res = hc.stream_heylook_message(base, body, client=client, api_key=api_key)
+        parsed = _parse_step0_critic_json(res.text)
+        parsed["model"] = str(res.model or model_row.get("id") or "")
+        parsed["latency_ms"] = round((time.perf_counter() - t0) * 1000.0, 1)
+        return parsed
+    except Exception as exc:
+        logger.warning("[h3] heylook Step-0 visual critic skipped (%s): %s", type(exc).__name__, exc)
+        return {
+            "ok": False,
+            "error": str(exc)[:240],
+            "has_border_seam": False,
+            "has_color_bleed": False,
+            "has_watermark_text": False,
+            "scrub_words": [],
+            "reason": "critic_unavailable",
+            "latency_ms": round((time.perf_counter() - t0) * 1000.0, 1),
+        }
+
+
+def synthesize_policy_scrub_unit_vec(
+    words: Sequence[str],
+    *,
+    family: str = "fl2va",
+) -> torch.Tensor | None:
+    """Synthesize a unit-norm `5376`-d post-refiner direction in `< 3 ms` CPU via `steering.xray`."""
+    clean = [str(w).strip().lower() for w in words if str(w).strip()]
+    if not clean:
+        return None
+    try:
+        from . import xray as _xray
+
+        if not _xray.bundle_available():
+            return None
+        synth = _xray.synthesize_from_words(clean, family=family)
+        vec = synth.get("vector.post_refiner")
+        if not torch.is_tensor(vec) or vec.ndim != 1:
+            return None
+        v32 = vec.detach().to(device="cpu", dtype=torch.float32)
+        nrm = float(torch.linalg.vector_norm(v32).item())
+        if not math.isfinite(nrm) or nrm <= 1e-8:
+            return None
+        return (v32 / nrm).contiguous()
+    except Exception as exc:
+        logger.debug("[h3] scrub word synthesis skipped for %r: %s", clean, exc)
+        return None
+
+
+def apply_live_policy_text_scrub(
+    context: torch.Tensor,
+    tags_raw: Any,
+    policy: "H3LivePolicy | None",
+    *,
+    dm: Any = None,
+    transformer_options: dict[str, Any] | None = None,
+    family: str = "fl2va",
+) -> tuple[torch.Tensor, bool]:
+    """Project `policy.project_out_words` out of text rows (`tags != 0`, excluding sink row `0`).
+
+    Preserves vision prefix rows (`tags == 0`) and sink row `0` bitwise untouched while scrubbing
+    artifact directions (`alpha = policy.critic_scrub_alpha`, default `0.85`) from `5376`-d text rows.
+    """
+    if policy is None or not policy.project_out_words:
+        return context, False
+    alpha = max(0.0, min(1.0, float(policy.critic_scrub_alpha)))
+    if alpha <= 0.0:
+        return context, False
+
+    unit_vec = policy.resolve_scrub_unit_vec(family=family)
+    if unit_vec is None:
+        return context, False
+
+    ctx_work = context
+    if ctx_work.ndim == 3 and int(ctx_work.shape[-1]) != POST_REFINER_DIM:
+        if dm is None or not (hasattr(dm, "token_refiner") and hasattr(dm, "condition_proj")):
+            return context, False
+        ctx_work = _steer_hooks.refine_text_context(
+            dm,
+            ctx_work,
+            transformer_options,
+            caller_name="H3LivePolicy.text_scrub",
+        )
+    if ctx_work.ndim != 3 or int(ctx_work.shape[-1]) != int(unit_vec.shape[0]):
+        return context, False
+
+    bsz, seq_len, _dim = (int(d) for d in ctx_work.shape)
+    if tags_raw is not None:
+        tags = torch.as_tensor(tags_raw, device=ctx_work.device, dtype=torch.long)
+        if tags.ndim == 1:
+            tags = tags.unsqueeze(0).expand(bsz, -1)
+        if tuple(tags.shape[:2]) != (bsz, seq_len):
+            row_mask = torch.ones((bsz, seq_len), device=ctx_work.device, dtype=torch.bool)
+        else:
+            row_mask = tags != 0
+    else:
+        row_mask = torch.ones((bsz, seq_len), device=ctx_work.device, dtype=torch.bool)
+    if seq_len > 1:
+        row_mask = row_mask.clone()
+        row_mask[:, 0] = False
+    if not bool(row_mask.any().item()):
+        return ctx_work, False
+
+    u = unit_vec.to(device=ctx_work.device, dtype=torch.float32)
+    ctx_f = ctx_work.detach().to(dtype=torch.float32)
+    dots = torch.matmul(ctx_f, u)  # [B, L]
+    delta = (alpha * dots).unsqueeze(-1) * u.view(1, 1, -1)
+    out = ctx_work.clone()
+    scrubbed = (ctx_f - delta).to(dtype=ctx_work.dtype)
+    out[row_mask] = scrubbed[row_mask]
+    return out, True
+
+
 def evaluate_audio_x0(
     audio_x0: torch.Tensor,
     *,
@@ -671,6 +987,24 @@ class H3LivePolicy:
     emit_ws_events: bool = True
     prompt_id: str | None = None
 
+    # Phase 2 Dynamic Step-1 Auto-Shield (`early_0_24 -> early_0_24_shield`)
+    force_shield: bool = False
+    auto_shield_sep_threshold: float = 12.0
+    auto_shield_max_coverage: float = 0.32
+    active_region_box: tuple[float, float, float, float] | None = None
+    active_region_invert: bool = False
+    active_region_already_shielded: bool = False
+    active_region_mask_hw: np.ndarray | None = field(default=None, repr=False)
+
+    # Phase 2 Remote `heylook` Step-0 Visual Critic -> `< 3 ms` CPU WordVector(mode="project_out") auto-scrub
+    critic_scrub_alpha: float = 0.85
+    project_out_words: list[str] = field(default_factory=list)
+    critic_history: list[dict[str, Any]] = field(default_factory=list)
+    _scrub_vec_cache: dict[tuple[tuple[str, ...], str], torch.Tensor | None] = field(
+        default_factory=dict, repr=False
+    )
+    _scrub_unit_vec_override: torch.Tensor | None = field(default=None, repr=False)
+
     harvested_mask_thw: torch.Tensor | None = field(default=None, repr=False)
     harvested_mask_frames: torch.Tensor | None = field(default=None, repr=False)
     mask_stats: dict[str, Any] = field(default_factory=dict)
@@ -680,13 +1014,95 @@ class H3LivePolicy:
     preview_history: list[dict[str, Any]] = field(default_factory=list)
     _prev_preview_rgb: np.ndarray | None = field(default=None, repr=False)
 
-    def reset_for_new_run(self) -> None:
+    def reset_for_new_run(self, *, clear_region: bool = False) -> None:
         self.harvested_mask_frames = None
         self.strength_scale = 1.0
         self.recommended_video_end_percent = None
         self.recommended_aud_to_vid_gain = None
         self.prompt_id = None
+        self.force_shield = False
+        if clear_region:
+            self.active_region_box = None
+            self.active_region_invert = False
+            self.active_region_already_shielded = False
+            self.active_region_mask_hw = None
+        self.project_out_words = []
+        self.critic_history.clear()
+        self._scrub_vec_cache.clear()
         self._prev_preview_rgb = None
+
+    def register_spatial_region(
+        self,
+        *,
+        x_start: float = 0.0,
+        x_end: float = 1.0,
+        y_start: float = 0.0,
+        y_end: float = 1.0,
+        invert: bool = False,
+        mask: torch.Tensor | None = None,
+        mask_hw: np.ndarray | None = None,
+        already_shielded: bool = False,
+    ) -> None:
+        """Register active `SpatialQueryRouter` geometry so Step-1 preview can detect surround washout."""
+        self.active_region_box = (float(x_start), float(x_end), float(y_start), float(y_end))
+        self.active_region_invert = bool(invert)
+        self.active_region_already_shielded = bool(already_shielded)
+        if mask_hw is not None:
+            self.active_region_mask_hw = np.asarray(mask_hw, dtype=np.float32)
+            return
+        if mask is not None and torch.is_tensor(mask):
+            m = mask.detach().to(device="cpu", dtype=torch.float32)
+            if m.ndim == 4:
+                m = m[:, 0] if int(m.shape[1]) == 1 else m[..., 0]
+            if m.ndim == 3:
+                m = m.mean(dim=0)
+            if m.ndim == 2 and m.numel() > 0:
+                if max(int(m.shape[0]), int(m.shape[1])) > 64:
+                    scale = 64.0 / float(max(int(m.shape[0]), int(m.shape[1])))
+                    nh = max(2, int(round(int(m.shape[0]) * scale)))
+                    nw = max(2, int(round(int(m.shape[1]) * scale)))
+                    m = F.interpolate(m.unsqueeze(0).unsqueeze(0), size=(nh, nw), mode="area")[0, 0]
+                self.active_region_mask_hw = m.clamp(0.0, 1.0).numpy()
+            else:
+                self.active_region_mask_hw = None
+        else:
+            self.active_region_mask_hw = None
+
+    def resolve_scrub_unit_vec(self, *, family: str = "fl2va") -> torch.Tensor | None:
+        if self._scrub_unit_vec_override is not None:
+            v = self._scrub_unit_vec_override.detach().to(device="cpu", dtype=torch.float32)
+            nrm = float(torch.linalg.vector_norm(v).item())
+            return (v / nrm) if nrm > 1e-8 else None
+        if not self.project_out_words:
+            return None
+        key = (tuple(self.project_out_words), str(family or "fl2va"))
+        if key not in self._scrub_vec_cache:
+            self._scrub_vec_cache[key] = synthesize_policy_scrub_unit_vec(self.project_out_words, family=key[1])
+        return self._scrub_vec_cache[key]
+
+    def update_from_critic(self, result: Mapping[str, Any], *, step: int = 0) -> dict[str, Any]:
+        """Record remote `heylook` Step-0 Visual Critic readout and arm CPU `project_out` text scrubbing."""
+        rec = dict(result)
+        rec["step"] = int(step)
+        words_clean = [
+            str(w).strip().lower()
+            for w in (rec.get("scrub_words") or ())
+            if str(w).strip()
+        ]
+        rec["scrub_words"] = words_clean
+        self.critic_history.append(rec)
+        if words_clean:
+            self.project_out_words = list(dict.fromkeys(words_clean))[:6]
+            self._scrub_vec_cache.clear()
+            logger.info(
+                "[h3] H3LivePolicy Step-%d Visual Critic armed CPU project_out scrub: words=%s alpha=%.2f (%s)",
+                int(step),
+                self.project_out_words,
+                float(self.critic_scrub_alpha),
+                rec.get("reason", ""),
+            )
+        self.emit_event({"kind": "heylook_critic", **rec})
+        return rec
 
     def update_from_preview(
         self,
@@ -730,6 +1146,43 @@ class H3LivePolicy:
             elif float(intra_motion_mae) > 18.0:
                 self.recommended_video_end_percent = 0.50
         metrics["recommended_video_end_percent"] = self.recommended_video_end_percent
+
+        # Dynamic Step-1 Auto-Shield (`early_0_24 -> early_0_24_shield`): if a small routed region
+        # (`<= 32%` canvas) shows `< 12.0` inside-vs-outside RGB/luma separation by Step 1, flip
+        # `force_shield = True` for remaining Steps 2..5.
+        reg_mask_hw = self.active_region_mask_hw
+        reg_invert = self.active_region_invert
+        reg_box = self.active_region_box
+        if reg_mask_hw is None and self.harvested_mask_thw is not None:
+            reg_mask_hw = self.harvested_mask_thw.detach().to(device="cpu", dtype=torch.float32).mean(dim=0).numpy()
+            reg_invert = False  # inversion already baked into `harvested_mask_thw`
+        reg_sep = evaluate_region_separation(
+            rgb_hwc,
+            region_box=reg_box,
+            region_mask_hw=reg_mask_hw,
+            invert=reg_invert,
+            max_coverage=self.auto_shield_max_coverage,
+            sep_threshold=self.auto_shield_sep_threshold,
+        )
+        if reg_sep is not None:
+            metrics["region_separation"] = reg_sep
+            already_sh = self.active_region_already_shielded or (
+                self.active_region_box is None
+                and self.active_region_mask_hw is None
+                and str(self.isolation).endswith("_shield")
+            )
+            if int(step) >= 1 and reg_sep["washed_out"] and not self.force_shield and not already_sh:
+                self.force_shield = True
+                metrics["flags"] = [*list(metrics.get("flags") or ()), "auto_shield_engaged"]
+                logger.info(
+                    "[h3] H3LivePolicy Step-%d Auto-Shield engaged (cov=%.1f%%, sep=%.1f < %.1f): upgrading SpatialQR to *_shield",
+                    int(step),
+                    100.0 * float(reg_sep["region_coverage"]),
+                    float(reg_sep["sep_score"]),
+                    float(self.auto_shield_sep_threshold),
+                )
+                self.emit_event({"kind": "auto_shield_engaged", "step": int(step), **reg_sep})
+        metrics["force_shield"] = self.force_shield
 
         self.preview_history.append(metrics)
         self.emit_event({"kind": "preview_thermostat", **metrics})
@@ -804,11 +1257,15 @@ class H3LivePolicy:
             "strength_scale": self.strength_scale,
             "recommended_video_end_percent": self.recommended_video_end_percent,
             "recommended_aud_to_vid_gain": self.recommended_aud_to_vid_gain,
+            "force_shield": self.force_shield,
+            "project_out_words": list(self.project_out_words),
+            "critic_scrub_alpha": self.critic_scrub_alpha,
             "mask_stats": dict(self.mask_stats),
             "step_history": list(self.step_history),
             "audio_x0_history": list(self.audio_x0_history),
             "video_x0_history": list(self.video_x0_history),
             "preview_history": list(self.preview_history),
+            "critic_history": list(self.critic_history),
         }
 
 
@@ -1064,6 +1521,14 @@ def attach_self_mask_router(
     harvest_blocks: Sequence[int] | None = None,
     enable_audio_x0_thermostat: bool = True,
     emit_ws_events: bool = True,
+    enable_heylook_critic: bool = False,
+    heylook_base_url: str = "",
+    heylook_model: str = "",
+    heylook_timeout_s: float = 18.0,
+    critic_scrub_alpha: float = 0.85,
+    critic_fn: Callable[[np.ndarray], Mapping[str, Any]] | None = None,
+    auto_shield_sep_threshold: float = 12.0,
+    auto_shield_max_coverage: float = 0.32,
 ) -> tuple[Any, H3LivePolicy]:
     """Clone `model` and attach zero-coordinate Self-Masked Routing + live `H3LivePolicy` bus.
 
@@ -1175,6 +1640,14 @@ def attach_self_mask_router(
         audio_zone=aud_z,
         replay_step0=bool(replay_step0),
         emit_ws_events=bool(emit_ws_events),
+        auto_shield_sep_threshold=float(auto_shield_sep_threshold),
+        auto_shield_max_coverage=float(auto_shield_max_coverage),
+        critic_scrub_alpha=float(critic_scrub_alpha),
+    )
+    eff_critic_enabled = (
+        bool(enable_heylook_critic)
+        or (critic_fn is not None)
+        or (str(os.environ.get("H3_LIVE_CRITIC", "")).strip().lower() in ("1", "true", "yes", "on"))
     )
     # Expose on BOTH the ModelPatcher attribute and `transformer_options` (preserved across `.clone()`).
     m._h3_live_policy = policy
@@ -1239,12 +1712,32 @@ def attach_self_mask_router(
             step_state["fresh_run"] = False
             policy.reset_for_new_run()
 
+        payload = kwargs.get("minimax_payload") or {}
+        tags_cur = payload.get("text_token_tags") if isinstance(payload, Mapping) else None
+        if policy.project_out_words:
+            with _steer_hooks.pause_malloc_graph_ctx(), torch.no_grad():
+                context, did_scrub = apply_live_policy_text_scrub(
+                    context,
+                    tags_cur,
+                    policy,
+                    dm=dm,
+                    transformer_options=transformer_options,
+                )
+            if did_scrub:
+                policy.step_history.append(
+                    {
+                        "step": cur_step,
+                        "phase": "critic_scrub",
+                        "words": list(policy.project_out_words),
+                        "alpha": float(policy.critic_scrub_alpha),
+                    }
+                )
+
         if thermostat_only:
             to_pass = dict(transformer_options or {})
             to_pass[LIVE_POLICY_KEY] = policy
             return executor(x, timestep, context, to_pass, **kwargs)
 
-        payload = kwargs.get("minimax_payload") or {}
         edit_pass = payload.get("h3_edit_pass") if isinstance(payload, Mapping) else None
         can_route_phase2 = (raw_b is not None) and (edit_pass not in ("original", "edited"))
 
@@ -1355,9 +1848,19 @@ def attach_self_mask_router(
                 ref_cache[cache_key] = ctx_b
                 while len(ref_cache) > _REF_CACHE_MAX:
                     ref_cache.popitem(last=False)
+            ctx_b_use = ctx_b
+            if policy.project_out_words:
+                ctx_b_use, _ = apply_live_policy_text_scrub(
+                    ctx_b,
+                    tags_b,
+                    policy,
+                    dm=dm,
+                    transformer_options=transformer_options,
+                )
+            eff_shield = bool(shield_region) or bool(policy.force_shield)
             rt = SpatialVisualQRRuntime(
                 dm=dm,
-                shadow_b_init=ctx_b,
+                shadow_b_init=ctx_b_use,
                 shadow_b_tags=tags_b,
                 x_start=0.0,
                 x_end=1.0,
@@ -1367,7 +1870,7 @@ def attach_self_mask_router(
                 mask=policy.harvested_mask_frames,
                 isolate_blocks=iso_set,
                 audio_zone=aud_z,
-                shield_region=shield_region,
+                shield_region=eff_shield,
             )
             to_next = dict(transformer_options or {})
             to_next[LIVE_POLICY_KEY] = policy
@@ -1433,6 +1936,19 @@ def attach_self_mask_router(
                             rgb_arr = np.asarray(last_f, dtype=np.float32)
                             if rgb_arr.ndim == 3 and rgb_arr.shape[2] >= 3:
                                 policy.update_from_preview(rgb_arr, step=int(step_i))
+                                if eff_critic_enabled and int(step_i) == 0 and not policy.critic_history:
+                                    c_res = (
+                                        critic_fn(rgb_arr)
+                                        if critic_fn is not None
+                                        else run_heylook_step0_critic(
+                                            rgb_arr,
+                                            base_url=heylook_base_url,
+                                            model=heylook_model,
+                                            timeout_s=heylook_timeout_s,
+                                        )
+                                    )
+                                    if isinstance(c_res, Mapping):
+                                        policy.update_from_critic(c_res, step=int(step_i))
                         except Exception as exc:
                             logger.debug("[h3] preview thermostat bridge skipped step %s: %s", step_i, exc)
 
