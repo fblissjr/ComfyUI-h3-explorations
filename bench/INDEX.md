@@ -8,13 +8,13 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 182 |
+| [`check_*`](#check) | 183 |
 | [`measure_*`](#measure) | 33 |
 | [`analyze_*`](#analyze) | 13 |
 | [`grade_*`](#grade) | 10 |
 | [`compare_*`](#compare) | 10 |
 | [`build_*`](#build) | 12 |
-| [`probe_*`](#probe) | 15 |
+| [`probe_*`](#probe) | 16 |
 | [the rest](#the-rest) | 193 |
 
 ## check
@@ -127,6 +127,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_plate_restore.py`](check_plate_restore.py) | A masked render split across two samplers ends on the clean plate, and resumes where it stopped. |
 | [`check_pose_along_shot.py`](check_pose_along_shot.py) | `bench/pose_along_shot.py` with the model replaced by a function whose answer is known: everything round the model. |
 | [`check_preview_gate.py`](check_preview_gate.py) | Offline unit check for `bench/run_with_preview_gate.py`. |
+| [`check_probe_h3_sensors.py`](check_probe_h3_sensors.py) | Offline CPU verification for `bench/probe_h3_sensors.py` (4-sensor read-only calibration probe). |
 | [`check_prompt_bank.py`](check_prompt_bank.py) | The prompt bank's gate, where the sweep can see it. |
 | [`check_prompt_docs_sync.py`](check_prompt_docs_sync.py) | Fail when a prompt DOCUMENT drifts from the source that owns what it quotes. |
 | [`check_prompt_guide_conformance.py`](check_prompt_guide_conformance.py) | Check every shipped ref prompt against the OFFICIAL guide, not against us. |
@@ -319,6 +320,7 @@ this file is only a way to find a script by what it says it does.
 | [`probe_dinov3_copy_freeze.py`](probe_dinov3_copy_freeze.py) | M1 (`docs/wiki/next_steps.md`): CPU-safe DINOv3 `<Picture 1>` copy & temporal pose-freeze triage probe. |
 | [`probe_encoder_rope_kitchen.py`](probe_encoder_rope_kitchen.py) | Did core's move of the text encoder's RoPE onto comfy-kitchen change its numbers? |
 | [`probe_h3_image_vae_tiles.py`](probe_h3_image_vae_tiles.py) | How the MiniMax-H3-Image VAE's 256 px decode tiles shape its pictures, measured on real pictures with no DiT. |
+| [`probe_h3_sensors.py`](probe_h3_sensors.py) | Read-only 4-Sensor Calibration Probe for MiniMax H3 (`MiniMaxH3Model` & `MiniMaxH3ImageModel`). |
 | [`probe_kitchen_swiglu_and_token_overflow.py`](probe_kitchen_swiglu_and_token_overflow.py) | Two properties of the installed comfy-kitchen build on this card: fused SwiGLU against the unfused chain, and whether token routing repeats. |
 | [`probe_oracle_gate_scaling.py`](probe_oracle_gate_scaling.py) | What the calibration gate would find at production length, and why chunking will not get it there. |
 | [`probe_ref_rows_16604.py`](probe_ref_rows_16604.py) | Does Comfy-Org/ComfyUI issue 16604 reproduce on this checkout's PackedLayout? |
