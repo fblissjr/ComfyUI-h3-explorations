@@ -174,7 +174,6 @@ def _make_mini_patcher(dm: _TinyDM):
             def _exec(x, timestep, ctx, t_opts, **kw):
                 cur_h = torch.cat([ctx[0], img[10:]], dim=0) if ctx.shape[1] == 10 else img
                 patches = (t_opts.get("patches_replace") or {}).get("dit", {})
-                ovr = t_opts.get("optimized_attention_override")
                 for b_i, blk in enumerate(self.model.diffusion_model.blocks):
                     b_opts = dict(t_opts)
                     b_opts["block_index"] = b_i
@@ -187,7 +186,7 @@ def _make_mini_patcher(dm: _TinyDM):
                         "transformer_options": b_opts,
                     }
 
-                    def _orig(a, _blk=blk, _ovr=ovr):
+                    def _orig(a, _blk=blk):
                         h_dim = _blk.hidden
                         n_heads = _blk.attn.heads
                         h_head = _blk.attn.head_dim
@@ -200,6 +199,7 @@ def _make_mini_patcher(dm: _TinyDM):
                         def _sdpa(q_u, k_u, v_u, heads, skip_output_reshape=False, **kwargs):
                             res = torch.nn.functional.scaled_dot_product_attention(q_u, k_u, v_u)
                             return res if skip_output_reshape else res.transpose(1, 2).reshape(1, -1, h_dim)
+                        _ovr = a["transformer_options"].get("optimized_attention_override")
                         if _ovr is not None:
                             out_a = _ovr(_sdpa, q_bh, k_bh, v_bh, n_heads, skip_reshape=True, skip_output_reshape=False, transformer_options=a["transformer_options"])
                         else:
@@ -802,7 +802,53 @@ def main() -> int:
         "MiniMaxH3Steer 1x hook mode",
         "SpatialQueryRouter -> Hook-Steer",
     )
-    print("[ok] 7. All attachment & symmetric stacking guards (+ context-mode Steer allowed) verified")
+
+    # 7g. Reverse-order downstream bypass guards (Sage/attn.forward skip & BlockSparse clobber)
+    def _expect_rt_err(fn, substr: str, label: str) -> None:
+        try:
+            fn()
+        except RuntimeError as exc:
+            assert substr in str(exc), f"{label}: unexpected message {exc!r} (want {substr!r})"
+            return
+        raise AssertionError(f"{label}: expected RuntimeError containing {substr!r}, none raised")
+
+    for skip_b in (0, len(dm_guard.blocks) - 1):
+        p_bypass = sqr.attach_spatial_query_router(base_p, region_conditioning=cond_reg)
+        orig_patch = p_bypass.model_options["transformer_options"]["patches_replace"]["dit"][("double_block", skip_b)]
+
+        def _skip_ovr(args, extra_args, _orig_patch=orig_patch):
+            orig_blk = extra_args["original_block"]
+
+            def _stripped_blk(a):
+                no_ovr = dict(a["transformer_options"])
+                no_ovr["optimized_attention_override"] = None
+                return orig_blk({**a, "transformer_options": no_ovr})
+
+            return _orig_patch(args, {"original_block": _stripped_blk})
+
+        p_bypass.set_model_patch_replace(_skip_ovr, "dit", "double_block", skip_b)
+        _expect_rt_err(
+            lambda: p_bypass.run(ctx_main, layout, img, t_emb, mod_segments),
+            "attention override was bypassed",
+            f"Reverse Sage attn.forward bypass on block {skip_b}",
+        )
+
+    p_clobber = sqr.attach_spatial_query_router(base_p, region_conditioning=cond_reg)
+    for bi in range(len(dm_guard.blocks)):
+        p_clobber.set_model_patch_replace(lambda a, e: e["original_block"](a), "dit", "double_block", bi)
+    _expect_rt_err(
+        lambda: p_clobber.run(ctx_main, layout, img, t_emb, mod_segments),
+        "block hooks never ran",
+        "Reverse BlockSparse patches_replace clobber",
+    )
+
+    # Empty-mask audio_zone="base" runs still deactivate cleanly without tripping either runtime guard
+    p_empty_ok = sqr.attach_spatial_query_router(
+        base_p, region_conditioning=cond_reg, audio_zone="base", mask=torch.zeros(32, 48)
+    )
+    out_empty_ok = p_empty_ok.run(ctx_main, layout, img, t_emb, mod_segments)
+    assert torch.isfinite(out_empty_ok[0]).all()
+    print("[ok] 7. All attachment, symmetric stacking, & reverse-order runtime bypass guards verified")
     print("ALL MiniMaxH3SpatialQueryRouter CPU checks passed!")
     return 0
 

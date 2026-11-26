@@ -794,7 +794,16 @@ class SpatialVisualQRRuntime:
         self._cur = None
         if not self.active or cur is None or self.h_shadow_b is None:
             return
-        if cur["block_index"] != block_index or block_index >= (self.n_blocks - 1):
+        if cur["block_index"] != block_index:
+            return
+        if not cur.get("done", False):
+            raise RuntimeError(
+                f"MiniMaxH3SpatialQueryRouter attention override was bypassed on block {block_index} "
+                "(e.g. downstream MiniMaxH3SageAttention or a custom attn.forward patch skipped "
+                "optimized_attention_override). Use ModelAttentionBackend('comfy kitchen attention') "
+                "with optional MiniMaxH3Sol instead."
+            )
+        if block_index >= (self.n_blocks - 1):
             return
         if cur["shadow_b_attn_2d"] is None:
             return
@@ -1072,7 +1081,14 @@ def attach_spatial_query_router(
                 to_next.get("optimized_attention_override")
             )
         try:
-            return executor(x, timestep, context, to_next, **kwargs)
+            out = executor(x, timestep, context, to_next, **kwargs)
+            if rt.active and rt.h_shadow_b is None:
+                raise RuntimeError(
+                    "MiniMaxH3SpatialQueryRouter block hooks never ran (e.g. downstream core "
+                    "BlockSparseAttention overwrote patches_replace['dit'][('double_block', i)]). "
+                    "Use ModelAttentionBackend('comfy kitchen attention') with optional MiniMaxH3Sol instead."
+                )
+            return out
         finally:
             with _steer_hooks.pause_malloc_graph_ctx():
                 rt.clear()
