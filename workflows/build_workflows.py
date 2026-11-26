@@ -132,7 +132,7 @@ from h3_config import (  # noqa: E402
     DIRECTOR_HUD_NODE, DIRECTOR_HUD_DEFAULTS,
     SPATIAL_PORTAL_REF_IMAGES, SPATIAL_PORTAL_EDIT_GUIDANCE, WORLD_TARGETS_EDIT_GUIDANCE,
     CONTROL_VECTOR_NODE, CONTROL_VECTOR_DEFAULTS, CONTROL_VECTOR_OPTIONAL_DEFAULTS, LAYER_NORM_MATCH_NODE,
-    STEER_NODE, STEER_DEFAULTS, QUERY_ROUTER_NODE, SPATIAL_QUERY_ROUTER_NODE,
+    STEER_NODE, STEER_DEFAULTS, QUERY_ROUTER_NODE, SPATIAL_QUERY_ROUTER_NODE, SELF_MASK_ROUTER_NODE,
     RELEASE_REFERENCES_NODE, RELEASE_REFERENCES_DEFAULTS,
     WORD_VECTOR_NODE, WORD_VECTOR_DEFAULTS, LOAD_CONTROL_VECTOR_NODE,
     EDIT_GUIDANCE_STREAMS, EDIT_GUIDANCE_DEFAULTS,
@@ -1762,6 +1762,7 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
               control_vector: tuple[str, float] | dict | list | None = None,
               query_router: dict | None = None,
               spatial_query_router: dict | None = None,
+              self_mask_router: dict | None = None,
               # Steer with an edited copy of the prompt (`edit_guidance.py`): a dict of
               # `edits` (the lines `MiniMaxH3PromptEdit` takes), `scale` and `first_step`.
               # Adds the edit node (130), a second prompt on the same encoder, references
@@ -2485,6 +2486,9 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
             sqr_in["mask"] = ["160", 0]
         g["149"] = {"class_type": SPATIAL_QUERY_ROUTER_NODE, "inputs": sqr_in}
         model_src = ["149", 0]
+
+    if self_mask_router is not None:
+        model_src = _wire_self_mask_router(g, model_src, prompt, self_mask_router)
 
     if cache is not None:
         # Step caching, after the attention nodes: the cache is a
@@ -3421,6 +3425,42 @@ def _wire_prompt_expander(g: dict, prompt: str, spec: dict) -> None:
         g["135"]["inputs"]["end_percent"] = ["14", 4]
 
 
+def _wire_self_mask_router(
+    g: dict,
+    model_src: list[Any],
+    base_prompt_text: str,
+    spec: dict,
+) -> list[Any]:
+    """Attach `MiniMaxH3SelfMaskRouter` (node 149) and optional cloned `region_conditioning` (node 148)."""
+    smr_in: dict[str, Any] = {
+        "model": model_src,
+        "mask_source": str(spec.get("mask_source", "text_phrase")),
+        "target_phrase": str(spec.get("target_phrase", "")),
+        "threshold_z": float(spec.get("threshold_z", 1.35)),
+        "softness": float(spec.get("softness", 0.25)),
+        "dilation_passes": int(spec.get("dilation_passes", 0)),
+        "isolation": str(spec.get("isolation", "early_0_24_shield")),
+        "audio_zone": str(spec.get("audio_zone", "base")),
+        "invert": bool(spec.get("invert", False)),
+        "start_percent": float(spec.get("start_percent", 0.0)),
+        "end_percent": float(spec.get("end_percent", 1.0)),
+        "replay_step0": bool(spec.get("replay_step0", False)),
+    }
+    if "region_prompt" in spec and spec["region_prompt"] is not None:
+        if bool(spec.get("same_prompt", False)):
+            smr_in["region_conditioning"] = ["5", 0]
+        else:
+            r_in = dict(g["5"]["inputs"], prompt=spec["region_prompt"])
+            g["148"] = {"class_type": g["5"]["class_type"], "inputs": r_in}
+            smr_in["region_conditioning"] = ["148", 0]
+    if smr_in["mask_source"] == "text_phrase":
+        smr_in["clip"] = ["2", 0]
+        if base_prompt_text:
+            smr_in["base_prompt"] = str(base_prompt_text)
+    g["149"] = {"class_type": SELF_MASK_ROUTER_NODE, "inputs": smr_in}
+    return ["149", 0]
+
+
 def _wire_edit_guidance(g: dict, prompt: str, spec: dict) -> None:
     """Turn a one-prompt graph into an edit-guidance graph, in place.
 
@@ -3883,6 +3923,13 @@ H3_IMAGE_CYBER_CLOCKMAKER_PROMPT = (
     "neon reflections stream across the polished gears and chrome bench, shot on an 85mm prime lens at f/2.8 "
     "with shallow depth of field."
 )
+H3_IMAGE_EMERALD_GEODE_PROMPT = (
+    "An overhead, top-down photograph of a rustic dark brown wooden table where the central woven basket overflows "
+    "with glistening, faceted translucent emerald-green quartz crystal geodes and raw crystalline mineral clusters "
+    "glowing softly with internal emerald refractions. Deep moss-emerald crystal prisms catch natural directional "
+    "upper-left light while soft green caustic reflections fall across the wicker weave, surrounding wood grain, "
+    "plates, cheese board, grapes, and fresh kitchen herbs."
+)
 
 
 def build_h3_image_api(
@@ -3905,6 +3952,7 @@ def build_h3_image_api(
     control_vector: dict | Sequence[dict] | None = None,
     edit_guidance: dict | None = None,
     spatial_query_router: dict | None = None,
+    self_mask_router: dict | None = None,
 ) -> dict:
     """Build an API-format workflow for MiniMax-H3-Image: text to image, or an edit of one or more pictures.
 
@@ -4089,6 +4137,8 @@ def build_h3_image_api(
             },
         }
         model_src = ["149", 0]
+    if self_mask_router is not None:
+        model_src = _wire_self_mask_router(g, model_src, resolved_prompt, self_mask_router)
     g["9"]["inputs"]["model"] = model_src
     if edit_guidance is not None:
         _wire_edit_guidance(g, resolved_prompt, edit_guidance)
@@ -6626,6 +6676,35 @@ def main():
               ),
               out_prefix="Video/h3_t2v_pika_audio_freeze_spatial_portal"),
          "smooth circular L->R Reality Portal over a frozen audio track (`MiniMaxH3FreezeAudio` + lossless mux + `MiniMaxH3SpatialDirector(portal_path)`) via `MiniMaxH3EditGuider(streams='video_only', first_step=1, last_step=3, scale=1.65)` on Pika H3 Flex 6-step LCM"),
+        ("h3_text_to_video_pika_self_mask_speaker_edit_guider.json", "t2v-pika-self-mask-speaker-edit-guider", "t2v",
+         SPATIAL_BINAURAL_STAIRWELL_PROMPT,
+         dict(width=1344, height=768, length=141,
+              lora=(PIKA_FL2VA_SVD995_LORA, PIKA_STRENGTH), lora_branch=True,
+              steps=PIKA_STEPS, sampler_name=PIKA_SAMPLER,
+              manual_sigmas=PIKA_MANUAL_SIGMAS,
+              self_mask_router=dict(
+                  mask_source="right_speaker",
+                  target_phrase="",
+                  threshold_z=1.45,
+                  softness=0.25,
+                  dilation_passes=1,
+                  isolation="early_0_24_shield",
+                  audio_zone="base",
+                  invert=False,
+                  start_percent=0.0,
+                  end_percent=1.0,
+                  replay_step0=False,
+              ),
+              edit_guidance=dict(
+                  edits=_edit_guidance_text("t2va_stairwell_right_speaker_android"),
+                  scale=1.95,
+                  first_step=1,
+                  last_step=3,
+                  streams="video_only",
+                  audio_scale=1.0,
+              ),
+              out_prefix="Video/h3_t2v_pika_self_mask_speaker_edit_guider"),
+         "zero-coordinate speaker spotlight -> 2x EditGuider (`SelfMaskRouter(mask_source='right_speaker', dilation_passes=1)` harvests Step-0 Q_vid@K_aud speaker mask and hands it to `MiniMaxH3EditGuider(first_step=1, last_step=3, scale=1.95, streams='video_only')`, transforming the right speaker into a crystal android with locked lip-sync and photoreal left speaker)"),
         ("h3_first_last_frame_to_video_pika_query_router.json", "fl2v-pika-query-router", "i2v",
          None,
          dict(width=1344, height=768, length=192, last_frame=True,
@@ -7193,6 +7272,25 @@ def main():
               ),
               out_prefix="Image/h3_image_t2i_spatial_query_router"),
          "text -> 16 MP (4 MP delivered) seamless split-world image on MiniMax-H3-Image with MiniMaxH3SpatialQueryRouter(isolation='early_0_24': vintage brass clockmaker Left | cybernetic neon clockmaker Right)"),
+        ("h3_image_t2i_self_mask_router.json", "h3-image-t2i-self-mask-router", "h3img_t2i",
+         H3_IMAGE_T2I_PROMPT,
+         dict(single_frame=True,
+              self_mask_router=dict(
+                  region_prompt=H3_IMAGE_EMERALD_GEODE_PROMPT,
+                  mask_source="text_phrase",
+                  target_phrase="bread",
+                  threshold_z=1.35,
+                  softness=0.25,
+                  dilation_passes=0,
+                  isolation="mid_20_34_shield",
+                  audio_zone="base",
+                  invert=False,
+                  start_percent=0.0,
+                  end_percent=1.0,
+                  replay_step0=True,
+              ),
+              out_prefix="Image/h3_image_t2i_self_mask_router"),
+         "text -> 16 MP (4 MP delivered) zero-coordinate noun self-masking on MiniMax-H3-Image: MiniMaxH3SelfMaskRouter(mask_source='text_phrase', target_phrase='bread', isolation='mid_20_34_shield', replay_step0=True) transforms woven-basket bread into emerald quartz crystal geodes while keeping surrounding foods photoreal"),
         # The bf16 arms (the release written whole by `bench/convert_h3_image_dit.py`, with INT8
         # attention and with core's exact attention, for both cases) were rendered on 2026-11-11
         # and their four probe graphs removed the same day with the file, at the owner's word:
@@ -7329,6 +7427,9 @@ def main():
             sqr = extra.get("spatial_query_router")
             if isinstance(sqr, dict) and "region_prompt" in sqr and not sqr.get("same_prompt"):
                 return [main_p, sqr["region_prompt"]]
+            smr = extra.get("self_mask_router")
+            if isinstance(smr, dict) and "region_prompt" in smr and not smr.get("same_prompt"):
+                return [main_p, smr["region_prompt"]]
             return main_p
 
         print(json.dumps({

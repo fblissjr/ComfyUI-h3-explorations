@@ -2,7 +2,7 @@
 
 # ComfyUI-h3-explorations
 
-Custom ComfyUI nodes ([`67` nodes](nodes.py)), ready-to-load workflows ([`123` API graphs](workflows/INDEX.md)), and visual guides for pushing **MiniMax H3** (`MiniMax-H3`, `Pika H3 Flex`, `MiniMax-H3-Image`, `P-H3-Image`) beyond plain prompting — without retraining the model.
+Custom ComfyUI nodes ([`69` nodes](nodes.py)), ready-to-load workflows ([`133` API graphs](workflows/INDEX.md)), and visual guides for pushing **MiniMax H3** (`MiniMax-H3`, `Pika H3 Flex`, `MiniMax-H3-Image`, `P-H3-Image`) beyond plain prompting — without retraining the model.
 
 ---
 
@@ -27,6 +27,7 @@ MiniMax H3 generates video (`24 fps`) and stereo audio (`40 Hz`) together inside
 
 ## What Else This Pack Lets You Do
 
+- **Zero-Coordinate Self-Masking & Spatial World Splits ([`MiniMaxH3SelfMaskRouter`](steering/live_policy.py), [`MiniMaxH3SpatialQueryRouter`](steering/spatial_query_router.py))** — Split streets or still canvases seamlessly in one `1x` pass, trigger `17*m` causal Beat-Drop Smash Cuts, or extract Step-0 `B35+B40` attention/speaker/transient masks with zero bounding boxes or `SAM` (`replay_step0` `4 MP` still swaps + `SelfMask -> 2x EditGuider` crystal speaker transforms; [Spatial Guide](docs/wiki/spatial_query_routing.md), [Full 2026-11-26 Unlock](bench/results/2026-11-26_full_unlock_scout_self_mask_and_thermostat.md)).
 - **Continuous Style & Energy Sliders (`1x` Control Vectors & Subspace Erasure)** — Push film grades, materials, motion, or vocal intensity without rewriting prompts ([`MiniMaxH3Steer`](steering/nodes.py)), automatically clearing conflicting baseline lighting before applying the target look ([Architecture Guide](docs/wiki/h3_steering_and_architecture.md), [Steering Hub](docs/wiki/steering.md), [Paper Draft (v5)](docs/wiki/steering/paper/manuscript.md)).
 - **Moving Spatial Portals, Tracked Masks, & 3-Frame Sound Cues (`2x`)** — Sweep localized reality portals across a shot, protect tracked subjects with `SAM 3.1` + `MiniMaxH3EditGuider`, trigger frame-accurate foley with [`MiniMaxH3SoundCues`](sound_cues.py), or author timelines interactively in the Spatial Director sandbox ([User Guide](docs/wiki/spatial_director_guide.md), [Edit Guidance](docs/wiki/edit_guidance.md)).
 - **Audio-Driven Video & Pixel-Locked Audio Re-Dub** — Lock a real music track or voice clip ([`MiniMaxH3FreezeAudio`](audio_freeze.py)) while generating reactive video, or freeze a clip's pixels ([`MiniMaxH3AudioRefineMask`](audio_refine.py)) to swap only the soundtrack ([Audio Freeze Guide](docs/wiki/core/h3_audio_freeze.md)).

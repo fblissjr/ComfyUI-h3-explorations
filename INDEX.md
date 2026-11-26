@@ -160,13 +160,13 @@ with none is a helper the others import.
 | `.gemini/` | 8 | [below](#gemini) |
 | `archive/` | 78 | (none) |
 | `assets/` | 1 | [below](#assets) |
-| `bench/` | 875 | [`bench/INDEX.md`](bench/INDEX.md) and [`bench/results/INDEX.md`](bench/results/INDEX.md) for the records |
+| `bench/` | 876 | [`bench/INDEX.md`](bench/INDEX.md) and [`bench/results/INDEX.md`](bench/results/INDEX.md) for the records |
 | `changelog.d/` | | [`changelog.d/README.md`](changelog.d/README.md), one file per changelog entry; not listed and not counted |
 | `contact_sheets/` | 1 | [below](#contact_sheets) |
 | `data/` | 1 | [below](#data) |
 | `director/` | 23 | [below](#director) |
 | `docs/` | 394 | [`docs/wiki/index.md`](docs/wiki/index.md), the hand-written router |
-| `prompt_bank/` | 251 | [`docs/wiki/prompting/prompt_bank.md`](docs/wiki/prompting/prompt_bank.md), the prompt catalogue |
+| `prompt_bank/` | 252 | [`docs/wiki/prompting/prompt_bank.md`](docs/wiki/prompting/prompt_bank.md), the prompt catalogue |
 | `sparse_tables/` | 1 | [below](#sparse_tables) |
 | `standalone/` | 4 | [below](#standalone) |
 | `steering/` | 14 | [below](#steering) |
@@ -174,7 +174,7 @@ with none is a helper the others import.
 | `vendor_config/` | 8 | [below](#vendor_config) |
 | `vendor_guides/` | 19 | [below](#vendor_guides) |
 | `web/` | 3 | [below](#web) |
-| `workflows/` | 138 | [`workflows/INDEX.md`](workflows/INDEX.md) |
+| `workflows/` | 140 | [`workflows/INDEX.md`](workflows/INDEX.md) |
 
 ## .claude/
 

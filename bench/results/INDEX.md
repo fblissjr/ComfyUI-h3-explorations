@@ -19,6 +19,7 @@ replaces `docs/wiki/ops/evidence.md`, which says what the records established.
 | 2026-11-26 | stage2 | [Stage 2 Music-Video Gate, Studio 2.0 Unlock & Cross-Session Sprint (2026-11-26)](2026-11-26_stage2_music_video_and_studio_unlock.md) |  |
 | 2026-11-26 | steering | [Spatial Query Routing `v2-slim` & Beat 1–3 Showcase Suites (`2026-11-26`)](2026-11-26_spatial_qr_v2_and_showcases.md) | verified |
 | 2026-11-26 | h3 | [4-Sensor H3 Silicon Calibration Gate (`2026-11-26`)](2026-11-26_h3_4sensor_calibration.md) |  |
+| 2026-11-26 | full | [Full Unlock: H3 Studio 2.0 `Scout 4x`, Stem Choreography -> Cello Re-Score, Dual-Sprite D-Pad, & Closed-Loop `MiniMaxH3SelfMaskRouter` + `H3LivePolicy` (`2026-11-26`)](2026-11-26_full_unlock_scout_self_mask_and_thermostat.md) |  |
 | 2026-11-26 | bucket3 | [Bucket 3 GPU Showcases: `1×` `SAM 3.1` Splits, `192f` `binaural_split`, & `90f` Probes (`2026-11-26`)](2026-11-26_bucket3_spatial_qr_and_sam3.md) |  |
 | 2026-11-25 | spatial | [1× Spatial Visual Query Routing Gate (`2026-11-25`)](2026-11-25_spatial_query_router.md) |  |
 | 2026-11-25 | rope | [Core-Free 3D RoPE Time/Space Warper Falsification (`2026-11-25`)](2026-11-25_rope_warp_falsification.md) |  |

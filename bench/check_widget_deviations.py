@@ -489,17 +489,21 @@ DECLARED: dict[tuple[str, str], tuple] = {
                 "so the cond_audio keyframe differential locks exact jump/yank timestamps, "
                 "1.65 on h3_text_to_video_pika_audio_freeze_spatial_portal for circular "
                 "reality-portal replacement over frozen audio, "
+                "1.95 on h3_text_to_video_pika_self_mask_speaker_edit_guider for "
+                "speaker-spotlight android transformation, "
                 "2.0 (h3_config.SPATIAL_PORTAL_EDIT_GUIDANCE['scale']) on the Reality Portal "
                 "arms, and 2.2 on h3_spatial_portal_pika_erasure against the node default 1.5 "
                 "on the prompt-edit graphs (2026-11-12, 2026-11-26)."),
     ("MiniMaxH3EditGuider", "first_step"):
-        ("ARM", "1 on h3_text_to_video_pika_audio_freeze_spatial_portal so Step 0 establishes "
-                "shared frozen-audio choreography before 2-pass spatial portal guidance on "
-                "steps 1..3, against the node default 0 (2026-11-26)."),
+        ("ARM", "1 on h3_text_to_video_pika_audio_freeze_spatial_portal and "
+                "h3_text_to_video_pika_self_mask_speaker_edit_guider so Step 0 establishes "
+                "shared choreography and harvests SelfMaskRouter attention maps before "
+                "2-pass guidance on steps 1..3, against the node default 0 (2026-11-26)."),
     ("MiniMaxH3EditGuider", "last_step"):
         ("ARM", "3 (h3_config.SOUND_GUIDE_EDIT_GUIDANCE['last_step']) on "
-                "h3_text_to_video_pika_sound_guide, h3_image_ref_dpad_sound_pika, and "
-                "h3_text_to_video_pika_audio_freeze_spatial_portal, "
+                "h3_text_to_video_pika_sound_guide, h3_image_ref_dpad_sound_pika, "
+                "h3_text_to_video_pika_audio_freeze_spatial_portal, and "
+                "h3_text_to_video_pika_self_mask_speaker_edit_guider, "
                 "matching audio_end_percent = 0.60 on 6-step Pika LCM (steps 0..3 run "
                 "2-pass guidance; steps 4..5 run 1-pass [original] for 10 total DiT calls "
                 "instead of 12, or 9 calls when first_step=1), against the node default 1000 "
@@ -507,7 +511,8 @@ DECLARED: dict[tuple[str, str], tuple] = {
     ("MiniMaxH3EditGuider", "streams"):
         ("ARM", "'video_only' (h3_config.SOUND_GUIDE_EDIT_GUIDANCE['streams']) on "
                 "h3_text_to_video_pika_sound_guide, h3_image_ref_dpad_sound_pika, "
-                "h3_world_targets_genie_pika, and h3_text_to_video_pika_audio_freeze_spatial_portal, "
+                "h3_world_targets_genie_pika, h3_text_to_video_pika_audio_freeze_spatial_portal, "
+                "and h3_text_to_video_pika_self_mask_speaker_edit_guider, "
                 "plus 'independent' on h3_spatial_portal_pika and h3_spatial_portal_pika_erasure, "
                 "against the node default 'both': 'video_only' extrapolates the timing/portal delta "
                 "into x_video while pinning x_audio strictly to [original] (preserving frozen "
@@ -628,6 +633,30 @@ DECLARED: dict[tuple[str, str], tuple] = {
         ("ARM", "Procedural Shot 1 and Shot 2 temporal step-mask frame counts (85/107 on "
                 "h3_text_to_video_pika_multishot_spatial_cut, 85/56 on "
                 "h3_text_to_video_pika_audio_freeze_beat_cut) against RepeatImageBatch default 1 (2026-11-26)."),
+    ("MiniMaxH3SelfMaskRouter", "mask_source"):
+        ("ARM", "'right_speaker' on h3_text_to_video_pika_self_mask_speaker_edit_guider "
+                "to spotlight the right-channel speaker via Step-0 Q_vid @ K_aud[t]^T, "
+                "against node default 'text_phrase' (2026-11-26)."),
+    ("MiniMaxH3SelfMaskRouter", "target_phrase"):
+        ("ARM", "'bread' on workflows/image/h3_image_t2i_self_mask_router for zero-coordinate "
+                "centerpiece self-masking, against empty default (2026-11-26)."),
+    ("MiniMaxH3SelfMaskRouter", "threshold_z"):
+        ("ARM", "1.45 on h3_text_to_video_pika_self_mask_speaker_edit_guider to focus speaker "
+                "attribution before dilation, against node default 1.35 (2026-11-26)."),
+    ("MiniMaxH3SelfMaskRouter", "dilation_passes"):
+        ("ARM", "1 on h3_text_to_video_pika_self_mask_speaker_edit_guider so the SelfMask -> "
+                "2x EditGuider mask includes head/collar silhouette margin, against node default 0 (2026-11-26)."),
+    ("MiniMaxH3SelfMaskRouter", "isolation"):
+        ("ARM", "'mid_20_34_shield' on workflows/image/h3_image_t2i_self_mask_router so "
+                "centerpiece emerald crystal transformation grounds structure in blocks 0..19 "
+                "with zero square edges, against node default 'early_0_24_shield' (2026-11-26)."),
+    ("MiniMaxH3SelfMaskRouter", "base_prompt"):
+        ("ARM", "Explicit H3-Image feast prompt on workflows/image/h3_image_t2i_self_mask_router "
+                "because MiniMaxH3ImageConditioning does not attach _h3_tail_text, against empty default (2026-11-26)."),
+    ("MiniMaxH3SelfMaskRouter", "replay_step0"):
+        ("ARM", "True (1.17x mode) on workflows/image/h3_image_t2i_self_mask_router so dominant "
+                "bread loaves crystallize completely into emerald quartz geodes on Step 0, "
+                "against node default False (2026-11-26)."),
 }
 
 #: **There is deliberately no exception table here.** One was written on
