@@ -375,6 +375,11 @@ def main() -> int:
         # Verify h_shadow_b captured cleanly on blocks 0, 2, 3
         b2 = next(r for r in rec_s.jlens_records if r["block"] == 2)
         assert "cross_world_mean_cos" in b2 and b2["l_txt_b"] == 7, (order_name, b2)
+        if order_name == "sqr_then_probe":
+            # Canonical attach order (probe LAST): must capture attention on `iso` blocks 0..1 too
+            txt_blks = {r["block"] for r in rec_s.text_attention_records}
+            aud_blks = {r["block"] for r in rec_s.audio_attention_records}
+            assert 0 in txt_blks and 1 in aud_blks, (txt_blks, aud_blks)
 
     # Verify J-Lens integration cleanly on a 5376-D synthetic bundle (and real bundle if present)
     from steering.constants import ENCODER_DIM, POST_REFINER_DIM

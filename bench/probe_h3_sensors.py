@@ -23,7 +23,10 @@ peek-only attention containers, detached CPU `.clone()` snapshots):
 
 Media/PNG exports strictly refuse repo `data/` paths (`AGENTS.md` §2 — write visual outputs under
 `$H3_OUTPUT_DIR`). Composes cleanly with `MiniMaxH3SpatialQueryRouter`, `MiniMaxH3QueryRouter`,
-`MiniMaxH3Steer`, and `MiniMaxH3Sol` in either attachment order without editing any node files.
+`MiniMaxH3Steer`, and `MiniMaxH3Sol` without editing any node files. **Attach order:** always attach
+`attach_h3_sensor_probe` **last** (after `MiniMaxH3SpatialQueryRouter` / `MiniMaxH3QueryRouter`) so
+the probe's attention override peeks `Q/K` ahead of `SpatialQR`'s `iso`-block fast path and
+`_SensorBlockPatch` reads post-`finish_block` `h_shadow_b` across all 50 blocks.
 """
 
 from __future__ import annotations
