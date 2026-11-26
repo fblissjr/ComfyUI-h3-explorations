@@ -231,9 +231,9 @@ def _adapt_text_mod_segments(
     )
     if torch.is_tensor(row) and row.ndim >= 1:
         if row.shape[0] >= l_txt_shadow:
-            row_s = row[:l_txt_shadow]
+            row_s = row[:l_txt_shadow].clone()
         else:
-            row_s = row[0:1].expand(l_txt_shadow, *row.shape[1:])
+            row_s = row[0:1].expand(l_txt_shadow, *row.shape[1:]).clone()
         return [(0, int(l_txt_shadow), row_s)]
     return [(0, int(l_txt_shadow), row)]
 
@@ -247,7 +247,7 @@ def _build_shadow_text_rope(
     fallback_rope: Any,
 ) -> Any:
     if l_txt_shadow == l_txt_main or fallback_rope is None:
-        return fallback_rope
+        return None
     rope_fn = getattr(dm, "rope_freqs", None)
     if callable(rope_fn):
         pos = torch.zeros(int(l_txt_shadow), 3, dtype=torch.float64)
@@ -260,7 +260,7 @@ def _build_shadow_text_rope(
         c, s = torch.cos(ang), torch.sin(ang)
         return torch.stack([c, -s, s, c], dim=-1).reshape(1, angles.shape[0], 1, half, 2, 2).to(dtype)
     if torch.is_tensor(fallback_rope) and fallback_rope.ndim >= 2 and fallback_rope.shape[1] >= l_txt_shadow:
-        return fallback_rope[:, -int(l_txt_shadow) :]
+        return fallback_rope[:, -int(l_txt_shadow) :].clone()
     return None
 
 

@@ -848,7 +848,39 @@ def main() -> int:
     )
     out_empty_ok = p_empty_ok.run(ctx_main, layout, img, t_emb, mod_segments)
     assert torch.isfinite(out_empty_ok[0]).all()
-    print("[ok] 7. All attachment, symmetric stacking, & reverse-order runtime bypass guards verified")
+
+    # 7h. Shadow RoPE / mod slice must NEVER alias active malloc_graph `rope_freqs` storage
+    rope_in = torch.randn(1, s_total, 1, 2, 2, 2)
+    dm_eq = _TinyDM(hidden=32, heads=4, n_blocks=2)
+    dm_eq.requires_grad_(False)
+    rt_eq = sqr.SpatialVisualQRRuntime(
+        dm=dm_eq,
+        shadow_b_init=torch.randn(1, 10, 32),
+        shadow_b_tags=None,
+        x_start=0.5,
+        x_end=1.0,
+        y_start=0.0,
+        y_end=1.0,
+        invert=False,
+        mask=None,
+        isolate_blocks=frozenset({0}),
+        audio_zone="base",
+    )
+    with torch.no_grad():
+        rt_eq.prepare_block(
+            0, {"img": img, "layout": layout, "t_emb": t_emb, "mod_segments": mod_segments, "rope_freqs": rope_in}
+        )
+    assert rt_eq.rope_b is None, "Equal-length shadow_b must not retain active rope_freqs view"
+    rt_eq.clear()
+
+    rope_eq = sqr._steer_hooks._build_shadow_text_rope(object(), 10, 10, torch.device("cpu"), torch.float32, rope_in)
+    assert rope_eq is None
+    rope_sub = sqr._steer_hooks._build_shadow_text_rope(object(), 10, 6, torch.device("cpu"), torch.float32, rope_in)
+    assert rope_sub is not None and rope_sub.shape[1] == 6
+    assert rope_sub.untyped_storage().data_ptr() != rope_in.untyped_storage().data_ptr(), (
+        "Fallback shadow text RoPE must clone rather than alias active malloc_graph rope_freqs"
+    )
+    print("[ok] 7. All attachment, symmetric stacking, reverse-order & malloc_graph RoPE guards verified")
     print("ALL MiniMaxH3SpatialQueryRouter CPU checks passed!")
     return 0
 
