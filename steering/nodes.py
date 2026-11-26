@@ -727,14 +727,19 @@ def _make_control_vector_wrapper(
             else None
         )
         pol_vid_end = getattr(live_policy, "recommended_video_end_percent", None) if live_policy is not None else None
-        eff_vid_end = (
-            min(min_ref_end, max(0.05, min(1.0, float(pol_vid_end))))
-            if pol_vid_end is not None
-            else min(min_ref_end, min_vid_ref_end)
-        )
-        eff_guide_end = min(min_ref_end, min_guide_end)
-
         is_av_x = isinstance(x, (list, tuple)) and len(x) >= 2
+        eff_ref_end = (
+            min(min_ref_end, max(0.05, float(pol_vid_end)))
+            if (is_av_x and pol_vid_end is not None and float(pol_vid_end) < 0.40)
+            else min_ref_end
+        )
+        eff_vid_end = (
+            min(eff_ref_end, min_vid_ref_end, max(0.05, min(1.0, float(pol_vid_end))))
+            if pol_vid_end is not None
+            else min(eff_ref_end, min_vid_ref_end)
+        )
+        eff_guide_end = min(eff_ref_end, min_guide_end)
+
         latent_t = 0
         if is_av_x and torch.is_tensor(x[0]) and x[0].ndim == 5:
             latent_t = int(x[0].shape[2])
@@ -747,15 +752,15 @@ def _make_control_vector_wrapper(
                 latent_t = int(sig_pre[1])
         total_frames = _total_frames_for_latent_t(latent_t) if eff_guide_end < 1.0 else 0
 
-        has_vis_cond = _has_visual_cond(payload) if (min_ref_end < 1.0 or min_ref_aug < 0.999) else False
+        has_vis_cond = _has_visual_cond(payload) if (eff_ref_end < 1.0 or min_ref_aug < 0.999) else False
         has_vid_ref_cond = _has_video_ref_cond(payload) if eff_vid_end < 1.0 else False
         has_guide_cond = _has_midclip_guide_cond(payload, total_frames) if eff_guide_end < 1.0 else False
         has_guide_aud = _has_guide_audio_cond(payload) if min_aud_end < 1.0 else False
         has_any_aud = _has_any_audio_cond(payload) if min_aud_aug < 1.0 else False
 
         vis_active = (
-            _step_in_window(transformer_options, timestep, 0.0, min_ref_end)
-            if (has_vis_cond and min_ref_end < 1.0)
+            _step_in_window(transformer_options, timestep, 0.0, eff_ref_end)
+            if (has_vis_cond and eff_ref_end < 1.0)
             else True
         )
         drop_vis = bool(has_vis_cond and not vis_active)
@@ -1231,7 +1236,7 @@ def _make_control_vector_wrapper(
             if live_policy is not None:
                 raw_ps = getattr(live_policy, "strength_scale", 1.0)
                 if raw_ps is not None:
-                    pol_scale = max(0.50, min(1.25, float(raw_ps)))
+                    pol_scale = max(0.35, min(1.25, float(raw_ps)))
                     s_val *= pol_scale
             return s_val
 

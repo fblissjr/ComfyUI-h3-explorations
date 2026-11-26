@@ -590,14 +590,20 @@ def main() -> int:
     assert getattr(schema.inputs[1], "optional", False) is True, "region_conditioning must be optional=True"
     print(f"[ok] 7. All refusal guards & MiniMaxH3SelfMaskRouter schema ({len(input_ids)} inputs) verified")
 
-    # 8. `audio_transients` Step-0 burst mask + optional `region_conditioning=None` + `SelfMask -> 2x EditGuider` bridge
+    # 8. `audio_transients` Step-0 burst mask (with 2-step smooth decay) + optional `region_conditioning=None` + `SelfMask -> 2x EditGuider` bridge
     torch.manual_seed(21)
-    aud_burst = torch.randn((1, 32, 2, 25)) * 0.6
-    aud_burst[:, :, :, 14] *= 7.5  # strong transient at a_idx=14 -> latent step 2 (windows: [0,2), [1,9), [8,16), [15,22))
-    m_tr, st_tr = lp.synthesize_audio_transient_mask(aud_burst, latent_t=4, patch_h=4, patch_w=6, z_thresh=2.2)
-    assert m_tr.shape == (4, 4, 6)
-    assert float(m_tr[2].mean().item()) > 0.85 and float(m_tr[0].mean().item()) == 0.0 and float(m_tr[3].mean().item()) == 0.0, st_tr
-    assert st_tr["active_latent_steps"] == [2]
+    aud_burst = torch.randn((1, 32, 2, 36)) * 0.6
+    aud_burst[:, :, :, 14] *= 7.5  # strong transient at a_idx=14 -> latent step 2 (windows: [0,2), [1,9), [8,16), [15,22)...)
+    m_tr, st_tr = lp.synthesize_audio_transient_mask(aud_burst, latent_t=6, patch_h=4, patch_w=6, z_thresh=2.2)
+    assert m_tr.shape == (6, 4, 6)
+    assert float(m_tr[2].mean().item()) > 0.85, st_tr
+    assert 0.50 <= float(m_tr[3].mean().item()) <= 0.65, f"Expected step+1 hold tail ~0.58, got {m_tr[3].mean().item()}"
+    assert 0.20 <= float(m_tr[4].mean().item()) <= 0.35, f"Expected step+2 soft decay ~0.28, got {m_tr[4].mean().item()}"
+    assert float(m_tr[0].mean().item()) == 0.0 and float(m_tr[5].mean().item()) == 0.0, st_tr
+    assert st_tr["active_latent_steps"] == [2, 3]
+    # Impulse mode (`decay_steps=0`) isolates strictly step 2
+    m_tr0, st_tr0 = lp.synthesize_audio_transient_mask(aud_burst, latent_t=6, patch_h=4, patch_w=6, z_thresh=2.2, decay_steps=0)
+    assert st_tr0["active_latent_steps"] == [2] and float(m_tr0[3].mean().item()) == 0.0
 
     # Sensor-only attach (`region_conditioning=None`) + `audio_transients` + `m._h3_live_policy` + clone propagation
     p_tr, pol_tr = lp.attach_self_mask_router(
@@ -695,8 +701,14 @@ def main() -> int:
     bridge_fn(_MockOuterExec(p_tr), None, None, None, None, None, None, True, 42)
     assert len(pol_tr.preview_history) == 2
     assert pol_tr.strength_scale > 1.05, f"Dim preview should boost strength_scale, got {pol_tr.strength_scale}"
+    # Single-frame KJ preview MUST NOT falsely set recommended_video_end_percent from step-to-step delta!
+    assert pol_tr.recommended_video_end_percent is None, (
+        f"Single-frame preview must not trigger copy-freeze governor, got {pol_tr.recommended_video_end_percent}"
+    )
+    # Multi-frame `frames_batch` DOES trigger 0.33 anti-copy-freeze governor when temporal motion < 1.8!
+    pol_tr.update_from_preview(dim_frame, step=1, frames_batch=[dim_frame, dim_frame, dim_frame])
     assert pol_tr.recommended_video_end_percent == 0.33, (
-        f"Static Step-1 preview should trigger 0.33 anti-copy-freeze governor, got {pol_tr.recommended_video_end_percent}"
+        f"Static multi-frame batch should trigger 0.33 anti-copy-freeze governor, got {pol_tr.recommended_video_end_percent}"
     )
 
     # Verify `steering/query_router.py` respects `policy.recommended_aud_to_vid_gain = 0.0`!
@@ -770,7 +782,114 @@ def main() -> int:
     assert seen_payloads[-1].get("cond_video_latents") == [], (
         f"Expected recommended_video_end_percent=0.33 to drop <Video N> refs at Step 2, got {seen_payloads[-1]}"
     )
-    print("[ok] 9. Closed-loop H3LivePolicy actuators (KJ preview bridge, Steer scale, 0.33 governor, QueryRouter a2v=0.0) verified")
+
+    # Explicit user `video_ref_end_percent = 0.33` MUST NEVER be raised to `0.50` by `pol_vid_end = 0.50`!
+    spec_rel33 = sn_mod._AppliedVectorSpec(
+        vector_name="none",
+        vector=dummy_vec,
+        strength=0.0,
+        mode="add",
+        mask="all_rows",
+        start_percent=0.0,
+        end_percent=1.0,
+        metadata={},
+        advisories=(),
+        scale_mode="raw",
+        video_ref_end_percent=0.33,
+    )
+    cv_w33 = sn_mod._make_control_vector_wrapper((spec_rel33,), is_h3_image=False)
+    pol_rel50 = lp.H3LivePolicy(recommended_video_end_percent=0.50, emit_ws_events=False)
+    to_s4 = {"sigmas": torch.tensor([0.6]), "sample_sigmas": torch.tensor([1.0, 0.8, 0.6, 0.4, 0.2, 0.0]), lp.LIVE_POLICY_KEY: pol_rel50}
+    cv_w33(_cap_exec, [torch.zeros((1, 24, 2, 8, 12)), torch.zeros((1, 32, 2, 10))], torch.tensor([600.0]), ctx_5376, to_s4, minimax_payload=vid_ref_payload)
+    assert seen_payloads[-1].get("cond_video_latents") == [], (
+        f"pol_vid_end=0.50 must NOT clobber explicit video_ref_end_percent=0.33! got {seen_payloads[-1]}"
+    )
+
+    # Anti-Copy-Freeze (`pol_vid_end=0.33`) ALSO releases `<Picture 1>` still refs (`eff_ref_end=0.33`) on AV video!
+    pic_ref_payload = {
+        "refs": [{"kind": "image", "latent": torch.zeros((1, 24, 1, 8, 12)), "latent_t": 1, "latent_h": 8, "latent_w": 12}],
+        "cond_video_latents": [torch.zeros((1, 24, 1, 8, 12))],
+    }
+    cv_w(_cap_exec, [torch.zeros((1, 24, 2, 8, 12)), torch.zeros((1, 32, 2, 10))], torch.tensor([600.0]), ctx_5376, to_s3, minimax_payload=pic_ref_payload)
+    assert seen_payloads[-1].get("cond_video_latents") == [], (
+        f"Expected pol_vid_end=0.33 to drop <Picture 1> ref on AV copy-freeze, got {seen_payloads[-1]}"
+    )
+    # Fast downward burn attack: highlight_burn + high_saturation drops immediately to <= 0.55 on Step 0 (floor 0.35)!
+    burn_img = np.zeros((32, 32, 3), dtype=np.uint8)
+    burn_img[:, :, 0] = 255  # pure clipped saturated red -> high_saturation + highlight_burn
+    pol_burn = lp.H3LivePolicy(emit_ws_events=False)
+    pol_burn.update_from_preview(burn_img, step=0)
+    assert 0.35 <= pol_burn.strength_scale <= 0.50, f"Expected fast burn attack [0.35, 0.50], got {pol_burn.strength_scale}"
+    to_burn = {**to_s1, lp.LIVE_POLICY_KEY: pol_burn}
+    cv_w(_cap_exec, [torch.zeros(1), torch.zeros(1)], torch.tensor([800.0]), ctx_5376, to_burn, minimax_payload={})
+    delta_burn = float((seen_ctxs[-1][0, 0, 0] - 1.0).item())
+    assert abs(delta_burn - delta_base * pol_burn.strength_scale) < 1e-4, (delta_burn, delta_base, pol_burn.strength_scale)
+    print("[ok] 9. Closed-loop H3LivePolicy actuators (KJ preview bridge, fast burn taper, <Picture 1>/<Video 1> 0.33 release, QueryRouter a2v=0.0) verified")
+
+    # 10. Phase-matched `video_x0` temporal freeze motion, `prompt_id` WS stamping, & `thermostat_only` coexistence
+    torch.manual_seed(33)
+    # Frozen video: identical 4f frames (1..4, 6..9) despite distinct 1f chunk anchors (0, 5)!
+    v_frozen = torch.zeros((1, 24, 10, 4, 6))
+    anchor_lat = torch.randn((1, 24, 1, 4, 6)) * 2.5
+    body_lat = torch.randn((1, 24, 1, 4, 6)) * 1.0
+    v_frozen[:, :, 0:1] = anchor_lat
+    v_frozen[:, :, 5:6] = anchor_lat + 0.01 * torch.randn_like(anchor_lat)
+    for k in (1, 2, 3, 4, 6, 7, 8, 9):
+        v_frozen[:, :, k : k + 1] = body_lat + 0.01 * torch.randn_like(body_lat)
+    ev_frz = lp.evaluate_video_x0_motion(v_frozen)
+    assert ev_frz["freeze_risk"] is True and ev_frz["norm_temporal_delta"] < 0.12, ev_frz
+    # Fast-moving video: distinct per-step latents -> high_motion
+    v_moving = torch.randn((1, 24, 10, 4, 6))
+    ev_mov = lp.evaluate_video_x0_motion(v_moving)
+    assert ev_mov["freeze_risk"] is False and ev_mov["high_motion"] is True, ev_mov
+    # Single-frame image (`T_lat == 1`) safely skips
+    ev_t1 = lp.evaluate_video_x0_motion(torch.randn((1, 24, 1, 4, 6)))
+    assert ev_t1["norm_temporal_delta"] is None and ev_t1["freeze_risk"] is False
+
+    pol_vx = lp.H3LivePolicy(mask_source="thermostat_only", emit_ws_events=False)
+    pol_vx.update_from_video_x0(v_frozen, step=1, sigma=0.97)
+    assert pol_vx.recommended_video_end_percent == 0.33, pol_vx.to_report()
+
+    # `emit_event` automatically populates `prompt_id` from `PromptServer.instance.last_prompt_id`
+    sent_events: list[tuple[str, dict]] = []
+    fake_server = types.ModuleType("server")
+    fake_server.PromptServer = types.SimpleNamespace(
+        instance=types.SimpleNamespace(
+            last_prompt_id="pid-scout-42",
+            send_sync=lambda ev_name, payload: sent_events.append((ev_name, payload)),
+        )
+    )
+    prev_server = sys.modules.get("server")
+    sys.modules["server"] = fake_server
+    try:
+        pol_ws = lp.H3LivePolicy(mask_source="thermostat_only", emit_ws_events=True)
+        assert pol_ws.emit_event({"kind": "preview_thermostat", "step": 0}) is True
+        assert sent_events and sent_events[-1][0] == "h3_self_steer"
+        assert sent_events[-1][1].get("prompt_id") == "pid-scout-42", sent_events[-1]
+        pol_ws.reset_for_new_run()
+        assert pol_ws.prompt_id is None
+    finally:
+        if prev_server is None:
+            sys.modules.pop("server", None)
+        else:
+            sys.modules["server"] = prev_server
+
+    # `mask_source="thermostat_only"` stacks cleanly with `SpatialQueryRouter`, `QueryRouter`, `SageAttention`, and unmasked `EditGuider`!
+    p_th_sqr, pol_th_sqr = lp.attach_self_mask_router(
+        p_sqr, region_conditioning=None, mask_source="thermostat_only", emit_ws_events=False
+    )
+    p_th_sage, _ = lp.attach_self_mask_router(
+        p_sage, region_conditioning=None, mask_source="thermostat_only", emit_ws_events=False
+    )
+    out_th0, _ = p_th_sqr.run_step(ctx, layout_av, img, t_emb, mod_segs, sigma=1.0, denoised=packed_burst10)
+    assert torch.isfinite(out_th0).all()
+    assert pol_th_sqr.harvested_mask_frames is None, "thermostat_only must NEVER write harvested_mask_frames!"
+    assert len(pol_th_sqr.video_x0_history) == 1 and len(pol_th_sqr.audio_x0_history) == 1
+    eg_th = eg.EditGuider.__new__(eg.EditGuider)
+    eg_th.model_patcher = p_th_sqr
+    eg_th.set_edit(scale=1.5, first_step=1, align_positions=True, last_step=3, streams="both", mask=None)
+    assert eg_th._effective_raw_mask() is None, "Unmasked EditGuider must stay unmasked under thermostat_only!"
+    print("[ok] 10. Phase-matched video_x0 motion, prompt_id WS stamp, & thermostat_only universal coexistence verified")
 
     print("ALL H3 LivePolicy & SelfMaskRouter CPU checks passed!")
     return 0

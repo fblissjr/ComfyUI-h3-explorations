@@ -60,12 +60,12 @@
 | :-: | :--- | :---: | :--- |
 | 1 | **`model`** | *required* | Base H3 / `MiniMax-H3-Image` model (`comfy kitchen attention` + optional `MiniMaxH3Sol`) |
 | 2 | **`region_conditioning`** | `None` *(optional)* | World B prompt for `1×` routing; leave unwired when bridging into `2× EditGuider` or running pure thermostat mode |
-| 3 | **`mask_source`** | `text_phrase` | `text_phrase` · `active_speaker` · `left_speaker` · `right_speaker` · `audio_transients` |
+| 3 | **`mask_source`** | `text_phrase` | `text_phrase` · `active_speaker` · `left_speaker` · `right_speaker` · `audio_transients` · `thermostat_only` |
 | 4 | **`target_phrase`** | `""` | Target noun/phrase for `text_phrase` mode (e.g., `"bread"`, `"woman in coat"`) |
 | 5 | **`threshold_z`** | `1.35` | Z-score mask cutoff (for `audio_transients`, effective floor is `max(2.2, threshold_z)`) |
 | 6 | **`softness`** | `0.25` | Sigmoid feather width around `threshold_z` |
 | 7 | **`dilation_passes`** | `0` | Spatial `3×3` patch dilations (`1` recommended for `right_speaker → 2× EditGuider`) |
-| 8 | **`isolation`** | `mid_20_34_shield` | All `9` `SpatialQueryRouter` isolation modes (`mid_20_34_shield`, `early_0_24_shield`, `all_0_49`, etc.) |
+| 8 | **`isolation`** | `early_0_24_shield` | All `9` `SpatialQueryRouter` isolation modes (`early_0_24_shield`, `mid_20_34_shield`, `all_0_49`, etc.) |
 | 9 | **`audio_zone`** | `base` | `base` · `region` · `follow_mask` · `binaural_split` |
 | 10 | **`invert`** | `False` | Flips harvested mask before routing (keep `False` on `*_shield`) |
 | 11 | **`start_percent` / `end_percent`** | `0.0` / `1.0` | Active denoising step window |

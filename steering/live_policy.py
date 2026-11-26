@@ -62,6 +62,7 @@ MASK_SOURCES: tuple[str, ...] = (
     "left_speaker",
     "right_speaker",
     "audio_transients",
+    "thermostat_only",
 )
 FRAME_PER_TOKEN: tuple[int, ...] = (1, 4, 4, 4, 4)
 FRAME_RESCALE: float = 5.0 / 3.0
@@ -397,11 +398,11 @@ def evaluate_preview_frame(
     if mean_sat > sat_ceiling:
         flags.append("high_saturation")
         excess = min(1.0, (mean_sat - sat_ceiling) / max(1.0 - sat_ceiling, 0.05))
-        scale *= max(0.60, 1.0 - 0.35 * excess)
+        scale *= max(0.45, 1.0 - 0.55 * excess)
     if hi_clip > clip_ceiling:
         flags.append("highlight_burn")
         excess = min(1.0, (hi_clip - clip_ceiling) / max(0.5 - clip_ceiling, 0.05))
-        scale *= max(0.65, 1.0 - 0.30 * excess)
+        scale *= max(0.45, 1.0 - 0.55 * excess)
     if lo_clip > 0.65:
         flags.append("shadow_crush")
         scale *= 0.85
@@ -411,7 +412,7 @@ def evaluate_preview_frame(
     if motion_mae is not None and motion_mae < freeze_mae_floor:
         flags.append("low_motion_freeze_risk")
 
-    scale = max(0.55, min(1.15, float(scale)))
+    scale = max(0.35, min(1.15, float(scale)))
     return {
         "mean_luma": round(mean_luma, 4),
         "mean_sat": round(mean_sat, 4),
@@ -504,6 +505,57 @@ def evaluate_audio_x0(
     }
 
 
+def evaluate_video_x0_motion(video_x0: torch.Tensor) -> dict[str, Any]:
+    """Measure phase-matched `[1, 4, 4, 4, 4]` temporal latent motion from denoised `video_x0` (`< 0.2 ms`).
+
+    Compares adjacent 4-frame latent steps (`k % 5 in (1, 2, 3)`) and standalone 1-frame clip
+    starts (`k % 5 == 0` spaced by 5) normalized by global latent std so causal chunk phase
+    transitions (`1f -> 4f`) and step-to-step denoising sharpening are never confused with
+    temporal subject motion.
+    """
+    v = video_x0.detach().to(dtype=torch.float32)
+    if v.ndim == 5:
+        v = v[0]
+    if v.ndim != 4:
+        raise ValueError(f"Expected 4D/5D video_x0 [B?, C, T_lat, H, W], got {tuple(video_x0.shape)}")
+    t_lat = int(v.shape[1])
+    if t_lat < 2:
+        return {
+            "latent_t": t_lat,
+            "norm_temporal_delta": None,
+            "freeze_risk": False,
+            "high_motion": False,
+            "flags": [],
+        }
+    std = float(v.std(unbiased=False).item())
+    denom = max(std, 1e-5)
+
+    deltas: list[float] = []
+    for k in range(t_lat - 1):
+        if (k % 5) in (1, 2, 3):
+            deltas.append(float((v[:, k + 1] - v[:, k]).abs().mean().item()))
+    for k in range(0, t_lat - 5, 5):
+        deltas.append(float((v[:, k + 5] - v[:, k]).abs().mean().item()))
+    if not deltas:
+        deltas.append(float((v[:, 1] - v[:, 0]).abs().mean().item()))
+
+    norm_delta = float(sum(deltas) / len(deltas)) / denom
+    flags: list[str] = []
+    freeze_risk = norm_delta < 0.12
+    high_motion = norm_delta > 0.75
+    if freeze_risk:
+        flags.append("copy_freeze_risk")
+    elif high_motion:
+        flags.append("high_temporal_motion")
+    return {
+        "latent_t": t_lat,
+        "norm_temporal_delta": round(norm_delta, 4),
+        "freeze_risk": freeze_risk,
+        "high_motion": high_motion,
+        "flags": flags,
+    }
+
+
 def synthesize_audio_transient_mask(
     audio_x0: torch.Tensor,
     *,
@@ -514,8 +566,14 @@ def synthesize_audio_transient_mask(
     softness: float = 0.25,
     invert: bool = False,
     sparse_floor: float = 0.10,
+    decay_steps: int = 2,
 ) -> tuple[torch.Tensor, dict[str, Any]]:
-    """Convert Step-0 `audio_x0` `40 Hz` onset flux (`flux_z >= z_thresh`) into a `[T, H, W]` burst mask."""
+    """Convert Step-0 `audio_x0` `40 Hz` onset flux (`flux_z >= z_thresh`) into a `[T, H, W]` burst mask.
+
+    Applies a fast-attack, capped `decay_steps` (`[1.0, 0.58, 0.28]`) release tail after onset
+    thresholding so thunderclaps/hits roll across ~2 latent steps instead of 1-frame strobing
+    while keeping quiet spans strictly `0.0`.
+    """
     a = audio_x0.detach().float().cpu()
     if a.ndim == 4:
         a = a[0]
@@ -557,6 +615,17 @@ def synthesize_audio_transient_mask(
         w_t = ((w_t - fl) / max(1.0 - 2.0 * fl, 1e-4)).clamp(0.0, 1.0)
     else:
         w_t = w_t.clamp(0.0, 1.0)
+
+    n_decay = max(0, int(decay_steps))
+    if n_decay > 0 and lt > 1:
+        tail_weights = (0.58, 0.28) if n_decay >= 2 else (0.58,)
+        src_w = w_t.clone()
+        env = w_t.clone()
+        for offset, mult in enumerate(tail_weights, start=1):
+            if offset < lt:
+                env[offset:] = torch.maximum(env[offset:], src_w[:-offset] * float(mult))
+        w_t = env.clamp(0.0, 1.0)
+
     if invert:
         w_t = (1.0 - w_t).clamp(0.0, 1.0)
 
@@ -607,6 +676,7 @@ class H3LivePolicy:
     mask_stats: dict[str, Any] = field(default_factory=dict)
     step_history: list[dict[str, Any]] = field(default_factory=list)
     audio_x0_history: list[dict[str, Any]] = field(default_factory=list)
+    video_x0_history: list[dict[str, Any]] = field(default_factory=list)
     preview_history: list[dict[str, Any]] = field(default_factory=list)
     _prev_preview_rgb: np.ndarray | None = field(default=None, repr=False)
 
@@ -615,6 +685,7 @@ class H3LivePolicy:
         self.strength_scale = 1.0
         self.recommended_video_end_percent = None
         self.recommended_aud_to_vid_gain = None
+        self.prompt_id = None
         self._prev_preview_rgb = None
 
     def update_from_preview(
@@ -627,9 +698,13 @@ class H3LivePolicy:
         metrics = evaluate_preview_frame(rgb_hwc, prev_rgb_hwc=self._prev_preview_rgb)
         metrics["step"] = int(step)
         self._prev_preview_rgb = np.asarray(rgb_hwc, dtype=np.float32).copy()
-        self.strength_scale = round(
-            0.5 * self.strength_scale + 0.5 * float(metrics["recommended_strength_scale"]), 4
-        )
+        rec_scale = float(metrics["recommended_strength_scale"])
+        flags_cur = metrics.get("flags") or ()
+        if "highlight_burn" in flags_cur or "high_saturation" in flags_cur:
+            # Fast downward attack so burn/oversaturation tapers immediately inside H3's early 0..50% palette window.
+            self.strength_scale = round(min(self.strength_scale, rec_scale), 4)
+        else:
+            self.strength_scale = round(0.5 * self.strength_scale + 0.5 * rec_scale, 4)
         metrics["applied_strength_scale"] = self.strength_scale
 
         intra_motion_mae: float | None = None
@@ -647,16 +722,34 @@ class H3LivePolicy:
                 intra_motion_mae = round(float(sum(diffs) / len(diffs)), 4)
         metrics["intra_step_motion_mae"] = intra_motion_mae
 
-        eff_motion = intra_motion_mae if intra_motion_mae is not None else metrics.get("motion_mae")
-        if int(step) >= 1 and eff_motion is not None:
-            if float(eff_motion) < 1.8:
+        # Drive anti-copy-freeze strictly from true intra-step multi-frame motion (`frames_batch`),
+        # never from step-to-step denoising delta (`|step1_f0 - step0_f0|`).
+        if int(step) >= 1 and intra_motion_mae is not None:
+            if float(intra_motion_mae) < 1.8:
                 self.recommended_video_end_percent = 0.33
-            elif float(eff_motion) > 18.0:
+            elif float(intra_motion_mae) > 18.0:
                 self.recommended_video_end_percent = 0.50
         metrics["recommended_video_end_percent"] = self.recommended_video_end_percent
 
         self.preview_history.append(metrics)
         self.emit_event({"kind": "preview_thermostat", **metrics})
+        return metrics
+
+    def update_from_video_x0(self, video_x0: torch.Tensor, *, step: int, sigma: float | None = None) -> dict[str, Any]:
+        """Update anti-copy-freeze governor from phase-matched `[1,4,4,4,4]` `video_x0` temporal motion."""
+        metrics = evaluate_video_x0_motion(video_x0)
+        metrics["step"] = int(step)
+        if sigma is not None:
+            metrics["sigma"] = round(float(sigma), 6)
+        if int(step) >= 1 and metrics["norm_temporal_delta"] is not None:
+            if metrics["freeze_risk"]:
+                self.recommended_video_end_percent = 0.33
+            elif metrics["high_motion"] and self.recommended_video_end_percent is None:
+                self.recommended_video_end_percent = 0.50
+        metrics["recommended_video_end_percent"] = self.recommended_video_end_percent
+        self.video_x0_history.append(metrics)
+        if metrics["freeze_risk"] or metrics["high_motion"]:
+            self.emit_event({"kind": "preview_thermostat", **metrics})
         return metrics
 
     def update_from_audio_x0(self, audio_x0: torch.Tensor, *, step: int, sigma: float | None = None) -> dict[str, Any]:
@@ -687,8 +780,14 @@ class H3LivePolicy:
             send_sync = getattr(inst, "send_sync", None) if inst is not None else None
             if callable(send_sync):
                 msg = dict(payload)
-                if self.prompt_id is not None:
-                    msg.setdefault("prompt_id", self.prompt_id)
+                pid = self.prompt_id
+                if pid is None:
+                    raw_pid = getattr(inst, "last_prompt_id", None)
+                    if raw_pid is not None:
+                        pid = str(raw_pid)
+                        self.prompt_id = pid
+                if pid is not None:
+                    msg.setdefault("prompt_id", str(pid))
                 send_sync("h3_self_steer", msg)
                 return True
         except Exception:
@@ -708,6 +807,7 @@ class H3LivePolicy:
             "mask_stats": dict(self.mask_stats),
             "step_history": list(self.step_history),
             "audio_x0_history": list(self.audio_x0_history),
+            "video_x0_history": list(self.video_x0_history),
             "preview_history": list(self.preview_history),
         }
 
@@ -998,12 +1098,13 @@ def attach_self_mask_router(
     if not (math.isfinite(s_pct) and math.isfinite(e_pct)) or s_pct < 0.0 or e_pct > 1.0:
         raise ValueError(f"start_percent/end_percent must lie in [0.0, 1.0], got [{s_pct}, {e_pct}]")
 
+    thermostat_only = src == "thermostat_only"
     raw_b = (
         None
-        if region_conditioning is None
+        if (thermostat_only or region_conditioning is None)
         else _extract_cond_tensor(region_conditioning, name="region_conditioning")
     )
-    tags_b = None if region_conditioning is None else _extract_cond_tags(region_conditioning)
+    tags_b = None if raw_b is None else _extract_cond_tags(region_conditioning)
 
     m = model.clone()
     dm = getattr(getattr(m, "model", None), "diffusion_model", None)
@@ -1016,42 +1117,44 @@ def attach_self_mask_router(
     dm_wrappers = m.wrappers.get(WrappersMP.DIFFUSION_MODEL, {})
     dit_replaces = t_opts.get("patches_replace", {}).get("dit", {})
 
-    if (
-        hasattr(model, "_h3_frozen_video_cache")
-        or hasattr(m, "_h3_frozen_video_cache")
-        or any("frozen_video_cache" in str(wk) for wk in dm_wrappers)
-    ):
-        raise ValueError("MiniMaxH3SelfMaskRouter cannot stack with MiniMaxH3FrozenVideoCache")
+    if SELF_MASK_WRAPPER_KEY in dm_wrappers:
+        raise ValueError("MiniMaxH3SelfMaskRouter cannot stack with another MiniMaxH3SelfMaskRouter")
 
-    if SELF_MASK_WRAPPER_KEY in dm_wrappers or any(
-        _has_self_mask_block_patch(bp) or _has_spatial_block_patch(bp) for bp in dit_replaces.values()
-    ):
-        raise ValueError(
-            "MiniMaxH3SelfMaskRouter cannot stack with another MiniMaxH3SelfMaskRouter or MiniMaxH3SpatialQueryRouter"
-        )
+    if not thermostat_only:
+        if (
+            hasattr(model, "_h3_frozen_video_cache")
+            or hasattr(m, "_h3_frozen_video_cache")
+            or any("frozen_video_cache" in str(wk) for wk in dm_wrappers)
+        ):
+            raise ValueError("MiniMaxH3SelfMaskRouter cannot stack with MiniMaxH3FrozenVideoCache")
 
-    for b_patch in dit_replaces.values():
-        b_mod = getattr(b_patch, "__module__", "") or ""
-        b_qname = getattr(b_patch, "__qualname__", "") or ""
-        if "nodes_sparse_attention" in b_mod or "make_h3_block_patch" in b_qname:
+        if any(_has_self_mask_block_patch(bp) or _has_spatial_block_patch(bp) for bp in dit_replaces.values()):
             raise ValueError(
-                "MiniMaxH3SelfMaskRouter requires dense optimized_attention or MiniMaxH3Sol, "
-                "not core chunked BlockSparseAttention"
+                "MiniMaxH3SelfMaskRouter cannot stack with another MiniMaxH3SelfMaskRouter or MiniMaxH3SpatialQueryRouter"
             )
 
-    for key, patched in getattr(m, "object_patches", {}).items():
-        if not str(key).endswith(".forward"):
-            continue
-        parts = str(key).rsplit(".", 2)
-        owner = parts[-2].lower() if len(parts) >= 2 else ""
-        if "attn" not in owner or "cross" in owner or owner == "attn2":
-            continue
-        if getattr(patched, "_uses_optimized_attention", False):
-            continue
-        raise ValueError(
-            f"MiniMaxH3SelfMaskRouter cannot run with object-patched attention forward ({key}, e.g. "
-            "MiniMaxH3SageAttention). Use ModelAttentionBackend('comfy kitchen attention') with optional MiniMaxH3Sol."
-        )
+        for b_patch in dit_replaces.values():
+            b_mod = getattr(b_patch, "__module__", "") or ""
+            b_qname = getattr(b_patch, "__qualname__", "") or ""
+            if "nodes_sparse_attention" in b_mod or "make_h3_block_patch" in b_qname:
+                raise ValueError(
+                    "MiniMaxH3SelfMaskRouter requires dense optimized_attention or MiniMaxH3Sol, "
+                    "not core chunked BlockSparseAttention"
+                )
+
+        for key, patched in getattr(m, "object_patches", {}).items():
+            if not str(key).endswith(".forward"):
+                continue
+            parts = str(key).rsplit(".", 2)
+            owner = parts[-2].lower() if len(parts) >= 2 else ""
+            if "attn" not in owner or "cross" in owner or owner == "attn2":
+                continue
+            if getattr(patched, "_uses_optimized_attention", False):
+                continue
+            raise ValueError(
+                f"MiniMaxH3SelfMaskRouter cannot run with object-patched attention forward ({key}, e.g. "
+                "MiniMaxH3SageAttention). Use ModelAttentionBackend('comfy kitchen attention') with optional MiniMaxH3Sol."
+            )
 
     n_blocks = len(dm.blocks)
     from .spatial_query_router import parse_isolation_blocks
@@ -1060,9 +1163,10 @@ def attach_self_mask_router(
     shield_region = iso_mode.endswith("_shield")
     h_blocks = _resolve_harvest_blocks(n_blocks, harvest_blocks)
 
-    for b_idx in range(n_blocks):
-        existing = dit_replaces.get(("double_block", b_idx))
-        m.set_model_patch_replace(_SelfMaskBlockPatch(b_idx, existing), "dit", "double_block", b_idx)
+    if not thermostat_only:
+        for b_idx in range(n_blocks):
+            existing = dit_replaces.get(("double_block", b_idx))
+            m.set_model_patch_replace(_SelfMaskBlockPatch(b_idx, existing), "dit", "double_block", b_idx)
 
     policy = H3LivePolicy(
         mask_source=src,
@@ -1131,18 +1235,23 @@ def attach_self_mask_router(
         if s_pct >= e_pct or not _steer_hooks.step_in_window(transformer_options, timestep, s_pct, e_pct):
             return executor(x, timestep, context, transformer_options, **kwargs)
 
-        if isinstance(transformer_options, dict) and transformer_options.get("_h3_steer_runtime") is not None:
-            raise ValueError(
-                "MiniMaxH3SelfMaskRouter cannot share the same sampler step with an active 1x H3SteerRuntime"
-            )
-
         if step_state["fresh_run"]:
             step_state["fresh_run"] = False
             policy.reset_for_new_run()
 
+        if thermostat_only:
+            to_pass = dict(transformer_options or {})
+            to_pass[LIVE_POLICY_KEY] = policy
+            return executor(x, timestep, context, to_pass, **kwargs)
+
         payload = kwargs.get("minimax_payload") or {}
         edit_pass = payload.get("h3_edit_pass") if isinstance(payload, Mapping) else None
         can_route_phase2 = (raw_b is not None) and (edit_pass not in ("original", "edited"))
+
+        if can_route_phase2 and isinstance(transformer_options, dict) and transformer_options.get("_h3_steer_runtime") is not None:
+            raise ValueError(
+                "MiniMaxH3SelfMaskRouter cannot share the same sampler step with an active 1x H3SteerRuntime"
+            )
 
         # Phase 1 (Step 0, or before a mask has been harvested): unmutated pass harvesting B35 + B40
         # (or capturing PackedLayout dims for post-CFG `audio_transients` burst synthesis).
@@ -1351,7 +1460,7 @@ def attach_self_mask_router(
             _preview_bridge_outer,
         )
 
-    need_post_cfg = bool(enable_audio_x0_thermostat) or (src == "audio_transients")
+    need_post_cfg = bool(enable_audio_x0_thermostat) or (src in ("audio_transients", "thermostat_only"))
     if need_post_cfg and hasattr(m, "set_model_sampler_post_cfg_function"):
         def _post_cfg(args: Mapping[str, Any]):
             denoised = args.get("denoised")
@@ -1371,6 +1480,8 @@ def attach_self_mask_router(
                                 if sig is not None
                                 else None
                             )
+                            if torch.is_tensor(streams[0]) and streams[0].ndim >= 4 and int(streams[0].shape[-3]) >= 2:
+                                policy.update_from_video_x0(streams[0], step=cur_s, sigma=sig_f)
                             if enable_audio_x0_thermostat:
                                 policy.update_from_audio_x0(streams[1], step=cur_s, sigma=sig_f)
                             if src == "audio_transients" and policy.harvested_mask_frames is None:
@@ -1450,7 +1561,9 @@ class MiniMaxH3SelfMaskRouter(io.ComfyNode):
                     tooltip=(
                         "'text_phrase': localize target_phrase via Q_vid @ K_txt[phrase]^T (B35+B40); "
                         "'active_speaker'/'left_speaker'/'right_speaker': zero-training speaker spotlight "
-                        "via Q_vid @ K_aud[t]^T (B35+B40); 'audio_transients': Step-0 audio_x0 onset burst mask (flux_z >= 2.2)."
+                        "via Q_vid @ K_aud[t]^T (B35+B40); 'audio_transients': Step-0 audio_x0 onset burst mask "
+                        "(flux_z >= 2.2 with 2-step smooth decay); 'thermostat_only': pure H3LivePolicy Visual/"
+                        "Video-Freeze/Audio-Firewall thermostats with zero attention hooks (stacks with any router/EditGuider)."
                     ),
                 ),
                 io.String.Input(
