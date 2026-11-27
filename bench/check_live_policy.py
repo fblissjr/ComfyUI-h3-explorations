@@ -971,10 +971,14 @@ def main() -> int:
     assert parsed_c["ok"] is True and parsed_c["has_border_seam"] is True
     assert parsed_c["scrub_words"] == ["border", "frame", "letterbox"], parsed_c
 
-    # Verify vision prefix rows (`tags == 0`) & sink row `0` stay bitwise identical while text rows drop by `1 - alpha`!
+    # Verify vision prefix rows (`tags == 0`) & sink row `0` stay bitwise identical while text rows scrub:
+    # (a) pure project_out (`critic_neg_strength=0.0`): drops by `1 - alpha` (`10 -> 1.5`)
+    # (b) default active negative counter-steer (`critic_neg_strength=1.25`): `10*(1-0.85) - 1.25*67.5 = -82.875`
     u_test = torch.zeros(5376, dtype=torch.float32)
     u_test[7] = 1.0
-    pol_scrub = lp.H3LivePolicy(mask_source="thermostat_only", critic_scrub_alpha=0.85, emit_ws_events=False)
+    pol_scrub = lp.H3LivePolicy(
+        mask_source="thermostat_only", critic_scrub_alpha=0.85, critic_neg_strength=0.0, emit_ws_events=False
+    )
     pol_scrub._scrub_unit_vec_override = u_test
     pol_scrub.update_from_critic(parsed_c, step=0)
     assert pol_scrub.project_out_words == ["border", "frame", "letterbox"]
@@ -990,6 +994,18 @@ def main() -> int:
     assert abs(float(ctx_out[0, 3, 7].item()) - 1.5) < 1e-4, f"Expected 10*(1-0.85)=1.5 on text row, got {ctx_out[0, 3, 7].item()}"
     assert abs(float(ctx_out[0, 3, 11].item()) - 3.0) < 1e-5, "Orthogonal text channel must stay untouched!"
 
+    pol_neg = lp.H3LivePolicy(mask_source="thermostat_only", critic_scrub_alpha=0.85, emit_ws_events=False)
+    assert pol_neg.critic_neg_strength == 1.25
+    pol_neg._scrub_unit_vec_override = u_test
+    pol_neg.update_from_critic(parsed_c, step=0)
+    ctx_neg, did_neg = lp.apply_live_policy_text_scrub(ctx_mix, tags_mix, pol_neg)
+    assert did_neg is True
+    assert torch.equal(ctx_neg[:, 0, :], ctx_mix[:, 0, :]), "Sink row 0 must stay bitwise identical under neg push!"
+    assert torch.equal(ctx_neg[:, 1:3, :], ctx_mix[:, 1:3, :]), "Vision rows must stay bitwise identical under neg push!"
+    expected_neg = 1.5 - 1.25 * 67.5
+    assert abs(float(ctx_neg[0, 3, 7].item()) - expected_neg) < 1e-3, f"Expected {expected_neg}, got {ctx_neg[0, 3, 7].item()}"
+    assert abs(float(ctx_neg[0, 3, 11].item()) - 3.0) < 1e-5, "Orthogonal text channel must stay untouched under neg push!"
+
     # End-to-end `_preview_bridge_outer` + `critic_fn` + Step-1 `SelfMaskRouter` scrub!
     critic_calls: list[int] = []
     p_cr, pol_cr = lp.attach_self_mask_router(
@@ -997,6 +1013,7 @@ def main() -> int:
         region_conditioning=None,
         mask_source="thermostat_only",
         critic_scrub_alpha=0.80,
+        critic_neg_strength=0.0,
         critic_fn=lambda rgb: (critic_calls.append(1) or parsed_c),
         emit_ws_events=False,
     )
@@ -1178,7 +1195,11 @@ def main() -> int:
     )
     assert len(calls_bad) == 2, f"Defective Step-0 critic must replay Step 0 once (expected 2 calls, got {len(calls_bad)})"
     assert abs(float(calls_bad[0][0, 3, 7].item()) - 10.0) < 1e-4, "Initial Step-0 pass should be un-scrubbed"
-    assert abs(float(calls_bad[1][0, 3, 7].item()) - 2.0) < 1e-4, "Replayed Step-0 pass must scrub text row (10 -> 2.0)"
+    expected_bad = 2.0 - 1.25 * 67.5
+    assert abs(float(calls_bad[1][0, 3, 7].item()) - expected_bad) < 1e-3, (
+        f"Replayed Step-0 pass must apply project_out + neg counter-steer ({expected_bad}), got {calls_bad[1][0, 3, 7].item()}"
+    )
+    assert abs(float(calls_bad[1][0, 3, 11].item()) - 3.0) < 1e-5, "Orthogonal text channel must stay untouched"
     assert torch.equal(calls_bad[1][:, 0, :], ctx_mix[:, 0, :]), "Sink row 0 must remain bitwise identical"
     assert torch.equal(calls_bad[1][:, 1:3, :], ctx_mix[:, 1:3, :]), "Vision rows must remain bitwise identical"
     assert any(h.get("phase") == "critic_replay_step0" for h in pol_c_bad.step_history)

@@ -48,7 +48,8 @@ import torch.nn.functional as F
 from comfy_api.latest import io
 
 from . import hooks as _steer_hooks
-from .constants import POST_REFINER_DIM
+from .constants import NORM_MATCHED_TARGET, POST_REFINER_DIM
+from .runtime import soft_cap_stacked_rms
 from .query_router import _extract_cond_tags, _extract_cond_tensor
 from .spatial_query_router import (
     AUDIO_ZONES,
@@ -925,15 +926,19 @@ def apply_live_policy_text_scrub(
     transformer_options: dict[str, Any] | None = None,
     family: str = "fl2va",
 ) -> tuple[torch.Tensor, bool]:
-    """Project `policy.project_out_words` out of text rows (`tags != 0`, excluding sink row `0`).
+    """Scrub `policy.project_out_words` from text rows (`tags != 0`, excluding sink row `0`).
 
-    Preserves vision prefix rows (`tags == 0`) and sink row `0` bitwise untouched while scrubbing
-    artifact directions (`alpha = policy.critic_scrub_alpha`, default `0.85`) from `5376`-d text rows.
+    Preserves vision prefix rows (`tags == 0`) and sink row `0` bitwise untouched while combining
+    rank-1 projection removal (`alpha = policy.critic_scrub_alpha`, default `0.85`) with an active
+    norm-matched negative counter-steer push (`-neg_strength * 67.5 * u`, smoothly capped via
+    `soft_cap_stacked_rms`, default `critic_neg_strength = 1.25`) so strong letterbox/border/seam
+    priors are actively pushed away on Step-0 rollback rather than merely zeroed.
     """
     if policy is None or not policy.project_out_words:
         return context, False
     alpha = max(0.0, min(1.0, float(policy.critic_scrub_alpha)))
-    if alpha <= 0.0:
+    neg_strength = max(0.0, float(getattr(policy, "critic_neg_strength", 0.0)))
+    if alpha <= 0.0 and neg_strength <= 0.0:
         return context, False
 
     unit_vec = policy.resolve_scrub_unit_vec(family=family)
@@ -971,9 +976,15 @@ def apply_live_policy_text_scrub(
         return ctx_work, False
 
     u = unit_vec.to(device=ctx_work.device, dtype=torch.float32)
+    u_view = u.view(1, 1, -1)
     ctx_f = ctx_work.detach().to(dtype=torch.float32)
-    dots = torch.matmul(ctx_f, u)  # [B, L]
-    delta = (alpha * dots).unsqueeze(-1) * u.view(1, 1, -1)
+    delta = torch.zeros_like(ctx_f)
+    if alpha > 0.0:
+        dots = torch.matmul(ctx_f, u)  # [B, L]
+        delta = delta + (alpha * dots).unsqueeze(-1) * u_view
+    if neg_strength > 0.0:
+        push_mag = soft_cap_stacked_rms(neg_strength * NORM_MATCHED_TARGET)
+        delta = delta + push_mag * u_view
     out = ctx_work.clone()
     scrubbed = (ctx_f - delta).to(dtype=ctx_work.dtype)
     out[row_mask] = scrubbed[row_mask]
@@ -1236,8 +1247,9 @@ class H3LivePolicy:
     active_region_already_shielded: bool = False
     active_region_mask_hw: np.ndarray | None = field(default=None, repr=False)
 
-    # Phase 2 Remote `heylook` Step-0 Visual Critic -> `< 3 ms` CPU WordVector(mode="project_out") auto-scrub
+    # Phase 2 Remote `heylook` Step-0 Visual Critic -> `< 3 ms` CPU WordVector project_out + negative counter-steer
     critic_scrub_alpha: float = 0.85
+    critic_neg_strength: float = 1.25
     project_out_words: list[str] = field(default_factory=list)
     critic_history: list[dict[str, Any]] = field(default_factory=list)
     _scrub_vec_cache: dict[tuple[tuple[str, ...], str], torch.Tensor | None] = field(
@@ -1341,10 +1353,11 @@ class H3LivePolicy:
             self.project_out_words = list(dict.fromkeys(words_clean))[:6]
             self._scrub_vec_cache.clear()
             logger.info(
-                "[h3] H3LivePolicy Step-%d Visual Critic armed CPU project_out scrub: words=%s alpha=%.2f (%s)",
+                "[h3] H3LivePolicy Step-%d Visual Critic armed CPU scrub: words=%s alpha=%.2f neg_strength=%.2f (%s)",
                 int(step),
                 self.project_out_words,
                 float(self.critic_scrub_alpha),
+                float(self.critic_neg_strength),
                 rec.get("reason", ""),
             )
         self.emit_event({"kind": "heylook_critic", **rec})
@@ -1506,6 +1519,7 @@ class H3LivePolicy:
             "force_shield": self.force_shield,
             "project_out_words": list(self.project_out_words),
             "critic_scrub_alpha": self.critic_scrub_alpha,
+            "critic_neg_strength": self.critic_neg_strength,
             "mask_stats": dict(self.mask_stats),
             "step_history": list(self.step_history),
             "audio_x0_history": list(self.audio_x0_history),
@@ -1788,6 +1802,7 @@ def attach_self_mask_router(
     heylook_model: str = "",
     heylook_timeout_s: float = 18.0,
     critic_scrub_alpha: float = 0.85,
+    critic_neg_strength: float = 1.25,
     critic_fn: Callable[[np.ndarray], Mapping[str, Any]] | None = None,
     preview_decoder_fn: Callable[[Any, Any], np.ndarray | None] | None = None,
     auto_shield_sep_threshold: float = 12.0,
@@ -1927,6 +1942,7 @@ def attach_self_mask_router(
         auto_shield_sep_threshold=float(auto_shield_sep_threshold),
         auto_shield_max_coverage=float(auto_shield_max_coverage),
         critic_scrub_alpha=float(critic_scrub_alpha),
+        critic_neg_strength=float(critic_neg_strength),
     )
     eff_critic_enabled = (
         bool(enable_heylook_critic)
