@@ -102,10 +102,31 @@ Nothing in H3 asks the model to introspect or report its own attention; we read 
 
 ---
 
-## 2. The Best Current Recipe (Moving Subject on 6-Step Pika)
+## 2. The Best Current Recipes (Moving Subject on 6-Step Pika)
 
-For a small moving subject crossing a wide shot, read **one specialist head at a late block** on Step 0, and read
-it **one more time** during the first routed pass:
+### Small `< 9%` Moving Subject — Hold the Base Take Still (`2× EditGuider`, Verified `2026-11-27`)
+
+When the subject is small (`~4%` of frame on the walk clip) and you want to **keep the base courtyard, framing,
+and stride intact**, harvest `block 45, head 43` on Step 0 with `region_conditioning=None` and `dilation_passes=1`
+(zero reharvest needed), then hand the mask straight to `2× MiniMaxH3EditGuider` (`edit_guidance.py::_effective_raw_mask`):
+
+```python
+routed, _pol = attach_self_mask_router(
+    model, region_conditioning=None, mask_source="text_phrase", target_phrase="woman, crimson, coat",
+    threshold_z=1.80, dilation_passes=1, replay_step0=False,
+    harvest_blocks=[45], harvest_heads=[43], reharvest="off",
+)
+# -> MiniMaxH3EditGuider(routed, original=base_cond, edited=edit_cond, scale=1.95, first_step=1, last_step=3, streams="video_only", mask=None)
+```
+
+On the walk clip (`k2`, `87.5 s`, record section 12), this transforms her head-to-toe across all `141f`
+(`coat_red <= 0.001`, `5.12×` in/bg MAE contrast) while keeping the base courtyard, chimneys, clouds, and walk pace
+locked (`upper_courtyard_mae = 6.98` vs. `22.05` for `1×` `f1`, zero added lamps or downpipe). `dilation_passes=0`
+(`k1`, `5.58×` contrast) is slightly tighter around the boots but leaves her head/hair partly human.
+
+### `1×` Single-Pass Routing (Generates a New Take)
+
+For `1×` routing without `EditGuider`, read `block 45, head 43` on Step 0 and once more during the first routed pass:
 
 ```python
 attach_self_mask_router(
@@ -114,10 +135,11 @@ attach_self_mask_router(
 )
 ```
 
-On the walk clip this transforms the whole figure for the whole walk, where the shipped `B35 + B40` all-head
-reading only caught head and shoulders for the first half (record, section 8). Both options live on
-`attach_self_mask_router` only and are off by default; the node UI and defaults stay unchanged until the head
-index is checked beyond wide walking shots (section 5).
+On the walk clip (`f1`) this transforms the whole figure for the whole walk, where the shipped `B35 + B40` all-head
+reading only caught head and shoulders for the first half (record, section 8), **but produces a different take of
+the shot** (larger figure, altered courtyard details; record, section 11). Both `harvest_heads` and `reharvest`
+live on `attach_self_mask_router` only and are off by default; the node UI and defaults stay unchanged until the
+head index is checked beyond wide walking shots (section 5).
 
 ---
 
@@ -238,14 +260,11 @@ Several of our probing habits and next-step experiments are directly adapted fro
 
 ### 5A. Immediate Self-Mask & Small-Subject Follow-Ups
 
-1. **Hold the base take still on `< 9%` subjects (`B45 H43` SelfMask → `2× MiniMaxH3EditGuider`):**
-   - Every `2026-11-27` walk arm ran `1×` spatial routing (`early_0_24_shield` + `replay_step0=True`) on a `~4%`
-     figure — well below our calibrated `~9%` `1×` washout floor (`self_steering.md` section 3) — which explains
-     why `f1` mutated the whole courtyard into a different take while `d2`/`d3` left her unchanged.
-   - Test `MiniMaxH3SelfMaskRouter(harvest_blocks=[45], harvest_heads=[43], region_conditioning=None)` wired into
-     `2× MiniMaxH3EditGuider(first_step=1, last_step=3, scale=1.9, streams="video_only")` (auto-mask bridge in
-     `edit_guidance.py::_effective_raw_mask`): Step 0 runs 100% unmodified (locking the base courtyard and walk
-     path), and Steps `1..3` lock `v_out == orig` everywhere `mask == 0`.
+1. **Completed (`2026-11-27`, record section 12) — Hold the base take still on `< 9%` subjects (`B45 H43` SelfMask → `2× MiniMaxH3EditGuider`):**
+   - Verified on `c0_walk_base` (`k1` `d0` & `k2` `d1`): `k2` held the courtyard framing, roof/chimneys, and walk
+     pace (`upper_courtyard_mae = 6.98` vs. `22.05` for `1×` `f1`) while delivering a full head-to-toe chrome edit
+     (`coat_red <= 0.001`, `5.12×` in/bg MAE) with `reharvest="off"`. Remaining check: playback/audio review and
+     two-person / held-out confirmation.
 2. **Rotation check + text-only softmax on the `"who is who"` heads (`B46 H13`, `B48 H3`, `B48 H29`, `B47 H17`):**
    - Run Sauers' rotation design across `5–10` new multi-subject clips (two people, person + dog, car + cyclist):
      score every subject phrase against every competing subject phrase from the *same* Step-0 forward pass (zero
@@ -312,10 +331,13 @@ Any node-code change is built in a worktree outside `custom_nodes` (root `AGENTS
   requires a locked-off camera and a moving subject, and includes cast shadows.
 - **Raw pre-softmax scores, not full attention weights.** No full-sequence softmax over video + audio + text keys
   was computed.
-- **The edits were judged on stills.** `compare_harvest_step_and_head_grid.mp4` and `two_people_grid.mp4` in the
-  clips folder stack the arms with their masks for playback.
-- **Nothing here holds the base scene still.** Every `1×` routed clip is a new take of the shot, and the chrome
-  figure is a high-contrast test pattern, not a tuned look.
+- **The edits were judged on stills.** `compare_harvest_step_and_head_grid.mp4` and `two_people_grid.mp4` (under
+  `$H3_OUTPUT_DIR/Video/self_mask_late_harvest_2026-11-27/`) and `k1`/`k2` (under
+  `$H3_OUTPUT_DIR/Video/head_atlas_2026-11-27/`) still need human playback & audio review.
+- **`1×` routing produces a new take; `2× EditGuider` (`k2`) held the base take on one clip.** Every `1×` routed
+  walk arm changed framing and courtyard details; `B45 H43 -> 2× EditGuider` (`k2`, section 12) held the base
+  courtyard and stride on `c0_walk_base`, but has only been tested on one prompt/seed and the chrome figure is a
+  high-contrast test pattern, not a tuned look.
 - **In a mask strip, the green overlay is the thresholded mask, not the raw attention map.**
 
 ---
@@ -332,6 +354,9 @@ With the ComfyUI venv's python, from the repo root, after `set -a; . ./h3.env; s
   clips and the first single-head render.
 - `data/self_mask_probe_2026-11-27/run_reharvest_two_subjects.py --repo . --part a|b ...`: the second-reading
   renders, the two-person probe, and the two-person arms.
+- `data/head_atlas_2026-11-27/run_phase0_edit_guider.py --clips <folder> --base-clip <c0> --f1-clip <f1>`:
+  Phase 0 `B45 H43` SelfMask → `2× MiniMaxH3EditGuider` (`k1` `d0`, `k2` `d1`) renders, courtyard/ground metrics,
+  and close-up sheets.
 
 Each frees the card through `:8188` first and refuses when its queue is busy. The `analyze_*.py` files beside
 them turn the arrays into the record's tables on the CPU.

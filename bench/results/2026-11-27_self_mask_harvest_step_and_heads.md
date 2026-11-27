@@ -288,3 +288,45 @@ playback.
   `still yellow` columns in section 9. One seed, four frames per arm.
 - **The person who is not changed is not the person in the base clip either:** in `i2` and `i3` the woman's coat
   is darker and longer than in `p3_two_people_base`, and `i2` is framed closer.
+
+## 12. Phase 0: `B45 H43` SelfMask → `2× MiniMaxH3EditGuider` (`k1`, `k2`) — Holding the Base Take Still
+
+Tests the size rule noted in section 10 (`~4%` subject routed through `MiniMaxH3EditGuider` instead of `1×`
+`SpatialVisualQRRuntime`), on the same walk prompt, `WALK_PURE_CHROME_PROMPT`, seed `730451892`, `1344×768`, `141f`,
+6-step Pika recipe, with **zero pack code changes** (`attach_self_mask_router(..., region_conditioning=None,
+harvest_blocks=[45], harvest_heads=[43], replay_step0=False, reharvest="off")` → `MiniMaxH3EditGuider(scale=1.95,
+first_step=1, last_step=3, streams="video_only", mask=None)`). Runner & JSON:
+`data/head_atlas_2026-11-27/run_phase0_edit_guider.py`, `phase0_edit_guider_metrics.json`. Clips & close-up sheets:
+`$H3_OUTPUT_DIR/Video/head_atlas_2026-11-27/` (`phase0_walk_closeup_sheet.png`, `phase0_courtyard_zoom_sheet.png`,
+`phase0_full_and_mask_sheet.png`).
+
+Note on red-coat threshold: this section uses the pixel HSV/RGB dominance check (`r > 65`, `r - max(g,b) > 22`,
+`r > 1.35 * max(g,b)`) inside the walker's own `coat_patch_truth` blob on `672×384` frames across all four rows
+(including `c0_walk_base` and `f1` re-scored identically for direct comparison); `upper_courtyard_mae` measures pixel
+MAE vs. `c0_walk_base` on the top `55%` of the frame (arches, chimneys, roof, shadow line), and `ground_ring_mae`
+measures pixel MAE in a 2-patch ring around the base walker blob.
+
+| Arm | Time | `upper_courtyard_mae` | `in_subject / far_bg MAE` | `ground_ring_mae` | `walker_x` at `f24 f48 f72 f96 f120` | `coat_red` at `f24 f48 f72 f96 f120` |
+| :--- | :-: | :-: | :-: | :-: | :--- | :--- |
+| `c0_walk_base` (plain) | — | `0.00` | `0.00 / 0.00` | `0.00` | `0.096 0.250 0.405 0.604 0.787` | `0.028 0.033 0.046 0.073 0.137` |
+| `f1` (`1×` B45 H43 reharvest) | `79.6 s` | `22.05` | `29.01 / 19.01` (`1.53×`) | `19.52` | `0.046 0.248 0.443 0.675 0.887` | `0.017 0.013 0.023 0.008 0.027` |
+| `k1` (`2× EditGuider`, `d0`) | `96.2 s` | `6.32` | `39.26 / 7.04` (`5.58×`) | `8.59` | `0.113 0.258 0.399 0.588 0.771` | `0.012 0.011 0.012 0.021 0.017` |
+| `k2` (`2× EditGuider`, `d1`) | `87.5 s` | `6.98` | `42.61 / 8.32` (`5.12×`) | `12.42` | `0.111 0.251 0.403 0.586 0.765` | `0.001 0.000 0.000 0.000 0.001` |
+
+- **The base courtyard take holds (`phase0_courtyard_zoom_sheet.png`):** Both `k1` and `k2` keep the exact base
+  framing, terracotta roof tiles, uncropped chimneys, clouds, and shadow diagonal, with none of `f1`'s added
+  hanging lamps or corner downpipe (`upper_courtyard_mae`: `6.32 / 6.98` vs. `22.05` for `f1`).
+- **The walker stays locked to the base scale and stride (`phase0_walk_closeup_sheet.png`):** Where `f1` grew ~`1.5×`
+  taller and drifted ahead (`x = 0.887` at `f120`), `k1` and `k2` stay at the same height and horizontal pace as
+  `c0_walk_base` (`x = 0.771 / 0.765` vs. `0.787`), so Step-0 `B45 H43` stays aligned across all `141f` with
+  `reharvest="off"`.
+- **`k1` (`dilation_passes=0`) vs. `k2` (`dilation_passes=1`):**
+  - `k1` (`cov = 0.0648`, `covered = 0.739 / 0.770`, `on_subject = 0.469 / 0.524`) gives the cleanest ground ring
+    (`8.59`) and tightest `in/bg` contrast (`5.58×`), **but leaves her head/hair partly brown/human** across
+    `f36..f120` because the undilated Step-0 mask stops just below her head on several frames.
+  - `k2` (`cov = 0.1253`, `covered = 0.922 / 0.921`, `on_subject = 0.345 / 0.363`) produces a **complete head-to-toe
+    chrome android** on every sampled frame (`coat_red <= 0.001`). Even though the dilated green mask extends onto
+    surrounding cobblestones (`phase0_full_and_mask_sheet.png`), the stones themselves stay clean (only a mild cyan
+    glow at boot contact; `ground_ring_mae = 12.42`).
+- **Caveat:** Verified on full-res close-up stills and quantitative metrics; motion smoothness and audio still need
+  playback inspection (`k2_walk_b45_h43_edit_guider_d1_00001-audio.mp4`). One prompt, one seed.
