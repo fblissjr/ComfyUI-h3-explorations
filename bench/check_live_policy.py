@@ -26,6 +26,10 @@ Verifies with zero CUDA and zero model weights:
   7. Attachment refusal guards (double-stacking, stacking with `SpatialQueryRouter`,
      `FrozenVideoCache`, `BlockSparseAttention`, `SageAttention`, missing `target_phrase`,
      non-hookable model, and `MiniMaxH3SelfMaskRouter.define_schema()` validation).
+  15. `harvest_heads` reads the named heads only (a decoy planted in the other heads wins the all-head
+      mean and loses once the target head is named), and `reharvest` reads the mask again on the routed
+      pass (peek only: the routed output is bitwise unchanged; the mask moves to where the routed pass
+      puts the target; `first_routed_step` reads once, `every_step` on each routed pass).
 """
 
 from __future__ import annotations
@@ -1226,6 +1230,84 @@ def main() -> int:
         assert rgb_i is not None and rgb_i.ndim == 3 and rgb_i.shape[2] == 3 and rgb_i.dtype == np.uint8, rgb_i
         tae_note += f" + image {rgb_i.shape}"
     print(f"[ok] 14. True Step-0 Visual Critic rollback replay (1.0x clean / 1.17x defect / merged replay_step0 + {tae_note}) verified")
+
+    # 15. `harvest_heads` (read named heads only) and `reharvest` (read again on the routed pass)
+    qkv_br = _make_planted_qkv(layout_av, target_tok_idx=5, quad="bottom_right")
+    qkv_tl = _make_planted_qkv(layout_av, target_tok_idx=5, quad="top_left")
+
+    def _qkv_one_head(x, opts):
+        # heads 0, 1, 3 carry a stronger top-left decoy against the same word row; only head 2 has the target
+        q_br, k_h, v_h = qkv_br(x, opts)
+        q_tl, _k, _v = qkv_tl(x, opts)
+        q_h = q_tl * 1.5
+        q_h[:, 2] = q_br[:, 2]
+        return q_h, k_h, v_h
+
+    p_heads = _MiniPatcher(_MockDM(n_blocks=4, custom_qkv=_qkv_one_head), latent_shapes=[v_shape, a_shape])
+    head_kw = dict(
+        region_conditioning=reg_cond, mask_source="text_phrase", target_phrase="bread", token_pieces=tok_pieces,
+        threshold_z=0.8, softness=0.25, dilation_passes=0, harvest_blocks=(2, 3), emit_ws_events=False,
+    )
+    p_allh, pol_allh = lp.attach_self_mask_router(p_heads, **head_kw)
+    p_allh.run_step(ctx, layout_av, img, t_emb, mod_segs, sigma=1.0, denoised=packed_x0)
+    assert pol_allh.mask_stats["peak_xy"][0] < 0.5 and pol_allh.mask_stats["peak_xy"][1] < 0.5, pol_allh.mask_stats
+    assert "heads" not in pol_allh.step_history[0]
+    p_h2, pol_h2 = lp.attach_self_mask_router(p_heads, harvest_heads=[2], **head_kw)
+    p_h2.run_step(ctx, layout_av, img, t_emb, mod_segs, sigma=1.0, denoised=packed_x0)
+    assert pol_h2.mask_stats["peak_xy"][0] >= 0.5 and pol_h2.mask_stats["peak_xy"][1] >= 0.5, pol_h2.mask_stats
+    assert pol_h2.step_history[0]["heads"] == [2]
+    p_hbad, _pol_hbad = lp.attach_self_mask_router(p_heads, harvest_heads=[9], **head_kw)
+    _expect_err(lambda: p_hbad.run_step(ctx, layout_av, img, t_emb, mod_segs, sigma=1.0, denoised=packed_x0), "out of range")
+    _expect_err(
+        lambda: lp.attach_self_mask_router(p_heads, region_conditioning=reg_cond, mask_source="left_speaker", harvest_heads=[2]),
+        "text_phrase",
+    )
+    _expect_err(lambda: lp.attach_self_mask_router(p_heads, reharvest="sometimes", **head_kw), "reharvest")
+    _expect_err(
+        lambda: lp.attach_self_mask_router(p_heads, region_conditioning=reg_cond, mask_source="audio_transients", reharvest="every_step"),
+        "reharvest",
+    )
+
+    def _qkv_moves_when_routed(x, opts):
+        # the unrouted first pass sees the target bottom-right; once routing is on it sits top-left
+        rt_m = opts.get("_h3_spatial_qr_rt")
+        return (qkv_tl if (rt_m is not None and getattr(rt_m, "active", False)) else qkv_br)(x, opts)
+
+    p_mv = _MiniPatcher(_MockDM(n_blocks=4, custom_qkv=_qkv_moves_when_routed), latent_shapes=[v_shape, a_shape])
+    mv_kw = dict(head_kw, isolation="early_0_24_shield", replay_step0=True)
+
+    def _phases(pol_x):
+        return [h["phase"] for h in pol_x.step_history]
+
+    def _peak_is(pol_x, quad: str) -> bool:
+        px, py = pol_x.mask_stats["peak_xy"]
+        return (px >= 0.5 and py >= 0.5) if quad == "br" else (px < 0.5 and py < 0.5)
+
+    p_off, pol_off = lp.attach_self_mask_router(p_mv, **mv_kw)
+    out_off0, _ = p_off.run_step(ctx, layout_av, img, t_emb, mod_segs, sigma=1.0, denoised=packed_x0)
+    p_off.run_step(ctx, layout_av, img, t_emb, mod_segs, sigma=0.8, denoised=packed_x0)
+    assert _phases(pol_off) == ["harvest", "routed", "routed"] and _peak_is(pol_off, "br"), (_phases(pol_off), pol_off.mask_stats)
+
+    p_once, pol_once = lp.attach_self_mask_router(p_mv, reharvest="first_routed_step", **mv_kw)
+    out_once0, _ = p_once.run_step(ctx, layout_av, img, t_emb, mod_segs, sigma=1.0, denoised=packed_x0)
+    assert float((out_once0 - out_off0).abs().max().item()) == 0.0, "the second reading must not change the routed output"
+    assert _phases(pol_once) == ["harvest", "routed", "reharvest"] and _peak_is(pol_once, "tl"), (_phases(pol_once), pol_once.mask_stats)
+    mask_after_first = pol_once.harvested_mask_thw.clone()
+    out_once1, _ = p_once.run_step(ctx, layout_av, img, t_emb, mod_segs, sigma=0.8, denoised=packed_x0)
+    assert torch.isfinite(out_once1).all()
+    assert _phases(pol_once) == ["harvest", "routed", "reharvest", "routed"], _phases(pol_once)
+    assert torch.equal(pol_once.harvested_mask_thw, mask_after_first), "first_routed_step must read again only once"
+
+    p_every, pol_every = lp.attach_self_mask_router(p_mv, reharvest="every_step", **mv_kw)
+    p_every.run_step(ctx, layout_av, img, t_emb, mod_segs, sigma=1.0, denoised=packed_x0)
+    p_every.run_step(ctx, layout_av, img, t_emb, mod_segs, sigma=0.8, denoised=packed_x0)
+    assert _phases(pol_every) == ["harvest", "routed", "reharvest", "routed", "reharvest"], _phases(pol_every)
+    assert _peak_is(pol_every, "tl")
+    # a new run starts from the unrouted reading again
+    p_once.trigger_cleanup()
+    p_once.run_step(ctx, layout_av, img, t_emb, mod_segs, sigma=1.0, denoised=packed_x0)
+    assert _phases(pol_once) == ["harvest", "routed", "reharvest"], _phases(pol_once)
+    print("[ok] 15. harvest_heads (named heads only, refusals) and reharvest (peek-only second reading, once / every step) verified")
 
     print("ALL H3 LivePolicy & SelfMaskRouter CPU checks passed!")
     return 0

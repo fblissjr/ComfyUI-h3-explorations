@@ -72,6 +72,8 @@ MASK_SOURCES: tuple[str, ...] = (
     "audio_transients",
     "thermostat_only",
 )
+# When the mask is read again after routing has begun: never, once on the first routed pass, or on every routed pass.
+REHARVEST_MODES: tuple[str, ...] = ("off", "first_routed_step", "every_step")
 FRAME_PER_TOKEN: tuple[int, ...] = (1, 4, 4, 4, 4)
 FRAME_RESCALE: float = 5.0 / 3.0
 AUDIO_HZ: float = 40.0
@@ -1525,10 +1527,13 @@ class _Step0HarvestState:
         mask_source: str,
         noun_indices: Sequence[int],
         harvest_blocks: frozenset[int],
+        harvest_heads: Sequence[int] | None = None,
     ) -> None:
         self.mask_source = mask_source
         self.noun_indices = [int(i) for i in noun_indices]
         self.harvest_blocks = harvest_blocks
+        # `text_phrase` only: read these attention heads instead of the mean over all of them.
+        self.harvest_heads = sorted({int(h) for h in harvest_heads}) if harvest_heads else None
         self.tx_a = 0
         self.tx_b = 0
         self.va = 0
@@ -1572,20 +1577,33 @@ class _Step0HarvestState:
             return
         head_dim = int(q_p.shape[-1])
         scale_eff = float(scale) if scale is not None else (1.0 / math.sqrt(float(max(1, head_dim))))
-        q_vid = q_p[0, :, va:vb, :].detach().float()  # [H, S_vid, D]
 
         if self.mask_source == "text_phrase":
             l_txt = self.tx_b - self.tx_a
             valid = [self.tx_a + i for i in self.noun_indices if 0 <= i < l_txt]
             if not valid:
                 return
+            q_h, k_h = q_p[0], k_p[0]  # [H, S, D]
+            if self.harvest_heads is not None:
+                n_heads = int(q_h.shape[0])
+                bad = [h for h in self.harvest_heads if h < 0 or h >= n_heads]
+                if bad:
+                    raise ValueError(
+                        f"MiniMaxH3SelfMaskRouter harvest_heads {bad} out of range: block {block_index} has {n_heads} heads"
+                    )
+                idx_h = torch.tensor(self.harvest_heads, dtype=torch.long, device=q_h.device)
+                q_h = q_h.index_select(0, idx_h)
+                k_h = k_h.index_select(0, idx_h)
+            q_vid = q_h[:, va:vb, :].detach().float()  # [H or chosen heads, S_vid, D]
             idx_t = torch.tensor(valid, dtype=torch.long, device=k_p.device)
-            k_span = k_p[0].index_select(1, idx_t).detach().float()  # [H, K, D]
+            k_span = k_h.index_select(1, idx_t).detach().float()  # [H, K, D]
             logits = torch.einsum("hsd,hkd->hsk", q_vid, k_span) * scale_eff
             score = logits.mean(dim=(0, 2)).reshape(self.latent_t, self.patch_h, self.patch_w).cpu().clone()
             self.maps_thw.append(score)
-            del idx_t, k_span, logits
+            del idx_t, k_span, logits, q_vid, q_h, k_h
             return
+
+        q_vid = q_p[0, :, va:vb, :].detach().float()  # [H, S_vid, D]
 
         # Audio-driven speaker spotlight (`active_speaker`, `left_speaker`, `right_speaker`)
         if self.aa is None or self.ab is None or self.audio_t <= 0 or (self.ab - self.aa) < self.audio_t * 2:
@@ -1774,8 +1792,17 @@ def attach_self_mask_router(
     preview_decoder_fn: Callable[[Any, Any], np.ndarray | None] | None = None,
     auto_shield_sep_threshold: float = 12.0,
     auto_shield_max_coverage: float = 0.32,
+    harvest_heads: Sequence[int] | None = None,
+    reharvest: str = "off",
 ) -> tuple[Any, H3LivePolicy]:
     """Clone `model` and attach zero-coordinate Self-Masked Routing + live `H3LivePolicy` bus.
+
+    - `harvest_heads` (`text_phrase` only) reads the named attention heads at `harvest_blocks`
+      instead of the mean over all heads. `reharvest` reads the mask again while routing is on
+      (`"first_routed_step"` once, `"every_step"` on each routed pass) and uses the new mask from
+      the next step, so the mask follows the render the routing produces rather than the
+      unrouted first pass. Both default to the shipped behavior. What they are for:
+      `docs/wiki/self_attention.md`.
 
     - When `region_conditioning` is wired and not inside an `EditGuider` pass (`h3_edit_pass`
       not in `("original", "edited")`), Phase 1 harvests a 4D mask on Step 0 (`B35 + B40`, or
@@ -1802,6 +1829,18 @@ def attach_self_mask_router(
         raise ValueError(f"audio_zone must be one of {AUDIO_ZONES}, got {audio_zone!r}")
     if src == "text_phrase" and not (str(target_phrase or "").strip() or (noun_indices and len(noun_indices) > 0)):
         raise ValueError("MiniMaxH3SelfMaskRouter(mask_source='text_phrase') requires non-empty target_phrase or noun_indices")
+    reharvest_mode = str(reharvest or "off").strip()
+    if reharvest_mode not in REHARVEST_MODES:
+        raise ValueError(f"reharvest must be one of {REHARVEST_MODES}, got {reharvest!r}")
+    if reharvest_mode != "off" and src in ("audio_transients", "thermostat_only"):
+        raise ValueError(f"reharvest={reharvest_mode!r} needs an attention-read mask_source, not {src!r}")
+    h_heads: list[int] | None = None
+    if harvest_heads is not None and len(harvest_heads) > 0:
+        if src != "text_phrase":
+            raise ValueError(f"harvest_heads applies to mask_source='text_phrase' only, got {src!r}")
+        h_heads = sorted({int(h) for h in harvest_heads})
+        if h_heads[0] < 0:
+            raise ValueError(f"harvest_heads must be non-negative head indices, got {list(harvest_heads)!r}")
 
     s_pct = float(start_percent)
     e_pct = float(end_percent)
@@ -1899,13 +1938,21 @@ def attach_self_mask_router(
     t_opts[LIVE_POLICY_KEY] = policy
 
     ref_cache: OrderedDict[tuple[Any, ...], torch.Tensor] = OrderedDict()
-    step_state: dict[str, Any] = {"step_count": 0, "fresh_run": True, "last_layout": None}
+    step_state: dict[str, Any] = {
+        "step_count": 0,
+        "fresh_run": True,
+        "last_layout": None,
+        "noun_idxs": None,
+        "reharvested": False,
+    }
 
     def _on_cleanup(*_args, **_kwargs) -> None:
         ref_cache.clear()
         step_state["step_count"] = 0
         step_state["fresh_run"] = True
         step_state["last_layout"] = None
+        step_state["noun_idxs"] = None
+        step_state["reharvested"] = False
 
     m.add_callback_with_key(CallbacksMP.ON_CLEANUP, f"{SELF_MASK_WRAPPER_KEY}_cleanup", _on_cleanup)
 
@@ -2056,10 +2103,13 @@ def attach_self_mask_router(
         if policy.harvested_mask_frames is None:
             with _steer_hooks.pause_malloc_graph_ctx(), torch.no_grad():
                 idxs = _resolve_noun_idxs(context, kwargs)
+                step_state["noun_idxs"] = idxs
+                step_state["reharvested"] = False
                 harvest = _Step0HarvestState(
                     mask_source=src,
                     noun_indices=idxs,
                     harvest_blocks=h_blocks,
+                    harvest_heads=h_heads,
                 )
                 to_next = dict(transformer_options or {})
                 to_next[LIVE_POLICY_KEY] = policy
@@ -2098,6 +2148,7 @@ def attach_self_mask_router(
                                     "phase": "harvest",
                                     "blocks": sorted(h_blocks),
                                     "noun_indices": idxs,
+                                    **({"heads": h_heads} if h_heads else {}),
                                     **m_stats,
                                 }
                             )
@@ -2202,6 +2253,26 @@ def attach_self_mask_router(
             to_next["optimized_attention_override"] = _make_spatial_attn_override(
                 to_next.get("optimized_attention_override")
             )
+            # Read the mask again on this routed pass (peek only, ahead of the routing override) so later
+            # steps follow the render the routing produces instead of the unrouted first pass.
+            reharvest_state: _Step0HarvestState | None = None
+            if reharvest_mode == "every_step" or (
+                reharvest_mode == "first_routed_step" and not step_state["reharvested"]
+            ):
+                idxs_again = step_state["noun_idxs"]
+                if idxs_again is None:
+                    idxs_again = _resolve_noun_idxs(context, kwargs)
+                    step_state["noun_idxs"] = idxs_again
+                reharvest_state = _Step0HarvestState(
+                    mask_source=src,
+                    noun_indices=idxs_again,
+                    harvest_blocks=h_blocks,
+                    harvest_heads=h_heads,
+                )
+                to_next["_h3_self_mask_harvest"] = reharvest_state
+                to_next["optimized_attention_override"] = _make_harvest_attn_override(
+                    to_next["optimized_attention_override"]
+                )
         try:
             out = executor(x, timestep, context, to_next, **kwargs)
             if rt.active and rt.h_shadow_b is None:
@@ -2213,6 +2284,25 @@ def attach_self_mask_router(
             if replayed_step0:
                 rec_step["replayed_step0"] = True
             policy.step_history.append(rec_step)
+            if reharvest_state is not None:
+                with _steer_hooks.pause_malloc_graph_ctx(), torch.no_grad():
+                    fused_again = reharvest_state.fused_map()
+                    if fused_again is not None:
+                        m_again, stats_again = synthesize_4d_attention_mask(
+                            fused_again,
+                            threshold_z=float(threshold_z),
+                            softness=float(softness),
+                            dilation_passes=int(dilation_passes),
+                            invert=bool(invert),
+                            cross_time_scale_floor=float(cross_time_scale_floor),
+                        )
+                        policy.harvested_mask_thw = m_again
+                        policy.harvested_mask_frames = expand_latent_mask_to_frames(m_again)
+                        policy.mask_stats = stats_again
+                        step_state["reharvested"] = True
+                        policy.step_history.append(
+                            {"step": cur_step, "phase": "reharvest", "blocks": sorted(h_blocks), **stats_again}
+                        )
             return out
         finally:
             with _steer_hooks.pause_malloc_graph_ctx():
