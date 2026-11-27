@@ -17,6 +17,7 @@ replaces `docs/wiki/ops/evidence.md`, which says what the records established.
 | date | lane | record | verdict |
 |---|---|---|---|
 | 2026-11-27 | self | [Self-Mask Sensor: Controls, Harvest Step, One Head, a Second Reading, and Two People (`2026-11-27`)](2026-11-27_self_mask_harvest_step_and_heads.md) |  |
+| 2026-11-27 | music | [6-Arm Pure-H3 Music-Video Cover Pitch-Lock Gate (`2026-11-27`)](2026-11-27_music_cover_pitch_lock_gate.md) |  |
 | 2026-11-27 | music | [2026-11-27 — Phase 2 Silicon A/B: `MiniMaxH3AudioRefRouter` Music-Cover Adaptation](2026-11-27_music_cover_adaptation_phase2.md) | PASS (`1.04x–1.06x` wall-clock cost, zero core patches, zero K/V mutation). |
 | 2026-11-27 | music | [Phase 1 Zero-Code Silicon Gate: H3 Music-Video Voice & Style Adaptation (`2026-11-27`)](2026-11-27_music_cover_adaptation_gate.md) |  |
 | 2026-11-27 | audio | [2026-11-27 — 2-Pass Audio SDEdit Music-Cover Audit: Rhythm/Texture Win, Musical Pitch Failure](2026-11-27_audio_sdedit_music_cover_breakthrough.md) | MIXED / FAILED MUSICAL PITCH BAR (Corrected `2026-11-27` after owner ear-audit + pitch-chroma verification). |

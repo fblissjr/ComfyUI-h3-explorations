@@ -15,7 +15,7 @@ this file is only a way to find a script by what it says it does.
 | [`compare_*`](#compare) | 10 |
 | [`build_*`](#build) | 12 |
 | [`probe_*`](#probe) | 16 |
-| [the rest](#the-rest) | 197 |
+| [the rest](#the-rest) | 199 |
 
 ## check
 
@@ -428,6 +428,7 @@ this file is only a way to find a script by what it says it does.
 | [`masked_render_time_breakdown.py`](masked_render_time_breakdown.py) | Where a masked song render's seconds go: by node, and by stage inside the song node. |
 | [`minimise_token_aug_repro.py`](minimise_token_aug_repro.py) | How small can the `token_aug` nondeterminism repro get? |
 | [`music_cover_gate.py`](music_cover_gate.py) | Phase 1 Zero-Code Diagnostic Gate for H3 Music-Video Voice & Style Adaptation. |
+| [`music_cover_pitch_lock_gate.py`](music_cover_pitch_lock_gate.py) | 6-Arm Pitch-Locked H3 Music-Video Cover Gate (MTV Unplugged covering AI songs). |
 | [`music_cover_shootout.py`](music_cover_shootout.py) | Zero-memorization 6-arm shootout: Audio SDEdit (`denoise=0.40/0.50/0.60`) vs Late-Only `AudioRefRouter` (`split=34/38/42`). |
 | [`o1_lossless_blocking.py`](o1_lossless_blocking.py) | O1's own test: is dark-region blocking the model's or the video encoder's? |
 | [`others_present.py`](others_present.py) | Who else is in a shot: the people a preview's trackers numbered that are none of the video's subjects, a shot at a time. |
@@ -441,6 +442,7 @@ this file is only a way to find a script by what it says it does.
 | [`pose_along_shot.py`](pose_along_shot.py) | Run the pose model on every frame of a shot and keep its points: what the eye marks and the reader are made from. |
 | [`preflight_graph.py`](preflight_graph.py) | Grade a graph's prompt and price its sequence, BEFORE you press Queue. |
 | [`prepare_hf_first_frame_encoder_arms.py`](prepare_hf_first_frame_encoder_arms.py) | Prepare controlled I2VA/FL2VA encoder arms from the shipped HF workflow. |
+| [`prepare_pitch_lock_assets.py`](prepare_pitch_lock_assets.py) | Prepare solo-Kurt visual anchors and MelBand-RoFormer + RubberBand stems for the pitch-lock cover gate. |
 | [`price_reference_settings.py`](price_reference_settings.py) | Price a list of reference stills under a list of append-node settings. |
 | [`profile_block_ops.py`](profile_block_ops.py) | Every non-attention op of one H3 DiT block, timed alone, at a ref2va length. |
 | [`profile_lora_branch.py`](profile_lora_branch.py) | Where a LoRA applied at the call spends its time, one block's modules at a time. |
@@ -729,7 +731,7 @@ Arm manifests and the like; a manifest's line is its own `what`.
 
 ### results
 
-275 tracked files: [`results/INDEX.md`](results/INDEX.md).
+276 tracked files: [`results/INDEX.md`](results/INDEX.md).
 
 ### rubrics
 
