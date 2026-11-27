@@ -1,15 +1,23 @@
-# Self-Attention in H3: How It Works, What Probing Showed, and What to Try Next
+# Self-Attention in H3: How the 5-Way Joint Attention Works, What Probing Showed, and What to Explore Next
 
 Last updated: 2026-11-27.
 
-H3's video model looks at the prompt, the picture, and the sound inside **one joint self-attention**. Our
-self-mask ([`self_steering.md`](self_steering.md)) reads a tiny slice of that attention to find where a named
-subject is — with **no SAM, no bounding boxes, and no extra models** — and then routes attention inside the same
-generation to steer it.
+MiniMax H3 is not just a video model — it is a **5-way joint self-attention machine**. Inside every one of H3's
+**50 DiT blocks (`56` heads each)**, five kinds of tokens are packed into one sequence (`comfy/ldm/minimax/model.py::PackedLayout`)
+and attend to each other simultaneously with no cross-modal mask:
 
-This page gives the plain-English mental model, explains whose attention is being read, summarizes what probing
-and close-up inspection showed, credits the outside interpretability work we borrowed ideas from, and lists the
-next experiments and open questions. Every measurement lives in the dated record
+```text
+[ text (Qwen3-VL) | keyframes (cond / cond_audio) | refs (<Picture N>, <Video N>, voice) | video patches (t, y, x) | stereo audio (L & R) ]
+```
+
+So far, most of our probing has focused on one corner of that `5 × 5` attention matrix — reading `video -> text`
+(and `video -> audio`) to build zero-SAM self-masks ([`self_steering.md`](self_steering.md)) and biasing
+`audio -> video` for our Sight-to-Sound Firewall ([`query_routing.md`](query_routing.md)). This page gives the
+plain-English mental model for H3's joint self-attention, summarizes what our `2026-11-27` self-mask probes showed,
+credits the outside LLM interpretability work (`SauersML`) on the other side of the `Qwen3` coin, and maps both
+immediate mask follow-ups and broader non-masking self-attention explorations.
+
+Every measurement for the self-mask campaign lives in the dated record
 [`2026-11-27_self_mask_harvest_step_and_heads.md`](../../bench/results/2026-11-27_self_mask_harvest_step_and_heads.md);
 nothing is restated as prose-only claims here.
 
@@ -219,44 +227,69 @@ Several of our probing habits and next-step experiments are directly adapted fro
 
 ## 5. What to Try Next & Open Questions
 
-Ordered from highest signal / cheapest to verify to broader architectural questions:
+### 5A. Immediate Self-Mask & Small-Subject Follow-Ups
 
-1. **Rotation check + text-only softmax on the `"who is who"` heads (`B46 H13`, `B48 H3`, `B48 H29`, `B47 H17`):**
+1. **Hold the base take still on `< 9%` subjects (`B45 H43` SelfMask → `2× MiniMaxH3EditGuider`):**
+   - Every `2026-11-27` walk arm ran `1×` spatial routing (`early_0_24_shield` + `replay_step0=True`) on a `~4%`
+     figure — well below our calibrated `~9%` `1×` washout floor (`self_steering.md` section 3) — which explains
+     why `f1` mutated the whole courtyard into a different take while `d2`/`d3` left her unchanged.
+   - Test `MiniMaxH3SelfMaskRouter(harvest_blocks=[45], harvest_heads=[43], region_conditioning=None)` wired into
+     `2× MiniMaxH3EditGuider(first_step=1, last_step=3, scale=1.9, streams="video_only")` (auto-mask bridge in
+     `edit_guidance.py::_effective_raw_mask`): Step 0 runs 100% unmodified (locking the base courtyard and walk
+     path), and Steps `1..3` lock `v_out == orig` everywhere `mask == 0`.
+2. **Rotation check + text-only softmax on the `"who is who"` heads (`B46 H13`, `B48 H3`, `B48 H29`, `B47 H17`):**
    - Run Sauers' rotation design across `5–10` new multi-subject clips (two people, person + dog, car + cyclist):
      score every subject phrase against every competing subject phrase from the *same* Step-0 forward pass (zero
      extra renders).
    - Compare **raw `target - other` logits** vs. **text-only softmax** across prompt tokens (and check whether
-     pulling attention log-sum-exp `LSE` is needed to avoid the missing-video-denominator trap).
+     pulling attention log-sum-exp `LSE` is needed to avoid dropping the video-token denominator).
    - Goal: establish whether a fixed small set of layer `46–48` heads reliably separates subjects by word across
-     scenes, and test `B45 H43` ∩ `word-binding head` in live renders (with dilation or `2× EditGuider` handoff
-     if the intersection covers `< 9%` of canvas).
-2. **Wider shot survey before changing any node default:**
-   - Test `B45 H43` (and sweep all `56` heads) on **still objects** (e.g., `MiniMax-H3-Image` `4 MP` bread on a
-     table), **close-ups**, **moving cameras**, and **`ref2va`**.
-   - Key open question: is `B45 H43` a *motion/mover* head or a general *foreground-subject* head?
-3. **Causal head ablation & patching (`B45 H43` and `B46–48` vs. random head sets):**
-   - Zero out (or patch between paired prompts) just `B45 H43` or the top word-binding heads, compared against
-     random sets of the same size (Sauers `mechinterp/heads.py` pattern).
-   - Key open question: are these heads **causal steering levers** inside the DiT, or clean **readout gauges**
-     that only summarize state computed upstream?
-4. **Query vs. Key swap between paired prompts:**
-   - Swap `Q_vid` vs. `K_txt` across two prompts that swap subject attributes (Sauers `mechinterp/qk_all.py`
-     pattern).
-   - Key open question: does subject-word binding at blocks `45–48` live on the ~50 text tokens (cheap to
-     intervene on) or the ~50k video tokens?
-5. **Soft pre-softmax bias (`w += log(m)`) for in-prompt emphasis / suppression:**
-   - Test adding a gentle `±log(m)` pre-softmax bias on specific `(video_patch, text_token)` or `(video_patch,
-     ref_img_token)` pairs for words/refs *already in the prompt* (e.g., attenuating `"fog"` on a face, boosting
-     `<Picture 1>` on a region) without hard-splitting KV.
-   - Expected limit: unlikely to replace `SpatialVisualQRRuntime` (`early_0_24_shield`) for bold opposite-world
-     swaps because bidirectional `Q_vid <-> K_vid` cross-talk still dominates.
-6. **Holding the base take still (open question from section 11):**
-   - Because every `1×` routed walk arm produced a different take of the scene, test **`SelfMask (B45 H43) -> 2×
-     MiniMaxH3EditGuider`** (or `fl2va` / `lock_take` anchoring) against `1×` routing to see when a zero-SAM
-     mask can edit a subject *without* changing the framing and background details.
-7. **Non-direction region-prompt cues:**
+     scenes, and test `B45 H43` ∩ `word-binding head` in live renders.
+3. **Wider shot survey before changing any node default:**
+   - Test `B45 H43` (and sweep all `56` heads) on **still objects** (`MiniMax-H3-Image` `4 MP` bread on a table),
+     **close-ups**, **moving cameras**, and **`ref2va`** to determine whether `B45 H43` is strictly a
+     *motion/mover* head or a general *foreground-subject* head.
+4. **Non-direction region-prompt cues:**
    - Test a region prompt cue other than walking direction (color, wardrobe, size) to see how far "the region
      prompt picks who changes" extends when two subjects share a mask.
+
+### 5B. Beyond Masking — Self-Attention Explorations on the DiT Side of the Coin
+
+Because H3 runs `5`-way joint self-attention across all `50 × 56` heads, Sauers' head-level toolkit on `Qwen3`
+maps cleanly onto five non-masking corners of H3's attention matrix:
+
+1. **Reference-Image Identity vs. Pose / Copy-Freeze Head Surgery (`Q_vid -> K_ref_img`):**
+   - `MiniMaxH3ReleaseReferences` currently drops all heads across all blocks at once. Sweep `Q_vid -> K_ref_img`
+     head-by-head to separate **face/identity heads** from **pose/background copy-freeze heads**, then attenuate
+     only copy-freeze heads (or apply `-log(m)` on background ref tokens) while holding identity through the full
+     clip — or blend two references (`<Picture 1>` face + `<Picture 2>` lighting/wardrobe).
+2. **Selective Audio ↔ Video Sync Heads & Realized-Gain Calibration (`Q_aud <-> K_vid`):**
+   - Calibrate our existing `QueryRouter` firewall (`aud_to_vid_gain`) by **realized attention mass ratio** (as in
+     `attn_intro.py:213-215`), not only nominal gain.
+   - Sweep `Q_aud <-> K_vid` head-by-head to separate **lip-sync / foley-timing heads** from **visual-ambience /
+     genre-bleed heads** — unlocking a selective firewall (swap music/atmosphere without breaking lip-sync),
+     positive boosts (`+log(m)`) to tighten soft lip-sync or beat reactions, and L/R attention-driven stereo.
+3. **Temporal Memory Heads vs. Local Motion Heads (`Q_vid(t) -> K_vid(t')`):**
+   - Separate short-range motion heads (`t ± 1`) from long-range anchor heads (`t -> t_0` / `cond`). Boosting
+     long-range anchor heads could curb identity/wardrobe drift on `192f–345f` clips; cutting only local motion
+     heads across a cut boundary while keeping identity heads open enables same-character shot-reverse-shot in
+     one pass.
+4. **Calibrated `±log(m)` Word & Clause Volume Knobs + Temporal Ramps (`Q_vid -> K_txt`):**
+   - Extend the additive pre-softmax bias pattern (`steering/hooks.py::_build_aud_attn_bias`) to specific prompt
+     words/clauses — turning `"rain"`, `"16mm grain"`, or `"slow motion"` smoothly up or down on the **exact same
+     seed** (avoiding Qwen's pink-elephant effect on `"no fog"`), or ramping `m(t)` over time inside one shot.
+   - Expected limit: unlikely to replace hard KV isolation (`SpatialVisualQRRuntime`) for bold World A / World B
+     swaps due to bidirectional `Q_vid <-> K_vid` cross-talk.
+5. **Crossing the `Qwen3-VL` ↔ `DiT` Bridge (`attention_introspection` + `vlens` + `body`):**
+   - Apply Sauers' `w += log(m)` boost **inside `Qwen3-VL-32B` layers 21–53** (onto a subject clause or `<Picture 1>`
+     vision tokens) *before* handing hidden states to H3's DiT, to test whether Qwen-side attention shifts survive
+     the `TokenRefiner` and visibly steer the rendered video.
+   - Test `vlens`-style earlier `Qwen3-VL` cut-layer reads and `body`-style orthogonal **camera-motion vs.
+     subject-motion** heads inside the DiT.
+6. **50-Block Functional Head Atlas (Readable vs. Load-Bearing):**
+   - Pair head sweeps with Sauers-style **causal head zeroing / patching vs. random head sets**
+     (`mechinterp/heads.py`) and **Query vs. Key swaps** (`mechinterp/qk_all.py`) to classify `(block, head)` pairs
+     into load-bearing levers vs. readout gauges across motion, identity, AV sync, and lexical binding.
 
 Any node-code change is built in a worktree outside `custom_nodes` (root `AGENTS.md`, operative rule 3).
 
