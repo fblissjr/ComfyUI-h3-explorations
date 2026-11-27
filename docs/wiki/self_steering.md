@@ -1,5 +1,7 @@
 # Closed-Loop Self-Steering (`MiniMaxH3SelfMaskRouter` & `H3LivePolicy`)
 
+Last updated: 2026-11-27.
+
 **Let MiniMax H3 localize nouns, active speakers, and emergent sound bursts from its own Step-0 internal states — and regulate steering strength, reference release, and audio firewalls mid-sample with zero external segmentation models and zero extra training.**
 
 ![Closed-Loop Self-Steering Architecture](assets/h3_self_steering_closed_loop.svg)
@@ -33,6 +35,35 @@
    - Boosts `strength_scale` (`→ 1.12×`) on `dim_understeer_risk` (`tb2`).
    - Tapers `strength_scale` (`< 0.75×`) on highlight-clip burn.
    - Governs Step-1 `recommended_video_end_percent` (`0.33 ↔ 0.50`) to prevent `<Picture 1>` copy-freeze without losing identity.
+
+### Whose Attention This Is, and What Qwen3-VL Contributes
+
+The attention the self-mask reads is the DiT's. Qwen3-VL does not run during sampling, and its own attention is never read.
+
+- **Qwen3-VL runs once, before sampling.** It reads the prompt as raw text with no chat template, with a vision block spliced in for each wired picture or video, and hands over one hidden state per token from the layer where H3 cuts it. The layout for each mode is in the module docstring of core `comfy/text_encoders/minimax.py`; on a text-only render it sees text and nothing else. [`steering.md`](steering.md) section 2 describes the two text stages.
+- **The DiT turns those states into text rows** with `condition_proj` and the `TokenRefiner`, then packs them at the front of one sequence with the video and audio rows (`comfy/ldm/minimax/model.py::PackedLayout`, `comfy/ldm/minimax/model.py::MiniMaxH3Model._embed_and_pack`).
+- **Every block runs one attention over that whole sequence**, with no mask between kinds of row (`comfy/ldm/minimax/model.py::Attention.forward`). Text, video and audio rows all query and key each other, and every block rewrites all of them. By the harvest blocks, the row for a word is no longer the vector Qwen wrote: it started there and has been mixed with picture and sound in every block since.
+- **Qwen's tokenizer is used once more, as a lookup.** `text_phrase` has to know which rows spell the target words, and `extract_aligned_token_pieces` with `resolve_phrase_token_indices` in [`steering/live_policy.py`](../../steering/live_policy.py) finds them. That is the only reason the node takes a `clip` wire; no encoder pass runs.
+
+### How the `text_phrase` Map Is Made, Step by Step
+
+1. **When.** The first sampler call only, on the unmodified model (the Phase 1 branch of `_wrapper` inside `attach_self_mask_router`). A text-to-video latent is still pure noise then, so the map is the DiT's first guess at a layout and not a reading of a finished picture.
+2. **Where.** The blocks named by `GOLDEN_SEMANTIC_BLOCKS` in `steering/live_policy.py`. The record that chose them is [`2026-11-26_h3_4sensor_calibration.md`](../../bench/results/2026-11-26_h3_4sensor_calibration.md).
+3. **What is read.** `_make_harvest_attn_override` looks at a block's queries and keys after core has normalized and rotated them, and changes nothing. `_Step0HarvestState.probe_block` takes the queries of the video rows and the keys of the target word rows and computes their scaled dot products. Those are raw attention scores, before the softmax, so they do not show how the word competed with every other row for a patch's attention.
+4. **How it is pooled.** One mean over all heads and all target word rows, then a mean over the harvest blocks (`_Step0HarvestState.fused_map`). Several words give one blended map, and nothing in it says which word scored on which patch.
+5. **How it becomes a mask.** `synthesize_4d_attention_mask` blurs the map in space and time, scores each patch against the median and spread of its own latent frame, and passes that through a soft cutoff at `threshold_z`. Low values are set to exactly zero.
+6. **How it is used.** The mask is held for the rest of the run in `policy.harvested_mask_frames`. Later steps route `region_conditioning` onto the masked rows, or `MiniMaxH3EditGuider` reads the mask (the actuators below). `replay_step0` runs the first step a second time with the routing on.
+
+The speaker modes are the same reading with audio keys in place of text keys: each latent frame's video queries against the audio rows of its own time window (`video_latent_audio_windows`), for one ear or both. No text row and nothing from Qwen is involved.
+
+### What the Map Cannot See
+
+- **It is a score against a few word rows, not a segmentation.** A frame is judged against itself, so on frames where the target scores weakly the highest-scoring patches of that frame can still pass the cutoff. `cross_time_scale_floor` damps this and does not remove it.
+- **It is fixed at the first step.** Motion that the later steps settle differently is not followed.
+- **No control is subtracted.** The score for a word row is not compared with the score for any other row, so patches that score high against text in general are not taken out. Whether subtracting a control row's map, or keeping only some heads, tightens the mask is untested.
+- **Worked example, read from stills and not judged on playback (2026-11-27).** On arm `c2_walk_woman_coat_replay_e024` (three target words) the mask covers the walking woman in the early panels of its `mask_strip.png`, along with dark arch openings beside her, and sits only on arches in the late panels while she walks on unchanged. On arm `c1_walk_text_phrase_woman` (one word, a looser cutoff) it is spread over arches across the frame. Both rows are in the calibration record linked in step 2, and the strips are under `$H3_OUTPUT_DIR/Video/track2_self_mask_av_2026-11-26/`.
+- **In a mask strip the green is the mask, not the attention.** The `cov=` label on each panel matches that frame's `hard_cov` under `delta_vs_base.trajectory_12f` in the run's report JSON beside the strips. No script in this repo writes those strips (searched for `mask_strip`, 2026-11-27).
+- **`in_over_out_ratio` in those reports compares against a separately rendered base clip.** It mixes the edit with any difference in where the subject stands, and on both walk arms it came out below one.
 
 ### The Shared `H3LivePolicy` Bus & Four Actuators
 `attach_self_mask_router(...)` attaches the live `H3LivePolicy` instance on **both** `model._h3_live_policy` and `model.model_options["transformer_options"]["_h3_live_policy"]` (preserved across ComfyUI `ModelPatcher.clone()` via `deepcopy_list_dict`) and streams `h3_self_steer` WebSocket events (`self_mask_locked`, `preview_thermostat`, `audio_x0_thermostat`) directly to H3 Studio 2.0:
