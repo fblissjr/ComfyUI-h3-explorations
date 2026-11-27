@@ -257,6 +257,11 @@ right to left" (his). `still red` / `still yellow` are means over the clean step
   direction they name. Whether another cue in the region prompt (a color, a size) picks a person the same way is
   not tested.
 - **One seed per clip**, and one routed render per arm.
+- **Every routed arm used `1×` routing on a subject below the size that route is meant for.** The subject is about
+  `4%` of the frame, and [`self_steering.md`](../../docs/wiki/self_steering.md) section 3 sends a target that small
+  through `MiniMaxH3EditGuider` with the harvested mask and no region prompt (`edit_guidance.py::_effective_raw_mask`).
+  That route was not tried with block `45` head `43`. The Gemini lead pointed this out on reading this record; the
+  new take in section 11 and the late-harvest arms that changed nothing in section 5 may both follow from it.
 - **The subject finder includes her cast shadow** and cannot be used on a moving camera or a still subject.
 - **Raw scores, not attention weights:** no softmax over all keys was computed.
 - **`coat-colored` measures red pixels**, which is a proxy for "still looks like the base walker"; the edit was
