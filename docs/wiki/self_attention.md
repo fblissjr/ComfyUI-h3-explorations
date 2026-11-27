@@ -10,12 +10,17 @@ and attend to each other simultaneously with no cross-modal mask:
 [ text (Qwen3-VL) | keyframes (cond / cond_audio) | refs (<Picture N>, <Video N>, voice) | video patches (t, y, x) | stereo audio (L & R) ]
 ```
 
-So far, most of our probing has focused on one corner of that `5 × 5` attention matrix — reading `video -> text`
-(and `video -> audio`) to build zero-SAM self-masks ([`self_steering.md`](self_steering.md)) and biasing
-`audio -> video` for our Sight-to-Sound Firewall ([`query_routing.md`](query_routing.md)). This page gives the
-plain-English mental model for H3's joint self-attention, summarizes what our `2026-11-27` self-mask probes showed,
-credits the outside LLM interpretability work (`SauersML`) on the other side of the `Qwen3` coin, and maps both
-immediate mask follow-ups and broader non-masking self-attention explorations.
+So far, we have built **block-band and stream-level self-attention routers across four corners** of that `5 × 5`
+matrix — Camera vs. Mic (`QueryRouter`), Split-World / Portal / Multi-Shot (`SpatialQueryRouter`), Melody vs.
+Vocal Timbre (`AudioRefRouter`, already using `+log(2)` pre-softmax boosting), and zero-SAM `video -> text` /
+`video -> audio` self-masks (`SelfMaskRouter`). What our `2026-11-27` probing just opened up is going **inside
+blocks to individual heads** (where `1` head out of `56` carries a signal that averaging buries) and extending
+head-level / calibrated `±log(m)` controls to the remaining untouched corners (`Q_vid -> K_ref_img`,
+`Q_vid(t) -> K_vid(t')`, and the `Qwen3-VL` ↔ `DiT` bridge).
+
+This page gives the plain-English mental model for H3's joint self-attention, summarizes what our `2026-11-27`
+self-mask probes showed, credits the outside LLM interpretability work (`SauersML`) on the other side of the
+`Qwen3` coin, and maps both immediate mask follow-ups and broader non-masking self-attention explorations.
 
 Every measurement for the self-mask campaign lives in the dated record
 [`2026-11-27_self_mask_harvest_step_and_heads.md`](../../bench/results/2026-11-27_self_mask_harvest_step_and_heads.md);
@@ -81,13 +86,17 @@ The attention we read belongs to **H3's DiT**, never Qwen3-VL:
    - For small targets (`< ~9%` of canvas, where `1×` routing washes out), leaving `region_conditioning` unwired
      hands `policy.harvested_mask_frames` straight to `2× MiniMaxH3EditGuider`.
 
-### Our Three Self-Attention Levers in H3
+### Our Shipped Self-Attention Levers in H3 (All Block/Stream-Level So Far)
 
-| Mechanism | File | What It Does |
-| :--- | :--- | :--- |
-| **Read-only sensor** (`MiniMaxH3SelfMaskRouter`) | [`steering/live_policy.py`](../../steering/live_policy.py) | Peeks at raw `Q_vid @ K_txt` (or `Q_vid @ K_aud`) logits to synthesize a 4D mask |
-| **Hard KV isolation** (`MiniMaxH3SpatialQueryRouter`) | [`steering/spatial_query_router.py`](../../steering/spatial_query_router.py) | Splits Base vs. Region queries onto separate prompt streams on isolated blocks, then merges on late blocks |
-| **Additive pre-softmax bias** (`MiniMaxH3QueryRouter`) | [`steering/hooks.py`](../../steering/hooks.py) | Adds a negative pre-softmax bias (`_build_aud_attn_bias`) to block sight-to-sound leakage — the exact same mathematical lever used for attention injection in LLM studies |
+| Mechanism | File | Corner of the `5 × 5` Matrix | What It Does |
+| :--- | :--- | :--- | :--- |
+| **Read-only sensor** (`MiniMaxH3SelfMaskRouter`) | [`steering/live_policy.py`](../../steering/live_policy.py) | `Q_vid -> K_txt`, `Q_vid -> K_aud` | Peeks at raw logits (`B35+40` or `B45 H43`) to synthesize a zero-SAM 4D mask |
+| **Camera vs. Mic + Firewall** (`MiniMaxH3QueryRouter`) | [`steering/query_router.py`](../../steering/query_router.py), [`steering/hooks.py`](../../steering/hooks.py) | `Q_vid` vs `Q_aud -> K_txt`, `Q_aud -> K_vid` | Routes video and stereo audio to separate prompts/ears/time slices; attenuates `Q_aud -> K_vid` via pre-softmax bias (`_build_aud_attn_bias`) |
+| **Split-World / Portal / Cuts** (`MiniMaxH3SpatialQueryRouter`) | [`steering/spatial_query_router.py`](../../steering/spatial_query_router.py) | `Q_vid_base` vs `Q_vid_region`, `Q_aud` (`binaural_split`, `follow_mask`) | Splits Base vs. Region video queries onto separate prompts on isolated blocks, merges on late blocks; supports 1-frame multi-shot cuts and visual-firewalled binaural ears |
+| **Melody vs. Timbre Ref Router** (`MiniMaxH3AudioRefRouter`) | [`audio_ref_router.py`](../../audio_ref_router.py) | `Q_aud -> K_cond_audio`, `Q_aud -> K_ref_audio` | Early blocks follow melody scaffold; late blocks firewall melody (`-1e4`) and **boost** `<Audio 1>` vocal timbre via `+log(2)` pre-softmax side-SDPA |
+
+*(By contrast, `MiniMaxH3Steer` shifts the text residual stream before attention, and `MiniMaxH3EditGuider`
+blends outer velocity predictions `orig + scale * mask * (edit - orig)` rather than internal attention weights.)*
 
 Nothing in H3 asks the model to introspect or report its own attention; we read and intervene from outside.
 
