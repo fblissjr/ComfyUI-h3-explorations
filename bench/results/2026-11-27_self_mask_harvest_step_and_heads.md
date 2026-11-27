@@ -1,6 +1,6 @@
-# Self-Mask Sensor: Controls, Harvest Step, and One Head (`2026-11-27`)
+# Self-Mask Sensor: Controls, Harvest Step, One Head, a Second Reading, and Two People (`2026-11-27`)
 
-Five read-only probe passes and four routed renders asking why the `text_phrase` self-mask lags a moving
+Six read-only probe passes and thirteen routed renders asking why the `text_phrase` self-mask lags a moving
 subject, and what fixes it. Plain-English summary and what to build next:
 [`docs/wiki/self_attention.md`](../../docs/wiki/self_attention.md).
 
@@ -8,7 +8,9 @@ subject, and what fixes it. Plain-English summary and what to build next:
 `35 + 40`, first sampler step) does not follow the figure. Subtracting a control map and judging frames against
 the whole clip do not fix it. Reading two or three steps later does, but routing that starts that late no longer
 changes the figure. One head at block `45` (head `43` of `56`) already marks the figure at the first step, and it
-was the best head probed on three clips it was not chosen on.
+was the best head probed on three clips it was not chosen on. Reading the mask once more on the first routed
+pass keeps it on her for the whole walk (section 8). With two people in frame that head marks both, and the
+region prompt, not the target words, decides which one changes (section 9).
 
 ## 1. Conditions
 
@@ -24,11 +26,16 @@ was the best head probed on three clips it was not chosen on.
 - **Reading:** [`bench/probe_h3_sensors.py`](../probe_h3_sensors.py) attached last, unmodified. Per-head and
   single-head variants replace one method on the recorder or the harvester in the probe process only; no repo
   file was changed.
+- **Builds for sections 8 and 9:** the arms there need `harvest_heads` and `reharvest` on
+  `attach_self_mask_router`, so they ran from a worktree build of the pack: `f1`, `f2` and the two-person probe on
+  `488e3a8b`; `h1..h3` and `i1..i3` on `66605ac8` (the same plus a `harvest_contrast` option that `h3` uses and
+  that was not landed; kept on branch `claude-self-mask-contrast`); `j1` on the rebased build that landed as `1368f40d`.
 - **Scripts, prompts, arrays, metrics (untracked):** `data/self_mask_probe_2026-11-27/` (`run_control_probe.py`,
-  `run_late_harvest.py`, `run_head43.py`, the `analyze_*.py` files, `prompts/`, `*.npz`, `*.json`).
+  `run_late_harvest.py`, `run_head43.py`, `run_reharvest_two_subjects.py`, the `analyze_*.py` files,
+  `two_people.py`, `prompts/`, `*.npz`, `*.json`).
 - **Clips, sheets, reports:** `$H3_OUTPUT_DIR/Video/self_mask_late_harvest_2026-11-27/`
-  (`compare_harvest_step_and_head_grid.mp4` stacks every arm with its mask; `compare_harvest_step_and_head_sheet.png`
-  and `control_words_sheet.png` are the stills).
+  (`compare_harvest_step_and_head_grid.mp4` stacks every walk arm with its mask;
+  `compare_harvest_step_and_head_sheet.png`, `control_words_sheet.png` and `two_people_sheet.png` are the stills).
 
 ### How each number is measured
 
@@ -171,10 +178,84 @@ Block `45`, head `43`, on `c0_walk_base` (`data/self_mask_probe_2026-11-27/analy
 The head marks her almost as well against text in general as against her own words. On a clip with one subject
 that is a good mask. Whether it can tell two subjects apart by word is not tested here.
 
-## 7. What these runs cannot say
+## 8. Reading the mask again on the routed pass
 
-- **One kind of shot:** a single small figure crossing a locked-off wide frame, one checkpoint and LoRA, one
-  canvas and length. No still subjects, no two-subject scenes, no close-ups, no `MiniMax-H3-Image`, no `ref2va`.
+Walk prompt and seed, router settings as `c2`, harvest from block `45` head `43`. `reharvest` reads the same head
+again while the first routed pass runs (peek only) and uses that mask from the next step. Each arm scored in its
+own clip; the mask columns describe the last mask the run held.
+
+| Arm | `reharvest` | Covered early / late | On subject early / late | Mask `y` | Coat-colored at `f24 f48 f72 f96 f120` |
+| :--- | :--- | :-: | :-: | :-: | :--- |
+| `e1` | `off` | `0.705` / `0.500` | `0.438` / `0.447` | `0.872` | `0.395 0.009 0.015 0.483 0.617` |
+| `f1` | `first_routed_step` | `0.907` / `0.878` | `0.441` / `0.478` | `0.863` | `0.015 0.016 0.010 0.003 0.005` |
+| `f2` | `every_step` | `1.000` / `0.983` | `0.416` / `0.472` | `0.651` | `0.000 0.000 0.000 0.000 0.004` |
+
+- **One extra reading is enough.** In `f1` she is changed on every frame measured, where `e1` reverts from `f84`.
+- **Reading on every pass also holds her, with a larger mask that sits higher** (coverage `0.137` / `0.156`
+  against `0.104` / `0.124` for `f1`). `first_routed_step` is the tighter of the two.
+- **The second reading is free at this scale:** sampling took `75.4 s` (`e1`), `79.6 s` (`f1`) and `74.0 s` (`f2`).
+- **`j1` repeats `f1` on the build that landed** (rebased onto `eb02b2c6`): every figure in the `f1` row came out the same to the printed digit
+  (`data/self_mask_probe_2026-11-27/late_harvest_metrics.json`).
+
+## 9. Two people in frame
+
+Prompt `data/self_mask_probe_2026-11-27/prompts/p3_courtyard_woman_and_man_crossing.txt`: a woman in a crimson
+coat walks left to right while a man in a yellow raincoat walks right to left; they pass mid-frame. Each walker is
+tracked from the side they enter on (`data/self_mask_probe_2026-11-27/two_people.py`), so the reading does not
+depend on how they look after an edit. Steps where they overlap are left out.
+
+### The head finds people; other heads tell them apart
+
+Unrouted base clip, step `0` (`data/self_mask_probe_2026-11-27/two_people_heads.json`). `her vs him` asks whether
+the map for her words minus the map for his words ranks her patches above his (`0.5` is chance).
+
+| Mask from | Woman covered | Man covered |
+| :--- | :-: | :-: |
+| Shipped `35 + 40`, all heads, her words | `0.211` | `0.020` |
+| Block `45` head `43`, her words | `0.827` | `0.744` |
+| Block `45` head `43`, his words | `0.833` | `0.855` |
+| Block `45` head `43`, her words minus all text | `0.615` | `0.145` |
+| Both must agree: block `45` head `43` (her words) and block `46` head `13` (her minus his) | `0.549` | `0.000` |
+
+- **Head `43` marks both people whichever words it is read against** (people-vs-background AUC `0.765`, first at
+  its block; her-vs-him `0.719`).
+- **Heads that tell them apart by word exist and are different heads:** block `46` head `13` (`0.914`), block `48`
+  head `3` (`0.897`), block `48` head `29` (`0.885`), block `47` head `17` (`0.873`). They are poor at finding
+  people at all (`0.58..0.62`). **They were picked on this clip and are not validated on another.**
+
+### In the renders, the region prompt picks who changes
+
+All arms: block `45` head `43`, `reharvest = "first_routed_step"`, unless the row says otherwise. The region
+prompt is the chrome figure "striding briskly from left to right" (her direction) or the same text with "from
+right to left" (his). `still red` / `still yellow` are means over the clean steps; the base clip is the reference.
+
+| Arm | Target words | Region prompt says | Woman still red | Man still yellow | Last mask covers woman / man |
+| :--- | :--- | :--- | :-: | :-: | :-: |
+| base clip | not applicable | not applicable | `0.672` | `0.542` | not applicable |
+| `h1` shipped reading, no second reading | hers | left to right | `0.520` | `0.540` | `0.195` / `0.025` |
+| `h2` | hers | left to right | `0.010` | `0.486` | `0.842` / `0.644` |
+| `i1` | his | left to right | `0.123` | `0.497` | `0.877` / `0.705` |
+| `i2` | his | right to left | `0.429` | `0.040` | `0.707` / `0.833` |
+| `i3` | hers | right to left | `0.356` | `0.067` | `0.727` / `0.775` |
+| `h3` her words minus all text | hers | left to right | `0.175` | `0.420` | `0.646` / `0.327` |
+
+- **The mask covers both people in every single-head arm, and one person changes.** Which one follows the
+  direction named in the region prompt (`h2` and `i1` change her; `i2` and `i3` change him) and not the target
+  words (`i1` used his words and changed her; `i3` used hers and changed him).
+- **`h2` is the cleanest:** she is changed for the whole clip and he is close to the base clip.
+- **With the region prompt pointing his way, her coat reads less red than in the base clip** though on the stills
+  she is still the woman in the crimson coat (`two_people_sheet.png`); the mask is on her too, so some spill is
+  likely.
+- **The contrast against all text (`h3`) narrowed the mask and weakened the edit on her without sparing him
+  more,** so that option was not landed.
+
+## 10. What these runs cannot say
+
+- **One kind of shot:** one or two small figures crossing a locked-off wide frame, one checkpoint and LoRA, one
+  canvas and length. No still subjects, no close-ups, no `MiniMax-H3-Image`, no `ref2va`.
+- **The two-person finding rests on one prompt and one seed,** and the two region prompts differ only in the
+  direction they name. Whether another cue in the region prompt (a color, a size) picks a person the same way is
+  not tested.
 - **One seed per clip**, and one routed render per arm.
 - **The subject finder includes her cast shadow** and cannot be used on a moving camera or a still subject.
 - **Raw scores, not attention weights:** no softmax over all keys was computed.

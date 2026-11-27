@@ -57,7 +57,9 @@ The speaker modes are the same reading with audio keys in place of text keys: ea
 - **In a mask strip the green is the mask, not the attention.**
 - **`in_over_out_ratio` in the run reports compares against a separately rendered base clip,** so it mixes the edit with any difference in where the subject stands.
 
-What was tried, what held, and what to build next: [`self_attention.md`](self_attention.md), with every figure in [`2026-11-27_self_mask_harvest_step_and_heads.md`](../../bench/results/2026-11-27_self_mask_harvest_step_and_heads.md).
+- **Two options answer the first two limits, on `attach_self_mask_router` only and off by default:** `harvest_heads` reads named attention heads instead of the mean over all of them, and `reharvest` reads the mask again on the routed pass. The node has no input for either. The recipe and what it was tried on: [`self_attention.md`](self_attention.md) section 2.
+
+What was tried, what held, and what is next: [`self_attention.md`](self_attention.md), with every figure in [`2026-11-27_self_mask_harvest_step_and_heads.md`](../../bench/results/2026-11-27_self_mask_harvest_step_and_heads.md).
 
 ### The Shared `H3LivePolicy` Bus & Four Actuators
 `attach_self_mask_router(...)` attaches the live `H3LivePolicy` instance on **both** `model._h3_live_policy` and `model.model_options["transformer_options"]["_h3_live_policy"]` (preserved across ComfyUI `ModelPatcher.clone()` via `deepcopy_list_dict`) and streams `h3_self_steer` WebSocket events (`self_mask_locked`, `preview_thermostat`, `audio_x0_thermostat`) directly to H3 Studio 2.0:

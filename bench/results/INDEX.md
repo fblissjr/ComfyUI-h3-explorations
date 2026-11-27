@@ -16,7 +16,7 @@ replaces `docs/wiki/ops/evidence.md`, which says what the records established.
 
 | date | lane | record | verdict |
 |---|---|---|---|
-| 2026-11-27 | self | [Self-Mask Sensor: Controls, Harvest Step, and One Head (`2026-11-27`)](2026-11-27_self_mask_harvest_step_and_heads.md) |  |
+| 2026-11-27 | self | [Self-Mask Sensor: Controls, Harvest Step, One Head, a Second Reading, and Two People (`2026-11-27`)](2026-11-27_self_mask_harvest_step_and_heads.md) |  |
 | 2026-11-26 | stage2 | [Stage 2 Music-Video Gate, Studio 2.0 Unlock & Cross-Session Sprint (2026-11-26)](2026-11-26_stage2_music_video_and_studio_unlock.md) |  |
 | 2026-11-26 | steering | [Spatial Query Routing `v2-slim` & Beat 1–3 Showcase Suites (`2026-11-26`)](2026-11-26_spatial_qr_v2_and_showcases.md) | verified |
 | 2026-11-26 | h3 | [4-Sensor H3 Silicon Calibration Gate (`2026-11-26`)](2026-11-26_h3_4sensor_calibration.md) |  |
