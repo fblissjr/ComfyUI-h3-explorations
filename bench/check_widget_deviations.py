@@ -626,18 +626,6 @@ DECLARED: dict[tuple[str, str], tuple] = {
     ("MiniMaxH3AppendSpriteTrajectory", "sprite_scale"):
         ("ARM", "0.25 foreground tortoise framing scale on h3_r2v_midas_walk_spatial_wake_pika "
                 "against node default 0.31 (2026-11-26)."),
-    ("SolidMask", "width"):
-        ("ARM", "1344 canvas width matching the render resolution on "
-                "h3_text_to_video_pika_multishot_spatial_cut and "
-                "h3_text_to_video_pika_audio_freeze_beat_cut against SolidMask default 512 (2026-11-26)."),
-    ("SolidMask", "height"):
-        ("ARM", "768 canvas height matching the render resolution on "
-                "h3_text_to_video_pika_multishot_spatial_cut and "
-                "h3_text_to_video_pika_audio_freeze_beat_cut against SolidMask default 512 (2026-11-26)."),
-    ("RepeatImageBatch", "amount"):
-        ("ARM", "Procedural Shot 1 and Shot 2 temporal step-mask frame counts (85/107 on "
-                "h3_text_to_video_pika_multishot_spatial_cut, 85/56 on "
-                "h3_text_to_video_pika_audio_freeze_beat_cut) against RepeatImageBatch default 1 (2026-11-26)."),
     ("MiniMaxH3SelfMaskRouter", "mask_source"):
         ("ARM", "'right_speaker' on h3_text_to_video_pika_self_mask_speaker_edit_guider "
                 "and 'audio_transients' on h3_text_to_video_pika_self_mask_audio_transients "
@@ -647,7 +635,8 @@ DECLARED: dict[tuple[str, str], tuple] = {
                 "centerpiece self-masking, against empty default (2026-11-26)."),
     ("MiniMaxH3SelfMaskRouter", "threshold_z"):
         ("ARM", "1.45 on h3_text_to_video_pika_self_mask_speaker_edit_guider to focus speaker "
-                "attribution before dilation, against node default 1.35 (2026-11-26)."),
+                "attribution before dilation, and 2.2 on h3_text_to_video_pika_self_mask_audio_transients "
+                "for thunderclap onset bursts, against node default 1.35 (2026-11-27)."),
     ("MiniMaxH3SelfMaskRouter", "dilation_passes"):
         ("ARM", "1 on h3_text_to_video_pika_self_mask_speaker_edit_guider so the SelfMask -> "
                 "2x EditGuider mask includes head/collar silhouette margin, against node default 0 (2026-11-26)."),
@@ -665,11 +654,14 @@ DECLARED: dict[tuple[str, str], tuple] = {
                 "against node default False (2026-11-26)."),
     ("MiniMaxH3DepthBeatMask", "mode"):
         ("ARM", "'depth_band_on_beat' on h3_i2v_pika_moge2_portal_tear to mask the far wall depth "
-                "band starting at the 0.5s portal-tear beat, against node default 'depth_band' (2026-11-26)."),
+                "band starting at the 0.5s portal-tear beat, and 'audio_beat_cut' on "
+                "h3_text_to_video_pika_multishot_spatial_cut and h3_text_to_video_pika_audio_freeze_beat_cut "
+                "for resolution-linked hard cuts at f85, against node default 'depth_band' (2026-11-27)."),
     ("MiniMaxH3DepthBeatMask", "beat_timing"):
-        ("ARM", "'manual_frame' on h3_i2v_pika_moge2_portal_tear so the portal opens cleanly at the "
-                "exact `cut_frame` matching `0.5s: slam` SoundCue without external WAV audio, "
-                "against node default 'auto_from_audio' (2026-11-26)."),
+        ("ARM", "'manual_frame' on h3_i2v_pika_moge2_portal_tear (cut_frame=12 matching 0.5s slam), "
+                "h3_text_to_video_pika_multishot_spatial_cut (cut_frame=85), and "
+                "h3_text_to_video_pika_audio_freeze_beat_cut (deterministic f85 downbeat with audio wired "
+                "for 1-click auto_from_audio), against node default 'auto_from_audio' (2026-11-27)."),
     ("MiniMaxH3DepthBeatMask", "cut_frame"):
         ("ARM", "12 (0.50 s at 24 fps) on h3_i2v_pika_moge2_portal_tear matching the `0.5s: slam` "
                 "SoundCue, against node default 85 (2026-11-26)."),

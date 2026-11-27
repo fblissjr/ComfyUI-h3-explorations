@@ -1034,7 +1034,13 @@ class H3LivePolicy:
     _prev_preview_rgb: np.ndarray | None = field(default=None, repr=False)
 
     def reset_for_new_run(self, *, clear_region: bool = False) -> None:
+        self.harvested_mask_thw = None
         self.harvested_mask_frames = None
+        self.mask_stats.clear()
+        self.step_history.clear()
+        self.audio_x0_history.clear()
+        self.video_x0_history.clear()
+        self.preview_history.clear()
         self.strength_scale = 1.0
         self.recommended_video_end_percent = None
         self.recommended_aud_to_vid_gain = None
@@ -1939,6 +1945,7 @@ def attach_self_mask_router(
                     kj_list.extend(mp.get_wrappers(WrappersMP.OUTER_SAMPLE, "kj_preview_override") or ())
                 except Exception:
                     pass
+            seen_ids = [id(getattr(kj, "frames", None)) for kj in kj_list]
             seen = [len(getattr(kj, "frames", ()) or ()) for kj in kj_list]
 
             def _drain_kj_frames(step_i: int) -> None:
@@ -1946,7 +1953,14 @@ def attach_self_mask_router(
                     frms = getattr(kj, "frames", None)
                     if not isinstance(frms, list):
                         continue
+                    cur_id = id(frms)
                     cur_n = len(frms)
+                    # ModelPreviewOverrideKJ resets `self.frames = []` inside its own OUTER_SAMPLE call.
+                    # When SelfMaskRouter wraps outside KJ on a cached run #2+, `seen` was initialized from
+                    # the previous run's list; detect the new list or shorter length so run #2+ never stalls.
+                    if cur_id != seen_ids[idx_k] or cur_n < seen[idx_k]:
+                        seen_ids[idx_k] = cur_id
+                        seen[idx_k] = 0
                     if cur_n > seen[idx_k]:
                         new_slice = frms[seen[idx_k] : cur_n]
                         seen[idx_k] = cur_n
@@ -1956,6 +1970,9 @@ def attach_self_mask_router(
                             if rgb_arr.ndim == 3 and rgb_arr.shape[2] >= 3:
                                 policy.update_from_preview(rgb_arr, step=int(step_i))
                                 if eff_critic_enabled and int(step_i) == 0 and not policy.critic_history:
+                                    # Note: runs in post-Step-0 callback, so scrubbing applies to Steps 1..5
+                                    # (fine-detail / color-bleed cleanup; removing Step-0 layout bars requires
+                                    # an outer Step-0 replay).
                                     c_res = (
                                         critic_fn(rgb_arr)
                                         if critic_fn is not None
@@ -2033,7 +2050,7 @@ def attach_self_mask_router(
                                     latent_t=lt,
                                     patch_h=ph,
                                     patch_w=pw,
-                                    z_thresh=max(2.2, float(threshold_z)),
+                                    z_thresh=float(threshold_z),
                                     softness=float(softness),
                                     invert=bool(invert),
                                 )
@@ -2097,8 +2114,9 @@ class MiniMaxH3SelfMaskRouter(io.ComfyNode):
                         "'text_phrase': localize target_phrase via Q_vid @ K_txt[phrase]^T (B35+B40); "
                         "'active_speaker'/'left_speaker'/'right_speaker': zero-training speaker spotlight "
                         "via Q_vid @ K_aud[t]^T (B35+B40); 'audio_transients': Step-0 audio_x0 onset burst mask "
-                        "(flux_z >= 2.2 with 2-step smooth decay); 'thermostat_only': pure H3LivePolicy Visual/"
-                        "Video-Freeze/Audio-Firewall thermostats with zero attention hooks (stacks with any router/EditGuider)."
+                        "(flux_z >= threshold_z with 2-step smooth decay; 2.2 recommended for thunderclaps); "
+                        "'thermostat_only': pure H3LivePolicy Visual/Video-Freeze/Audio-Firewall thermostats with "
+                        "zero attention hooks (stacks with any router/EditGuider)."
                     ),
                 ),
                 io.String.Input(
@@ -2112,7 +2130,7 @@ class MiniMaxH3SelfMaskRouter(io.ComfyNode):
                     min=0.20,
                     max=3.00,
                     step=0.05,
-                    tooltip="Spatial z-score threshold above frame median (higher = tighter mask around target peak; 1.35 calibrated on 4 MP H3-Image).",
+                    tooltip="Z-score threshold above median/mean (1.35 calibrated for spatial masks; ~2.2 recommended for audio_transients onset bursts).",
                 ),
                 io.Float.Input(
                     "softness",

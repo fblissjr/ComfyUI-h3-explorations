@@ -254,7 +254,7 @@
       ],
       "mask_source": "audio_transients",
       "target_phrase": "",
-      "threshold_z": 1.35,
+      "threshold_z": 2.2,
       "softness": 0.25,
       "dilation_passes": 0,
       "isolation": "all_0_49",

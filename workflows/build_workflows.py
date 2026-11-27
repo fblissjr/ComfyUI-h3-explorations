@@ -1653,6 +1653,7 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
               canvas_mode: str = "match_keyframe",
               last_frame: bool = False,
               first_frame: bool = True,
+              first_frame_image: str = PLACEHOLDER_IMAGE_A,
               stamp: bool = False, unet: str | None = None,
               lora: tuple[str, float] | None = None,
               # Apply `lora` at the call (lora_branch.py) instead of merging
@@ -2259,7 +2260,7 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
             # instead of being cropped into one chosen elsewhere.
             if first_frame:
                 g["15"] = {"class_type": "LoadImage",
-                           "inputs": {"image": PLACEHOLDER_IMAGE_A}}
+                           "inputs": {"image": first_frame_image}}
                 inputs["first_frame"] = ["15", 0]
             if last_frame:
                 # The second LoadImage is the whole difference between
@@ -2581,6 +2582,10 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
             }
             if task == "i2v" and first_frame:
                 dbm_in["image"] = ["15", 0]
+            if dbm.get("audio_from_freeze"):
+                if not freeze_audio:
+                    raise SystemExit("depth_beat_mask audio_from_freeze=True requires freeze_audio=True")
+                dbm_in["audio"] = ["48", 0]
             g["198"] = {"class_type": DEPTH_BEAT_MASK_NODE, "inputs": dbm_in}
             sqr_in["mask"] = ["198", 0]
         g["149"] = {"class_type": SPATIAL_QUERY_ROUTER_NODE, "inputs": sqr_in}
@@ -6633,10 +6638,14 @@ def main():
                   invert=False,
                   isolation="all_0_49",
                   audio_zone="follow_mask",
-                  split_mask=dict(split_frame=85, total_frames=192, width=1344, height=768),
+                  depth_beat_mask=dict(
+                      mode="audio_beat_cut",
+                      beat_timing="manual_frame",
+                      cut_frame=85,
+                  ),
               ),
               out_prefix="Video/h3_t2v_pika_multishot_spatial_cut"),
-         "1x temporal multi-shot AV hard cut at f85 (`t2va_silent_film` B&W solo upright piano -> `t2va_arena_rock_video` neon concert + belted vocals) via MiniMaxH3SpatialQueryRouter(isolation='all_0_49', audio_zone='follow_mask') + procedural temporal step mask on Pika H3 Flex 6-step LCM"),
+         "1x temporal multi-shot AV hard cut at f85 (`t2va_silent_film` B&W solo upright piano -> `t2va_arena_rock_video` neon concert + belted vocals) via MiniMaxH3DepthBeatMask(mode='audio_beat_cut', cut_frame=85) + MiniMaxH3SpatialQueryRouter(isolation='all_0_49', audio_zone='follow_mask') on Pika H3 Flex 6-step LCM"),
         ("h3_text_to_video_pika_binaural_dialogue_split.json", "t2v-pika-binaural-dialogue-split", "t2v",
          SPATIAL_BINAURAL_STAIRWELL_PROMPT,
          dict(width=1344, height=768, length=192,
@@ -6739,10 +6748,15 @@ def main():
                   invert=False,
                   isolation="all_0_49",
                   audio_zone="base",
-                  split_mask=dict(split_frame=85, total_frames=141, width=1344, height=768),
+                  depth_beat_mask=dict(
+                      mode="audio_beat_cut",
+                      beat_timing="manual_frame",
+                      cut_frame=85,
+                      audio_from_freeze=True,
+                  ),
               ),
               out_prefix="Video/h3_t2v_pika_audio_freeze_beat_cut"),
-         "1x beat-drop music-video smash cut at causal f85 (3.54 s downbeat) over a frozen audio track (`MiniMaxH3FreezeAudio` + lossless mux) via `MiniMaxH3SpatialQueryRouter(isolation='all_0_49', audio_zone='base')` + procedural 85/56 temporal step mask on Pika H3 Flex 6-step LCM"),
+         "1x beat-drop music-video smash cut at causal f85 (3.54 s downbeat) over a frozen audio track (`MiniMaxH3FreezeAudio` + lossless mux) via `MiniMaxH3DepthBeatMask(mode='audio_beat_cut', cut_frame=85, audio=LoadAudio)` + `MiniMaxH3SpatialQueryRouter(isolation='all_0_49', audio_zone='base')` on Pika H3 Flex 6-step LCM"),
         ("h3_text_to_video_pika_audio_freeze_spatial_portal.json", "t2v-pika-audio-freeze-spatial-portal", "t2v",
          MV_VIOLIN_FREEZE_BASE_PROMPT,
          dict(width=1344, height=768, length=141,
@@ -6813,7 +6827,7 @@ def main():
               self_mask_router=dict(
                   mask_source="audio_transients",
                   target_phrase="",
-                  threshold_z=1.35,
+                  threshold_z=2.2,
                   softness=0.25,
                   dilation_passes=0,
                   isolation="all_0_49",
@@ -6825,10 +6839,11 @@ def main():
                   region_prompt=AUDIO_TRANSIENTS_STUDY_REGION_PROMPT,
               ),
               out_prefix="Video/h3_t2v_pika_self_mask_audio_transients"),
-         "zero-WAV emergent lightning trigger (`SelfMaskRouter(mask_source='audio_transients', isolation='all_0_49')` detects Step-0 `audio_x0` thunderclap peaks with 2-step smoothed exponential release `[1.0, 0.58, 0.28]` and triggers electric-cyan storm bursts in `all_0_49` on Pika H3 Flex 6-step LCM)"),
+         "zero-WAV emergent lightning trigger (`SelfMaskRouter(mask_source='audio_transients', threshold_z=2.2, isolation='all_0_49')` detects Step-0 `audio_x0` thunderclap peaks with 2-step smoothed exponential release `[1.0, 0.58, 0.28]` and triggers electric-cyan storm bursts in `all_0_49` on Pika H3 Flex 6-step LCM)"),
         ("h3_i2v_pika_moge2_portal_tear.json", "i2v-pika-moge2-portal-tear", "i2v",
          PORTAL_TEAR_ROOM_BASE_I2V_PROMPT,
          dict(width=1344, height=768, length=141, last_frame=False,
+              first_frame_image="portal_tear_sunny_study_room.png",
               canvas_mode="explicit",
               lora=(PIKA_FL2VA_SVD995_LORA, PIKA_STRENGTH), lora_branch=True,
               steps=PIKA_STEPS, sampler_name=PIKA_SAMPLER,

@@ -719,29 +719,36 @@ def attach_query_router(
         and isinstance(model.model_options.get("transformer_options"), dict)
         and model.model_options["transformer_options"].get("_h3_live_policy") is not None
     )
-    if (
-        not has_live_policy
-        and sec_mode == "off"
+    is_noop_cfg = (
+        sec_mode == "off"
         and audio_cond_raw is None
         and video_cond_raw is None
         and a2v_gain >= (1.0 - 1e-6)
-    ):
-        return model
+    )
 
     m = model.clone()
     dm = getattr(getattr(m, "model", None), "diffusion_model", None)
     if not _steer_hooks.is_hookable_dit(dm):
+        if is_noop_cfg and not has_live_policy:
+            return model
         raise ValueError("MiniMaxH3QueryRouter requires a MiniMax H3 model with hookable DiT blocks")
     if _is_h3_image_model(dm):
+        if is_noop_cfg and not has_live_policy:
+            return model
         raise ValueError("MiniMaxH3QueryRouter targets joint audio-video MiniMax H3 models")
 
     _steer_hooks.parse_block_band(norm_vid_band, len(dm.blocks))
     _steer_hooks.parse_block_band(norm_aud_band, len(dm.blocks))
     _steer_hooks.parse_block_band(norm_ref_img_band, len(dm.blocks))
 
-    ws = _steer_hooks.install_steer_block_hooks(
-        m, dm, key_prefix=ROUTER_WRAPPER_KEY, node_label="MiniMaxH3QueryRouter"
-    )
+    try:
+        ws = _steer_hooks.install_steer_block_hooks(
+            m, dm, key_prefix=ROUTER_WRAPPER_KEY, node_label="MiniMaxH3QueryRouter"
+        )
+    except ValueError:
+        if is_noop_cfg and not has_live_policy:
+            return model
+        raise
     from comfy.patcher_extension import CallbacksMP, WrappersMP
 
     ref_cache: dict[str, Any] = {}

@@ -245,81 +245,29 @@
       "canvas": "explicit"
     }
   },
-  "190": {
-    "class_type": "SolidMask",
+  "198": {
+    "class_type": "MiniMaxH3DepthBeatMask",
     "inputs": {
-      "value": 0.0,
-      "width": 1344,
-      "height": 768
-    }
-  },
-  "191": {
-    "class_type": "MaskToImage",
-    "inputs": {
-      "mask": [
-        "190",
-        0
-      ]
-    }
-  },
-  "192": {
-    "class_type": "RepeatImageBatch",
-    "inputs": {
-      "image": [
-        "191",
+      "mode": "audio_beat_cut",
+      "beat_timing": "manual_frame",
+      "length": [
+        "27",
+        2
+      ],
+      "width": [
+        "27",
         0
       ],
-      "amount": 85
-    }
-  },
-  "193": {
-    "class_type": "SolidMask",
-    "inputs": {
-      "value": 1.0,
-      "width": 1344,
-      "height": 768
-    }
-  },
-  "194": {
-    "class_type": "MaskToImage",
-    "inputs": {
-      "mask": [
-        "193",
-        0
-      ]
-    }
-  },
-  "195": {
-    "class_type": "RepeatImageBatch",
-    "inputs": {
-      "image": [
-        "194",
-        0
+      "height": [
+        "27",
+        1
       ],
-      "amount": 107
-    }
-  },
-  "196": {
-    "class_type": "ImageBatch",
-    "inputs": {
-      "image1": [
-        "192",
-        0
-      ],
-      "image2": [
-        "195",
-        0
-      ]
-    }
-  },
-  "197": {
-    "class_type": "ImageToMask",
-    "inputs": {
-      "image": [
-        "196",
-        0
-      ],
-      "channel": "red"
+      "near_quantile": 0.65,
+      "far_quantile": 1.0,
+      "feather": 0.08,
+      "cut_frame": 85,
+      "pulse_decay_frames": 12,
+      "invert": false
     }
   },
   "149": {
@@ -343,7 +291,7 @@
       "start_percent": 0.0,
       "end_percent": 1.0,
       "mask": [
-        "197",
+        "198",
         0
       ]
     }

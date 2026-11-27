@@ -15,7 +15,9 @@ from __future__ import annotations
 
 import json
 import math
+import os
 from pathlib import Path
+import sys
 from typing import Any
 
 import numpy as np
@@ -37,6 +39,76 @@ BEAT_TIMING_MODES: tuple[str, ...] = (
 )
 
 _REPO_ROOT = Path(__file__).resolve().parent
+_MOGE2_REL_PATH = Path("facebook_hyden-mogev2-metric-point") / "hyden_mogev2_metric_point_vitl_fp32_f1066593896.pth"
+
+
+def _real_user_home() -> Path | None:
+    """Return the OS account home dir even when a service (e.g. comfyui.service) overrides `$HOME`."""
+    try:
+        import pwd
+
+        pw_dir = pwd.getpwuid(os.getuid()).pw_dir
+        if pw_dir:
+            return Path(pw_dir)
+    except Exception:
+        pass
+    return None
+
+
+def resolve_moge2_checkpoint(checkpoint: Path | str | None = None) -> Path:
+    """Resolve the HyDen MoGe-2 checkpoint safely under both interactive shells and systemd services.
+
+    Priority:
+      1. Explicit `checkpoint` argument
+      2. `H3_MOGE2_CHECKPOINT` environment variable
+      3. `$H3_MODEL_STORE` (from env or gitignored `h3.env`) / `facebook_hyden-mogev2-metric-point/...`
+      4. ComfyUI `folder_paths.models_dir` (if loaded)
+      5. Real OS account home (`pwd.getpwuid`) / `Storage/...` (immune to `HOME=<comfy>` overrides)
+      6. `vendor.meta_moge2.hyden_moge2.DEFAULT_CHECKPOINT`
+    """
+    if checkpoint is not None and str(checkpoint).strip():
+        return Path(checkpoint).expanduser()
+
+    env_ckpt = os.environ.get("H3_MOGE2_CHECKPOINT", "").strip()
+    if env_ckpt:
+        return Path(env_ckpt).expanduser()
+
+    # Load gitignored h3.env lazily when running inside ComfyUI without shell-exported H3_* vars.
+    store_env = os.environ.get("H3_MODEL_STORE", "").strip()
+    if not store_env:
+        try:
+            repo_str = str(_REPO_ROOT)
+            if repo_str not in sys.path:
+                sys.path.insert(0, repo_str)
+            from workflows import h3_env as _h3_env
+
+            _h3_env.load()
+            store_env = os.environ.get("H3_MODEL_STORE", "").strip()
+        except Exception:
+            pass
+
+    candidates: list[Path] = []
+    if store_env:
+        candidates.append(Path(store_env) / _MOGE2_REL_PATH)
+
+    fp_mod = sys.modules.get("folder_paths")
+    models_root = getattr(fp_mod, "models_dir", None) if fp_mod is not None else None
+    if models_root:
+        candidates.append(Path(models_root) / _MOGE2_REL_PATH)
+        candidates.append(Path(models_root) / "depth" / _MOGE2_REL_PATH.name)
+
+    real_home = _real_user_home()
+    if real_home is not None:
+        candidates.append(real_home / "Storage" / _MOGE2_REL_PATH)
+
+    candidates.append(Path.home() / "Storage" / _MOGE2_REL_PATH)
+
+    for cand in candidates:
+        if cand.is_file():
+            return cand
+
+    # Fall back to the first meaningful candidate (store_env or real_home) so error messages are actionable.
+    return candidates[0]
 
 
 def _cosine_smoothstep(edge0: float, edge1: float, x: torch.Tensor) -> torch.Tensor:
@@ -169,14 +241,12 @@ def compute_moge2_depth_frame(
 
     loaded_here = _model is None
     if loaded_here:
-        import sys
-
         repo_str = str(_REPO_ROOT)
         if repo_str not in sys.path:
             sys.path.insert(0, repo_str)
-        from vendor.meta_moge2.hyden_moge2 import DEFAULT_CHECKPOINT, load_hyden_moge2
+        from vendor.meta_moge2.hyden_moge2 import load_hyden_moge2
 
-        ckpt = Path(checkpoint) if checkpoint is not None else DEFAULT_CHECKPOINT
+        ckpt = resolve_moge2_checkpoint(checkpoint)
         model = load_hyden_moge2(ckpt, device=run_dev)
     else:
         model = _model.to(run_dev)

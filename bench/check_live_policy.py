@@ -1050,6 +1050,78 @@ def main() -> int:
     else:
         print("[ok] 12. Step-0 Visual Critic JSON parser + CPU WordVector project_out scrub verified (J-Lens bundle absent)")
 
+    # 13. Holistic regressions: reset_for_new_run full clear, Run-#2 cached KJ frames=[] reset,
+    #     reverse wire order QueryRouter -> SelfMask(thermostat_only), and transparent audio_transients threshold_z
+    pol_rst = lp.H3LivePolicy(mask_source="text_phrase", emit_ws_events=False)
+    pol_rst.harvested_mask_thw = torch.ones((1, 4, 4))
+    pol_rst.harvested_mask_frames = torch.ones((1, 4, 4))
+    pol_rst.mask_stats["coverage_mean"] = 0.5
+    pol_rst.step_history.append({"step": 0})
+    pol_rst.audio_x0_history.append({"step": 0})
+    pol_rst.video_x0_history.append({"step": 0})
+    pol_rst.preview_history.append({"step": 0})
+    pol_rst.reset_for_new_run()
+    assert pol_rst.harvested_mask_thw is None and pol_rst.harvested_mask_frames is None
+    assert not pol_rst.mask_stats and not pol_rst.step_history
+    assert not pol_rst.audio_x0_history and not pol_rst.video_x0_history and not pol_rst.preview_history
+
+    # Run-#2 cached ModelPreviewOverrideKJ (`kj.frames = []` reset inside inner OUTER_SAMPLE call)
+    p_r2, pol_r2 = lp.attach_self_mask_router(
+        base_p, region_conditioning=None, mask_source="thermostat_only", emit_ws_events=False
+    )
+    kj_r2 = _MockKJWrapper()
+    p_r2.add_wrapper_with_key(WrappersMP.OUTER_SAMPLE, "kj_preview_override", kj_r2)
+    bridge_r2 = p_r2.get_wrappers(WrappersMP.OUTER_SAMPLE, f"{lp.SELF_MASK_WRAPPER_KEY}_preview_bridge")[0]
+
+    class _MockCachedKJOuter:
+        def __init__(self, mp, kj_obj):
+            self.class_obj = types.SimpleNamespace(model_patcher=mp)
+            self.kj_obj = kj_obj
+
+        def __call__(self, noise, lat_i, sampler, sigmas, denoise_mask, cb, disable_pbar, seed, **kw):
+            # Mimic ModelPreviewOverrideKJ resetting `self.frames = []` at start of every run!
+            self.kj_obj.frames = []
+            for st in range(3):
+                self.kj_obj.frames.append(dim_frame)
+                cb(st, None, None, 3)
+            return lat_i
+
+    bridge_r2(_MockCachedKJOuter(p_r2, kj_r2), None, None, None, None, None, None, True, 1)
+    assert len(pol_r2.preview_history) == 3, f"Run 1 expected 3 preview frames, got {len(pol_r2.preview_history)}"
+    pol_r2.reset_for_new_run()
+    bridge_r2(_MockCachedKJOuter(p_r2, kj_r2), None, None, None, None, None, None, True, 2)
+    assert len(pol_r2.preview_history) == 3, f"Run 2 after KJ frames=[] reset stalled: got {len(pol_r2.preview_history)}"
+
+    # Reverse wire order: QueryRouter(sec_mode='off', aud_to_vid_gain=1.0) -> SelfMask(thermostat_only)
+    from steering import query_router as _qr_mod
+
+    p_qr_first = _qr_mod.attach_query_router(base_p.clone(), section_split="off", aud_to_vid_gain=1.0)
+    assert _qr_mod.ROUTER_WRAPPER_KEY in p_qr_first.wrappers.get(WrappersMP.DIFFUSION_MODEL, {}), (
+        "QueryRouter(sec_mode='off', a2v_gain=1.0) on hookable AV H3 must install its wrapper for downstream thermostat_only"
+    )
+    p_rev_qr, pol_rev_qr = lp.attach_self_mask_router(
+        p_qr_first, region_conditioning=None, mask_source="thermostat_only", emit_ws_events=False
+    )
+    out_rev_open, _ = p_rev_qr.run_step(ctx, layout_av, img, t_emb, mod_segs, sigma=0.8)
+    pol_rev_qr.recommended_aud_to_vid_gain = 0.0
+    out_rev_clamped, _ = p_rev_qr.run_step(ctx, layout_av, img, t_emb, mod_segs, sigma=0.6)
+    assert float((out_rev_clamped - out_rev_open).abs().max().item()) > 1e-4, (
+        "Reverse wire order QueryRouter -> SelfMask(thermostat_only) failed to apply live a2v=0.0 clamp!"
+    )
+
+    # Transparent `audio_transients` threshold_z (no silent max(2.2, threshold_z) override)
+    p_at_low, pol_at_low = lp.attach_self_mask_router(
+        base_p.clone(),
+        region_conditioning=reg_cond,
+        mask_source="audio_transients",
+        threshold_z=1.5,
+        emit_ws_events=False,
+    )
+    p_at_low.run_step(ctx, layout_av, img, t_emb, mod_segs, sigma=1.0, denoised=packed_burst10)
+    assert pol_at_low.mask_stats.get("z_thresh") == 1.5, f"threshold_z was silently overridden: {pol_at_low.mask_stats}"
+
+    print("[ok] 13. Regressions (full reset_for_new_run, Run-2 KJ frames=[] reset, reverse QR->Thermostat, transparent audio_transients z_thresh) verified")
+
     print("ALL H3 LivePolicy & SelfMaskRouter CPU checks passed!")
     return 0
 

@@ -22,6 +22,7 @@ from __future__ import annotations
 import functools
 import itertools
 import math
+import os
 from functools import partial
 from pathlib import Path
 from typing import Callable, Sequence
@@ -32,13 +33,34 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torchvision.ops.misc import Conv2dNormActivation
 
-#: Default local checkpoint path, resolved relative to the current user's home directory.
-DEFAULT_CHECKPOINT: Path = (
-    Path.home()
-    / "Storage"
-    / "facebook_hyden-mogev2-metric-point"
-    / "hyden_mogev2_metric_point_vitl_fp32_f1066593896.pth"
-)
+
+def _resolve_default_checkpoint() -> Path:
+    rel = Path("facebook_hyden-mogev2-metric-point") / "hyden_mogev2_metric_point_vitl_fp32_f1066593896.pth"
+    env_ckpt = os.environ.get("H3_MOGE2_CHECKPOINT", "").strip()
+    if env_ckpt:
+        return Path(env_ckpt).expanduser()
+    store_env = os.environ.get("H3_MODEL_STORE", "").strip()
+    if store_env:
+        cand = Path(store_env) / rel
+        if cand.is_file():
+            return cand
+    try:
+        import pwd
+
+        pw_dir = pwd.getpwuid(os.getuid()).pw_dir
+        if pw_dir:
+            cand = Path(pw_dir) / "Storage" / rel
+            if cand.is_file():
+                return cand
+    except Exception:
+        pass
+    if store_env:
+        return Path(store_env) / rel
+    return Path.home() / "Storage" / rel
+
+
+#: Default local checkpoint path, checking `$H3_MOGE2_CHECKPOINT`, `$H3_MODEL_STORE`, and real OS home before `$HOME`.
+DEFAULT_CHECKPOINT: Path = _resolve_default_checkpoint()
 
 #: Exact number of state_dict keys (738 parameters + 215 buffers) in the metric-point checkpoint.
 #: Measured on `hyden_mogev2_metric_point_vitl_fp32_f1066593896.pth` (483 keys without the

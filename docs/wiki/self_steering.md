@@ -29,7 +29,7 @@ Last updated: 2026-11-27.
 1. **Text-to-Video Self-Mask (`text_phrase`, Step-0 `blocks 35 + 40`):** Hooks `optimized_attention_override` during Step 0 only (with `pause_malloc_graph_ctx()`), pools `Q_vid @ K_txt[noun]^T` across `blocks 35` and `40` into a `[T, H, W]` spatial-temporal map (`11/11` `peak_in_box=True`, `3.54×–3.67×` contrast), and applies a soft `z`-score threshold (`threshold_z`, `softness`, optional `dilation_passes`).
 2. **Audio-Spatial Speaker Spotlight (`left_speaker` / `right_speaker` / `active_speaker`, Step-0 `blocks 35 + 40`):** Pools `Q_vid @ K_aud` per stereo channel (`L`, `R`, or active energy envelope) so H3 automatically masks whichever face is speaking on every latent step (`peak=[0.6786, 0.3125]` on `tb1`).
 3. **Step 0–2 `audio_x0` Transient & Collapse Monitor (`_post_cfg`, `< 1 ms`):** Inspects denoised stereo audio latents inside `set_model_sampler_post_cfg_function`:
-   - In `mask_source="audio_transients"`, detects emergent flux peaks (`flux_z >= max(2.2, threshold_z)`) at Step 0 and synthesizes a `[T, H, W]` burst mask for Steps `1..5` with **zero external WAV**.
+   - In `mask_source="audio_transients"`, detects emergent flux peaks (`flux_z >= threshold_z`, `2.2` recommended for thunderclaps) at Step 0 and synthesizes a `[T, H, W]` burst mask for Steps `1..5` with **zero external WAV**.
    - Continuously checks stereo L/R collapse and high-frequency hiss bleed on Steps `0..2`, setting `policy.recommended_aud_to_vid_gain = 0.0` when cross-modal leakage is detected.
 4. **`taeh3` Visual Preview Thermostat (`OUTER_SAMPLE` bridge, `0.0 ms` extra decode):** Wraps `WrappersMP.OUTER_SAMPLE` (`_preview_bridge_outer`) to read `ModelPreviewOverrideKJ.frames[-1]` synchronously after each step (order-independent whether KJ is wired upstream or downstream of `MiniMaxH3SelfMaskRouter`). Feeds `policy.update_from_preview(rgb, step)`:
    - Boosts `strength_scale` (`→ 1.12×`) on `dim_understeer_risk` (`tb2`).
@@ -93,7 +93,7 @@ The speaker modes are the same reading with audio keys in place of text keys: ea
 | 2 | **`region_conditioning`** | `None` *(optional)* | World B prompt for `1×` routing; leave unwired when bridging into `2× EditGuider` or running pure thermostat mode |
 | 3 | **`mask_source`** | `text_phrase` | `text_phrase` · `active_speaker` · `left_speaker` · `right_speaker` · `audio_transients` · `thermostat_only` |
 | 4 | **`target_phrase`** | `""` | Target noun/phrase for `text_phrase` mode (e.g., `"bread"`, `"woman in coat"`) |
-| 5 | **`threshold_z`** | `1.35` | Z-score mask cutoff (for `audio_transients`, effective floor is `max(2.2, threshold_z)`) |
+| 5 | **`threshold_z`** | `1.35` | Z-score mask cutoff (`1.35` calibrated for spatial masks; `2.2` recommended for `audio_transients` onset bursts) |
 | 6 | **`softness`** | `0.25` | Sigmoid feather width around `threshold_z` |
 | 7 | **`dilation_passes`** | `0` | Spatial `3×3` patch dilations (`1` recommended for `right_speaker → 2× EditGuider`) |
 | 8 | **`isolation`** | `early_0_24_shield` | All `9` `SpatialQueryRouter` isolation modes (`early_0_24_shield`, `mid_20_34_shield`, `all_0_49`, etc.) |

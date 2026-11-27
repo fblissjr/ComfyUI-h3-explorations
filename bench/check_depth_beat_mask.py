@@ -10,8 +10,10 @@ from __future__ import annotations
 
 import json
 import math
+import os
 from pathlib import Path
 import sys
+import tempfile
 
 HERE = Path(__file__).resolve().parent
 REPO_DIR = HERE.parent
@@ -32,6 +34,7 @@ from depth_beat_mask import (  # noqa: E402
     analyze_audio_waveform_beats,
     compute_depth_beat_mask,
     compute_moge2_depth_frame,
+    resolve_moge2_checkpoint,
 )
 from vendor.meta_moge2.hyden_moge2 import HyDenMoGe  # noqa: E402
 
@@ -72,7 +75,7 @@ def main() -> int:
     assert float(m_band[:, -14:, :].mean()) < 0.02, "near foreground must stay unmasked"
     band_info = json.loads(s_band)
     assert band_info["depth_stats"]["far_m"] == 20.0
-    print("[0/5 OK] depth_band isolates far depth quantile and preserves foreground")
+    print("[0/6 OK] depth_band isolates far depth quantile and preserves foreground")
 
     # 3. depth_wave advances near -> far across frames
     m_wave, _ = compute_depth_beat_mask(
@@ -88,7 +91,7 @@ def main() -> int:
     assert m_wave.shape == (length, h, w)
     assert float(m_wave[5, -8:, :].mean()) > float(m_wave[5, :8, :].mean())
     assert float(m_wave[-1, :8, :].mean()) > 0.85
-    print("[1/5 OK] depth_wave sweeps cleanly from near to far depth")
+    print("[1/6 OK] depth_wave sweeps cleanly from near to far depth")
 
     # 4. audio_beat_cut + audio_beat_pulse detect causal 17*m downbeat cleanly
     aud = _synthetic_audio()
@@ -116,7 +119,7 @@ def main() -> int:
     assert float(m_pulse[:40].max()) == 0.0
     assert float(m_pulse[51].mean()) > 0.70 and float(m_pulse[56].mean()) < float(m_pulse[51].mean())
     assert float(m_pulse[70].max()) == 0.0
-    print("[2/5 OK] audio_beat_cut and audio_beat_pulse lock onto 17*m beats with clean zero floor")
+    print("[2/6 OK] audio_beat_cut and audio_beat_pulse lock onto 17*m beats with clean zero floor")
 
     # 5. depth_band_on_beat holds entire room 0.0 before f12 then opens only back wall
     m_tear, s_tear = compute_depth_beat_mask(
@@ -135,7 +138,7 @@ def main() -> int:
     assert float(m_tear[30:, 4:14, :].mean()) > 0.90
     assert float(m_tear[30:, -14:, :].mean()) < 0.02
     assert json.loads(s_tear)["resolved_cut_frame"] == 12
-    print("[3/5 OK] depth_band_on_beat locks pre-tear room at 0.0 and opens far depth zone post-cut")
+    print("[3/6 OK] depth_band_on_beat locks pre-tear room at 0.0 and opens far depth zone post-cut")
 
     # 6. HyDenMoGe.tiny_for_tests() + node schema parity
     tiny = HyDenMoGe.tiny_for_tests().cpu()
@@ -156,7 +159,35 @@ def main() -> int:
     )
     assert out[0].shape == (39, 64, 64)
     assert float(out[0][:12].min()) == 1.0 and float(out[0][12:].max()) == 0.0
-    print("[4/5 OK] HyDenMoGe tiny inference + MiniMaxH3DepthBeatMask schema & inversion")
+    print("[4/6 OK] HyDenMoGe tiny inference + MiniMaxH3DepthBeatMask schema & inversion")
+
+    # 7. Service HOME override regression (`comfyui.service` sets HOME=<comfy> while checkpoint sits in $H3_MODEL_STORE)
+    with tempfile.TemporaryDirectory() as td:
+        td_p = Path(td)
+        fake_home = td_p / "fake_comfy_home"
+        fake_store = td_p / "model_store"
+        fake_ckpt = fake_store / "facebook_hyden-mogev2-metric-point" / "hyden_mogev2_metric_point_vitl_fp32_f1066593896.pth"
+        fake_ckpt.parent.mkdir(parents=True, exist_ok=True)
+        fake_ckpt.write_bytes(b"stub")
+        saved = {k: os.environ.get(k) for k in ("HOME", "H3_MODEL_STORE", "H3_MOGE2_CHECKPOINT")}
+        try:
+            os.environ["HOME"] = str(fake_home)
+            os.environ["H3_MODEL_STORE"] = str(fake_store)
+            os.environ.pop("H3_MOGE2_CHECKPOINT", None)
+            resolved = resolve_moge2_checkpoint()
+            assert resolved == fake_ckpt, f"expected {fake_ckpt}, got {resolved}"
+
+            override_ckpt = td_p / "custom_moge2.pth"
+            override_ckpt.write_bytes(b"stub2")
+            os.environ["H3_MOGE2_CHECKPOINT"] = str(override_ckpt)
+            assert resolve_moge2_checkpoint() == override_ckpt
+        finally:
+            for k, v in saved.items():
+                if v is None:
+                    os.environ.pop(k, None)
+                else:
+                    os.environ[k] = v
+    print("[5/6 OK] resolve_moge2_checkpoint ignores systemd HOME=<comfy> override via H3_MODEL_STORE & H3_MOGE2_CHECKPOINT")
     return 0
 
 
