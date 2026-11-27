@@ -586,8 +586,9 @@ def main() -> int:
     assert schema.node_id == "MiniMaxH3SelfMaskRouter"
     input_ids = [inp.id for inp in schema.inputs]
     assert input_ids[:4] == ["model", "region_conditioning", "mask_source", "target_phrase"]
-    assert input_ids[-1] == "replay_step0" and len(input_ids) == 15
+    assert input_ids[-2:] == ["replay_step0", "step0_critic"] and len(input_ids) == 16
     assert getattr(schema.inputs[1], "optional", False) is True, "region_conditioning must be optional=True"
+    assert getattr(schema.inputs[-1], "optional", False) is True, "step0_critic must be optional=True"
     print(f"[ok] 7. All refusal guards & MiniMaxH3SelfMaskRouter schema ({len(input_ids)} inputs) verified")
 
     # 8. `audio_transients` Step-0 burst mask (with 2-step smooth decay) + optional `region_conditioning=None` + `SelfMask -> 2x EditGuider` bridge
@@ -1121,6 +1122,110 @@ def main() -> int:
     assert pol_at_low.mask_stats.get("z_thresh") == 1.5, f"threshold_z was silently overridden: {pol_at_low.mask_stats}"
 
     print("[ok] 13. Regressions (full reset_for_new_run, Run-2 KJ frames=[] reset, reverse QR->Thermostat, transparent audio_transients z_thresh) verified")
+
+    # 14. True in-process Step-0 Visual Critic Rollback / Replay (1.0x when clean, 1.17x only on defect;
+    #     merged with replay_step0=True into ONE single Step-0 replay; plus real CPU taeh3 decode if installed)
+    # 14a. Clean Step-0 preview -> ZERO replay (1.0x)
+    clean_critic = {"ok": True, "has_border_seam": False, "has_color_bleed": False, "has_watermark_text": False, "scrub_words": [], "reason": "clean"}
+    p_c_clean, pol_c_clean = lp.attach_self_mask_router(
+        base_p.clone(),
+        region_conditioning=None,
+        mask_source="thermostat_only",
+        enable_heylook_critic=True,
+        critic_fn=lambda rgb: clean_critic,
+        preview_decoder_fn=lambda _x, _o: dim_frame,
+        emit_ws_events=False,
+    )
+    pol_c_clean._scrub_unit_vec_override = u_test
+    dm_w_clean = p_c_clean.wrappers[WrappersMP.DIFFUSION_MODEL][lp.SELF_MASK_WRAPPER_KEY][0]
+    calls_clean: list[torch.Tensor] = []
+    to_c0 = dict(p_c_clean.model_options["transformer_options"])
+    to_c0["sigmas"] = torch.tensor([1.0])
+    to_c0["sample_sigmas"] = torch.tensor([1.0, 0.8, 0.0])
+    dm_w_clean(
+        lambda x_, t_, c_, to_, **kw_: (calls_clean.append(c_.detach().clone()) or torch.zeros(1)),
+        [torch.zeros(1), torch.zeros(1)], torch.tensor([1000.0]), ctx_mix, to_c0,
+        minimax_payload={"text_token_tags": tags_mix},
+    )
+    assert len(calls_clean) == 1, f"Clean Step-0 critic must NOT replay (expected 1 call, got {len(calls_clean)})"
+    assert len(pol_c_clean.critic_history) == 1 and not pol_c_clean.project_out_words
+
+    # 14b. Defective Step-0 preview in `thermostat_only` -> immediate 1.17x Step-0 rollback replay with scrubbed context!
+    p_c_bad, pol_c_bad = lp.attach_self_mask_router(
+        base_p.clone(),
+        region_conditioning=None,
+        mask_source="thermostat_only",
+        enable_heylook_critic=True,
+        critic_scrub_alpha=0.80,
+        critic_fn=lambda rgb: parsed_c,
+        preview_decoder_fn=lambda _x, _o: dim_frame,
+        emit_ws_events=False,
+    )
+    pol_c_bad._scrub_unit_vec_override = u_test
+    dm_w_bad = p_c_bad.wrappers[WrappersMP.DIFFUSION_MODEL][lp.SELF_MASK_WRAPPER_KEY][0]
+    calls_bad: list[torch.Tensor] = []
+    to_cb = dict(p_c_bad.model_options["transformer_options"])
+    to_cb["sigmas"] = torch.tensor([1.0])
+    to_cb["sample_sigmas"] = torch.tensor([1.0, 0.8, 0.0])
+    dm_w_bad(
+        lambda x_, t_, c_, to_, **kw_: (calls_bad.append(c_.detach().clone()) or torch.zeros(1)),
+        [torch.zeros(1), torch.zeros(1)], torch.tensor([1000.0]), ctx_mix, to_cb,
+        minimax_payload={"text_token_tags": tags_mix},
+    )
+    assert len(calls_bad) == 2, f"Defective Step-0 critic must replay Step 0 once (expected 2 calls, got {len(calls_bad)})"
+    assert abs(float(calls_bad[0][0, 3, 7].item()) - 10.0) < 1e-4, "Initial Step-0 pass should be un-scrubbed"
+    assert abs(float(calls_bad[1][0, 3, 7].item()) - 2.0) < 1e-4, "Replayed Step-0 pass must scrub text row (10 -> 2.0)"
+    assert torch.equal(calls_bad[1][:, 0, :], ctx_mix[:, 0, :]), "Sink row 0 must remain bitwise identical"
+    assert torch.equal(calls_bad[1][:, 1:3, :], ctx_mix[:, 1:3, :]), "Vision rows must remain bitwise identical"
+    assert any(h.get("phase") == "critic_replay_step0" for h in pol_c_bad.step_history)
+
+    # 14c. Combined `replay_step0=True` + defective Step-0 critic -> ONE merged Step-0 replay (2 calls total, not 3!)
+    p_c_merge, pol_c_merge = lp.attach_self_mask_router(
+        base_p.clone(),
+        region_conditioning=reg_cond,
+        mask_source="text_phrase",
+        target_phrase="bread",
+        token_pieces=tok_pieces,
+        threshold_z=0.8,
+        replay_step0=True,
+        harvest_blocks=(2, 3),
+        enable_heylook_critic=True,
+        critic_scrub_alpha=0.80,
+        critic_fn=lambda rgb: parsed_c,
+        preview_decoder_fn=lambda _x, _o: dim_frame,
+        emit_ws_events=False,
+    )
+    u_test_mock = torch.zeros(int(ctx.shape[-1]), dtype=torch.float32)
+    u_test_mock[0] = 1.0
+    pol_c_merge._scrub_unit_vec_override = u_test_mock
+    dm_w_merge = p_c_merge.wrappers[WrappersMP.DIFFUSION_MODEL][lp.SELF_MASK_WRAPPER_KEY][0]
+    to_cm = dict(p_c_merge.model_options["transformer_options"])
+    to_cm["sigmas"] = torch.tensor([1.0])
+    to_cm["sample_sigmas"] = torch.tensor([1.0, 0.8, 0.0])
+    merge_calls: list[int] = []
+    dm_w_merge(
+        lambda x_, t_, c_, to_, **kw_: (merge_calls.append(1) or base_dm._forward(x_, t_, c_, to_, **kw_)),
+        [torch.zeros(1), torch.zeros(1)], torch.tensor([1000.0]), ctx, to_cm,
+        img=img, layout=layout_av, t_emb=t_emb, mod_segments=mod_segs,
+        minimax_payload={},
+    )
+    assert len(merge_calls) == 2, f"replay_step0 + critic rollback must merge into 1 replay (2 calls, got {len(merge_calls)})"
+    assert any(h.get("phase") == "critic_replay_step0" for h in pol_c_merge.step_history)
+    assert any(h.get("phase") == "routed" and h.get("replayed_step0") for h in pol_c_merge.step_history)
+
+    # 14d. Real CPU `taeh3.safetensors` & `taeh3_image.safetensors` single-frame decode (0 MB GPU)
+    tae_v = lp._resolve_taeh3_path(is_image=False)
+    tae_i = lp._resolve_taeh3_path(is_image=True)
+    tae_note = "taeh3 absent"
+    if tae_v is not None:
+        rgb_v = lp.decode_step0_latent_preview_rgb(torch.randn(1, 24, 3, 16, 28), is_image=False)
+        assert rgb_v is not None and rgb_v.ndim == 3 and rgb_v.shape[2] == 3 and rgb_v.dtype == np.uint8, rgb_v
+        tae_note = f"taeh3 video {rgb_v.shape}"
+    if tae_i is not None:
+        rgb_i = lp.decode_step0_latent_preview_rgb(torch.randn(1, 24, 1, 32, 32), is_image=True, max_edge=512)
+        assert rgb_i is not None and rgb_i.ndim == 3 and rgb_i.shape[2] == 3 and rgb_i.dtype == np.uint8, rgb_i
+        tae_note += f" + image {rgb_i.shape}"
+    print(f"[ok] 14. True Step-0 Visual Critic rollback replay (1.0x clean / 1.17x defect / merged replay_step0 + {tae_note}) verified")
 
     print("ALL H3 LivePolicy & SelfMaskRouter CPU checks passed!")
     return 0

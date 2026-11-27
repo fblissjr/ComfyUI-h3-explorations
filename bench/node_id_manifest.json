@@ -984,7 +984,8 @@
       "end_percent",
       "clip",
       "base_prompt",
-      "replay_step0"
+      "replay_step0",
+      "step0_critic"
     ],
     "node_id": "MiniMaxH3SelfMaskRouter",
     "outputs": [

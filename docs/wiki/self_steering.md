@@ -80,7 +80,7 @@ What was tried, what held, and what to build next: [`self_attention.md`](self_at
 
 ---
 
-## 4. `MiniMaxH3SelfMaskRouter` Controls Reference (`15` Inputs)
+## 4. `MiniMaxH3SelfMaskRouter` Controls Reference (`16` Inputs)
 
 | # | Input | Default | Role |
 | :-: | :--- | :---: | :--- |
@@ -98,3 +98,4 @@ What was tried, what held, and what to build next: [`self_attention.md`](self_at
 | 13 | **`clip`** *(optional)* | `None` | H3 `Qwen3-VL` encoder wire (needed by `text_phrase` to align token indices) |
 | 14 | **`base_prompt`** *(optional)* | `""` | Base prompt text (auto-reads `_h3_tail_text` if omitted on compatible conditioning) |
 | 15 | **`replay_step0`** *(optional)* | `False` | Re-runs Step 0 with the freshly harvested mask (`1.17×`, ideal for `4 MP` stills & bold material swaps) |
+| 16 | **`step0_critic`** *(optional)* | `False` | Zero-local-VRAM remote `heylook` Step-0 Visual Critic: decodes Step-0 `x0` on CPU via `taeh3`, inspects for borders/seams/watermarks/color-bleed, and ONLY on defect scrubs artifact words via CPU J-Lens and triggers a `1.17×` Step-0 rollback replay (`1.0×` when clean; also activatable via `H3_LIVE_CRITIC=1`) |

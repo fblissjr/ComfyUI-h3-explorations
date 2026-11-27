@@ -36,7 +36,9 @@ import json
 import logging
 import math
 import os
+from pathlib import Path
 import re
+import sys
 import time
 from typing import Any, Callable, Mapping, Sequence
 
@@ -588,6 +590,223 @@ def _parse_step0_critic_json(raw_text: str) -> dict[str, Any]:
     }
 
 
+_TAEH3_CACHE: dict[str, Any] = {}
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+
+
+def _resolve_taeh3_path(is_image: bool = False) -> Path | None:
+    """Locate `taeh3.safetensors` or `taeh3_image.safetensors` without trusting systemd `$HOME`."""
+    filename = "taeh3_image.safetensors" if is_image else "taeh3.safetensors"
+    candidates: list[Path] = []
+    fp_mod = sys.modules.get("folder_paths")
+    if fp_mod is not None:
+        get_full = getattr(fp_mod, "get_full_path", None)
+        if callable(get_full):
+            try:
+                hit = get_full("vae_approx", filename)
+                if hit:
+                    candidates.append(Path(hit))
+            except Exception:
+                pass
+        models_root = getattr(fp_mod, "models_dir", None)
+        if models_root:
+            candidates.append(Path(models_root) / "vae_approx" / filename)
+
+    store_env = os.environ.get("H3_MODEL_STORE", "").strip()
+    if not store_env:
+        try:
+            repo_str = str(_REPO_ROOT)
+            if repo_str not in sys.path:
+                sys.path.insert(0, repo_str)
+            from workflows import h3_env as _h3_env
+
+            _h3_env.load()
+            store_env = os.environ.get("H3_MODEL_STORE", "").strip()
+        except Exception:
+            pass
+    if store_env:
+        candidates.append(Path(store_env) / "Kijai_MiniMax-H3-TAE" / "vae_approx" / filename)
+
+    comfy_root = _REPO_ROOT.parent.parent
+    candidates.append(comfy_root / "models" / "vae_approx" / filename)
+
+    try:
+        import pwd
+
+        pw_dir = pwd.getpwuid(os.getuid()).pw_dir
+        if pw_dir:
+            candidates.append(Path(pw_dir) / "Storage" / "Kijai_MiniMax-H3-TAE" / "vae_approx" / filename)
+    except Exception:
+        pass
+
+    for cand in candidates:
+        if cand.is_file():
+            return cand
+    return None
+
+
+class _CPUTinyH3Decoder:
+    """Zero-VRAM CPU-only 2D `taeh3` / `taeh3_image` single-frame preview decoder."""
+
+    def __init__(self, ckpt_path: Path, max_edge: int = 512) -> None:
+        import torch.nn as nn
+        from safetensors.torch import load_file
+        from comfy.taesd.taesd import Block, Clamp, conv
+
+        sd = load_file(str(ckpt_path), device="cpu")
+        exit_sd = {k[len("exit."):]: sd.pop(k) for k in list(sd) if k.startswith("exit.")}
+        first = next(iter(sd))
+        if not first.split(".")[0].isdigit():
+            prefix = first.split(".")[0] + "."
+            sd = {k[len(prefix):]: v for k, v in sd.items() if k.startswith(prefix)}
+
+        by_idx: dict[int, dict[str, torch.Tensor]] = {}
+        for k, v in sd.items():
+            head, _, rest = k.partition(".")
+            if not head.isdigit():
+                raise ValueError(f"Unexpected non-indexed taeh3 key {k!r}")
+            by_idx.setdefault(int(head), {})[rest] = v
+
+        modules: list[nn.Module] = []
+        for i in range(max(by_idx) + 1):
+            entry = by_idx.get(i)
+            if entry is None:
+                modules.append(Clamp() if i == 0 else nn.ReLU() if i == 2 else nn.Upsample(scale_factor=2))
+            elif "conv.0.weight" in entry:
+                w = entry["conv.0.weight"]
+                if "pool.0.weight" in entry:
+                    modules.append(Block(w.shape[1], w.shape[0], use_midblock_gn=True))
+                else:
+                    modules.append(Block(w.shape[1], w.shape[0]))
+            elif "weight" in entry:
+                w = entry["weight"]
+                modules.append(conv(w.shape[1], w.shape[0], bias="bias" in entry))
+            else:
+                raise ValueError(f"Unrecognized taeh3 layer at index {i}: {sorted(entry)}")
+
+        self.model = nn.Sequential(*modules)
+        self.model.load_state_dict(sd, strict=True)
+        self.model.to(device="cpu", dtype=torch.float32).eval()
+        self.latent_channels = int(self.model[1].weight.shape[1])
+        self.max_edge = int(max_edge)
+        self.exits: list[tuple[int, nn.Module, nn.Module]] = []
+        if exit_sd:
+            heads = nn.ModuleDict(
+                {
+                    i: conv(exit_sd[f"{i}.weight"].shape[1], exit_sd[f"{i}.weight"].shape[0])
+                    for i in {k.split(".")[0] for k in exit_sd}
+                }
+            )
+            heads.load_state_dict(exit_sd, strict=True)
+            heads.to(device="cpu", dtype=torch.float32).eval()
+            for i in sorted(heads, key=int):
+                trunk = self.model[: int(i) + 1]
+                scale = 2 ** sum(isinstance(m, nn.Upsample) for m in trunk)
+                self.exits.append((scale, trunk, heads[i]))
+
+    @torch.inference_mode()
+    def decode_frame_rgb(self, lat_bchw: torch.Tensor) -> np.ndarray:
+        x = lat_bchw[:1].detach().to(device="cpu", dtype=torch.float32)
+        side = max(int(x.shape[-2]), int(x.shape[-1]))
+        out: torch.Tensor | None = None
+        if self.max_edge > 0 and self.exits:
+            for scale, trunk, head in self.exits:
+                if side * scale >= self.max_edge:
+                    out = head(trunk(x))
+                    break
+        if out is None:
+            out = self.model(x)
+        rgb = out[0].clamp(0.0, 1.0).mul(255.0).round().to(torch.uint8).permute(1, 2, 0).contiguous().numpy()
+        return rgb
+
+
+def decode_step0_latent_preview_rgb(
+    x0_video: torch.Tensor,
+    *,
+    is_image: bool = False,
+    max_edge: int = 512,
+) -> np.ndarray | None:
+    """Decode one representative Step-0 frame from `[B, C, T?, H, W]` on CPU via `taeh3` (`0 MB` GPU VRAM)."""
+    if not torch.is_tensor(x0_video) or x0_video.ndim not in (4, 5):
+        return None
+    if int(x0_video.shape[0]) < 1 or int(x0_video.shape[1]) < 4:
+        return None
+    if x0_video.ndim == 5:
+        t_len = int(x0_video.shape[2])
+        if t_len < 1:
+            return None
+        # Pick the midpoint frame on video so I2V inspects generated motion frames rather than the pinned still.
+        t_idx = t_len // 2
+        lat_2d = x0_video[:1, :, t_idx, :, :]
+        use_image_tae = is_image or (t_len == 1)
+    else:
+        lat_2d = x0_video[:1]
+        use_image_tae = True
+
+    ckpt = _resolve_taeh3_path(is_image=use_image_tae)
+    if ckpt is None and use_image_tae:
+        ckpt = _resolve_taeh3_path(is_image=False)
+    if ckpt is None:
+        return None
+    cache_key = f"{ckpt}::{int(max_edge)}"
+    dec = _TAEH3_CACHE.get(cache_key)
+    if dec is None:
+        try:
+            dec = _CPUTinyH3Decoder(ckpt, max_edge=max_edge)
+            if len(_TAEH3_CACHE) >= 4:
+                _TAEH3_CACHE.clear()
+            _TAEH3_CACHE[cache_key] = dec
+        except Exception as exc:
+            logger.debug("[h3] CPU taeh3 preview decoder unavailable (%s): %s", ckpt.name, exc)
+            return None
+    if int(lat_2d.shape[1]) != dec.latent_channels:
+        return None
+    try:
+        return dec.decode_frame_rgb(lat_2d)
+    except Exception as exc:
+        logger.debug("[h3] CPU taeh3 Step-0 decode skipped: %s", exc)
+        return None
+
+
+def _extract_video_latent(obj: Any) -> torch.Tensor | None:
+    if torch.is_tensor(obj):
+        if getattr(obj, "is_nested", False):
+            parts = obj.unbind()
+            return parts[0] if parts else None
+        return obj
+    if isinstance(obj, (list, tuple)) and len(obj) >= 1 and torch.is_tensor(obj[0]):
+        return obj[0]
+    return None
+
+
+def _estimate_step0_video_x0(
+    x: Any,
+    out: Any,
+    transformer_options: Mapping[str, Any] | None,
+    timestep: Any,
+) -> torch.Tensor | None:
+    """Compute CONST flow-matching `x0 = x - sigma * v` for the video stream on CPU (`0 MB` GPU)."""
+    x_v = _extract_video_latent(x)
+    out_v = _extract_video_latent(out)
+    if x_v is None or out_v is None or x_v.shape != out_v.shape or x_v.ndim not in (4, 5):
+        return None
+    sigma = 1.0
+    if isinstance(transformer_options, Mapping) and transformer_options.get("sigmas") is not None:
+        try:
+            sigma = float(torch.as_tensor(transformer_options["sigmas"]).detach().flatten()[0].item())
+        except Exception:
+            sigma = 1.0
+    elif timestep is not None:
+        try:
+            t_val = float(torch.as_tensor(timestep).detach().flatten()[0].item())
+            sigma = t_val / 1000.0 if t_val > 1.5 else t_val
+        except Exception:
+            sigma = 1.0
+    if not math.isfinite(sigma) or sigma <= 0.0:
+        sigma = 1.0
+    return (x_v[:1].detach().to(device="cpu", dtype=torch.float32) - sigma * out_v[:1].detach().to(device="cpu", dtype=torch.float32))
+
+
 def run_heylook_step0_critic(
     rgb_hwc: np.ndarray,
     *,
@@ -720,7 +939,7 @@ def apply_live_policy_text_scrub(
         return context, False
 
     ctx_work = context
-    if ctx_work.ndim == 3 and int(ctx_work.shape[-1]) != POST_REFINER_DIM:
+    if ctx_work.ndim == 3 and int(ctx_work.shape[-1]) != int(unit_vec.shape[0]) and int(ctx_work.shape[-1]) != POST_REFINER_DIM:
         if dm is None or not (hasattr(dm, "token_refiner") and hasattr(dm, "condition_proj")):
             return context, False
         ctx_work = _steer_hooks.refine_text_context(
@@ -1552,6 +1771,7 @@ def attach_self_mask_router(
     heylook_timeout_s: float = 18.0,
     critic_scrub_alpha: float = 0.85,
     critic_fn: Callable[[np.ndarray], Mapping[str, Any]] | None = None,
+    preview_decoder_fn: Callable[[Any, Any], np.ndarray | None] | None = None,
     auto_shield_sep_threshold: float = 12.0,
     auto_shield_max_coverage: float = 0.32,
 ) -> tuple[Any, H3LivePolicy]:
@@ -1739,6 +1959,49 @@ def attach_self_mask_router(
 
         payload = kwargs.get("minimax_payload") or {}
         tags_cur = payload.get("text_token_tags") if isinstance(payload, Mapping) else None
+        edit_pass = payload.get("h3_edit_pass") if isinstance(payload, Mapping) else None
+
+        def _maybe_run_step0_critic_and_scrub(
+            cur_out: Any,
+            cur_ctx: torch.Tensor,
+        ) -> tuple[torch.Tensor, bool]:
+            if not (eff_critic_enabled and cur_step == 0 and not policy.critic_history and edit_pass not in ("original", "edited")):
+                return cur_ctx, False
+            with _steer_hooks.pause_malloc_graph_ctx(), torch.no_grad():
+                if preview_decoder_fn is not None:
+                    rgb0 = preview_decoder_fn(x, cur_out)
+                else:
+                    x0_v = _estimate_step0_video_x0(x, cur_out, transformer_options, timestep)
+                    if x0_v is None:
+                        return cur_ctx, False
+                    is_img_stream = (not isinstance(x, (list, tuple))) and (x0_v.ndim == 4 or int(x0_v.shape[2]) == 1)
+                    rgb0 = decode_step0_latent_preview_rgb(x0_v, is_image=is_img_stream)
+                if rgb0 is None:
+                    return cur_ctx, False
+                c_res = (
+                    critic_fn(rgb0)
+                    if critic_fn is not None
+                    else run_heylook_step0_critic(
+                        rgb0,
+                        base_url=heylook_base_url,
+                        model=heylook_model,
+                        timeout_s=heylook_timeout_s,
+                    )
+                )
+                if not isinstance(c_res, Mapping):
+                    return cur_ctx, False
+                policy.update_from_critic(c_res, step=cur_step)
+                if not policy.project_out_words:
+                    return cur_ctx, False
+                ctx_sc, did_sc = apply_live_policy_text_scrub(
+                    cur_ctx,
+                    tags_cur,
+                    policy,
+                    dm=dm,
+                    transformer_options=transformer_options,
+                )
+                return ctx_sc, bool(did_sc)
+
         if policy.project_out_words:
             with _steer_hooks.pause_malloc_graph_ctx(), torch.no_grad():
                 context, did_scrub = apply_live_policy_text_scrub(
@@ -1761,9 +2024,25 @@ def attach_self_mask_router(
         if thermostat_only:
             to_pass = dict(transformer_options or {})
             to_pass[LIVE_POLICY_KEY] = policy
-            return executor(x, timestep, context, to_pass, **kwargs)
+            out = executor(x, timestep, context, to_pass, **kwargs)
+            ctx_sc, critic_replay = _maybe_run_step0_critic_and_scrub(out, context)
+            if critic_replay:
+                del out
+                policy.step_history.append(
+                    {
+                        "step": cur_step,
+                        "phase": "critic_replay_step0",
+                        "words": list(policy.project_out_words),
+                        "alpha": float(policy.critic_scrub_alpha),
+                    }
+                )
+                logger.info(
+                    "[h3] H3LivePolicy Step-0 Visual Critic triggered 1.17x Step-0 rollback replay (words=%s)",
+                    policy.project_out_words,
+                )
+                return executor(x, timestep, ctx_sc, to_pass, **kwargs)
+            return out
 
-        edit_pass = payload.get("h3_edit_pass") if isinstance(payload, Mapping) else None
         can_route_phase2 = (raw_b is not None) and (edit_pass not in ("original", "edited"))
 
         if can_route_phase2 and isinstance(transformer_options, dict) and transformer_options.get("_h3_steer_runtime") is not None:
@@ -1846,11 +2125,31 @@ def attach_self_mask_router(
                                 cur_step,
                                 sorted(h_blocks),
                             )
-            if not (replay_step0 and can_route_phase2 and policy.harvested_mask_frames is not None):
+            ctx_sc, critic_replay = _maybe_run_step0_critic_and_scrub(out, context)
+            if critic_replay:
+                context = ctx_sc
+                policy.step_history.append(
+                    {
+                        "step": cur_step,
+                        "phase": "critic_replay_step0",
+                        "words": list(policy.project_out_words),
+                        "alpha": float(policy.critic_scrub_alpha),
+                    }
+                )
+                logger.info(
+                    "[h3] H3LivePolicy Step-0 Visual Critic triggered 1.17x Step-0 rollback replay (words=%s)",
+                    policy.project_out_words,
+                )
+            want_mask_replay = bool(replay_step0 and can_route_phase2 and policy.harvested_mask_frames is not None)
+            if not (want_mask_replay or critic_replay):
                 return out
-            # `1.17x` mode: discard throwaway Step-0 harvest output and immediately replay Step 0
-            # routed through Phase 2 (`SpatialVisualQRRuntime`) on the newly locked mask.
+            # `1.17x` mode: discard throwaway Step-0 output and immediately replay Step 0
+            # (combining newly harvested mask routing and/or scrubbed critic conditioning in ONE replay).
             del out
+            if not (can_route_phase2 and policy.harvested_mask_frames is not None):
+                to_pass = dict(transformer_options or {})
+                to_pass[LIVE_POLICY_KEY] = policy
+                return executor(x, timestep, context, to_pass, **kwargs)
             replayed_step0 = True
 
         # Skip Phase-2 SpatialQR when operating in Sensor/Policy-only or `MiniMaxH3EditGuider` mode.
@@ -2202,6 +2501,18 @@ class MiniMaxH3SelfMaskRouter(io.ComfyNode):
                         "so dominant centerpieces adopt region_conditioning from the first step with soft shield seams."
                     ),
                 ),
+                io.Boolean.Input(
+                    "step0_critic",
+                    default=False,
+                    optional=True,
+                    tooltip=(
+                        "Optional zero-local-VRAM remote heylook Step-0 Visual Critic with automatic 1.17x "
+                        "Step-0 rollback replay: decodes Step-0 x0 on CPU via taeh3, inspects for black "
+                        "letterbox bars / split seams / watermarks / severe color bleed via heylook, and ONLY "
+                        "when a defect is flagged projects out the artifact words via CPU J-Lens and replays "
+                        "Step 0 before the sampler advances (1.0x when clean; also activatable via H3_LIVE_CRITIC=1)."
+                    ),
+                ),
             ],
             outputs=[io.Model.Output()],
         )
@@ -2224,6 +2535,7 @@ class MiniMaxH3SelfMaskRouter(io.ComfyNode):
         clip: Any = None,
         base_prompt: str = "",
         replay_step0: bool = False,
+        step0_critic: bool = False,
     ) -> io.NodeOutput:
         routed, _policy = attach_self_mask_router(
             model,
@@ -2241,5 +2553,6 @@ class MiniMaxH3SelfMaskRouter(io.ComfyNode):
             start_percent=start_percent,
             end_percent=end_percent,
             replay_step0=replay_step0,
+            enable_heylook_critic=bool(step0_critic),
         )
         return io.NodeOutput(routed)
