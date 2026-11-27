@@ -97,11 +97,17 @@ pass describes a walk the routed render no longer takes, so it trails her late i
 Reading the same head once more while the first routed pass runs fixes that: the mask comes from the render the
 routing is producing. Reading on every routed pass also holds, with a larger mask (record, section 8).
 
+The routed render is a different take altogether, not the plain clip with her swapped: she is larger in frame
+and the courtyard differs in detail (record, section 11). The arms that left the shot alone also left her alone.
+
 ### With two people, the head finds people and the region prompt picks one
 
 Head `43` marks both people, whichever person's words it is read against. In the renders the mask covered both
 and one changed: the one walking the direction the region prompt names. Swapping the target words did not change
 who; swapping the direction in the region prompt did (record, section 9).
+
+The words still show in how complete the change is. On close-up stills, the arms whose words named the other
+person left a piece of the original clothing on the one who changed (record, section 11).
 
 So today the target phrase says "where the subjects are" and the region prompt says "which one". That gave a
 clean result when the region prompt described her walk, and it means a region prompt that fits both people
@@ -148,6 +154,8 @@ A node-code change is built in a worktree outside `custom_nodes` (root `AGENTS.m
   competed with every other row for a patch.
 - **The edits were read on stills.** `compare_harvest_step_and_head_grid.mp4` and `two_people_grid.mp4` in the
   clips folder stack the arms with their masks for playback.
+- **Nothing here holds the scene still.** Every routed clip is a new take of the shot, so none of this is yet an
+  edit of an existing clip, and the chrome figure is a loud test pattern, not a look anyone tuned.
 - **In a mask strip the green is the mask, not the attention.**
 
 ---

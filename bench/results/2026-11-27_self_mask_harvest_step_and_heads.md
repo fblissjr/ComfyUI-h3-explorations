@@ -261,3 +261,25 @@ right to left" (his). `still red` / `still yellow` are means over the clean step
 - **Raw scores, not attention weights:** no softmax over all keys was computed.
 - **`coat-colored` measures red pixels**, which is a proxy for "still looks like the base walker"; the edit was
   read on stills and not on playback.
+
+## 11. Read later on close-up stills
+
+Three sheets cut from the clips at full size, in `$H3_OUTPUT_DIR/Video/self_mask_late_harvest_2026-11-27/`:
+`walk_closeup_sheet.png` (lower part of the frame at `f36 f72 f96 f120`), `two_people_closeup_sheet.png` (the same
+at `f48 f76 f84 f110`) and `walk_upper_right_zoom.png` (base, `f1` and `f2` at `f72 f96 f120`). Stills, not
+playback.
+
+- **A routed render is a different take of the scene, not the base clip with the subject changed.** In every
+  routed walk arm the walker is larger in frame than in `c0_walk_base`. The courtyard differs in detail too: `f1`
+  and `f2` have hanging lamps in the arches and a downpipe on the wall that the base clip does not have, and `f2`
+  has a bar across the right-hand arches that neither of the other two has. Section 5's "routing changes how fast
+  she walks" is too narrow a reading: where she is differs because the whole shot differs.
+- **The arms that changed her least are the ones nearest the base shot.** `d2` and `d3` (section 5) leave her as
+  filmed. Whether the edit can take without the shot changing was not tested.
+- **The target words do not pick who changes, but they show in how complete the change is.** `i1` (his words, her
+  direction) carries a red patch behind the chrome figure on all four frames. `i3` (her words, his direction)
+  keeps a yellow collar on all four and a human head on the earlier ones. `h2` and `i2`, whose words name the
+  person the region prompt describes, show neither. This agrees in direction with the `still red` and
+  `still yellow` columns in section 9. One seed, four frames per arm.
+- **The person who is not changed is not the person in the base clip either:** in `i2` and `i3` the woman's coat
+  is darker and longer than in `p3_two_people_base`, and `i2` is framed closer.
