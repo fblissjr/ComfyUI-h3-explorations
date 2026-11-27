@@ -31,10 +31,9 @@ Last updated: 2026-11-27.
 3. **Step 0–2 `audio_x0` Transient & Collapse Monitor (`_post_cfg`, `< 1 ms`):** Inspects denoised stereo audio latents inside `set_model_sampler_post_cfg_function`:
    - In `mask_source="audio_transients"`, detects emergent flux peaks (`flux_z >= threshold_z`, `2.2` recommended for thunderclaps) at Step 0 and synthesizes a `[T, H, W]` burst mask for Steps `1..5` with **zero external WAV**.
    - Continuously checks stereo L/R collapse and high-frequency hiss bleed on Steps `0..2`, setting `policy.recommended_aud_to_vid_gain = 0.0` when cross-modal leakage is detected.
-4. **`taeh3` Visual Preview Thermostat (`OUTER_SAMPLE` bridge, `0.0 ms` extra decode):** Wraps `WrappersMP.OUTER_SAMPLE` (`_preview_bridge_outer`) to read `ModelPreviewOverrideKJ.frames[-1]` synchronously after each step (order-independent whether KJ is wired upstream or downstream of `MiniMaxH3SelfMaskRouter`). Feeds `policy.update_from_preview(rgb, step)`:
-   - Boosts `strength_scale` (`→ 1.12×`) on `dim_understeer_risk` (`tb2`).
-   - Tapers `strength_scale` (`< 0.75×`) on highlight-clip burn.
-   - Governs Step-1 `recommended_video_end_percent` (`0.33 ↔ 0.50`) to prevent `<Picture 1>` copy-freeze without losing identity.
+4. **`taeh3` Visual Preview Thermostat (`OUTER_SAMPLE` bridge, `0.0 ms` extra decode) & Optional `1.17×` Step-0 Visual Critic (`step0_critic=True` / `H3_LIVE_CRITIC=1`):**
+   - Wraps `WrappersMP.OUTER_SAMPLE` (`_preview_bridge_outer`) to read `ModelPreviewOverrideKJ.frames[-1]` synchronously after each step (order-independent and Run-#2+ reset-safe whether KJ is wired upstream or downstream of `MiniMaxH3SelfMaskRouter`), boosting `strength_scale` (`→ 1.12×`) on `dim_understeer_risk` (`tb2`), tapering on highlight-clip burn, governing Step-1 `recommended_video_end_percent` (`0.33 ↔ 0.50`), and engaging Dynamic Step-1 Auto-Shield (`early_0_24 -> *_shield`) on washed-out small masks.
+   - When `step0_critic=True` (or `H3_LIVE_CRITIC=1`), decodes the Step-0 midpoint latent frame (`x0 = x - sigma * v`) on CPU via `taeh3.safetensors` / `taeh3_image.safetensors` (`0 MB` local VRAM, works even without `ModelPreviewOverrideKJ`), inspects it via remote `heylook` for borders/seams/watermarks/color-bleed, and **only when a defect is flagged** scrubs the artifact nouns via CPU J-Lens `WordVector(project_out)` and triggers a single `1.17×` Step-0 rollback replay before the sampler advances (`1.00×` when clean; merged with `replay_step0=True` into one replay when both fire).
 
 ### Whose Attention This Is
 
