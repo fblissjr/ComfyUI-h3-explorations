@@ -15,6 +15,10 @@ Older history lives elsewhere and is not copied here:
   decisions" and forward-plan sections.
 - `bench/results/`: the verdict records, each with its conditions.
 
+## 2026-11-27
+
+- **Self-mask on a moving subject: the first-step reading at blocks `35 + 40` does not follow her, and the page now says so ([`../../bench/results/2026-11-27_self_mask_harvest_step_and_heads.md`](../../bench/results/2026-11-27_self_mask_harvest_step_and_heads.md), [`self_attention.md`](self_attention.md)).** [`self_steering.md`](self_steering.md) used to describe the `text_phrase` sensor in one sentence and listed the `c1` / `c2` walk arms as moving-mask proofs; it now carries the step-by-step reading and its limits (`19a47212`), and the measured account lives in the new `self_attention.md`. What changed in substance: a later harvest (`start_percent`) gives a better mask and a weaker edit; block `45` was left out on `2026-11-26` because its all-head average is striped, and one head inside it (`43`) marks the subject at the first step on four clips; subtracting a control map does not help at the first step. Not changed: the wiki `README.md` line that H3 knows where every noun sits by step 0. It was drawn from the still-image arms; for a moving subject at the shipped blocks this record does not support it.
+
 ## 2026-11-26
 
 - **Closed-Loop `MiniMaxH3SelfMaskRouter` + `H3LivePolicy` (`eaa19c99`), Studio 2.0 Full Unlock (`app/.git` `61b69aa`), Stem Re-Score, Dual-Sprite D-Pad (`zc1`), `tb1..tb3` Silicon Gate, & `2` Curated Workflows ([`../../bench/results/2026-11-26_full_unlock_scout_self_mask_and_thermostat.md`](../../bench/results/2026-11-26_full_unlock_scout_self_mask_and_thermostat.md)):**

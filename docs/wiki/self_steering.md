@@ -36,14 +36,9 @@ Last updated: 2026-11-27.
    - Tapers `strength_scale` (`< 0.75×`) on highlight-clip burn.
    - Governs Step-1 `recommended_video_end_percent` (`0.33 ↔ 0.50`) to prevent `<Picture 1>` copy-freeze without losing identity.
 
-### Whose Attention This Is, and What Qwen3-VL Contributes
+### Whose Attention This Is
 
-The attention the self-mask reads is the DiT's. Qwen3-VL does not run during sampling, and its own attention is never read.
-
-- **Qwen3-VL runs once, before sampling.** It reads the prompt as raw text with no chat template, with a vision block spliced in for each wired picture or video, and hands over one hidden state per token from the layer where H3 cuts it. The layout for each mode is in the module docstring of core `comfy/text_encoders/minimax.py`; on a text-only render it sees text and nothing else. [`steering.md`](steering.md) section 2 describes the two text stages.
-- **The DiT turns those states into text rows** with `condition_proj` and the `TokenRefiner`, then packs them at the front of one sequence with the video and audio rows (`comfy/ldm/minimax/model.py::PackedLayout`, `comfy/ldm/minimax/model.py::MiniMaxH3Model._embed_and_pack`).
-- **Every block runs one attention over that whole sequence**, with no mask between kinds of row (`comfy/ldm/minimax/model.py::Attention.forward`). Text, video and audio rows all query and key each other, and every block rewrites all of them. By the harvest blocks, the row for a word is no longer the vector Qwen wrote: it started there and has been mixed with picture and sound in every block since.
-- **Qwen's tokenizer is used once more, as a lookup.** `text_phrase` has to know which rows spell the target words, and `extract_aligned_token_pieces` with `resolve_phrase_token_indices` in [`steering/live_policy.py`](../../steering/live_policy.py) finds them. That is the only reason the node takes a `clip` wire; no encoder pass runs.
+The attention the self-mask reads is the DiT's own, over one sequence of text, video and audio rows. Qwen3-VL runs once before sampling and supplies the starting text rows; its tokenizer is used again only to find which rows spell the target words, which is why the node takes a `clip` wire. [`self_attention.md`](self_attention.md) section 1 has the full account.
 
 ### How the `text_phrase` Map Is Made, Step by Step
 
@@ -58,12 +53,12 @@ The speaker modes are the same reading with audio keys in place of text keys: ea
 
 ### What the Map Cannot See
 
-- **It is a score against a few word rows, not a segmentation.** A frame is judged against itself, so on frames where the target scores weakly the highest-scoring patches of that frame can still pass the cutoff. `cross_time_scale_floor` damps this and does not remove it.
-- **It is fixed at the first step.** Motion that the later steps settle differently is not followed.
-- **No control is subtracted.** The score for a word row is not compared with the score for any other row, so patches that score high against text in general are not taken out. Whether subtracting a control row's map, or keeping only some heads, tightens the mask is untested.
-- **Worked example, read from stills and not judged on playback (2026-11-27).** On arm `c2_walk_woman_coat_replay_e024` (three target words) the mask covers the walking woman in the early panels of its `mask_strip.png`, along with dark arch openings beside her, and sits only on arches in the late panels while she walks on unchanged. On arm `c1_walk_text_phrase_woman` (one word, a looser cutoff) it is spread over arches across the frame. Both rows are in the calibration record linked in step 2, and the strips are under `$H3_OUTPUT_DIR/Video/track2_self_mask_av_2026-11-26/`.
-- **In a mask strip the green is the mask, not the attention.** The `cov=` label on each panel matches that frame's `hard_cov` under `delta_vs_base.trajectory_12f` in the run's report JSON beside the strips. No script in this repo writes those strips (searched for `mask_strip`, 2026-11-27).
-- **`in_over_out_ratio` in those reports compares against a separately rendered base clip.** It mixes the edit with any difference in where the subject stands, and on both walk arms it came out below one.
+- **It is a score against a few word rows, not a segmentation.** A frame is judged against itself, so on frames where the target scores weakly the highest-scoring patches of that frame can still pass the cutoff.
+- **It is fixed at the first step, and the first step is early for a moving subject.** On a figure crossing a wide shot the shipped reading does not follow her; the same words do two steps later, and one head at a later block already does at the first step. `start_percent` moves the harvest step with no code change, at the cost of a weaker edit.
+- **In a mask strip the green is the mask, not the attention.**
+- **`in_over_out_ratio` in the run reports compares against a separately rendered base clip,** so it mixes the edit with any difference in where the subject stands.
+
+What was tried, what held, and what to build next: [`self_attention.md`](self_attention.md), with every figure in [`2026-11-27_self_mask_harvest_step_and_heads.md`](../../bench/results/2026-11-27_self_mask_harvest_step_and_heads.md).
 
 ### The Shared `H3LivePolicy` Bus & Four Actuators
 `attach_self_mask_router(...)` attaches the live `H3LivePolicy` instance on **both** `model._h3_live_policy` and `model.model_options["transformer_options"]["_h3_live_policy"]` (preserved across ComfyUI `ModelPatcher.clone()` via `deepcopy_list_dict`) and streams `h3_self_steer` WebSocket events (`self_mask_locked`, `preview_thermostat`, `audio_x0_thermostat`) directly to H3 Studio 2.0:
