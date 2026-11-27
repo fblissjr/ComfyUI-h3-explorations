@@ -276,7 +276,8 @@ playback.
 
 - **A routed render is a different take of the scene, not the base clip with the subject changed.** In every
   routed walk arm the walker is larger in frame than in `c0_walk_base`. The courtyard differs in detail too: `f1`
-  and `f2` have hanging lamps in the arches and a downpipe on the wall that the base clip does not have, and `f2`
+  and `f2` have hanging lamps in arches where the base clip has none (the base has one, in the arch left of the center
+  door; corrected in section 13) and a downpipe on the wall that the base clip does not have, and `f2`
   has a bar across the right-hand arches that neither of the other two has. Section 5's "routing changes how fast
   she walks" is too narrow a reading: where she is differs because the whole shot differs.
 - **The arms that changed her least are the ones nearest the base shot.** `d2` and `d3` (section 5) leave her as
@@ -330,3 +331,34 @@ measures pixel MAE in a 2-patch ring around the base walker blob.
     glow at boot contact; `ground_ring_mae = 12.42`).
 - **Caveat:** Verified on full-res close-up stills and quantitative metrics; motion smoothness and audio still need
   playback inspection (`k2_walk_b45_h43_edit_guider_d1_00001-audio.mp4`). One prompt, one seed.
+
+## 13. Phase 0, a second reading
+
+`data/self_mask_probe_2026-11-27/analyze_phase0_second_reading.py` on `k1`, `k2` and `c0_walk_base`, and the sheet
+`phase0_second_reading_diff_sheet.png` in `$H3_OUTPUT_DIR/Video/head_atlas_2026-11-27/`. Arrays and stills, not
+playback. Neither clip has been listened to.
+
+| Reading | `c0_walk_base` | `k1` | `k2` |
+| :--- | :-: | :-: | :-: |
+| Coat-colored, median over every frame (the measure of sections 5 and 8) | `0.570` | `0.021` | `0.000` |
+| Frames above `0.15`, of `141` | `127` | `0` | `0` |
+| Mask cells exactly zero | not applicable | `0.876` | `0.756` |
+| Mask cells above `0.5` | not applicable | `0.065` | `0.125` |
+| Pixels that differ from the base for the whole clip by more than `10` / `20` / `40` | not applicable | `0.206` / `0.083` / `0.024` | `0.262` / `0.115` / `0.032` |
+| Sound, rms | `0.0094` | `0.0116` | `0.0149` |
+| Sound, loudness envelope against the base: at zero shift / best within `0.3 s` | not applicable | `0.215` / `0.235` | `0.064` / `0.350` |
+
+- **The change holds on every frame** by the earlier sections' measure, in both clips.
+- **The shot holds in layout, not in detail.** Arcade, roof, framing and her path match the base clip. Fixtures do
+  not: at `f72` the base clip has a hanging lantern in the arch left of the center door, and `k1` and `k2` have a
+  small barred window there and no lantern. Fine texture differs across the frame.
+- **Those differences do not come from the mask,** which is exactly zero on most cells. Outside the mask each step
+  follows the plain prompt's prediction, and that prediction is made on a picture whose masked part has changed.
+- **The sound did not hold the way the picture did.** With `streams="video_only"` the soundtrack is a different
+  take from the base clip's, and louder. Whether the footsteps still land on her steps cannot be told from an
+  envelope; it has to be listened to.
+- **`coat_red` in section 12 is not the `coat-colored` of sections 5 and 8.** The rule and the area it is taken
+  over differ (the base clip reads low in section 12 and high in section 5), so those columns do not compare
+  across sections.
+- **Correction to section 11:** the base clip does have one hanging lamp. The routed `1×` arms have lamps in
+  arches where the base has none.
