@@ -15,7 +15,7 @@ this file is only a way to find a script by what it says it does.
 | [`compare_*`](#compare) | 10 |
 | [`build_*`](#build) | 12 |
 | [`probe_*`](#probe) | 16 |
-| [the rest](#the-rest) | 195 |
+| [the rest](#the-rest) | 197 |
 
 ## check
 
@@ -339,6 +339,7 @@ this file is only a way to find a script by what it says it does.
 | [`_live_sol.py`](_live_sol.py) | Import the Sol-Attn node that ACTUALLY RUNS, for scripts that need its code. |
 | [`_paths.py`](_paths.py) | Where ComfyUI's media and this box's captures live, resolved rather than typed. |
 | [`_sol_attn_reference.py`](_sol_attn_reference.py) | Sol-Attn eager reference, vendored from upstream comfy-kitchen. |
+| [`ai_song_sdedit_covers.py`](ai_song_sdedit_covers.py) | Zero-memorization real-world AI-song validation of the 2-Pass Audio SDEdit Cover Pipeline. |
 | [`assemble_delivery.py`](assemble_delivery.py) | One delivery file from masked renders and the untouched original: the source's own rate and audio packets, passes over the same frames merged by what each changed, and a check by decode that every frame is there once. |
 | [`audit_audio_freeze_control.py`](audit_audio_freeze_control.py) | The control for the audio-freeze node: the sibling pack's song node, bit for bit. |
 | [`audit_h3_marker_tokenization.py`](audit_h3_marker_tokenization.py) | What ComfyUI's tokenizer does to the seven markers the release declares, scene by scene. |
@@ -427,6 +428,7 @@ this file is only a way to find a script by what it says it does.
 | [`masked_render_time_breakdown.py`](masked_render_time_breakdown.py) | Where a masked song render's seconds go: by node, and by stage inside the song node. |
 | [`minimise_token_aug_repro.py`](minimise_token_aug_repro.py) | How small can the `token_aug` nondeterminism repro get? |
 | [`music_cover_gate.py`](music_cover_gate.py) | Phase 1 Zero-Code Diagnostic Gate for H3 Music-Video Voice & Style Adaptation. |
+| [`music_cover_shootout.py`](music_cover_shootout.py) | Zero-memorization 6-arm shootout: Audio SDEdit (`denoise=0.40/0.50/0.60`) vs Late-Only `AudioRefRouter` (`split=34/38/42`). |
 | [`o1_lossless_blocking.py`](o1_lossless_blocking.py) | O1's own test: is dark-region blocking the model's or the video encoder's? |
 | [`others_present.py`](others_present.py) | Who else is in a shot: the people a preview's trackers numbered that are none of the video's subjects, a shot at a time. |
 | [`page_answers_ledger.py`](page_answers_ledger.py) | Every line the owner saved on the local page, beside the record that carries it, and the lines no record cites yet. |
@@ -727,7 +729,7 @@ Arm manifests and the like; a manifest's line is its own `what`.
 
 ### results
 
-274 tracked files: [`results/INDEX.md`](results/INDEX.md).
+275 tracked files: [`results/INDEX.md`](results/INDEX.md).
 
 ### rubrics
 
