@@ -119,10 +119,13 @@ routed, _pol = attach_self_mask_router(
 # -> MiniMaxH3EditGuider(routed, original=base_cond, edited=edit_cond, scale=1.95, first_step=1, last_step=3, streams="video_only", mask=None)
 ```
 
-On the walk clip (`k2`, `87.5 s`, record section 12), this transforms her head-to-toe across all `141f`
-(`coat_red <= 0.001`, `5.12×` in/bg MAE contrast) while keeping the base courtyard, chimneys, clouds, and walk pace
-locked (`upper_courtyard_mae = 6.98` vs. `22.05` for `1×` `f1`, zero added lamps or downpipe). `dilation_passes=0`
-(`k1`, `5.58×` contrast) is slightly tighter around the boots but leaves her head/hair partly human.
+On the walk clip (`k2`, `87.5 s`, record sections 12 & 13), this transforms her head-to-toe across all `141f`
+(median `0.000` coat-colored, `0/141` frames above `0.15`, `5.12×` in/bg MAE) while **holding the base layout,
+framing, roof/chimneys, and walk pace** (`upper_courtyard_mae = 6.98` vs. `22.05` for `1×` `f1`) with
+`reharvest="off"`. It is **close, not pixel-identical**: small fixtures (a hanging lantern left of the center door
+becomes a small barred window), fine stone texture, and the soundtrack (`rms` and envelope, even at
+`streams="video_only"`) still shift because Steps `2..5` run on a latent whose masked region has changed.
+`dilation_passes=0` (`k1`, `5.58×` contrast) is tighter around the boots but leaves her hair/head partly human.
 
 ### `1×` Single-Pass Routing (Generates a New Take)
 
@@ -260,31 +263,37 @@ Several of our probing habits and next-step experiments are directly adapted fro
 
 ### 5A. Immediate Self-Mask & Small-Subject Follow-Ups
 
-1. **Completed (`2026-11-27`, record section 12) — Hold the base take still on `< 9%` subjects (`B45 H43` SelfMask → `2× MiniMaxH3EditGuider`):**
-   - Verified on `c0_walk_base` (`k1` `d0` & `k2` `d1`): `k2` held the courtyard framing, roof/chimneys, and walk
-     pace (`upper_courtyard_mae = 6.98` vs. `22.05` for `1×` `f1`) while delivering a full head-to-toe chrome edit
-     (`coat_red <= 0.001`, `5.12×` in/bg MAE) with `reharvest="off"`. Remaining check: playback/audio review and
-     two-person / held-out confirmation.
-2. **Rotation check + text-only softmax on the `"who is who"` heads (`B46 H13`, `B48 H3`, `B48 H29`, `B47 H17`):**
-   - Run Sauers' rotation design across `5–10` new multi-subject clips (two people, person + dog, car + cyclist):
-     score every subject phrase against every competing subject phrase from the *same* Step-0 forward pass (zero
-     extra renders).
+1. **Completed (`2026-11-27`, record sections 12 & 13) — Hold the base layout on `< 9%` subjects (`B45 H43` SelfMask → `2× MiniMaxH3EditGuider`):**
+   - Verified on `c0_walk_base` (`k1` `d0` & `k2` `d1`): `k2` held layout, framing, chimneys, and walk pace
+     (`upper_courtyard_mae = 6.98` vs. `22.05` for `1×` `f1`) while delivering a full head-to-toe chrome edit
+     (median `0.000` coat-colored across all `141f`) with `reharvest="off"`. Small background fixtures (lantern →
+     barred window left of center door), fine texture, and audio (`rms` & envelope) still shifted; playback/audio
+     check pending.
+2. **Next single render — Run the two-person prompt (`p3`) through `B45 H43 -> 2× EditGuider`:**
+   - Because `B45 H43` masks both people, one `~90 s` render shows whether both change under `EditGuider` or the
+     edit prompt still picks one (and whether the untouched walker holds closer to `p3_two_people_base` than in
+     `1×` `h2`/`i2`).
+3. **Sweep 1A alone first — Rotation + text-only softmax on the `"who is who"` heads (`B46 H13`, `B48 H3`, `B48 H29`, `B47 H17`):**
+   - Start directly from `data/self_mask_probe_2026-11-27/run_reharvest_two_subjects.py` and
+     `analyze_two_people_heads.py` across new held-out multi-subject clips (pick heads on one set, score on
+     another) before writing a broader probe library.
    - Compare **raw `target - other` logits** vs. **text-only softmax** across prompt tokens (and check whether
      pulling attention log-sum-exp `LSE` is needed to avoid dropping the video-token denominator).
-   - Goal: establish whether a fixed small set of layer `46–48` heads reliably separates subjects by word across
-     scenes, and test `B45 H43` ∩ `word-binding head` in live renders.
-3. **Wider shot survey before changing any node default:**
+4. **Wider shot survey before changing any node default:**
    - Test `B45 H43` (and sweep all `56` heads) on **still objects** (`MiniMax-H3-Image` `4 MP` bread on a table),
-     **close-ups**, **moving cameras**, and **`ref2va`** to determine whether `B45 H43` is strictly a
-     *motion/mover* head or a general *foreground-subject* head.
-4. **Non-direction region-prompt cues:**
+     **close-ups**, **moving cameras**, and **`ref2va`** — using offline `SAM 3.1` truth for static/close-up
+     scoring (since background-median subtraction requires a moving subject on a locked camera).
+   - If promoted to the node, prefer exposing raw optional `harvest_heads` / `reharvest` rather than baking a
+     checkpoint-specific head index into a preset default.
+5. **Non-direction region-prompt cues:**
    - Test a region prompt cue other than walking direction (color, wardrobe, size) to see how far "the region
      prompt picks who changes" extends when two subjects share a mask.
 
 ### 5B. Beyond Masking — Self-Attention Explorations on the DiT Side of the Coin
 
 Because H3 runs `5`-way joint self-attention across all `50 × 56` heads, Sauers' head-level toolkit on `Qwen3`
-maps cleanly onto five non-masking corners of H3's attention matrix:
+maps cleanly onto non-masking corners of H3's attention matrix (run one sweep at a time with held-out truth, and
+build **one** actuator in Phase 2 — whichever corner's heads beat random sets):
 
 1. **Reference-Image Identity vs. Pose / Copy-Freeze Head Surgery (`Q_vid -> K_ref_img`):**
    - `MiniMaxH3ReleaseReferences` currently drops all heads across all blocks at once. Sweep `Q_vid -> K_ref_img`
@@ -293,31 +302,31 @@ maps cleanly onto five non-masking corners of H3's attention matrix:
      clip — or blend two references (`<Picture 1>` face + `<Picture 2>` lighting/wardrobe).
 2. **Selective Audio ↔ Video Sync Heads & Realized-Gain Calibration (`Q_aud <-> K_vid`):**
    - Calibrate our existing `QueryRouter` firewall (`aud_to_vid_gain`) by **realized attention mass ratio** (as in
-     `attn_intro.py:213-215`), not only nominal gain.
+     `coderef/sauers/attention_introspection/attn_intro.py:213-215`), not only nominal gain.
    - Sweep `Q_aud <-> K_vid` head-by-head to separate **lip-sync / foley-timing heads** from **visual-ambience /
      genre-bleed heads** — unlocking a selective firewall (swap music/atmosphere without breaking lip-sync),
      positive boosts (`+log(m)`) to tighten soft lip-sync or beat reactions, and L/R attention-driven stereo.
-3. **Temporal Memory Heads vs. Local Motion Heads (`Q_vid(t) -> K_vid(t')`):**
-   - Separate short-range motion heads (`t ± 1`) from long-range anchor heads (`t -> t_0` / `cond`). Boosting
-     long-range anchor heads could curb identity/wardrobe drift on `192f–345f` clips; cutting only local motion
-     heads across a cut boundary while keeping identity heads open enables same-character shot-reverse-shot in
-     one pass.
-4. **Calibrated `±log(m)` Word & Clause Volume Knobs + Temporal Ramps (`Q_vid -> K_txt`):**
+3. **Calibrated `±log(m)` Word & Clause Volume Knobs + Temporal Ramps (`Q_vid -> K_txt`):**
    - Extend the additive pre-softmax bias pattern (`steering/hooks.py::_build_aud_attn_bias`) to specific prompt
      words/clauses — turning `"rain"`, `"16mm grain"`, or `"slow motion"` smoothly up or down on the **exact same
      seed** (avoiding Qwen's pink-elephant effect on `"no fog"`), or ramping `m(t)` over time inside one shot.
-   - Expected limit: unlikely to replace hard KV isolation (`SpatialVisualQRRuntime`) for bold World A / World B
-     swaps due to bidirectional `Q_vid <-> K_vid` cross-talk.
-5. **Crossing the `Qwen3-VL` ↔ `DiT` Bridge (`attention_introspection` + `vlens` + `body`):**
-   - Apply Sauers' `w += log(m)` boost **inside `Qwen3-VL-32B` layers 21–53** (onto a subject clause or `<Picture 1>`
-     vision tokens) *before* handing hidden states to H3's DiT, to test whether Qwen-side attention shifts survive
-     the `TokenRefiner` and visibly steer the rendered video.
-   - Test `vlens`-style earlier `Qwen3-VL` cut-layer reads and `body`-style orthogonal **camera-motion vs.
-     subject-motion** heads inside the DiT.
+   - Reading-side attention gain (distinct from the push-side multivector routing retired on `2026-11-24`, but
+     confirm owner green-light before building); unlikely to replace hard KV isolation (`SpatialVisualQRRuntime`)
+     for bold World A / World B swaps due to bidirectional `Q_vid <-> K_vid` cross-talk.
+4. **Temporal Memory Heads vs. Local Motion Heads (`Q_vid(t) -> K_vid(t')`, later — needs fresh hooked pass):**
+   - Saved probe arrays store video-to-word maps only, so measuring `t ± 1` vs. `t = 0` requires a dedicated
+     in-hook pass. Separate short-range motion heads from long-range identity anchor heads to curb drift on
+     `192f–345f` clips or enable same-character shot-reverse-shot cuts.
+5. **Crossing the `Qwen3-VL` ↔ `DiT` Bridge (later — note layer-50 truncation):**
+   - H3's `Qwen3-VL-32B` checkpoint is **truncated at layer 50** (`comfy/text_encoders/minimax.py`), so any
+     Sauers-style `w += log(m)` boost inside `Qwen3-VL` must target layers `<= 50` (e.g., `21..49`, not `21..53`).
+     Test whether Qwen-side boosts onto a subject clause or `<Picture 1>` vision tokens survive `TokenRefiner`
+     into the rendered video, plus `vlens`-style earlier cut layers and `body`-style camera-vs-subject motion axes.
 6. **50-Block Functional Head Atlas (Readable vs. Load-Bearing):**
    - Pair head sweeps with Sauers-style **causal head zeroing / patching vs. random head sets**
-     (`mechinterp/heads.py`) and **Query vs. Key swaps** (`mechinterp/qk_all.py`) to classify `(block, head)` pairs
-     into load-bearing levers vs. readout gauges across motion, identity, AV sync, and lexical binding.
+     (`coderef/sauers/attention_introspection/mechinterp/heads.py`) and **Query vs. Key swaps**
+     (`coderef/sauers/attention_introspection/mechinterp/qk_all.py`) to classify `(block, head)` pairs into
+     load-bearing levers vs. readout gauges across motion, identity, AV sync, and lexical binding.
 
 Any node-code change is built in a worktree outside `custom_nodes` (root `AGENTS.md`, operative rule 3).
 
@@ -334,10 +343,11 @@ Any node-code change is built in a worktree outside `custom_nodes` (root `AGENTS
 - **The edits were judged on stills.** `compare_harvest_step_and_head_grid.mp4` and `two_people_grid.mp4` (under
   `$H3_OUTPUT_DIR/Video/self_mask_late_harvest_2026-11-27/`) and `k1`/`k2` (under
   `$H3_OUTPUT_DIR/Video/head_atlas_2026-11-27/`) still need human playback & audio review.
-- **`1×` routing produces a new take; `2× EditGuider` (`k2`) held the base take on one clip.** Every `1×` routed
-  walk arm changed framing and courtyard details; `B45 H43 -> 2× EditGuider` (`k2`, section 12) held the base
-  courtyard and stride on `c0_walk_base`, but has only been tested on one prompt/seed and the chrome figure is a
-  high-contrast test pattern, not a tuned look.
+- **`1×` routing produces a new take; `2× EditGuider` (`k2`) held layout, not every pixel or the soundtrack.**
+  Every `1×` routed walk arm changed framing and courtyard details; `B45 H43 -> 2× EditGuider` (`k2`, sections 12
+  & 13) held the courtyard layout and stride on `c0_walk_base`, while small background fixtures (lantern left of
+  center door → barred window), fine stone texture, and the soundtrack still shifted. Tested on one prompt/seed
+  only, and the chrome figure is a high-contrast test pattern, not a tuned look.
 - **In a mask strip, the green overlay is the thresholded mask, not the raw attention map.**
 
 ---
