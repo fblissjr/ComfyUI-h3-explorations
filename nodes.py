@@ -17,6 +17,7 @@ from .audio_freeze import (
     MiniMaxH3FreezeAudioWindow,
 )
 from .audio_freeze_song import MiniMaxH3AudioFreezeSong
+from .audio_ref_router import MiniMaxH3AudioRefRouter
 from .audio_refine import MiniMaxH3AudioRefineMask
 from .auto_edit_prompt import MiniMaxH3AutoEditPrompt
 from .body_pose import MiniMaxH3BodyMeshVideo, MiniMaxH3BodyModelLoader, MiniMaxH3BodyPose
@@ -173,6 +174,7 @@ class H3ExplorationsExtension(ComfyExtension):
             MiniMaxH3FreezeAudioWindow,  # Windowed audio-freeze loop segment conditioning
             MiniMaxH3EncodeTrack,  # One-shot stereo PCM -> 40 Hz latent track encoder
             MiniMaxH3AudioAttentionGain,  # Per-block audio-token attention gain multiplier
+            MiniMaxH3AudioRefRouter,  # Single-pass 1x Q_aud block-depth melody/timbre router
             MiniMaxH3AudioFreezeSong,  # Timeline-driven chained song-loop AV driver
             MiniMaxH3AudioRefineMask,  # Reopen audio latents for pass-2 refinement
             MiniMaxH3FrozenVideoCache,  # Cached frozen-video K/V projections across refine

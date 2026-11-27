@@ -139,6 +139,25 @@
       "Filenames"
     ]
   },
+  "MiniMaxH3AudioRefRouter": {
+    "inputs": [
+      "model",
+      "melody_source",
+      "split_block",
+      "melody_gain_early",
+      "melody_gain_late",
+      "timbre_gain_early",
+      "timbre_gain_late",
+      "melody_end_percent",
+      "melody_clean_level",
+      "start_percent",
+      "end_percent"
+    ],
+    "node_id": "MiniMaxH3AudioRefRouter",
+    "outputs": [
+      "model"
+    ]
+  },
   "MiniMaxH3AudioRefineMask": {
     "inputs": [
       "latent",

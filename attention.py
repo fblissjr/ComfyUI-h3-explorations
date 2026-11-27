@@ -373,8 +373,11 @@ def _resolve_span_spec(
     key_ref_idx: str,
     segs,
     tokens: int,
+    *,
+    key_ref_audio_idx: str | None = None,
+    key_cond_audio_idx: str | None = None,
 ) -> tuple[tuple[int, int], ...] | None:
-    """Resolve explicit tuple spans, layout segment kinds, or 0-based `ref_img` indices."""
+    """Resolve explicit tuple spans, layout segment kinds, or 0-based ref_img/ref_audio/cond_audio indices."""
     explicit = cfg.get(key_spans)
     if explicit is not None:
         return _normalize_spans(explicit, tokens)
@@ -390,6 +393,22 @@ def _resolve_span_spec(
         ref_imgs = [(a, b) for a, b, k in (segs or ()) if k == "ref_img" and b > a]
         picked = [ref_imgs[int(idx)] for idx in ref_indices if 0 <= int(idx) < len(ref_imgs)]
         return _normalize_spans(picked, tokens)
+    if key_ref_audio_idx is not None:
+        ref_aud_indices = cfg.get(key_ref_audio_idx)
+        if ref_aud_indices is not None:
+            ref_auds = [(a, b) for a, b, k in (segs or ()) if k == "ref_audio" and b > a]
+            picked = [
+                ref_auds[int(idx)] for idx in ref_aud_indices if 0 <= int(idx) < len(ref_auds)
+            ]
+            return _normalize_spans(picked, tokens)
+    if key_cond_audio_idx is not None:
+        cond_aud_indices = cfg.get(key_cond_audio_idx)
+        if cond_aud_indices is not None:
+            cond_auds = [(a, b) for a, b, k in (segs or ()) if k == "cond_audio" and b > a]
+            picked = [
+                cond_auds[int(idx)] for idx in cond_aud_indices if 0 <= int(idx) < len(cond_auds)
+            ]
+            return _normalize_spans(picked, tokens)
     return None
 
 
@@ -431,10 +450,28 @@ def resolve_lse_balance_plan(transformer_options, tokens: int) -> dict | None:
                 return None
 
     segs = _h3layout.segments(transformer_options, tokens) if layout is not None else None
-    spans_a = _resolve_span_spec(cfg, "spans_a", "kinds_a", "ref_indices_a", segs, tokens)
+    spans_a = _resolve_span_spec(
+        cfg,
+        "spans_a",
+        "kinds_a",
+        "ref_indices_a",
+        segs,
+        tokens,
+        key_ref_audio_idx="ref_audio_indices_a",
+        key_cond_audio_idx="cond_audio_indices_a",
+    )
     if not spans_a:
         return None
-    spans_b = _resolve_span_spec(cfg, "spans_b", "kinds_b", "ref_indices_b", segs, tokens)
+    spans_b = _resolve_span_spec(
+        cfg,
+        "spans_b",
+        "kinds_b",
+        "ref_indices_b",
+        segs,
+        tokens,
+        key_ref_audio_idx="ref_audio_indices_b",
+        key_cond_audio_idx="cond_audio_indices_b",
+    )
     if spans_b is not None:
         if not spans_b:
             return None
@@ -1206,6 +1243,17 @@ def make_minimax_attn_forward(kernel_fn, kernel_kwargs, head_chunks=1,
         steer_ran = _steer_hooks.h3_steer_attn_seam_pre(
             q, k, v, transformer_options, seq_axis=1
         )
+        aud_router_rt = (
+            transformer_options.get("_h3_audio_ref_router_rt")
+            if isinstance(transformer_options, dict)
+            else None
+        )
+        aud_router_ran = False
+        if aud_router_rt is not None and getattr(aud_router_rt, "active", False):
+            with _steer_hooks.pause_malloc_graph_ctx(), torch.no_grad():
+                aud_router_ran = bool(
+                    aud_router_rt.compute_pre_attention(q, k, v, transformer_options, seq_axis=1)
+                )
 
         n = head_chunks
         if n <= 1 and isinstance(transformer_options, dict):
@@ -1231,9 +1279,14 @@ def make_minimax_attn_forward(kernel_fn, kernel_kwargs, head_chunks=1,
                 del qkv_box
                 if steer_ran:
                     _steer_hooks.h3_steer_attn_seam_reset_block(transformer_options)
+                if aud_router_ran:
+                    aud_router_rt.reset_pending()
                 return _stock_forward(self, x, rope_freqs, transformer_options)
             if steer_ran:
                 _steer_hooks.h3_steer_attn_seam_post(out, transformer_options, nhd=True)
+            if aud_router_ran:
+                with _steer_hooks.pause_malloc_graph_ctx(), torch.no_grad():
+                    aud_router_rt.splice_post_attention(out, nhd=True, skip_output_reshape=False)
             _trace.route(s, "lse_balance")
             return self.out_proj(out.view(s, self.heads * self.head_dim))
 
@@ -1265,10 +1318,15 @@ def make_minimax_attn_forward(kernel_fn, kernel_kwargs, head_chunks=1,
                 del q, k, v
                 if steer_ran:
                     _steer_hooks.h3_steer_attn_seam_reset_block(transformer_options)
+                if aud_router_ran:
+                    aud_router_rt.reset_pending()
                 return _stock_forward(self, x, rope_freqs, transformer_options)
             del q, k, v  # last refs to the fused qkv buffer, before out_proj
             if steer_ran:
                 _steer_hooks.h3_steer_attn_seam_post(out, transformer_options, nhd=True)
+            if aud_router_ran:
+                with _steer_hooks.pause_malloc_graph_ctx(), torch.no_grad():
+                    aud_router_rt.splice_post_attention(out, nhd=True, skip_output_reshape=False)
             _trace.route(s, "sage_chunked")
             return self.out_proj(out.view(s, self.heads * self.head_dim))
 
@@ -1293,10 +1351,15 @@ def make_minimax_attn_forward(kernel_fn, kernel_kwargs, head_chunks=1,
             del qkv
             if steer_ran:
                 _steer_hooks.h3_steer_attn_seam_reset_block(transformer_options)
+            if aud_router_ran:
+                aud_router_rt.reset_pending()
             return _stock_forward(self, x, rope_freqs, transformer_options)
 
         if steer_ran:
             _steer_hooks.h3_steer_attn_seam_post(out, transformer_options, nhd=True)
+        if aud_router_ran:
+            with _steer_hooks.pause_malloc_graph_ctx(), torch.no_grad():
+                aud_router_rt.splice_post_attention(out, nhd=True, skip_output_reshape=False)
         _trace.route(s, "sage")
         return self.out_proj(out.view(s, self.heads * self.head_dim))
 

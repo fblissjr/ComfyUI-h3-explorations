@@ -8,14 +8,14 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 185 |
+| [`check_*`](#check) | 186 |
 | [`measure_*`](#measure) | 33 |
 | [`analyze_*`](#analyze) | 13 |
 | [`grade_*`](#grade) | 10 |
 | [`compare_*`](#compare) | 10 |
 | [`build_*`](#build) | 12 |
 | [`probe_*`](#probe) | 16 |
-| [the rest](#the-rest) | 193 |
+| [the rest](#the-rest) | 195 |
 
 ## check
 
@@ -113,6 +113,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_meta_sapiens2.py`](check_meta_sapiens2.py) | `vendor/meta_sapiens2/` is Meta's text as Meta wrote it: its licence, and its names for the Sapiens2 models' points and classes. |
 | [`check_model_contents.py`](check_model_contents.py) | What is INSIDE each shipped model file, asserted against a committed baseline. |
 | [`check_model_files.py`](check_model_files.py) | No graph or constant may name a model file its real loader cannot use. |
+| [`check_music_cover_routing.py`](check_music_cover_routing.py) | CPU verification suite for `MiniMaxH3AudioRefRouter` and `attention.py` audio LSE spans. |
 | [`check_no_owner_paths.py`](check_no_owner_paths.py) | Reject machine-owner home paths in repository text artifacts. |
 | [`check_node_ids.py`](check_node_ids.py) | Guard the one rule that matters, against a baseline the schema cannot move. |
 | [`check_others_present.py`](check_others_present.py) | `bench/others_present.py` on made previews, a cast file and a shots record: each case is a way the answer to "are there people in the shot who are not ours" could be wrong. |
@@ -425,6 +426,7 @@ this file is only a way to find a script by what it says it does.
 | [`masked_render_against_source.py`](masked_render_against_source.py) | Measure a masked render against the clip it was made from: flicker at the seam, and when a late region takes effect. |
 | [`masked_render_time_breakdown.py`](masked_render_time_breakdown.py) | Where a masked song render's seconds go: by node, and by stage inside the song node. |
 | [`minimise_token_aug_repro.py`](minimise_token_aug_repro.py) | How small can the `token_aug` nondeterminism repro get? |
+| [`music_cover_gate.py`](music_cover_gate.py) | Phase 1 Zero-Code Diagnostic Gate for H3 Music-Video Voice & Style Adaptation. |
 | [`o1_lossless_blocking.py`](o1_lossless_blocking.py) | O1's own test: is dark-region blocking the model's or the video encoder's? |
 | [`others_present.py`](others_present.py) | Who else is in a shot: the people a preview's trackers numbered that are none of the video's subjects, a shot at a time. |
 | [`page_answers_ledger.py`](page_answers_ledger.py) | Every line the owner saved on the local page, beside the record that carries it, and the lines no record cites yet. |
@@ -516,6 +518,7 @@ this file is only a way to find a script by what it says it does.
 | [`time_dense_blocks.py`](time_dense_blocks.py) | What does a dense block actually COST, in seconds, on this box? |
 | [`timeline_page.py`](timeline_page.py) | Build the whole-video NLE timeline data file (`--out-json`) and interactive page (`--out-html`) from the rebuild's records. |
 | [`two_shot_load.py`](two_shot_load.py) | Two neighbouring shots as ONE load in ONE window, made from the two shots' own ordinary loads. Not a default. |
+| [`unplugged_fun_cover.py`](unplugged_fun_cover.py) | Real-world Unplugged-covers-Fun (`unplugged_compressed.mp4` covering `fun.mp4`) harness. |
 | [`upstream_watch.py`](upstream_watch.py) | List what each watched upstream landed since its last read, and its open PRs and issues. |
 | [`verify_multistep_capture.py`](verify_multistep_capture.py) | Pre-flight verification for multi-step activation captures. |
 | [`verify_pole_a_erasure.py`](verify_pole_a_erasure.py) | Reproducible CPU mathematical verification for Clamped Pole-A Subspace Erasure. |
@@ -724,7 +727,7 @@ Arm manifests and the like; a manifest's line is its own `what`.
 
 ### results
 
-272 tracked files: [`results/INDEX.md`](results/INDEX.md).
+274 tracked files: [`results/INDEX.md`](results/INDEX.md).
 
 ### rubrics
 

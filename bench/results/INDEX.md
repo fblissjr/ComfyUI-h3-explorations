@@ -17,6 +17,8 @@ replaces `docs/wiki/ops/evidence.md`, which says what the records established.
 | date | lane | record | verdict |
 |---|---|---|---|
 | 2026-11-27 | self | [Self-Mask Sensor: Controls, Harvest Step, One Head, a Second Reading, and Two People (`2026-11-27`)](2026-11-27_self_mask_harvest_step_and_heads.md) |  |
+| 2026-11-27 | music | [2026-11-27 — Phase 2 Silicon A/B: `MiniMaxH3AudioRefRouter` Music-Cover Adaptation](2026-11-27_music_cover_adaptation_phase2.md) | PASS (`1.04x–1.06x` wall-clock cost, zero core patches, zero K/V mutation). |
+| 2026-11-27 | music | [Phase 1 Zero-Code Silicon Gate: H3 Music-Video Voice & Style Adaptation (`2026-11-27`)](2026-11-27_music_cover_adaptation_gate.md) |  |
 | 2026-11-26 | stage2 | [Stage 2 Music-Video Gate, Studio 2.0 Unlock & Cross-Session Sprint (2026-11-26)](2026-11-26_stage2_music_video_and_studio_unlock.md) |  |
 | 2026-11-26 | steering | [Spatial Query Routing `v2-slim` & Beat 1–3 Showcase Suites (`2026-11-26`)](2026-11-26_spatial_qr_v2_and_showcases.md) | verified |
 | 2026-11-26 | h3 | [4-Sensor H3 Silicon Calibration Gate (`2026-11-26`)](2026-11-26_h3_4sensor_calibration.md) |  |

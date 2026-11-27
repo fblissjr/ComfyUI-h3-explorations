@@ -19,6 +19,7 @@ with none is a helper the others import.
 |---|---|---|
 | [`audio_freeze.py`](audio_freeze.py) | `MiniMaxH3FreezeAudio`, `MiniMaxH3FreezeAudioWindow`, `MiniMaxH3EncodeTrack`, `MiniMaxH3AudioAttentionGain` | Freeze a known audio track into an H3 AV latent so the video follows it. |
 | [`audio_freeze_song.py`](audio_freeze_song.py) | `MiniMaxH3AudioFreezeSong` | Drop a song and a prompt; the windows come from the track. |
+| [`audio_ref_router.py`](audio_ref_router.py) | `MiniMaxH3AudioRefRouter` | Single-pass (`1x` NFE) audio-reference block-depth router (`MiniMaxH3AudioRefRouter`). |
 | [`audio_refine.py`](audio_refine.py) | `MiniMaxH3AudioRefineMask` | Freeze a sampled H3 latent's video and reopen its audio, for an audio-only refinement pass. |
 | [`audio_resample.py`](audio_resample.py) |  | One resampler for every waveform this pack hands to H3's audio VAE. |
 
@@ -161,7 +162,7 @@ with none is a helper the others import.
 | `.gemini/` | 8 | [below](#gemini) |
 | `archive/` | 78 | (none) |
 | `assets/` | 1 | [below](#assets) |
-| `bench/` | 879 | [`bench/INDEX.md`](bench/INDEX.md) and [`bench/results/INDEX.md`](bench/results/INDEX.md) for the records |
+| `bench/` | 884 | [`bench/INDEX.md`](bench/INDEX.md) and [`bench/results/INDEX.md`](bench/results/INDEX.md) for the records |
 | `changelog.d/` | | [`changelog.d/README.md`](changelog.d/README.md), one file per changelog entry; not listed and not counted |
 | `contact_sheets/` | 1 | [below](#contact_sheets) |
 | `data/` | 1 | [below](#data) |
