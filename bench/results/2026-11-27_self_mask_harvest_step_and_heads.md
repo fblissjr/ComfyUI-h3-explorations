@@ -362,3 +362,52 @@ playback. Neither clip has been listened to.
   across sections.
 - **Correction to section 11:** the base clip does have one hanging lamp. The routed `1×` arms have lamps in
   arches where the base has none.
+
+## 14. Phase 0 on playback: the figure's size, its stride, and the footsteps
+
+The owner watched and listened to `k1` and `k2` on `2026-11-27` and accepted `k2`: the figure is meant to be chrome
+all over, and nothing sounded off. This section checks a playback description of the two clips against the files
+and answers the question section 13 left open. The two arms differ in `dilation_passes` only
+(`data/head_atlas_2026-11-27/run_phase0_edit_guider.py`, `ARMS`); each pass grows the mask by one patch in every
+direction within a latent step, before the threshold (`steering/live_policy.py::synthesize_4d_attention_mask`).
+
+Script: `data/self_mask_probe_2026-11-27/analyze_phase0_playback_claims.py` (figures in
+`phase0_playback_claims.json` beside it); sheets from `make_phase0_size_and_gait_sheets.py`. Sheets, under
+`$H3_OUTPUT_DIR/Video/head_atlas_2026-11-27/`: `phase0_size_same_box_sheet.png` (the same crop box on all three
+clips, with the base figure's head and feet rows drawn in green), `phase0_gait_strip_f30_f68.png` and
+`phase0_gait_strip_f70_f108.png` (her legs, every second frame).
+
+| Reading | `c0_walk_base` | `k1` | `k2` |
+| :--- | :--- | :--- | :--- |
+| Sideways position minus the base's, median over `141` frames (share of width) | n/a | `0.001` | `-0.002` |
+| Top of the figure above the top of the base figure, median (px of `768`) | n/a | `44` | `64` |
+| Mask value where the new figure's head is, median | n/a | `0.121` | `0.559` |
+| Mask value on the new figure's torso / legs, median | n/a | `1.000 / 0.819` | `1.000 / 0.994` |
+| Cyan share of the figure's pixels, median | `0.000` | `0.172` | `0.154` |
+| Footstep sounds found in the clip | `12` | `10` | `10` |
+| Frames between footstep sounds, median | `11.0` | `13.7` | `13.7` |
+| Frames per step read from the picture | readings disagree | `14` | `14` |
+| How tightly the sounds bunch at one point of the step (`0` scattered, `1` locked) | cannot tell | `0.598` | `0.692` |
+
+- **Her path holds.** The figure is at the base walker's sideways position on every frame, in both arms.
+- **Her size does not.** The chrome figure is a taller body than the woman it replaces: its head sits above the
+  base head row on every frame of the sheet, and its legs are long and bare where hers were under a coat. Section
+  12's line that `k1` and `k2` stay at the base figure's height does not hold; its line about horizontal pace does.
+- **That is why `k1` kept a human head.** The mask was read for the shorter woman. Without the extra ring it is
+  nearly off where the taller figure's head ends up, so there the plain prompt still decides and draws a woman's
+  head. With one ring the mask is about half on at the head. A replacement taller than its target needs the
+  headroom.
+- **The footsteps follow the new figure, in both arms.** The sounds come at the rate of the chrome figure's own
+  steps (three readings of the picture agree: leg spread, motion in the lower body, silhouette area) and bunch at
+  one point of each step. This matches what the owner heard. It also explains section 13's low envelope match
+  with the base: the new figure takes fewer, longer steps, so its footsteps are fewer and further apart.
+- **The sound follows the picture even with `streams="video_only"`.** That setting keeps the edit prompt's sound
+  prediction out; it does not keep the sound from following a changed picture.
+- **The base clip's own footsteps:** cannot tell from these readings. With a long coat and dark boots the stride
+  readings on the base disagree with each other. The gait strips are there for the eye.
+- **Cyan is there, on both arms,** and none on the base. `k2` has more of it low on the figure than `k1`, which
+  fits the wider mask reaching the ground at her feet.
+
+What this cannot say: one clip, one seed, one edit prompt that swaps the whole body. An edit that should keep her
+body (a different coat) has not been tried through this route. The stride readings are proxies; the point of the
+step where the sounds bunch is not shown to be the instant a foot lands.
