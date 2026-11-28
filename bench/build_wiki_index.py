@@ -45,7 +45,6 @@ ACTIVE_ROUTERS = (
     "data/AGENTS.md",
     "docs/AGENTS.md",
     "docs/wiki/index.md",
-    "docs/wiki/handover.md",
     "docs/wiki/next_steps.md",
     "docs/wiki/decisions.md",
     "docs/wiki/query_routing.md",

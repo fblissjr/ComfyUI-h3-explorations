@@ -222,7 +222,7 @@ flowchart LR
 
 - **Self-contained `4`-bus organization (`Look` / `Motion` / `Audio` / `Hold`):** Every active bank `.safetensors` embeds its `vector.post_refiner`, optional `vector.encoder`, and compact `~193.5 KB` `erasure.{mu_d, vr, diag}` payload across `fl2va`, `ref2va`, and native `h3_image` families (`bench/control_vectors.py status`), while weak or drifted stems are retired cleanly to `_retired/`.
 - **Standing showcase discipline (`7541fb55`):** Net-new showcases focus strictly on **multi-vector + subspace erasure** (no `1D` comparison re-runs), run against **untouched, adult-only, dynamic multi-shot `prompt_bank/` scenes** (such as [`prompt_bank/t2va_stairwell_dialogue.txt`](../../prompt_bank/t2va_stairwell_dialogue.txt) and [`prompt_bank/t2va_restaurant_kitchen.txt`](../../prompt_bank/t2va_restaurant_kitchen.txt)), and default to **`192f` (`8.0s`)** or **`243f` (`10.125s`)** (`h3_rules.on_both_clocks == True`).
-- **Live catalog & active queues:** See [`steering/preset_catalog_and_cli_reference.md`](steering/preset_catalog_and_cli_reference.md), [`handover.md`](handover.md), and [`next_steps.md`](next_steps.md) for current bank stem inventories and active GPU evaluation queues.
+- **Live catalog & active queues:** See [`steering/preset_catalog_and_cli_reference.md`](steering/preset_catalog_and_cli_reference.md) and [`next_steps.md`](next_steps.md) for current bank stem inventories and active GPU evaluation queues.
 
 ### 5.3 Honest Boundaries & Closed Wave 2–4 Gates (`2026-11-23`)
 

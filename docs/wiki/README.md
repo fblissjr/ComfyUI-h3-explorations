@@ -99,6 +99,6 @@ Put two opposite visual worlds inside **one** seamless video shot or **`4 MP` st
 - **Spatial World Director ([`director/AGENTS.md`](../../director/AGENTS.md), [`spatial_director_guide.md`](spatial_director_guide.md)):** Standalone timeline stage for painting moving `2×` portals, live `SAM 3.1` `/api/segment` masks, dual-sprite 2D D-Pad paths, `3f` stereo `SoundCues`, and video-frozen Re-Dub.
 
 ### Quick Navigation
-- **Full LLM Wiki Router:** [`index.md`](index.md) · **Current Handover & Queue:** [`handover.md`](handover.md) · [`next_steps.md`](next_steps.md) · [`decisions.md`](decisions.md)
+- **Full LLM Wiki Router:** [`index.md`](index.md) · **Pending Handoffs & Queue:** [`handoffs/`](handoffs/README.md) · [`next_steps.md`](next_steps.md) · [`decisions.md`](decisions.md)
 - **Rules & Inventories:** [`../../AGENTS.md`](../../AGENTS.md) · [`../../nodes.py`](../../nodes.py) (`69` nodes) · [`../../workflows/INDEX.md`](../../workflows/INDEX.md) (`133` graphs) · [`../../bench/results/INDEX.md`](../../bench/results/INDEX.md)
 - **Repository Home:** [`../../README.md`](../../README.md)

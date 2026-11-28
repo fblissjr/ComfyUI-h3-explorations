@@ -4,7 +4,7 @@ Canonical roadmap and cross-session synthesis (`root` `e9c93314`, nested `app/.g
 
 - **Machine-Queryable Canonical Ledger:** [`ledger.json`](ledger.json) (`schema_version: "1.0"`)
 - **Folder Contract & Routers:** [`../AGENTS.md`](../AGENTS.md) · [`../index.md`](../index.md) · [`../../index.md`](../../index.md)
-- **Steering & Architecture Hubs:** [`../../h3_steering_and_architecture.md`](../../h3_steering_and_architecture.md) · [`../../steering.md`](../../steering.md) · [`../../handover.md`](../../handover.md) · [`../../next_steps.md`](../../next_steps.md)
+- **Steering & Architecture Hubs:** [`../../h3_steering_and_architecture.md`](../../h3_steering_and_architecture.md) · [`../../steering.md`](../../steering.md) · [`../../handover.md`](../../archive/2026-11-28_handover.md) · [`../../next_steps.md`](../../next_steps.md)
 - **Specs & Blueprints:** [`2026-11-22_paper_to_codebase_promotion_spec.md`](../../steering/research/2026-11-22_paper_to_codebase_promotion_spec.md) · [`2026-11-22_track1_track2_multivector_erasure_blueprint.md`](../../steering/research/2026-11-22_track1_track2_multivector_erasure_blueprint.md)
 
 ---
@@ -90,7 +90,7 @@ Current disk audit shows `136` `.safetensors` in `../../models/control_vectors/b
 ### A.4 Verified LLM Wiki Consolidation (`90e9d2bd`, Post-`3d4d81d4`)
 
 - `085d496e` already landed **`3d4d81d4`** on `main` (migrating all `42` tracked files from `docs/wiki/research/control_vectors/` into `docs/wiki/steering/research/` and closing its isolated worktree).
-- Run **one** unified de-dup & anti-hype scrub across [`docs/wiki/steering.md`](../../steering.md), [`docs/wiki/h3_steering_and_architecture.md`](../../h3_steering_and_architecture.md), [`docs/wiki/handover.md`](../../handover.md), [`docs/wiki/next_steps.md`](../../next_steps.md), and [`AGENTS.md`](../../../../AGENTS.md#L93):
+- Run **one** unified de-dup & anti-hype scrub across [`docs/wiki/steering.md`](../../steering.md), [`docs/wiki/h3_steering_and_architecture.md`](../../h3_steering_and_architecture.md), [`docs/wiki/handover.md`](../../archive/2026-11-28_handover.md), [`docs/wiki/next_steps.md`](../../next_steps.md), and [`AGENTS.md`](../../../../AGENTS.md#L93):
   - Retire stale recommendations for `paper_origami` / `wes_anderson_symmetry` / `t2va_sitcom_kitchen.txt` (preserving dated archive/provenance tables clearly labeled historical).
   - Scrub `5-Bus`, `anti_slop`, `de_llm_slop Anti-Slop EQ in bank/`, `38-concept`, and jittered `"28/38"` counts across live tutorials/guides (`docs/wiki/handover.md`, `docs/wiki/steering.md`, `docs/wiki/steering/studio_ui_guide.md`, `docs/wiki/steering/comfyui_nodes_and_controls.md`, `docs/wiki/steering/j_lens_diagnostics_and_word_lab.md`, `docs/wiki/steering/tutorials_progressive_guide.md`, `docs/wiki/steering/examples_and_recipes.md`, `docs/wiki/steering/preset_catalog_and_cli_reference.md`, and [`AGENTS.md`](../../../../AGENTS.md#L93)).
   - Qualify overstated `ref2va` `end_percent = 0.33` claims (per `Showcase 3` & `Stage C`, `ReleaseReferences(0.33)` alone still allows raw VAE + `tags == 0` vision tokens to veto `scene_only` regrades unless paired with `Path 1C` / lower `clean_level`).

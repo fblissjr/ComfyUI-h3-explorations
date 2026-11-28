@@ -4,10 +4,10 @@ Last updated: 2026-10-26 (replaced the 2026-10-17 / 2026-10-21 duplicate tables 
 
 | Topic | Authoritative Home |
 |---|---|
-| **Today's order, what not to assume, and close-of-day state** | [`docs/wiki/handover.md`](handover.md) and [`docs/wiki/decisions.md`](decisions.md) |
+| **Pending notes from the last session** | [`docs/wiki/handoffs/`](handoffs/README.md) and [`docs/wiki/decisions.md`](decisions.md) |
 | **Starting, checking, and stopping ComfyUI (`:8188`) and the review server (`:8765`), environment keys (`H3_*`), and cache states** | [`docs/wiki/ops/comfy_notes.md`](ops/comfy_notes.md) and [`docs/wiki/masked_v2v/PROTOCOL.md`](masked_v2v/PROTOCOL.md) Stage 0 |
 | **Building, auditing, queueing, and landing a masked V2V load (`preview` → `strangers` → `job` → `reference` → `text` → `first` → `plan` → `on-plan` → `table` → `facts_pass.py` → `inspect_mask_steps.py` → `flags_before_render.py` → `what_h3_got.py` → `render` → `land` → `page`)** | [`docs/wiki/masked_v2v/PROTOCOL.md`](masked_v2v/PROTOCOL.md) Stages 1–5 and [`docs/wiki/masked_v2v/AGENTS.md`](masked_v2v/AGENTS.md) §1–§11 |
 | **What a change to code, a reference, a prompt, or a Pass-1 cut forces (in trace order)** | [`docs/wiki/masked_v2v/AGENTS.md`](masked_v2v/AGENTS.md) §8 ("What a change forces: the chain in trace order") |
 | **Settled recipes (`margin`, `zoom_up_to`, `parts`, `reference`, `head_marks`) and `cast.jsonl` Group 1 / Group 2 / Group 3 rules** | `data/<video>/plan.json` (enforced by [`bench/shot_to_load.py`](../../bench/shot_to_load.py) and [`bench/flags_before_render.py`](../../bench/flags_before_render.py)), [`docs/wiki/masked_v2v/AGENTS.md`](masked_v2v/AGENTS.md) §3 & §8, and [`docs/wiki/decisions.md`](decisions.md) (`2026-10-26`) |
 | **Laying a kept piece (`laid.jsonl`) and rebuilding the delivery cut, gap check, stack, and review pages (`TO_REVIEW.html`, `PROVENANCE.html`)** | [`docs/wiki/masked_v2v/PROTOCOL.md`](masked_v2v/PROTOCOL.md) Stage 5 ([`bench/laid.py`](../../bench/laid.py) and [`bench/rebuild_delivery.py`](../../bench/rebuild_delivery.py)) |
-| **End-of-day closeout (handover, `next_steps.md`, daily changelog fragment)** | [`handover.md`](handover.md), root [`AGENTS.md`](../../AGENTS.md) ("Operative Rules"), and [`changelog.d/README.md`](../../changelog.d/README.md) |
+| **End-of-day closeout (a handoff note if work is mid-flight, `next_steps.md`, daily changelog fragment)** | [`handoffs/README.md`](handoffs/README.md), root [`AGENTS.md`](../../AGENTS.md) ("Operative Rules"), and [`changelog.d/README.md`](../../changelog.d/README.md) |

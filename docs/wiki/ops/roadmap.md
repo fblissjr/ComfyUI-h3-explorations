@@ -53,7 +53,7 @@ session logs) is deliberate and is not drift to clean up.
 
 ## Historical forward plans (September 2026)
 
-> Archived verbatim to [`docs/wiki/archive/2026-09-05_roadmap_forward_plans.md`](../archive/2026-09-05_roadmap_forward_plans.md) (`2026-09-03` forward plan, `2026-09-04` forward plan, and `2026-09-05` owner scoring decisions). For the live queue, see [`docs/wiki/handover.md`](../handover.md) and [`docs/wiki/next_steps.md`](../next_steps.md).
+> Archived verbatim to [`docs/wiki/archive/2026-09-05_roadmap_forward_plans.md`](../archive/2026-09-05_roadmap_forward_plans.md) (`2026-09-03` forward plan, `2026-09-04` forward plan, and `2026-09-05` owner scoring decisions). For the live queue, see [`docs/wiki/handoffs/`](../handoffs/README.md) and [`docs/wiki/next_steps.md`](../next_steps.md).
 
 ## The left rail: constraints
 

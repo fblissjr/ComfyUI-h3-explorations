@@ -2,7 +2,7 @@
 
 > [!NOTE]
 > **Historical snapshot from `2026-10-28` (`ebdd0a24`, updated for factual accuracy on `2026-10-29`).**
-> For the current day boundary and active order, read [`docs/wiki/handover.md`](../handover.md) and [`docs/wiki/masked_v2v/fun_render_backlog.md`](fun_render_backlog.md).
+> For the current day boundary and active order, read [`docs/wiki/handover.md`](../archive/2026-11-28_handover.md) and [`docs/wiki/masked_v2v/fun_render_backlog.md`](fun_render_backlog.md).
 
 **Session ID:** `ebdd0a24-32bd-4ef6-8f72-73bfe7927103` (`gemlead`)  
 **Advisory Peer:** Claude (`mrfizz`, notes in `internal/claude/2026-10-28_mrfizz/note_to_gemlead_1938Z.md`)  
@@ -48,7 +48,7 @@
 
 ## 2. Active & Remaining Render Queue
 
-See [fun_render_backlog.md](fun_render_backlog.md) ("Today's queue, as ready on disk") and [`docs/wiki/handover.md`](../handover.md) ("Tomorrow, in order") for the live dependency-ordered queue. Do not read a queue from this historical handover.
+See [fun_render_backlog.md](fun_render_backlog.md) ("Today's queue, as ready on disk") and [`docs/wiki/handover.md`](../archive/2026-11-28_handover.md) ("Tomorrow, in order") for the live dependency-ordered queue. Do not read a queue from this historical handover.
 
 ---
 

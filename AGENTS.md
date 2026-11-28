@@ -21,6 +21,7 @@ Research hub, custom ComfyUI nodes ([`nodes.py`](nodes.py)), generated API workf
 
 ## 2. Peer Collaboration Norms
 
+- **Handoffs:** Notes for the next session go in `docs/wiki/handoffs/<YYYY-MM-DD>_<slug>.md`, one file per handoff; the session that takes one up deletes it in the commit that absorbs the work ([`docs/wiki/handoffs/README.md`](docs/wiki/handoffs/README.md)). List the folder at session start.
 - **Clock & timestamps:** Collaborators operate in US Central for relative time references; read timestamps from the system clock or file rather than estimating.
 - **No media in `data/`:** Videos, `.1fps` review strips, PNGs/JPGs, crops, and comparison grids go under `$H3_OUTPUT_DIR`; `data/` keeps only scripts, JSON, logs, and prompts.
 - **No external uploads without asking:** Never upload local renders, clips, stills, or audio to an external/hosted API without asking first and naming what leaves the machine.
@@ -44,7 +45,7 @@ Details live in [`docs/wiki/core/h3_frame_rules.md`](docs/wiki/core/h3_frame_rul
 | Entrypoint | Owns |
 | :--- | :--- |
 | [`nodes.py`](nodes.py), [`INDEX.md`](INDEX.md), [`workflows/INDEX.md`](workflows/INDEX.md), [`bench/INDEX.md`](bench/INDEX.md), [`bench/results/INDEX.md`](bench/results/INDEX.md) | Pack node registry (grouped by stage) and generated file/workflow/bench/result indexes |
-| [`docs/wiki/index.md`](docs/wiki/index.md), [`docs/wiki/decisions.md`](docs/wiki/decisions.md), [`docs/wiki/handover.md`](docs/wiki/handover.md) | Master wiki router, dated decisions/reversals, and current track state |
+| [`docs/wiki/index.md`](docs/wiki/index.md), [`docs/wiki/decisions.md`](docs/wiki/decisions.md), [`docs/wiki/handoffs/`](docs/wiki/handoffs/README.md) | Master wiki router, dated decisions/reversals, and pending notes for the next session |
 | [`docs/wiki/query_routing.md`](docs/wiki/query_routing.md), [`docs/wiki/h3_steering_and_architecture.md`](docs/wiki/h3_steering_and_architecture.md), [`docs/wiki/steering.md`](docs/wiki/steering.md) | Cross-Modal Query Routing (active priority), steering architecture, `1x` dials vs `2x` `EditGuider` vs J-Lens |
 | [`docs/wiki/ops/comfy_notes.md`](docs/wiki/ops/comfy_notes.md), [`docs/wiki/ops/checks.md`](docs/wiki/ops/checks.md) | Running ComfyUI, `$H3_*` discovery, worktree rules, and check inventory |
 | [`docs/wiki/core/h3_frame_rules.md`](docs/wiki/core/h3_frame_rules.md), [`docs/wiki/prompting/prompting.md`](docs/wiki/prompting/prompting.md), [`docs/wiki/image/h3_image.md`](docs/wiki/image/h3_image.md), [`docs/wiki/spatial_director_guide.md`](docs/wiki/spatial_director_guide.md) | H3 clock/frame/mask laws, prompting contract, single-frame image pipelines, and Spatial Director |

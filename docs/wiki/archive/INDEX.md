@@ -23,6 +23,7 @@
 | [`2026-09-05_roadmap_forward_plans.md`](2026-09-05_roadmap_forward_plans.md) | Historical Forward Plans (2026-09-03 to 2026-09-05) | [`../ops/roadmap.md`](../ops/roadmap.md) |
 | [`2026-10-15_masked_v2v_chronicle.md`](2026-10-15_masked_v2v_chronicle.md) | Masked video to video: how it works, what it cannot do, where to go next | [`../masked_v2v.md`](../masked_v2v.md), [`../masked_v2v/2026-11-10_simplification_plan.md`](../masked_v2v/2026-11-10_simplification_plan.md) |
 | [`2026-10-20_next_steps_history.md`](2026-10-20_next_steps_history.md) | Next Steps — Historical Queues (`2026-09-05` through `2026-10-20`) | [`../next_steps.md`](../next_steps.md), [`../decisions.md`](../decisions.md) |
+| [`2026-11-28_handover.md`](2026-11-28_handover.md) | Single-file cross-track handover as it stood on `2026-11-27` (sunset `2026-11-28`) | [`../handoffs/README.md`](../handoffs/README.md), [`../decisions.md`](../decisions.md) |
 
 ## Sparse Attention (`Sol`), Quantization & Kernel Surveys
 

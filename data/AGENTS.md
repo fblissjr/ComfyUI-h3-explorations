@@ -7,7 +7,7 @@ pack, not the pack: a rule here is the lane's.
 
 | you need | it is |
 |---|---|
-| where a project stands today | `docs/wiki/handover.md`, then the project's own `data/<video>/AGENTS.md` |
+| where a project stands today | pending notes in `docs/wiki/handoffs/`, then the project's own `data/<video>/AGENTS.md` |
 | what is in the cut and what gaps remain | `data/<video>/laid.jsonl`; the table, gap check and cut the newest finished rebuild names, and how to tell they are current ("Where the lane's state lives", below); `bench/shot_coverage.py` |
 | the day-to-day commands (ComfyUI, one load, the review server, the rebuild, the close) | `docs/wiki/masked_v2v/PROTOCOL.md`, `docs/wiki/runbook.md` |
 | the pipeline end to end, and the lane's rules | `docs/wiki/masked_v2v/AGENTS.md`, `docs/wiki/masked_v2v/PROTOCOL.md`, `docs/wiki/masked_v2v/CODE_MAP_INDEX.md` (run `<python> bench/masked_code_map.py --help`), `docs/wiki/masked_v2v/masked_v2v_pipeline.md`, `docs/wiki/masked_v2v.md` |

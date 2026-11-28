@@ -7,7 +7,7 @@ Related rules and procedures:
 - [`docs/wiki/masked_v2v/PROTOCOL.md`](PROTOCOL.md)
 - [`docs/wiki/masked_v2v/verifying_raw_frames_and_keeps.md`](verifying_raw_frames_and_keeps.md)
 - [`docs/wiki/masked_v2v/frames_rules.md`](frames_rules.md)
-- [`docs/wiki/handover.md`](../handover.md)
+- [`docs/wiki/handover.md`](../archive/2026-11-28_handover.md)
 
 ---
 

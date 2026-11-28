@@ -95,7 +95,7 @@ the Open List.
    `--fetch` updates remote refs only. A keyword hit is a lead (`H3` also matches HTTP/3 work).
 2. Split the reading across read-only subagents, one per upstream or group (2026-11-15 used five: sglang, vllm-omni,
    DiffSynth with diffusers, core with the small repos, and the periphery). Give each one its range from step 1, the
-   baseline section of its owner page, and what the owner runs now (current state: [`../handover.md`](../handover.md)).
+   baseline section of its owner page, and what the owner runs now (current state: [`../next_steps.md`](../next_steps.md)).
    Each reports in the order above.
 3. Check the findings that would change something by hand, against the files cited. Mark the rest as the agent's
    reading.
