@@ -37,10 +37,16 @@ Window breakdown on the `2`-window run (`w1->w2` visual seam `L1 = 9.101`, `post
     1. **Upstream `librubberband` R2 phase-vocoder scaffold (`~71%` retained at `denoise = 0.29`):** `ffmpeg`'s built-in `rubberband` filter exposes only the R2 phase-vocoder (`phase=laminar`, not R3 `finer`). At `denoise = 0.29`, Pass 2 retains ~71% of the phase-vocoded guide structure.
     2. **`MiniMaxH3Sol` + `int8_convrot` + `12`-step Euler `BasicGuider` in Pass 2:** `_wire_sol` configures `start_percent = 0.2`, `tau = 1.0`, `dense_blocks = "49"`, `quantizer = "rotated"`, and `rows.audio_rows = "exact"` over Base `unet_ref2va` (`int8_convrot`), meaning Pass 2 (`percent = 0.71..1.0`) runs `100%` through sparse-routed quantized attention for only `12` Euler steps (`sigma_audio(0.29) = 0.55 -> 0`) at `cfg = 1.0`.
     3. **`AudioVAE` (`32 kHz` / `40 Hz` latent frame bottleneck):** Native `16 kHz` Nyquist ceiling and `25 ms` frame quantization across mixed stems.
+  - **The SDEdit Catch-22:** `denoise = 0.29` holds melody (`lag_null = 1.00`) precisely because it retains `~71%` of the phase-vocoded scaffold through quantized sparse Pass-2 attention; raising `denoise` high enough (`0.40+`) to overwrite the phase-vocoder texture causes H3 (which lacks explicit F0 pitch conditioning) to drift off melody.
 
-## 4. Decision & Next Steps When Resumed
+## 4. Decision & Tomorrow's 3-Step Decision Gate (`~15 min` to Clear Verdict)
 
 - **Pause further multi-song GPU runs tonight:** Deferred additional multi-song / cross-gender covers until audio quality is isolated cleanly.
-- **First diagnostic when resuming (`1` window `294f`, zero speculative code changes first):**
-  1. Run an `AudioVAE` roundtrip check (`denoise = 0.0` vs original shifted scaffold vs unshifted stem) to separate `AudioVAE` codec loss from `librubberband` R2 phase-vocoding.
-  2. Run a Pass-2 attention & step-count A/B on `294f` (`MiniMaxH3Sol` bypassed on Pass 2 — `294f` fits under the `99,864`-token int32 threshold — plus `denoise = 0.36..0.38` with `pass2_steps = 24..32`), and evaluate external RubberBand R3 / clean pitch-conditioned SVC upstream of `MiniMaxH3FreezeAudio`.
+- **Ordered triage & pivot criteria when resuming:**
+  1. **`AudioVAE` encode-decode null (`0` DiT steps, ~10 s):** Pass an unshifted dry studio vocal and a `-5.0 st` RubberBand R2 scaffold through `minimax_h3_audio_vae_fp32.safetensors` encode -> decode only, listening side-by-side to isolate how much compression comes from `AudioVAE` (`32 kHz / 40 Hz`) vs `librubberband` R2 vs Pass-2 DiT.
+  2. **One "all-approximations-off" Pass-2 ceiling render (`1` window `294f`, ~5 min on `:8188`):** Re-render the `1`-window `-5.0 st` chorus control at matched seed bundling three Pass-2 upgrades together as a single upper-bound check:
+     - **Bypass `MiniMaxH3Sol` on Pass 2** (`294f` fits cleanly below the `99,864`-token int32 threshold -> `100%` dense attention, zero rotated KV quantization).
+     - **Swap checkpoint `int8_convrot` -> `minimax_h3_ref2va_pruned_fp8_scaled.safetensors`** (higher precision weights).
+     - **Increase `pass2_steps` from `12` -> `28`** (finer Euler trajectory down to `sigma = 0`).
+     - *Decision rule:* If the ceiling render sounds substantially cleaner and less compressed, ablate which of the three upgrades drove it; if it still carries the compressed / auto-tune sheen, stop tuning Pass-2 attention and step counts because the ceiling lies in low-denoise RubberBand SDEdit itself.
+  3. **If Step 2 hits the SDEdit ceiling — decouple vocal conversion from video generation (or pivot queues):** Move vocal timbre/pitch conversion out of H3 Pass-2 SDEdit onto a dedicated pitch-locked zero-shot F0-conditioned SVC (`44.1/48 kHz`, or RubberBand R3 `engine=finer` upstream), mix a clean studio-grade cover track, and feed that audio straight into `MiniMaxH3FreezeAudio(audio_mask = 0.0)` on 1-pass 6-step Pika so H3 handles video, camera performance, and 1:1 lip-sync without degrading the vocals — or pivot GPU focus to the remaining `step0_critic` / `self_mask` / Studio queues.
