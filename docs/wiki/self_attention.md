@@ -126,7 +126,7 @@ and `28.65` for mask-off `EditGuider`) with `reharvest="off"`. Owner playback ac
 re-sync to the taller chrome figure's longer strides, `10` steps at `13.7f` vs. `12` at `11.0f`, record section 14).
 On the two-person clip (`p3_k2_paired_woman`, record sections 15 & 16), the same `B45 H43` mask keeps all `11` upper
 arches intact (`upper_courtyard_mae = 6.24` vs. `18.36` mask-off, which collapses the upper floor to `6` wide arches),
-while the paired prompt keeps the man yellow (`0.577`) — though because `B45 H43` masks both walkers, the man's coat
+while the paired prompt keeps the man yellow (`0.568`) — though because `B45 H43` masks both walkers, the man's coat
 length and face still re-draw (section 15). It is **close, not pixel-identical**: small fixtures (lantern left of
 center door → small barred window), fine stone texture, and figure height (`+44..64 px` taller chrome body) shift.
 `dilation_passes=0` (`k1`, `5.58×` contrast) is tighter around the boots but leaves her hair/head partly human where

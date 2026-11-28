@@ -473,12 +473,12 @@ comparison sheets under `$H3_OUTPUT_DIR/Video/head_atlas_2026-11-27/`: `walk_mas
 
 | Pair | Arm | Time | `upper_courtyard_mae` | `full_mae` | Pixels differing `> 10` / `> 20` / `> 40` | Subject color reading | Sound `rms` (env corr `0 / best`) |
 | :--- | :--- | :-: | :-: | :-: | :-: | :--- | :--- |
-| Walk | `c0_walk_base` | — | `0.00` | `0.00` | `0.000 / 0.000 / 0.000` | `0.079` med (`28f > 0.15`) | `0.0094` (`1.000 / 1.000`) |
+| Walk | `c0_walk_base` | — | `0.00` | `0.00` | `0.000 / 0.000 / 0.000` | `0.081` med (`33f > 0.15`) | `0.0094` (`1.000 / 1.000`) |
 | Walk | `k2` (`B45 H43` `d1` masked) | `87.5 s` | **`6.98`** | **`9.89`** | **`0.261 / 0.115 / 0.035`** | `0.001` med (`0f > 0.15`) | `0.0149` (`0.064 / 0.350`) |
 | Walk | `walk_mask_off` (no mask) | `96.4 s` | **`28.65`** | `25.45` | **`0.610 / 0.383 / 0.176`** | `0.000` med (`0f > 0.15`) | `0.0169` (`0.078 / 0.359`) |
-| Two people | `p3_two_people_base` | — | `0.00` | `0.00` | `0.000 / 0.000 / 0.000` | woman `0.671` / man `0.546` | `0.0134` (`1.000 / 1.000`) |
-| Two people | `p3_k2_paired` (`B45 H43` `d1` masked) | `98.1 s` | **`6.24`** | **`9.25`** | **`0.192 / 0.083 / 0.040`** | woman `0.000` / man `0.577` | `0.0117` (`0.185 / 0.380`) |
-| Two people | `p3_paired_mask_off` (no mask) | `88.1 s` | **`18.36`** | `18.13` | **`0.480 / 0.250 / 0.109`** | woman `0.000` / man `0.536` | `0.0117` (`0.305 / 0.543`) |
+| Two people | `p3_two_people_base` | — | `0.00` | `0.00` | `0.000 / 0.000 / 0.000` | woman `0.672` / man `0.542` | `0.0134` (`1.000 / 1.000`) |
+| Two people | `p3_k2_paired` (`B45 H43` `d1` masked) | `98.1 s` | **`6.24`** | **`9.25`** | **`0.192 / 0.083 / 0.040`** | woman `0.000` / man `0.568` | `0.0117` (`0.185 / 0.380`) |
+| Two people | `p3_paired_mask_off` (no mask) | `88.1 s` | **`18.36`** | `18.13` | **`0.480 / 0.250 / 0.109`** | woman `0.000` / man `0.530` | `0.0117` (`0.305 / 0.543`) |
 
 *(Note: the walk rows' `coat_colored_med` uses the runner's `r > 55 & r > 1.45*g & r > 1.45*b` check on `672×384` frames across all three walk rows consistently; the `p3` rows use `two_people.py`'s exact tracker and red/yellow rules.)*
 
