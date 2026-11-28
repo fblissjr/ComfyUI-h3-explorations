@@ -458,3 +458,42 @@ hem), `phase0b_crossing_sheet.png` (`f72` to `f96`), `phase0b_back_wall_zoom.png
 For playback: the crossing from `f84` to `f96` in the paired arm (how the two overlap, and a patch of yellow beside
 her legs at `f88`), and the right edge of the single-prompt arm around `f32` to `f48`, where a little foreground
 flickers on the empty stones.
+
+## 16. Mask-Off Control Twins (`walk_mask_off` and `p3_paired_mask_off`) — What the `B45 H43` Mask Actually Buys
+
+Tests the missing control flagged in section 15: runs the exact same `2× MiniMaxH3EditGuider` settings (`scale=1.95`,
+`first_step=1`, `last_step=3`, `streams="video_only"`, `mask=None`, seed `730451892`, `1344×768`, `141f`, 6-step Pika)
+with **no `MiniMaxH3SelfMaskRouter` and no mask** on both the single-walker prompt (`WALK_PURE_CHROME_PROMPT`, twin of
+`k2`) and the paired two-person prompt (`p3_paired_chrome_prompt`, twin of `p3_k2_paired_woman`).
+
+Runner & metrics: `data/head_atlas_2026-11-27/run_mask_off_twins.py`, `mask_off_twins_metrics.json`. Clips &
+comparison sheets under `$H3_OUTPUT_DIR/Video/head_atlas_2026-11-27/`: `walk_mask_off_00001-audio.mp4`,
+`p3_paired_mask_off_00001-audio.mp4`, `mask_off_walk_compare_sheet.png`, `mask_off_p3_full_sheet.png`,
+`mask_off_p3_closeup_sheet.png`. All arms inspected directly on both comparison sheets and MP4 playback.
+
+| Pair | Arm | Time | `upper_courtyard_mae` | `full_mae` | Pixels differing `> 10` / `> 20` / `> 40` | Subject color reading | Sound `rms` (env corr `0 / best`) |
+| :--- | :--- | :-: | :-: | :-: | :-: | :--- | :--- |
+| Walk | `c0_walk_base` | — | `0.00` | `0.00` | `0.000 / 0.000 / 0.000` | `0.079` med (`28f > 0.15`) | `0.0094` (`1.000 / 1.000`) |
+| Walk | `k2` (`B45 H43` `d1` masked) | `87.5 s` | **`6.98`** | **`9.89`** | **`0.261 / 0.115 / 0.035`** | `0.001` med (`0f > 0.15`) | `0.0149` (`0.064 / 0.350`) |
+| Walk | `walk_mask_off` (no mask) | `96.4 s` | **`28.65`** | `25.45` | **`0.610 / 0.383 / 0.176`** | `0.000` med (`0f > 0.15`) | `0.0169` (`0.078 / 0.359`) |
+| Two people | `p3_two_people_base` | — | `0.00` | `0.00` | `0.000 / 0.000 / 0.000` | woman `0.671` / man `0.546` | `0.0134` (`1.000 / 1.000`) |
+| Two people | `p3_k2_paired` (`B45 H43` `d1` masked) | `98.1 s` | **`6.24`** | **`9.25`** | **`0.192 / 0.083 / 0.040`** | woman `0.000` / man `0.577` | `0.0117` (`0.185 / 0.380`) |
+| Two people | `p3_paired_mask_off` (no mask) | `88.1 s` | **`18.36`** | `18.13` | **`0.480 / 0.250 / 0.109`** | woman `0.000` / man `0.536` | `0.0117` (`0.305 / 0.543`) |
+
+*(Note: the walk rows' `coat_colored_med` uses the runner's `r > 55 & r > 1.45*g & r > 1.45*b` check on `672×384` frames across all three walk rows consistently; the `p3` rows use `two_people.py`'s exact tracker and red/yellow rules.)*
+
+- **`EditGuider` alone does not hold the courtyard — even on a verbatim paired prompt.**
+  - On the unpaired walk prompt (`mask_off_walk_compare_sheet.png`), dropping the mask collapses the `11` narrow
+    upper balcony arches into `5` giant wide arches, deletes both chimneys, and rewrites the pale sky into deep blue
+    with clouds (`upper_courtyard_mae`: `28.65` vs. `6.98`, **`4.1×`** worse; `> 40` pixels `17.6%` vs. `3.5%`, **`5×`** worse).
+  - Even on the verbatim paired two-person prompt (`mask_off_p3_full_sheet.png`), dropping the mask still collapses
+    the `11` narrow upper arches into `6` wide arches and hallucinates a new arched center wall niche
+    (`upper_courtyard_mae`: `18.36` vs. `6.24`, **`2.94×`** worse; `> 20` pixels `25.0%` vs. `8.3%`, **`3×`** worse).
+- **The `B45 H43` Step-0 mask is what locks the building architecture** in both arms, preserving all `11` upper
+  arches, chimneys, sky, and framing with zero SAM and zero boxes.
+- **Exact division of labor on `p3`:** The `B45 H43` mask protects the **courtyard**; the **paired prompt** keeps the
+  **man** yellow (though as section 15 notes, because `B45 H43` masks both walkers, the man's coat length and face
+  still re-draw under the paired edit). Separating the two walkers inside the mask itself remains the direct reason
+  to test whether layers `46–48` (`B46 H13`, `B48 H3`, `B48 H29`) generalize on held-out scenes.
+- **Caveat:** One courtyard setting, one seed, and one high-contrast chrome edit at `scale=1.95`; a lower `scale`
+  or gentler wardrobe-only edit has not been tested mask-off.
