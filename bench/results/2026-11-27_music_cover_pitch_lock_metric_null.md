@@ -1,6 +1,6 @@
 # Pitch-Lock Scoring Rescored Against Time-Shifted Targets (`2026-11-27`)
 
-- **Verdict:** No arm of the 6-arm pitch-lock gate beats its own time-shifted null on any column, so none has shown pitch lock. Which arm looks best depends on the column read. `vocal_f0_r` does not measure contour agreement and is withdrawn as evidence.
+- **Verdict:** No arm of the 6-arm pitch-lock gate beats its own time-shifted null on any column, so none has shown pitch lock. Which arm looks best depends on the column read. `vocal_f0_r` does not measure contour agreement and is withdrawn as evidence. Under the same scoring, `c1` and `c3` of the next gate do beat theirs, on about a quarter of the melody (section 6).
 - **Date:** `2026-11-27`
 - **Corrects:** [`2026-11-27_music_cover_pitch_lock_gate.md`](2026-11-27_music_cover_pitch_lock_gate.md), the pitch columns of section 2 and the "interval lock" and "contour" readings built on them. Its attribution, guitar-synthesis and output-register findings are not touched.
 - **Scripts:** [`bench/pitch_lock_metrics.py`](../pitch_lock_metrics.py), [`bench/check_pitch_lock_metrics.py`](../check_pitch_lock_metrics.py)
@@ -71,14 +71,14 @@ Contour correlation, one octave count for the clip and the legacy per-frame vers
 
 What each score rests on:
 
-| Arm | Time shifts | Frames voiced in both | `best_tr_st` | `med_signed_cent_bias` |
-| :--- | :---: | :---: | :---: | :---: |
-| `p1_flicker_chord_d36` | `24` | `135` | `+5` | `+444.7` |
-| `p2_flicker_editguider_d40` | `24` | `141` | `+5` | `+434.4` |
-| `p3_flicker_voconly_d40` | `24` | `114` | `+4` | `+250.2` |
-| `p4_whatever_dedroned_origkey_d38` | `24` | `255` | `+5` | `+200.0` |
-| `p5_whatever_capo_csharp_d38` | `24` | `93` | `+1` | `-21.5` |
-| `p6_fridge_gfunk_unplugged_d40` | `17` | `28` | `+3` | `+165.1` |
+| Arm | Time shifts | Frames voiced in both | Frames the target voices | `voiced_overlap_frac` | `best_tr_st` | `med_signed_cent_bias` |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: |
+| `p1_flicker_chord_d36` | `24` | `135` | `475` | `0.284` | `+5` | `+444.7` |
+| `p2_flicker_editguider_d40` | `24` | `141` | `475` | `0.297` | `+5` | `+434.4` |
+| `p3_flicker_voconly_d40` | `24` | `114` | `475` | `0.240` | `+4` | `+250.2` |
+| `p4_whatever_dedroned_origkey_d38` | `24` | `255` | `484` | `0.527` | `+5` | `+200.0` |
+| `p5_whatever_capo_csharp_d38` | `24` | `93` | `406` | `0.229` | `+1` | `-21.5` |
+| `p6_fridge_gfunk_unplugged_d40` | `17` | `28` | `184` | `0.152` | `+3` | `+165.1` |
 
 ## 4. Reading
 
@@ -87,16 +87,38 @@ What each score rests on:
 3. **`p3` and `p5` come closest with no transposition, and the gate's table ranked them last.** About a third of their frames are in tune in the target key, more than at most shifts. The transposition search then moves both arms off that position, which is why their `rel_in_tune_frac_50c` reads low.
 4. **`vocal_f0_r` is below its null's median in all six arms.** `p3`'s figure, read in the gate record as the highest contour correlation, is lower than the same output scores against its target at most misaligned positions.
 5. **`p4` is at its null on every column. `p6` rests on too few frames to read.**
+6. **Every score covers a minority of the melody, except `p4`'s.** `voiced_overlap_frac` is the share of the target's voiced frames in which the output stem also has a pitch. The columns say nothing about the rest.
 
 ## 5. Limits
 
 - One render per arm and at most `24` shifts, so a share moves in steps of one shift and nothing here says how much two seeds of one arm differ.
-- The frames compared are a minority of each clip: only frames where YIN finds a pitch in both the output stem and the target.
+- Only frames where YIN finds a pitch in both the output stem and the target are compared. `voiced_overlap_frac` says how many that is; it does not say why the rest have no pitch (silence, breath, rasp, a different rhythm, or a weak stem).
 - A melody that repeats inside the clip scores well at the shift of its own period. That raises the null and can hide real lock; it cannot create one.
 - The transposition search is whole semitones. An output that follows the target a fraction of a semitone off gets no credit.
 - The rotated target is the null for "follows this melody in time". It does not test whether the output merely stays in the target's key.
 
-## 6. Not done
+## 6. The same scoring on the next gate's first three arms
+
+A null that nothing can beat would be no test, so the scoring was run on renders that had a chance of passing: `c1`, `c2` and `c3` of the 243-frame calibration gate (`$H3_OUTPUT_DIR/Video/pure_h3_cover_song_2026-11-27/c{1,2,3}_*_00001-audio.mp4`), against `$H3_INPUT_DIR/music_cover_stems/flicker_voc_m5_{verse,chorus}_243f.wav`. `c4` had not rendered.
+
+**Conditions that differ from that gate's own analysis:** the output vocal was separated with `sepaudio stems -r six` (sepaudio `2d3570b`), not `MelBand-RoFormer`. The two control rows put each scaffold (`flicker_m5_{verse,chorus}_cal_243f.wav`) through the same separation and score it against the same target, so they show what that path does to a vocal known to match.
+
+Every cell is aligned / null median / null best / share of `33` shifts beaten (`31` for `c2`).
+
+| Pair | `voiced_overlap_frac` (frames) | `best_tr_st` | `med_abs_cent_err` | `in_tune_frac_50c` | `rel_med_abs_cent_err` | `rel_in_tune_frac_50c` |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: |
+| `c1_verse_m5_d26` | `0.262` (`164` of `627`) | `+0` | `8.1` / `244.9` / `123.0` / `1.00` | `0.921` / `0.172` / `0.385` / `1.00` | `8.1` / `140.8` / `94.2` / `1.00` | `0.921` / `0.135` / `0.345` / `1.00` |
+| `c2_verse_m5_d32` | `0.086` (`54` of `627`) | `+0` | `37.2` / `384.3` / `87.3` / `1.00` | `0.556` / `0.000` / `0.256` / `1.00` | `37.2` / `24.9` / `9.8` / `0.29` | `0.556` / `0.652` / `0.880` / `0.35` |
+| `c3_chorus_m5_d30` | `0.268` (`176` of `657`) | `+0` | `43.0` / `336.0` / `182.6` / `1.00` | `0.523` / `0.019` / `0.209` / `1.00` | `43.0` / `132.0` / `67.6` / `1.00` | `0.523` / `0.153` / `0.471` / `1.00` |
+| verse scaffold (control) | `0.994` (`623` of `627`) | `+0` | `0.1` / `291.3` / `124.6` / `1.00` | `1.000` / `0.114` / `0.339` / `1.00` | `0.1` / `212.0` / `124.6` / `1.00` | `1.000` / `0.136` / `0.339` / `1.00` |
+| chorus scaffold (control) | `0.970` (`639` of `659`) | `+0` | `0.2` / `300.7` / `135.9` / `1.00` | `0.998` / `0.065` / `0.308` / `1.00` | `0.2` / `117.7` / `103.5` / `1.00` | `0.998` / `0.146` / `0.316` / `1.00` |
+
+1. **`c1` and `c3` beat every shift on all four columns with no transposition.** They are the first arms to pass this test, in the low window and the high one.
+2. **`c1` sits within a few cents of its scaffold.** These columns cannot say whether the singer changed. That is the first thing to listen for in `c1`.
+3. **`c2` cannot be read.** It rests on `54` frames. Its untransposed columns beat every shift; its transposed columns sit inside their null, which is what frames of nearly one pitch produce once each shift may pick its own transposition.
+4. **About a quarter of the melody is scored in `c1` and `c3`, against nearly all of it in the controls.** The separation path keeps the scaffold's voicing, so the loss is in the renders. `c1` and `c2` differ only in `denoise`, and `c2` keeps a third of `c1`'s scored frames.
+
+## 7. Not done
 
 - `music_cover_pitch_lock_gate.py::_vocal_pitch_metrics` still computes its own columns. `pitch_lock_metrics.py::vocal_pitch_metrics` takes the same two arguments and returns the same keys plus `vocal_f0_r_one_shift` and `lag_null`, so it can replace the body. Not swapped here because the gate could not be run on the machine this was written on.
 - The gate record's section 2 table and the laws drawn from it are left as written, with a dated pointer to this record.

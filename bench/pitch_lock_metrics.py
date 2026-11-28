@@ -25,7 +25,12 @@ followed the target:
   contour into the output. The one-shift column moves the whole clip by one
   octave count. `vocal_f0_r` is kept so old tables can be re-derived; do not
   read it as contour agreement. The record is
-  `bench/results/2026-11-27_pitch_lock_metric_null.md`.
+  `bench/results/2026-11-27_music_cover_pitch_lock_metric_null.md`.
+- **Coverage (`voiced_overlap_frac`).** Every column is computed only on
+  frames where both tracks have a pitch. This is the share of the target's
+  voiced frames that the output also voices, so it says how much of the melody
+  a score rests on. An output that sings a tenth of the notes in tune scores
+  as in tune.
 
     <comfy-venv-python> bench/pitch_lock_metrics.py OUT_VOC TARGET_VOC [OUT_VOC TARGET_VOC ...] [--json]
 """
@@ -149,20 +154,26 @@ def vocal_pitch_metrics(out_voc_24k: torch.Tensor, tgt_voc_24k: torch.Tensor) ->
     """Score an output vocal against a target vocal, both mono at 24 kHz.
 
     The first nine keys and their rounding match the gate's
-    `_vocal_pitch_metrics`; `vocal_f0_r_one_shift` and `lag_null` follow.
+    `_vocal_pitch_metrics`. `vocal_f0_r_one_shift`, `lag_null` and the two
+    coverage keys follow.
     """
     fo = yin_probe.yin_f0(out_voc_24k, sr=RATE)[0].numpy()
     ft = yin_probe.yin_f0(tgt_voc_24k, sr=RATE)[0].numpy()
     voiced_out = fo[np.isfinite(fo) & (fo > 0)]
     med_voc = float(np.median(voiced_out)) if len(voiced_out) else float("nan")
     result: dict[str, Any] = {"vocal_med_f0_hz": round(med_voc, 2) if math.isfinite(med_voc) else None}
+    n = min(len(fo), len(ft))
+    target_voiced = np.isfinite(ft[:n]) & (ft[:n] > 0)
+    shared = int(np.sum(target_voiced & np.isfinite(fo[:n]) & (fo[:n] > 0)))
+    coverage = {
+        "tgt_voiced_frames": int(np.sum(target_voiced)),
+        "voiced_overlap_frac": round(shared / int(np.sum(target_voiced)), 3) if np.any(target_voiced) else None,
+    }
     score = score_f0(fo, ft)
     if score is None:
-        n = min(len(fo), len(ft))
-        shared = np.isfinite(fo[:n]) & np.isfinite(ft[:n]) & (fo[:n] > 0) & (ft[:n] > 0)
-        result["mut_voiced_frames"] = int(np.sum(shared))
+        result["mut_voiced_frames"] = shared
         result.update({column: None for column in LEGACY_COLUMNS})
-        result.update({"vocal_f0_r_one_shift": None, "lag_null": None})
+        result.update({"vocal_f0_r_one_shift": None, "lag_null": None, **coverage})
         return result
     result.update(
         {
@@ -176,6 +187,7 @@ def vocal_pitch_metrics(out_voc_24k: torch.Tensor, tgt_voc_24k: torch.Tensor) ->
             "vocal_f0_r": round(score["vocal_f0_r"], 3),
             "vocal_f0_r_one_shift": round(score["vocal_f0_r_one_shift"], 3),
             "lag_null": lag_null(fo, ft),
+            **coverage,
         }
     )
     return result
@@ -188,6 +200,10 @@ def _report(name: str, metrics: dict[str, Any]) -> str:
     lines.append(
         f"  med_abs_cent_err {metrics['med_abs_cent_err']}  bias {metrics['med_signed_cent_bias']:+}  "
         f"best_tr_st {metrics['best_tr_st']:+d}  vocal_f0_r {metrics['vocal_f0_r']} (legacy)"
+    )
+    lines.append(
+        f"  scored on {metrics['mut_voiced_frames']} frames voiced in both, of {metrics['tgt_voiced_frames']} "
+        f"the target voices (voiced_overlap_frac {metrics['voiced_overlap_frac']})"
     )
     null = metrics["lag_null"]
     if null is None:
@@ -207,13 +223,16 @@ def _report(name: str, metrics: dict[str, Any]) -> str:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
     parser.add_argument("pairs", nargs="+", type=Path, metavar="VOC", help="OUT_VOC TARGET_VOC, repeated")
-    parser.add_argument("--json", action="store_true", help="print one JSON object keyed by output file name")
+    parser.add_argument("--json", action="store_true", help="print one JSON object keyed by output file")
     args = parser.parse_args(argv)
     if len(args.pairs) % 2:
         parser.error("give files in pairs: OUT_VOC TARGET_VOC")
     results: dict[str, Any] = {}
-    for out_path, target_path in zip(args.pairs[0::2], args.pairs[1::2]):
-        results[out_path.name] = {
+    outputs = args.pairs[0::2]
+    # Stems from one separator share a file name, so fall back to folder and name.
+    unique = len({p.name for p in outputs}) == len(outputs)
+    for out_path, target_path in zip(outputs, args.pairs[1::2]):
+        results[out_path.name if unique else f"{out_path.parent.name}/{out_path.name}"] = {
             "target": target_path.name,
             **vocal_pitch_metrics(
                 yin_probe.load_mono_audio(out_path, sr=RATE), yin_probe.load_mono_audio(target_path, sr=RATE)

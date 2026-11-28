@@ -66,6 +66,14 @@ def check_identical_and_transposed_pairs_beat_every_shift() -> str:
     assert same["vocal_f0_r_one_shift"] > 0.95, same
     for column, _ in plm.NULL_COLUMNS:
         assert same["lag_null"][column]["beats_frac"] == 1.0, (column, same["lag_null"])
+    assert same["voiced_overlap_frac"] == 1.0, same
+
+    # An output that sings only the first half still scores as in tune; the coverage says it is half.
+    half = target.clone()
+    half[half.numel() // 2 :] = 0.0
+    partial = plm.vocal_pitch_metrics(half, target)
+    assert partial["rel_in_tune_frac_50c"] > 0.95, partial
+    assert 0.4 < partial["voiced_overlap_frac"] < 0.6, partial
 
     up3 = plm.vocal_pitch_metrics(_melody(1, transpose_st=3.0), target)
     assert up3["best_tr_st"] == 3 and up3["rel_med_abs_cent_err"] < 10.0, up3
