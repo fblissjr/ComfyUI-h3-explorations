@@ -15,7 +15,7 @@ this file is only a way to find a script by what it says it does.
 | [`compare_*`](#compare) | 10 |
 | [`build_*`](#build) | 12 |
 | [`probe_*`](#probe) | 16 |
-| [the rest](#the-rest) | 199 |
+| [the rest](#the-rest) | 200 |
 
 ## check
 
@@ -479,6 +479,7 @@ this file is only a way to find a script by what it says it does.
 | [`run_multishot_film_2026_11_23.py`](run_multishot_film_2026_11_23.py) | Shoot a diverse 4-shot (23.50s / 564f) H3 Sound-Mixer film on live ComfyUI (:8188). |
 | [`run_pruning_arms.py`](run_pruning_arms.py) | CLOSED RECORD since 2026-09-18. This runner renders bank prompts written for 345 frames at a fixed short length, which bench/run_graph_arms.py now refuses; it needs prompts written for its length before it runs again (its results are the ... |
 | [`run_shot_count_ablation.py`](run_shot_count_ablation.py) | CLOSED RECORD since 2026-09-18. This ablation computes cut times into shot headers by design, from a frozen out-of-bank base graph at 362 frames (on the grid, one step above the 345 every shipped graph now renders; ... |
+| [`run_step0_critic_smoke.py`](run_step0_critic_smoke.py) | Ready-to-run live `:8188` matched-seed smoke suite for `MiniMaxH3SelfMaskRouter(step0_critic=True)`. |
 | [`run_tau_sweep.py`](run_tau_sweep.py) | Queue the scenes of a tau sweep on a server armed with `H3_SOL_SWEEP`. |
 | [`run_wave2_director_storyboard_redub.py`](run_wave2_director_storyboard_redub.py) | Wave 2 GPU Benchmark Runner & Analyzer: Exp 4, Exp 6 (A/B), and Exp 7. |
 | [`run_with_preview_gate.py`](run_with_preview_gate.py) | Run an API workflow through live ComfyUI WebSocket events with a tiny-VAE preview gate. |

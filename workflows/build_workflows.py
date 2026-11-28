@@ -3550,6 +3550,8 @@ def _wire_self_mask_router(
         "end_percent": float(spec.get("end_percent", 1.0)),
         "replay_step0": bool(spec.get("replay_step0", False)),
     }
+    if "step0_critic" in spec:
+        smr_in["step0_critic"] = bool(spec["step0_critic"])
     if "region_prompt" in spec and spec["region_prompt"] is not None:
         if bool(spec.get("same_prompt", False)):
             smr_in["region_conditioning"] = ["5", 0]
