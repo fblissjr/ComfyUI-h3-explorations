@@ -8,14 +8,14 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 188 |
+| [`check_*`](#check) | 189 |
 | [`measure_*`](#measure) | 33 |
 | [`analyze_*`](#analyze) | 13 |
 | [`grade_*`](#grade) | 10 |
 | [`compare_*`](#compare) | 10 |
 | [`build_*`](#build) | 12 |
 | [`probe_*`](#probe) | 16 |
-| [the rest](#the-rest) | 202 |
+| [the rest](#the-rest) | 204 |
 
 ## check
 
@@ -80,6 +80,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_h3_env.py`](check_h3_env.py) | That this machine's locations stay out of git: `h3.env`, `h3.env.example`, `workflows/h3_env.py` and `bench/write_h3_env.py`. |
 | [`check_h3_image.py`](check_h3_image.py) | MiniMax-H3-Image: the release-to-ComfyUI layout, the size rule and the shipped graphs' chain. |
 | [`check_h3_image_vae_convert.py`](check_h3_image_vae_convert.py) | That bench/convert_h3_image_vae_from_diffusers.py writes a diffusers MiniMax-H3-Image VAE in core's layout. |
+| [`check_h3_stem_sep.py`](check_h3_stem_sep.py) | Deterministic verification suite for `bench/h3_stem_sep.py`. |
 | [`check_head_reference.py`](check_head_reference.py) | `bench/head_reference.py` against a face whose every line is known by construction, read from the files it wrote. |
 | [`check_head_tube_parts.py`](check_head_tube_parts.py) | Check head_tube_parts: SAM 3.1 head tube gating, temporal seg smoothing, and 39-point face cross-check. |
 | [`check_heylook_prompts.py`](check_heylook_prompts.py) | Holistic zero-lore, exemplar-diversity, vendor-vocabulary, prefix, & HeylookProvenance check suite. |
@@ -402,6 +403,7 @@ this file is only a way to find a script by what it says it does.
 | [`gen_phaseb_grid.py`](gen_phaseb_grid.py) | CLOSED RECORD since 2026-09-18. This grid pairs full-length bank prompts with fixed lengths of 243, 311 and 362 frames (all on the grid; 362 is the trained ceiling), which bench/run_graph_arms.py now refuses for a 345-frame prompt. Kept ... |
 | [`generate_capture_manifest.py`](generate_capture_manifest.py) | Generate an auditable, fully dynamic manifest.json for an activation capture directory. |
 | [`h3_producer_provenance.py`](h3_producer_provenance.py) | Which version of a producer wrote a result. Pure stdlib, either virtualenv. |
+| [`h3_stem_sep.py`](h3_stem_sep.py) | Null-locked stem separation (MelBand-RoFormer + HDemucs) and cover-scaffold builder. |
 | [`head_reference.py`](head_reference.py) | The reference video of a head replacement, in one command: the body model cut to the head, with the face drawn on it. |
 | [`head_tube_parts.py`](head_tube_parts.py) | Head-tube conditioned Sapiens2-Seg part masks and Sapiens2-Pose 39-point face cross-check. |
 | [`hwinfo.py`](hwinfo.py) | The host this repo's numbers were measured on, printed rather than written down. |
@@ -452,6 +454,7 @@ this file is only a way to find a script by what it says it does.
 | [`profile_lora_branch.py`](profile_lora_branch.py) | Where a LoRA applied at the call spends its time, one block's modules at a time. |
 | [`profile_sol_stages.py`](profile_sol_stages.py) | Where a `comfy_kitchen.sol_attn` call spends its device time, by stage, on captured q/k/v. |
 | [`propose_runs.py`](propose_runs.py) | Loads to propose on a stretch of one subject: where the part clears the capture's floor, frame by frame, and the runs long enough to be a load, each with the node's own zoom. Data only: it proposes; the card and the lead decide. |
+| [`pure_h3_cover_song.py`](pure_h3_cover_song.py) | Pure-H3 Calibrated & 4-Window Chained Music-Video Cover (`justaflicker`). |
 | [`quality_metrics.py`](quality_metrics.py) | Rank two renders of the same brief: pixel metrics, no model deps. |
 | [`rank_dense_blocks.py`](rank_dense_blocks.py) | Rank blocks by the error `dense_blocks` actually REMOVES, not by Sol's error. |
 | [`read_hair_band.py`](read_hair_band.py) | A hair band read as figures, frame by frame, on the band's own pixels: for the load that has it and a load of the same frames that does not. |
@@ -736,7 +739,7 @@ Arm manifests and the like; a manifest's line is its own `what`.
 
 ### results
 
-278 tracked files: [`results/INDEX.md`](results/INDEX.md).
+279 tracked files: [`results/INDEX.md`](results/INDEX.md).
 
 ### rubrics
 

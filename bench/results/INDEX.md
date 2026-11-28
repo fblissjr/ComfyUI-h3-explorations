@@ -17,6 +17,7 @@ replaces `docs/wiki/ops/evidence.md`, which says what the records established.
 | date | lane | record | verdict |
 |---|---|---|---|
 | 2026-11-27 | self | [Self-Mask Sensor: Controls, Harvest Step, One Head, a Second Reading, and Two People (`2026-11-27`)](2026-11-27_self_mask_harvest_step_and_heads.md) |  |
+| 2026-11-27 | pure | [Pure-H3 Stem Cascade (`c1`–`c9`) & 4-Window `44.125 s` Chained Cover Song (`2026-11-27`)](2026-11-27_pure_h3_stem_cascade_and_chained_song.md) |  |
 | 2026-11-27 | music | [Pitch-Lock Scoring Rescored Against Time-Shifted Targets (`2026-11-27`)](2026-11-27_music_cover_pitch_lock_metric_null.md) |  |
 | 2026-11-27 | music | [6-Arm Pure-H3 Music-Video Cover Pitch-Lock Gate (`2026-11-27`)](2026-11-27_music_cover_pitch_lock_gate.md) |  |
 | 2026-11-27 | music | [What the Unscored Frames of the 243-Frame Cover Gate Hold (`2026-11-27`)](2026-11-27_music_cover_pitch_coverage.md) |  |

@@ -1,0 +1,148 @@
+#!/usr/bin/env python3
+"""Deterministic verification suite for `bench/h3_stem_sep.py`.
+
+Covers:
+1. Nulltest controls: identical copy (<= -90 dB), half-level copy (-6.02 +- 0.1 dB),
+   and 24 kHz <-> 44.1 kHz sample-rate copy (<= -45 dB).
+2. Cascade separation on a 6.0 s slice of $H3_INPUT_DIR/justaflicker.mp3 with
+   manifest & on-disk nulltest <= -80.0 dB.
+3. build_cover_scaffold(..., semitones=-8.0) on those separated stems verifying
+   32 kHz stereo output, exact sample count, non-silence, and peak <= 0.93.
+"""
+
+from __future__ import annotations
+
+import json
+import math
+import os
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+
+import torch
+import torchaudio.functional as TAF
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _lib import case, finish, skip  # noqa: E402
+import h3_stem_sep as stem_sep  # noqa: E402
+
+
+def _make_bandlimited_stereo(sr: int = 44100, dur_s: float = 2.0) -> torch.Tensor:
+    t = torch.arange(int(round(sr * dur_s)), dtype=torch.float32) / float(sr)
+    l = 0.28 * torch.sin(2.0 * math.pi * 220.0 * t) + 0.18 * torch.sin(2.0 * math.pi * 880.0 * t)
+    r = 0.24 * torch.sin(2.0 * math.pi * 330.0 * t) + 0.16 * torch.sin(2.0 * math.pi * 1320.0 * t)
+    return torch.stack([l, r], dim=0)
+
+
+def check_nulltest_identical() -> str:
+    with tempfile.TemporaryDirectory() as td:
+        tmp = Path(td)
+        sig = _make_bandlimited_stereo(44100, 1.5)
+        ref = stem_sep._write_wav_pcm16(tmp / "ref.wav", sig, 44100)
+        copy = stem_sep._write_wav_pcm16(tmp / "copy.wav", sig, 44100)
+        res = stem_sep.run_nulltest(ref, [copy])
+        assert res["null_depth_db"] <= -90.0, f"expected <= -90 dB, got {res}"
+        assert res["passed"] is True
+        return f"null_depth_db={res['null_depth_db']:.3f} dB"
+
+
+def check_nulltest_half_level() -> str:
+    with tempfile.TemporaryDirectory() as td:
+        tmp = Path(td)
+        sig = _make_bandlimited_stereo(44100, 1.5)
+        ref = stem_sep._write_wav_pcm16(tmp / "ref.wav", sig, 44100)
+        half = stem_sep._write_wav_pcm16(tmp / "half.wav", 0.5 * sig, 44100)
+        res = stem_sep.run_nulltest(ref, [half])
+        expected = 20.0 * math.log10(0.5)  # -6.0206 dB
+        assert abs(res["null_depth_db"] - expected) <= 0.1, (
+            f"expected {expected:.2f} +- 0.1 dB, got {res}"
+        )
+        assert res["passed"] is False
+        return f"null_depth_db={res['null_depth_db']:.3f} dB (expected ~{expected:.2f} dB)"
+
+
+def check_nulltest_sample_rate_roundtrip() -> str:
+    with tempfile.TemporaryDirectory() as td:
+        tmp = Path(td)
+        sig_44k = _make_bandlimited_stereo(44100, 2.0)
+        sig_24k = TAF.resample(sig_44k, orig_freq=44100, new_freq=24000)
+        ref = stem_sep._write_wav_pcm16(tmp / "ref_44k.wav", sig_44k, 44100)
+        stem_24k = stem_sep._write_wav_pcm16(tmp / "stem_24k.wav", sig_24k, 24000)
+        res = stem_sep.run_nulltest(ref, [stem_24k])
+        assert res["sample_rate_mismatch"] is True
+        assert res["null_depth_db"] <= -45.0, f"expected <= -45 dB, got {res}"
+        return f"null_depth_db={res['null_depth_db']:.3f} dB (24k <-> 44.1k)"
+
+
+def check_cascade_and_cover_scaffold() -> str:
+    inp_dir = os.environ.get("H3_INPUT_DIR", "")
+    mp3 = Path(inp_dir) / "justaflicker.mp3" if inp_dir else Path("")
+    if not inp_dir or not mp3.is_file():
+        skip("H3_INPUT_DIR/justaflicker.mp3 not present")
+
+    with tempfile.TemporaryDirectory() as td:
+        tmp = Path(td)
+        stems_dir = tmp / "stems"
+        manifest = stem_sep.separate_to_dir(
+            mp3,
+            stems_dir,
+            recipe="cascade",
+            start_s=32.0,
+            duration_s=6.0,
+        )
+        for name in ("mix.wav", "vocals.wav", "drums.wav", "bass.wav", "harmonic.wav", "manifest.json"):
+            assert (stems_dir / name).is_file(), f"missing output file {name}"
+
+        stem_list = [stems_dir / s for s in ("vocals.wav", "drums.wav", "bass.wav", "harmonic.wav")]
+        null_res = stem_sep.run_nulltest(stems_dir / "mix.wav", stem_list)
+        assert null_res["null_depth_db"] <= -80.0, f"cascade nulltest failed: {null_res}"
+        assert null_res["passed"] is True
+        assert abs(manifest["null_depth_db"] - null_res["null_depth_db"]) < 1e-3
+
+        out_scaf = tmp / "cover_scaf_32k.wav"
+        out_voc = tmp / "cover_voc_32k.wav"
+        meta = stem_sep.build_cover_scaffold(
+            stems_dir,
+            start_s=0.0,
+            duration_s=6.0,
+            semitones=-8.0,
+            out_wav_32k=out_scaf,
+            out_voc_wav_32k=out_voc,
+        )
+        expected_samples = round(6.0 * 32000)
+        assert meta["samples"] == expected_samples
+        for wav_path in (out_scaf, out_voc):
+            assert wav_path.is_file(), f"missing scaffold output {wav_path}"
+            w, sr = stem_sep._load_audio_native(wav_path)
+            assert sr == 32000, f"{wav_path.name}: expected 32000 Hz, got {sr}"
+            assert w.shape == (2, expected_samples), f"{wav_path.name}: got shape {tuple(w.shape)}"
+            rms = float(w.pow(2).mean().sqrt().item())
+            peak = float(w.abs().max().item())
+            assert rms > 1e-4, f"{wav_path.name}: unexpectedly silent (rms={rms})"
+            assert peak <= 0.93, f"{wav_path.name}: peak {peak:.4f} exceeds 0.93"
+
+        # Quick CLI smoke test on recipes subcommand
+        cli_out = subprocess.check_output(
+            [sys.executable, str(Path(__file__).resolve().parent / "h3_stem_sep.py"), "recipes", "--json"],
+            text=True,
+        )
+        recipes = json.loads(cli_out)
+        assert set(recipes) == {"cascade", "vocals", "four", "karaoke", "no_drums"}
+
+        return (
+            f"cascade null_depth_db={null_res['null_depth_db']:.3f} dB; "
+            f"scaffold={expected_samples} samples @ 32 kHz, peak={meta['peak']:.4f}"
+        )
+
+
+def main() -> int:
+    case("nulltest_identical_copy", check_nulltest_identical)
+    case("nulltest_half_level_copy", check_nulltest_half_level)
+    case("nulltest_24k_44k_roundtrip", check_nulltest_sample_rate_roundtrip)
+    case("cascade_and_cover_scaffold", check_cascade_and_cover_scaffold)
+    return finish()
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
