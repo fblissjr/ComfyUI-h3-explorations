@@ -727,6 +727,16 @@ def _pad_or_trim(wav: torch.Tensor, target_samples: int) -> torch.Tensor:
     return wav
 
 
+def _fold_inst_semitones(semitones: float) -> float:
+    """Fold accompaniment transposition into [-6.0, +6.0] st (same musical key, natural bass/chord octave)."""
+    inst = float(semitones)
+    while inst < -6.0:
+        inst += 12.0
+    while inst > 6.0:
+        inst -= 12.0
+    return round(inst, 6)
+
+
 def build_cover_scaffold(
     stems_dir: Path,
     *,
@@ -736,6 +746,7 @@ def build_cover_scaffold(
     harmonic_db: float = -9.5,
     bass_db: float = -13.0,
     vocal_formant: bool = False,
+    inst_semitones: float | None = None,
     out_wav_32k: Path,
     out_voc_wav_32k: Path | None = None,
 ) -> dict[str, Any]:
@@ -761,9 +772,10 @@ def build_cover_scaffold(
         seg = wav[:, start_idx : start_idx + slice_len]
         sliced[key] = _pad_or_trim(seg, slice_len)
 
+    inst_st = _fold_inst_semitones(semitones) if inst_semitones is None else float(inst_semitones)
     voc_shifted = _rubberband_shift_44k(sliced["vocals"], semitones, formant=vocal_formant)
-    harm_shifted = _rubberband_shift_44k(sliced["harmonic"], semitones, formant=False)
-    bass_shifted = _rubberband_shift_44k(sliced["bass"], semitones, formant=False)
+    harm_shifted = _rubberband_shift_44k(sliced["harmonic"], inst_st, formant=False)
+    bass_shifted = _rubberband_shift_44k(sliced["bass"], inst_st, formant=False)
 
     mix_44k = (
         voc_shifted
@@ -800,6 +812,7 @@ def build_cover_scaffold(
         "duration_s": round(target_samples / SCAFFOLD_SR, 6),
         "peak": round(peak, 6),
         "semitones": float(semitones),
+        "inst_semitones": float(inst_st),
         "vocal_formant": bool(vocal_formant),
         "harmonic_db": float(harmonic_db),
         "bass_db": float(bass_db),

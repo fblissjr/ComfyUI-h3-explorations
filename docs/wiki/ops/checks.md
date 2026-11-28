@@ -307,7 +307,7 @@ Full per-check history, 2026-08-23 amendments, and `"claims block"` notes are sh
 | `check_index_steering_renders.py` | `bench/index_steering_renders.py` PNG parsing & SQLite views ([detail](checks/index_15.md)) | `PIL`, `sqlite3` | no |
 | `check_m1_m2_probes.py` | `M1` DINOv3 & `M2` YIN F0 offline CPU triage math ([detail](checks/index_15.md)) | `torch`, no CUDA | no |
 | `check_pitch_lock_metrics.py` | `bench/pitch_lock_metrics.py` `lag_null`, `vocal_f0_r_one_shift` & coverage ([detail](checks/index_15.md)) | `torch`, no CUDA | no |
-| `check_pitch_lock_coverage.py` | `bench/pitch_lock_coverage.py` threshold sweep, rests, high-pass & `ltas` ([detail](checks/index_15.md)) | `torch`, no CUDA | no |
+| `check_pitch_lock_coverage.py` | `bench/pitch_lock_coverage.py` `frames` split, threshold sweep, `periodic` share & `highpass` ([detail](checks/index_15.md)) | `torch`, no CUDA | no |
 | `check_music_cover_routing.py` | `MiniMaxH3AudioRefRouter` & audio LSE subset balance ([detail](checks/index_15.md)) | `torch`, no CUDA | yes |
 | `check_sync_heylook_presets.py` | `bench/sync_heylook_presets.py` 21-preset sync & httpx mock ([detail](checks/index_15.md)) | `httpx`, no CUDA | no |
 | `check_heylook_prompts.py` | zero-lore restraint & 14-key `HeylookProvenance` ([detail](checks/index_15.md)) | no CUDA, HTTP mock | yes |

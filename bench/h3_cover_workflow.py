@@ -7,8 +7,8 @@ Automates everything except creative lyric authoring for arbitrary inputs:
   - `--target-song`: runs GPU/CPU `MelBand-RoFormer + HDemucs` cascade (`bench/h3_stem_sep.py`),
     auto-selects register semitone shift (`vocal_formant=False`), aligns `39 + 51m` window
     seams onto vocal breath pauses, drafts 6-section `ref2va` prompt skeletons (with optional
-    `.lrc`/`.txt` lyrics auto-slotted), accelerates Pass 2 with `MiniMaxH3FrozenVideoCache`,
-    stitches window outputs, and scores pitch lock via `bench/pitch_lock_metrics.py`.
+    `.lrc`/`.txt` lyrics auto-slotted), runs uncached Pass-2 denoising by default (with
+    opt-in `MiniMaxH3FrozenVideoCache` via `--frozen-video-cache`), stitches window outputs, and scores pitch lock via `bench/pitch_lock_metrics.py`.
 """
 
 from __future__ import annotations
@@ -159,6 +159,8 @@ def pick_best_ref_vocal_window(
     boundary_s: float = 0.20,
     quiet_boundary_dbfs: float = -35.0,
     register_bias: str = "balanced",
+    scan_s: float | None = None,
+    explicit_start_s: float | None = None,
 ) -> dict[str, Any]:
     """Select the cleanest phrase-bounded 8.0 s (`192f`) reference vocal window."""
     if register_bias not in ("balanced", "low", "high"):
@@ -174,15 +176,20 @@ def pick_best_ref_vocal_window(
     b_yf = max(1, min(win_yf // 4, int(round(boundary_s * YIN_FPS))))
     target_samples_32k = int(round(dur_s * stem_sep.SCAFFOLD_SR))
 
-    global_voiced = np.isfinite(f0) & (f0 > 0) & (rms > -42.0)
-    global_med = float(np.median(f0[global_voiced])) if int(np.sum(global_voiced)) >= 8 else 200.0
-
     n_frames = len(f0)
+    scan_end = n_frames if scan_s is None or scan_s <= 0 else min(n_frames, int(round(scan_s * YIN_FPS)))
+    global_voiced = np.isfinite(f0[:scan_end]) & (f0[:scan_end] > 0) & (rms[:scan_end] > -42.0)
+    full_f0_stats = _f0_percentiles(f0[:scan_end][global_voiced])
+    global_med = float(full_f0_stats["median"]) if full_f0_stats is not None else 200.0
+
     candidates: list[dict[str, Any]] = []
-    if n_frames <= win_yf:
+    if explicit_start_s is not None:
+        max_sf = max(0, n_frames - win_yf)
+        start_candidates = [max(0, min(max_sf, int(round(explicit_start_s * YIN_FPS))))]
+    elif scan_end <= win_yf:
         start_candidates = [0]
     else:
-        start_candidates = list(range(0, n_frames - win_yf + 1, hop_yf))
+        start_candidates = list(range(0, scan_end - win_yf + 1, hop_yf))
 
     for sf in start_candidates:
         ef = min(n_frames, sf + win_yf)
@@ -247,6 +254,7 @@ def pick_best_ref_vocal_window(
         "head_dbfs": best["head_dbfs"],
         "tail_dbfs": best["tail_dbfs"],
         "f0_stats": best["f0_stats"],
+        "full_ref_f0_stats": full_f0_stats,
         "register_bias": register_bias,
     }
 
@@ -287,9 +295,13 @@ def choose_cover_semitones(
         raw_st = 12.0 * math.log2(float(ref_f0_stats["median"]) / float(tgt_stats["median"]))
         st = float(max(-12, min(12, round(raw_st))))
         ref_p90 = float(ref_f0_stats.get("p90") or ref_f0_stats["median"])
+        ref_p75 = float(ref_f0_stats.get("p75") or ref_p90)
         ref_p10 = float(ref_f0_stats.get("p10") or ref_f0_stats["median"])
         while (
-            tgt_stats["p75"] * (2.0 ** (st / 12.0)) > ref_p90 * 1.12
+            (
+                tgt_stats["p75"] * (2.0 ** (st / 12.0)) > max(ref_p90, ref_p75 * 1.06)
+                or tgt_stats["p90"] * (2.0 ** (st / 12.0)) > ref_p90 * 1.12
+            )
             and tgt_stats["p25"] * (2.0 ** ((st - 1.0) / 12.0)) >= ref_p10 * 0.92
             and st > -12.0
         ):
@@ -720,12 +732,12 @@ def build_cover_graph(
     *,
     window_denoises: list[float],
     pass2_steps: int = 12,
-    use_frozen_video_cache: bool = True,
+    use_frozen_video_cache: bool = False,
     aud_to_vid_gain: float = 1.0,
     mic_prompts: list[str] | None = None,
     seed: int = DEFAULT_SEED,
 ) -> dict[str, Any]:
-    """Build single- or multi-window ComfyUI API graph with Pass-2 FrozenVideoCache + stock-RoPE chaining."""
+    """Build single- or multi-window ComfyUI API graph with stock-RoPE chaining (Pass-2 FVC opt-in)."""
     windows = manifest["windows"]
     n_win = len(windows)
     if len(prompts) != n_win or len(window_denoises) != n_win:
@@ -1147,7 +1159,11 @@ def score_cover_job(manifest: dict[str, Any], *, input_dir: Path, output_dir: Pa
     tgt_full_24k = _load_audio_np(input_dir / manifest["tgt_voc_rel"], sr=24000, channels=1)
 
     def _separate_cached(src_media: Path, stem_wav: Path) -> torch.Tensor:
-        if stem_wav.is_file() and stem_wav.stat().st_size > 44100:
+        if (
+            stem_wav.is_file()
+            and stem_wav.stat().st_size > 44100
+            and stem_wav.stat().st_mtime >= src_media.stat().st_mtime
+        ):
             return torch.from_numpy(_load_audio_np(stem_wav, sr=24000, channels=1))
         wav_44k = torch.from_numpy(_load_audio_np(src_media, sr=44100, channels=2))
         dev = stem_sep._resolve_compute_device(None)
@@ -1223,11 +1239,18 @@ def cmd_prepare(args: argparse.Namespace) -> int:
     if not ref_audio_p.is_file():
         raise FileNotFoundError(f"Missing --ref-audio file: {ref_audio_p}")
     ref_stems_dir = paths["stems_dir"] / "ref"
-    if not (ref_stems_dir / "vocals.wav").is_file():
+    ref_voc_p = ref_stems_dir / "vocals.wav"
+    if not ref_voc_p.is_file() or ref_voc_p.stat().st_mtime < ref_audio_p.stat().st_mtime:
         stem_sep.separate_to_dir(ref_audio_p, ref_stems_dir, recipe="vocals")
-    ref_voc_44k, ref_sr = stem_sep._load_audio_native(ref_stems_dir / "vocals.wav")
+    ref_voc_44k, ref_sr = stem_sep._load_audio_native(ref_voc_p)
 
-    ref_main = pick_best_ref_vocal_window(ref_voc_44k, sr=ref_sr, register_bias="balanced")
+    ref_main = pick_best_ref_vocal_window(
+        ref_voc_44k,
+        sr=ref_sr,
+        register_bias="balanced",
+        scan_s=args.ref_scan_s,
+        explicit_start_s=args.ref_start_s,
+    )
     ref_vocal_path = paths["in_dir"] / "ref_vocal_192f.wav"
     stem_sep._write_wav_pcm16(ref_vocal_path, ref_main["wav_32k"], stem_sep.SCAFFOLD_SR)
     ref_vocal_rel = str(ref_vocal_path.relative_to(input_dir))
@@ -1237,8 +1260,8 @@ def cmd_prepare(args: argparse.Namespace) -> int:
     ref_low_info: dict[str, Any] | None = None
     ref_high_info: dict[str, Any] | None = None
     if args.ref_register == "split":
-        ref_low = pick_best_ref_vocal_window(ref_voc_44k, sr=ref_sr, register_bias="low")
-        ref_high = pick_best_ref_vocal_window(ref_voc_44k, sr=ref_sr, register_bias="high")
+        ref_low = pick_best_ref_vocal_window(ref_voc_44k, sr=ref_sr, register_bias="low", scan_s=args.ref_scan_s)
+        ref_high = pick_best_ref_vocal_window(ref_voc_44k, sr=ref_sr, register_bias="high", scan_s=args.ref_scan_s)
         low_p = paths["in_dir"] / "ref_vocal_low_192f.wav"
         high_p = paths["in_dir"] / "ref_vocal_high_192f.wav"
         stem_sep._write_wav_pcm16(low_p, ref_low["wav_32k"], stem_sep.SCAFFOLD_SR)
@@ -1252,15 +1275,25 @@ def cmd_prepare(args: argparse.Namespace) -> int:
     if not tgt_song_p.is_file():
         raise FileNotFoundError(f"Missing --target-song file: {tgt_song_p}")
     tgt_stems_dir = paths["stems_dir"] / "target"
-    if not (tgt_stems_dir / "vocals.wav").is_file():
+    tgt_voc_raw_p = tgt_stems_dir / "vocals.wav"
+    if not tgt_voc_raw_p.is_file() or tgt_voc_raw_p.stat().st_mtime < tgt_song_p.stat().st_mtime:
         stem_sep.separate_to_dir(tgt_song_p, tgt_stems_dir, recipe="cascade")
 
-    tgt_voc_24k = torch.from_numpy(_load_audio_np(tgt_stems_dir / "vocals.wav", sr=24000, channels=1))
+    tgt_voc_24k = torch.from_numpy(_load_audio_np(tgt_voc_raw_p, sr=24000, channels=1))
+    explicit_formant: bool | None
+    if args.preserve_formant:
+        explicit_formant = True
+    elif args.vocal_formant == "true":
+        explicit_formant = True
+    elif args.vocal_formant == "false":
+        explicit_formant = False
+    else:
+        explicit_formant = None
     semi_info = choose_cover_semitones(
         ref_main["f0_stats"],
         tgt_voc_24k,
         explicit_semitones=args.semitones,
-        explicit_formant=True if args.preserve_formant else None,
+        explicit_formant=explicit_formant,
     )
     win_plan = plan_breath_aligned_windows(
         tgt_voc_24k,
@@ -1274,7 +1307,7 @@ def cmd_prepare(args: argparse.Namespace) -> int:
     scaffold_p = paths["in_dir"] / "scaffold_full_32k.wav"
     tgt_voc_p = paths["in_dir"] / "target_voc_shifted_32k.wav"
     raw_orig_p = paths["in_dir"] / "target_raw_orig_32k.wav"
-    stem_sep.build_cover_scaffold(
+    scaf_meta = stem_sep.build_cover_scaffold(
         tgt_stems_dir,
         start_s=win_plan["start_s"],
         duration_s=win_plan["duration_s"],
@@ -1335,6 +1368,7 @@ def cmd_prepare(args: argparse.Namespace) -> int:
         "tgt_voc_rel": str(tgt_voc_p.relative_to(input_dir)),
         "raw_orig_rel": str(raw_orig_p.relative_to(input_dir)),
         "semitones": semi_info["semitones"],
+        "inst_semitones": scaf_meta["inst_semitones"],
         "vocal_formant": semi_info["vocal_formant"],
         "harmonic_db": float(args.harmonic_db),
         "bass_db": float(args.bass_db),
@@ -1385,12 +1419,13 @@ def cmd_render(args: argparse.Namespace) -> int:
         )
 
     denoises = resolve_window_denoises(manifest["windows"], args.denoise)
+    use_fvc_flag = bool(args.frozen_video_cache and not args.no_frozen_video_cache)
     graph = build_cover_graph(
         manifest,
         prompts,
         window_denoises=denoises,
         pass2_steps=args.pass2_steps,
-        use_frozen_video_cache=not args.no_frozen_video_cache,
+        use_frozen_video_cache=use_fvc_flag,
         aud_to_vid_gain=args.aud_to_vid_gain,
         seed=args.seed,
     )
@@ -1404,7 +1439,7 @@ def cmd_render(args: argparse.Namespace) -> int:
     )
     pf_out = (preflight_proc.stdout + "\n" + preflight_proc.stderr).strip()
     pf_ok = preflight_proc.returncode == 0 and "\nFAIL" not in f"\n{pf_out}"
-    print(f"[preflight] {manifest['job']} ({n_win}w, denoises={denoises}, fvc={not args.no_frozen_video_cache and args.aud_to_vid_gain >= 1.0}): {'PASS' if pf_ok else 'FAIL'}")
+    print(f"[preflight] {manifest['job']} ({n_win}w, denoises={denoises}, fvc={use_fvc_flag and args.aud_to_vid_gain >= 1.0}): {'PASS' if pf_ok else 'FAIL'}")
     if not pf_ok:
         print(pf_out)
         return 1
@@ -1463,7 +1498,10 @@ def _build_parser() -> argparse.ArgumentParser:
     sp_prep.add_argument("--target-song", required=True, help="Target song audio/video path.")
     sp_prep.add_argument("--lyrics", default=None, help="Optional .lrc or plain-text lyrics file.")
     sp_prep.add_argument("--semitones", type=float, default=None, help="Override auto integer semitone shift.")
-    sp_prep.add_argument("--preserve-formant", action="store_true", help="Enable RubberBand formant preservation (default: False).")
+    sp_prep.add_argument("--vocal-formant", choices=["auto", "true", "false"], default="auto", help="RubberBand formant preservation ('auto': False unless explicitly enabled).")
+    sp_prep.add_argument("--preserve-formant", action="store_true", help="Deprecated alias for `--vocal-formant true`.")
+    sp_prep.add_argument("--ref-start-s", type=float, default=None, help="Pin exact 8.0 s reference vocal slice start in seconds.")
+    sp_prep.add_argument("--ref-scan-s", type=float, default=90.0, help="Max leading seconds of ref audio to scan (<=0 for full file, default 90.0).")
     sp_prep.add_argument("--ref-register", choices=["single", "split"], default="single", help="Single 8.0s <Audio 1> (default) or low/high register split.")
     sp_prep.add_argument("--windows", type=int, default=None, help="Explicit number of chained windows.")
     sp_prep.add_argument("--duration-s", type=float, default=None, help="Target duration in seconds when --windows is omitted.")
@@ -1485,7 +1523,8 @@ def _build_parser() -> argparse.ArgumentParser:
     sp_ren.add_argument("--denoise", default="0.29", help="Scalar float ('0.29'), 'auto' (0.26 low / 0.29 high), or CSV per window.")
     sp_ren.add_argument("--pass2-steps", type=int, default=12, help="Base Pass-2 scheduler steps (default 12 -> 41 steps at 0.29).")
     sp_ren.add_argument("--aud-to-vid-gain", type=float, default=1.0, help="Audio->video attention gain (< 1.0 disables FrozenVideoCache safely).")
-    sp_ren.add_argument("--no-frozen-video-cache", action="store_true", help="Disable Pass-2 MiniMaxH3FrozenVideoCache.")
+    sp_ren.add_argument("--frozen-video-cache", action="store_true", help="Opt-in Pass-2 MiniMaxH3FrozenVideoCache(int4) speedup (default: False).")
+    sp_ren.add_argument("--no-frozen-video-cache", action="store_true", help="Deprecated no-op; Pass-2 FrozenVideoCache is off by default.")
     sp_ren.add_argument("--seed", type=int, default=DEFAULT_SEED)
     sp_ren.add_argument("--url", default=DEFAULT_URL)
     sp_ren.add_argument("--allow-placeholders", action="store_true", help="Permit unedited [PASTE_LYRICS_*] placeholders for dry runs.")

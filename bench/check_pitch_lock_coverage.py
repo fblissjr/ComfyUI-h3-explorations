@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Offline checks for `pitch_lock_coverage.py`: the frame split, the threshold sweep's null, agreement, levels and the timbre figure."""
+"""Offline checks for `pitch_lock_coverage.py`: frame split, threshold sweep null, quartiles, lag overlap, periodic share, and high-pass."""
 
 from __future__ import annotations
 
@@ -129,90 +129,26 @@ def check_overlap_finds_a_late_output() -> str:
     return f"an output 300 ms late is found at {shifted['best_shift_ms']:+d} ms; an on-time one at 0"
 
 
-def check_agreement_levels_and_periodic_share() -> str:
+def check_periodic_share_and_highpass() -> str:
     target = _melody(1)
-    clean = _f0(target)[0]
-    gapped_wav = target.clone()
-    gapped_wav[_span(0, 8)] = 0.0
-    agree = plc.agreement(clean, _f0(gapped_wav)[0], clean)
-    assert agree["both"] + agree["a_only"] + agree["b_only"] + agree["neither"] == agree["target_voiced"], agree
-    assert agree["b_only"] == 0 and abs(agree["a_only"] - 8 * FRAMES_PER_NOTE) < 0.15 * 8 * FRAMES_PER_NOTE, agree
-    assert agree["same_pitch_frac_50c"] == 1.0, agree
-
-    a = torch.stack([target, target]).numpy()
-    b = 0.5 * torch.stack([_melody(2), _melody(2)]).numpy()
-    levels = plc.stem_levels(a + b, {"a": a, "b": b})
-    # Taking a stem out of a two-stem mix leaves the other stem.
-    assert abs(levels["a"]["mix_minus_stem_re_mix_db"] - levels["b"]["stem_re_mix_db"]) < 0.01, levels
-    assert abs(levels["a"]["stem_re_mix_db"] - levels["b"]["stem_re_mix_db"] - 6.02) < 0.3, levels
-
     sung = plc.periodic_share(*_f0(target))
     hiss = plc.periodic_share(*_f0(_noise(target.numel(), _rms(target), seed=6)))
     assert sung["pitched_frac_of_active"] > 0.9 and hiss["pitched_frac_of_active"] < 0.05, (sung, hiss)
-    # The melody is drawn between MIDI 48 and 66; a copy five semitones down reads that much lower.
     q25, q50, q75 = sung["pitch_hz_q25_50_75"]
     assert 130.0 < q25 <= q50 <= q75 < 371.0, sung
     lower = plc.periodic_share(*_f0(_melody(1, transpose_st=-5.0)))["pitch_hz_q25_50_75"][1]
     assert abs(1200.0 * np.log2(q50 / lower) - 500.0) < 30.0, (q50, lower)
-    return (
-        f"a stem missing a quarter is a_only in {agree['a_only']} frames; a stem 6 dB down reads "
-        f"{levels['b']['stem_re_mix_db']:+.2f} dB against {levels['a']['stem_re_mix_db']:+.2f}; pitched share "
-        f"{sung['pitched_frac_of_active']:.2f} for a tone, {hiss['pitched_frac_of_active']:.2f} for noise"
-    )
 
-
-def check_rests_and_highpass_find_a_bass_left_in_the_stem() -> str:
-    target = _melody(1)
-    for note in range(3, NOTES, 4):  # rests
-        target[_span(note, note + 1)] = 0.0
     t = torch.arange(target.numel(), dtype=torch.float32) / float(SR)
     bass = 0.35 * (torch.sin(2.0 * torch.pi * 55.0 * t) + 0.6 * torch.sin(2.0 * torch.pi * 110.0 * t))
     clip = target + bass
-    rep = plc.rest_report(target, clip, {"bass": bass, "voice": target})
-    # A frame is a rest only when its whole analysis window lies inside one.
-    rests = (NOTES // 4) * ((NOTE - plc.BAND_N_FFT) / yin_probe.DEFAULT_HOP_LEN + 1)
-    assert abs(rep["rest_frames"] - rests) < 0.15 * rests, (rep["rest_frames"], rests)
-    # The rests hold the bass and nothing else: all of it under 150 Hz, all of it in the bass stem.
-    assert rep["bands_in_rests_db"]["0-150"] > -0.5 and rep["bands_in_rests_db"]["150-1000"] < -20.0, rep
-    assert abs(rep["stems_re_clip_in_rests_db"]["bass"]) < 0.5 and rep["stems_re_clip_in_rests_db"]["voice"] < -20.0, rep
-    # While the voice sings its band is in the clip, as it was not in the rests; and a brighter voice reads brighter there.
-    assert rep["bands_sung_frames_db"]["150-1000"] > rep["bands_in_rests_db"]["150-1000"] + 20.0, rep
-    bright = plc.rest_report(target, target + 3.0 * plc.highpass(target, 1000.0), {})["bands_sung_frames_db"]
-    plain = plc.rest_report(target, target, {})["bands_sung_frames_db"]
-    assert bright["1000-4000"] - bright["150-1000"] > plain["1000-4000"] - plain["150-1000"] + 6.0, (bright, plain)
-    # The bass hides the voice's pitch; a high-pass under the voice's range brings it back.
     hidden = plc.frames_report(clip, target)
     cleared = plc.frames_report(plc.highpass(clip, 150.0), target)
     assert hidden["scored"] < 0.6 * hidden["target_voiced"], (hidden["scored"], hidden["target_voiced"])
     assert cleared["scored"] > 0.9 * cleared["target_voiced"], (cleared["scored"], cleared["target_voiced"])
     return (
-        f"a bass under a voice with rests: {rep['rest_frames']} rest frames, all under 150 Hz and all in the bass stem; "
-        f"{hidden['scored']} of {hidden['target_voiced']} frames scored with the bass in, {cleared['scored']} high-passed"
-    )
-
-
-def check_a_bed_under_a_voice_costs_frames_by_level() -> str:
-    kept = plc.kept_under_bed(_melody(1), _melody(2))["kept_frac_by_bed_db"]
-    values = [kept[k] for k in ("-20", "-15", "-10", "-5", "+0")]
-    assert values == sorted(values, reverse=True), kept
-    # Far under the voice it costs almost nothing; at the voice's level it costs at least a fifth of the frames.
-    assert values[0] > 0.95 and values[-1] < values[0] - 0.2, kept
-    return f"a second melody under a voice: {values[0]:.2f} of its frames keep a pitch at -20 dB, {values[-1]:.2f} at equal level"
-
-
-def check_ltas_moves_with_a_bass_under_the_same_voice() -> str:
-    voice = _melody(1)
-    t = torch.arange(voice.numel(), dtype=torch.float32) / float(SR)
-    bass = 0.25 * torch.sin(2.0 * torch.pi * 55.0 * t)
-    same = plc.ltas_cosine(voice, voice)
-    with_bass = plc.ltas_cosine(voice + bass, voice)
-    other_notes = plc.ltas_cosine(_melody(2), voice)
-    assert abs(same - 1.0) < 1e-4, same
-    # Nothing about the voice changed, and the figure falls further than it does for a different melody.
-    assert with_bass < other_notes - 0.05, (with_bass, other_notes)
-    return (
-        f"a voice against itself reads {same:.2f}, a different melody in the same voice {other_notes:.2f}, "
-        f"and the same voice with a bass under it {with_bass:.2f}"
+        f"pitched share {sung['pitched_frac_of_active']:.2f} for a tone, {hiss['pitched_frac_of_active']:.2f} for noise; "
+        f"high-pass lifts scored frames under 55/110 Hz bass from {hidden['scored']} to {cleared['scored']} of {cleared['target_voiced']}"
     )
 
 
@@ -222,10 +158,7 @@ def main() -> int:
     case("wrong_melody_under_noise_gets_no_credit", check_wrong_melody_under_noise_gets_no_credit)
     case("quartile_split_finds_which_notes_were_lost", check_quartile_split_finds_which_notes_were_lost)
     case("overlap_finds_a_late_output", check_overlap_finds_a_late_output)
-    case("agreement_levels_and_periodic_share", check_agreement_levels_and_periodic_share)
-    case("rests_and_highpass_find_a_bass_left_in_the_stem", check_rests_and_highpass_find_a_bass_left_in_the_stem)
-    case("a_bed_under_a_voice_costs_frames_by_level", check_a_bed_under_a_voice_costs_frames_by_level)
-    case("ltas_moves_with_a_bass_under_the_same_voice", check_ltas_moves_with_a_bass_under_the_same_voice)
+    case("periodic_share_and_highpass", check_periodic_share_and_highpass)
     return finish()
 
 

@@ -68,13 +68,44 @@ def test_choose_cover_semitones() -> None:
     info_ceil = cw.choose_cover_semitones(wide_ref, wide_tgt)
     assert info_ceil["semitones"] <= 0.0, info_ceil
 
+    # Baritone ref (p90 ~280 Hz) -> high-belt target (median 264, p75 342, p90 412) must pick -5 st, not -2 st
+    baritone_ref = {"p10": 137.6, "p25": 206.7, "median": 237.5, "p75": 273.5, "p90": 279.8}
+    high_belt_sim = torch.cat([
+        _harmonic_tone(208.0, 2.0, sr)[0],
+        _harmonic_tone(263.6, 2.0, sr)[0],
+        _harmonic_tone(342.0, 2.0, sr)[0],
+        _harmonic_tone(412.3, 2.0, sr)[0],
+    ])
+    info_belt = cw.choose_cover_semitones(baritone_ref, high_belt_sim)
+    assert info_belt["semitones"] == -5.0, info_belt
+    assert info_belt["vocal_formant"] is False, info_belt
+
+    # Upward shifts keep vocal_formant=False by default (natural timbre over formant-warping artifacts) unless explicitly enabled
+    info_up = cw.choose_cover_semitones({"p10": 320.0, "p25": 350.0, "median": 420.0, "p75": 470.0, "p90": 520.0}, _harmonic_tone(250.0, 6.0, sr))
+    assert info_up["semitones"] >= 3.0 and info_up["vocal_formant"] is False, info_up
+    info_up_fmt = cw.choose_cover_semitones({"p10": 320.0, "p25": 350.0, "median": 420.0, "p75": 470.0, "p90": 520.0}, _harmonic_tone(250.0, 6.0, sr), explicit_formant=True)
+    assert info_up_fmt["vocal_formant"] is True, info_up_fmt
+
     # Low periodicity warning on unpitched noise
     torch.manual_seed(0)
     noise = 0.15 * torch.randn(2, 6 * sr)
     info_noise = cw.choose_cover_semitones(ref_stats, noise)
     assert info_noise["active_periodic_frac"] < 0.35 and info_noise["warnings"], info_noise
     assert cw.choose_cover_semitones(ref_stats, noise, explicit_semitones=-4.0)["semitones"] == -4.0
-    print(f"ok    choose_cover_semitones: auto=-5.0 st (formant={info['vocal_formant']}), ceil={info_ceil['semitones']} st, noise warns={len(info_noise['warnings'])}")
+
+    # explicit_start_s and scan_s support
+    full = torch.zeros(2, 20 * sr, dtype=torch.float32)
+    full[:, int(1.0 * sr) : int(9.0 * sr)] = _harmonic_tone(220.0, 8.0, sr)[0].unsqueeze(0).repeat(2, 1)
+    full[:, int(11.0 * sr) : int(19.0 * sr)] = _harmonic_tone(330.0, 8.0, sr)[0].unsqueeze(0).repeat(2, 1)
+    pinned = cw.pick_best_ref_vocal_window(full, sr=sr, explicit_start_s=11.0)
+    assert abs(pinned["start_s"] - 11.0) < 0.1 and pinned["f0_stats"]["median"] > 300.0, pinned
+    scanned = cw.pick_best_ref_vocal_window(full, sr=sr, scan_s=10.0)
+    assert scanned["start_s"] <= 2.5 and scanned["f0_stats"]["median"] < 250.0, scanned
+    print(
+        f"ok    choose_cover_semitones: auto=-5.0 st (formant={info['vocal_formant']}), "
+        f"belt_guard={info_belt['semitones']} st, up={info_up['semitones']:+.0f} st (formant={info_up['vocal_formant']}), "
+        f"ceil={info_ceil['semitones']} st, noise warns={len(info_noise['warnings'])}"
+    )
 
 
 def test_plan_breath_aligned_windows_and_auto_denoise() -> None:
@@ -149,6 +180,9 @@ def test_prompts_and_graph_contract() -> None:
         "scaffold_rel": "cover_jobs/unit/scaffold_full_32k.wav",
         "windows": windows,
     }
+    # Default build omits FrozenVideoCache; explicit opt-in enables `122_fvc`
+    g3_default = cw.build_cover_graph(manifest_split, prompts, window_denoises=[0.26, 0.26, 0.29], aud_to_vid_gain=1.0)
+    assert "122_fvc" not in g3_default, g3_default.keys()
     g3 = cw.build_cover_graph(manifest_split, prompts, window_denoises=[0.26, 0.26, 0.29], use_frozen_video_cache=True, aud_to_vid_gain=1.0)
     assert "122_fvc" in g3 and g3["122_fvc"]["class_type"] == "MiniMaxH3FrozenVideoCache"
     assert g3["160_w1"]["inputs"]["denoise"] == 0.26 and g3["160_w3"]["inputs"]["denoise"] == 0.29
@@ -160,7 +194,7 @@ def test_prompts_and_graph_contract() -> None:
     m1 = dict(manifest_split, windows=windows[:1], n_windows=1, total_frames=294, ref_register="single")
     g1 = cw.build_cover_graph(m1, prompts[:1], window_denoises=[0.30], use_frozen_video_cache=True, aud_to_vid_gain=0.0)
     assert "122_fvc" not in g1 and "145_w1" in g1 and g1["49_w1"]["class_type"] == "MiniMaxH3FreezeAudio"
-    print(f"ok    prompts_and_graph_contract: 3w+FVC+split ({len(g3)} nodes) & 1w+a2v=0 ({len(g1)} nodes) verified")
+    print(f"ok    prompts_and_graph_contract: 3w+default ({len(g3_default)} nodes), 3w+FVC+split ({len(g3)} nodes) & 1w+a2v=0 ({len(g1)} nodes) verified")
 
 
 def main() -> int:

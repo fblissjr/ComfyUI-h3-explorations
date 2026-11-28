@@ -387,6 +387,8 @@ So the reference's register is a candidate cause for the verse's lost low notes,
 
 ## 14. Commands
 
+> Note (2026-11-27 archival cleanup): `bench/pitch_lock_coverage.py` now keeps the reusable `frames` (with `--highpass`) and `periodic` subcommands; the full original 7-mode script used to reproduce `agree`, `levels`, `ltas`, `rests`, and `under` in the tables above is archived at `data/pure_h3_cover_song/pitch_lock_coverage_oneoff.py`.
+
 ```bash
 V="$H3_OUTPUT_DIR/Video/pure_h3_cover_song_2026-11-27"; S="$V/vocal_stems"; I="$H3_INPUT_DIR/music_cover_stems"
 X=<scratch folder>   # sepaudio stems "$V/<arm>_00001-audio.mp4" -r six -o "$X", run in the sepaudio checkout's own environment

@@ -4,7 +4,7 @@
 Covers:
 1. Nulltest controls: identical copy (<= -90 dB), half-level copy (-6.02 +- 0.1 dB),
    and 24 kHz <-> 44.1 kHz sample-rate copy (<= -45 dB).
-2. Cascade separation on a 6.0 s slice of $H3_INPUT_DIR/justaflicker.mp3 with
+2. Cascade separation on a 6.0 s test audio slice (or `$H3_TEST_AUDIO` if provided) with
    manifest & on-disk nulltest <= -80.0 dB.
 3. build_cover_scaffold(..., semitones=-8.0) on those separated stems verifying
    32 kHz stereo output, exact sample count, non-silence, and peak <= 0.93.
@@ -24,7 +24,7 @@ import torch
 import torchaudio.functional as TAF
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from _lib import case, finish, skip  # noqa: E402
+from _lib import case, finish  # noqa: E402
 import h3_stem_sep as stem_sep  # noqa: E402
 
 
@@ -76,19 +76,32 @@ def check_nulltest_sample_rate_roundtrip() -> str:
 
 
 def check_cascade_and_cover_scaffold() -> str:
-    inp_dir = os.environ.get("H3_INPUT_DIR", "")
-    mp3 = Path(inp_dir) / "justaflicker.mp3" if inp_dir else Path("")
-    if not inp_dir or not mp3.is_file():
-        skip("H3_INPUT_DIR/justaflicker.mp3 not present")
-
+    test_audio = os.environ.get("H3_TEST_AUDIO", "")
     with tempfile.TemporaryDirectory() as td:
         tmp = Path(td)
+        if test_audio and Path(test_audio).is_file():
+            src_audio = Path(test_audio)
+            slice_start = 32.0
+        else:
+            src_audio = tmp / "synth_mix.wav"
+            sr = stem_sep.STEM_SR
+            t = torch.arange(int(round(6.0 * sr)), dtype=torch.float32) / float(sr)
+            inst_hz = 280.0 + 18.0 * torch.sin(2.0 * math.pi * 5.2 * t)
+            ph = 2.0 * math.pi * torch.cumsum(inst_hz, dim=0) / float(sr)
+            syllable = 0.65 + 0.35 * torch.sin(2.0 * math.pi * 3.0 * t)
+            voc = syllable * (0.24 * torch.sin(ph) + 0.18 * torch.sin(2.0 * ph) + 0.12 * torch.sin(3.0 * ph) + 0.07 * torch.sin(4.0 * ph))
+            bass = 0.20 * torch.sin(2.0 * math.pi * 73.42 * t)
+            harm = 0.12 * torch.sin(2.0 * math.pi * 220.0 * t) + 0.08 * torch.sin(2.0 * math.pi * 440.0 * t)
+            synth = torch.stack([voc + bass + harm, voc * 0.95 + bass + harm * 1.05], dim=0)
+            stem_sep._write_wav_pcm16(src_audio, synth, sr)
+            slice_start = 0.0
+
         stems_dir = tmp / "stems"
         manifest = stem_sep.separate_to_dir(
-            mp3,
+            src_audio,
             stems_dir,
             recipe="cascade",
-            start_s=32.0,
+            start_s=slice_start,
             duration_s=6.0,
         )
         for name in ("mix.wav", "vocals.wav", "drums.wav", "bass.wav", "harmonic.wav", "manifest.json"):
@@ -112,6 +125,9 @@ def check_cascade_and_cover_scaffold() -> str:
         )
         expected_samples = round(6.0 * 32000)
         assert meta["samples"] == expected_samples
+        assert meta["inst_semitones"] == 4.0, meta
+        assert stem_sep._fold_inst_semitones(-12.0) == 0.0
+        assert stem_sep._fold_inst_semitones(-5.0) == -5.0
         for wav_path in (out_scaf, out_voc):
             assert wav_path.is_file(), f"missing scaffold output {wav_path}"
             w, sr = stem_sep._load_audio_native(wav_path)

@@ -129,7 +129,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_picks_against_answers.py`](check_picks_against_answers.py) | `bench/picks_against_answers.py` keeps what a tracker picked and what a session read against what the owner clicked; each case is a way a line could say the wrong thing of one of the three. |
 | [`check_piece_gaps.py`](check_piece_gaps.py) | `bench/piece_gaps.py` on a made table: each case is a way a frame no piece covers could be missed, joined to the wrong shot's people, or hidden. |
 | [`check_pipeline_telemetry.py`](check_pipeline_telemetry.py) | Controls for `pipeline_telemetry.py` and `bench/telemetry_report.py`. |
-| [`check_pitch_lock_coverage.py`](check_pitch_lock_coverage.py) | Offline checks for `pitch_lock_coverage.py`: the frame split, the threshold sweep's null, agreement, levels and the timbre figure. |
+| [`check_pitch_lock_coverage.py`](check_pitch_lock_coverage.py) | Offline checks for `pitch_lock_coverage.py`: frame split, threshold sweep null, quartiles, lag overlap, periodic share, and high-pass. |
 | [`check_pitch_lock_metrics.py`](check_pitch_lock_metrics.py) | Offline checks for `pitch_lock_metrics.py`: the legacy columns, the time-shift null, the contour fix. |
 | [`check_plate_restore.py`](check_plate_restore.py) | A masked render split across two samplers ends on the clean plate, and resumes where it stopped. |
 | [`check_pose_along_shot.py`](check_pose_along_shot.py) | `bench/pose_along_shot.py` with the model replaced by a function whose answer is known: everything round the model. |
@@ -741,7 +741,7 @@ Arm manifests and the like; a manifest's line is its own `what`.
 
 ### results
 
-279 tracked files: [`results/INDEX.md`](results/INDEX.md).
+280 tracked files: [`results/INDEX.md`](results/INDEX.md).
 
 ### rubrics
 
