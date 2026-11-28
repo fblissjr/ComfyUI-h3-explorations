@@ -1,6 +1,6 @@
 # Self-Attention in H3: How the 5-Way Joint Attention Works, What Probing Showed, and What to Explore Next
 
-Last updated: 2026-11-27.
+Last updated: 2026-11-28.
 
 MiniMax H3 is not just a video model — it is a **5-way joint self-attention machine**. Inside every one of H3's
 **50 DiT blocks (`56` heads each)**, five kinds of tokens are packed into one sequence (`comfy/ldm/minimax/model.py::PackedLayout`)
@@ -9,6 +9,8 @@ and attend to each other simultaneously with no cross-modal mask:
 ```text
 [ text (Qwen3-VL) | keyframes (cond / cond_audio) | refs (<Picture N>, <Video N>, voice) | video patches (t, y, x) | stereo audio (L & R) ]
 ```
+
+![MiniMax H3 5-Way Joint Self-Attention & Head-Level Frontier](assets/h3_5way_self_attention_map.svg)
 
 So far, we have built **block-band and stream-level self-attention routers across four corners** of that `5 × 5`
 matrix — Camera vs. Mic (`QueryRouter`), Split-World / Portal / Multi-Shot (`SpatialQueryRouter`), Melody vs.
@@ -103,6 +105,8 @@ Nothing in H3 asks the model to introspect or report its own attention; we read 
 ---
 
 ## 2. The Best Current Recipes (Moving Subject on 6-Step Pika)
+
+![Zero-SAM Self-Mask Proof: B45 H43 (d1) -> 2x EditGuider vs. 1x Routing & Mask-Off Controls](assets/h3_self_attention_mask_off_proof.jpg)
 
 ### Small `< 9%` Moving Subject — Hold the Base Take Still (`2× EditGuider`, Verified `2026-11-27`)
 
@@ -268,22 +272,32 @@ Several of our probing habits and next-step experiments are directly adapted fro
 
 ### 5A. Immediate Self-Mask & Small-Subject Follow-Ups
 
-1. **Completed (`2026-11-27`, record sections 12–16) — Hold the base layout on `< 9%` subjects + mask-off control (`B45 H43` SelfMask → `2× MiniMaxH3EditGuider`):**
+1. **Completed (`2026-11-27`, record sections 12–17) — Hold the base layout on `< 9%` subjects + mask-off control (`B45 H43` SelfMask → `2× MiniMaxH3EditGuider`):**
    - Verified on both `c0_walk_base` (`k2`, owner playback accepted) and two-person `p3` (`p3_k2_paired_woman`,
-     `p3_k2_single_chrome`), plus both **mask-off control twins** (`walk_mask_off`, `p3_paired_mask_off`, section 16):
+     `p3_k2_single_chrome`), plus both **mask-off control twins** (`walk_mask_off`, `p3_paired_mask_off`, sections 16–17):
      - Dropping the `B45 H43` mask collapsed the courtyard's `11` narrow upper arches into `5–6` wide arches even on
        the verbatim paired prompt (`upper_courtyard_mae`: `28.65` vs. `6.98` walk, `18.36` vs. `6.24` paired `p3`),
-       proving the single-head zero-SAM mask is doing unmistakable architectural preservation work.
-     - Because `B45 H43` masks both walkers on `p3`, omitting the man in `edited` (`p3_k2_single_chrome`) erases him
-       completely, and keeping him in `edited` (`p3_k2_paired_woman`) still re-draws his face and coat hem (section 15).
-2. **Next — Sweep 1A alone first: Rotation + text-only softmax on the `"who is who"` heads (`B46 H13`, `B48 H3`, `B48 H29`, `B47 H17`):**
-   - Start directly from `data/self_mask_probe_2026-11-27/run_reharvest_two_subjects.py` and
-     `analyze_two_people_heads.py` across new held-out multi-subject clips (pick heads on one set, score on
-     another) before writing a broader probe library.
-   - Compare **raw `target - other` logits** vs. **text-only softmax** across prompt tokens (and check whether
-     pulling attention log-sum-exp `LSE` is needed to avoid dropping the video-token denominator).
-   - Direct payoff from section 15: if word-binding heads generalize and zero the man out of the mask, `p3_k2_paired`
-     can leave the untouched walker's original face and coat intact too.
+       proving the zero-SAM mask is doing unmistakable architectural preservation work.
+     - Section 17 confirms that **all of `B45 H43`'s benefit on `p3` is outside the two walkers**: inside the mask
+       the untouched man is redrawn identically with or without the mask (coat area `1.31` vs. `1.25`, hem `+17` vs.
+       `+16 px`, `man_mae = 30.92`), and omitting him in `edited` (`p3_k2_single_chrome`) erases him completely.
+     - Footsteps do not depend on the mask (`walk_mask_off` has the same footstep count and timing as `k2`).
+2. **Next (Staged & CPU-verified, awaiting free GPU) — Sweep 1A: Held-out `"who is who"` rotation + text-only softmax + two-stage zero-man `EditGuider`:**
+   - Runner (`data/head_atlas_2026-11-27/run_sweep1a_who_is_who.py`) and 3 graded `t2va` held-out prompts
+     (`0 FAIL, 0 WARN`) are ready to run:
+     - `s1_courtyard_swapped` (blue parka man L→R vs. orange dress woman R→L),
+     - `s2_gallery_child_elder` (green jacket child **first-named, R→L** vs. charcoal suit elder L→R — breaks
+       prompt-order == left-entry confound; score standalone),
+     - `s3_plaza_cyclist_dog` (red jersey cyclist L→R vs. golden retriever dog R→L).
+   - **Part 1 (read-only probes, blocks `43..49`, all `56` heads):** compares **raw `A - B`** vs. **text-only
+     softmax (`sm_A` alone)** for `p3`'s candidate heads (`B46 H13`, `B48 H3`, `B48 H29`, `B47 H17`) against `200`
+     random head sets of the same size.
+   - **Part 2 (value of a her-only zero-man mask on `p3`, via `EditGuider.mask` — zero node code changes):**
+     intersects `B45 H43` with `p3`'s top-4 word-splitting heads (`thr=1.35`, `d1`) **strictly limited to `k2`'s
+     support `(k2_mask > 0)`** to prevent upper-building spill (CPU dry-verified: `above_band_mass` `0.315 -> 0.102`,
+     `exact_zero = 0.859`, `woman_cov = 0.872`, **`man_cov = 0.000`**). Concrete target from section 17: bring the
+     untouched man's coat area back near `1.0` and hem back to `0 px` on `p3_twostage_paired`, and test whether the
+     zero-man mask saves him from erasure on `p3_twostage_single_chrome`.
 3. **Wider shot survey before changing any node default:**
    - Test `B45 H43` (and sweep all `56` heads) on **still objects** (`MiniMax-H3-Image` `4 MP` bread on a table),
      **close-ups**, **moving cameras**, and **`ref2va`** — using offline `SAM 3.1` truth for static/close-up
@@ -345,14 +359,20 @@ Any node-code change is built in a worktree outside `custom_nodes` (root `AGENTS
   requires a locked-off camera and a moving subject, and includes cast shadows.
 - **Raw pre-softmax scores, not full attention weights.** No full-sequence softmax over video + audio + text keys
   was computed.
-- **The edits were judged on stills.** `compare_harvest_step_and_head_grid.mp4` and `two_people_grid.mp4` (under
-  `$H3_OUTPUT_DIR/Video/self_mask_late_harvest_2026-11-27/`) and `k1`/`k2` (under
-  `$H3_OUTPUT_DIR/Video/head_atlas_2026-11-27/`) still need human playback & audio review.
-- **`1×` routing produces a new take; `2× EditGuider` (`k2`) held layout, not every pixel or the soundtrack.**
-  Every `1×` routed walk arm changed framing and courtyard details; `B45 H43 -> 2× EditGuider` (`k2`, sections 12
-  & 13) held the courtyard layout and stride on `c0_walk_base`, while small background fixtures (lantern left of
-  center door → barred window), fine stone texture, and the soundtrack still shifted. Tested on one prompt/seed
-  only, and the chrome figure is a high-contrast test pattern, not a tuned look.
+- **Most edits were judged on stills; only `k1`/`k2` have had owner playback + audio review.** Owner playback
+  accepted `k2` (section 14), whereas `compare_harvest_step_and_head_grid.mp4` and `two_people_grid.mp4` (under
+  `$H3_OUTPUT_DIR/Video/self_mask_late_harvest_2026-11-27/`) and the two-person / mask-off clips
+  (`p3_k2_paired_woman`, `p3_k2_single_chrome`, `walk_mask_off`, `p3_paired_mask_off`, under
+  `$H3_OUTPUT_DIR/Video/head_atlas_2026-11-27/`, notably the `f84..f96` crossing and `f32..f48` empty-stones
+  flicker flagged in section 15) still need human playback review.
+- **`1×` routing produces a new take; `2× EditGuider` (`k2`) held layout, not every pixel or figure height.**
+  Every `1×` routed walk arm changed framing and courtyard details; `B45 H43 -> 2× EditGuider` (`k2`, sections
+  12–17) held the courtyard layout and horizontal path on both `c0_walk_base` and `p3`, while small background
+  fixtures (lantern left of center door → barred window), fine stone texture, and figure height (`+44..64 px`
+  taller chrome body) shifted, and footsteps automatically re-synced to the taller figure's slower stride even
+  under `streams="video_only"` (and independently of the mask, section 17). Tested on one courtyard setting, one
+  seed, and one high-contrast chrome edit at `scale=1.95` — not yet on a gentler wardrobe-only edit or lower
+  `scale`.
 - **In a mask strip, the green overlay is the thresholded mask, not the raw attention map.**
 
 ---
@@ -376,6 +396,8 @@ With the ComfyUI venv's python, from the repo root, after `set -a; . ./h3.env; s
   Two-person `p3` through `k2` (`p3_k2_paired_woman`, `p3_k2_single_chrome`) and `two_people.py` scoring.
 - `data/head_atlas_2026-11-27/run_mask_off_twins.py --clips <folder> --walk-base <c0> --walk-k2 <k2> --p3-base <p3> --p3-k2 <p3_k2>`:
   Mask-off `2× EditGuider` control twins (`walk_mask_off`, `p3_paired_mask_off`) and masked-vs-unmasked comparison sheets.
+- `data/head_atlas_2026-11-27/run_sweep1a_who_is_who.py --clips <folder> --p3-base <p3> --p3-k2 <p3_k2> --p3-single <p3_single>`:
+  Staged Sweep 1A (held-out `s1..s3` rotation + text-only softmax + `k2`-limited two-stage zero-man `EditGuider` test on `p3`).
 
 Each frees the card through `:8188` first and refuses when its queue is busy. The `analyze_*.py` files beside
 them turn the arrays into the record's tables on the CPU.

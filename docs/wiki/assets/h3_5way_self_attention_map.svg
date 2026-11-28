@@ -1,0 +1,208 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 610" width="100%" height="100%" role="img" aria-label="MiniMax H3 5-Way Joint Self-Attention Architecture, 5x5 Cross-Modal Matrix, and Block-to-Head Frontier">
+  <defs>
+    <filter id="saShadow" x="-3%" y="-3%" width="106%" height="110%">
+      <feDropShadow dx="0" dy="3" stdDeviation="5" flood-color="#0f172a" flood-opacity="0.06"/>
+    </filter>
+    <marker id="arrTeal" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 1 1.5 L 8.5 5 L 1 8.5 z" fill="#0d9488"/>
+    </marker>
+    <marker id="arrAmber" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 1 1.5 L 8.5 5 L 1 8.5 z" fill="#d97706"/>
+    </marker>
+    <marker id="arrViolet" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 1 1.5 L 8.5 5 L 1 8.5 z" fill="#7c3aed"/>
+    </marker>
+  </defs>
+
+  <style>
+    .canvas { fill: #faf9f5; stroke: #e5e3dc; stroke-width: 1.5; }
+    .card { fill: #ffffff; stroke: #e5e7eb; stroke-width: 1.2; filter: url(#saShadow); }
+    .heading { font-family: Georgia, "Newsreader", "Charter", serif; font-size: 20px; font-weight: 700; fill: #18181b; }
+    .subhead { font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 12px; fill: #52525b; }
+    .sec-hdr { font-family: Georgia, "Newsreader", "Charter", serif; font-size: 14px; font-weight: 700; fill: #1e293b; }
+    .title { font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 11.5px; font-weight: 700; }
+    .body { font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 10.4px; fill: #334155; }
+    .muted { font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 9.8px; fill: #64748b; }
+    .badge { font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 9.5px; font-weight: 700; }
+    .mono { font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; font-size: 9.8px; font-weight: 600; }
+  </style>
+
+  <!-- Outer Canvas -->
+  <rect x="4" y="4" width="972" height="602" rx="16" class="canvas"/>
+
+  <!-- Header -->
+  <text x="28" y="36" class="heading">MiniMax H3: 5-Way Joint Self-Attention &amp; the Head-Level Frontier</text>
+  <text x="28" y="55" class="subhead">One bidirectional sequence across 50 DiT blocks (56 heads each) per denoising step — Qwen3-VL runs once beforehand (truncated at layer 50).</text>
+
+  <!-- TOP CARD: Two Axes & Packed Sequence -->
+  <rect x="24" y="70" width="932" height="122" rx="12" class="card"/>
+  <text x="40" y="92" class="sec-hdr">1. Two Separate Axes: Outer Denoising Steps (0..5) vs. Inner DiT Blocks (0..49 × 56 Heads)</text>
+
+  <!-- Outer denoising steps mini strip -->
+  <rect x="40" y="103" width="248" height="74" rx="8" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1"/>
+  <text x="50" y="119" class="title" fill="#0f172a">Outer Loop: 6 Denoising Steps</text>
+  <rect x="50" y="127" width="44" height="22" rx="5" fill="#fef3c7" stroke="#d97706" stroke-width="1.2"/>
+  <text x="72" y="142" text-anchor="middle" class="mono" fill="#92400e">Step 0</text>
+  <text x="99" y="142" class="muted">→</text>
+  <rect x="112" y="127" width="82" height="22" rx="5" fill="#e0e7ff" stroke="#4f46e5" stroke-width="1.1"/>
+  <text x="153" y="142" text-anchor="middle" class="mono" fill="#3730a3">Steps 1..3</text>
+  <text x="199" y="142" class="muted">→</text>
+  <rect x="212" y="127" width="66" height="22" rx="5" fill="#dcfce7" stroke="#16a34a" stroke-width="1"/>
+  <text x="245" y="142" text-anchor="middle" class="mono" fill="#166534">Steps 4..5</text>
+  <text x="50" y="167" class="muted">Pure noise (harvest) → EditGuider / route → Refine</text>
+
+  <!-- Arrow from outer loop to packed sequence -->
+  <line x1="292" y1="140" x2="314" y2="140" stroke="#0d9488" stroke-width="1.8" marker-end="url(#arrTeal)"/>
+
+  <!-- Inner packed sequence box -->
+  <rect x="320" y="103" width="620" height="74" rx="8" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1"/>
+  <text x="332" y="119" class="title" fill="#0f172a">Inside Every Step: PackedLayout Sequence Through All 50 Blocks (56 Heads Each, Unmasked)</text>
+
+  <!-- 5 token pills -->
+  <rect x="332" y="127" width="112" height="26" rx="6" fill="#ede9fe" stroke="#7c3aed" stroke-width="1.2"/>
+  <text x="388" y="144" text-anchor="middle" class="mono" fill="#5b21b6">1. text (Qwen)</text>
+
+  <rect x="450" y="127" width="118" height="26" rx="6" fill="#e0f2fe" stroke="#0284c7" stroke-width="1.1"/>
+  <text x="509" y="144" text-anchor="middle" class="mono" fill="#075985">2. cond (kframes)</text>
+
+  <rect x="574" y="127" width="118" height="26" rx="6" fill="#fef3c7" stroke="#d97706" stroke-width="1.1"/>
+  <text x="633" y="144" text-anchor="middle" class="mono" fill="#92400e">3. refs (Pic/Vid/A)</text>
+
+  <rect x="698" y="127" width="116" height="26" rx="6" fill="#ccfbf1" stroke="#0d9488" stroke-width="1.2"/>
+  <text x="756" y="144" text-anchor="middle" class="mono" fill="#115e59">4. video (t,y,x)</text>
+
+  <rect x="820" y="127" width="108" height="26" rx="6" fill="#fce7f3" stroke="#db2777" stroke-width="1.1"/>
+  <text x="874" y="144" text-anchor="middle" class="mono" fill="#9d174d">5. audio (L &amp; R)</text>
+
+  <text x="332" y="168" class="muted">Every block lets all 5 token streams query &amp; key each other; Qwen's tokenizer is only borrowed once to map target words to row indices.</text>
+
+  <!-- MIDDLE LEFT CARD: 5x5 Attention Matrix -->
+  <rect x="24" y="206" width="468" height="316" rx="12" class="card"/>
+  <text x="40" y="229" class="sec-hdr">2. The 5 × 5 Self-Attention Matrix (Q Rows → K Columns)</text>
+  <text x="40" y="246" class="muted">Teal = shipped block/stream routers · Amber/Violet = head-level frontier</text>
+
+  <!-- Column headers -->
+  <text x="148" y="270" text-anchor="middle" class="mono" fill="#5b21b6">K_txt</text>
+  <text x="218" y="270" text-anchor="middle" class="mono" fill="#075985">K_cond</text>
+  <text x="288" y="270" text-anchor="middle" class="mono" fill="#92400e">K_refs</text>
+  <text x="358" y="270" text-anchor="middle" class="mono" fill="#115e59">K_vid</text>
+  <text x="428" y="270" text-anchor="middle" class="mono" fill="#9d174d">K_aud</text>
+
+  <!-- Row 1: Q_txt -->
+  <text x="104" y="299" text-anchor="end" class="mono" fill="#5b21b6">Q_txt</text>
+  <rect x="116" y="278" width="64" height="34" rx="5" fill="#f3e8ff" stroke="#a855f7" stroke-width="1"/>
+  <text x="148" y="294" text-anchor="middle" class="badge" fill="#6b21a8">Qwen</text>
+  <text x="148" y="305" text-anchor="middle" class="muted">L21..49</text>
+  <rect x="186" y="278" width="64" height="34" rx="5" fill="#f8fafc" stroke="#e2e8f0"/>
+  <rect x="256" y="278" width="64" height="34" rx="5" fill="#f8fafc" stroke="#e2e8f0"/>
+  <rect x="326" y="278" width="64" height="34" rx="5" fill="#f8fafc" stroke="#e2e8f0"/>
+  <text x="358" y="299" text-anchor="middle" class="muted">1-hop mix</text>
+  <rect x="396" y="278" width="64" height="34" rx="5" fill="#f8fafc" stroke="#e2e8f0"/>
+
+  <!-- Row 2: Q_cond -->
+  <text x="104" y="339" text-anchor="end" class="mono" fill="#075985">Q_cond</text>
+  <rect x="116" y="318" width="64" height="34" rx="5" fill="#f8fafc" stroke="#e2e8f0"/>
+  <rect x="186" y="318" width="64" height="34" rx="5" fill="#f8fafc" stroke="#e2e8f0"/>
+  <rect x="256" y="318" width="64" height="34" rx="5" fill="#f8fafc" stroke="#e2e8f0"/>
+  <rect x="326" y="318" width="64" height="34" rx="5" fill="#f8fafc" stroke="#e2e8f0"/>
+  <rect x="396" y="318" width="64" height="34" rx="5" fill="#f8fafc" stroke="#e2e8f0"/>
+
+  <!-- Row 3: Q_refs -->
+  <text x="104" y="379" text-anchor="end" class="mono" fill="#92400e">Q_refs</text>
+  <rect x="116" y="358" width="64" height="34" rx="5" fill="#f8fafc" stroke="#e2e8f0"/>
+  <rect x="186" y="358" width="64" height="34" rx="5" fill="#f8fafc" stroke="#e2e8f0"/>
+  <rect x="256" y="358" width="64" height="34" rx="5" fill="#f8fafc" stroke="#e2e8f0"/>
+  <rect x="326" y="358" width="64" height="34" rx="5" fill="#f8fafc" stroke="#e2e8f0"/>
+  <rect x="396" y="358" width="64" height="34" rx="5" fill="#f8fafc" stroke="#e2e8f0"/>
+
+  <!-- Row 4: Q_vid -->
+  <text x="104" y="419" text-anchor="end" class="mono" fill="#115e59">Q_vid</text>
+  <rect x="116" y="398" width="64" height="34" rx="5" fill="#ccfbf1" stroke="#0d9488" stroke-width="1.5"/>
+  <text x="148" y="413" text-anchor="middle" class="badge" fill="#0f766e">SelfMask</text>
+  <text x="148" y="425" text-anchor="middle" class="muted">SpatialQR</text>
+
+  <rect x="186" y="398" width="64" height="34" rx="5" fill="#f8fafc" stroke="#e2e8f0"/>
+  <text x="218" y="419" text-anchor="middle" class="muted">anchors</text>
+
+  <rect x="256" y="398" width="64" height="34" rx="5" fill="#fef3c7" stroke="#d97706" stroke-width="1.5"/>
+  <text x="288" y="413" text-anchor="middle" class="badge" fill="#92400e">ID vs</text>
+  <text x="288" y="425" text-anchor="middle" class="muted">copy-frz</text>
+
+  <rect x="326" y="398" width="64" height="34" rx="5" fill="#fef3c7" stroke="#d97706" stroke-width="1.2"/>
+  <text x="358" y="413" text-anchor="middle" class="badge" fill="#92400e">Memory</text>
+  <text x="358" y="425" text-anchor="middle" class="muted">vs motion</text>
+
+  <rect x="396" y="398" width="64" height="34" rx="5" fill="#ccfbf1" stroke="#0d9488" stroke-width="1.2"/>
+  <text x="428" y="413" text-anchor="middle" class="badge" fill="#0f766e">Speaker</text>
+  <text x="428" y="425" text-anchor="middle" class="muted">spotlight</text>
+
+  <!-- Row 5: Q_aud -->
+  <text x="104" y="459" text-anchor="end" class="mono" fill="#9d174d">Q_aud</text>
+  <rect x="116" y="438" width="64" height="34" rx="5" fill="#ccfbf1" stroke="#0d9488" stroke-width="1.2"/>
+  <text x="148" y="453" text-anchor="middle" class="badge" fill="#0f766e">Query</text>
+  <text x="148" y="465" text-anchor="middle" class="muted">Router</text>
+
+  <rect x="186" y="438" width="64" height="34" rx="5" fill="#ccfbf1" stroke="#0d9488" stroke-width="1.2"/>
+  <text x="218" y="453" text-anchor="middle" class="badge" fill="#0f766e">AudioRef</text>
+  <text x="218" y="465" text-anchor="middle" class="muted">melody</text>
+
+  <rect x="256" y="438" width="64" height="34" rx="5" fill="#ccfbf1" stroke="#0d9488" stroke-width="1.2"/>
+  <text x="288" y="453" text-anchor="middle" class="badge" fill="#0f766e">AudioRef</text>
+  <text x="288" y="465" text-anchor="middle" class="muted">+log(2)</text>
+
+  <rect x="326" y="438" width="64" height="34" rx="5" fill="#ccfbf1" stroke="#0d9488" stroke-width="1.5"/>
+  <text x="358" y="453" text-anchor="middle" class="badge" fill="#0f766e">Firewall</text>
+  <text x="358" y="465" text-anchor="middle" class="muted">lip-sync?</text>
+
+  <rect x="396" y="438" width="64" height="34" rx="5" fill="#ccfbf1" stroke="#0d9488" stroke-width="1.1"/>
+  <text x="428" y="453" text-anchor="middle" class="badge" fill="#0f766e">Binaural</text>
+  <text x="428" y="465" text-anchor="middle" class="muted">L / R</text>
+
+  <!-- Matrix Legend -->
+  <rect x="40" y="486" width="12" height="12" rx="3" fill="#ccfbf1" stroke="#0d9488" stroke-width="1.2"/>
+  <text x="58" y="496" class="muted">Shipped block/stream router</text>
+  <rect x="206" y="486" width="12" height="12" rx="3" fill="#fef3c7" stroke="#d97706" stroke-width="1.2"/>
+  <text x="224" y="496" class="muted">Untouched head-level corner</text>
+  <rect x="366" y="486" width="12" height="12" rx="3" fill="#f3e8ff" stroke="#a855f7" stroke-width="1.2"/>
+  <text x="384" y="496" class="muted">Qwen bridge</text>
+
+  <!-- MIDDLE RIGHT CARD: Block-to-Head Discovery & Two-Stage Pipeline -->
+  <rect x="506" y="206" width="450" height="316" rx="12" class="card"/>
+  <text x="522" y="229" class="sec-hdr">3. Going Inside Blocks: What 1 Head Out of 56 Found</text>
+  <text x="522" y="246" class="muted">Measured on Step 0 (pure noise) across wide walking shots (2026-11-27)</text>
+
+  <!-- Box A: Old all-head average -->
+  <rect x="522" y="260" width="418" height="52" rx="8" fill="#fef2f2" stroke="#fca5a5" stroke-width="1.1"/>
+  <text x="534" y="278" class="title" fill="#991b1b">Shipped All-Head Average (Blocks 35+40, all 56 heads)</text>
+  <text x="534" y="294" class="body">Loses small moving subjects at Step 0 (covered 0.34 early / 0.05 late).</text>
+  <text x="534" y="306" class="muted">All-head mean at Block 45 collapses to stripes (covered 0.009) — signal was buried.</text>
+
+  <!-- Arrow down -->
+  <line x1="731" y1="312" x2="731" y2="328" stroke="#d97706" stroke-width="1.8" marker-end="url(#arrAmber)"/>
+
+  <!-- Box B: Stage 1 — B45 H43 -->
+  <rect x="522" y="330" width="418" height="66" rx="8" fill="#fefce8" stroke="#eab308" stroke-width="1.3"/>
+  <text x="534" y="347" class="title" fill="#854d0e">Stage 1 (Proven): Block 45, Head 43 = Generic "Movers" Head</text>
+  <text x="534" y="363" class="body">Ranks #1/56 on 4 clips at Step 0 (covered 0.95 / 0.93). With 2× EditGuider (d1):</text>
+  <text x="534" y="377" class="body">locks all 11 courtyard arches (MAE 6.98 vs 28.65 mask-off; p3: 6.24 vs 18.36).</text>
+  <text x="534" y="390" class="muted">Limit on 2 people: masks BOTH walkers regardless of word → redraws untouched man.</text>
+
+  <!-- Arrow down -->
+  <line x1="731" y1="396" x2="731" y2="412" stroke="#7c3aed" stroke-width="1.8" marker-end="url(#arrViolet)"/>
+
+  <!-- Box C: Stage 2 — B46-48 word-binding heads -->
+  <rect x="522" y="414" width="418" height="66" rx="8" fill="#f5f3ff" stroke="#8b5cf6" stroke-width="1.3"/>
+  <text x="534" y="431" class="title" fill="#5b21b6">Stage 2 (Sweep 1A Staged): Blocks 46–48 = "Who Is Who" Heads</text>
+  <text x="534" y="447" class="body">B46 H13 (0.914), B48 H3 (0.897), B48 H29 (0.885), B47 H17 (0.873) split by word.</text>
+  <text x="534" y="461" class="body">CPU dry-test gated by k2 support: woman_cov = 0.872, man_cov = 0.000.</text>
+  <text x="534" y="474" class="muted">Next GPU gate: held-out rotation on s1..s3 (s2 flips L/R) + text-only softmax.</text>
+
+  <!-- Sauers credit note inside right card -->
+  <text x="522" y="500" class="muted">Method credit: sparse-head search, random-set controls, &amp; rotation checks adapted</text>
+  <text x="522" y="513" class="muted">from SauersML/attention_introspection (Qwen3-32B); applied externally on H3's DiT.</text>
+
+  <!-- BOTTOM STRIP: Clean Architectural Boundary -->
+  <rect x="24" y="534" width="932" height="56" rx="10" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1"/>
+  <text x="40" y="554" class="title" fill="#0f172a">Keep the Three Mechanisms Separate:</text>
+  <text x="40" y="572" class="body"><tspan font-weight="700" fill="#0f766e">Self-Attention (inside blocks):</tspan> QueryRouter, SpatialQR, AudioRefRouter, SelfMask  ·  <tspan font-weight="700" fill="#4f46e5">Text Residual:</tspan> MiniMaxH3Steer  ·  <tspan font-weight="700" fill="#b45309">Outer Velocity:</tspan> MiniMaxH3EditGuider</text>
+</svg>
