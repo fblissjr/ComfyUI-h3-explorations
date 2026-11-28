@@ -8,14 +8,14 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 187 |
+| [`check_*`](#check) | 188 |
 | [`measure_*`](#measure) | 33 |
 | [`analyze_*`](#analyze) | 13 |
 | [`grade_*`](#grade) | 10 |
 | [`compare_*`](#compare) | 10 |
 | [`build_*`](#build) | 12 |
 | [`probe_*`](#probe) | 16 |
-| [the rest](#the-rest) | 201 |
+| [the rest](#the-rest) | 202 |
 
 ## check
 
@@ -127,6 +127,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_picks_against_answers.py`](check_picks_against_answers.py) | `bench/picks_against_answers.py` keeps what a tracker picked and what a session read against what the owner clicked; each case is a way a line could say the wrong thing of one of the three. |
 | [`check_piece_gaps.py`](check_piece_gaps.py) | `bench/piece_gaps.py` on a made table: each case is a way a frame no piece covers could be missed, joined to the wrong shot's people, or hidden. |
 | [`check_pipeline_telemetry.py`](check_pipeline_telemetry.py) | Controls for `pipeline_telemetry.py` and `bench/telemetry_report.py`. |
+| [`check_pitch_lock_coverage.py`](check_pitch_lock_coverage.py) | Offline checks for `pitch_lock_coverage.py`: the frame split, the threshold sweep's null, agreement and levels. |
 | [`check_pitch_lock_metrics.py`](check_pitch_lock_metrics.py) | Offline checks for `pitch_lock_metrics.py`: the legacy columns, the time-shift null, the contour fix. |
 | [`check_plate_restore.py`](check_plate_restore.py) | A masked render split across two samplers ends on the clean plate, and resumes where it stopped. |
 | [`check_pose_along_shot.py`](check_pose_along_shot.py) | `bench/pose_along_shot.py` with the model replaced by a function whose answer is known: everything round the model. |
@@ -440,6 +441,7 @@ this file is only a way to find a script by what it says it does.
 | [`pick_frames.py`](pick_frames.py) | The frames of a span to look at: where a capture's figures, flags, statements, the owner's boxes or the picture change. |
 | [`picks_against_answers.py`](picks_against_answers.py) | What the models thought against what the owner said, kept a batch at a time: one line a subject of a preview, with what each got right. |
 | [`piece_gaps.py`](piece_gaps.py) | The frames no generated piece covers, sorted and loud; then the frames a piece covers and leaves as the original; then a subject in a shot with no piece of their own. |
+| [`pitch_lock_coverage.py`](pitch_lock_coverage.py) | What the unscored part of a pitch-lock score is made of. |
 | [`pitch_lock_metrics.py`](pitch_lock_metrics.py) | Vocal pitch-lock scoring, with the level a misaligned pair reaches. |
 | [`pose_along_shot.py`](pose_along_shot.py) | Run the pose model on every frame of a shot and keep its points: what the eye marks and the reader are made from. |
 | [`preflight_graph.py`](preflight_graph.py) | Grade a graph's prompt and price its sequence, BEFORE you press Queue. |
@@ -734,7 +736,7 @@ Arm manifests and the like; a manifest's line is its own `what`.
 
 ### results
 
-277 tracked files: [`results/INDEX.md`](results/INDEX.md).
+278 tracked files: [`results/INDEX.md`](results/INDEX.md).
 
 ### rubrics
 
