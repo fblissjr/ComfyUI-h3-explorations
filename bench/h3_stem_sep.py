@@ -163,6 +163,28 @@ def _write_wav_pcm16(path: Path, tensor_c_t: torch.Tensor, sample_rate: int) -> 
     return path
 
 
+def _write_wav_f32(path: Path, tensor_c_t: torch.Tensor, sample_rate: int) -> Path:
+    """Write a [C, T] float32 tensor as unclipped IEEE float32 WAV via ffmpeg."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    x = tensor_c_t.detach().cpu().to(torch.float32)
+    if x.ndim == 1:
+        x = x.unsqueeze(0)
+    n_ch = int(x.shape[0])
+    raw = x.transpose(0, 1).contiguous().numpy().tobytes()
+    proc = subprocess.run(
+        [
+            "ffmpeg", "-y", "-v", "error",
+            "-f", "f32le", "-ar", str(int(sample_rate)), "-ac", str(n_ch), "-i", "pipe:0",
+            "-c:a", "pcm_f32le", str(path),
+        ],
+        input=raw,
+        capture_output=True,
+    )
+    if proc.returncode != 0:
+        raise RuntimeError(f"ffmpeg float32 WAV write failed: {proc.stderr.decode(errors='replace')}")
+    return path
+
+
 def _load_audio_ffmpeg(
     path: Path,
     sr: int = STEM_SR,
@@ -787,7 +809,7 @@ def _shift_44k(
 
     ratio = 2.0 ** (float(semitones) / 12.0)
     if shifter == "rubberband":
-        flt = f"rubberband=pitch={ratio:.9f}:pitchq=quality:channels=together"
+        flt = f"rubberband=pitch={ratio:.9f}:pitchq=quality:channels=together:window=short"
         if formant:
             flt += ":formant=preserved"
     else:
@@ -801,7 +823,7 @@ def _shift_44k(
     with tempfile.TemporaryDirectory() as td:
         pin = Path(td) / "in.wav"
         pout = Path(td) / "out.wav"
-        _write_wav_pcm16(pin, work, STEM_SR)
+        _write_wav_f32(pin, work, STEM_SR)
         subprocess.run(
             [
                 "ffmpeg", "-y", "-v", "error",
@@ -809,6 +831,7 @@ def _shift_44k(
                 "-af", flt,
                 "-ar", str(STEM_SR),
                 "-ac", str(n_ch),
+                "-c:a", "pcm_f32le",
                 str(pout),
             ],
             check=True,
@@ -839,6 +862,154 @@ def _rubberband_shift_44k(
         shifter="rubberband",
         collapse_mono=collapse_mono,
     )
+
+
+def _rms_normalize_2d(
+    wav_2d: torch.Tensor,
+    *,
+    target_rms_db: float = -16.0,
+    peak_cap: float = 0.95,
+) -> tuple[torch.Tensor, float, float]:
+    """Scale stereo [2, T] float32 waveform to target active-frame RMS (dBFS), capped at peak_cap."""
+    x = _ensure_stereo_2d(wav_2d)
+    mono = 0.5 * (x[0] + x[1])
+    if mono.numel() == 0:
+        return x, -120.0, 0.0
+    # Active-frame RMS over 100 ms blocks above -45 dBFS (fallback to full RMS)
+    win = max(1, min(mono.numel(), 3200))
+    n_blk = mono.numel() // win
+    if n_blk >= 1:
+        blks = mono[: n_blk * win].view(n_blk, win)
+        blk_rms = blks.pow(2).mean(dim=1).sqrt()
+        act = blk_rms[blk_rms > 10.0 ** (-45.0 / 20.0)]
+        cur_rms = float(act.pow(2).mean().sqrt().item()) if act.numel() > 0 else float(mono.pow(2).mean().sqrt().item())
+    else:
+        cur_rms = float(mono.pow(2).mean().sqrt().item())
+    cur_rms = max(cur_rms, 1e-7)
+    want_rms = 10.0 ** (float(target_rms_db) / 20.0)
+    gain = want_rms / cur_rms
+    peak_after = float(x.abs().max().item()) * gain
+    if peak_after > peak_cap and peak_after > 1e-9:
+        gain *= peak_cap / peak_after
+    y = (x * gain).contiguous()
+    out_rms = float((0.5 * (y[0] + y[1])).pow(2).mean().sqrt().item())
+    out_rms_db = 20.0 * math.log10(max(out_rms, 1e-9))
+    out_peak = float(y.abs().max().item())
+    return y, out_rms_db, out_peak
+
+
+def normalize_wav_32k(
+    source_path: Path,
+    out_wav: Path,
+    *,
+    target_rms_db: float = -16.0,
+    peak_cap: float = 0.95,
+    exact_samples: int | None = None,
+) -> dict[str, Any]:
+    """Resample any audio file to 32 kHz stereo via soxr, RMS-match to target_rms_db, and exact-trim/pad."""
+    src = Path(source_path)
+    if not src.is_file():
+        raise FileNotFoundError(f"Missing audio source: {src}")
+    with tempfile.TemporaryDirectory() as td:
+        p32 = Path(td) / "norm_32k.wav"
+        subprocess.run(
+            [
+                "ffmpeg", "-y", "-v", "error",
+                "-i", str(src), "-vn",
+                "-af", f"aresample={SCAFFOLD_SR}:resampler=soxr",
+                "-ac", "2", "-c:a", "pcm_f32le", str(p32),
+            ],
+            check=True,
+        )
+        wav_32k, sr32 = _load_audio_native(p32)
+        if sr32 != SCAFFOLD_SR:
+            wav_32k = TAF.resample(wav_32k, orig_freq=sr32, new_freq=SCAFFOLD_SR)
+    wav_32k = _ensure_stereo_2d(wav_32k)
+    if exact_samples is not None:
+        wav_32k = _pad_or_trim(wav_32k, int(exact_samples))
+    wav_32k, out_rms_db, out_peak = _rms_normalize_2d(
+        wav_32k, target_rms_db=target_rms_db, peak_cap=peak_cap
+    )
+    _write_wav_pcm16(out_wav, wav_32k, SCAFFOLD_SR)
+    n_samps = int(wav_32k.shape[1])
+    return {
+        "out_wav": str(out_wav),
+        "sample_rate": SCAFFOLD_SR,
+        "samples": n_samps,
+        "rem800": int(n_samps % 800),
+        "rms_db": round(out_rms_db, 2),
+        "peak": round(out_peak, 4),
+    }
+
+
+def build_raw_guide_32k(
+    source_path: Path,
+    out_wav: Path,
+    *,
+    start_s: float = 0.0,
+    target_frames: int = 294,
+    semitones: float = 0.0,
+    shifter: str = "auto",
+    target_rms_db: float | None = None,
+    peak_cap: float = 0.95,
+) -> dict[str, Any]:
+    """Build an exact-length 32 kHz stereo full-mix guide WAV shifted at native 44.1 kHz float32.
+
+    Avoids both the 32 kHz downshift Nyquist brickwall cutoff (12-16 kHz loss) and sample-count
+    drift across WSOLA/rubberband shifts. `shifter='auto'` picks `atempo` for downward shifts
+    (`semitones < 0`) and `rubberband` (`channels=together:window=short`) for upward shifts.
+    """
+    src = Path(source_path)
+    if not src.is_file():
+        raise FileNotFoundError(f"Missing source audio: {src}")
+    dur_s = float(target_frames) / 24.0
+    target_samps_32k = int(round(dur_s * SCAFFOLD_SR))
+    pad_s = 0.35 if abs(semitones) > 1e-6 else 0.05
+    wav_44k = _load_audio_ffmpeg(src, sr=STEM_SR, start_s=max(0.0, float(start_s)), duration_s=dur_s + pad_s, channels=2)
+    chosen = shifter
+    if chosen == "auto":
+        chosen = "rubberband" if float(semitones) > 0.0 else "atempo"
+    if abs(semitones) > 1e-6:
+        shifted_44k = _shift_44k(wav_44k, float(semitones), shifter=chosen, formant=False, collapse_mono=False)
+    else:
+        shifted_44k = wav_44k
+    with tempfile.TemporaryDirectory() as td:
+        p44 = Path(td) / "shifted_44k.wav"
+        p32 = Path(td) / "out_32k.wav"
+        _write_wav_f32(p44, shifted_44k, STEM_SR)
+        subprocess.run(
+            [
+                "ffmpeg", "-y", "-v", "error",
+                "-i", str(p44),
+                "-af", f"aresample={SCAFFOLD_SR}:resampler=soxr",
+                "-ac", "2", "-c:a", "pcm_f32le", str(p32),
+            ],
+            check=True,
+        )
+        wav_32k, sr32 = _load_audio_native(p32)
+        if sr32 != SCAFFOLD_SR:
+            wav_32k = TAF.resample(wav_32k, orig_freq=sr32, new_freq=SCAFFOLD_SR)
+    wav_32k = _pad_or_trim(_ensure_stereo_2d(wav_32k), target_samps_32k)
+    if target_rms_db is not None:
+        wav_32k, out_rms_db, peak = _rms_normalize_2d(wav_32k, target_rms_db=target_rms_db, peak_cap=peak_cap)
+    else:
+        peak = float(wav_32k.abs().max().item()) if wav_32k.numel() else 0.0
+        if peak > 0.99:
+            wav_32k = wav_32k * (0.99 / peak)
+            peak = 0.99
+        out_rms = float((0.5 * (wav_32k[0] + wav_32k[1])).pow(2).mean().sqrt().item()) if wav_32k.numel() else 0.0
+        out_rms_db = 20.0 * math.log10(max(out_rms, 1e-9))
+    _write_wav_pcm16(out_wav, wav_32k, SCAFFOLD_SR)
+    return {
+        "out_wav": str(out_wav),
+        "sample_rate": SCAFFOLD_SR,
+        "samples": int(target_samps_32k),
+        "rem800": int(target_samps_32k % 800),
+        "semitones": float(semitones),
+        "shifter": chosen,
+        "rms_db": round(out_rms_db, 2),
+        "peak": round(peak, 4),
+    }
 
 
 def _pad_or_trim(wav: torch.Tensor, target_samples: int) -> torch.Tensor:

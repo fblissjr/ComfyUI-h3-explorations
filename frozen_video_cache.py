@@ -643,7 +643,7 @@ def _gate(x, kwargs, transformer_options, halo=0):
     return layout, rows, None
 
 
-def _content_sample(x, rows, payload):
+def _content_sample(x, rows, payload, context=None):
     """A strided sample of what the kept rows are made from, to be compared exactly with the build's.
 
     The premise of the cache is that a kept row's input is the same on every
@@ -665,6 +665,9 @@ def _content_sample(x, rows, payload):
         for z in payload.get(name) or ():
             flat = z.flatten()
             parts.append(flat[::max(1, flat.numel() // CONTENT_SAMPLE)].to(device=video.device, dtype=video.dtype))
+    if torch.is_tensor(context) and context.numel() > 0:
+        flat_c = context.flatten()
+        parts.append(flat_c[::max(1, flat_c.numel() // CONTENT_SAMPLE)].to(device=video.device, dtype=video.dtype))
     return torch.cat(parts) if parts else None
 
 
@@ -749,8 +752,13 @@ def _make_diffusion_wrapper(state):
             payload = kwargs.get("minimax_payload") or {}
             t_v, t_a = _timesteps(state, timestep, transformer_options)
             pins = _pins(layout, t_v, t_a, payload, rows.frozen_audio)
-            content = _content_sample(x, rows, payload)
-            key = (tuple(transformer_options.get("cond_or_uncond") or ()), layout.signature)
+            content = _content_sample(x, rows, payload, context=context)
+            key = (
+                tuple(transformer_options.get("cond_or_uncond") or ()),
+                payload.get("h3_edit_pass"),
+                layout.signature,
+                layout.seq_len,
+            )
             slot = state.slots.get(key)
             reason = None
             if slot is None or not slot.complete:

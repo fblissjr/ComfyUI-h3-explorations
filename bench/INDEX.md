@@ -8,7 +8,7 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 192 |
+| [`check_*`](#check) | 193 |
 | [`measure_*`](#measure) | 33 |
 | [`analyze_*`](#analyze) | 13 |
 | [`grade_*`](#grade) | 10 |
@@ -78,6 +78,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_graph_discovery.py`](check_graph_discovery.py) | No check may find graphs by globbing. Discovery goes through `graph_paths()`. |
 | [`check_graph_values.py`](check_graph_values.py) | A static reader must follow a linked widget, or it goes red on a good graph. |
 | [`check_guide_latent.py`](check_guide_latent.py) | Check `MiniMaxH3GuideLatent` (`guide_latent.py`) and the shipped guide-latent graphs. |
+| [`check_h3_audio_vae.py`](check_h3_audio_vae.py) | Offline unit tests for standalone `h3_audio_vae.py` (`MiniMaxH3DecodeAudio`). |
 | [`check_h3_cover_workflow.py`](check_h3_cover_workflow.py) | Offline CPU verification gate for `bench/h3_cover_workflow.py`. |
 | [`check_h3_encoder_loader.py`](check_h3_encoder_loader.py) | Prove the guarded H3 encoder loader guards what it claims to. |
 | [`check_h3_env.py`](check_h3_env.py) | That this machine's locations stay out of git: `h3.env`, `h3.env.example`, `workflows/h3_env.py` and `bench/write_h3_env.py`. |

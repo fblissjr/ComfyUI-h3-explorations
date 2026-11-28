@@ -34,6 +34,7 @@ with none is a helper the others import.
 
 | module | nodes it defines | what it says it does |
 |---|---|---|
+| [`h3_audio_vae.py`](h3_audio_vae.py) | `MiniMaxH3DecodeAudio` | Standalone unity-gain MiniMax H3 audio VAE decoder (`MiniMaxH3DecodeAudio`). |
 | [`h3_capture.py`](h3_capture.py) |  | Capture real q/k/v from an H3 render, for kernel-divergence work. |
 | [`h3_encoder_loader.py`](h3_encoder_loader.py) | `MiniMaxH3EncoderLoader` | Core's `CLIPLoader` for a MiniMax H3 encoder, plus the guards it does not have. |
 | [`h3_image_nodes.py`](h3_image_nodes.py) | `MiniMaxH3ImageSize`, `MiniMaxH3ImagePromptExpander`, `MiniMaxH3ImageDownscale` | MiniMax-H3-Image: canvas size (`MiniMaxH3ImageSize`) and local `heylook` prompt expander (`MiniMaxH3ImagePromptExpander`). |
@@ -163,7 +164,7 @@ with none is a helper the others import.
 | `.gemini/` | 8 | [below](#gemini) |
 | `archive/` | 85 | (none) |
 | `assets/` | 1 | [below](#assets) |
-| `bench/` | 901 | [`bench/INDEX.md`](bench/INDEX.md) and [`bench/results/INDEX.md`](bench/results/INDEX.md) for the records |
+| `bench/` | 902 | [`bench/INDEX.md`](bench/INDEX.md) and [`bench/results/INDEX.md`](bench/results/INDEX.md) for the records |
 | `changelog.d/` | | [`changelog.d/README.md`](changelog.d/README.md), one file per changelog entry; not listed and not counted |
 | `contact_sheets/` | 1 | [below](#contact_sheets) |
 | `data/` | 1 | [below](#data) |

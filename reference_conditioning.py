@@ -285,12 +285,16 @@ def _encode_ref_audio_aligned(audio_vae, audio):
     Core's own H3 nodes still take the crop until Comfy-Org/ComfyUI#15972 or an
     equivalent lands; this is our reference path only.
     """
-    waveform = audio["waveform"]
+    waveform = audio["waveform"][:1].to(torch.float32)
     sample_rate = audio["sample_rate"]
     vae_rate = getattr(audio_vae, "audio_sample_rate", 32000)  # core's fallback
     if sample_rate != vae_rate:
         from .audio_resample import resample
         waveform = resample(waveform, sample_rate, vae_rate)
+    if waveform.numel():
+        peak = float(waveform.abs().max().item())
+        if peak > 1.0:
+            waveform = waveform * (0.999 / peak)
     hop = int(audio_vae.spacial_compression_encode())
     right = -int(waveform.shape[-1]) % hop
     if right:

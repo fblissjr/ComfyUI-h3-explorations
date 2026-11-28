@@ -139,6 +139,7 @@ def guide_of(inputs: dict) -> str:
 # read off the graph rather than off a name: a video graph that lost its audio
 # decoder is the same situation and would still be handled.
 AUDIO_DECODE_NODE = "VAEDecodeAudio"
+AUDIO_DECODE_NODES = ("VAEDecodeAudio", "MiniMaxH3DecodeAudio")
 
 # The two of the guide's six sections that describe the audio track. Spelled
 # out rather than sliced off the end of the parsed table, so a guide that
@@ -212,7 +213,7 @@ def _audio_sections_optional(wf: dict) -> bool:
     audio-specific and a still frame has subjects, a summary, retention and a
     description exactly like a clip does.
     """
-    return not any(n.get("class_type") == AUDIO_DECODE_NODE
+    return not any(n.get("class_type") in AUDIO_DECODE_NODES
                    or n.get("class_type") in AUDIO_DECODING_CARRIERS
                    for n in wf.values())
 

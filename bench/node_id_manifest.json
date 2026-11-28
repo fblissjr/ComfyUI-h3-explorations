@@ -288,6 +288,18 @@
       "model"
     ]
   },
+  "MiniMaxH3DecodeAudio": {
+    "inputs": [
+      "audio_vae",
+      "samples",
+      "level"
+    ],
+    "node_id": "MiniMaxH3DecodeAudio",
+    "outputs": [
+      "audio",
+      "report"
+    ]
+  },
   "MiniMaxH3DepthBeatMask": {
     "inputs": [
       "mode",
@@ -337,7 +349,9 @@
       "edit_scale",
       "noise_corr",
       "seed",
-      "freeze_video"
+      "freeze_video",
+      "prev_latent",
+      "context_frames"
     ],
     "node_id": "MiniMaxH3EchoEdit",
     "outputs": [

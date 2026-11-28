@@ -40,6 +40,7 @@ from .edit_guidance import MiniMaxH3EditGuider, MiniMaxH3PromptEdit
 from .exact_blocks import MiniMaxH3ExactBlocks
 from .frozen_video_cache import MiniMaxH3FrozenVideoCache
 from .guide_latent import MiniMaxH3GuideLatent
+from .h3_audio_vae import MiniMaxH3DecodeAudio
 from .h3_encoder_loader import MiniMaxH3EncoderLoader
 from .h3_image_nodes import (
     MiniMaxH3ImageDownscale,
@@ -201,6 +202,7 @@ class H3ExplorationsExtension(ComfyExtension):
             MiniMaxH3StepX0Observer,  # Save per-step x0 latent predictions
             MiniMaxH3CoreSparseCapture,  # Capture core BlockSparseAttention Q/K/V tensors
             MiniMaxH3EchoEdit,  # Inversion-free EchoEdit+ + AV-FlowEdit sampler
+            MiniMaxH3DecodeAudio,  # Unity-gain H3 audio VAE decode without core std*5 crush
         ]
 
 

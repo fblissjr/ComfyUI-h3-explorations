@@ -200,10 +200,35 @@ def check_cascade_and_cover_scaffold() -> str:
         )
 
 
+def check_raw_guide_32k() -> str:
+    with tempfile.TemporaryDirectory() as td:
+        tmp = Path(td)
+        sig = _make_bandlimited_stereo(44100, 7.0)
+        src = stem_sep._write_wav_f32(tmp / "src_44k.wav", sig, 44100)
+        out_dn = tmp / "guide_m5.wav"
+        meta_dn = stem_sep.build_raw_guide_32k(src, out_dn, start_s=0.0, target_frames=141, semitones=-5.0)
+        assert meta_dn["samples"] == 188000 and meta_dn["rem800"] == 0 and meta_dn["shifter"] == "atempo", meta_dn
+        w_dn, sr_dn = stem_sep._load_audio_native(out_dn)
+        assert sr_dn == 32000 and w_dn.shape == (2, 188000)
+
+        out_up = tmp / "guide_p5.wav"
+        meta_up = stem_sep.build_raw_guide_32k(src, out_up, start_s=0.0, target_frames=141, semitones=5.0, target_rms_db=-16.0)
+        assert meta_up["samples"] == 188000 and meta_up["rem800"] == 0 and meta_up["shifter"] == "rubberband", meta_up
+        assert abs(meta_up["rms_db"] - (-16.0)) < 1.5 and meta_up["peak"] <= 0.951, meta_up
+        w_up, sr_up = stem_sep._load_audio_native(out_up)
+        assert sr_up == 32000 and w_up.shape == (2, 188000)
+
+        out_norm = tmp / "norm_16.wav"
+        meta_n = stem_sep.normalize_wav_32k(src, out_norm, target_rms_db=-16.0, exact_samples=188000)
+        assert meta_n["samples"] == 188000 and meta_n["rem800"] == 0 and abs(meta_n["rms_db"] - (-16.0)) < 1.5, meta_n
+        return f"exact 188000 samples (rem800=0), down={meta_dn['shifter']}, up={meta_up['shifter']}, rms={meta_n['rms_db']}dB"
+
+
 def main() -> int:
     case("nulltest_identical_copy", check_nulltest_identical)
     case("nulltest_half_level_copy", check_nulltest_half_level)
     case("nulltest_24k_44k_roundtrip", check_nulltest_sample_rate_roundtrip)
+    case("raw_guide_32k_exact_length", check_raw_guide_32k)
     case("cascade_and_cover_scaffold", check_cascade_and_cover_scaffold)
     return finish()
 

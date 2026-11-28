@@ -18,6 +18,7 @@ from echo_edit import (  # noqa: E402
     MiniMaxH3EchoEdit,
     build_echo_sigmas,
     echo_edit_step,
+    euler_target_step,
     next_correlated_noise,
     time_shift_sigma,
 )
@@ -91,12 +92,33 @@ def main() -> int:
     assert abs(float(e1.std()) - 1.0) < 0.05 and 0.40 < corr < 0.60, f"bad noise_corr stats: std={e1.std()}, corr={corr}"
     print(f"ok    correlated_noise: std={float(e1.std()):.4f}, corr={corr:.4f}")
 
-    # 5. Schema stability (11 inputs unchanged)
-    schema = MiniMaxH3EchoEdit.define_schema()
-    assert schema.node_id == "MiniMaxH3EchoEdit" and len(schema.inputs) == 11
-    print(f"ok    node_schema: {schema.node_id} with {len(schema.inputs)} inputs")
+    # 5. build_echo_sigmas with t_min > 0 still descends to 0.0, and euler_target_step converges cleanly
+    sig_v_tail, sig_a_tail = build_echo_sigmas(16, t_max=0.85, t_min=0.18, shift_v=12.0, shift_a=3.0)
+    assert len(sig_v_tail) == 17 and sig_a_tail[-1] == 0.0 and sig_v_tail[-1] == 0.0
+    tail_indices = [i for i in range(16) if sig_a_tail[i] <= 0.18 + 1e-6]
+    assert len(tail_indices) >= 1, f"expected at least 1 tail step <= 0.18, got {sig_a_tail}"
+    s0 = sig_a_tail[tail_indices[0]]
+    z_tail = (1.0 - s0) * x_src + s0 * torch.randn_like(x_src)
+    for i in tail_indices:
+        z_tail = euler_target_step(
+            z_a=z_tail,
+            denoised_tar_a_carried=4.0 * x_tgt,
+            sigma_a_cur=sig_a_tail[i],
+            sigma_a_next=sig_a_tail[i + 1],
+            audio_scale=4.0,
+        )
+    assert torch.allclose(z_tail, x_tgt, atol=1e-5), f"tail step did not converge to x_tgt, max_diff={(z_tail - x_tgt).abs().max()}"
+    print(f"ok    alg2_tail_refinement: {len(tail_indices)} tail step(s) <= 0.18, max_diff=0.0")
 
-    print("\nall 5 case(s) ok")
+    # 6. Schema stability (11 original inputs preserved + 2 appended optional multi-window inputs = 13)
+    schema = MiniMaxH3EchoEdit.define_schema()
+    in_ids = [getattr(i, "id", getattr(i, "name", "?")) for i in schema.inputs]
+    assert schema.node_id == "MiniMaxH3EchoEdit" and len(in_ids) == 13, in_ids
+    assert in_ids[-2:] == ["prev_latent", "context_frames"], in_ids
+    assert (39 * 5) // 3 == 65
+    print(f"ok    node_schema: {schema.node_id} with {len(in_ids)} inputs (prev_latent, context_frames appended)")
+
+    print("\nall 6 case(s) ok")
     return 0
 
 

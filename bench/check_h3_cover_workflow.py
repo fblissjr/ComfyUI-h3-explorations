@@ -219,17 +219,48 @@ def test_prompts_and_graph_contract() -> None:
     assert g_resynth["272_w1"]["class_type"] == "MiniMaxH3AudioRefRouter" and g_resynth["272_w1"]["inputs"]["melody_end_percent"] == 0.56
     assert g_resynth["273_w1"]["inputs"]["denoise"] == 1.0 and g_resynth["273_w1"]["inputs"]["steps"] == 16
 
-    # echoedit mode wires Pass-1 FreezeAudio -> Pass-2 MiniMaxH3EchoEdit with trimmed source <Audio 1>
+    # echoedit mode wires Pass-1 FreezeAudio -> Pass-2 MiniMaxH3EchoEdit with full-window source <Audio 1>
     g_echo = cw.build_cover_graph(
-        m1, prompts[:1], window_denoises=[0.29], render_mode="echoedit", ref_audio_source="raw", stage_a_audio_rel="cover_jobs/unit/raw_m5.wav"
+        m1, prompts[:1], window_denoises=[0.29], render_mode="echoedit", ref_audio_source="raw",
+        stage_a_audio_rel="cover_jobs/unit/raw_m5.wav", use_frozen_video_cache=True,
     )
     assert g_echo["48"]["inputs"]["audio"] == "cover_jobs/unit/raw_m5.wav"
-    assert g_echo["trim_src_aud_w1"]["class_type"] == "TrimAudioDuration"
+    assert "122_fvc" not in g_echo, "FrozenVideoCache must stay disabled on echoedit"
+    assert "trim_src_aud_w1" not in g_echo and g_echo["52_src_w1"]["inputs"]["audio"] == ["48", 0]
     assert g_echo["280_w1"]["class_type"] == "MiniMaxH3EchoEdit"
     assert g_echo["280_w1"]["inputs"]["src_conditioning"] == ["26_src_w1", 0]
     assert g_echo["280_w1"]["inputs"]["tgt_conditioning"] == ["26_w1", 0]
     assert g_echo["280_w1"]["inputs"]["latent"] == ["10_w1", 0]
     assert g_echo["280_w1"]["inputs"]["freeze_video"] is True
+
+    # echoedit + aud_to_vid_gain < 1.0 omits audio_conditioning on 145_w1 (preserves c_src) & keeps Pass 1 on "45"
+    g_echo_gain = cw.build_cover_graph(
+        m1, prompts[:1], window_denoises=[0.29], render_mode="echoedit", aud_to_vid_gain=0.5, echo_model="pika"
+    )
+    assert "audio_conditioning" not in g_echo_gain["145_w1"]["inputs"]
+    assert g_echo_gain["9_w1"]["inputs"]["model"] == ["45", 0]
+    assert g_echo_gain["145_w1"]["inputs"]["model"] == ["21", 0]
+    assert g_echo_gain["280_w1"]["inputs"]["model"] == ["145_w1", 0]
+
+    # Pure-Base (pass1_model_kind="base", echo_model="base") emits ZERO Pika LoRA nodes + audio-only c_src omits <Picture>
+    g_pure_base = cw.build_cover_graph(
+        m1, prompts[:1], window_denoises=[0.29], render_mode="echoedit",
+        pass1_model_kind="base", echo_model="base", aud_to_vid_gain=0.0,
+        echo_audio_only_src=True, use_h3_decode_audio=True,
+    )
+    assert "18" not in g_pure_base and not any(n.get("class_type") == "MiniMaxH3LoRABranch" for n in g_pure_base.values())
+    assert g_pure_base["7"]["inputs"]["sampler_name"] == "euler" and g_pure_base["60"]["class_type"] == "BasicScheduler"
+    assert "references" not in g_pure_base["52_src_w1"]["inputs"]
+    assert "<Picture" not in g_pure_base["5_src_w1"]["inputs"]["prompt"]
+    assert g_pure_base["282_w1"]["class_type"] == "MiniMaxH3DecodeAudio" and g_pure_base["282_w1"]["inputs"]["level"] == "clip_guard"
+
+    # echoedit multi-window (n_win=2) wires prev_latent, context_frames, and per-window trim_src_aud
+    m2 = dict(m1, windows=windows[:2], n_windows=2, total_frames=549)
+    g_echo2 = cw.build_cover_graph(m2, prompts[:2], window_denoises=[0.29, 0.29], render_mode="echoedit", ref_audio_source="raw")
+    assert g_echo2["trim_src_aud_w2"]["inputs"]["start_index"] == 10.625
+    assert g_echo2["280_w2"]["inputs"]["prev_latent"] == ["280_w1", 0]
+    assert g_echo2["280_w2"]["inputs"]["context_frames"] == 39
+    assert g_echo2["49_w2"]["inputs"]["previous"] == ["280_w1", 0]
 
     # decoupled helpers: instrumental prompt + backing graph + freeze video graph
     inst_p = cw.build_instrumental_prompt_skeleton(window_idx=1, win_info=windows[0], n_pictures=2)
