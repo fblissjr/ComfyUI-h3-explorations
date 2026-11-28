@@ -170,6 +170,11 @@ def check_rests_and_highpass_find_a_bass_left_in_the_stem() -> str:
     # The rests hold the bass and nothing else: all of it under 150 Hz, all of it in the bass stem.
     assert rep["bands_in_rests_db"]["0-150"] > -0.5 and rep["bands_in_rests_db"]["150-1000"] < -20.0, rep
     assert abs(rep["stems_re_clip_in_rests_db"]["bass"]) < 0.5 and rep["stems_re_clip_in_rests_db"]["voice"] < -20.0, rep
+    # While the voice sings its band is in the clip, as it was not in the rests; and a brighter voice reads brighter there.
+    assert rep["bands_sung_frames_db"]["150-1000"] > rep["bands_in_rests_db"]["150-1000"] + 20.0, rep
+    bright = plc.rest_report(target, target + 3.0 * plc.highpass(target, 1000.0), {})["bands_sung_frames_db"]
+    plain = plc.rest_report(target, target, {})["bands_sung_frames_db"]
+    assert bright["1000-4000"] - bright["150-1000"] > plain["1000-4000"] - plain["150-1000"] + 6.0, (bright, plain)
     # The bass hides the voice's pitch; a high-pass under the voice's range brings it back.
     hidden = plc.frames_report(clip, target)
     cleared = plc.frames_report(plc.highpass(clip, 150.0), target)

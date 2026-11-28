@@ -34,7 +34,9 @@ frames sound like needs listening.
 - `rests`: what a clip holds while the target vocal rests: its level there
   against its level while the vocal sings, how that sound is spread over
   `BANDS_HZ`, and how much of it each stem carries. A vocal stem that carries
-  the rests' sound is not only a voice.
+  the rests' sound is not only a voice. It also gives the clip's band split
+  over the sung frames, so a vocal stem's brightness can be set beside its
+  target's.
 - `under`: a clean voice with a bed mixed under it at each of `BED_LEVELS_DB`,
   and the share of the voice's pitched frames that keep a pitch. It says how
   loud an accompaniment must be before YIN loses the voice.
@@ -308,6 +310,8 @@ def rest_report(tgt_voc_24k: torch.Tensor, clip_24k: torch.Tensor, stems: dict[s
     out["rest_re_sung_db"] = round(_level_db(clip[:, :n], rest) - _level_db(clip[:, :n], sung), 1)
     out["bands_in_rests_db"] = _band_split(clip[:, :n], rest)
     out["bands_all_frames_db"] = _band_split(clip[:, :n], np.ones(n, dtype=bool))
+    # For a vocal stem given as the clip: its spectral balance while the target sings, to set beside the target's own.
+    out["bands_sung_frames_db"] = _band_split(clip[:, :n], sung)
     out["stems_re_clip_in_rests_db"] = {}
     for name, stem in stems.items():
         power = _frame_power(stem)
