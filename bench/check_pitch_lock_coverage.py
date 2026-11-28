@@ -149,6 +149,11 @@ def check_agreement_levels_and_periodic_share() -> str:
     sung = plc.periodic_share(*_f0(target))
     hiss = plc.periodic_share(*_f0(_noise(target.numel(), _rms(target), seed=6)))
     assert sung["pitched_frac_of_active"] > 0.9 and hiss["pitched_frac_of_active"] < 0.05, (sung, hiss)
+    # The melody is drawn between MIDI 48 and 66; a copy five semitones down reads that much lower.
+    q25, q50, q75 = sung["pitch_hz_q25_50_75"]
+    assert 130.0 < q25 <= q50 <= q75 < 371.0, sung
+    lower = plc.periodic_share(*_f0(_melody(1, transpose_st=-5.0)))["pitch_hz_q25_50_75"][1]
+    assert abs(1200.0 * np.log2(q50 / lower) - 500.0) < 30.0, (q50, lower)
     return (
         f"a stem missing a quarter is a_only in {agree['a_only']} frames; a stem 6 dB down reads "
         f"{levels['b']['stem_re_mix_db']:+.2f} dB against {levels['a']['stem_re_mix_db']:+.2f}; pitched share "

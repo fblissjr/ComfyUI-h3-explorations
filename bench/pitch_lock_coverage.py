@@ -24,7 +24,8 @@ frames sound like needs listening.
 - `levels`: each stem's level against the mix, and the level of the mix with
   that stem taken out.
 - `periodic`: the share of a file's active frames in which YIN finds a pitch,
-  for comparing an output vocal with a real voice.
+  for comparing an output vocal with a real voice, and the quartiles of the
+  pitch it finds, for comparing registers.
 - `ltas`: the cover gate's timbre figure (cosine of two long-term mel spectra)
   for each file against a reference, with the reference's first half against
   its second beside it. The figure moves with what is in a clip (a bass under
@@ -260,6 +261,8 @@ def periodic_share(f0: np.ndarray, cmndf: np.ndarray, rms_dbfs: np.ndarray) -> d
         "active_frames": int(active.sum()),
         "pitched_frac_of_active": round(float((voiced(f0) & active).sum()) / max(1, int(active.sum())), 3),
         "min_cmndf_q25_50_75": [round(float(v), 2) for v in np.percentile(cmndf[active], (25, 50, 75))],
+        # The register sung, over every pitched frame.
+        "pitch_hz_q25_50_75": [round(float(v), 1) for v in np.percentile(f0[voiced(f0)], (25, 50, 75))] if voiced(f0).any() else None,
     }
 
 

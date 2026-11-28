@@ -356,7 +356,36 @@ The side session noted that the renders carry more of their energy between `1` a
 
 Measured on the stems and only where the target sings, this figure is about the voice far more than section 9's is. It runs opposite to the scored frames of section 5: as `denoise` rises the voice moves further from its target's balance and keeps fewer pitched frames. It is not a measure of whose voice it is. Noise in the voice band raises it as a change of timbre does, and the frames that lost their pitch are where such noise would be. The scaffold's vocal was also pitch-shifted, which moves its balance before any render.
 
-## 13. Commands
+## 13. The reference's register against each window's
+
+The side session proposed giving each window an `<Audio 1>` reference in its own register, on the premise that the one reference used everywhere sits below the choruses. Every graph loads the same `kurt_vocal_clean_192f.wav`. `periodic` gives the quartiles of the pitch YIN finds in it and in each `justaflicker` target, in Hz:
+
+| File | Lower quartile | Median | Upper quartile |
+| :--- | :---: | :---: | :---: |
+| `kurt_vocal_clean_192f.wav` (the reference) | `206.7` | `238.0` | `273.5` |
+| `flicker_voc_m5_verse_243f.wav` | `154.7` | `174.6` | `196.1` |
+| `flicker_voc_m5_chorus_243f.wav` | `194.3` | `229.7` | `293.5` |
+| `flicker_voc_m5_bridge_243f.wav` | `232.2` | `261.9` | `293.5` |
+
+The scored share of the lowest and highest quarter of each target's notes (section 5), the coverage and the signed pitch error on the scored frames (section 1's scoring, positive when the output is sharp):
+
+| Arm | Window | Lowest quarter of target notes scored | Highest quarter scored | `voiced_overlap_frac` | `med_signed_cent_bias` |
+| :--- | :--- | :---: | :---: | :---: | :---: |
+| `c1_verse_m5_d26` | verse | `0.057` | `0.513` | `0.308` | `-1.4` |
+| `c5_verse_m5_d30_s1` | verse | `0.166` | `0.340` | `0.214` | `+52.6` |
+| `c6_verse_m5_d30_s2` | verse | `0.038` | `0.308` | `0.169` | `+10.8` |
+| `c2_verse_m5_d32` | verse | `0.006` | `0.263` | `0.089` | `+24.4` |
+| `c4_verse_m5_rain_a2v0_d30` | verse | `0.376` | `0.436` | `0.367` | `+15.4` |
+| `c3_chorus_m5_d30` | chorus | `0.279` | `0.159` | `0.292` | `+23.1` |
+| `c7_bridge_peak_m5_d30` | bridge | `0.340` | `0.342` | `0.377` | `-5.9` |
+
+1. **The reference sits in the chorus and bridge registers and above the verse.** Its middle half overlaps the chorus's and the bridge's, and lies wholly above the verse's. The premise has the direction reversed.
+2. **Some of the notes that lose their pitch lie outside the reference's range, and not all that lie outside it are lost.** The verse arms without the rain prompt score their lowest quarter far less often than their highest, and those notes lie below the reference's middle half. The chorus scores its highest quarter least, and that quarter runs above the reference's upper quartile. But the bridge keeps its highest quarter, which runs as high as the chorus's, and it has the highest coverage of the seven.
+3. **The verse arms above `0.26` and the chorus sing sharp on their scored frames; the bridge and `c1` do not.**
+
+So the reference's register is a candidate cause for the verse's lost low notes, pointing the other way from the proposal: by these arms it is the verse that the reference suits least. It is not shown, and the bridge speaks against a simple rule. Section 5 found the target's level ordering some of the same arms, each register has one window, and the windows have different prompts. What would separate register from the rest is one verse arm rendered twice at one seed and one `denoise`, with only the reference changed to a lower one: if register matters, more of the lowest quarter is scored and the sharpness falls.
+
+## 14. Commands
 
 ```bash
 V="$H3_OUTPUT_DIR/Video/pure_h3_cover_song_2026-11-27"; S="$V/vocal_stems"; I="$H3_INPUT_DIR/music_cover_stems"
@@ -377,7 +406,7 @@ ffmpeg -ss 63.625 -t 10.125 -i "$I/thatsnotakite/vocals.wav" "$X/kite_chorus_src
 
 The `justaflicker` source windows start at `10.500`, `42.200` and `103.000` for the verse, chorus and bridge.
 
-## 14. Limits
+## 15. Limits
 
 - No one has listened. "Unpitched" is YIN's judgment at `probe_yin_f0_drift.DEFAULT_THRESHOLD`. It does not tell rasp from breath or from two voices at once. Section 11 bounds how much an instrument left in the stem can account for, by its level between phrases; it cannot see the level under the voice.
 - A better separator might recover frames that neither of these two does. Section 3 shows the two agree, not that they are right.
@@ -387,7 +416,7 @@ The `justaflicker` source windows start at `10.500`, `42.200` and `103.000` for 
 - The time-shift null has the limits listed in the earlier record, section 5.
 - Section 9 shows what the timbre figure cannot say. It offers no measure of the singer in its place.
 
-## 15. Not covered
+## 16. Not covered
 
 - The 4-window song.
 - The other two songs, beyond showing that their targets cannot carry this scoring.
