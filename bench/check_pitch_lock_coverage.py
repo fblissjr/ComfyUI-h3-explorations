@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Offline checks for `pitch_lock_coverage.py`: the frame split, the threshold sweep's null, agreement and levels."""
+"""Offline checks for `pitch_lock_coverage.py`: the frame split, the threshold sweep's null, agreement, levels and the timbre figure."""
 
 from __future__ import annotations
 
@@ -156,6 +156,22 @@ def check_agreement_levels_and_periodic_share() -> str:
     )
 
 
+def check_ltas_moves_with_a_bass_under_the_same_voice() -> str:
+    voice = _melody(1)
+    t = torch.arange(voice.numel(), dtype=torch.float32) / float(SR)
+    bass = 0.25 * torch.sin(2.0 * torch.pi * 55.0 * t)
+    same = plc.ltas_cosine(voice, voice)
+    with_bass = plc.ltas_cosine(voice + bass, voice)
+    other_notes = plc.ltas_cosine(_melody(2), voice)
+    assert abs(same - 1.0) < 1e-4, same
+    # Nothing about the voice changed, and the figure falls further than it does for a different melody.
+    assert with_bass < other_notes - 0.05, (with_bass, other_notes)
+    return (
+        f"a voice against itself reads {same:.2f}, a different melody in the same voice {other_notes:.2f}, "
+        f"and the same voice with a bass under it {with_bass:.2f}"
+    )
+
+
 def main() -> int:
     case("split_names_silence_and_noise", check_split_names_silence_and_noise)
     case("rough_voice_is_credited_and_beats_its_null", check_rough_voice_is_credited_and_beats_its_null)
@@ -163,6 +179,7 @@ def main() -> int:
     case("quartile_split_finds_which_notes_were_lost", check_quartile_split_finds_which_notes_were_lost)
     case("overlap_finds_a_late_output", check_overlap_finds_a_late_output)
     case("agreement_levels_and_periodic_share", check_agreement_levels_and_periodic_share)
+    case("ltas_moves_with_a_bass_under_the_same_voice", check_ltas_moves_with_a_bass_under_the_same_voice)
     return finish()
 
 

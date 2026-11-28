@@ -1,6 +1,6 @@
 # What the Unscored Frames of the 243-Frame Cover Gate Hold (`2026-11-27`)
 
-- **Verdict:** In the seven `justaflicker` arms the target's voiced frames that go unscored are not silent, not off the beat and not lost by the separator: the output is as loud there as in its scored frames and YIN finds no pitch in it. They are mostly the frames where the target itself is least steady, and there are more of them at higher `denoise`. The two other-song arms cannot be read, because their target vocals are mostly unpitched before any render. What the unpitched sound is has to be judged by ear; no session has listened.
+- **Verdict:** In the seven `justaflicker` arms the target's voiced frames that go unscored are not silent, not off the beat and not lost by the separator: the output is as loud there as in its scored frames and YIN finds no pitch in it. They are mostly the frames where the target itself is least steady, and there are more of them at higher `denoise`. The two other-song arms cannot be read, because their target vocals are mostly unpitched before any render. The gate's timbre figure does not show whether the singer changed (section 9). What the unpitched sound is has to be judged by ear; no session has listened.
 - **Date:** `2026-11-27`
 - **Extends:** [`2026-11-27_music_cover_pitch_lock_metric_null.md`](2026-11-27_music_cover_pitch_lock_metric_null.md), section 5 (it could not say why most frames have no pitch) and section 6 (scored from a different separator, on another machine).
 - **Scripts:** [`bench/pitch_lock_coverage.py`](../pitch_lock_coverage.py), [`bench/check_pitch_lock_coverage.py`](../check_pitch_lock_coverage.py), [`bench/pitch_lock_metrics.py`](../pitch_lock_metrics.py)
@@ -222,7 +222,43 @@ The longest spans in each gate stem, in seconds and 24 fps frames of the clip.
 
 The verse arms lose the same passages, which is section 5 seen in time. What to listen for in an unpitched span against a scored one in the same clip: rasp or breath on a held note, two voices at once, an instrument inside the voice, or a note that wanders.
 
-## 9. Commands
+## 9. The gate's timbre figure against controls
+
+`ltas`: the cosine of two long-term mel spectra, here each file against `kurt_vocal_clean_192f.wav`, computed as the gate computes `ltas_cos_kurt_unplugged`. The "Render mix" column equals the gate's report in all nine arms. The reference's first half against its second reads `0.804`.
+
+| Arm | Its scaffold | Render mix (the gate's figure) | Its target vocal | Gate stem | Gate stem minus target vocal |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| `c1_verse_m5_d26` | `-0.023` | `+0.308` | `+0.636` | `+0.608` | `-0.028` |
+| `c2_verse_m5_d32` | `-0.023` | `+0.503` | `+0.636` | `+0.755` | `+0.119` |
+| `c3_chorus_m5_d30` | `+0.062` | `+0.423` | `+0.841` | `+0.788` | `-0.053` |
+| `c4_verse_m5_rain_a2v0_d30` | `-0.023` | `+0.538` | `+0.636` | `+0.765` | `+0.129` |
+| `c5_verse_m5_d30_s1` | `-0.023` | `+0.415` | `+0.636` | `+0.685` | `+0.049` |
+| `c6_verse_m5_d30_s2` | `-0.023` | `+0.357` | `+0.636` | `+0.598` | `-0.038` |
+| `c7_bridge_peak_m5_d30` | `-0.087` | `+0.314` | `+0.890` | `+0.832` | `-0.058` |
+| `c8_kite_chorus_d30` | `+0.233` | `+0.533` | `+0.780` | `+0.739` | `-0.041` |
+| `c9_fridge_chorus_d30` | `+0.247` | `+0.585` | `+0.787` | `+0.858` | `+0.071` |
+
+1. **The figure follows what is in the clip more than whose voice it is.** Every scaffold reads far below its own target vocal, with the same singer in both: the difference is the bass and bed under the voice. `check_ltas_moves_with_a_bass_under_the_same_voice` holds the same on a synthetic voice.
+2. **The rise from scaffold to render cannot be read as a change of singer.** Section 7 shows the renders lose the scaffold's bass, and that alone moves this figure the same way. Every render mix still reads below its unconverted target vocal.
+3. **Like for like, about half the stems read no closer to the reference than the unconverted target vocal does.** The last column is negative in `c1`, `c3`, `c6`, `c7` and `c8`, and positive in `c2`, `c4`, `c5` and `c9`.
+4. **The scale does not separate singers.** The chorus and bridge target vocals, sung by the original singer, read higher against the reference than the reference's two halves read against each other.
+
+This figure does not measure whether the singer changed. That stays a listening question, the one the earlier handoff asked of `c1`.
+
+## 10. Where the song's `denoise` sits among the calibrated arms
+
+The audio pass of every graph is a `BasicScheduler` with `steps` `12` (node `160` in `data/pure_h3_cover_song/graphs/`), and core turns `denoise` into a schedule by `total_steps = int(steps / denoise)`, keeping the last `steps + 1` sigmas (`comfy_extras/nodes_custom_sampler.py`, `BasicScheduler`).
+
+| `denoise` | `total_steps` | Used by |
+| :---: | :---: | :--- |
+| `0.26` | `46` | `c1` |
+| `0.29` | `41` | the 4-window song, `song_4win_d29.json` |
+| `0.30` | `40` | `c3` to `c9` |
+| `0.32` | `37` | `c2` |
+
+**The song's setting is one schedule step from the `0.30` arms and five from `c1`.** Between `c1` and `c5` the scored count falls by about ten frames for each schedule step, and the two seeds at `0.30` differ by more than that (section 5). By these arms the song's verse windows should land like the `0.30` pair, where one seed held the melody and the other partly lost it, and not like `c1`. No arm was rendered at `0.29`.
+
+## 11. Commands
 
 ```bash
 V="$H3_OUTPUT_DIR/Video/pure_h3_cover_song_2026-11-27"; S="$V/vocal_stems"; I="$H3_INPUT_DIR/music_cover_stems"
@@ -234,11 +270,12 @@ X=<scratch folder>   # sepaudio stems "$V/<arm>_00001-audio.mp4" -r six -o "$X",
 "$PY" bench/pitch_lock_coverage.py periodic "$I/kurt_vocal_clean_192f.wav" "$I/kite_voc_m6_243f.wav" "$S/c1_verse_m5_d26_voc.wav"  # section 6
 ffmpeg -ss 63.625 -t 10.125 -i "$I/thatsnotakite/vocals.wav" "$X/kite_chorus_src_voc.wav"   # section 6, a source window; inthefridge starts at 60.500
 "$PY" bench/pitch_lock_coverage.py levels "$V/c1_verse_m5_d26_00001-audio.mp4" "$S/c1_verse_m5_d26_voc.wav" "$X/c1_verse_m5_d26_00001-audio/"{vocals,guitar,bass,other,piano,drums}.wav  # section 7
+"$PY" bench/pitch_lock_coverage.py ltas "$I/kurt_vocal_clean_192f.wav" "$I/flicker_m5_verse_cal_243f.wav" "$I/flicker_voc_m5_verse_243f.wav" "$V/c1_verse_m5_d26_00001-audio.mp4" "$S/c1_verse_m5_d26_voc.wav"  # section 9
 ```
 
 The `justaflicker` source windows start at `10.500`, `42.200` and `103.000` for the verse, chorus and bridge.
 
-## 10. Limits
+## 12. Limits
 
 - No one has listened. "Unpitched" is YIN's judgment at `probe_yin_f0_drift.DEFAULT_THRESHOLD`. It does not tell rasp from breath, from two voices at once, or from an instrument a separator left in the vocal stem.
 - A better separator might recover frames that neither of these two does. Section 3 shows the two agree, not that they are right.
@@ -246,8 +283,9 @@ The `justaflicker` source windows start at `10.500`, `42.200` and `103.000` for 
 - One render per arm, apart from the one pair of seeds.
 - The quarters of section 5 describe where pitch survives. They do not say why, and the three rankings are not independent.
 - The time-shift null has the limits listed in the earlier record, section 5.
+- Section 9 shows what the timbre figure cannot say. It offers no measure of the singer in its place.
 
-## 11. Not covered
+## 13. Not covered
 
 - The 4-window song.
 - The other two songs, beyond showing that their targets cannot carry this scoring.

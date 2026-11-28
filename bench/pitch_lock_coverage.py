@@ -25,11 +25,17 @@ frames sound like needs listening.
   that stem taken out.
 - `periodic`: the share of a file's active frames in which YIN finds a pitch,
   for comparing an output vocal with a real voice.
+- `ltas`: the cover gate's timbre figure (cosine of two long-term mel spectra)
+  for each file against a reference, with the reference's first half against
+  its second beside it. The figure moves with what is in a clip (a bass under
+  the voice, the register sung) as well as with whose voice it is, so read it
+  only beside the same figure for the scaffold and the target vocal.
 
     <comfy-venv-python> bench/pitch_lock_coverage.py frames OUT_VOC TARGET_VOC [OUT_VOC TARGET_VOC ...]
     <comfy-venv-python> bench/pitch_lock_coverage.py agree STEM_A STEM_B TARGET_VOC
     <comfy-venv-python> bench/pitch_lock_coverage.py levels MIX STEM [STEM ...]
     <comfy-venv-python> bench/pitch_lock_coverage.py periodic FILE [FILE ...]
+    <comfy-venv-python> bench/pitch_lock_coverage.py ltas REFERENCE FILE [FILE ...]
 """
 
 from __future__ import annotations
@@ -43,6 +49,7 @@ from typing import Any
 
 import numpy as np
 import torch
+import torchaudio
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import pitch_lock_metrics as plm  # noqa: E402
@@ -61,6 +68,8 @@ SPAN_BRIDGE_FRAMES = 5
 ACTIVE_BELOW_LOUD_DB = 20.0
 LOUD_PERCENTILE = 95.0
 LEVEL_RATE = 44100
+# The mel settings of the cover gate's `ltas_cos_kurt_unplugged`, so the figures are comparable.
+LTAS_N_FFT, LTAS_HOP, LTAS_MELS = 1024, 256, 64
 
 
 def voiced(f0: np.ndarray) -> np.ndarray:
@@ -233,6 +242,14 @@ def periodic_share(f0: np.ndarray, cmndf: np.ndarray, rms_dbfs: np.ndarray) -> d
     }
 
 
+def ltas_cosine(a_24k: torch.Tensor, b_24k: torch.Tensor) -> float:
+    """Cosine of two clips' long-term log-mel spectra, each with its mean taken off."""
+    mel = torchaudio.transforms.MelSpectrogram(sample_rate=RATE, n_fft=LTAS_N_FFT, hop_length=LTAS_HOP, n_mels=LTAS_MELS)
+    va, vb = (torch.log(mel(x.float()) + 1e-6).mean(dim=-1) for x in (a_24k, b_24k))
+    va, vb = va - va.mean(), vb - vb.mean()
+    return float(torch.dot(va, vb) / (va.norm() * vb.norm() + 1e-12))
+
+
 def _db(x: np.ndarray) -> float:
     return float(20.0 * np.log10(max(1e-12, float(np.sqrt(np.mean(np.square(x, dtype=np.float64)))))))
 
@@ -282,6 +299,9 @@ def main(argv: list[str] | None = None) -> int:
     p_levels.add_argument("stems", nargs="+", type=Path)
     p_periodic = sub.add_parser("periodic", help="share of active frames with a pitch")
     p_periodic.add_argument("files", nargs="+", type=Path)
+    p_ltas = sub.add_parser("ltas", help="long-term spectrum cosine against a reference")
+    p_ltas.add_argument("reference", type=Path)
+    p_ltas.add_argument("files", nargs="+", type=Path)
     args = parser.parse_args(argv)
 
     results: dict[str, Any]
@@ -304,8 +324,19 @@ def main(argv: list[str] | None = None) -> int:
         }
     elif args.mode == "levels":
         results = stem_levels(_load_stereo(args.mix), dict(zip(_label(args.stems), map(_load_stereo, args.stems))))
-    else:
+    elif args.mode == "periodic":
         results = {name: periodic_share(*_yin(path)) for name, path in zip(_label(args.files), args.files)}
+    else:
+        ref = yin_probe.load_mono_audio(args.reference, sr=RATE)
+        half = ref.numel() // 2
+        results = {
+            "reference": args.reference.name,
+            "reference_first_half_against_second": round(ltas_cosine(ref[:half], ref[half:]), 3),
+            "ltas_cos": {
+                name: round(ltas_cosine(yin_probe.load_mono_audio(path, sr=RATE), ref), 3)
+                for name, path in zip(_label(args.files), args.files)
+            },
+        }
     print(json.dumps(results, indent=2))
     return 0
 
