@@ -497,3 +497,31 @@ comparison sheets under `$H3_OUTPUT_DIR/Video/head_atlas_2026-11-27/`: `walk_mas
   to test whether layers `46–48` (`B46 H13`, `B48 H3`, `B48 H29`) generalize on held-out scenes.
 - **Caveat:** One courtyard setting, one seed, and one high-contrast chrome edit at `scale=1.95`; a lower `scale`
   or gentler wardrobe-only edit has not been tested mask-off.
+
+## 17. The mask-off twins, scored with the readings of sections 14 and 15
+
+Same scripts as those sections, run on the twins of section 16
+(`data/self_mask_probe_2026-11-27/analyze_phase0b_second_reading.py`, figures in `mask_off_p3_second_reading.json`
+beside it; `analyze_phase0_playback_claims.py`, figures in `mask_off_walk_playback_claims.json`).
+
+| Reading, paired two-person prompt | `p3_k2_paired_woman` (masked) | `p3_paired_mask_off` |
+| :--- | :--- | :--- |
+| His coat's sideways position minus the base's, median / largest (share of width) | `-0.005 / 0.017` | `-0.005 / 0.020` |
+| His coat's area against the base's, median | `1.31` | `1.25` |
+| His coat's hem below the base's, median (px of `768`) | `17` | `16` |
+| Top of the changed figure above the base woman's, median (px) | `41` | `46` |
+| Mean difference from the base inside the base man's patches | `30.92` | `35.80` |
+| Mean difference from the base outside both walkers' patches | `7.81` | `17.12` |
+| Pixels differing from the base for the whole clip by more than `10` / `20` / `40` | `0.192 / 0.070 / 0.023` | `0.481 / 0.237 / 0.092` |
+
+- **All of the mask's benefit is outside the walkers.** The rest of the frame is what separates the two columns.
+- **Inside the mask nothing is protected.** The man is redrawn the same way with the mask and without it: the same
+  place, the same longer coat. The same goes for her size.
+- **A target for the next sweep that can be read off this table:** a mask that covers her and not him should bring
+  his coat back to the base's, with the area reading near one and the hem at the base row. Such a mask can be tried
+  from a script through the edit guider's own `mask` input (`edit_guidance.py`), with no change to a node.
+- **The footsteps do not depend on the mask.** The walk twin has the same count of footstep sounds as `k2`, at the
+  same frames. The change in the sound comes with the edit, not with the mask.
+- **What the twins compare is a mask against no mask.** They show a mask is needed. That this head's reading is the
+  one to use, over the shipped reading, rests on sections 5 and 8, where the shipped reading loses her late in the
+  clip, and on one kind of shot.
