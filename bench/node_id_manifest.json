@@ -325,6 +325,25 @@
       "images"
     ]
   },
+  "MiniMaxH3EchoEdit": {
+    "inputs": [
+      "model",
+      "src_conditioning",
+      "tgt_conditioning",
+      "latent",
+      "steps",
+      "t_max",
+      "t_min",
+      "edit_scale",
+      "noise_corr",
+      "seed",
+      "freeze_video"
+    ],
+    "node_id": "MiniMaxH3EchoEdit",
+    "outputs": [
+      "Output"
+    ]
+  },
   "MiniMaxH3EditGuider": {
     "inputs": [
       "model",

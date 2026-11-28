@@ -83,7 +83,14 @@ class _DummyVideoVAE:
 class _DummyAudioVAE:
     audio_sample_rate = 32000
 
+    def __init__(self) -> None:
+        self.seen_waveforms: list[torch.Tensor] = []
+
+    def spacial_compression_encode(self) -> int:
+        return 800
+
     def encode(self, waveform_blc: torch.Tensor) -> torch.Tensor:
+        self.seen_waveforms.append(waveform_blc.detach().clone())
         b, samples, _c = waveform_blc.shape
         t40 = max(1, round((samples / self.audio_sample_rate) * 40))
         return torch.ones((b, 32, 2, t40), dtype=torch.float32)
@@ -244,6 +251,23 @@ def check_execute_video_and_single_frame() -> None:
     assert pf_sf.args[2] == layout_sf.seq_len + (24 - 16)
     assert "edit guidance: original" in pf_sf.args[3]
     assert "1 frame" in pf_sf.args[3] and "keyframes" in pf_sf.args[3] and "Ref 1 (image)" in pf_sf.args[3]
+
+    # 3. Mono & non-multiple-of-800 audio is duplicated to stereo and right-padded to hop=800
+    mono_src = torch.linspace(0.1, 0.9, 8050).view(1, 1, 8050)
+    out_mono = MiniMaxH3GuideLatent.execute(
+        positive=pos,
+        latent=latent_124,
+        frame_idx=0,
+        single_frame=False,
+        audio={"waveform": mono_src, "sample_rate": 32000},
+        audio_vae=audio_vae,
+    )
+    seen = audio_vae.seen_waveforms[-1]
+    assert seen.shape == (1, 8800, 2), f"expected right-padded stereo (1, 8800, 2), got {tuple(seen.shape)}"
+    assert torch.allclose(seen[0, :8050, 0], mono_src[0, 0]), "leading samples were shifted or cropped"
+    assert torch.allclose(seen[0, :8050, 1], mono_src[0, 0]), "mono channel was not duplicated to right"
+    assert torch.all(seen[0, 8050:, :] == 0.0), "tail padding must be zero"
+    assert out_mono.args[0][0][1]["minimax_keyframes"][0]["audio_latent"].shape[-1] == 11
 
 
 def check_refusals() -> None:

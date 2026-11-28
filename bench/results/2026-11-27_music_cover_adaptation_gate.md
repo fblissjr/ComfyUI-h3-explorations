@@ -1,6 +1,6 @@
 # Phase 1 Zero-Code Silicon Gate: H3 Music-Video Voice & Style Adaptation (`2026-11-27`)
 
-> **Harness:** [`bench/music_cover_gate.py`](../music_cover_gate.py) · **Prompts:** [`data/music_cover_gate/`](../../data/music_cover_gate/) (`0 FAIL, 0 WARN`) · **Triage JSON:** [`data/music_cover_gate/phase1_triage_report.json`](../../data/music_cover_gate/phase1_triage_report.json)
+> **Harness:** [`archive/bench/music_cover_gate.py`](../../archive/bench/music_cover_gate.py) · **Prompts:** [`data/music_cover_gate/`](../../data/music_cover_gate/) (`0 FAIL, 0 WARN`) · **Triage JSON:** [`data/music_cover_gate/phase1_triage_report.json`](../../data/music_cover_gate/phase1_triage_report.json)
 > **Observable media location:** `$H3_OUTPUT_DIR/Video/music_cover_gate_2026-11-27/` (all 9 rendered `-audio.mp4` files inspected natively via `read_file`).
 
 ---

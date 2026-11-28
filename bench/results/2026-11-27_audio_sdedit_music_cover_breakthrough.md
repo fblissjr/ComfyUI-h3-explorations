@@ -28,7 +28,7 @@ While **2-Pass Audio SDEdit** (`MiniMaxH3FreezeAudio` Pass 1 → `MiniMaxH3Audio
 
 ## 2. Zero-Memorization Shootout: Audio SDEdit vs. Late-Only `AudioRefRouter`
 
-- **Harness:** [`bench/music_cover_shootout.py`](../music_cover_shootout.py) · `1152x768`, `141f = 5.875 s`, `seed = 730451892` (synthetic male delta blues `194.6 Hz` covering original female disco soprano `456.8 Hz`) · report [`data/music_cover_gate/shootout_triage_report.json`](../../data/music_cover_gate/shootout_triage_report.json).
+- **Harness:** [`archive/bench/music_cover_shootout.py`](../../archive/bench/music_cover_shootout.py) · `1152x768`, `141f = 5.875 s`, `seed = 730451892` (synthetic male delta blues `194.6 Hz` covering original female disco soprano `456.8 Hz`) · report [`data/music_cover_gate/shootout_triage_report.json`](../../data/music_cover_gate/shootout_triage_report.json).
 
 | Arm | Method | Wall (s) | `med F0` (Hz) | `st vs B` | `chroma_sameKey` | `onset_x` (lag) | `ltas_cos B` | Native Audit |
 | :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :--- |
@@ -45,7 +45,7 @@ While **2-Pass Audio SDEdit** (`MiniMaxH3FreezeAudio` Pass 1 → `MiniMaxH3Audio
 
 ## 3. Real-World Zero-Memorization Validation: 3 User AI-Generated Songs Covered by MTV Unplugged
 
-- **Harness:** [`bench/ai_song_sdedit_covers.py`](../ai_song_sdedit_covers.py) · `1024x768` (exact 4:3 MTV Unplugged), `seed = 910427311`, `<Audio 1>` (`unplugged_compressed.mp4` `24.0–34.125 s`, Drop-C# `C#/G#` drone), `<Picture 1,2>` stills · outputs under `$H3_OUTPUT_DIR/Video/ai_song_sdedit_covers_2026-11-27/` · report [`data/music_cover_gate/ai_song_sdedit_triage_report.json`](../../data/music_cover_gate/ai_song_sdedit_triage_report.json).
+- **Harness:** [`archive/bench/ai_song_sdedit_covers.py`](../../archive/bench/ai_song_sdedit_covers.py) · `1024x768` (exact 4:3 MTV Unplugged), `seed = 910427311`, `<Audio 1>` (`unplugged_compressed.mp4` `24.0–34.125 s`, Drop-C# `C#/G#` drone), `<Picture 1,2>` stills · outputs under `$H3_OUTPUT_DIR/Video/ai_song_sdedit_covers_2026-11-27/` · report [`data/music_cover_gate/ai_song_sdedit_triage_report.json`](../../data/music_cover_gate/ai_song_sdedit_triage_report.json).
 
 | Arm | Source AI Song (Zero Memorization) | Len | Pass-2 `denoise` | Wall (s) | `med F0` (Hz) | `chroma_sameKey` (`tr_st`) | `onset_x` (lag) | `ltas_cos B` | Native Audit |
 | :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :--- |

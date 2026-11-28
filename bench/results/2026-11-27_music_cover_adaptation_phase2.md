@@ -21,7 +21,7 @@ CPU verification ([`bench/check_music_cover_routing.py`](../check_music_cover_ro
 
 ## 2. Real-World Silicon A/B: Unplugged Covers Fun
 
-- **Setup:** [`bench/unplugged_fun_cover.py`](../unplugged_fun_cover.py) · `1024x768` (exact 4:3 MTV Unplugged framing) · `192f = 8.000 s` (exact dual-clock grid `39 + 51*3`) · `seed = 840519203` · `MiniMaxH3Sol` (`tau=1.0`, `rotated`, `dense_blocks="49"`, `per segment`) · prompt [`data/music_cover_gate/ref2va_unplugged_covers_fun.txt`](../../data/music_cover_gate/ref2va_unplugged_covers_fun.txt).
+- **Setup:** [`archive/bench/unplugged_fun_cover.py`](../../archive/bench/unplugged_fun_cover.py) · `1024x768` (exact 4:3 MTV Unplugged framing) · `192f = 8.000 s` (exact dual-clock grid `39 + 51*3`) · `seed = 840519203` · `MiniMaxH3Sol` (`tau=1.0`, `rotated`, `dense_blocks="49"`, `per segment`) · prompt [`data/music_cover_gate/ref2va_unplugged_covers_fun.txt`](../../data/music_cover_gate/ref2va_unplugged_covers_fun.txt).
 - **Target B refs (`$H3_INPUT_DIR/music_cover_gate/`):** `<Picture 1>` `unplugged_b_face.png`, `<Picture 2>` `unplugged_b_stage.png`, `<Audio 1>` `unplugged_b_audio_192f.wav` (`unplugged_compressed.mp4`, `44.5–52.5 s`, `median_f0 = 69.63 Hz` guitar/cello bass + raw raspy grunge vocal).
 - **Song X melody scaffold (`$H3_INPUT_DIR/music_cover_gate/`):** `fun_x_chorus_clean_192f.wav` (`fun.mp4`, `57.15–65.15 s`, `median_f0 = 460.99 Hz` Cyndi Lauper soprano + 80s synth/drums: *"Oh daddy dear, you know you're still number one! But girls, they wanna have fun!"*) and its non-pitch-shifted STFT-HPSS drum-stripped harmonic scaffold `fun_x_chorus_clean_harmonic_192f.wav`.
 - **Outputs (`$H3_OUTPUT_DIR/Video/unplugged_covers_fun_2026-11-27/`):** Triage saved to [`data/music_cover_gate/unplugged_fun_triage_report.json`](../../data/music_cover_gate/unplugged_fun_triage_report.json); all 9 clips audited natively (video + audio) via `read_file`.
@@ -44,7 +44,7 @@ CPU verification ([`bench/check_music_cover_routing.py`](../check_music_cover_ro
 
 ## 3. Zero-Memorization Causal Proof: Blues Covers Disco
 
-To rule out pretraining familiarity with *"Girls Just Want to Have Fun"*, we re-ran the Phase 1 synthetic **zero-memorization** extreme-contrast pair ([`bench/music_cover_gate.py`](../music_cover_gate.py), `1152x768`, `141f = 5.875 s`, `seed = 730451892`, male delta blues `194.63 Hz` + steel resonator guitar covering original female disco soprano `456.81 Hz`):
+To rule out pretraining familiarity with *"Girls Just Want to Have Fun"*, we re-ran the Phase 1 synthetic **zero-memorization** extreme-contrast pair ([`archive/bench/music_cover_gate.py`](../../archive/bench/music_cover_gate.py), `1152x768`, `141f = 5.875 s`, `seed = 730451892`, male delta blues `194.63 Hz` + steel resonator guitar covering original female disco soprano `456.81 Hz`):
 
 | Arm | Settings | Wall (s) | `med F0` (Hz) | `st vs B` | `env_corr X` | `ltas_cos B` | `frame_mel B` | Native Audit |
 | :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :--- |

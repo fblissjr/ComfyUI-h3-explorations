@@ -41,6 +41,33 @@ from comfy.ldm.minimax.model import FRAME_PER_TOKEN, FRAME_RESCALE
 from comfy_api.latest import io
 from comfy_extras.nodes_minimax_h3 import _av_latent, _encode_ref_audio, _resize
 
+try:
+    from .audio_resample import resample as _resample_audio
+except ImportError:
+    from audio_resample import resample as _resample_audio
+
+
+def _encode_guide_audio_aligned(audio_vae, audio):
+    """Encode guide audio matching sglang & reference_conditioning: mono->stereo, resample, right-pad to hop."""
+    waveform = audio["waveform"]
+    sample_rate = audio["sample_rate"]
+    channels = int(waveform.shape[1])
+    if channels == 1:
+        waveform = waveform.repeat(1, 2, 1)
+    elif channels != 2:
+        raise ValueError(
+            f"MiniMaxH3GuideLatent: audio must be mono or stereo, got {channels} channels"
+        )
+    vae_rate = getattr(audio_vae, "audio_sample_rate", 32000)
+    if sample_rate != vae_rate:
+        waveform = _resample_audio(waveform, sample_rate, vae_rate)
+    spacial_fn = getattr(audio_vae, "spacial_compression_encode", None)
+    hop = int(spacial_fn()) if callable(spacial_fn) else 800
+    right = -int(waveform.shape[-1]) % hop
+    if right:
+        waveform = torch.nn.functional.pad(waveform, (0, right))
+    return _encode_ref_audio(audio_vae, {"waveform": waveform, "sample_rate": vae_rate})
+
 
 def resolve_guide_frames(
     batch_frames: int,
@@ -328,7 +355,7 @@ class MiniMaxH3GuideLatent(io.ComfyNode):
                 raise ValueError(
                     "MiniMaxH3GuideLatent: anchoring `audio` needs the `audio_vae` input"
                 )
-            audio_latent, audio_rt = _encode_ref_audio(audio_vae, audio)
+            audio_latent, audio_rt = _encode_guide_audio_aligned(audio_vae, audio)
             max_rt = math.floor(
                 int(audio_tensor.shape[-1]) - FRAME_RESCALE * resolved_frame_index
             )

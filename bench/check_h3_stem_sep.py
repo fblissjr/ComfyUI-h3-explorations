@@ -138,6 +138,54 @@ def check_cascade_and_cover_scaffold() -> str:
             assert rms > 1e-4, f"{wav_path.name}: unexpectedly silent (rms={rms})"
             assert peak <= 0.93, f"{wav_path.name}: peak {peak:.4f} exceeds 0.93"
 
+        # Mono-vocal collapse produces bit-identical L/R channels on vocal-only scaffold
+        out_voc_only = tmp / "voc_only_32k.wav"
+        meta_vo = stem_sep.build_cover_scaffold(
+            stems_dir,
+            start_s=0.0,
+            duration_s=6.0,
+            semitones=-5.0,
+            harmonic_db=-120.0,
+            bass_db=-120.0,
+            mono_vocal=True,
+            out_wav_32k=out_voc_only,
+        )
+        assert meta_vo["mono_vocal"] is True
+        w_vo, _ = stem_sep._load_audio_native(out_voc_only)
+        lr_corr = float(torch.corrcoef(w_vo)[0, 1].item())
+        assert lr_corr >= 0.9999, f"expected mono_vocal L/R corr >= 0.9999, got {lr_corr:.6f}"
+
+        # Shifter 'atempo' (WSOLA) and backing-only (vocal_db=-120.0) both produce exact shapes & non-silence
+        out_atempo = tmp / "atempo_32k.wav"
+        meta_at = stem_sep.build_cover_scaffold(
+            stems_dir,
+            start_s=0.0,
+            duration_s=6.0,
+            semitones=-12.0,
+            shifter="atempo",
+            mono_vocal=True,
+            out_wav_32k=out_atempo,
+        )
+        assert meta_at["shifter"] == "atempo"
+        w_at, sr_at = stem_sep._load_audio_native(out_atempo)
+        assert sr_at == 32000 and w_at.shape == (2, expected_samples)
+        assert float(w_at.pow(2).mean().sqrt().item()) > 1e-4
+
+        out_back = tmp / "backing_only_32k.wav"
+        stem_sep.build_cover_scaffold(
+            stems_dir,
+            start_s=0.0,
+            duration_s=6.0,
+            semitones=-5.0,
+            vocal_db=-120.0,
+            harmonic_db=0.0,
+            bass_db=-3.0,
+            out_wav_32k=out_back,
+        )
+        w_bk, _ = stem_sep._load_audio_native(out_back)
+        assert w_bk.shape == (2, expected_samples)
+        assert float(w_bk.pow(2).mean().sqrt().item()) > 1e-4
+
         # Quick CLI smoke test on recipes subcommand
         cli_out = subprocess.check_output(
             [sys.executable, str(Path(__file__).resolve().parent / "h3_stem_sep.py"), "recipes", "--json"],

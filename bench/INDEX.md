@@ -8,14 +8,14 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 190 |
+| [`check_*`](#check) | 192 |
 | [`measure_*`](#measure) | 33 |
 | [`analyze_*`](#analyze) | 13 |
 | [`grade_*`](#grade) | 10 |
 | [`compare_*`](#compare) | 10 |
 | [`build_*`](#build) | 12 |
 | [`probe_*`](#probe) | 16 |
-| [the rest](#the-rest) | 205 |
+| [the rest](#the-rest) | 199 |
 
 ## check
 
@@ -50,6 +50,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_copy_sound.py`](check_copy_sound.py) | A copy's sound against its source's (`bench/copy_sound.py`) on made sound whose answer is known. |
 | [`check_core_sparse_capture.py`](check_core_sparse_capture.py) | `core_sparse_capture.py` records core's sparse path and changes nothing. |
 | [`check_correctness.py`](check_correctness.py) | Check the patched MiniMax H3 forward against the stock one. |
+| [`check_cover_audio_audit.py`](check_cover_audio_audit.py) | Offline self-tests for `bench/cover_audio_audit.py` on known synthetic signals. |
 | [`check_covered_items.py`](check_covered_items.py) | What a kept cut answers (`bench/covered_items.py`), on a made list, made verdicts and a made table. |
 | [`check_crop_reference_to_head.py`](check_crop_reference_to_head.py) | `bench/crop_reference_to_head.py` against a reference video whose every frame says where its face is, read from the VIDEO IT WROTE. |
 | [`check_data_results_lookup.py`](check_data_results_lookup.py) | That `bench/_lib/results.py` finds archived run data where the archive move put it, and nowhere else. |
@@ -64,6 +65,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_doc_links.py`](check_doc_links.py) | Fail when a doc points at a file or line that is not there any more. |
 | [`check_draw_face_points.py`](check_draw_face_points.py) | `bench/draw_face_points.py` against a face whose every line is known by construction, read from the VIDEO IT WROTE. |
 | [`check_draw_lid_marks.py`](check_draw_lid_marks.py) | `bench/draw_lid_marks.py` against a face whose eyes are known by construction, read from the VIDEO IT WROTE. |
+| [`check_echo_edit.py`](check_echo_edit.py) | Offline unit tests for `echo_edit.py` (`MiniMaxH3EchoEdit`). |
 | [`check_edit_guidance.py`](check_edit_guidance.py) | Check the edit-guidance nodes: the prompt edit's refusals and the guider's arithmetic. |
 | [`check_exact_blocks.py`](check_exact_blocks.py) | `MiniMaxH3ExactBlocks` rests on a name, so assert the thing the name stands for. |
 | [`check_facts_pass.py`](check_facts_pass.py) | Check ``bench/facts_pass.py`` on synthetic masked-run captures. |
@@ -343,7 +345,6 @@ this file is only a way to find a script by what it says it does.
 | [`_live_sol.py`](_live_sol.py) | Import the Sol-Attn node that ACTUALLY RUNS, for scripts that need its code. |
 | [`_paths.py`](_paths.py) | Where ComfyUI's media and this box's captures live, resolved rather than typed. |
 | [`_sol_attn_reference.py`](_sol_attn_reference.py) | Sol-Attn eager reference, vendored from upstream comfy-kitchen. |
-| [`ai_song_sdedit_covers.py`](ai_song_sdedit_covers.py) | Zero-memorization real-world AI-song validation of the 2-Pass Audio SDEdit Cover Pipeline. |
 | [`assemble_delivery.py`](assemble_delivery.py) | One delivery file from masked renders and the untouched original: the source's own rate and audio packets, passes over the same frames merged by what each changed, and a check by decode that every frame is there once. |
 | [`audit_audio_freeze_control.py`](audit_audio_freeze_control.py) | The control for the audio-freeze node: the sibling pack's song node, bit for bit. |
 | [`audit_h3_marker_tokenization.py`](audit_h3_marker_tokenization.py) | What ComfyUI's tokenizer does to the seven markers the release declares, scene by scene. |
@@ -381,6 +382,7 @@ this file is only a way to find a script by what it says it does.
 | [`convert_sam3d_body_vith_checkpoint.py`](convert_sam3d_body_vith_checkpoint.py) | Repack Meta's ViT-H SAM 3D Body checkpoint and its MHR rig as the one safetensors file this pack's loader reads. |
 | [`copy_sound.py`](copy_sound.py) | A working copy's sound against its source's, at the time the copy's picture says it is: is the sound in step. |
 | [`count_packed_rows.py`](count_packed_rows.py) | Exact packed-sequence rows, per segment, from the real `PackedLayout`. |
+| [`cover_audio_audit.py`](cover_audio_audit.py) | Independent first-principles audio audit for cover-song renders (zero RoFormer/YIN dependency). |
 | [`covered_items.py`](covered_items.py) | The review items a cut the owner kept already answers, derived from the verdicts and the kept cut's own table. |
 | [`crop_reference_to_head.py`](crop_reference_to_head.py) | Cut a reference video to ONE box round a shot's head and scale it back up to the canvas. |
 | [`day_pieces.py`](day_pieces.py) | A folder for a day's end: every piece that stands in a delivery table, in frame order, each with the graph it was queued with, its text, what that graph names and whether each is there now, and the line that queues it again. |
@@ -433,9 +435,6 @@ this file is only a way to find a script by what it says it does.
 | [`masked_render_against_source.py`](masked_render_against_source.py) | Measure a masked render against the clip it was made from: flicker at the seam, and when a late region takes effect. |
 | [`masked_render_time_breakdown.py`](masked_render_time_breakdown.py) | Where a masked song render's seconds go: by node, and by stage inside the song node. |
 | [`minimise_token_aug_repro.py`](minimise_token_aug_repro.py) | How small can the `token_aug` nondeterminism repro get? |
-| [`music_cover_gate.py`](music_cover_gate.py) | Phase 1 Zero-Code Diagnostic Gate for H3 Music-Video Voice & Style Adaptation. |
-| [`music_cover_pitch_lock_gate.py`](music_cover_pitch_lock_gate.py) | 6-Arm Pitch-Locked H3 Music-Video Cover Gate (MTV Unplugged covering AI songs). |
-| [`music_cover_shootout.py`](music_cover_shootout.py) | Zero-memorization 6-arm shootout: Audio SDEdit (`denoise=0.40/0.50/0.60`) vs Late-Only `AudioRefRouter` (`split=34/38/42`). |
 | [`o1_lossless_blocking.py`](o1_lossless_blocking.py) | O1's own test: is dark-region blocking the model's or the video encoder's? |
 | [`others_present.py`](others_present.py) | Who else is in a shot: the people a preview's trackers numbered that are none of the video's subjects, a shot at a time. |
 | [`page_answers_ledger.py`](page_answers_ledger.py) | Every line the owner saved on the local page, beside the record that carries it, and the lines no record cites yet. |
@@ -450,13 +449,11 @@ this file is only a way to find a script by what it says it does.
 | [`pose_along_shot.py`](pose_along_shot.py) | Run the pose model on every frame of a shot and keep its points: what the eye marks and the reader are made from. |
 | [`preflight_graph.py`](preflight_graph.py) | Grade a graph's prompt and price its sequence, BEFORE you press Queue. |
 | [`prepare_hf_first_frame_encoder_arms.py`](prepare_hf_first_frame_encoder_arms.py) | Prepare controlled I2VA/FL2VA encoder arms from the shipped HF workflow. |
-| [`prepare_pitch_lock_assets.py`](prepare_pitch_lock_assets.py) | Prepare solo-Kurt visual anchors and MelBand-RoFormer + RubberBand stems for the pitch-lock cover gate. |
 | [`price_reference_settings.py`](price_reference_settings.py) | Price a list of reference stills under a list of append-node settings. |
 | [`profile_block_ops.py`](profile_block_ops.py) | Every non-attention op of one H3 DiT block, timed alone, at a ref2va length. |
 | [`profile_lora_branch.py`](profile_lora_branch.py) | Where a LoRA applied at the call spends its time, one block's modules at a time. |
 | [`profile_sol_stages.py`](profile_sol_stages.py) | Where a `comfy_kitchen.sol_attn` call spends its device time, by stage, on captured q/k/v. |
 | [`propose_runs.py`](propose_runs.py) | Loads to propose on a stretch of one subject: where the part clears the capture's floor, frame by frame, and the runs long enough to be a load, each with the node's own zoom. Data only: it proposes; the card and the lead decide. |
-| [`pure_h3_cover_song.py`](pure_h3_cover_song.py) | Pure-H3 Calibrated & 4-Window Chained Music-Video Cover (`justaflicker`). |
 | [`quality_metrics.py`](quality_metrics.py) | Rank two renders of the same brief: pixel metrics, no model deps. |
 | [`rank_dense_blocks.py`](rank_dense_blocks.py) | Rank blocks by the error `dense_blocks` actually REMOVES, not by Sol's error. |
 | [`read_hair_band.py`](read_hair_band.py) | A hair band read as figures, frame by frame, on the band's own pixels: for the load that has it and a load of the same frames that does not. |
@@ -532,7 +529,6 @@ this file is only a way to find a script by what it says it does.
 | [`time_dense_blocks.py`](time_dense_blocks.py) | What does a dense block actually COST, in seconds, on this box? |
 | [`timeline_page.py`](timeline_page.py) | Build the whole-video NLE timeline data file (`--out-json`) and interactive page (`--out-html`) from the rebuild's records. |
 | [`two_shot_load.py`](two_shot_load.py) | Two neighbouring shots as ONE load in ONE window, made from the two shots' own ordinary loads. Not a default. |
-| [`unplugged_fun_cover.py`](unplugged_fun_cover.py) | Real-world Unplugged-covers-Fun (`unplugged_compressed.mp4` covering `fun.mp4`) harness. |
 | [`upstream_watch.py`](upstream_watch.py) | List what each watched upstream landed since its last read, and its open PRs and issues. |
 | [`verify_multistep_capture.py`](verify_multistep_capture.py) | Pre-flight verification for multi-step activation captures. |
 | [`verify_pole_a_erasure.py`](verify_pole_a_erasure.py) | Reproducible CPU mathematical verification for Clamped Pole-A Subspace Erasure. |
@@ -741,7 +737,7 @@ Arm manifests and the like; a manifest's line is its own `what`.
 
 ### results
 
-280 tracked files: [`results/INDEX.md`](results/INDEX.md).
+281 tracked files: [`results/INDEX.md`](results/INDEX.md).
 
 ### rubrics
 

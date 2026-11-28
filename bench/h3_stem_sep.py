@@ -257,21 +257,8 @@ def _load_audio_native(path: Path) -> tuple[torch.Tensor, int]:
 # ---------------------------------------------------------------------------
 
 
-def _load_mel_roformer(device: torch.device) -> torch.nn.Module:
-    mbr_dir = COMFY / "custom_nodes" / "ComfyUI-MelBandRoFormer"
-    ckpt_path = COMFY / "models" / "diffusion_models" / "MelBandRoformer_fp16.safetensors"
-    if not mbr_dir.is_dir():
-        raise FileNotFoundError(f"Missing ComfyUI-MelBandRoFormer directory: {mbr_dir}")
-    if not ckpt_path.is_file():
-        raise FileNotFoundError(f"Missing MelBandRoFormer checkpoint: {ckpt_path}")
-
-    from safetensors.torch import load_file
-
-    if str(mbr_dir) not in sys.path:
-        sys.path.insert(0, str(mbr_dir))
-    MelBandRoformer = importlib.import_module("model.mel_band_roformer").MelBandRoformer
-
-    model_config = {
+def _roformer_model_config() -> dict[str, Any]:
+    return {
         "dim": 384,
         "depth": 6,
         "stereo": True,
@@ -296,9 +283,51 @@ def _load_mel_roformer(device: torch.device) -> torch.nn.Module:
         "multi_stft_hop_size": 147,
         "multi_stft_normalized": False,
     }
-    model = MelBandRoformer(**model_config).eval()
-    model.load_state_dict(load_file(str(ckpt_path)), strict=True)
+
+
+def _load_roformer_model(ckpt_path: Path, device: torch.device) -> torch.nn.Module:
+    mbr_dir = COMFY / "custom_nodes" / "ComfyUI-MelBandRoFormer"
+    if not mbr_dir.is_dir():
+        raise FileNotFoundError(f"Missing ComfyUI-MelBandRoFormer directory: {mbr_dir}")
+    if not ckpt_path.is_file():
+        raise FileNotFoundError(f"Missing MelBandRoFormer checkpoint: {ckpt_path}")
+
+    if str(mbr_dir) not in sys.path:
+        sys.path.insert(0, str(mbr_dir))
+    MelBandRoformer = importlib.import_module("model.mel_band_roformer").MelBandRoformer
+
+    if ckpt_path.suffix.lower() == ".safetensors":
+        from safetensors.torch import load_file
+        sd = load_file(str(ckpt_path))
+    else:
+        raw = torch.load(str(ckpt_path), map_location="cpu", weights_only=True)
+        sd = raw["state_dict"] if isinstance(raw, dict) and "state_dict" in raw else raw
+
+    model = MelBandRoformer(**_roformer_model_config()).eval()
+    model.load_state_dict(sd, strict=True)
     return model.to(device)
+
+
+def _load_mel_roformer(device: torch.device) -> torch.nn.Module:
+    ckpt_path = COMFY / "models" / "diffusion_models" / "MelBandRoformer_fp16.safetensors"
+    return _load_roformer_model(ckpt_path, device)
+
+
+def _dereverb_ckpt_path() -> Path:
+    return (
+        COMFY
+        / "models"
+        / "diffusion_models"
+        / "oulianov_melband-roformer-denoise"
+        / "denoise_mel_band_roformer_aufr33_sdr_27.9959.ckpt"
+    )
+
+
+def _trapezoidal_window(chunk: int, fade_size: int) -> torch.Tensor:
+    win = torch.ones(chunk, dtype=torch.float32)
+    win[:fade_size] *= torch.linspace(0.0, 1.0, fade_size, dtype=torch.float32)
+    win[-fade_size:] *= torch.linspace(1.0, 0.0, fade_size, dtype=torch.float32)
+    return win
 
 
 def _pad_reflect_safe(x: torch.Tensor, pad_left: int, pad_right: int) -> torch.Tensor:
@@ -320,8 +349,13 @@ def _pad_reflect_safe(x: torch.Tensor, pad_left: int, pad_right: int) -> torch.T
 
 
 @torch.no_grad()
-def _run_roformer_on_device(wav_44k: torch.Tensor, device: torch.device) -> torch.Tensor:
-    model = _load_mel_roformer(device)
+def _run_roformer_on_device(
+    wav_44k: torch.Tensor,
+    device: torch.device,
+    *,
+    ckpt_path: Path | None = None,
+) -> torch.Tensor:
+    model = _load_mel_roformer(device) if ckpt_path is None else _load_roformer_model(ckpt_path, device)
     try:
         orig_len = int(wav_44k.shape[1])
         if orig_len == 0:
@@ -329,14 +363,11 @@ def _run_roformer_on_device(wav_44k: torch.Tensor, device: torch.device) -> torc
 
         chunk = ROFORMER_CHUNK_SAMPLES
         step = chunk // 2  # 50% overlap
+        fade_size = chunk // 10
 
         def _forward_chunk(part_cpu: torch.Tensor) -> torch.Tensor:
             part_dev = part_cpu.unsqueeze(0).to(device=device, dtype=torch.float32)
-            if device.type == "cuda":
-                with torch.amp.autocast("cuda", dtype=torch.float16):
-                    out = model(part_dev)[0]
-            else:
-                out = model(part_dev)[0]
+            out = model(part_dev)[0]
             return out.detach().to(device="cpu", dtype=torch.float32)
 
         if orig_len <= chunk:
@@ -346,8 +377,7 @@ def _run_roformer_on_device(wav_44k: torch.Tensor, device: torch.device) -> torc
         border = chunk - step
         padded = _pad_reflect_safe(wav_44k, border, border)
         total_len = int(padded.shape[1])
-        # Strictly positive Hann window over 50% overlap; normalized by weight sum.
-        win = torch.hann_window(chunk + 2, dtype=torch.float32)[1:-1]
+        base_win = _trapezoidal_window(chunk, fade_size)
 
         vocals_acc = torch.zeros_like(padded, dtype=torch.float32)
         weight_acc = torch.zeros(total_len, dtype=torch.float32)
@@ -358,6 +388,11 @@ def _run_roformer_on_device(wav_44k: torch.Tensor, device: torch.device) -> torc
             if length < chunk:
                 part = _pad_reflect_safe(part, 0, chunk - length)
             est = _forward_chunk(part)[:, :length]
+            win = base_win.clone()
+            if start == 0:
+                win[:fade_size] = 1.0
+            elif start + chunk >= total_len:
+                win[-fade_size:] = 1.0
             w = win[:length]
             vocals_acc[:, start : start + length] += est * w.unsqueeze(0)
             weight_acc[start : start + length] += w
@@ -371,6 +406,25 @@ def _run_roformer_on_device(wav_44k: torch.Tensor, device: torch.device) -> torc
         gc.collect()
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
+
+
+def dereverb_vocals_roformer(wav_44k: torch.Tensor, device: torch.device | str | None = None) -> torch.Tensor:
+    """Run oulianov MelBand-RoFormer denoise/dereverb (`target_instrument: dry`) on [2, L] 44.1 kHz vocals."""
+    ckpt = _dereverb_ckpt_path()
+    if not ckpt.is_file():
+        raise FileNotFoundError(f"Missing dereverb checkpoint: {ckpt}")
+    orig = _ensure_stereo_2d(wav_44k)
+    run_device = _resolve_compute_device(device)
+    try:
+        return _run_roformer_on_device(orig, run_device, ckpt_path=ckpt)
+    except Exception as exc:
+        if run_device.type == "cuda" and _is_cuda_oom(exc):
+            print("warning: CUDA OOM in dereverb RoFormer; retrying on CPU", file=sys.stderr)
+            gc.collect()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+            return _run_roformer_on_device(orig, torch.device("cpu"), ckpt_path=ckpt)
+        raise
 
 
 def separate_vocals_roformer(
@@ -682,29 +736,79 @@ def separate_to_dir(
 
 
 # ---------------------------------------------------------------------------
-# Cover scaffold builder (32 kHz stereo, librubberband pitch shift)
+# Cover scaffold builder (32 kHz stereo, librubberband / WSOLA atempo pitch shift)
 # ---------------------------------------------------------------------------
 
+SHIFTERS: tuple[str, ...] = ("rubberband", "atempo")
 
-def _rubberband_shift_44k(wav_44k: torch.Tensor, semitones: float, *, formant: bool) -> torch.Tensor:
+
+def _atempo_filter_chain(tempo: float) -> str:
+    """Build chained ffmpeg `atempo` filters keeping each stage in [0.5, 2.0]."""
+    t = float(tempo)
+    if not math.isfinite(t) or t <= 0.0:
+        raise ValueError(f"tempo must be positive and finite, got {tempo!r}")
+    stages: list[float] = []
+    while t > 2.0 + 1e-6:
+        stages.append(2.0)
+        t /= 2.0
+    while t < 0.5 - 1e-6:
+        stages.append(0.5)
+        t /= 0.5
+    stages.append(t)
+    return ",".join(f"atempo={s:.9f}" for s in stages)
+
+
+def _shift_44k(
+    wav_44k: torch.Tensor,
+    semitones: float,
+    *,
+    formant: bool = False,
+    shifter: str = "rubberband",
+    collapse_mono: bool = False,
+) -> torch.Tensor:
+    """Pitch-shift [2, T] 44.1 kHz audio with `channels=together` / optional mono collapse."""
+    if shifter not in SHIFTERS:
+        raise ValueError(f"Unsupported shifter {shifter!r}; expected one of {SHIFTERS}")
     target_len = int(wav_44k.shape[1])
-    if abs(semitones) <= 1e-6 or target_len == 0:
+    if target_len == 0:
         return wav_44k.clone()
-    ratio = 2.0 ** (semitones / 12.0)
-    flt = f"rubberband=pitch={ratio:.9f}:pitchq=quality"
-    if formant:
-        flt += ":formant=preserved"
+
+    if collapse_mono:
+        mono = wav_44k.to(torch.float32).mean(dim=0, keepdim=True)
+        work = mono
+        n_ch = 1
+    else:
+        work = _ensure_stereo_2d(wav_44k)
+        n_ch = 2
+
+    if abs(semitones) <= 1e-6:
+        out = work.repeat(2, 1) if collapse_mono else work.clone()
+        return out.contiguous()
+
+    ratio = 2.0 ** (float(semitones) / 12.0)
+    if shifter == "rubberband":
+        flt = f"rubberband=pitch={ratio:.9f}:pitchq=quality:channels=together"
+        if formant:
+            flt += ":formant=preserved"
+    else:
+        atempo_chain = _atempo_filter_chain(1.0 / ratio)
+        flt = (
+            f"asetrate={STEM_SR * ratio:.6f},"
+            f"aresample={STEM_SR}:resampler=soxr,"
+            f"{atempo_chain}"
+        )
+
     with tempfile.TemporaryDirectory() as td:
         pin = Path(td) / "in.wav"
         pout = Path(td) / "out.wav"
-        _write_wav_pcm16(pin, wav_44k, STEM_SR)
+        _write_wav_pcm16(pin, work, STEM_SR)
         subprocess.run(
             [
                 "ffmpeg", "-y", "-v", "error",
                 "-i", str(pin),
                 "-af", flt,
                 "-ar", str(STEM_SR),
-                "-ac", "2",
+                "-ac", str(n_ch),
                 str(pout),
             ],
             check=True,
@@ -712,11 +816,29 @@ def _rubberband_shift_44k(wav_44k: torch.Tensor, semitones: float, *, formant: b
         shifted, sr = _load_audio_native(pout)
         if sr != STEM_SR:
             shifted = TAF.resample(shifted, orig_freq=sr, new_freq=STEM_SR)
+    if collapse_mono:
+        shifted = shifted[:1].repeat(2, 1)
     if shifted.shape[1] < target_len:
         shifted = F.pad(shifted, (0, target_len - shifted.shape[1]))
     elif shifted.shape[1] > target_len:
         shifted = shifted[:, :target_len]
     return shifted.contiguous()
+
+
+def _rubberband_shift_44k(
+    wav_44k: torch.Tensor,
+    semitones: float,
+    *,
+    formant: bool = False,
+    collapse_mono: bool = False,
+) -> torch.Tensor:
+    return _shift_44k(
+        wav_44k,
+        semitones,
+        formant=formant,
+        shifter="rubberband",
+        collapse_mono=collapse_mono,
+    )
 
 
 def _pad_or_trim(wav: torch.Tensor, target_samples: int) -> torch.Tensor:
@@ -743,45 +865,80 @@ def build_cover_scaffold(
     start_s: float,
     duration_s: float,
     semitones: float,
+    vocal_db: float = 0.0,
     harmonic_db: float = -9.5,
     bass_db: float = -13.0,
     vocal_formant: bool = False,
     inst_semitones: float | None = None,
+    shifter: str = "rubberband",
+    mono_vocal: bool = True,
+    dereverb_vocal: bool = False,
     out_wav_32k: Path,
     out_voc_wav_32k: Path | None = None,
 ) -> dict[str, Any]:
-    """Slice cascade stems, pitch-shift via librubberband, and export 32 kHz stereo scaffold."""
+    """Slice cascade stems, pitch-shift via `shifter` (`channels=together`/mono vocal), and export 32 kHz stereo."""
     if duration_s <= 0:
         raise ValueError(f"duration_s must be > 0, got {duration_s}")
     if start_s < 0:
         raise ValueError(f"start_s must be >= 0, got {start_s}")
+    if shifter not in SHIFTERS:
+        raise ValueError(f"Unsupported shifter {shifter!r}; expected one of {SHIFTERS}")
 
     stems_dir = Path(stems_dir)
-    loaded: dict[str, torch.Tensor] = {}
-    for key in ("vocals", "harmonic", "bass"):
+    start_idx = int(round(start_s * STEM_SR))
+    slice_len = int(round(duration_s * STEM_SR))
+
+    def _load_slice(key: str) -> torch.Tensor:
         p = stems_dir / f"{key}.wav"
         wav, sr = _load_audio_native(p)
         if sr != STEM_SR:
             wav = TAF.resample(wav, orig_freq=sr, new_freq=STEM_SR)
-        loaded[key] = wav
-
-    start_idx = int(round(start_s * STEM_SR))
-    slice_len = int(round(duration_s * STEM_SR))
-    sliced: dict[str, torch.Tensor] = {}
-    for key, wav in loaded.items():
-        seg = wav[:, start_idx : start_idx + slice_len]
-        sliced[key] = _pad_or_trim(seg, slice_len)
+        return _pad_or_trim(wav[:, start_idx : start_idx + slice_len], slice_len)
 
     inst_st = _fold_inst_semitones(semitones) if inst_semitones is None else float(inst_semitones)
-    voc_shifted = _rubberband_shift_44k(sliced["vocals"], semitones, formant=vocal_formant)
-    harm_shifted = _rubberband_shift_44k(sliced["harmonic"], inst_st, formant=False)
-    bass_shifted = _rubberband_shift_44k(sliced["bass"], inst_st, formant=False)
+    if vocal_db > -100.0:
+        voc_slice = _load_slice("vocals")
+        if dereverb_vocal:
+            voc_slice = dereverb_vocals_roformer(voc_slice)
+        voc_shifted = _shift_44k(
+            voc_slice,
+            semitones,
+            formant=vocal_formant,
+            shifter=shifter,
+            collapse_mono=mono_vocal,
+        )
+    else:
+        voc_shifted = torch.zeros((2, slice_len), dtype=torch.float32)
 
-    mix_44k = (
-        voc_shifted
-        + (10.0 ** (harmonic_db / 20.0)) * harm_shifted
-        + (10.0 ** (bass_db / 20.0)) * bass_shifted
-    )
+    if harmonic_db > -100.0:
+        harm_shifted = _shift_44k(
+            _load_slice("harmonic"),
+            inst_st,
+            formant=False,
+            shifter=shifter,
+            collapse_mono=False,
+        )
+    else:
+        harm_shifted = torch.zeros((2, slice_len), dtype=torch.float32)
+
+    if bass_db > -100.0:
+        bass_shifted = _shift_44k(
+            _load_slice("bass"),
+            inst_st,
+            formant=False,
+            shifter=shifter,
+            collapse_mono=False,
+        )
+    else:
+        bass_shifted = torch.zeros((2, slice_len), dtype=torch.float32)
+
+    mix_44k = torch.zeros((2, slice_len), dtype=torch.float32)
+    if vocal_db > -100.0:
+        mix_44k = mix_44k + (10.0 ** (vocal_db / 20.0)) * voc_shifted
+    if harmonic_db > -100.0:
+        mix_44k = mix_44k + (10.0 ** (harmonic_db / 20.0)) * harm_shifted
+    if bass_db > -100.0:
+        mix_44k = mix_44k + (10.0 ** (bass_db / 20.0)) * bass_shifted
 
     target_samples = int(round(duration_s * SCAFFOLD_SR))
     mix_32k = _pad_or_trim(
@@ -814,6 +971,9 @@ def build_cover_scaffold(
         "semitones": float(semitones),
         "inst_semitones": float(inst_st),
         "vocal_formant": bool(vocal_formant),
+        "shifter": str(shifter),
+        "mono_vocal": bool(mono_vocal),
+        "vocal_db": float(vocal_db),
         "harmonic_db": float(harmonic_db),
         "bass_db": float(bass_db),
     }

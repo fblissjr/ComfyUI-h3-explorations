@@ -35,6 +35,7 @@ from .control_vector_nodes import (
     MiniMaxH3WordVector,
 )
 from .core_sparse_capture import MiniMaxH3CoreSparseCapture
+from .echo_edit import MiniMaxH3EchoEdit
 from .edit_guidance import MiniMaxH3EditGuider, MiniMaxH3PromptEdit
 from .exact_blocks import MiniMaxH3ExactBlocks
 from .frozen_video_cache import MiniMaxH3FrozenVideoCache
@@ -199,6 +200,7 @@ class H3ExplorationsExtension(ComfyExtension):
             # MiniMaxH3DenoiseMaskProbe retired 2026-11-25 to archive/denoise_mask_probe.py.
             MiniMaxH3StepX0Observer,  # Save per-step x0 latent predictions
             MiniMaxH3CoreSparseCapture,  # Capture core BlockSparseAttention Q/K/V tensors
+            MiniMaxH3EchoEdit,  # Inversion-free EchoEdit+ + AV-FlowEdit sampler
         ]
 
 

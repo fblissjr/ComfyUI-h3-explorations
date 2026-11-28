@@ -101,10 +101,14 @@ def test_choose_cover_semitones() -> None:
     assert abs(pinned["start_s"] - 11.0) < 0.1 and pinned["f0_stats"]["median"] > 300.0, pinned
     scanned = cw.pick_best_ref_vocal_window(full, sr=sr, scan_s=10.0)
     assert scanned["start_s"] <= 2.5 and scanned["f0_stats"]["median"] < 250.0, scanned
+    # Short ref (< 8.0 s) clamps duration cleanly without padding dead trailing silence
+    short_5875 = _harmonic_tone(195.0, 5.875, sr)
+    short_pick = cw.pick_best_ref_vocal_window(short_5875, sr=sr)
+    assert abs(short_pick["duration_s"] - 5.875) < 0.03 and short_pick["wav_32k"].shape == (2, 188000), short_pick
     print(
         f"ok    choose_cover_semitones: auto=-5.0 st (formant={info['vocal_formant']}), "
         f"belt_guard={info_belt['semitones']} st, up={info_up['semitones']:+.0f} st (formant={info_up['vocal_formant']}), "
-        f"ceil={info_ceil['semitones']} st, noise warns={len(info_noise['warnings'])}"
+        f"ceil={info_ceil['semitones']} st, short_ref={short_pick['duration_s']}s, noise warns={len(info_noise['warnings'])}"
     )
 
 
@@ -191,10 +195,50 @@ def test_prompts_and_graph_contract() -> None:
     assert not any(n.get("class_type") == "MiniMaxH3GuideLatent" for n in g3.values())
 
     # aud_to_vid_gain < 1.0 automatically omits FrozenVideoCache and uses FreezeAudio for 1-window jobs
-    m1 = dict(manifest_split, windows=windows[:1], n_windows=1, total_frames=294, ref_register="single")
+    m1 = dict(
+        manifest_split,
+        windows=windows[:1],
+        n_windows=1,
+        total_frames=294,
+        ref_register="single",
+        ref_raw_rel="cover_jobs/unit/ref_raw_192f.wav",
+    )
     g1 = cw.build_cover_graph(m1, prompts[:1], window_denoises=[0.30], use_frozen_video_cache=True, aud_to_vid_gain=0.0)
     assert "122_fvc" not in g1 and "145_w1" in g1 and g1["49_w1"]["class_type"] == "MiniMaxH3FreezeAudio"
-    print(f"ok    prompts_and_graph_contract: 3w+default ({len(g3_default)} nodes), 3w+FVC+split ({len(g3)} nodes) & 1w+a2v=0 ({len(g1)} nodes) verified")
+
+    # ref_audio_source="raw" routes raw reference into 33_main
+    g1_raw = cw.build_cover_graph(m1, prompts[:1], window_denoises=[0.29], ref_audio_source="raw", output_tag="arm_raw")
+    assert g1_raw["33_main"]["inputs"]["audio"] == "cover_jobs/unit/ref_raw_192f.wav"
+    assert g1_raw["114_w1"]["inputs"]["filename_prefix"] == "Video/cover_jobs/unit_test/arm_raw/song_aud_w1"
+
+    # resynth mode wires Stage B denoise=1.0 + MiniMaxH3GuideLatent + MiniMaxH3AudioRefRouter
+    g_resynth = cw.build_cover_graph(
+        m1, prompts[:1], window_denoises=[0.29], render_mode="resynth", cond_release=0.56, stage_a_audio_rel="cover_jobs/unit/stage_a.wav"
+    )
+    assert "48_stage_a" in g_resynth and g_resynth["270_w1"]["class_type"] == "MiniMaxH3GuideLatent"
+    assert g_resynth["272_w1"]["class_type"] == "MiniMaxH3AudioRefRouter" and g_resynth["272_w1"]["inputs"]["melody_end_percent"] == 0.56
+    assert g_resynth["273_w1"]["inputs"]["denoise"] == 1.0 and g_resynth["273_w1"]["inputs"]["steps"] == 16
+
+    # echoedit mode wires Pass-1 FreezeAudio -> Pass-2 MiniMaxH3EchoEdit with trimmed source <Audio 1>
+    g_echo = cw.build_cover_graph(
+        m1, prompts[:1], window_denoises=[0.29], render_mode="echoedit", ref_audio_source="raw", stage_a_audio_rel="cover_jobs/unit/raw_m5.wav"
+    )
+    assert g_echo["48"]["inputs"]["audio"] == "cover_jobs/unit/raw_m5.wav"
+    assert g_echo["trim_src_aud_w1"]["class_type"] == "TrimAudioDuration"
+    assert g_echo["280_w1"]["class_type"] == "MiniMaxH3EchoEdit"
+    assert g_echo["280_w1"]["inputs"]["src_conditioning"] == ["26_src_w1", 0]
+    assert g_echo["280_w1"]["inputs"]["tgt_conditioning"] == ["26_w1", 0]
+    assert g_echo["280_w1"]["inputs"]["latent"] == ["10_w1", 0]
+    assert g_echo["280_w1"]["inputs"]["freeze_video"] is True
+
+    # decoupled helpers: instrumental prompt + backing graph + freeze video graph
+    inst_p = cw.build_instrumental_prompt_skeleton(window_idx=1, win_info=windows[0], n_pictures=2)
+    assert "<|lyrics_start|>" not in inst_p
+    g_back = cw.build_backing_audio_graph(m1, inst_p, backing_scaffold_rel="cover_jobs/unit/backing.wav", backing_denoise=0.48, ref_audio_source="raw")
+    assert g_back["33_main"]["inputs"]["audio"] == "cover_jobs/unit/ref_raw_192f.wav" and g_back["160_w1"]["inputs"]["denoise"] == 0.48
+    g_fz = cw.build_freeze_video_graph(m1, prompts[0], frozen_audio_rel="cover_jobs/unit/mix.wav")
+    assert g_fz["49_w1"]["class_type"] == "MiniMaxH3FreezeAudio" and g_fz["49_w1"]["inputs"]["audio_mask"] == 0.0
+    print(f"ok    prompts_and_graph_contract: 3w+default ({len(g3_default)} nodes), resynth ({len(g_resynth)} nodes), echoedit ({len(g_echo)} nodes), decoupled verified")
 
 
 def main() -> int:

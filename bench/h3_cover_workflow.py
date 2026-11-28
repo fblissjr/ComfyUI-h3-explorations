@@ -88,23 +88,29 @@ def _job_paths(
     *,
     input_dir: Path | None = None,
     output_dir: Path | None = None,
+    output_tag: str | None = None,
 ) -> dict[str, Path]:
     j = _validate_job_name(job)
+    tag = _validate_job_name(output_tag) if output_tag else None
     data_dir = REPO / "data" / "cover_jobs" / j
     paths: dict[str, Path] = {
         "data_dir": data_dir,
         "prompts_dir": data_dir / "prompts",
         "graphs_dir": data_dir / "graphs",
         "manifest": data_dir / "manifest.json",
+        "report": data_dir / (f"song_report_{tag}.json" if tag else "song_report.json"),
+        "stitch_meta": data_dir / (f"song_stitch_meta_{tag}.json" if tag else "song_stitch_meta.json"),
     }
     if input_dir is not None:
         in_dir = input_dir / "cover_jobs" / j
         paths["in_dir"] = in_dir
         paths["stems_dir"] = in_dir / "stems"
     if output_dir is not None:
-        out_dir = output_dir / "Video" / "cover_jobs" / j
+        base_out = output_dir / "Video" / "cover_jobs" / j
+        out_dir = base_out / tag if tag else base_out
+        paths["base_out_dir"] = base_out
         paths["out_dir"] = out_dir
-        paths["slices_dir"] = out_dir / "slices"
+        paths["slices_dir"] = base_out / "slices"
         paths["vocal_stems_dir"] = out_dir / "vocal_stems"
     return paths
 
@@ -166,6 +172,9 @@ def pick_best_ref_vocal_window(
     if register_bias not in ("balanced", "low", "high"):
         raise ValueError(f"Unsupported register_bias {register_bias!r}")
     stereo = _ensure_stereo(voc_44k)
+    avail_s = float(stereo.shape[1]) / float(sr)
+    if avail_s < float(dur_s) - 1e-3:
+        dur_s = max(1.0, math.floor(avail_s * 40.0) / 40.0)
     mono_24k = TAF.resample(stereo.mean(dim=0, keepdim=True), orig_freq=sr, new_freq=24000).squeeze(0)
     f0_t, _, rms_t = yin_probe.yin_f0(mono_24k, sr=24000)
     f0 = f0_t.numpy()
@@ -685,6 +694,115 @@ def build_window_prompt_skeleton(
     return body
 
 
+def build_instrumental_prompt_skeleton(
+    *,
+    window_idx: int,
+    win_info: dict[str, Any],
+    n_pictures: int,
+    subject_desc: str = "solo acoustic singer-guitarist centered on stage at a dynamic black vocal microphone",
+    stage_desc: str = "an intimate live studio concert stage with soft warm amber key light, deep velvet curtains, and quiet distant audience in background shadow",
+    aesthetic_desc: str = "warm live concert broadcast television aesthetic with crisp tungsten highlights, deep shadows, subtle filmic grain, and smooth highlight rolloff",
+    soundscape_desc: str = "Intimate acoustic studio hall ambience with resonant wood sustain, crisp finger-pick contact on bronze acoustic strings, warm upright bass, and natural room depth.",
+    window_frames: int = DEFAULT_WIN_FRAMES,
+) -> str:
+    """Build a 350-500 word `ref2va` instrumental-only prompt for decoupled H3 backing generation."""
+    if n_pictures < 1:
+        raise ValueError(f"n_pictures must be >= 1, got {n_pictures}")
+    pic_tags = " and ".join(f"<Picture {i}>" for i in range(1, n_pictures + 1))
+    extra_pic = f"<Picture {min(2, n_pictures)}>"
+
+    inst_perf = (
+        "With lips completely closed in calm concentration and producing zero singing, speech, humming, or vocal breath sounds anywhere in the clip, "
+        "<Subject 1> performs an expressive purely instrumental arrangement inside <Subject 2>, letting crisp rhythmic chord work, "
+        "warm harmonic sustain, tight low-end pulse, and clean natural acoustic resonance drive the musical groove forward with steady tempo and studio clarity."
+    )
+    shot1_text = (
+        f"[Shot 1] A steady medium shot inside <Subject 2> frames <Subject 1> matching {pic_tags}, performing calmly beneath warm directional key lights "
+        "while the dimly lit surroundings remain quiet and free of crowd noise. Subtle rim illumination catches garment folds, hair texture, and instrument contours "
+        "beside softly draped stage backdrops and muted ambient glow. Focused squarely on the rhythmic arrangement with relaxed upright posture, "
+        f"{inst_perf}"
+    )
+    shot2_text = (
+        f"[Shot 2] The camera cuts smoothly to a closer medium-tight framing inside <Subject 2>, spotlighting <Subject 1>'s hands, shoulders, and instrument "
+        f"against {extra_pic}'s atmospheric backdrop while distant stage props fall into smooth optical blur. Crisp tungsten highlights trace every rhythmic pulse "
+        "along fretboard, body grain, and nearby microphone hardware as low-amplitude camera movement adds live presence without motion smear. "
+        f"Maintaining unbroken tempo from the opening phrase with zero vocal utterances, {inst_perf}"
+    )
+    shot3_text = (
+        f"[Shot 3] Returning to a balanced eye-level three-quarter framing inside <Subject 2>, the lens holds steady on <Subject 1> matching {pic_tags} "
+        "as dynamic instrumental phrasing settles cleanly into the room's natural wood-and-air acoustics. Warm key light stays smooth across face and hands, "
+        "shadows remain clean and deep, and ambient background silence keeps the purely instrumental mix open, transparent, and unhurried. "
+        "Lips stay sealed and relaxed throughout the closing sustain while harmonic resonance rings cleanly into the room."
+    )
+
+    body = (
+        f"subject_definitions:\n"
+        f"<Subject 1> is the {subject_desc} depicted in {pic_tags}.\n"
+        f"<Subject 2> is {stage_desc} matching {extra_pic}.\n"
+        f"<Audio 1> is the acoustic room and instrument timbre reference for <Subject 2>.\n\n"
+        f"summary:\n"
+        f"[reference generation + audio reference] Instrumental backing pass window {window_idx}: <Subject 1> performs inside <Subject 2> across three shots "
+        f"({win_info['start_s']:.2f}s to {win_info['end_s']:.2f}s) with purely instrumental accompaniment.\n\n"
+        f"retention_analysis:\n"
+        f"<Subject 1> (appears in [Shot 1], [Shot 2], [Shot 3]): fully_preserved - face, hair, clothing, posture, and instrument.\n"
+        f"<Subject 2> (appears in [Shot 1], [Shot 2], [Shot 3]): fully_preserved - lighting, stage layout, curtains, and quiet room background.\n"
+        f"<Audio 1>: reference - live room tone and instrumental resonance.\n\n"
+        f"detailed_description:\n"
+        f"The target video maintains a {aesthetic_desc}. Every rhythmic accent, harmonic chord change, and instrument motion stays tightly locked to the instrumental track with zero vocals. "
+        f"{shot1_text} {shot2_text} {shot3_text}\n\n"
+        f"overall_soundscape:\n"
+        f"{soundscape_desc}\n\n"
+        f"non_diegetic_music:\n"
+        f"N/A"
+    )
+    refs = [prompt_contract.ImageRef(name=f"image_{i}") for i in range(1, n_pictures + 1)]
+    refs.append(prompt_contract.AudioRef(name="audio_1"))
+    mm = prompt_contract.describe_references(refs)
+    fails, warns = prompt_contract.validate_h3_prompt_mechanics(
+        body, mode="ref2va", manifest=mm, length=window_frames, enforce_min_words=True
+    )
+    if fails or warns:
+        raise RuntimeError(f"Generated instrumental window {window_idx} prompt failed contract checks: fails={fails}, warns={warns}")
+    return body
+
+
+def build_source_prompt_for_echoedit(
+    tgt_prompt: str,
+    *,
+    src_audio_desc: str = "original source recording vocal and instrumental reference",
+    src_soundscape_desc: str = "Original studio recording instrumentation, production, and vocal timbre matching <Audio 1>.",
+) -> str:
+    """Derive a matched source-conditioning prompt for `MiniMaxH3EchoEdit`.
+
+    Preserves visual framing, `<Picture 1..K>`, and exact `<d>[English] ...</d>` lyrics
+    while swapping `<Audio 1>` and `overall_soundscape:` to describe the source track
+    so `v_tar - v_src` subtracts source timbre/arrangement along the flow manifold.
+    """
+    out_lines: list[str] = []
+    in_soundscape = False
+    for line in tgt_prompt.splitlines():
+        stripped = line.strip()
+        if stripped == "overall_soundscape:":
+            out_lines.append(line)
+            out_lines.append(src_soundscape_desc)
+            in_soundscape = True
+            continue
+        if in_soundscape:
+            if stripped == "non_diegetic_music:":
+                in_soundscape = False
+                out_lines.append("")
+                out_lines.append(line)
+            continue
+        if stripped.startswith("<Audio 1> is "):
+            out_lines.append(f"<Audio 1> is the {src_audio_desc}.")
+            continue
+        if stripped.startswith("<Audio 1>:"):
+            out_lines.append(f"<Audio 1>: reference - {src_audio_desc}.")
+            continue
+        out_lines.append(line)
+    return "\n".join(out_lines)
+
+
 def find_unfilled_placeholders(prompts: list[str]) -> list[str]:
     """Return any prompt indices still carrying unedited `[PASTE_LYRICS_*]` placeholders."""
     hits: list[str] = []
@@ -736,12 +854,32 @@ def build_cover_graph(
     aud_to_vid_gain: float = 1.0,
     mic_prompts: list[str] | None = None,
     seed: int = DEFAULT_SEED,
+    render_mode: str = "sdedit",
+    ref_audio_source: str = "vocals",
+    cond_release: float = 0.56,
+    melody_gain_early: float = 1.5,
+    melody_clean_level: float = 0.85,
+    stage2_steps: int = 16,
+    echo_steps: int = 16,
+    echo_t_max: float = 0.75,
+    echo_t_min: float = 0.0,
+    echo_edit_scale: float = 1.0,
+    echo_noise_corr: float = 0.50,
+    scaffold_rel: str | None = None,
+    stage_a_audio_rel: str | None = None,
+    output_tag: str | None = None,
 ) -> dict[str, Any]:
-    """Build single- or multi-window ComfyUI API graph with stock-RoPE chaining (Pass-2 FVC opt-in)."""
+    """Build single- or multi-window ComfyUI API graph (`sdedit`, `resynth`, or `echoedit` pure-H3 mode)."""
+    if render_mode not in ("sdedit", "resynth", "echoedit"):
+        raise ValueError(f"Unsupported render_mode {render_mode!r}; expected 'sdedit', 'resynth', or 'echoedit'")
+    if ref_audio_source not in ("vocals", "raw"):
+        raise ValueError(f"Unsupported ref_audio_source {ref_audio_source!r}; expected 'vocals' or 'raw'")
     windows = manifest["windows"]
     n_win = len(windows)
     if len(prompts) != n_win or len(window_denoises) != n_win:
         raise ValueError(f"Mismatch: {n_win} windows, {len(prompts)} prompts, {len(window_denoises)} denoises")
+    if render_mode in ("resynth", "echoedit") and n_win > 1:
+        raise ValueError(f"render_mode={render_mode!r} currently supports 1-window runs (n_windows == 1)")
 
     win_frames = int(manifest["window_frames"])
     ctx_frames = int(manifest["context_frames"])
@@ -753,7 +891,9 @@ def build_cover_graph(
     if not ref_images:
         raise ValueError("manifest['ref_images_rel'] must not be empty")
     ref_register = manifest.get("ref_register", "single")
-    out_prefix_dir = f"Video/cover_jobs/{manifest['job']}"
+    tag = _validate_job_name(output_tag) if output_tag else None
+    out_prefix_dir = f"Video/cover_jobs/{manifest['job']}/{tag}" if tag else f"Video/cover_jobs/{manifest['job']}"
+    use_scaffold_rel = scaffold_rel or manifest["scaffold_rel"]
 
     g: dict[str, Any] = {}
     g["1"] = {"class_type": "UNETLoader", "inputs": {"unet_name": h3_config.MODELS["unet_ref2va"], "weight_dtype": "default"}}
@@ -787,10 +927,10 @@ def build_cover_graph(
         g[app_id] = {"class_type": "MiniMaxH3AppendRefImage", "inputs": app_inputs}
         last_pic_node = app_id
 
-    def _add_ref_enc(tag: str, aud_rel: str) -> str:
-        aud_ld = f"33_{tag}"
-        aud_app = f"52_{tag}"
-        enc_id = f"132_{tag}" if ref_register == "split" else "132"
+    def _add_ref_enc(tag_reg: str, aud_rel: str) -> str:
+        aud_ld = f"33_{tag_reg}"
+        aud_app = f"52_{tag_reg}"
+        enc_id = f"132_{tag_reg}" if ref_register == "split" else "132"
         g[aud_ld] = {"class_type": "LoadAudio", "inputs": {"audio": aud_rel}}
         g[aud_app] = {"class_type": "MiniMaxH3AppendRefAudio", "inputs": {"audio": [aud_ld, 0], "references": [last_pic_node, 0]}}
         g[enc_id] = {
@@ -814,15 +954,26 @@ def build_cover_graph(
         enc_high = _add_ref_enc("high", manifest["ref_vocal_high_rel"])
         enc_map = {"low": enc_low, "high": enc_high}
     else:
-        enc_single = _add_ref_enc("main", manifest["ref_vocal_rel"])
+        ref_main_rel = (
+            manifest["ref_raw_rel"]
+            if (ref_audio_source == "raw" and manifest.get("ref_raw_rel"))
+            else manifest["ref_vocal_rel"]
+        )
+        enc_single = _add_ref_enc("main", ref_main_rel)
         enc_map = {"low": enc_single, "high": enc_single}
 
-    g["48"] = {"class_type": "LoadAudio", "inputs": {"audio": manifest["scaffold_rel"]}}
-    g["7"] = {"class_type": "KSamplerSelect", "inputs": {"sampler_name": "lcm"}}
-    g["60"] = {"class_type": "ManualSigmas", "inputs": {"sigmas": h3_config.PIKA_MANUAL_SIGMAS}}
-    g["107"] = {"class_type": "KSamplerSelect", "inputs": {"sampler_name": "euler"}}
+    need_stage_a = not (render_mode == "resynth" and stage_a_audio_rel)
+    if need_stage_a:
+        pass1_aud_rel = stage_a_audio_rel if (render_mode == "echoedit" and stage_a_audio_rel) else use_scaffold_rel
+        g["48"] = {"class_type": "LoadAudio", "inputs": {"audio": pass1_aud_rel}}
+        g["7"] = {"class_type": "KSamplerSelect", "inputs": {"sampler_name": "lcm"}}
+        g["60"] = {"class_type": "ManualSigmas", "inputs": {"sigmas": h3_config.PIKA_MANUAL_SIGMAS}}
+    else:
+        g["48_stage_a"] = {"class_type": "LoadAudio", "inputs": {"audio": stage_a_audio_rel}}
+    if render_mode != "echoedit":
+        g["107"] = {"class_type": "KSamplerSelect", "inputs": {"sampler_name": "euler"}}
 
-    use_fvc = bool(use_frozen_video_cache and aud_to_vid_gain >= 1.0)
+    use_fvc = bool(use_frozen_video_cache and aud_to_vid_gain >= 1.0 and need_stage_a)
     if use_fvc:
         g["122_fvc"] = {
             "class_type": "MiniMaxH3FrozenVideoCache",
@@ -839,7 +990,7 @@ def build_cover_graph(
     else:
         pass2_base_model = base_sol
 
-    if aud_to_vid_gain >= 1.0 and mic_prompts is None:
+    if aud_to_vid_gain >= 1.0 and mic_prompts is None and need_stage_a:
         g["45"] = {
             "class_type": "MiniMaxH3QueryRouter",
             "inputs": {
@@ -862,19 +1013,20 @@ def build_cover_graph(
             mic_txt = mic_prompts[k - 1] if mic_prompts is not None else prompts[k - 1]
             g[f"105_{sfx}"] = {"class_type": "MiniMaxH3PromptOnReferences", "inputs": {"encoded_references": [enc_id, 0], "prompt": mic_txt}}
             g[f"126_{sfx}"] = {"class_type": "MiniMaxH3Preflight", "inputs": {"conditioning": [f"105_{sfx}", 0], "samples": [enc_id, 1]}}
-            g[f"45_{sfx}"] = {
-                "class_type": "MiniMaxH3QueryRouter",
-                "inputs": {
-                    "model": [pika_sol, 0],
-                    "section_split": "off",
-                    "video_block_band": "all",
-                    "audio_block_band": "all",
-                    "aud_to_vid_gain": float(aud_to_vid_gain),
-                    "start_percent": 0.0,
-                    "end_percent": 1.0,
-                    "audio_conditioning": [f"126_{sfx}", 0],
-                },
-            }
+            if need_stage_a:
+                g[f"45_{sfx}"] = {
+                    "class_type": "MiniMaxH3QueryRouter",
+                    "inputs": {
+                        "model": [pika_sol, 0],
+                        "section_split": "off",
+                        "video_block_band": "all",
+                        "audio_block_band": "all",
+                        "aud_to_vid_gain": float(aud_to_vid_gain),
+                        "start_percent": 0.0,
+                        "end_percent": 1.0,
+                        "audio_conditioning": [f"126_{sfx}", 0],
+                    },
+                }
             g[f"145_{sfx}"] = {
                 "class_type": "MiniMaxH3QueryRouter",
                 "inputs": {
@@ -896,86 +1048,209 @@ def build_cover_graph(
             pass2_model = pass2_base_model
             pass2_cond = f"26_{sfx}"
 
-        start_rel_s = round((k - 1) * stride_s, 3)
-        if n_win == 1:
-            g[f"49_{sfx}"] = {
-                "class_type": "MiniMaxH3FreezeAudio",
-                "inputs": {
+        if need_stage_a:
+            start_rel_s = round((k - 1) * stride_s, 3)
+            if n_win == 1:
+                g[f"49_{sfx}"] = {
+                    "class_type": "MiniMaxH3FreezeAudio",
+                    "inputs": {
+                        "latent": [f"26_{sfx}", 1],
+                        "audio_vae": ["4", 0],
+                        "audio": ["48", 0],
+                        "start_seconds": 0.0,
+                        "audio_mask": 0.0,
+                        "level": "clip_guard",
+                    },
+                }
+            else:
+                fw_inputs: dict[str, Any] = {
                     "latent": [f"26_{sfx}", 1],
                     "audio_vae": ["4", 0],
                     "audio": ["48", 0],
-                    "start_seconds": 0.0,
+                    "start_seconds": start_rel_s,
+                    "context_frames": ctx_frames,
                     "audio_mask": 0.0,
                     "level": "clip_guard",
+                    "context_noise": 0.35,
+                    "context_profile": "seam_taper",
+                }
+                if k > 1:
+                    prev_sfx = f"w{k - 1}"
+                    g[f"trim_prev_{sfx}"] = {
+                        "class_type": "TrimAudioDuration",
+                        "inputs": {"audio": [f"112_{prev_sfx}", 0], "start_index": stride_s, "duration": ctx_s},
+                    }
+                    g[f"trim_new_{sfx}"] = {
+                        "class_type": "TrimAudioDuration",
+                        "inputs": {"audio": ["48", 0], "start_index": round(start_rel_s + ctx_s, 3), "duration": stride_s},
+                    }
+                    g[f"hyb_aud_{sfx}"] = {
+                        "class_type": "AudioConcat",
+                        "inputs": {"audio1": [f"trim_prev_{sfx}", 0], "audio2": [f"trim_new_{sfx}", 0], "direction": "after"},
+                    }
+                    fw_inputs["previous"] = [f"110_{prev_sfx}", 0]
+                    fw_inputs["audio"] = [f"hyb_aud_{sfx}", 0]
+                    fw_inputs["start_seconds"] = 0.0
+                g[f"49_{sfx}"] = {"class_type": "MiniMaxH3FreezeAudioWindow", "inputs": fw_inputs}
+
+            g[f"6_{sfx}"] = {"class_type": "RandomNoise", "inputs": {"noise_seed": int(seed) + (k - 1)}}
+            g[f"9_{sfx}"] = {"class_type": "BasicGuider", "inputs": {"model": [pass1_model, 0], "conditioning": [f"26_{sfx}", 0]}}
+            g[f"10_{sfx}"] = {
+                "class_type": "SamplerCustomAdvanced",
+                "inputs": {
+                    "noise": [f"6_{sfx}", 0],
+                    "guider": [f"9_{sfx}", 0],
+                    "sampler": ["7", 0],
+                    "sigmas": ["60", 0],
+                    "latent_image": [f"49_{sfx}", 0],
                 },
             }
+            if render_mode != "echoedit":
+                g[f"152_{sfx}"] = {"class_type": "MiniMaxH3AudioRefineMask", "inputs": {"latent": [f"10_{sfx}", 0], "video_mask": 0.0, "audio_mask": 1.0}}
+                g[f"160_{sfx}"] = {
+                    "class_type": "BasicScheduler",
+                    "inputs": {"model": [pass2_model, 0], "scheduler": "simple", "steps": int(pass2_steps), "denoise": float(window_denoises[k - 1])},
+                }
+                g[f"106_{sfx}"] = {"class_type": "RandomNoise", "inputs": {"noise_seed": int(seed) + 17 + (k - 1)}}
+                g[f"109_{sfx}"] = {"class_type": "BasicGuider", "inputs": {"model": [pass2_model, 0], "conditioning": [pass2_cond, 0]}}
+                g[f"110_{sfx}"] = {
+                    "class_type": "SamplerCustomAdvanced",
+                    "inputs": {
+                        "noise": [f"106_{sfx}", 0],
+                        "guider": [f"109_{sfx}", 0],
+                        "sampler": ["107", 0],
+                        "sigmas": [f"160_{sfx}", 0],
+                        "latent_image": [f"152_{sfx}", 0],
+                    },
+                }
+                if render_mode == "resynth":
+                    g[f"112_{sfx}"] = {"class_type": "VAEDecodeAudio", "inputs": {"samples": [f"110_{sfx}", 0], "vae": ["4", 0]}}
+                    stage_a_aud_node = f"112_{sfx}"
         else:
-            fw_inputs: dict[str, Any] = {
-                "latent": [f"26_{sfx}", 1],
-                "audio_vae": ["4", 0],
-                "audio": ["48", 0],
-                "start_seconds": start_rel_s,
-                "context_frames": ctx_frames,
-                "audio_mask": 0.0,
-                "level": "clip_guard",
-                "context_noise": 0.35,
-                "context_profile": "seam_taper",
-            }
-            if k > 1:
-                prev_sfx = f"w{k - 1}"
-                g[f"trim_prev_{sfx}"] = {
-                    "class_type": "TrimAudioDuration",
-                    "inputs": {"audio": [f"112_{prev_sfx}", 0], "start_index": stride_s, "duration": ctx_s},
-                }
-                g[f"trim_new_{sfx}"] = {
-                    "class_type": "TrimAudioDuration",
-                    "inputs": {"audio": ["48", 0], "start_index": round(start_rel_s + ctx_s, 3), "duration": stride_s},
-                }
-                g[f"hyb_aud_{sfx}"] = {
-                    "class_type": "AudioConcat",
-                    "inputs": {"audio1": [f"trim_prev_{sfx}", 0], "audio2": [f"trim_new_{sfx}", 0], "direction": "after"},
-                }
-                fw_inputs["previous"] = [f"110_{prev_sfx}", 0]
-                fw_inputs["audio"] = [f"hyb_aud_{sfx}", 0]
-                fw_inputs["start_seconds"] = 0.0
-            g[f"49_{sfx}"] = {"class_type": "MiniMaxH3FreezeAudioWindow", "inputs": fw_inputs}
+            stage_a_aud_node = "48_stage_a"
 
-        g[f"6_{sfx}"] = {"class_type": "RandomNoise", "inputs": {"noise_seed": int(seed) + (k - 1)}}
-        g[f"9_{sfx}"] = {"class_type": "BasicGuider", "inputs": {"model": [pass1_model, 0], "conditioning": [f"26_{sfx}", 0]}}
-        g[f"10_{sfx}"] = {
-            "class_type": "SamplerCustomAdvanced",
-            "inputs": {
-                "noise": [f"6_{sfx}", 0],
-                "guider": [f"9_{sfx}", 0],
-                "sampler": ["7", 0],
-                "sigmas": ["60", 0],
-                "latent_image": [f"49_{sfx}", 0],
-            },
-        }
-        g[f"152_{sfx}"] = {"class_type": "MiniMaxH3AudioRefineMask", "inputs": {"latent": [f"10_{sfx}", 0], "video_mask": 0.0, "audio_mask": 1.0}}
-        g[f"160_{sfx}"] = {
-            "class_type": "BasicScheduler",
-            "inputs": {"model": [pass2_model, 0], "scheduler": "simple", "steps": int(pass2_steps), "denoise": float(window_denoises[k - 1])},
-        }
-        g[f"106_{sfx}"] = {"class_type": "RandomNoise", "inputs": {"noise_seed": int(seed) + 17 + (k - 1)}}
-        g[f"109_{sfx}"] = {"class_type": "BasicGuider", "inputs": {"model": [pass2_model, 0], "conditioning": [pass2_cond, 0]}}
-        g[f"110_{sfx}"] = {
-            "class_type": "SamplerCustomAdvanced",
-            "inputs": {
-                "noise": [f"106_{sfx}", 0],
-                "guider": [f"109_{sfx}", 0],
-                "sampler": ["107", 0],
-                "sigmas": [f"160_{sfx}", 0],
-                "latent_image": [f"152_{sfx}", 0],
-            },
-        }
-        g[f"111_{sfx}"] = {"class_type": "VAEDecode", "inputs": {"samples": [f"110_{sfx}", 0], "vae": ["3", 0]}}
-        g[f"112_{sfx}"] = {"class_type": "VAEDecodeAudio", "inputs": {"samples": [f"110_{sfx}", 0], "vae": ["4", 0]}}
+        if render_mode == "sdedit":
+            final_lat_node = f"110_{sfx}"
+            g[f"111_{sfx}"] = {"class_type": "VAEDecode", "inputs": {"samples": [final_lat_node, 0], "vae": ["3", 0]}}
+            g[f"112_{sfx}"] = {"class_type": "VAEDecodeAudio", "inputs": {"samples": [final_lat_node, 0], "vae": ["4", 0]}}
+            final_vid_node = f"111_{sfx}"
+            final_aud_node = f"112_{sfx}"
+        elif render_mode == "echoedit":
+            # Inversion-free EchoEdit+ Pass 2: subtract source-song velocity while adding Target-B velocity
+            # on the pretrained rectified-flow manifold with frozen Pass-1 video.
+            g[f"trim_src_aud_{sfx}"] = {
+                "class_type": "TrimAudioDuration",
+                "inputs": {"audio": ["48", 0], "start_index": 0.0, "duration": 8.0},
+            }
+            g[f"52_src_{sfx}"] = {
+                "class_type": "MiniMaxH3AppendRefAudio",
+                "inputs": {"audio": [f"trim_src_aud_{sfx}", 0], "references": [last_pic_node, 0]},
+            }
+            g[f"132_src_{sfx}"] = {
+                "class_type": "MiniMaxH3EncodeReferences",
+                "inputs": {
+                    "clip": ["2", 0],
+                    "vae": ["3", 0],
+                    "audio_vae": ["4", 0],
+                    "references": [f"52_src_{sfx}", 0],
+                    "width": width,
+                    "height": height,
+                    "length": win_frames,
+                    "video_policy": "comfy",
+                    "image_policy": "comfy",
+                },
+            }
+            g[f"5_src_{sfx}"] = {
+                "class_type": "MiniMaxH3PromptOnReferences",
+                "inputs": {
+                    "encoded_references": [f"132_src_{sfx}", 0],
+                    "prompt": build_source_prompt_for_echoedit(prompts[k - 1]),
+                },
+            }
+            g[f"26_src_{sfx}"] = {
+                "class_type": "MiniMaxH3Preflight",
+                "inputs": {"conditioning": [f"5_src_{sfx}", 0], "samples": [f"132_src_{sfx}", 1]},
+            }
+            g[f"280_{sfx}"] = {
+                "class_type": "MiniMaxH3EchoEdit",
+                "inputs": {
+                    "model": [base_sol, 0],
+                    "src_conditioning": [f"26_src_{sfx}", 0],
+                    "tgt_conditioning": [pass2_cond, 0],
+                    "latent": [f"10_{sfx}", 0],
+                    "steps": int(echo_steps),
+                    "t_max": float(echo_t_max),
+                    "t_min": float(echo_t_min),
+                    "edit_scale": float(echo_edit_scale),
+                    "noise_corr": float(echo_noise_corr),
+                    "seed": int(seed) + 41 + (k - 1),
+                    "freeze_video": True,
+                },
+            }
+            final_lat_node = f"280_{sfx}"
+            g[f"281_{sfx}"] = {"class_type": "VAEDecode", "inputs": {"samples": [final_lat_node, 0], "vae": ["3", 0]}}
+            g[f"282_{sfx}"] = {"class_type": "VAEDecodeAudio", "inputs": {"samples": [final_lat_node, 0], "vae": ["4", 0]}}
+            final_vid_node = f"281_{sfx}"
+            final_aud_node = f"282_{sfx}"
+        else:
+            # Stage B (`resynth`): denoise=1.0 Base pass routing `cond_audio` melody in early blocks
+            # [0, 24) and releasing it at `cond_release`, while keeping `<Audio 1>` active to 1.0.
+            g[f"270_{sfx}"] = {
+                "class_type": "MiniMaxH3GuideLatent",
+                "inputs": {
+                    "positive": [pass2_cond, 0],
+                    "latent": [f"26_{sfx}", 1],
+                    "frame_idx": 0,
+                    "single_frame": False,
+                    "audio": [stage_a_aud_node, 0],
+                    "audio_vae": ["4", 0],
+                },
+            }
+            g[f"271_{sfx}"] = {
+                "class_type": "MiniMaxH3Preflight",
+                "inputs": {"conditioning": [f"270_{sfx}", 0], "samples": [f"270_{sfx}", 1]},
+            }
+            g[f"272_{sfx}"] = {
+                "class_type": "MiniMaxH3AudioRefRouter",
+                "inputs": {
+                    "model": [base_sol, 0],
+                    "melody_source": "cond_audio",
+                    "split_block": 24,
+                    "melody_gain_early": float(melody_gain_early),
+                    "melody_gain_late": 0.0,
+                    "timbre_gain_early": 0.75,
+                    "timbre_gain_late": 2.5,
+                    "melody_end_percent": float(cond_release),
+                    "melody_clean_level": float(melody_clean_level),
+                },
+            }
+            g[f"273_{sfx}"] = {
+                "class_type": "BasicScheduler",
+                "inputs": {"model": [f"272_{sfx}", 0], "scheduler": "simple", "steps": int(stage2_steps), "denoise": 1.0},
+            }
+            g[f"274_{sfx}"] = {"class_type": "RandomNoise", "inputs": {"noise_seed": int(seed) + 41 + (k - 1)}}
+            g[f"275_{sfx}"] = {"class_type": "BasicGuider", "inputs": {"model": [f"272_{sfx}", 0], "conditioning": [f"271_{sfx}", 0]}}
+            g[f"276_{sfx}"] = {
+                "class_type": "SamplerCustomAdvanced",
+                "inputs": {
+                    "noise": [f"274_{sfx}", 0],
+                    "guider": [f"275_{sfx}", 0],
+                    "sampler": ["107", 0],
+                    "sigmas": [f"273_{sfx}", 0],
+                    "latent_image": [f"271_{sfx}", 1],
+                },
+            }
+            final_lat_node = f"276_{sfx}"
+            g[f"277_{sfx}"] = {"class_type": "VAEDecode", "inputs": {"samples": [final_lat_node, 0], "vae": ["3", 0]}}
+            g[f"278_{sfx}"] = {"class_type": "VAEDecodeAudio", "inputs": {"samples": [final_lat_node, 0], "vae": ["4", 0]}}
+            final_vid_node = f"277_{sfx}"
+            final_aud_node = f"278_{sfx}"
+
         g[f"113_{sfx}"] = {
             "class_type": "VHS_VideoCombine",
             "inputs": {
-                "images": [f"111_{sfx}", 0],
-                "audio": [f"112_{sfx}", 0],
+                "images": [final_vid_node, 0],
+                "audio": [final_aud_node, 0],
                 "frame_rate": FPS,
                 "loop_count": 0,
                 "filename_prefix": f"{out_prefix_dir}/song_{sfx}",
@@ -990,8 +1265,217 @@ def build_cover_graph(
         }
         g[f"114_{sfx}"] = {
             "class_type": "SaveAudio",
-            "inputs": {"audio": [f"112_{sfx}", 0], "filename_prefix": f"{out_prefix_dir}/song_aud_{sfx}"},
+            "inputs": {"audio": [final_aud_node, 0], "filename_prefix": f"{out_prefix_dir}/song_aud_{sfx}"},
         }
+    return g
+
+
+def _build_base_ref_loaders(
+    g: dict[str, Any],
+    manifest: dict[str, Any],
+    *,
+    win_frames: int,
+    ref_aud_rel: str,
+) -> tuple[str, str]:
+    """Populate `1..4`, `121` (`base_sol`), and reference encoding `132` on `g`."""
+    width = int(manifest.get("width", DEFAULT_WIDTH))
+    height = int(manifest.get("height", DEFAULT_HEIGHT))
+    ref_images: list[str] = list(manifest["ref_images_rel"])
+    g["1"] = {"class_type": "UNETLoader", "inputs": {"unet_name": h3_config.MODELS["unet_ref2va"], "weight_dtype": "default"}}
+    g["2"] = {"class_type": "MiniMaxH3EncoderLoader", "inputs": {"encoder_name": h3_config.MODELS["clip"], "device": "default"}}
+    g["3"] = {"class_type": "VAELoader", "inputs": {"vae_name": h3_config.MODELS["video_vae"]}}
+    g["4"] = {"class_type": "VAELoader", "inputs": {"vae_name": h3_config.MODELS["audio_vae"]}}
+    base_sol = _wire_sol(g, in_id="1", shift_id="119", attn_id="158", sol_id="121")
+
+    pic_policy = {"size_policy": "tiered", "qwen_view": "separate", "qwen_view.qwen_short_edge": 512}
+    last_pic_node = ""
+    for i, img_rel in enumerate(ref_images, 1):
+        ld_id = f"15_p{i}"
+        app_id = f"50_p{i}"
+        g[ld_id] = {"class_type": "LoadImage", "inputs": {"image": img_rel}}
+        app_inputs: dict[str, Any] = {"image": [ld_id, 0], **pic_policy}
+        if last_pic_node:
+            app_inputs["references"] = [last_pic_node, 0]
+        g[app_id] = {"class_type": "MiniMaxH3AppendRefImage", "inputs": app_inputs}
+        last_pic_node = app_id
+
+    g["33_main"] = {"class_type": "LoadAudio", "inputs": {"audio": ref_aud_rel}}
+    g["52_main"] = {"class_type": "MiniMaxH3AppendRefAudio", "inputs": {"audio": ["33_main", 0], "references": [last_pic_node, 0]}}
+    g["132"] = {
+        "class_type": "MiniMaxH3EncodeReferences",
+        "inputs": {
+            "clip": ["2", 0],
+            "vae": ["3", 0],
+            "audio_vae": ["4", 0],
+            "references": ["52_main", 0],
+            "width": width,
+            "height": height,
+            "length": win_frames,
+            "video_policy": "comfy",
+            "image_policy": "comfy",
+        },
+    }
+    return base_sol, "132"
+
+
+def build_backing_audio_graph(
+    manifest: dict[str, Any],
+    inst_prompt: str,
+    *,
+    backing_scaffold_rel: str,
+    backing_denoise: float = 0.48,
+    steps: int = 16,
+    ref_audio_source: str = "raw",
+    seed: int = DEFAULT_SEED,
+    output_tag: str | None = None,
+) -> dict[str, Any]:
+    """Build 1-pass Base `ref2va` SDEdit graph generating pure acoustic backing audio."""
+    if ref_audio_source not in ("vocals", "raw"):
+        raise ValueError(f"Unsupported ref_audio_source {ref_audio_source!r}; expected 'vocals' or 'raw'")
+    win_frames = int(manifest["window_frames"])
+    tag = _validate_job_name(output_tag) if output_tag else None
+    out_prefix_dir = f"Video/cover_jobs/{manifest['job']}/{tag}" if tag else f"Video/cover_jobs/{manifest['job']}"
+    ref_aud_rel = (
+        manifest["ref_raw_rel"]
+        if (ref_audio_source == "raw" and manifest.get("ref_raw_rel"))
+        else manifest["ref_vocal_rel"]
+    )
+    g: dict[str, Any] = {}
+    base_sol, enc_id = _build_base_ref_loaders(g, manifest, win_frames=win_frames, ref_aud_rel=ref_aud_rel)
+    g["48"] = {"class_type": "LoadAudio", "inputs": {"audio": backing_scaffold_rel}}
+    g["5_w1"] = {"class_type": "MiniMaxH3PromptOnReferences", "inputs": {"encoded_references": [enc_id, 0], "prompt": inst_prompt}}
+    g["26_w1"] = {"class_type": "MiniMaxH3Preflight", "inputs": {"conditioning": ["5_w1", 0], "samples": [enc_id, 1]}}
+    g["49_w1"] = {
+        "class_type": "MiniMaxH3FreezeAudio",
+        "inputs": {
+            "latent": ["26_w1", 1],
+            "audio_vae": ["4", 0],
+            "audio": ["48", 0],
+            "start_seconds": 0.0,
+            "audio_mask": 0.0,
+            "level": "clip_guard",
+        },
+    }
+    # Reopen both streams cleanly (`video_mask=1.0`, `audio_mask=1.0`) so Base samples fresh
+    # video (`sigma_v ~ 0.94`) while SDEdit-retexturing the backing audio from `backing_denoise`.
+    g["152_w1"] = {"class_type": "MiniMaxH3AudioRefineMask", "inputs": {"latent": ["49_w1", 0], "video_mask": 1.0, "audio_mask": 1.0}}
+    g["107"] = {"class_type": "KSamplerSelect", "inputs": {"sampler_name": "euler"}}
+    g["160_w1"] = {
+        "class_type": "BasicScheduler",
+        "inputs": {"model": [base_sol, 0], "scheduler": "simple", "steps": int(steps), "denoise": float(backing_denoise)},
+    }
+    g["106_w1"] = {"class_type": "RandomNoise", "inputs": {"noise_seed": int(seed) + 73}}
+    g["109_w1"] = {"class_type": "BasicGuider", "inputs": {"model": [base_sol, 0], "conditioning": ["26_w1", 0]}}
+    g["110_w1"] = {
+        "class_type": "SamplerCustomAdvanced",
+        "inputs": {
+            "noise": ["106_w1", 0],
+            "guider": ["109_w1", 0],
+            "sampler": ["107", 0],
+            "sigmas": ["160_w1", 0],
+            "latent_image": ["152_w1", 0],
+        },
+    }
+    g["112_w1"] = {"class_type": "VAEDecodeAudio", "inputs": {"samples": ["110_w1", 0], "vae": ["4", 0]}}
+    g["114_w1"] = {
+        "class_type": "SaveAudio",
+        "inputs": {"audio": ["112_w1", 0], "filename_prefix": f"{out_prefix_dir}/backing_aud_w1"},
+    }
+    return g
+
+
+def build_freeze_video_graph(
+    manifest: dict[str, Any],
+    prompt_text: str,
+    *,
+    frozen_audio_rel: str,
+    ref_audio_source: str = "vocals",
+    seed: int = DEFAULT_SEED,
+    output_tag: str | None = None,
+) -> dict[str, Any]:
+    """Build 1-pass 6-step Pika `MiniMaxH3FreezeAudio` video render over an already-rendered 100%-H3 audio mix."""
+    if ref_audio_source not in ("vocals", "raw"):
+        raise ValueError(f"Unsupported ref_audio_source {ref_audio_source!r}; expected 'vocals' or 'raw'")
+    win_frames = int(manifest["window_frames"])
+    tag = _validate_job_name(output_tag) if output_tag else None
+    out_prefix_dir = f"Video/cover_jobs/{manifest['job']}/{tag}" if tag else f"Video/cover_jobs/{manifest['job']}"
+    ref_aud_rel = (
+        manifest["ref_raw_rel"]
+        if (ref_audio_source == "raw" and manifest.get("ref_raw_rel"))
+        else manifest["ref_vocal_rel"]
+    )
+    g: dict[str, Any] = {}
+    _base_sol, enc_id = _build_base_ref_loaders(g, manifest, win_frames=win_frames, ref_aud_rel=ref_aud_rel)
+    g["18"] = {
+        "class_type": "MiniMaxH3LoRABranch",
+        "inputs": {
+            "model": ["1", 0],
+            "lora_name": h3_config.PIKA_REF2VA_SVD995_LORA,
+            "strength": 1.0,
+            "modules": "all",
+            "blocks": "all",
+            "start_percent": 0.0,
+            "end_percent": 1.0,
+        },
+    }
+    pika_sol = _wire_sol(g, in_id="18", shift_id="19", attn_id="58", sol_id="21")
+    g["45"] = {
+        "class_type": "MiniMaxH3QueryRouter",
+        "inputs": {
+            "model": [pika_sol, 0],
+            "section_split": "soundscape_to_audio",
+            "video_block_band": "all",
+            "audio_block_band": "all",
+            "start_percent": 0.0,
+            "end_percent": 1.0,
+        },
+    }
+    g["48"] = {"class_type": "LoadAudio", "inputs": {"audio": frozen_audio_rel}}
+    g["5_w1"] = {"class_type": "MiniMaxH3PromptOnReferences", "inputs": {"encoded_references": [enc_id, 0], "prompt": prompt_text}}
+    g["26_w1"] = {"class_type": "MiniMaxH3Preflight", "inputs": {"conditioning": ["5_w1", 0], "samples": [enc_id, 1]}}
+    g["49_w1"] = {
+        "class_type": "MiniMaxH3FreezeAudio",
+        "inputs": {
+            "latent": ["26_w1", 1],
+            "audio_vae": ["4", 0],
+            "audio": ["48", 0],
+            "start_seconds": 0.0,
+            "audio_mask": 0.0,
+            "level": "clip_guard",
+        },
+    }
+    g["7"] = {"class_type": "KSamplerSelect", "inputs": {"sampler_name": "lcm"}}
+    g["60"] = {"class_type": "ManualSigmas", "inputs": {"sigmas": h3_config.PIKA_MANUAL_SIGMAS}}
+    g["6_w1"] = {"class_type": "RandomNoise", "inputs": {"noise_seed": int(seed)}}
+    g["9_w1"] = {"class_type": "BasicGuider", "inputs": {"model": ["45", 0], "conditioning": ["26_w1", 0]}}
+    g["10_w1"] = {
+        "class_type": "SamplerCustomAdvanced",
+        "inputs": {
+            "noise": ["6_w1", 0],
+            "guider": ["9_w1", 0],
+            "sampler": ["7", 0],
+            "sigmas": ["60", 0],
+            "latent_image": ["49_w1", 0],
+        },
+    }
+    g["111_w1"] = {"class_type": "VAEDecode", "inputs": {"samples": ["10_w1", 0], "vae": ["3", 0]}}
+    g["113_w1"] = {
+        "class_type": "VHS_VideoCombine",
+        "inputs": {
+            "images": ["111_w1", 0],
+            "audio": ["48", 0],
+            "frame_rate": FPS,
+            "loop_count": 0,
+            "filename_prefix": f"{out_prefix_dir}/song_w1",
+            "format": "video/h264-mp4",
+            "pix_fmt": "yuv420p",
+            "crf": 19,
+            "save_metadata": True,
+            "trim_to_audio": False,
+            "pingpong": False,
+            "save_output": True,
+        },
+    }
     return g
 
 
@@ -1011,12 +1495,15 @@ def stitch_cover_windows(
     output_dir: Path,
     window_mp4s: list[Path],
     window_flacs: list[Path] | None = None,
+    *,
+    output_tag: str | None = None,
 ) -> dict[str, Any]:
     """Concatenate decoded H3 video frames and cosine-crossfade 32 kHz H3 audio into master MP4."""
     job = manifest["job"]
-    out_dir = output_dir / "Video" / "cover_jobs" / job
+    tag = _validate_job_name(output_tag) if output_tag else None
+    out_dir = output_dir / "Video" / "cover_jobs" / job / tag if tag else output_dir / "Video" / "cover_jobs" / job
     out_dir.mkdir(parents=True, exist_ok=True)
-    out_mp4 = out_dir / f"{job}_pure_h3_cover-audio.mp4"
+    out_mp4 = out_dir / (f"{job}_{tag}_pure_h3_cover-audio.mp4" if tag else f"{job}_pure_h3_cover-audio.mp4")
 
     width = int(manifest.get("width", DEFAULT_WIDTH))
     height = int(manifest.get("height", DEFAULT_HEIGHT))
@@ -1146,13 +1633,22 @@ def _find_latest(vid_dir: Path, prefix: str, ext: str) -> Path | None:
     return m[-1] if m else None
 
 
-def score_cover_job(manifest: dict[str, Any], *, input_dir: Path, output_dir: Path, data_dir: Path) -> dict[str, Any]:
+def score_cover_job(
+    manifest: dict[str, Any],
+    *,
+    input_dir: Path,
+    output_dir: Path,
+    data_dir: Path,
+    output_tag: str | None = None,
+) -> dict[str, Any]:
     """Separate rendered master & window vocals via `MelBand-RoFormer` and score against shifted target."""
     job = manifest["job"]
-    out_dir = output_dir / "Video" / "cover_jobs" / job
-    stems_out = out_dir / "vocal_stems"
+    tag = _validate_job_name(output_tag) if output_tag else None
+    paths = _job_paths(job, input_dir=input_dir, output_dir=output_dir, output_tag=tag)
+    out_dir = paths["out_dir"]
+    stems_out = paths["vocal_stems_dir"]
     stems_out.mkdir(parents=True, exist_ok=True)
-    master_mp4 = out_dir / f"{job}_pure_h3_cover-audio.mp4"
+    master_mp4 = out_dir / (f"{job}_{tag}_pure_h3_cover-audio.mp4" if tag else f"{job}_pure_h3_cover-audio.mp4")
     if not master_mp4.is_file():
         raise FileNotFoundError(f"Missing stitched cover MP4: {master_mp4}")
 
@@ -1194,15 +1690,16 @@ def score_cover_job(manifest: dict[str, Any], *, input_dir: Path, output_dir: Pa
 
     report = {
         "job": job,
+        "output_tag": tag,
         "semitones": manifest["semitones"],
         "ref_register": manifest.get("ref_register", "single"),
         **master_metrics,
         "windows": win_reports,
     }
-    stitch_p = data_dir / "song_stitch_meta.json"
+    stitch_p = paths["stitch_meta"]
     if stitch_p.is_file():
         report.update(json.loads(stitch_p.read_text(encoding="utf-8")))
-    (data_dir / "song_report.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+    paths["report"].write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     return report
 
 
@@ -1211,12 +1708,94 @@ def score_cover_job(manifest: dict[str, Any], *, input_dir: Path, output_dir: Pa
 # ---------------------------------------------------------------------------
 
 
-def _stage_ref_image(src: Path, dst: Path) -> None:
-    ext = src.suffix.lower()
-    if ext in (".png", ".jpg", ".jpeg", ".webp"):
-        shutil.copy2(src, dst)
-    else:
-        subprocess.run(["ffmpeg", "-y", "-v", "error", "-i", str(src), "-frames:v", "1", str(dst)], check=True)
+def _stage_ref_images(
+    ref_images: list[str],
+    in_dir: Path,
+    input_dir: Path,
+    *,
+    ref_frame_times: str | None = None,
+) -> list[str]:
+    video_exts = {".mp4", ".mov", ".mkv", ".webm", ".avi"}
+    times = [float(t.strip()) for t in ref_frame_times.split(",") if t.strip()] if ref_frame_times else []
+    staged_rel: list[str] = []
+    if len(ref_images) == 1 and Path(ref_images[0]).suffix.lower() in video_exts and len(times) >= 1:
+        src = Path(ref_images[0])
+        if not src.is_file():
+            raise FileNotFoundError(f"Missing --ref-images file: {src}")
+        for idx, ts in enumerate(times, 1):
+            dst = in_dir / f"ref_pic_{idx:02d}.png"
+            subprocess.run(["ffmpeg", "-y", "-v", "error", "-ss", f"{ts:.3f}", "-i", str(src), "-frames:v", "1", str(dst)], check=True)
+            staged_rel.append(str(dst.relative_to(input_dir)))
+        return staged_rel
+
+    for idx, src_img in enumerate(ref_images, 1):
+        p = Path(src_img)
+        if not p.is_file():
+            raise FileNotFoundError(f"Missing --ref-images file: {p}")
+        ext = p.suffix.lower()
+        if ext in (".png", ".jpg", ".jpeg", ".webp"):
+            dst = in_dir / f"ref_pic_{idx:02d}{ext}"
+            if p.resolve() != dst.resolve():
+                shutil.copy2(p, dst)
+        else:
+            dst = in_dir / f"ref_pic_{idx:02d}.png"
+            cmd = ["ffmpeg", "-y", "-v", "error"]
+            if idx - 1 < len(times):
+                cmd.extend(["-ss", f"{times[idx - 1]:.3f}"])
+            cmd.extend(["-i", str(p), "-frames:v", "1", str(dst)])
+            subprocess.run(cmd, check=True)
+        staged_rel.append(str(dst.relative_to(input_dir)))
+    return staged_rel
+
+
+def _run_preflight(graph: dict[str, Any], gp: Path, label: str) -> bool:
+    gp.parent.mkdir(parents=True, exist_ok=True)
+    gp.write_text(json.dumps(graph, indent=2) + "\n", encoding="utf-8")
+    preflight_proc = subprocess.run(
+        [sys.executable, str(REPO / "bench" / "preflight_graph.py"), str(gp)],
+        capture_output=True,
+        text=True,
+    )
+    pf_out = (preflight_proc.stdout + "\n" + preflight_proc.stderr).strip()
+    pf_ok = preflight_proc.returncode == 0 and "\nFAIL" not in f"\n{pf_out}"
+    print(f"[preflight] {label}: {'PASS' if pf_ok else 'FAIL'}")
+    if not pf_ok:
+        print(pf_out)
+    return pf_ok
+
+
+def _submit_and_wait(graph: dict[str, Any], *, url: str, timeout: float) -> float:
+    import time
+
+    while stem_sep._comfy_queue_busy():
+        time.sleep(10.0)
+    t0 = time.monotonic()
+    pid = comfy_client.submit_prompt(graph, base_url=url, client_id=str(uuid.uuid4()))
+    hist = comfy_client.wait_for_prompt(pid, base_url=url, timeout=timeout)
+    return float(comfy_client.execution_duration_s(hist) or (time.monotonic() - t0))
+
+
+def _ensure_backing_scaffold(manifest: dict[str, Any], *, input_dir: Path, paths: dict[str, Path]) -> str:
+    rel = manifest.get("backing_scaffold_rel")
+    if rel and (input_dir / rel).is_file():
+        return str(rel)
+    backing_p = paths["in_dir"] / "backing_scaffold_32k.wav"
+    stem_sep.build_cover_scaffold(
+        paths["stems_dir"] / "target",
+        start_s=float(manifest["start_s"]),
+        duration_s=float(manifest["duration_s"]),
+        semitones=float(manifest["semitones"]),
+        vocal_db=-120.0,
+        harmonic_db=0.0,
+        bass_db=-3.0,
+        shifter=str(manifest.get("shifter", "atempo")),
+        mono_vocal=bool(manifest.get("mono_vocal", True)),
+        out_wav_32k=backing_p,
+    )
+    rel_out = str(backing_p.relative_to(input_dir))
+    manifest["backing_scaffold_rel"] = rel_out
+    paths["manifest"].write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+    return rel_out
 
 
 def cmd_prepare(args: argparse.Namespace) -> int:
@@ -1226,14 +1805,12 @@ def cmd_prepare(args: argparse.Namespace) -> int:
     for key in ("data_dir", "prompts_dir", "graphs_dir", "in_dir", "stems_dir", "out_dir", "slices_dir"):
         paths[key].mkdir(parents=True, exist_ok=True)
 
-    ref_images_rel: list[str] = []
-    for idx, src_img in enumerate(args.ref_images, 1):
-        p = Path(src_img)
-        if not p.is_file():
-            raise FileNotFoundError(f"Missing --ref-images file: {p}")
-        dst = paths["in_dir"] / f"ref_pic_{idx:02d}{p.suffix.lower() if p.suffix else '.png'}"
-        _stage_ref_image(p, dst)
-        ref_images_rel.append(str(dst.relative_to(input_dir)))
+    ref_images_rel = _stage_ref_images(
+        args.ref_images,
+        paths["in_dir"],
+        input_dir,
+        ref_frame_times=args.ref_frame_times,
+    )
 
     ref_audio_p = Path(args.ref_audio)
     if not ref_audio_p.is_file():
@@ -1254,6 +1831,25 @@ def cmd_prepare(args: argparse.Namespace) -> int:
     ref_vocal_path = paths["in_dir"] / "ref_vocal_192f.wav"
     stem_sep._write_wav_pcm16(ref_vocal_path, ref_main["wav_32k"], stem_sep.SCAFFOLD_SR)
     ref_vocal_rel = str(ref_vocal_path.relative_to(input_dir))
+
+    # Also slice unseparated raw reference audio at the exact same window for raw vs RoFormer `<Audio 1>` A/Bs
+    ref_raw_path = paths["in_dir"] / "ref_raw_192f.wav"
+    ref_mix_p = ref_stems_dir / "mix.wav"
+    ref_mix_src = ref_mix_p if ref_mix_p.is_file() else ref_audio_p
+    ref_mix_32k = stem_sep._load_audio_ffmpeg(
+        ref_mix_src,
+        sr=stem_sep.SCAFFOLD_SR,
+        start_s=float(ref_main["start_s"]),
+        duration_s=float(ref_main["duration_s"]),
+        channels=2,
+    )
+    target_ref_samps = int(ref_main["wav_32k"].shape[1])
+    ref_mix_32k = stem_sep._pad_or_trim(ref_mix_32k, target_ref_samps)
+    raw_peak = float(ref_mix_32k.abs().max().item())
+    if raw_peak > 0.92:
+        ref_mix_32k = ref_mix_32k * (0.92 / raw_peak)
+    stem_sep._write_wav_pcm16(ref_raw_path, ref_mix_32k, stem_sep.SCAFFOLD_SR)
+    ref_raw_rel = str(ref_raw_path.relative_to(input_dir))
 
     ref_low_rel: str | None = None
     ref_high_rel: str | None = None
@@ -1304,8 +1900,10 @@ def cmd_prepare(args: argparse.Namespace) -> int:
         context_frames=args.context_frames,
     )
 
+    mono_vocal = not bool(args.stereo_vocal)
     scaffold_p = paths["in_dir"] / "scaffold_full_32k.wav"
     tgt_voc_p = paths["in_dir"] / "target_voc_shifted_32k.wav"
+    backing_p = paths["in_dir"] / "backing_scaffold_32k.wav"
     raw_orig_p = paths["in_dir"] / "target_raw_orig_32k.wav"
     scaf_meta = stem_sep.build_cover_scaffold(
         tgt_stems_dir,
@@ -1315,8 +1913,23 @@ def cmd_prepare(args: argparse.Namespace) -> int:
         harmonic_db=args.harmonic_db,
         bass_db=args.bass_db,
         vocal_formant=semi_info["vocal_formant"],
+        shifter=args.shifter,
+        mono_vocal=mono_vocal,
+        dereverb_vocal=bool(args.dereverb_vocal),
         out_wav_32k=scaffold_p,
         out_voc_wav_32k=tgt_voc_p,
+    )
+    stem_sep.build_cover_scaffold(
+        tgt_stems_dir,
+        start_s=win_plan["start_s"],
+        duration_s=win_plan["duration_s"],
+        semitones=semi_info["semitones"],
+        vocal_db=-120.0,
+        harmonic_db=0.0,
+        bass_db=-3.0,
+        shifter=args.shifter,
+        mono_vocal=mono_vocal,
+        out_wav_32k=backing_p,
     )
     subprocess.run(
         [
@@ -1362,16 +1975,26 @@ def cmd_prepare(args: argparse.Namespace) -> int:
         "ref_register": args.ref_register,
         "ref_images_rel": ref_images_rel,
         "ref_vocal_rel": ref_vocal_rel,
+        "ref_raw_rel": ref_raw_rel,
         "ref_vocal_low_rel": ref_low_rel,
         "ref_vocal_high_rel": ref_high_rel,
         "scaffold_rel": str(scaffold_p.relative_to(input_dir)),
         "tgt_voc_rel": str(tgt_voc_p.relative_to(input_dir)),
+        "backing_scaffold_rel": str(backing_p.relative_to(input_dir)),
         "raw_orig_rel": str(raw_orig_p.relative_to(input_dir)),
         "semitones": semi_info["semitones"],
         "inst_semitones": scaf_meta["inst_semitones"],
         "vocal_formant": semi_info["vocal_formant"],
+        "shifter": str(args.shifter),
+        "mono_vocal": mono_vocal,
+        "dereverb_vocal": bool(args.dereverb_vocal),
         "harmonic_db": float(args.harmonic_db),
         "bass_db": float(args.bass_db),
+        "subject_desc": args.subject_desc,
+        "stage_desc": args.stage_desc,
+        "voice_desc": args.voice_desc,
+        "aesthetic_desc": args.aesthetic_desc,
+        "soundscape_desc": args.soundscape_desc,
         "ref_selection": {k: v for k, v in ref_main.items() if k != "wav_32k"},
         "ref_selection_low": ref_low_info,
         "ref_selection_high": ref_high_info,
@@ -1386,6 +2009,8 @@ def cmd_prepare(args: argparse.Namespace) -> int:
                 "job": manifest["job"],
                 "semitones": manifest["semitones"],
                 "vocal_formant": manifest["vocal_formant"],
+                "shifter": manifest["shifter"],
+                "mono_vocal": manifest["mono_vocal"],
                 "start_s": manifest["start_s"],
                 "duration_s": manifest["duration_s"],
                 "n_windows": manifest["n_windows"],
@@ -1401,10 +2026,18 @@ def cmd_prepare(args: argparse.Namespace) -> int:
     return 0
 
 
+def _stage_external_audio(src: Path, dst: Path) -> None:
+    subprocess.run(
+        ["ffmpeg", "-y", "-v", "error", "-i", str(src), "-ar", str(stem_sep.SCAFFOLD_SR), "-ac", "2", str(dst)],
+        check=True,
+    )
+
+
 def cmd_render(args: argparse.Namespace) -> int:
     input_dir = _require_dir("H3_INPUT_DIR")
     output_dir = _require_dir("H3_OUTPUT_DIR")
-    paths = _job_paths(args.job, input_dir=input_dir, output_dir=output_dir)
+    tag = _validate_job_name(args.output_tag) if args.output_tag else None
+    paths = _job_paths(args.job, input_dir=input_dir, output_dir=output_dir, output_tag=tag)
     if not paths["manifest"].is_file():
         raise FileNotFoundError(f"Missing manifest {paths['manifest']}; run `prepare` first")
     manifest = json.loads(paths["manifest"].read_text(encoding="utf-8"))
@@ -1420,6 +2053,135 @@ def cmd_render(args: argparse.Namespace) -> int:
 
     denoises = resolve_window_denoises(manifest["windows"], args.denoise)
     use_fvc_flag = bool(args.frozen_video_cache and not args.no_frozen_video_cache)
+
+    stage_a_rel: str | None = None
+    if args.stage_a_audio:
+        src_a = Path(args.stage_a_audio)
+        if not src_a.is_file():
+            raise FileNotFoundError(f"Missing --stage-a-audio file: {src_a}")
+        staged_a = paths["in_dir"] / f"_stage_a_{tag or 'main'}_32k.wav"
+        _stage_external_audio(src_a, staged_a)
+        stage_a_rel = str(staged_a.relative_to(input_dir))
+
+    if args.render_mode == "decoupled":
+        if n_win > 1:
+            raise ValueError("render_mode='decoupled' currently supports 1-window runs (n_windows == 1)")
+        backing_rel = _ensure_backing_scaffold(manifest, input_dir=input_dir, paths=paths)
+        inst_prompt = build_instrumental_prompt_skeleton(
+            window_idx=1,
+            win_info=manifest["windows"][0],
+            n_pictures=len(manifest["ref_images_rel"]),
+            subject_desc=manifest.get("subject_desc", "solo acoustic singer-guitarist centered on stage at a dynamic black vocal microphone"),
+            stage_desc=manifest.get("stage_desc", "an intimate live studio concert stage with soft warm amber key light, deep velvet curtains, and quiet distant audience in background shadow"),
+            aesthetic_desc=manifest.get("aesthetic_desc", "warm live concert broadcast television aesthetic with crisp tungsten highlights, deep shadows, subtle filmic grain, and smooth highlight rolloff"),
+            soundscape_desc=manifest.get("soundscape_desc", "Intimate acoustic studio hall ambience with resonant wood sustain, crisp finger-pick contact on bronze acoustic strings, warm upright bass, and natural room depth."),
+            window_frames=int(manifest["window_frames"]),
+        )
+        backing_graph = build_backing_audio_graph(
+            manifest,
+            inst_prompt,
+            backing_scaffold_rel=backing_rel,
+            backing_denoise=args.backing_denoise,
+            steps=args.stage2_steps,
+            ref_audio_source="raw" if manifest.get("ref_raw_rel") else args.ref_audio_source,
+            seed=args.seed,
+            output_tag=tag,
+        )
+        bg_gp = paths["graphs_dir"] / (f"cover_backing_{tag}.json" if tag else "cover_backing.json")
+        if not _run_preflight(backing_graph, bg_gp, f"{manifest['job']} decoupled-backing"):
+            return 1
+
+        mix_p = paths["in_dir"] / f"decoupled_mix_{tag or 'main'}_32k.wav"
+        mix_rel = str(mix_p.relative_to(input_dir))
+        if args.dry_run:
+            freeze_preview = build_freeze_video_graph(
+                manifest,
+                prompts[0],
+                frozen_audio_rel=manifest["scaffold_rel"],
+                ref_audio_source=args.ref_audio_source,
+                seed=args.seed,
+                output_tag=tag,
+            )
+            fz_gp = paths["graphs_dir"] / (f"cover_freeze_{tag}.json" if tag else "cover_freeze.json")
+            return 0 if _run_preflight(freeze_preview, fz_gp, f"{manifest['job']} decoupled-video") else 1
+
+        dt_total = 0.0
+        dt_total += _submit_and_wait(backing_graph, url=args.url, timeout=max(3600.0, n_win * 1200.0))
+        vid_dir = paths["out_dir"]
+        backing_flac = _find_latest(vid_dir, "backing_aud_w1_", ".flac")
+        if backing_flac is None:
+            raise RuntimeError(f"Missing backing_aud_w1_*.flac in {vid_dir}")
+
+        if stage_a_rel is None:
+            voc_tag = f"{tag or 'decoupled'}_vocpass"
+            voc_graph = build_cover_graph(
+                manifest,
+                prompts,
+                window_denoises=denoises,
+                pass2_steps=args.pass2_steps,
+                use_frozen_video_cache=False,
+                aud_to_vid_gain=args.aud_to_vid_gain,
+                seed=args.seed,
+                render_mode="sdedit",
+                ref_audio_source=args.ref_audio_source,
+                scaffold_rel=manifest["tgt_voc_rel"],
+                output_tag=voc_tag,
+            )
+            vg_gp = paths["graphs_dir"] / f"cover_vocpass_{tag or 'main'}.json"
+            if not _run_preflight(voc_graph, vg_gp, f"{manifest['job']} decoupled-vocpass"):
+                return 1
+            dt_total += _submit_and_wait(voc_graph, url=args.url, timeout=max(3600.0, n_win * 1200.0))
+            voc_out_dir = paths["base_out_dir"] / voc_tag
+            voc_src = _find_latest(voc_out_dir, "song_aud_w1_", ".flac") or _find_latest(voc_out_dir, "song_w1_", "-audio.mp4")
+            if voc_src is None:
+                raise RuntimeError(f"Missing decoupled vocal output in {voc_out_dir}")
+        else:
+            voc_src = input_dir / stage_a_rel
+
+        # Isolate H3 vocal stem cleanly via RoFormer and mix with 100%-H3 backing track at 32 kHz
+        voc_44k = torch.from_numpy(_load_audio_np(voc_src, sr=stem_sep.STEM_SR, channels=2))
+        dev = stem_sep._resolve_compute_device(None)
+        clean_voc_44k, _ = stem_sep.separate_vocals_roformer(voc_44k, dev)
+        clean_voc_32k = TAF.resample(clean_voc_44k, stem_sep.STEM_SR, stem_sep.SCAFFOLD_SR).numpy()
+        back_32k = _load_audio_np(backing_flac, sr=stem_sep.SCAFFOLD_SR, channels=2)
+        target_samps = int(round(int(manifest["window_frames"]) / FPS * stem_sep.SCAFFOLD_SR))
+        clean_voc_32k = _pad_or_trim_np(clean_voc_32k, target_samps)
+        back_32k = _pad_or_trim_np(back_32k, target_samps)
+        mix_32k = clean_voc_32k + (10.0 ** (-4.5 / 20.0)) * back_32k
+        peak = float(np.max(np.abs(mix_32k)))
+        if peak > 0.94:
+            mix_32k = mix_32k * (0.94 / peak)
+        stem_sep._write_wav_pcm16(mix_p, torch.from_numpy(mix_32k), stem_sep.SCAFFOLD_SR)
+
+        freeze_graph = build_freeze_video_graph(
+            manifest,
+            prompts[0],
+            frozen_audio_rel=mix_rel,
+            ref_audio_source=args.ref_audio_source,
+            seed=args.seed,
+            output_tag=tag,
+        )
+        fz_gp = paths["graphs_dir"] / (f"cover_freeze_{tag}.json" if tag else "cover_freeze.json")
+        if not _run_preflight(freeze_graph, fz_gp, f"{manifest['job']} decoupled-video"):
+            return 1
+        dt_total += _submit_and_wait(freeze_graph, url=args.url, timeout=max(3600.0, n_win * 1200.0))
+
+        w_mp4 = _find_latest(vid_dir, "song_w1_", "-audio.mp4")
+        if w_mp4 is None:
+            raise RuntimeError(f"Missing frozen video MP4 in {vid_dir}")
+        stitch_info = stitch_cover_windows(manifest, output_dir, [w_mp4], [mix_p], output_tag=tag)
+        stitch_info["wall_s"] = round(dt_total, 2)
+        stitch_info["render_mode"] = "decoupled"
+        stitch_info["backing_denoise"] = float(args.backing_denoise)
+        stitch_info["ref_audio_source"] = args.ref_audio_source
+        paths["stitch_meta"].write_text(json.dumps(stitch_info, indent=2) + "\n", encoding="utf-8")
+        print(json.dumps(stitch_info, indent=2))
+        if not args.no_score:
+            report = score_cover_job(manifest, input_dir=input_dir, output_dir=output_dir, data_dir=paths["data_dir"], output_tag=tag)
+            print(json.dumps(report, indent=2))
+        return 0
+
+    use_scaffold_rel = manifest["tgt_voc_rel"] if args.vocal_only_scaffold else manifest["scaffold_rel"]
     graph = build_cover_graph(
         manifest,
         prompts,
@@ -1428,32 +2190,29 @@ def cmd_render(args: argparse.Namespace) -> int:
         use_frozen_video_cache=use_fvc_flag,
         aud_to_vid_gain=args.aud_to_vid_gain,
         seed=args.seed,
+        render_mode=args.render_mode,
+        ref_audio_source=args.ref_audio_source,
+        cond_release=args.cond_release,
+        melody_gain_early=args.melody_gain_early,
+        melody_clean_level=args.melody_clean_level,
+        stage2_steps=args.stage2_steps,
+        echo_steps=args.echo_steps,
+        echo_t_max=args.echo_t_max,
+        echo_t_min=args.echo_t_min,
+        echo_edit_scale=args.echo_edit_scale,
+        echo_noise_corr=args.echo_noise_corr,
+        scaffold_rel=use_scaffold_rel,
+        stage_a_audio_rel=stage_a_rel,
+        output_tag=tag,
     )
-    gp = paths["graphs_dir"] / "cover_graph.json"
-    gp.write_text(json.dumps(graph, indent=2) + "\n", encoding="utf-8")
-
-    preflight_proc = subprocess.run(
-        [sys.executable, str(REPO / "bench" / "preflight_graph.py"), str(gp)],
-        capture_output=True,
-        text=True,
-    )
-    pf_out = (preflight_proc.stdout + "\n" + preflight_proc.stderr).strip()
-    pf_ok = preflight_proc.returncode == 0 and "\nFAIL" not in f"\n{pf_out}"
-    print(f"[preflight] {manifest['job']} ({n_win}w, denoises={denoises}, fvc={use_fvc_flag and args.aud_to_vid_gain >= 1.0}): {'PASS' if pf_ok else 'FAIL'}")
-    if not pf_ok:
-        print(pf_out)
+    gp = paths["graphs_dir"] / (f"cover_graph_{tag}.json" if tag else "cover_graph.json")
+    label = f"{manifest['job']} ({args.render_mode}, ref={args.ref_audio_source}, {n_win}w, denoises={denoises}, fvc={use_fvc_flag and args.aud_to_vid_gain >= 1.0})"
+    if not _run_preflight(graph, gp, label):
         return 1
     if args.dry_run:
         return 0
 
-    while stem_sep._comfy_queue_busy():
-        import time
-        time.sleep(10.0)
-    import time
-    t0 = time.monotonic()
-    pid = comfy_client.submit_prompt(graph, base_url=args.url, client_id=str(uuid.uuid4()))
-    hist = comfy_client.wait_for_prompt(pid, base_url=args.url, timeout=max(3600.0, n_win * 1200.0))
-    dt = comfy_client.execution_duration_s(hist) or (time.monotonic() - t0)
+    dt = _submit_and_wait(graph, url=args.url, timeout=max(3600.0, n_win * 1200.0))
 
     vid_dir = paths["out_dir"]
     w_mp4s = [_find_latest(vid_dir, f"song_w{k}_", "-audio.mp4") for k in range(1, n_win + 1)]
@@ -1465,14 +2224,17 @@ def cmd_render(args: argparse.Namespace) -> int:
         output_dir,
         [p for p in w_mp4s if p is not None],
         [p for p in w_flacs if p is not None] if all(w_flacs) else None,
+        output_tag=tag,
     )
     stitch_info["wall_s"] = round(dt, 2)
+    stitch_info["render_mode"] = args.render_mode
+    stitch_info["ref_audio_source"] = args.ref_audio_source
     stitch_info["window_denoises"] = denoises
-    (paths["data_dir"] / "song_stitch_meta.json").write_text(json.dumps(stitch_info, indent=2) + "\n", encoding="utf-8")
+    paths["stitch_meta"].write_text(json.dumps(stitch_info, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(stitch_info, indent=2))
 
     if not args.no_score:
-        report = score_cover_job(manifest, input_dir=input_dir, output_dir=output_dir, data_dir=paths["data_dir"])
+        report = score_cover_job(manifest, input_dir=input_dir, output_dir=output_dir, data_dir=paths["data_dir"], output_tag=tag)
         print(json.dumps(report, indent=2))
     return 0
 
@@ -1480,26 +2242,31 @@ def cmd_render(args: argparse.Namespace) -> int:
 def cmd_score(args: argparse.Namespace) -> int:
     input_dir = _require_dir("H3_INPUT_DIR")
     output_dir = _require_dir("H3_OUTPUT_DIR")
-    paths = _job_paths(args.job, input_dir=input_dir, output_dir=output_dir)
+    tag = _validate_job_name(args.output_tag) if args.output_tag else None
+    paths = _job_paths(args.job, input_dir=input_dir, output_dir=output_dir, output_tag=tag)
     manifest = json.loads(paths["manifest"].read_text(encoding="utf-8"))
-    report = score_cover_job(manifest, input_dir=input_dir, output_dir=output_dir, data_dir=paths["data_dir"])
+    report = score_cover_job(manifest, input_dir=input_dir, output_dir=output_dir, data_dir=paths["data_dir"], output_tag=tag)
     print(json.dumps(report, indent=2))
     return 0
 
 
 def _build_parser() -> argparse.ArgumentParser:
-    ap = argparse.ArgumentParser(description="Generalized 2-step pure-H3 cover music-video workflow.")
+    ap = argparse.ArgumentParser(description="Generalized pure-H3 cover music-video workflow.")
     sub = ap.add_subparsers(dest="command", required=True)
 
     sp_prep = sub.add_parser("prepare", help="Separate stems, select ref vocal, align breath seams, and emit prompt skeletons.")
     sp_prep.add_argument("--job", required=True, help="Short job slug (creates data/cover_jobs/<job> and $H3_INPUT_DIR/cover_jobs/<job>).")
     sp_prep.add_argument("--ref-audio", required=True, help="Singer reference audio/video path.")
-    sp_prep.add_argument("--ref-images", nargs="+", required=True, help="1..K singer/scene reference images.")
+    sp_prep.add_argument("--ref-images", nargs="+", required=True, help="1..K singer/scene reference images or video(s).")
+    sp_prep.add_argument("--ref-frame-times", default=None, help="Optional comma-separated timestamps (s) for extracting reference frames from video inputs.")
     sp_prep.add_argument("--target-song", required=True, help="Target song audio/video path.")
     sp_prep.add_argument("--lyrics", default=None, help="Optional .lrc or plain-text lyrics file.")
     sp_prep.add_argument("--semitones", type=float, default=None, help="Override auto integer semitone shift.")
     sp_prep.add_argument("--vocal-formant", choices=["auto", "true", "false"], default="auto", help="RubberBand formant preservation ('auto': False unless explicitly enabled).")
     sp_prep.add_argument("--preserve-formant", action="store_true", help="Deprecated alias for `--vocal-formant true`.")
+    sp_prep.add_argument("--shifter", choices=list(stem_sep.SHIFTERS), default="atempo", help="Pitch shifter backend (default 'atempo' WSOLA).")
+    sp_prep.add_argument("--stereo-vocal", action="store_true", help="Keep target vocal stereo instead of collapsing to mono before shifting.")
+    sp_prep.add_argument("--dereverb-vocal", action="store_true", help="Run oulianov MelBand-RoFormer dereverb on target vocals before shifting.")
     sp_prep.add_argument("--ref-start-s", type=float, default=None, help="Pin exact 8.0 s reference vocal slice start in seconds.")
     sp_prep.add_argument("--ref-scan-s", type=float, default=90.0, help="Max leading seconds of ref audio to scan (<=0 for full file, default 90.0).")
     sp_prep.add_argument("--ref-register", choices=["single", "split"], default="single", help="Single 8.0s <Audio 1> (default) or low/high register split.")
@@ -1520,6 +2287,21 @@ def _build_parser() -> argparse.ArgumentParser:
 
     sp_ren = sub.add_parser("render", help="Preflight, render on :8188, stitch windows, and score pitch lock.")
     sp_ren.add_argument("--job", required=True, help="Prepared job slug.")
+    sp_ren.add_argument("--render-mode", choices=["sdedit", "resynth", "decoupled", "echoedit"], default="sdedit", help="Render pipeline: 'sdedit', 'resynth' (denoise=1.0 AudioRefRouter), 'decoupled', or 'echoedit' (MiniMaxH3EchoEdit).")
+    sp_ren.add_argument("--ref-audio-source", choices=["vocals", "raw"], default="vocals", help="Use RoFormer-separated 'vocals' or unseparated 'raw' <Audio 1> reference.")
+    sp_ren.add_argument("--cond-release", type=float, default=0.56, help="Release percent for `cond_audio` melody guide in 'resynth' mode.")
+    sp_ren.add_argument("--melody-gain-early", type=float, default=1.5, help="Early-block Q_aud->K_melody gain for MiniMaxH3AudioRefRouter in 'resynth' mode.")
+    sp_ren.add_argument("--melody-clean-level", type=float, default=0.85, help="Melody cleanliness share for MiniMaxH3AudioRefRouter in 'resynth' mode.")
+    sp_ren.add_argument("--stage2-steps", type=int, default=16, help="Base 16-step count for 'resynth' Stage B or 'decoupled' backing pass.")
+    sp_ren.add_argument("--echo-steps", type=int, default=16, help="Step count for 'echoedit' (MiniMaxH3EchoEdit) Pass 2.")
+    sp_ren.add_argument("--echo-t-max", type=float, default=0.75, help="Starting native audio sigma for 'echoedit' (default 0.75).")
+    sp_ren.add_argument("--echo-t-min", type=float, default=0.0, help="Ending native audio sigma for 'echoedit' (default 0.0).")
+    sp_ren.add_argument("--echo-edit-scale", type=float, default=1.0, help="Velocity-difference edit scale for 'echoedit' (default 1.0).")
+    sp_ren.add_argument("--echo-noise-corr", type=float, default=0.50, help="AV-FlowEdit cross-step noise correlation for 'echoedit' (default 0.50).")
+    sp_ren.add_argument("--vocal-only-scaffold", action="store_true", help="Use target_voc_shifted_32k.wav instead of mixed scaffold in 'sdedit'/'resynth'.")
+    sp_ren.add_argument("--backing-denoise", type=float, default=0.48, help="Denoise strength for 'decoupled' instrumental backing pass.")
+    sp_ren.add_argument("--stage-a-audio", default=None, help="Optional pre-rendered Stage A / vocal-pass audio file for 'resynth' or 'decoupled'.")
+    sp_ren.add_argument("--output-tag", default=None, help="Optional arm tag isolating outputs under Video/cover_jobs/<job>/<tag>/.")
     sp_ren.add_argument("--denoise", default="0.29", help="Scalar float ('0.29'), 'auto' (0.26 low / 0.29 high), or CSV per window.")
     sp_ren.add_argument("--pass2-steps", type=int, default=12, help="Base Pass-2 scheduler steps (default 12 -> 41 steps at 0.29).")
     sp_ren.add_argument("--aud-to-vid-gain", type=float, default=1.0, help="Audio->video attention gain (< 1.0 disables FrozenVideoCache safely).")
@@ -1533,6 +2315,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
     sp_scr = sub.add_parser("score", help="Re-score an already stitched cover job with MelBand-RoFormer + pitch_lock_metrics.")
     sp_scr.add_argument("--job", required=True, help="Rendered job slug.")
+    sp_scr.add_argument("--output-tag", default=None, help="Optional arm tag matching render `--output-tag`.")
     return ap
 
 

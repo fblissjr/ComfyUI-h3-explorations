@@ -104,6 +104,7 @@ with none is a helper the others import.
 | [`conditioning.py`](conditioning.py) | `MiniMaxH3Conditioning` | fl2va conditioning with the geometry seams measured here closed at one node. |
 | [`core_sparse_capture.py`](core_sparse_capture.py) | `MiniMaxH3CoreSparseCapture` | Capture q/k/v on core's sparse producer path, and change nothing. |
 | [`depth_beat_mask.py`](depth_beat_mask.py) | `MiniMaxH3DepthBeatMask` | Composable MoGe-2 Metric Depth + WAV Beat `[F, H, W]` MASK producer (`MiniMaxH3DepthBeatMask`). |
+| [`echo_edit.py`](echo_edit.py) | `MiniMaxH3EchoEdit` | Inversion-free EchoEdit+ / AV-FlowEdit sampler for frozen MiniMax H3 (`MiniMaxH3EchoEdit`). |
 | [`edit_guidance.py`](edit_guidance.py) | `MiniMaxH3PromptEdit`, `MiniMaxH3EditGuider` | Steer a render with an edited copy of its own prompt, with no control vector. |
 | [`exact_blocks.py`](exact_blocks.py) | `MiniMaxH3ExactBlocks` | Run named DiT blocks on EXACT attention -- neither sage nor Sol-Attn. |
 | [`frozen_video_cache.py`](frozen_video_cache.py) | `MiniMaxH3FrozenVideoCache` | Cache the frozen rows of an H3 sampling run, so its steps run on the live rows only. |
@@ -160,9 +161,9 @@ with none is a helper the others import.
 |---|---|---|
 | `.claude/` | 1 | [below](#claude) |
 | `.gemini/` | 8 | [below](#gemini) |
-| `archive/` | 78 | (none) |
+| `archive/` | 85 | (none) |
 | `assets/` | 1 | [below](#assets) |
-| `bench/` | 904 | [`bench/INDEX.md`](bench/INDEX.md) and [`bench/results/INDEX.md`](bench/results/INDEX.md) for the records |
+| `bench/` | 901 | [`bench/INDEX.md`](bench/INDEX.md) and [`bench/results/INDEX.md`](bench/results/INDEX.md) for the records |
 | `changelog.d/` | | [`changelog.d/README.md`](changelog.d/README.md), one file per changelog entry; not listed and not counted |
 | `contact_sheets/` | 1 | [below](#contact_sheets) |
 | `data/` | 1 | [below](#data) |

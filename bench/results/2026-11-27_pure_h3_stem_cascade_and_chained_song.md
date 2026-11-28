@@ -6,7 +6,7 @@
   - [`2026-11-27_music_cover_pitch_lock_gate.md`](2026-11-27_music_cover_pitch_lock_gate.md) (`2f8723f0`)
   - [`2026-11-27_music_cover_pitch_lock_metric_null.md`](2026-11-27_music_cover_pitch_lock_metric_null.md) (`8515059a`, `c6e2125b`)
   - [`2026-11-27_music_cover_pitch_coverage.md`](2026-11-27_music_cover_pitch_coverage.md) (`4ec035d3`–`b4fa3341`, independent coverage, bass-rest, high-pass, and `ltas` controls)
-- **Scripts & Checks:** [`bench/h3_stem_sep.py`](../h3_stem_sep.py), [`bench/check_h3_stem_sep.py`](../check_h3_stem_sep.py), [`bench/pure_h3_cover_song.py`](../pure_h3_cover_song.py), [`bench/pitch_lock_metrics.py`](../pitch_lock_metrics.py), [`bench/pitch_lock_coverage.py`](../pitch_lock_coverage.py)
+- **Scripts & Checks:** [`bench/h3_stem_sep.py`](../h3_stem_sep.py), [`bench/check_h3_stem_sep.py`](../check_h3_stem_sep.py), [`archive/bench/pure_h3_cover_song.py`](../../archive/bench/pure_h3_cover_song.py), [`bench/pitch_lock_metrics.py`](../pitch_lock_metrics.py), [`bench/pitch_lock_coverage.py`](../pitch_lock_coverage.py)
 - **Media & Reports:** Outputs under `$H3_OUTPUT_DIR/Video/pure_h3_cover_song_2026-11-27/`; JSON/prompt data under [`data/pure_h3_cover_song/`](../../data/pure_h3_cover_song/); cascade stems under `$H3_INPUT_DIR/music_cover_stems/`
 
 ---

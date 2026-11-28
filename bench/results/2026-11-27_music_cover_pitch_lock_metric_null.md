@@ -4,7 +4,7 @@
 - **Date:** `2026-11-27`
 - **Corrects:** [`2026-11-27_music_cover_pitch_lock_gate.md`](2026-11-27_music_cover_pitch_lock_gate.md), the pitch columns of section 2 and the "interval lock" and "contour" readings built on them. Its attribution, guitar-synthesis and output-register findings are not touched.
 - **Scripts:** [`bench/pitch_lock_metrics.py`](../pitch_lock_metrics.py), [`bench/check_pitch_lock_metrics.py`](../check_pitch_lock_metrics.py)
-- **Inputs:** the gate's own files, no new renders: `$H3_OUTPUT_DIR/Video/music_cover_pitch_lock_2026-11-27/vocal_stems/<arm>_voc.wav` against each arm's `src_voc` under `$H3_INPUT_DIR/music_cover_pitch_lock/` (`ARM_SPECS` in [`bench/music_cover_pitch_lock_gate.py`](../music_cover_pitch_lock_gate.py)).
+- **Inputs:** the gate's own files, no new renders: `$H3_OUTPUT_DIR/Video/music_cover_pitch_lock_2026-11-27/vocal_stems/<arm>_voc.wav` against each arm's `src_voc` under `$H3_INPUT_DIR/music_cover_pitch_lock/` (`ARM_SPECS` in [`archive/bench/music_cover_pitch_lock_gate.py`](../../archive/bench/music_cover_pitch_lock_gate.py)).
 - **Conditions:** scored on CPU on a second machine, reading the same files over the shared mount, with `torch`, `numpy` and `ffmpeg` only. The legacy columns below reproduce the gate's table to the printed digit, so the files and the scoring are the ones the gate used.
 
 ---
@@ -120,5 +120,5 @@ Every cell is aligned / null median / null best / share of `33` shifts beaten (`
 
 ## 7. Follow-up & Remaining Scope
 
-- `bench/music_cover_pitch_lock_gate.py::_vocal_pitch_metrics` now delegates directly to `bench/pitch_lock_metrics.py::vocal_pitch_metrics` (returning the legacy keys plus `vocal_f0_r_one_shift`, `tgt_voiced_frames`, `voiced_overlap_frac`, and `lag_null`). The archived 6-arm gate JSON was not re-rendered because section 3 above already rescored its saved stems.
+- `archive/bench/music_cover_pitch_lock_gate.py::_vocal_pitch_metrics` now delegates directly to `bench/pitch_lock_metrics.py::vocal_pitch_metrics` (returning the legacy keys plus `vocal_f0_r_one_shift`, `tgt_voiced_frames`, `voiced_overlap_frac`, and `lag_null`). The archived 6-arm gate JSON was not re-rendered because section 3 above already rescored its saved stems.
 - The gate record's section 2 table and the laws drawn from it are left as written, with a dated pointer to this record.
