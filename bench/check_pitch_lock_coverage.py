@@ -156,6 +156,40 @@ def check_agreement_levels_and_periodic_share() -> str:
     )
 
 
+def check_rests_and_highpass_find_a_bass_left_in_the_stem() -> str:
+    target = _melody(1)
+    for note in range(3, NOTES, 4):  # rests
+        target[_span(note, note + 1)] = 0.0
+    t = torch.arange(target.numel(), dtype=torch.float32) / float(SR)
+    bass = 0.35 * (torch.sin(2.0 * torch.pi * 55.0 * t) + 0.6 * torch.sin(2.0 * torch.pi * 110.0 * t))
+    clip = target + bass
+    rep = plc.rest_report(target, clip, {"bass": bass, "voice": target})
+    # A frame is a rest only when its whole analysis window lies inside one.
+    rests = (NOTES // 4) * ((NOTE - plc.BAND_N_FFT) / yin_probe.DEFAULT_HOP_LEN + 1)
+    assert abs(rep["rest_frames"] - rests) < 0.15 * rests, (rep["rest_frames"], rests)
+    # The rests hold the bass and nothing else: all of it under 150 Hz, all of it in the bass stem.
+    assert rep["bands_in_rests_db"]["0-150"] > -0.5 and rep["bands_in_rests_db"]["150-1000"] < -20.0, rep
+    assert abs(rep["stems_re_clip_in_rests_db"]["bass"]) < 0.5 and rep["stems_re_clip_in_rests_db"]["voice"] < -20.0, rep
+    # The bass hides the voice's pitch; a high-pass under the voice's range brings it back.
+    hidden = plc.frames_report(clip, target)
+    cleared = plc.frames_report(plc.highpass(clip, 150.0), target)
+    assert hidden["scored"] < 0.6 * hidden["target_voiced"], (hidden["scored"], hidden["target_voiced"])
+    assert cleared["scored"] > 0.9 * cleared["target_voiced"], (cleared["scored"], cleared["target_voiced"])
+    return (
+        f"a bass under a voice with rests: {rep['rest_frames']} rest frames, all under 150 Hz and all in the bass stem; "
+        f"{hidden['scored']} of {hidden['target_voiced']} frames scored with the bass in, {cleared['scored']} high-passed"
+    )
+
+
+def check_a_bed_under_a_voice_costs_frames_by_level() -> str:
+    kept = plc.kept_under_bed(_melody(1), _melody(2))["kept_frac_by_bed_db"]
+    values = [kept[k] for k in ("-20", "-15", "-10", "-5", "+0")]
+    assert values == sorted(values, reverse=True), kept
+    # Far under the voice it costs almost nothing; at the voice's level it costs at least a fifth of the frames.
+    assert values[0] > 0.95 and values[-1] < values[0] - 0.2, kept
+    return f"a second melody under a voice: {values[0]:.2f} of its frames keep a pitch at -20 dB, {values[-1]:.2f} at equal level"
+
+
 def check_ltas_moves_with_a_bass_under_the_same_voice() -> str:
     voice = _melody(1)
     t = torch.arange(voice.numel(), dtype=torch.float32) / float(SR)
@@ -179,6 +213,8 @@ def main() -> int:
     case("quartile_split_finds_which_notes_were_lost", check_quartile_split_finds_which_notes_were_lost)
     case("overlap_finds_a_late_output", check_overlap_finds_a_late_output)
     case("agreement_levels_and_periodic_share", check_agreement_levels_and_periodic_share)
+    case("rests_and_highpass_find_a_bass_left_in_the_stem", check_rests_and_highpass_find_a_bass_left_in_the_stem)
+    case("a_bed_under_a_voice_costs_frames_by_level", check_a_bed_under_a_voice_costs_frames_by_level)
     case("ltas_moves_with_a_bass_under_the_same_voice", check_ltas_moves_with_a_bass_under_the_same_voice)
     return finish()
 

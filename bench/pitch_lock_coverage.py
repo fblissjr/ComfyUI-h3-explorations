@@ -31,11 +31,24 @@ frames sound like needs listening.
   the voice, the register sung) as well as with whose voice it is, so read it
   only beside the same figure for the scaffold and the target vocal.
 
-    <comfy-venv-python> bench/pitch_lock_coverage.py frames OUT_VOC TARGET_VOC [OUT_VOC TARGET_VOC ...]
+- `rests`: what a clip holds while the target vocal rests: its level there
+  against its level while the vocal sings, how that sound is spread over
+  `BANDS_HZ`, and how much of it each stem carries. A vocal stem that carries
+  the rests' sound is not only a voice.
+- `under`: a clean voice with a bed mixed under it at each of `BED_LEVELS_DB`,
+  and the share of the voice's pitched frames that keep a pitch. It says how
+  loud an accompaniment must be before YIN loses the voice.
+
+`frames --highpass HZ` filters the output first, to ask whether the band under
+HZ (a bass left in the stem) is what hides the pitch.
+
+    <comfy-venv-python> bench/pitch_lock_coverage.py frames [--highpass HZ] OUT_VOC TARGET_VOC [OUT_VOC TARGET_VOC ...]
     <comfy-venv-python> bench/pitch_lock_coverage.py agree STEM_A STEM_B TARGET_VOC
     <comfy-venv-python> bench/pitch_lock_coverage.py levels MIX STEM [STEM ...]
     <comfy-venv-python> bench/pitch_lock_coverage.py periodic FILE [FILE ...]
     <comfy-venv-python> bench/pitch_lock_coverage.py ltas REFERENCE FILE [FILE ...]
+    <comfy-venv-python> bench/pitch_lock_coverage.py rests TARGET_VOC CLIP [STEM ...]
+    <comfy-venv-python> bench/pitch_lock_coverage.py under VOICE BED
 """
 
 from __future__ import annotations
@@ -70,6 +83,12 @@ LOUD_PERCENTILE = 95.0
 LEVEL_RATE = 44100
 # The mel settings of the cover gate's `ltas_cos_kurt_unplugged`, so the figures are comparable.
 LTAS_N_FFT, LTAS_HOP, LTAS_MELS = 1024, 256, 64
+# A frame is a rest when the target vocal is this far under its loud frames.
+REST_BELOW_LOUD_DB = 30.0
+BANDS_HZ = ((0, 150), (150, 1000), (1000, 4000), (4000, RATE // 2))
+BAND_N_FFT = 2048
+BED_LEVELS_DB = (-20.0, -15.0, -10.0, -5.0, 0.0)
+HIGHPASS_PASSES = 4  # second-order sections in a row
 
 
 def voiced(f0: np.ndarray) -> np.ndarray:
@@ -250,6 +269,68 @@ def ltas_cosine(a_24k: torch.Tensor, b_24k: torch.Tensor) -> float:
     return float(torch.dot(va, vb) / (va.norm() * vb.norm() + 1e-12))
 
 
+def highpass(wav_24k: torch.Tensor, hz: float) -> torch.Tensor:
+    for _ in range(HIGHPASS_PASSES):
+        wav_24k = torchaudio.functional.highpass_biquad(wav_24k, RATE, hz)
+    return wav_24k
+
+
+def _frame_power(wav_24k: torch.Tensor) -> np.ndarray:
+    """Power per frequency bin and frame, `[bins, frames]`, on YIN's hop."""
+    window = torch.hann_window(BAND_N_FFT)
+    spec = torch.stft(wav_24k.float(), n_fft=BAND_N_FFT, hop_length=yin_probe.DEFAULT_HOP_LEN, window=window, center=False, return_complex=True)
+    return (spec.abs() ** 2).numpy()
+
+
+def _level_db(power: np.ndarray, frames: np.ndarray) -> float:
+    return float(10.0 * np.log10(power[:, frames].sum() / max(1, int(frames.sum())) + 1e-20))
+
+
+def _band_split(power: np.ndarray, frames: np.ndarray) -> dict[str, float]:
+    freqs = np.fft.rfftfreq(BAND_N_FFT, 1.0 / RATE)
+    total = power[:, frames].sum() + 1e-20
+    return {
+        f"{lo}-{hi}": round(float(10.0 * np.log10(power[(freqs >= lo) & (freqs < hi)][:, frames].sum() / total + 1e-12)), 1)
+        for lo, hi in BANDS_HZ
+    }
+
+
+def rest_report(tgt_voc_24k: torch.Tensor, clip_24k: torch.Tensor, stems: dict[str, torch.Tensor]) -> dict[str, Any]:
+    """What `clip` holds in the frames where the target vocal rests, and which stems carry it."""
+    target, clip = _frame_power(tgt_voc_24k), _frame_power(clip_24k)
+    n = min(target.shape[1], clip.shape[1])
+    level = 10.0 * np.log10(target[:, :n].sum(axis=0) + 1e-20)
+    loud = np.percentile(level, LOUD_PERCENTILE)
+    rest, sung = level < loud - REST_BELOW_LOUD_DB, level > loud - ACTIVE_BELOW_LOUD_DB
+    out: dict[str, Any] = {"rest_frames": int(rest.sum()), "sung_frames": int(sung.sum())}
+    if not rest.any() or not sung.any():
+        return out
+    out["rest_re_sung_db"] = round(_level_db(clip[:, :n], rest) - _level_db(clip[:, :n], sung), 1)
+    out["bands_in_rests_db"] = _band_split(clip[:, :n], rest)
+    out["bands_all_frames_db"] = _band_split(clip[:, :n], np.ones(n, dtype=bool))
+    out["stems_re_clip_in_rests_db"] = {}
+    for name, stem in stems.items():
+        power = _frame_power(stem)
+        k = min(n, power.shape[1])
+        out["stems_re_clip_in_rests_db"][name] = round(_level_db(power[:, :k], rest[:k]) - _level_db(clip[:, :k], rest[:k]), 1)
+    return out
+
+
+def kept_under_bed(voice_24k: torch.Tensor, bed_24k: torch.Tensor) -> dict[str, Any]:
+    """Share of the voice's pitched frames that keep a pitch with `bed` mixed under it, by bed level re the voice."""
+    n = min(voice_24k.numel(), bed_24k.numel())
+    voice, bed = voice_24k[:n].float(), bed_24k[:n].float()
+    clean = voiced(yin_probe.yin_f0(voice, sr=RATE)[0].numpy())
+    scale = float(torch.sqrt(torch.mean(voice**2)) / (torch.sqrt(torch.mean(bed**2)) + 1e-12))
+    kept = {}
+    for level_db in BED_LEVELS_DB:
+        mixed = voice + bed * scale * 10.0 ** (level_db / 20.0)
+        still = voiced(yin_probe.yin_f0(mixed, sr=RATE)[0].numpy())
+        kept[f"{level_db:+.0f}"] = round(float((still & clean).sum()) / max(1, int(clean.sum())), 3)
+    bed_alone = periodic_share(*(x.numpy() for x in yin_probe.yin_f0(bed, sr=RATE)))
+    return {"voice_pitched_frames": int(clean.sum()), "bed_pitched_frac_of_active": bed_alone["pitched_frac_of_active"], "kept_frac_by_bed_db": kept}
+
+
 def _db(x: np.ndarray) -> float:
     return float(20.0 * np.log10(max(1e-12, float(np.sqrt(np.mean(np.square(x, dtype=np.float64)))))))
 
@@ -290,6 +371,7 @@ def main(argv: list[str] | None = None) -> int:
     sub = parser.add_subparsers(dest="mode", required=True)
     p_frames = sub.add_parser("frames", help="split the target's voiced frames and sweep the YIN threshold")
     p_frames.add_argument("pairs", nargs="+", type=Path, metavar="VOC", help="OUT_VOC TARGET_VOC, repeated")
+    p_frames.add_argument("--highpass", type=float, default=None, metavar="HZ", help="filter each OUT_VOC above HZ first")
     p_agree = sub.add_parser("agree", help="compare two estimates of one output vocal")
     p_agree.add_argument("stem_a", type=Path)
     p_agree.add_argument("stem_b", type=Path)
@@ -302,6 +384,13 @@ def main(argv: list[str] | None = None) -> int:
     p_ltas = sub.add_parser("ltas", help="long-term spectrum cosine against a reference")
     p_ltas.add_argument("reference", type=Path)
     p_ltas.add_argument("files", nargs="+", type=Path)
+    p_rests = sub.add_parser("rests", help="what a clip holds while the target vocal rests")
+    p_rests.add_argument("target", type=Path)
+    p_rests.add_argument("clip", type=Path)
+    p_rests.add_argument("stems", nargs="*", type=Path)
+    p_under = sub.add_parser("under", help="pitched frames a voice keeps with a bed under it")
+    p_under.add_argument("voice", type=Path)
+    p_under.add_argument("bed", type=Path)
     args = parser.parse_args(argv)
 
     results: dict[str, Any]
@@ -309,10 +398,16 @@ def main(argv: list[str] | None = None) -> int:
         if len(args.pairs) % 2:
             parser.error("give files in pairs: OUT_VOC TARGET_VOC")
         outputs = args.pairs[0::2]
+
+        def load_out(path: Path) -> torch.Tensor:
+            wav = yin_probe.load_mono_audio(path, sr=RATE)
+            return wav if args.highpass is None else highpass(wav, args.highpass)
+
         results = {
             name: {
                 "target": target.name,
-                **frames_report(yin_probe.load_mono_audio(out, sr=RATE), yin_probe.load_mono_audio(target, sr=RATE)),
+                "highpass_hz": args.highpass,
+                **frames_report(load_out(out), yin_probe.load_mono_audio(target, sr=RATE)),
             }
             for name, out, target in zip(_label(outputs), outputs, args.pairs[1::2])
         }
@@ -326,6 +421,11 @@ def main(argv: list[str] | None = None) -> int:
         results = stem_levels(_load_stereo(args.mix), dict(zip(_label(args.stems), map(_load_stereo, args.stems))))
     elif args.mode == "periodic":
         results = {name: periodic_share(*_yin(path)) for name, path in zip(_label(args.files), args.files)}
+    elif args.mode == "rests":
+        load = lambda path: yin_probe.load_mono_audio(path, sr=RATE)  # noqa: E731
+        results = rest_report(load(args.target), load(args.clip), dict(zip(_label(args.stems), map(load, args.stems))))
+    elif args.mode == "under":
+        results = kept_under_bed(yin_probe.load_mono_audio(args.voice, sr=RATE), yin_probe.load_mono_audio(args.bed, sr=RATE))
     else:
         ref = yin_probe.load_mono_audio(args.reference, sr=RATE)
         half = ref.numel() // 2

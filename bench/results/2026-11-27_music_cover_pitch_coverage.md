@@ -1,7 +1,8 @@
 # What the Unscored Frames of the 243-Frame Cover Gate Hold (`2026-11-27`)
 
-- **Verdict:** In the seven `justaflicker` arms the target's voiced frames that go unscored are not silent, not off the beat and not lost by the separator: the output is as loud there as in its scored frames and YIN finds no pitch in it. They are mostly the frames where the target itself is least steady, and there are more of them at higher `denoise`. The two other-song arms cannot be read, because their target vocals are mostly unpitched before any render. The gate's timbre figure does not show whether the singer changed (section 9). What the unpitched sound is has to be judged by ear; no session has listened.
+- **Verdict:** In the seven `justaflicker` arms the target's voiced frames that go unscored are not silent, not off the beat and not lost by the separator: the output is as loud there as in its scored frames and YIN finds no pitch in it. They are mostly the frames where the target itself is least steady, and there are more of them at higher `denoise`. The two other-song arms cannot be read, because their target vocals are mostly unpitched before any render. Accompaniment is left in the vocal stems, and it is too quiet to explain the loss (section 11). The gate's timbre figure does not show whether the singer changed (section 9). What the unpitched sound is has to be judged by ear; no session has listened.
 - **Date:** `2026-11-27`
+- **Corrected the same day:** section 7 first read the six-stem levels as the bass having left the renders and the guitar stem gaining nothing. Section 11 measures the vocal rests and shows otherwise; items 2 and 3 of section 7 are rewritten. The other session's listening prompted the check.
 - **Extends:** [`2026-11-27_music_cover_pitch_lock_metric_null.md`](2026-11-27_music_cover_pitch_lock_metric_null.md), section 5 (it could not say why most frames have no pitch) and section 6 (scored from a different separator, on another machine).
 - **Scripts:** [`bench/pitch_lock_coverage.py`](../pitch_lock_coverage.py), [`bench/check_pitch_lock_coverage.py`](../check_pitch_lock_coverage.py), [`bench/pitch_lock_metrics.py`](../pitch_lock_metrics.py)
 - **Inputs:** the gate's own files, no new renders. Under `$H3_OUTPUT_DIR/Video/pure_h3_cover_song_2026-11-27/`: `<arm>_00001-audio.mp4` and the gate's `MelBand-RoFormer` stems `vocal_stems/<arm>_voc.wav` ("gate stem" below). Under `$H3_INPUT_DIR/music_cover_stems/`: each arm's target vocal and scaffold, the three songs' stem folders, and the reference voice `kurt_vocal_clean_192f.wav`.
@@ -68,7 +69,7 @@ Targets: `flicker_voc_m5_verse_243f.wav` for `c1`, `c2`, `c4`, `c5` and `c6`; `f
 | `c8_kite_chorus_d30` | `17` / `4` / `0` / `262` | `1.0` | `17` / `4` / `0` / `262` | `1.0` |
 | `c9_fridge_chorus_d30` | `22` / `0` / `0` / `202` | `1.0` | `21` / `1` / `0` / `202` | `1.0` |
 
-**Not a weak stem.** The frames with no pitch in the gate stem have none in the other separator's stem, bar a handful, and none in the mix before separation. Separation adds frames to what the mix already gives; the mix has a pitch in no frame where the gate stem lacks one.
+**Not a stem that one separator got wrong.** The frames with no pitch in the gate stem have none in the other separator's stem, bar a handful, and none in the mix before separation. Separation adds frames to what the mix already gives; the mix has a pitch in no frame where the gate stem lacks one. Whether both stems carry accompaniment is section 11's question.
 
 ## 4. Whether the unpitched frames still follow the melody
 
@@ -171,7 +172,7 @@ The same figure for each source vocal before the gate's pitch shift, cut from th
 | `thatsnotakite`, `c8` window | `926` | `0.313` | `0.12` / `0.25` / `0.51` |
 | `inthefridge`, `c9` window | `839` | `0.243` | `0.15` / `0.28` / `0.57` |
 
-1. **The rendered voice is far less periodic than the voice it imitates.** The reference recording and the three `justaflicker` targets have a pitch in most of their active frames; the output vocals have one in a minority. The scaffold keeps nearly every frame through the second separator (earlier record, section 6) and through the audio VAE followed by the gate's separator (`controls.audiovae_roundtrip` in the gate's report), so neither the separation nor the VAE does this.
+1. **The output vocal stems are far less periodic than the voice they imitate.** The reference recording and the three `justaflicker` targets have a pitch in most of their active frames; the output vocal stems have one in a minority. Section 11 shows the stems carry some accompaniment, and that it is too quiet to account for this. The scaffold keeps nearly every frame through the second separator (earlier record, section 6) and through the audio VAE followed by the gate's separator (`controls.audiovae_roundtrip` in the gate's report), so neither the separation nor the VAE does this.
 2. **The `thatsnotakite` and `inthefridge` targets are themselves mostly unpitched.** They read like the renders, not like the `justaflicker` targets, and their source vocals read the same before the pitch shift, so the shift is not the cause. That leaves the scoring of `c8` and `c9` with few target frames to stand on. Whether those vocals are layered, harmonized or processed is a listening question; a pitch tracker that follows one voice will not score them as they are.
 
 ## 7. Stem levels
@@ -198,8 +199,8 @@ The same figure for each source vocal before the gate's pitch shift, cut from th
 By level only, not by ear:
 
 1. **Both separators put nearly the whole render in the vocal stem.** Each vocal stem is within a decibel of the mix, and taking the gate stem out leaves a residue well under it.
-2. **The scaffold's bass is not in the renders' bass stem, except in `c9`.** Every scaffold row shows a bass under the vocal. In the other eight arms the bass stem is well below its scaffold's, and in five of them it is close to empty.
-3. **The guitar stem gains nothing.** The guitar stem of each `justaflicker` render is at or below about its scaffold's level, and it stays empty in `c8` and `c9`, whose scaffolds have none.
+2. **The `six` bass stem is close to empty in five arms and well below its scaffold's in three more.** That is not the bass leaving the render. Section 11 finds low-band sound in the vocal rests of every arm, and `six` files it under vocals; in `c8` all of it.
+3. **Over the whole clip the guitar stem of each `justaflicker` render is near its scaffold's level, and it is empty in `c8` and `c9`, whose scaffolds have none.** In the vocal rests it is a different picture (section 11).
 4. **`other` holds something the scaffold does not have in several arms, most in `c6` and `c9`.**
 
 These are two separators trained on recorded music reading generated audio. Whether a guitar or a bass can be heard is a listening question.
@@ -239,7 +240,7 @@ The verse arms lose the same passages, which is section 5 seen in time. What to 
 | `c9_fridge_chorus_d30` | `+0.247` | `+0.585` | `+0.787` | `+0.858` | `+0.071` |
 
 1. **The figure follows what is in the clip more than whose voice it is.** Every scaffold reads far below its own target vocal, with the same singer in both: the difference is the bass and bed under the voice. `check_ltas_moves_with_a_bass_under_the_same_voice` holds the same on a synthetic voice.
-2. **The rise from scaffold to render cannot be read as a change of singer.** Section 7 shows the renders lose the scaffold's bass, and that alone moves this figure the same way. Every render mix still reads below its unconverted target vocal.
+2. **The rise from scaffold to render cannot be read as a change of singer.** Section 11 shows the low band is weaker in every render than in its scaffold, and that alone moves this figure the same way. Every render mix still reads below its unconverted target vocal.
 3. **Like for like, about half the stems read no closer to the reference than the unconverted target vocal does.** The last column is negative in `c1`, `c3`, `c6`, `c7` and `c8`, and positive in `c2`, `c4`, `c5` and `c9`.
 4. **The scale does not separate singers.** The chorus and bridge target vocals, sung by the original singer, read higher against the reference than the reference's two halves read against each other.
 
@@ -258,7 +259,81 @@ The audio pass of every graph is a `BasicScheduler` with `steps` `12` (node `160
 
 **The song's setting is one schedule step from the `0.30` arms and five from `c1`.** Between `c1` and `c5` the scored count falls by about ten frames for each schedule step, and the two seeds at `0.30` differ by more than that (section 5). By these arms the song's verse windows should land like the `0.30` pair, where one seed held the melody and the other partly lost it, and not like `c1`. No arm was rendered at `0.29`.
 
-## 11. Commands
+## 11. Whether accompaniment left in the vocal stem explains the unpitched frames
+
+The other session, listening, hears chords under the voice in `c3` and a bass riff in the rests of `c9`, and holds that these separators leave such sound in the vocal stem. If they do, a frame could be unpitched because two sources sound at once. Three measurements.
+
+**What the vocal rests hold.** `rests`: the frames where the target vocal is more than `REST_BELOW_LOUD_DB` under its loud frames, so the scaffold has no voice there. Columns: the clip's level in the rests against its level while the vocal sings; how the rests' sound is spread over three bands; and each stem's level against the clip, within the rests.
+
+| Clip | Rest frames | Rests against sung, dB | Rests' sound under `150 Hz` / `150`–`1000 Hz` / above, dB | In the rests, against the clip: gate stem | `six` vocals | `six` bass | `six` guitar | `six` other |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| scaffold `flicker_m5_verse_cal_243f.wav` | `141` | `-9.8` | `-0.5` / `-9.5` / `-26.0` |  | `-19.1` | `-0.6` | `-11.3` | `-99.5` |
+| scaffold `flicker_m5_chorus_cal_243f.wav` | `27` | `-8.3` | `-0.8` / `-7.9` / `-17.8` |  | `-18.3` | `-1.0` | `-16.2` | `-9.9` |
+| scaffold `flicker_m5_bridge_cal_243f.wav` | `18` | `-10.1` | `-1.0` / `-7.0` / `-21.7` |  | `-18.1` | `-1.2` | `-13.6` | `-9.2` |
+| scaffold `kite_m6_voc_bass_cal_243f.wav` | `35` | `-7.5` | `-0.1` / `-17.1` / `-28.0` |  | `-24.0` | `-0.0` | `-106.5` | `-104.4` |
+| scaffold `fridge_p2_voc_bass_cal_243f.wav` | `30` | `-10.8` | `-0.3` / `-13.3` / `-19.4` |  | `-18.2` | `-0.1` | `-102.9` | `-103.1` |
+| `c1_verse_m5_d26` | `140` | `-10.3` | `-3.1` / `-3.2` / `-14.5` | `-14.1` | `-3.2` | `-76.8` | `-8.0` | `-48.7` |
+| `c2_verse_m5_d32` | `140` | `-9.6` | `-7.0` / `-1.7` / `-9.4` | `-11.2` | `-9.2` | `-55.2` | `-3.4` | `-21.5` |
+| `c3_chorus_m5_d30` | `27` | `-6.8` | `-7.3` / `-1.7` / `-8.6` | `-20.3` | `-8.3` | `-87.6` | `-27.5` | `-8.2` |
+| `c4_verse_m5_rain_a2v0_d30` | `140` | `-10.7` | `-6.1` / `-1.8` / `-10.4` | `-11.5` | `-10.7` | `-16.0` | `-3.3` | `-9.6` |
+| `c5_verse_m5_d30_s1` | `140` | `-9.9` | `-5.6` / `-1.9` / `-10.7` | `-10.6` | `-9.0` | `-11.5` | `-5.5` | `-11.3` |
+| `c6_verse_m5_d30_s2` | `140` | `-11.5` | `-4.3` / `-2.8` / `-10.0` | `-8.8` | `-8.3` | `-82.6` | `-7.8` | `-4.4` |
+| `c7_bridge_peak_m5_d30` | `18` | `-6.9` | `-2.3` / `-4.7` / `-11.6` | `-12.3` | `-11.8` | `-27.6` | `-24.0` | `-11.1` |
+| `c8_kite_chorus_d30` | `35` | `-9.2` | `-0.7` / `-8.9` / `-19.3` | `-8.4` | `+0.0` | `-85.5` | `-92.0` | `-92.6` |
+| `c9_fridge_chorus_d30` | `30` | `-8.5` | `-2.3` / `-4.2` / `-14.9` | `-20.2` | `-8.9` | `-2.0` | `-92.3` | `-16.1` |
+
+1. **Every render sounds through the vocal rests, at about the level its scaffold does.**
+2. **The scaffolds' rests are bass; the renders' rests are not only bass.** In the scaffolds nearly all of the rests' sound is under `150 Hz` and `six` files it under bass. In the `justaflicker` renders much of it sits between `150` and `1000 Hz`, and `six` files a good part of that under guitar or other. So where the voice rests, these renders hold more mid-range sound than their scaffold did, most in the verse arms at `0.30` and `0.32`.
+3. **Both separators leave some of it in the vocal stem.** The gate stem carries the rests' sound at the levels in its column, least in `c3` and `c9`, most in `c6` and `c8`. `six` calls all of `c8`'s rests vocal, though they are almost entirely under `150 Hz`.
+
+The share of each clip's sound under `150 Hz`, over all frames, in dB against the clip:
+
+| Arm | Its scaffold | Render |
+| :--- | :---: | :---: |
+| `c1_verse_m5_d26` | `-8.8` | `-14.7` |
+| `c2_verse_m5_d32` | `-8.8` | `-19.4` |
+| `c3_chorus_m5_d30` | `-11.5` | `-16.5` |
+| `c4_verse_m5_rain_a2v0_d30` | `-8.8` | `-19.6` |
+| `c5_verse_m5_d30_s1` | `-8.8` | `-17.3` |
+| `c6_verse_m5_d30_s2` | `-8.8` | `-15.8` |
+| `c7_bridge_peak_m5_d30` | `-10.9` | `-13.3` |
+| `c8_kite_chorus_d30` | `-9.5` | `-17.6` |
+| `c9_fridge_chorus_d30` | `-10.6` | `-14.1` |
+
+4. **The low band is weaker in every render than in its scaffold, and not gone.**
+
+**Whether the low band hides the pitch.** `frames --highpass 150`, which filters the output before scoring. The unseparated scaffolds are the control: voice, bass and bed together.
+
+| Clip scored against its target | Scored frames as is | High-passed at `150 Hz` | Target voiced |
+| :--- | :---: | :---: | :---: |
+| scaffold `flicker_m5_verse_cal_243f.wav`, unseparated | `414` | `535` | `627` |
+| scaffold `flicker_m5_chorus_cal_243f.wav`, unseparated | `342` | `442` | `659` |
+| scaffold `flicker_m5_bridge_cal_243f.wav`, unseparated | `450` | `569` | `634` |
+| scaffold `kite_m6_voc_bass_cal_243f.wav`, unseparated | `142` | `266` | `283` |
+| scaffold `fridge_p2_voc_bass_cal_243f.wav`, unseparated | `154` | `201` | `226` |
+| `c1_verse_m5_d26`, gate stem | `193` | `164` | `627` |
+| `c2_verse_m5_d32`, gate stem | `56` | `56` | `627` |
+| `c3_chorus_m5_d30`, gate stem | `192` | `142` | `657` |
+| `c4_verse_m5_rain_a2v0_d30`, gate stem | `230` | `185` | `627` |
+| `c5_verse_m5_d30_s1`, gate stem | `134` | `108` | `627` |
+| `c6_verse_m5_d30_s2`, gate stem | `106` | `91` | `627` |
+| `c7_bridge_peak_m5_d30`, gate stem | `239` | `213` | `634` |
+| `c8_kite_chorus_d30`, gate stem | `21` | `14` | `283` |
+| `c9_fridge_chorus_d30`, gate stem | `22` | `23` | `224` |
+
+5. **Taking the low band out restores the scaffolds and does nothing for the renders.** With its bass in, an unseparated scaffold loses a good part of its frames, and the filter brings many of them back (`check_rests_and_highpass_find_a_bass_left_in_the_stem` holds the same on a synthetic voice). No render stem gains more than a frame; most lose some, as a clean vocal does under the same filter. The pitch is lost above `150 Hz`.
+
+**How loud a bed must be.** `under`: the `justaflicker` verse vocal before the pitch shift, with the same song's `harmonic.wav` mixed under it.
+
+| Bed level against the voice | `-20 dB` | `-15 dB` | `-10 dB` | `-5 dB` | `+0 dB` |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| Share of the voice's pitched frames that keep a pitch | `0.978` | `0.946` | `0.850` | `0.625` | `0.473` |
+
+6. **Even a bed as loud as the voice costs less than the renders lose, and one well under the voice costs little.** In the rests, the gate stem carries the leftover sound far below that, once its column in the first table is added to the rests' own level against the sung parts.
+
+**Reading.** The renders carry accompaniment, with more mid-range sound between phrases than their scaffolds had, and neither separator removes all of it from the vocal stem. That does not explain the unpitched frames: the low band is not what hides the pitch, and the mid-range sound the stems carry between phrases is too quiet to. What this cannot rule out is an accompaniment much louder under the voice than between phrases.
+
+## 12. Commands
 
 ```bash
 V="$H3_OUTPUT_DIR/Video/pure_h3_cover_song_2026-11-27"; S="$V/vocal_stems"; I="$H3_INPUT_DIR/music_cover_stems"
@@ -271,13 +346,16 @@ X=<scratch folder>   # sepaudio stems "$V/<arm>_00001-audio.mp4" -r six -o "$X",
 ffmpeg -ss 63.625 -t 10.125 -i "$I/thatsnotakite/vocals.wav" "$X/kite_chorus_src_voc.wav"   # section 6, a source window; inthefridge starts at 60.500
 "$PY" bench/pitch_lock_coverage.py levels "$V/c1_verse_m5_d26_00001-audio.mp4" "$S/c1_verse_m5_d26_voc.wav" "$X/c1_verse_m5_d26_00001-audio/"{vocals,guitar,bass,other,piano,drums}.wav  # section 7
 "$PY" bench/pitch_lock_coverage.py ltas "$I/kurt_vocal_clean_192f.wav" "$I/flicker_m5_verse_cal_243f.wav" "$I/flicker_voc_m5_verse_243f.wav" "$V/c1_verse_m5_d26_00001-audio.mp4" "$S/c1_verse_m5_d26_voc.wav"  # section 9
+"$PY" bench/pitch_lock_coverage.py rests "$I/flicker_voc_m5_verse_243f.wav" "$V/c1_verse_m5_d26_00001-audio.mp4" "$S/c1_verse_m5_d26_voc.wav" "$X/c1_verse_m5_d26_00001-audio/"{vocals,bass,guitar,other}.wav  # section 11
+"$PY" bench/pitch_lock_coverage.py frames --highpass 150 "$S/c1_verse_m5_d26_voc.wav" "$I/flicker_voc_m5_verse_243f.wav"  # section 11
+"$PY" bench/pitch_lock_coverage.py under "$X/flicker_verse_src_voc.wav" "$X/flicker_verse_src_bed.wav"  # section 11; both cut at 10.500 as below, from vocals.wav and harmonic.wav
 ```
 
 The `justaflicker` source windows start at `10.500`, `42.200` and `103.000` for the verse, chorus and bridge.
 
-## 12. Limits
+## 13. Limits
 
-- No one has listened. "Unpitched" is YIN's judgment at `probe_yin_f0_drift.DEFAULT_THRESHOLD`. It does not tell rasp from breath, from two voices at once, or from an instrument a separator left in the vocal stem.
+- No one has listened. "Unpitched" is YIN's judgment at `probe_yin_f0_drift.DEFAULT_THRESHOLD`. It does not tell rasp from breath or from two voices at once. Section 11 bounds how much an instrument left in the stem can account for, by its level between phrases; it cannot see the level under the voice.
 - A better separator might recover frames that neither of these two does. Section 3 shows the two agree, not that they are right.
 - The in-tune share of gained frames is a floor. A looser threshold takes harmonics for the pitch more often, and the check's control is a tone under white noise, which a rough voice is not.
 - One render per arm, apart from the one pair of seeds.
@@ -285,7 +363,7 @@ The `justaflicker` source windows start at `10.500`, `42.200` and `103.000` for 
 - The time-shift null has the limits listed in the earlier record, section 5.
 - Section 9 shows what the timbre figure cannot say. It offers no measure of the singer in its place.
 
-## 13. Not covered
+## 14. Not covered
 
 - The 4-window song.
 - The other two songs, beyond showing that their targets cannot carry this scoring.
