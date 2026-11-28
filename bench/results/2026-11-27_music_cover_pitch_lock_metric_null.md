@@ -12,12 +12,12 @@
 ## 1. What the gate's table could not say
 
 1. **No column had a chance level.** A cent error or an in-tune share was read by its size. Nothing recorded what the same output scores against a target it is not following.
-2. **`vocal_f0_r` builds the target into the output.** It moves every output frame to the octave nearest its target frame and then correlates the two. After that step the moved track is the target plus a bounded error, so it correlates with the target whatever was sung. `check_pitch_lock_metrics.py::check_unrelated_pair_sits_inside_its_null` holds this on two unrelated synthetic melodies.
+2. **`vocal_f0_r` builds the target into the output.** It moves every output frame to the octave nearest its target frame and then correlates the two. After that step the moved track is the target plus a bounded error, so it correlates with the target whatever was sung. `bench/check_pitch_lock_metrics.py::check_unrelated_pair_sits_inside_its_null` holds this on two unrelated synthetic melodies.
 3. **The transposition is chosen by median error.** `best_tr_st` is the whole-semitone shift with the lowest median error, and `rel_in_tune_frac_50c` is read at that shift. Where the errors fall in two groups, that shift can leave the position where most frames were in tune.
 
 ## 2. Method
 
-`pitch_lock_metrics.py::lag_null` scores the output against its own target rotated in time, every `LAG_STEP_S` from `LAG_EDGE_S` after the start to `LAG_EDGE_S` before the end. Rotation keeps the target's key, range and amount of singing and removes only the alignment. Each shift gets the same transposition search as the aligned score. For each column it reports the null's median, the null's best value, and the share of shifts the aligned score is better than.
+`bench/pitch_lock_metrics.py::lag_null` scores the output against its own target rotated in time, every `LAG_STEP_S` from `LAG_EDGE_S` after the start to `LAG_EDGE_S` before the end. Rotation keeps the target's key, range and amount of singing and removes only the alignment. Each shift gets the same transposition search as the aligned score. For each column it reports the null's median, the null's best value, and the share of shifts the aligned score is better than.
 
 `vocal_f0_r_one_shift` is the same correlation with one octave count for the whole clip.
 
@@ -118,7 +118,7 @@ Every cell is aligned / null median / null best / share of `33` shifts beaten (`
 3. **`c2` cannot be read.** It rests on `54` frames. Its untransposed columns beat every shift; its transposed columns sit inside their null, which is what frames of nearly one pitch produce once each shift may pick its own transposition.
 4. **About a quarter of the melody is scored in `c1` and `c3`, against nearly all of it in the controls.** The separation path keeps the scaffold's voicing, so the loss is in the renders. `c1` and `c2` differ only in `denoise`, and `c2` keeps a third of `c1`'s scored frames.
 
-## 7. Not done
+## 7. Follow-up & Remaining Scope
 
-- `music_cover_pitch_lock_gate.py::_vocal_pitch_metrics` still computes its own columns. `pitch_lock_metrics.py::vocal_pitch_metrics` takes the same two arguments and returns the same keys plus `vocal_f0_r_one_shift` and `lag_null`, so it can replace the body. Not swapped here because the gate could not be run on the machine this was written on.
+- `bench/music_cover_pitch_lock_gate.py::_vocal_pitch_metrics` now delegates directly to `bench/pitch_lock_metrics.py::vocal_pitch_metrics` (returning the legacy keys plus `vocal_f0_r_one_shift`, `tgt_voiced_frames`, `voiced_overlap_frac`, and `lag_null`). The archived 6-arm gate JSON was not re-rendered because section 3 above already rescored its saved stems.
 - The gate record's section 2 table and the laws drawn from it are left as written, with a dated pointer to this record.

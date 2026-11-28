@@ -21,7 +21,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import math
 import os
 import subprocess
 import sys
@@ -47,7 +46,7 @@ if str(REPO / "workflows") not in sys.path:
 
 import h3_config  # noqa: E402
 import prepare_pitch_lock_assets as prep_mod  # noqa: E402
-import probe_yin_f0_drift as yin_probe  # noqa: E402
+import pitch_lock_metrics  # noqa: E402
 
 DEFAULT_URL = comfy_client.DEFAULT_COMFY_URL
 OUT_PREFIX_DIR = "Video/music_cover_pitch_lock_2026-11-27"
@@ -451,64 +450,7 @@ def _ltas_cos(a_y: np.ndarray, b_y: np.ndarray) -> float:
 
 
 def _vocal_pitch_metrics(out_voc_24k: torch.Tensor, tgt_voc_24k: torch.Tensor) -> dict[str, Any]:
-    f0_o, _, _ = yin_probe.yin_f0(out_voc_24k, sr=24000)
-    f0_t, _, _ = yin_probe.yin_f0(tgt_voc_24k, sr=24000)
-    n = min(int(f0_o.numel()), int(f0_t.numel()))
-    fo = f0_o[:n].numpy()
-    ft = f0_t[:n].numpy()
-    valid = np.isfinite(fo) & np.isfinite(ft) & (fo > 0) & (ft > 0)
-    n_mut = int(np.sum(valid))
-    out_valid = fo[np.isfinite(fo) & (fo > 0)]
-    med_voc = float(np.median(out_valid)) if len(out_valid) else float("nan")
-    if n_mut < 12:
-        return {
-            "vocal_med_f0_hz": round(med_voc, 2) if math.isfinite(med_voc) else None,
-            "mut_voiced_frames": n_mut,
-            "med_abs_cent_err": None,
-            "med_signed_cent_bias": None,
-            "in_tune_frac_50c": None,
-            "best_tr_st": None,
-            "rel_med_abs_cent_err": None,
-            "rel_in_tune_frac_50c": None,
-            "vocal_f0_r": None,
-        }
-    # Octave-folded cent error in [-600, +600]
-    raw_cents = 1200.0 * np.log2(fo[valid] / ft[valid])
-    folded = ((raw_cents + 600.0) % 1200.0) - 600.0
-    med_bias = float(np.median(folded))
-    abs_err = np.abs(folded)
-    med_abs = float(np.median(abs_err))
-    in50 = float(np.mean(abs_err <= 50.0))
-
-    # Best integer semitone transposition (separating global register/key shift from interval fidelity)
-    best_st, best_rel_med, best_rel_in50 = 0, 999.0, 0.0
-    for k in range(-6, 7):
-        d_k = ((raw_cents - 100.0 * k + 600.0) % 1200.0) - 600.0
-        m_k = float(np.median(np.abs(d_k)))
-        if m_k < best_rel_med:
-            best_st = k
-            best_rel_med = m_k
-            best_rel_in50 = float(np.mean(np.abs(d_k) <= 50.0))
-
-    # Octave-aligned F0 contour correlation: fold fo into nearest octave of ft
-    oct_shift = np.round(np.log2(ft[valid] / fo[valid]))
-    fo_aligned = np.log2(fo[valid]) + oct_shift
-    ft_log = np.log2(ft[valid])
-    fa = fo_aligned - fo_aligned.mean()
-    fb = ft_log - ft_log.mean()
-    denom = float(np.linalg.norm(fa) * np.linalg.norm(fb))
-    r = float(np.dot(fa, fb) / denom) if denom > 1e-12 else 0.0
-    return {
-        "vocal_med_f0_hz": round(med_voc, 2) if math.isfinite(med_voc) else None,
-        "mut_voiced_frames": n_mut,
-        "med_abs_cent_err": round(med_abs, 1),
-        "med_signed_cent_bias": round(med_bias, 1),
-        "in_tune_frac_50c": round(in50, 3),
-        "best_tr_st": best_st,
-        "rel_med_abs_cent_err": round(best_rel_med, 1),
-        "rel_in_tune_frac_50c": round(best_rel_in50, 3),
-        "vocal_f0_r": round(r, 3),
-    }
+    return pitch_lock_metrics.vocal_pitch_metrics(out_voc_24k, tgt_voc_24k)
 
 
 def analyze(input_dir: Path, output_dir: Path, arm_files: dict[str, Path]) -> dict[str, Any]:
