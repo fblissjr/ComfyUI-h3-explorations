@@ -119,13 +119,18 @@ routed, _pol = attach_self_mask_router(
 # -> MiniMaxH3EditGuider(routed, original=base_cond, edited=edit_cond, scale=1.95, first_step=1, last_step=3, streams="video_only", mask=None)
 ```
 
-On the walk clip (`k2`, `87.5 s`, record sections 12 & 13), this transforms her head-to-toe across all `141f`
+On the walk clip (`k2`, `87.5 s`, record sections 12–14 & 16), this transforms her head-to-toe across all `141f`
 (median `0.000` coat-colored, `0/141` frames above `0.15`, `5.12×` in/bg MAE) while **holding the base layout,
-framing, roof/chimneys, and walk pace** (`upper_courtyard_mae = 6.98` vs. `22.05` for `1×` `f1`) with
-`reharvest="off"`. It is **close, not pixel-identical**: small fixtures (a hanging lantern left of the center door
-becomes a small barred window), fine stone texture, and the soundtrack (`rms` and envelope, even at
-`streams="video_only"`) still shift because Steps `2..5` run on a latent whose masked region has changed.
-`dilation_passes=0` (`k1`, `5.58×` contrast) is tighter around the boots but leaves her hair/head partly human.
+framing, all `11` upper arches, chimneys, and walk pace** (`upper_courtyard_mae = 6.98` vs. `22.05` for `1×` `f1`
+and `28.65` for mask-off `EditGuider`) with `reharvest="off"`. Owner playback accepted `k2` (footsteps automatically
+re-sync to the taller chrome figure's longer strides, `10` steps at `13.7f` vs. `12` at `11.0f`, record section 14).
+On the two-person clip (`p3_k2_paired_woman`, record sections 15 & 16), the same `B45 H43` mask keeps all `11` upper
+arches intact (`upper_courtyard_mae = 6.24` vs. `18.36` mask-off, which collapses the upper floor to `6` wide arches),
+while the paired prompt keeps the man yellow (`0.577`) — though because `B45 H43` masks both walkers, the man's coat
+length and face still re-draw (section 15). It is **close, not pixel-identical**: small fixtures (lantern left of
+center door → small barred window), fine stone texture, and figure height (`+44..64 px` taller chrome body) shift.
+`dilation_passes=0` (`k1`, `5.58×` contrast) is tighter around the boots but leaves her hair/head partly human where
+the taller head pokes above the undilated mask.
 
 ### `1×` Single-Pass Routing (Generates a New Take)
 
@@ -263,29 +268,29 @@ Several of our probing habits and next-step experiments are directly adapted fro
 
 ### 5A. Immediate Self-Mask & Small-Subject Follow-Ups
 
-1. **Completed (`2026-11-27`, record sections 12 & 13) — Hold the base layout on `< 9%` subjects (`B45 H43` SelfMask → `2× MiniMaxH3EditGuider`):**
-   - Verified on `c0_walk_base` (`k1` `d0` & `k2` `d1`): `k2` held layout, framing, chimneys, and walk pace
-     (`upper_courtyard_mae = 6.98` vs. `22.05` for `1×` `f1`) while delivering a full head-to-toe chrome edit
-     (median `0.000` coat-colored across all `141f`) with `reharvest="off"`. Small background fixtures (lantern →
-     barred window left of center door), fine texture, and audio (`rms` & envelope) still shifted; playback/audio
-     check pending.
-2. **Next single render — Run the two-person prompt (`p3`) through `B45 H43 -> 2× EditGuider`:**
-   - Because `B45 H43` masks both people, one `~90 s` render shows whether both change under `EditGuider` or the
-     edit prompt still picks one (and whether the untouched walker holds closer to `p3_two_people_base` than in
-     `1×` `h2`/`i2`).
-3. **Sweep 1A alone first — Rotation + text-only softmax on the `"who is who"` heads (`B46 H13`, `B48 H3`, `B48 H29`, `B47 H17`):**
+1. **Completed (`2026-11-27`, record sections 12–16) — Hold the base layout on `< 9%` subjects + mask-off control (`B45 H43` SelfMask → `2× MiniMaxH3EditGuider`):**
+   - Verified on both `c0_walk_base` (`k2`, owner playback accepted) and two-person `p3` (`p3_k2_paired_woman`,
+     `p3_k2_single_chrome`), plus both **mask-off control twins** (`walk_mask_off`, `p3_paired_mask_off`, section 16):
+     - Dropping the `B45 H43` mask collapsed the courtyard's `11` narrow upper arches into `5–6` wide arches even on
+       the verbatim paired prompt (`upper_courtyard_mae`: `28.65` vs. `6.98` walk, `18.36` vs. `6.24` paired `p3`),
+       proving the single-head zero-SAM mask is doing unmistakable architectural preservation work.
+     - Because `B45 H43` masks both walkers on `p3`, omitting the man in `edited` (`p3_k2_single_chrome`) erases him
+       completely, and keeping him in `edited` (`p3_k2_paired_woman`) still re-draws his face and coat hem (section 15).
+2. **Next — Sweep 1A alone first: Rotation + text-only softmax on the `"who is who"` heads (`B46 H13`, `B48 H3`, `B48 H29`, `B47 H17`):**
    - Start directly from `data/self_mask_probe_2026-11-27/run_reharvest_two_subjects.py` and
      `analyze_two_people_heads.py` across new held-out multi-subject clips (pick heads on one set, score on
      another) before writing a broader probe library.
    - Compare **raw `target - other` logits** vs. **text-only softmax** across prompt tokens (and check whether
      pulling attention log-sum-exp `LSE` is needed to avoid dropping the video-token denominator).
-4. **Wider shot survey before changing any node default:**
+   - Direct payoff from section 15: if word-binding heads generalize and zero the man out of the mask, `p3_k2_paired`
+     can leave the untouched walker's original face and coat intact too.
+3. **Wider shot survey before changing any node default:**
    - Test `B45 H43` (and sweep all `56` heads) on **still objects** (`MiniMax-H3-Image` `4 MP` bread on a table),
      **close-ups**, **moving cameras**, and **`ref2va`** — using offline `SAM 3.1` truth for static/close-up
      scoring (since background-median subtraction requires a moving subject on a locked camera).
    - If promoted to the node, prefer exposing raw optional `harvest_heads` / `reharvest` rather than baking a
      checkpoint-specific head index into a preset default.
-5. **Non-direction region-prompt cues:**
+4. **Non-direction region-prompt cues:**
    - Test a region prompt cue other than walking direction (color, wardrobe, size) to see how far "the region
      prompt picks who changes" extends when two subjects share a mask.
 
@@ -367,6 +372,10 @@ With the ComfyUI venv's python, from the repo root, after `set -a; . ./h3.env; s
 - `data/head_atlas_2026-11-27/run_phase0_edit_guider.py --clips <folder> --base-clip <c0> --f1-clip <f1>`:
   Phase 0 `B45 H43` SelfMask → `2× MiniMaxH3EditGuider` (`k1` `d0`, `k2` `d1`) renders, courtyard/ground metrics,
   and close-up sheets.
+- `data/head_atlas_2026-11-27/run_phase0b_two_people_edit_guider.py --clips <folder> --base-clip <p3> --h2-clip <h2>`:
+  Two-person `p3` through `k2` (`p3_k2_paired_woman`, `p3_k2_single_chrome`) and `two_people.py` scoring.
+- `data/head_atlas_2026-11-27/run_mask_off_twins.py --clips <folder> --walk-base <c0> --walk-k2 <k2> --p3-base <p3> --p3-k2 <p3_k2>`:
+  Mask-off `2× EditGuider` control twins (`walk_mask_off`, `p3_paired_mask_off`) and masked-vs-unmasked comparison sheets.
 
 Each frees the card through `:8188` first and refuses when its queue is busy. The `analyze_*.py` files beside
 them turn the arrays into the record's tables on the CPU.

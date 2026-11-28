@@ -411,3 +411,117 @@ clips, with the base figure's head and feet rows drawn in green), `phase0_gait_s
 What this cannot say: one clip, one seed, one edit prompt that swaps the whole body. An edit that should keep her
 body (a different coat) has not been tried through this route. The stride readings are proxies; the point of the
 step where the sounds bunch is not shown to be the instant a foot lands.
+
+## 15. Two people through the edit guider, a second reading
+
+The Gemini lead ran the two-person prompt through the `k2` recipe with two edit prompts
+(`data/head_atlas_2026-11-27/run_phase0b_two_people_edit_guider.py`, figures in `phase0b_two_people_metrics.json`
+beside it): `p3_k2_paired_woman`, the base prompt with her noun phrase swapped and his sentence untouched, and
+`p3_k2_single_chrome`, the single-walker chrome prompt, which does not mention him. The runner's settings match
+`k2`'s, the seed is the base clip's, and both arms get the same mask (the harvest is on the first pass, before the
+edit prompt is used).
+
+Script: `data/self_mask_probe_2026-11-27/analyze_phase0b_second_reading.py` (figures in
+`phase0b_second_reading.json` beside it). Sheets, under `$H3_OUTPUT_DIR/Video/head_atlas_2026-11-27/`:
+`phase0b_man_same_box_sheet.png` (the man in the same box on every arm, green lines at the base coat's top and
+hem), `phase0b_crossing_sheet.png` (`f72` to `f96`), `phase0b_back_wall_zoom.png` (`f20`).
+
+| Reading | `h2` (`1×`) | `p3_k2_paired_woman` | `p3_k2_single_chrome` |
+| :--- | :--- | :--- | :--- |
+| Frames with his coat, of the base's `127` | `131` | `129` | `0` at his position |
+| His coat's sideways position minus the base's, median / largest (share of width) | `0.0005 / 0.160` | `-0.005 / 0.017` | n/a |
+| His coat's area against the base's, median | `1.02` | `1.31` | n/a |
+| His coat's hem below the base's, median (px of `768`) | `4` | `17` | n/a |
+| Top of the changed figure above the base woman's, median (px) | `70` | `41` | `65` |
+| Mean difference from the base inside the base man's patches | `37.18` | `30.92` | `28.98` |
+| Mean difference from the base outside both walkers' patches | `19.49` | `7.81` | `8.57` |
+| Pixels differing from the base for the whole clip by more than `10` / `20` / `40` | `0.436 / 0.238 / 0.120` | `0.192 / 0.070 / 0.023` | `0.236 / 0.092 / 0.024` |
+| Mask cells exactly zero / above `0.5` | n/a | `0.733 / 0.143` | `0.733 / 0.143` |
+
+- **The words of the edit prompt decide who changes, keeps, or goes.** The mask covers both people in both arms.
+  With his sentence kept he stays; with a prompt that leaves him out he is gone on every frame and the stones
+  where he walked are empty. This is section 9's finding again, through the other route.
+- **In the paired arm he is in the base man's place, at the base man's height, on the base man's timing.** His
+  coat's position follows the base's on every frame.
+- **He is not the base man.** The base coat ends at the thigh; in the paired arm it is a fuller coat that reaches
+  the knee, and the face differs (`phase0b_man_same_box_sheet.png`). Inside his patches the paired arm differs
+  from the base about as much as the arm where he is erased. The mask covers him, so the edit acts on him too; a
+  sentence left untouched keeps what he is, not how he was drawn.
+- **Outside the two walkers the frame holds the way it did on the walk clip,** and far closer to the base than the
+  `1×` arm. Small fixtures still move: at `f20` the paired arm has a hanging lantern in an arch of the back wall
+  where the base and the single-prompt arm have none (`phase0b_back_wall_zoom.png`).
+- **The changed figure is taller than the base woman in every arm,** the `1×` arm included.
+- **Not shown by these arms:** that the head's mask is what holds the frame. Neither arm has a mask-off twin, so
+  the edit guider alone might do the same. The single-prompt arm shows that the mask does not protect a person it
+  covers; it does not show what happens to him with no mask at all.
+
+For playback: the crossing from `f84` to `f96` in the paired arm (how the two overlap, and a patch of yellow beside
+her legs at `f88`), and the right edge of the single-prompt arm around `f32` to `f48`, where a little foreground
+flickers on the empty stones.
+
+## 16. Mask-Off Control Twins (`walk_mask_off` and `p3_paired_mask_off`) — What the `B45 H43` Mask Actually Buys
+
+Tests the missing control flagged in section 15: runs the exact same `2× MiniMaxH3EditGuider` settings (`scale=1.95`,
+`first_step=1`, `last_step=3`, `streams="video_only"`, `mask=None`, seed `730451892`, `1344×768`, `141f`, 6-step Pika)
+with **no `MiniMaxH3SelfMaskRouter` and no mask** on both the single-walker prompt (`WALK_PURE_CHROME_PROMPT`, twin of
+`k2`) and the paired two-person prompt (`p3_paired_chrome_prompt`, twin of `p3_k2_paired_woman`).
+
+Runner & metrics: `data/head_atlas_2026-11-27/run_mask_off_twins.py`, `mask_off_twins_metrics.json`. Clips &
+comparison sheets under `$H3_OUTPUT_DIR/Video/head_atlas_2026-11-27/`: `walk_mask_off_00001-audio.mp4`,
+`p3_paired_mask_off_00001-audio.mp4`, `mask_off_walk_compare_sheet.png`, `mask_off_p3_full_sheet.png`,
+`mask_off_p3_closeup_sheet.png`. All arms inspected directly on both comparison sheets and MP4 playback.
+
+| Pair | Arm | Time | `upper_courtyard_mae` | `full_mae` | Pixels differing `> 10` / `> 20` / `> 40` | Subject color reading | Sound `rms` (env corr `0 / best`) |
+| :--- | :--- | :-: | :-: | :-: | :-: | :--- | :--- |
+| Walk | `c0_walk_base` | — | `0.00` | `0.00` | `0.000 / 0.000 / 0.000` | `0.079` med (`28f > 0.15`) | `0.0094` (`1.000 / 1.000`) |
+| Walk | `k2` (`B45 H43` `d1` masked) | `87.5 s` | **`6.98`** | **`9.89`** | **`0.261 / 0.115 / 0.035`** | `0.001` med (`0f > 0.15`) | `0.0149` (`0.064 / 0.350`) |
+| Walk | `walk_mask_off` (no mask) | `96.4 s` | **`28.65`** | `25.45` | **`0.610 / 0.383 / 0.176`** | `0.000` med (`0f > 0.15`) | `0.0169` (`0.078 / 0.359`) |
+| Two people | `p3_two_people_base` | — | `0.00` | `0.00` | `0.000 / 0.000 / 0.000` | woman `0.671` / man `0.546` | `0.0134` (`1.000 / 1.000`) |
+| Two people | `p3_k2_paired` (`B45 H43` `d1` masked) | `98.1 s` | **`6.24`** | **`9.25`** | **`0.192 / 0.083 / 0.040`** | woman `0.000` / man `0.577` | `0.0117` (`0.185 / 0.380`) |
+| Two people | `p3_paired_mask_off` (no mask) | `88.1 s` | **`18.36`** | `18.13` | **`0.480 / 0.250 / 0.109`** | woman `0.000` / man `0.536` | `0.0117` (`0.305 / 0.543`) |
+
+*(Note: the walk rows' `coat_colored_med` uses the runner's `r > 55 & r > 1.45*g & r > 1.45*b` check on `672×384` frames across all three walk rows consistently; the `p3` rows use `two_people.py`'s exact tracker and red/yellow rules.)*
+
+- **`EditGuider` alone does not hold the courtyard — even on a verbatim paired prompt.**
+  - On the unpaired walk prompt (`mask_off_walk_compare_sheet.png`), dropping the mask collapses the `11` narrow
+    upper balcony arches into `5` giant wide arches, deletes both chimneys, and rewrites the pale sky into deep blue
+    with clouds (`upper_courtyard_mae`: `28.65` vs. `6.98`, **`4.1×`** worse; `> 40` pixels `17.6%` vs. `3.5%`, **`5×`** worse).
+  - Even on the verbatim paired two-person prompt (`mask_off_p3_full_sheet.png`), dropping the mask still collapses
+    the `11` narrow upper arches into `6` wide arches and hallucinates a new arched center wall niche
+    (`upper_courtyard_mae`: `18.36` vs. `6.24`, **`2.94×`** worse; `> 20` pixels `25.0%` vs. `8.3%`, **`3×`** worse).
+- **The `B45 H43` Step-0 mask is what locks the building architecture** in both arms, preserving all `11` upper
+  arches, chimneys, sky, and framing with zero SAM and zero boxes.
+- **Exact division of labor on `p3`:** The `B45 H43` mask protects the **courtyard**; the **paired prompt** keeps the
+  **man** yellow (though as section 15 notes, because `B45 H43` masks both walkers, the man's coat length and face
+  still re-draw under the paired edit). Separating the two walkers inside the mask itself remains the direct reason
+  to test whether layers `46–48` (`B46 H13`, `B48 H3`, `B48 H29`) generalize on held-out scenes.
+- **Caveat:** One courtyard setting, one seed, and one high-contrast chrome edit at `scale=1.95`; a lower `scale`
+  or gentler wardrobe-only edit has not been tested mask-off.
+
+## 17. The mask-off twins, scored with the readings of sections 14 and 15
+
+Same scripts as those sections, run on the twins of section 16
+(`data/self_mask_probe_2026-11-27/analyze_phase0b_second_reading.py`, figures in `mask_off_p3_second_reading.json`
+beside it; `analyze_phase0_playback_claims.py`, figures in `mask_off_walk_playback_claims.json`).
+
+| Reading, paired two-person prompt | `p3_k2_paired_woman` (masked) | `p3_paired_mask_off` |
+| :--- | :--- | :--- |
+| His coat's sideways position minus the base's, median / largest (share of width) | `-0.005 / 0.017` | `-0.005 / 0.020` |
+| His coat's area against the base's, median | `1.31` | `1.25` |
+| His coat's hem below the base's, median (px of `768`) | `17` | `16` |
+| Top of the changed figure above the base woman's, median (px) | `41` | `46` |
+| Mean difference from the base inside the base man's patches | `30.92` | `35.80` |
+| Mean difference from the base outside both walkers' patches | `7.81` | `17.12` |
+| Pixels differing from the base for the whole clip by more than `10` / `20` / `40` | `0.192 / 0.070 / 0.023` | `0.481 / 0.237 / 0.092` |
+
+- **All of the mask's benefit is outside the walkers.** The rest of the frame is what separates the two columns.
+- **Inside the mask nothing is protected.** The man is redrawn the same way with the mask and without it: the same
+  place, the same longer coat. The same goes for her size.
+- **A target for the next sweep that can be read off this table:** a mask that covers her and not him should bring
+  his coat back to the base's, with the area reading near one and the hem at the base row. Such a mask can be tried
+  from a script through the edit guider's own `mask` input (`edit_guidance.py`), with no change to a node.
+- **The footsteps do not depend on the mask.** The walk twin has the same count of footstep sounds as `k2`, at the
+  same frames. The change in the sound comes with the edit, not with the mask.
+- **What the twins compare is a mask against no mask.** They show a mask is needed. That this head's reading is the
+  one to use, over the shipped reading, rests on sections 5 and 8, where the shipped reading loses her late in the
+  clip, and on one kind of shot.
