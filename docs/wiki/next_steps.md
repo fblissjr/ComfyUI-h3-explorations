@@ -4,6 +4,19 @@
 
 ## Active Queues by Priority
 
+000. **Pure-H3 cover: pitch-lock scoring handoff (`2026-11-27`; `8515059a`, `c6e2125b`; record [`../../bench/results/2026-11-27_music_cover_pitch_lock_metric_null.md`](../../bench/results/2026-11-27_music_cover_pitch_lock_metric_null.md)):** written by the session that added [`../../bench/pitch_lock_metrics.py`](../../bench/pitch_lock_metrics.py), for whoever picks the track up on the card machine.
+    - **State.** The first gate's pitch columns show lock in no arm, and `vocal_f0_r` is withdrawn (record sections 3 and 4). Under the same scoring, `c1` and `c3` of the 243-frame gate hold the target key with no transposition, and `c2` rests on too few frames to read (section 6). Every score there covers a minority of the melody (`voiced_overlap_frac`).
+    - **Not seen when this was written.** The 243-frame gate's driver, its stem-separation module and the untracked `data/` reports were on neither the second machine nor `origin/main`. Nothing below has been checked against them.
+    - **Open, in order.**
+      1. Call `pitch_lock_metrics.vocal_pitch_metrics` from `bench/music_cover_pitch_lock_gate.py::_vocal_pitch_metrics` and from the new gate's analysis. It takes the same arguments and returns the same keys plus `vocal_f0_r_one_shift`, `lag_null`, `tgt_voiced_frames` and `voiced_overlap_frac`. Then rescore `c1`..`c4` from the gate's own `MelBand-RoFormer` stems, because section 6 used a different separator.
+      2. Listen to `c1` for whether the singer changed. Its pitch columns are close to the scaffold control's, and they cannot tell a converted voice from a copy.
+      3. Find out why most of the target's voiced frames have no pitch in the output stems: silence, rasp that fails the YIN periodicity threshold, a shifted rhythm, or a weak stem. Until then a passing arm has passed on the scored part only.
+      4. Gate design. `c3` and `c4` share no `denoise` value with a verse arm, so each differs from the verse arms in two things. There is one seed per arm, so nothing says how far two renders of one arm differ. The highest section of `justaflicker` (about `104`–`120 s` of the source) sits above the chorus window that was tested.
+      5. The transposition is chosen by median error, which can leave the position where most frames are in tune (record section 1, item 3). Choosing by in-tune share, or allowing fractions of a semitone, is untested.
+    - **Stems.** They come from the separate `sepaudio` project (`main` at `2d3570b`): `sepaudio stems FILE -r six`, and `sepaudio nulltest` to confirm a bed sums as intended. Its WAV stems are 32-bit float and share one gain, so any of them can be summed, and a stem may pass full scale. By level only, not by ear: in the generated songs other than `justaflicker` the `guitar` stem is close to empty and `other` is the largest pitched stem after bass, so check `other` by ear before dropping it.
+    - **Running `sepaudio` on the card machine.** It is its own `uv` project: run `uv` only inside its checkout, never here (root [`../../AGENTS.md`](../../AGENTS.md), rule 1). Its lock file installs CUDA builds on Linux, so expect it to use the card; run it with `CUDA_VISIBLE_DEVICES=` empty while `:8188` is rendering. Untested on that machine.
+    - **Already failing before these commits.** `bench/check_doc_inventory.py` reports `bench/check_music_cover_routing.py` with no row in [`ops/checks.md`](ops/checks.md).
+
 00. **Step-0 Visual Critic (`step0_critic=True`) Real-World Validation Gate (`2026-11-27`, ready when GPU is idle):**
     - **Run 3-scene matched-seed smoke (`~4 min` GPU, `6 × 90f` Pika T2V):** `set -a; . ./h3.env; set +a; COMFY="$(cd ../.. && pwd)" && "$COMFY/.venv/bin/python" bench/run_step0_critic_smoke.py` (refuses to queue if `:8188` is busy; `--dry-run` verified `6/6` graphs on CPU against `:8188/object_info`).
       1. `tv_broadcast_storm` — unrequested 1990s breaking-news chyron / watermark / border rescue check.
