@@ -1,7 +1,7 @@
 # data/: the masked video-to-video lane and the projects in it
 
 Loaded when a session opens a file here; the root `AGENTS.md` still governs. Masked video-to-video is one use of the
-pack, not the pack (root `AGENTS.md`, "The repo is broader than the current project"): a rule here is the lane's.
+pack, not the pack: a rule here is the lane's.
 
 ## Start here
 

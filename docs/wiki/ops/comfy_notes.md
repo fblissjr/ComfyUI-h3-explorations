@@ -102,30 +102,18 @@ While the card runs or when isolating a build, cut the worktree two levels below
 - **Never run pipeline commands from inside a worktree**: `data/` and `internal/` are gitignored and exist only in the main checkout. Never run `shot_to_load.py`, `masked_job.py`, `load_chain.py`, or `rebuild_delivery.py` from a worktree; use worktrees strictly for code edits, `bench/check_*.py`, and `bench/break_checks.py`.
 - **Clean up on landing**: Remove each worktree (`git worktree remove`) and delete its branch (`git branch -d`) immediately after landing on `main`, so `git worktree list` shows only `main` and active builds.
 
-**Start ComfyUI with `<comfy>/start.sh`** so its log is readable. Several
-findings here were only ever visible in that log. Check the settings inside `<comfy>/start.sh` to ensure they align with what you're trying to do. 
-If you need to change them, ask the owner first.
-
-**Restart by the process that owns port 8188, not by `pgrep | head -1`.**
-`start.sh` launches through a `uv` wrapper, so killing the first match takes
-the wrapper and leaves the server serving. You then read a stale
-`/object_info` and confirm a reload that never happened.
-
-`pgrep -f` also matches the shell command that contains the pattern, so a
-liveness check written that way reports the server up when nothing is
-listening. `ss -lptn 'sport = :8188'` answers the question actually being
-asked: who holds the port.
-
-**The recipe, by hand.** `bench/restart_comfy.sh` was written to automate this
-and is DISABLED since 2026-09-02 because it hung on every run; it exits 2 and
-points here. Before killing, read the port owner's environment: an `H3_*`
-key there means the server is ARMED for somebody's capture, and restarting
-it silently disarms them (`AGENTS.md`, "The server process is the resource, not the GPU").
-
-    PID=$(ss -ltnp | grep ':8188' | grep -oP 'pid=\K[0-9]+' | head -1)
-    tr '\0' '\n' < /proc/$PID/environ | grep '^H3_'   # armed? ask first
-    kill $PID; sleep 5; ss -ltnp | grep ':8188' || echo "port free"
-    (cd <comfy> && setsid nohup ./start.sh > <a log you can read> 2>&1 < /dev/null &)
+**ComfyUI on `:8188` is the system unit `comfyui.service`**, running as user
+`comfy` and launched as `<comfy>/start.sh default` (`systemctl cat comfyui.service`).
+A session cannot stop or restart it: `ss -ltnp` shows no pid for another
+user's process, `/proc/<pid>/environ` is unreadable, and `sudo` asks for a
+password. When changed node code needs loading, ask the owner to run
+`! sudo systemctl restart comfyui.service`. Before asking, check the queue
+(`curl -s localhost:8188/queue`) and whether an arming key (below) is set in
+`<comfy>/start.sh` or `<comfy>/comfy.env`; mention either if so. Without a
+restart, `POST /free` unloads models and `/system_stats` shows the server's
+arguments under `system.argv`. `bench/restart_comfy.sh` is disabled (it
+exits 2). The service runs with a private temp folder: fetch temp files
+through `/view?type=temp`, never from the shell.
 
 **`start.sh` must never reach `uv run`.** Until 2026-09-10 its last line fell
 back to `<comfy-venv-python> main.py` when `COMFY_PYTHON` was unset. That
@@ -171,15 +159,10 @@ update stops on `input/example.png` or `output/_output_images_will_be_put_here`,
 `sudo chattr -i` on that folder, finish the update, empty it of any new subfolder, and run
 `sudo chattr +i` again.
 
-`setsid` puts the server in its own session, and the same prefix belongs on
-every long runner (`bench/run_graph_arms.py`) launched from an agent's
-shell: a process that inherits the agent's session dies with the agent's
-process group when that client exits, and a render lost that way looks
-like a hang from the outside. The 2026-09-04 evening run lost nothing to
-this (the box lost power), but every launch since is detached, and the log
-goes to a file so the owner can read it.
-    curl -s localhost:8188/system_stats                # until it answers
-    ps -o lstart= -p $(ss -ltnp | grep ':8188' | grep -oP 'pid=\K[0-9]+' | head -1)
+Put `setsid` on every long runner (`bench/run_graph_arms.py`) launched from an
+agent's shell: a process that inherits the agent's session dies with the
+agent's process group when that client exits, and a render lost that way
+looks like a hang from the outside. Send its log to a file.
 
 **The three arming keys**, all read once by the server process from its
 environment: `H3_CAPTURE` (q/k/v tensors, gigabytes per cell),
@@ -188,26 +171,13 @@ the shipped fallback per call, summaries only). Each takes `dir=`; put it
 under `$H3_CAPTURE_ROOT`. A fourth, `H3_TELEMETRY` (2026-09-26), records what
 each prompt loaded, moved and spent per node:
 [`pipeline_telemetry.md`](pipeline_telemetry.md). A server carrying any of them renders slower and
-its timings are void, which is the reason to read the port owner's
-environment before you trust a number from it.
+its timings are void, which is the reason to check `start.sh` and
+`comfy.env` for these keys before you trust a number from it.
 
-**Between the kill and the launch, confirm the launcher chain is gone too.**
-On 2026-09-03 a `kill` of the port owner was followed within seconds by a
-new listener whose parent chain led back to the PREVIOUS `start.sh` shell,
-and the fresh launch then lost the port and exited 1 -- so the running
-server was the old chain's, without the environment the new launch
-carried. It did not reproduce on a later kill and the mechanism was not
-found; the operative rule is to check `ps` for `start.sh` and `uv run
---active` survivors after the port frees, kill those too, and read the new
-owner's environment rather than assuming it is the one you launched.
-
-The last line is the point: the new process's start time must be LATER than
-the file you changed, or you are measuring the old code with a fresh-looking
-server. The running server's log is `GET /internal/logs/raw` (see "Traps"
-below). *Until 2026-09-26 this said the server writes `user/comfyui_<port>.log`
-whatever you do with stdout, so redirecting the launcher to `/dev/null` loses
-nothing. The server launched that day wrote no such file, so send the
-launcher's output to a file.*
+After the owner restarts the server, confirm it is running the new code: its
+start time (`systemctl show comfyui.service -p ActiveEnterTimestamp`) must be
+LATER than the file you changed. The running server's log is
+`GET /internal/logs/raw` (see "Traps" below).
 
 **Captures are transient, and the collection root is `start.sh`'s.** Since
 2026-09-03 `start.sh` exports `H3_CAPTURE_ROOT`, the directory every
@@ -227,13 +197,6 @@ refuses any capture the repo cannot account for, so a directory that owes
 a manifest keeps its tensors until someone writes one or owns the deletion.
 A capture's value ends when the analysis it was taken for is recorded; a
 week is the outer bound anyone has set so far.
-
-**If you started the server, stop it when you are done.** An idle ComfyUI still
-holds a CUDA context and VRAM, and from the outside a leftover server is
-indistinguishable from somebody's live run without inspecting the queue — so
-leaving one up costs the next person the card and a diagnosis. This applies to a
-server *you* started; one that was already running when you arrived is not yours
-to stop.
 
 **The local review page has its own small server, started and stopped by
 hand.** It is the page the owner watches renders and answers on

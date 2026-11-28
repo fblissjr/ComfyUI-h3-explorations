@@ -8,7 +8,7 @@ Loaded when a session opens a file here; the root `AGENTS.md` still governs.
   the index of what each check defends). `bench/check_doc_inventory.py` fails on a check with no row.
 - **Lane tools and common tools live side by side here.** Before changing a tool, see who calls it (for masked-lane
   modules, run `<python> bench/masked_code_map.py --help`): a masked-lane change does not narrow a tool another use
-  runs (root `AGENTS.md`, "The repo is broader than the current project").
+  runs.
 - **A record under `results/` is its `.md`** (`results/INDEX.md`); data goes under the untracked `data/<video>/`.
 - **Read old run data through `_lib/results.py`** (`result_path`, `result_glob`), never `RESULTS / name`. Older files
   move from `data/results/` into dated `<first day>_to_<last day>/` folders with their paths kept, and the lookup
@@ -16,5 +16,3 @@ Loaded when a session opens a file here; the root `AGENTS.md` still governs.
   resolve nowhere (`check_data_results_lookup.py` holds both).
 - **Run with the ComfyUI venv's python, never `uv`** (`docs/wiki/ops/comfy_notes.md`, "Running things").
 - **Modular subfolders over flat-directory sprawl.** Multi-part subsystems belong in their own subfolder package (for example `bench/<subsystem>/` with `web/` for `.html`, `.css`, and `.js` assets) rather than single multi-thousand-line scripts in `bench/`. Keep top-level `bench/<tool>.py` files as thin CLI entrypoints or focused single-purpose scripts.
-- **While the card runs, a tool a load step calls is edited in a worktree**, never in the shared tree (root
-  `AGENTS.md`, "The shared tree").
