@@ -411,3 +411,50 @@ clips, with the base figure's head and feet rows drawn in green), `phase0_gait_s
 What this cannot say: one clip, one seed, one edit prompt that swaps the whole body. An edit that should keep her
 body (a different coat) has not been tried through this route. The stride readings are proxies; the point of the
 step where the sounds bunch is not shown to be the instant a foot lands.
+
+## 15. Two people through the edit guider, a second reading
+
+The Gemini lead ran the two-person prompt through the `k2` recipe with two edit prompts
+(`data/head_atlas_2026-11-27/run_phase0b_two_people_edit_guider.py`, figures in `phase0b_two_people_metrics.json`
+beside it): `p3_k2_paired_woman`, the base prompt with her noun phrase swapped and his sentence untouched, and
+`p3_k2_single_chrome`, the single-walker chrome prompt, which does not mention him. The runner's settings match
+`k2`'s, the seed is the base clip's, and both arms get the same mask (the harvest is on the first pass, before the
+edit prompt is used).
+
+Script: `data/self_mask_probe_2026-11-27/analyze_phase0b_second_reading.py` (figures in
+`phase0b_second_reading.json` beside it). Sheets, under `$H3_OUTPUT_DIR/Video/head_atlas_2026-11-27/`:
+`phase0b_man_same_box_sheet.png` (the man in the same box on every arm, green lines at the base coat's top and
+hem), `phase0b_crossing_sheet.png` (`f72` to `f96`), `phase0b_back_wall_zoom.png` (`f20`).
+
+| Reading | `h2` (`1×`) | `p3_k2_paired_woman` | `p3_k2_single_chrome` |
+| :--- | :--- | :--- | :--- |
+| Frames with his coat, of the base's `127` | `131` | `129` | `0` at his position |
+| His coat's sideways position minus the base's, median / largest (share of width) | `0.0005 / 0.160` | `-0.005 / 0.017` | n/a |
+| His coat's area against the base's, median | `1.02` | `1.31` | n/a |
+| His coat's hem below the base's, median (px of `768`) | `4` | `17` | n/a |
+| Top of the changed figure above the base woman's, median (px) | `70` | `41` | `65` |
+| Mean difference from the base inside the base man's patches | `37.18` | `30.92` | `28.98` |
+| Mean difference from the base outside both walkers' patches | `19.49` | `7.81` | `8.57` |
+| Pixels differing from the base for the whole clip by more than `10` / `20` / `40` | `0.436 / 0.238 / 0.120` | `0.192 / 0.070 / 0.023` | `0.236 / 0.092 / 0.024` |
+| Mask cells exactly zero / above `0.5` | n/a | `0.733 / 0.143` | `0.733 / 0.143` |
+
+- **The words of the edit prompt decide who changes, keeps, or goes.** The mask covers both people in both arms.
+  With his sentence kept he stays; with a prompt that leaves him out he is gone on every frame and the stones
+  where he walked are empty. This is section 9's finding again, through the other route.
+- **In the paired arm he is in the base man's place, at the base man's height, on the base man's timing.** His
+  coat's position follows the base's on every frame.
+- **He is not the base man.** The base coat ends at the thigh; in the paired arm it is a fuller coat that reaches
+  the knee, and the face differs (`phase0b_man_same_box_sheet.png`). Inside his patches the paired arm differs
+  from the base about as much as the arm where he is erased. The mask covers him, so the edit acts on him too; a
+  sentence left untouched keeps what he is, not how he was drawn.
+- **Outside the two walkers the frame holds the way it did on the walk clip,** and far closer to the base than the
+  `1×` arm. Small fixtures still move: at `f20` the paired arm has a hanging lantern in an arch of the back wall
+  where the base and the single-prompt arm have none (`phase0b_back_wall_zoom.png`).
+- **The changed figure is taller than the base woman in every arm,** the `1×` arm included.
+- **Not shown by these arms:** that the head's mask is what holds the frame. Neither arm has a mask-off twin, so
+  the edit guider alone might do the same. The single-prompt arm shows that the mask does not protect a person it
+  covers; it does not show what happens to him with no mask at all.
+
+For playback: the crossing from `f84` to `f96` in the paired arm (how the two overlap, and a patch of yellow beside
+her legs at `f88`), and the right edge of the single-prompt arm around `f32` to `f48`, where a little foreground
+flickers on the empty stones.
