@@ -8,14 +8,14 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 189 |
+| [`check_*`](#check) | 190 |
 | [`measure_*`](#measure) | 33 |
 | [`analyze_*`](#analyze) | 13 |
 | [`grade_*`](#grade) | 10 |
 | [`compare_*`](#compare) | 10 |
 | [`build_*`](#build) | 12 |
 | [`probe_*`](#probe) | 16 |
-| [the rest](#the-rest) | 204 |
+| [the rest](#the-rest) | 205 |
 
 ## check
 
@@ -76,6 +76,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_graph_discovery.py`](check_graph_discovery.py) | No check may find graphs by globbing. Discovery goes through `graph_paths()`. |
 | [`check_graph_values.py`](check_graph_values.py) | A static reader must follow a linked widget, or it goes red on a good graph. |
 | [`check_guide_latent.py`](check_guide_latent.py) | Check `MiniMaxH3GuideLatent` (`guide_latent.py`) and the shipped guide-latent graphs. |
+| [`check_h3_cover_workflow.py`](check_h3_cover_workflow.py) | Offline CPU verification gate for `bench/h3_cover_workflow.py`. |
 | [`check_h3_encoder_loader.py`](check_h3_encoder_loader.py) | Prove the guarded H3 encoder loader guards what it claims to. |
 | [`check_h3_env.py`](check_h3_env.py) | That this machine's locations stay out of git: `h3.env`, `h3.env.example`, `workflows/h3_env.py` and `bench/write_h3_env.py`. |
 | [`check_h3_image.py`](check_h3_image.py) | MiniMax-H3-Image: the release-to-ComfyUI layout, the size rule and the shipped graphs' chain. |
@@ -402,6 +403,7 @@ this file is only a way to find a script by what it says it does.
 | [`gen_figures.py`](gen_figures.py) | Inline-SVG figure primitives, plus the figures for the 2026-08-20 postmortem. |
 | [`gen_phaseb_grid.py`](gen_phaseb_grid.py) | CLOSED RECORD since 2026-09-18. This grid pairs full-length bank prompts with fixed lengths of 243, 311 and 362 frames (all on the grid; 362 is the trained ceiling), which bench/run_graph_arms.py now refuses for a 345-frame prompt. Kept ... |
 | [`generate_capture_manifest.py`](generate_capture_manifest.py) | Generate an auditable, fully dynamic manifest.json for an activation capture directory. |
+| [`h3_cover_workflow.py`](h3_cover_workflow.py) | Generalized 2-step pure-H3 cover music-video CLI workflow (`prepare` -> `render` / `score`). |
 | [`h3_producer_provenance.py`](h3_producer_provenance.py) | Which version of a producer wrote a result. Pure stdlib, either virtualenv. |
 | [`h3_stem_sep.py`](h3_stem_sep.py) | Null-locked stem separation (MelBand-RoFormer + HDemucs) and cover-scaffold builder. |
 | [`head_reference.py`](head_reference.py) | The reference video of a head replacement, in one command: the body model cut to the head, with the face drawn on it. |

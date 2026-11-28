@@ -318,6 +318,7 @@ Full per-check history, 2026-08-23 amendments, and `"claims block"` notes are sh
 | `check_live_policy.py` | Beat 3B `H3LivePolicy` & `MiniMaxH3SelfMaskRouter` (`0..15`) ([detail](checks/index_15.md)) | `torch`, `numpy`, no CUDA | yes |
 | `check_depth_beat_mask.py` | `MiniMaxH3DepthBeatMask` bands, `17*m` beats & `$HOME` resolution ([detail](checks/index_15.md)) | `torch`, `numpy`, no CUDA | yes |
 | `check_h3_stem_sep.py` | `bench/h3_stem_sep.py` nulltests, cascade separation & cover scaffold ([detail](checks/index_15.md)) | `bench/_lib`, `torch`, `ffmpeg` | no |
+| `check_h3_cover_workflow.py` | [`bench/h3_cover_workflow.py`](../../../bench/h3_cover_workflow.py) ref selection, breath alignment & graph ([detail](checks/index_15.md)) | `bench/_lib`, `torch`, no CUDA | no |
 
 ## What is deliberately not checked
 
