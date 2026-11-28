@@ -1,6 +1,7 @@
 # 6-Arm Pure-H3 Music-Video Cover Pitch-Lock Gate (`2026-11-27`)
 
 - **Verdict:** **PARTIAL UNLOCK — VISUAL ATTRIBUTION & ACOUSTIC GUITAR SYNTHESIS SOLVED; ABSOLUTE PITCH LOCK (`128.2–457.6 c`) STILL ABOVE `< 80 c` BAR AT `denoise = 0.36–0.40`, WITH THREE ISOLATED CAUSAL LAWS EXTRACTED.**
+- **Corrected (`2026-11-27`):** the pitch columns of section 2 were read without a chance level, and `vocal_f0_r` does not measure contour agreement. Rescored against time-shifted targets, no arm beats its own null, and the "interval lock" (`p1`/`p2`) and "highest contour" (`p3`) readings do not stand as written: [`2026-11-27_music_cover_pitch_lock_metric_null.md`](2026-11-27_music_cover_pitch_lock_metric_null.md). The text below is left as first recorded.
 - **Date:** `2026-11-27`
 - **Scripts:** [`bench/prepare_pitch_lock_assets.py`](../prepare_pitch_lock_assets.py), [`bench/music_cover_pitch_lock_gate.py`](../music_cover_pitch_lock_gate.py)
 - **Data & Prompts:** `data/music_cover_pitch_lock/stem_prep_report.json`, `data/music_cover_pitch_lock/pitch_lock_triage_report.json`, `data/music_cover_pitch_lock/ref2va_unplugged_{flicker,flicker_neutral,whatever_192f,fridge}.txt`
